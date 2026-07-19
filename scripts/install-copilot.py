@@ -525,6 +525,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd(), help="Target project root.")
     parser.add_argument("--target", type=Path, help="Alias for --root that installs a managed pack at the target root.")
     parser.add_argument("--with-tailtrail-pack", action="store_true", help="Copy TailTrail support docs, templates, context, AIDLC, and scripts.")
+    parser.add_argument("--pack-only", action="store_true", help="Install the managed TailTrail pack without writing Copilot instructions.")
     parser.add_argument("--pack-dir", default="tailtrail", help="Folder for TailTrail support files when --with-tailtrail-pack is used. Use '.' for root layout.")
     parser.add_argument("--surface", choices=SURFACES, default=DEFAULT_SURFACE, help="Surface-area profile: core is first-run minimal, extended is the full pack.")
     parser.add_argument("--upgrade", action="store_true", help="Upgrade an existing Core install to Extended without deleting files.")
@@ -561,13 +562,14 @@ def main() -> int:
                 print(f"- {path}")
         return code
 
-    write_copilot(
-        target_root / ".github" / "copilot-instructions.md",
-        pack_dir,
-        args.force,
-        written,
-        skipped,
-    )
+    if not args.pack_only:
+        write_copilot(
+            target_root / ".github" / "copilot-instructions.md",
+            pack_dir,
+            args.force,
+            written,
+            skipped,
+        )
 
     if with_tailtrail_pack:
         pack_files, pack_dirs, pack_scripts = resolve(args.surface, PACK_FILES, PACK_DIRS, PACK_SCRIPTS)
@@ -584,7 +586,8 @@ def main() -> int:
     if not args.no_gitignore:
         write_gitignore(target_root, pack_dir, written, skipped)
 
-    print(f"TailTrail Copilot setup target: {target_root}")
+    setup_name = "TailTrail managed pack" if args.pack_only else "TailTrail Copilot setup"
+    print(f"{setup_name} target: {target_root}")
     if pack_dir is not None:
         print(f"TailTrail pack folder: {(target_root / pack_dir).resolve()}")
         print(f"TailTrail surface: {args.surface}")

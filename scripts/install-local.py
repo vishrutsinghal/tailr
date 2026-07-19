@@ -180,6 +180,22 @@ def codex_plugin_steps(target: Path, force: bool) -> list[Step]:
     else:
         steps.append(Step("copytree", source=ROOT / "skills", destination=skills_destination, note="Install TailTrail Codex plugin skill sources."))
 
+    pack_command = [
+        sys.executable,
+        str(ROOT / "scripts" / "install-copilot.py"),
+        "--root",
+        target.as_posix(),
+        "--with-tailtrail-pack",
+        "--pack-only",
+        "--pack-dir",
+        "tailtrail",
+        "--surface",
+        "extended",
+    ]
+    if force:
+        pack_command.append("--force")
+    steps.append(Step("run", command=pack_command, note="Install the complete TailTrail managed pack for Codex."))
+
     return steps
 
 

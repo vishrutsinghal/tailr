@@ -22,6 +22,17 @@ V2 principle:
 - Treat cloned-repo TailTrail files as shared project context only when they are safe to share.
 - Add public-release polish before advanced infrastructure.
 
+### Current Improvement Opportunities
+
+These improvements emerged from recent project work and should be added to the active V2 backlog:
+
+- Add a dedicated Codex installer/plugin command and profile so Codex installation becomes a first-class supported path.
+- Provide a Codex plugin manifest and packaging path for reproducible host setup and plugin registration.
+- Improve the demo onboarding experience with clear, step-by-step Codex installation documentation.
+- Expand CLI and installer coverage with targeted tests for new install routes and profile-based deployment behavior.
+- Strengthen install-time validation and diagnostics for local plugin packaging and adapter setup.
+- Keep public docs, command catalog, and demo materials aligned with the actual supported Codex install workflow.
+
 ### V2.0: Public Release Baseline
 
 Goal: make TailTrail safe and credible for open-market evaluation.

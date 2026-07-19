@@ -92,6 +92,10 @@ class InstallProfileTests(unittest.TestCase):
             self.assertEqual(steps[1].destination, target / ".codex-plugin")
             self.assertEqual(steps[2].action, "copytree")
             self.assertEqual(steps[2].destination, target / "skills")
+            self.assertEqual(steps[3].action, "run")
+            self.assertIn("--pack-only", steps[3].command or [])
+            self.assertIn("--surface", steps[3].command or [])
+            self.assertIn("extended", steps[3].command or [])
 
     def test_core_omits_extended_only_files(self):
         core_files, core_dirs, core_scripts = surfaces.resolve("core", copilot.PACK_FILES, copilot.PACK_DIRS, copilot.PACK_SCRIPTS)

@@ -21,6 +21,12 @@ three-minute limit.
 python3 -m unittest discover -s buildweek-demo-project/tests
 ```
 
+Prompt:
+
+```text
+I am demoing TailTrail on buildweek-demo-project. First show the current bug by running the focused unit tests. Do not fix anything yet.
+```
+
 **Say:**
 
 > This small claims service has one regression: zero-dollar claims are accepted,
@@ -34,6 +40,16 @@ python3 -m unittest discover -s buildweek-demo-project/tests
 ```bash
 python3 scripts/tailtrail.py start "fix the claim amount validation bug and add focused validation" --root buildweek-demo-project --changed src/claims_api/validation.py
 python3 scripts/tailtrail.py graph ast --root buildweek-demo-project --changed src/claims_api/validation.py --depth v2
+```
+
+Prompt:
+
+```text
+Run TailTrail Navigator first for this task:
+fix the claim amount validation bug and add focused validation
+
+Use root buildweek-demo-project and changed file src/claims_api/validation.py.
+Show the plan only. Do not implement until I approve.
 ```
 
 **Say:**
@@ -58,6 +74,12 @@ python3 -m unittest discover -s buildweek-demo-project/tests
 > change and preserves the existing validation behavior. The focused tests now
 > pass.
 
+Prompt:
+
+```text
+Approve the TailTrail plan. Implement the smallest maintainable fix in buildweek-demo-project so zero claim amounts are rejected. Read only the target validation file and focused test unless you need more context. Do not add dependencies. Preserve existing validation behavior.
+```
+
 ## 1:50-2:15 - Review
 
 **Screen:**
@@ -65,6 +87,13 @@ python3 -m unittest discover -s buildweek-demo-project/tests
 ```bash
 python3 scripts/tailtrail.py review --root buildweek-demo-project
 ```
+
+Prompt:
+
+```text
+Use TailTrail Review after the fix. Review the changed demo project scope for code health and requirement fulfillment. Confirm whether the implementation satisfies the original request: zero claim amounts must be rejected. Show severity, file, function, line, issue, fix, validation, confidence, and residual risk.
+```
+
 
 **Say:**
 
@@ -78,6 +107,12 @@ python3 scripts/tailtrail.py review --root buildweek-demo-project
 
 ```bash
 python3 scripts/tailtrail.py eval scenario report --scenario buildweek-validation
+```
+
+Prompt:
+
+```text
+Use TailTrail value reporting for buildweek-demo-project. Show the value posture, but keep token savings honest: estimated unless measured telemetry is provided.
 ```
 
 **Say:**

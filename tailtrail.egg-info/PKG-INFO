@@ -1,3 +1,15 @@
+Metadata-Version: 2.4
+Name: tailtrail
+Version: 0.6.0
+Summary: Local-first development guidance for smaller, evidence-backed coding workflows.
+Author: TailTrail
+License: Apache-2.0
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE.md
+Dynamic: license-file
+
 # TailTrail
 
 ![TailTrail logo](assets/tailtrail-logo.svg)
@@ -291,7 +303,7 @@ python3 scripts/tailtrail.py install codex-plugin --target /path/to/project --dr
 python3 scripts/tailtrail.py install codex-plugin --target /path/to/project
 ```
 
-The Codex guidance installer writes `AGENTS.md` only. It does not write global Codex configuration, install a plugin, change IDE settings, or enable hooks. The plugin installer writes `.codex-plugin/plugin.json`, the `skills/` source needed for native `@tailtrail` and `@tailtrail-review` invocation, and a complete managed TailTrail pack under `tailtrail/` with scripts, context, guardrails, policy templates, AIDLC, hooks, benchmarks, and reporting tools. It does not write Copilot instructions. If you only want portable project guidance, you can also copy `AGENTS.md` into the root of the target project.
+The Codex guidance installer writes `AGENTS.md` only. It does not write global Codex configuration, install a plugin, change IDE settings, or enable hooks. The plugin installer writes `.codex-plugin/plugin.json` and the `skills/` source needed for native `@tailtrail` and `@tailtrail-review` invocation. If you only want portable project guidance, you can also copy `AGENTS.md` into the root of the target project.
 
 ## Using `AGENTS.md`
 

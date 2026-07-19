@@ -12,6 +12,25 @@ The demo target is:
 buildweek-demo-project
 ```
 
+## Inspiration
+
+This project started from the same frustrations I keep seeing in AI-assisted coding:
+
+- Long prompts can actually make things worse. The AI gets distracted, loses the important bits, and starts wandering off the actual task.
+- When the context gets too heavy, the code quality drops. Instead of a simple fix, the assistant often rewrites things, adds redundant helpers, or invents a whole new path.
+- Small tasks become overkill. A tiny validation change turns into a new method, a long refactor, and a bunch of extra lines that weren’t needed.
+- Token anxiety is real. People worry whether there’s enough left, whether the prompt is too expensive, and whether the model will still have the key details.
+
+TailTrail is my answer to that. It’s not about forcing the AI to be perfect—it’s about giving it a clean, structured way in:
+
+- start with a navigator-first plan,
+- keep the scope tight,
+- limit the prompt to the real change,
+- use code graphing to find the right files,
+- and keep token posture honest.
+
+That’s the story behind this demo.
+
 ## 1. Open With The Problem
 
 Prompt:
@@ -240,15 +259,17 @@ Summarize this TailTrail demo for Build Week judges in 45 seconds. Focus on the 
 
 Expected talking points:
 
-- Codex is powerful, but local development can drift without structure.
-- TailTrail adds Navigator-first planning.
-- Code graphing narrows context before edits.
-- Guardrails and policy preserve safety.
-- Focused tests validate the change.
-- Review checks code health and requirement fulfillment.
-- Evidence labels make claims clear.
-- Evaluation Harness turns the Build Week demo into repeatable saved-artifact proof.
-- Token savings are estimated unless measured telemetry exists.
+- Codex is powerful, but without structure it can wander off, overcomplicate small fixes, and lose the real goal.
+- TailTrail keeps the workflow grounded: start with a plan, not a random code rewrite.
+- Navigator-first planning makes the next step obvious and keeps the AI focused on the exact change.
+- Code graphing finds the right files and tests before editing, so we don’t patch the wrong place.
+- Guardrails and policy make the workflow safer, not harder—they help avoid risky or unsupported changes.
+- Focused tests prove the fix, and the demo shows validation before we claim success.
+- Review is about requirement fulfillment, not just generic style advice.
+- Evidence labels keep the story honest: what was estimated, what was validated, and what is local proof.
+- Evaluation Harness turns this into repeatable saved-artifact proof, not a one-time live demo.
+- TailTrail respects token concerns by keeping claims honest and only talking about exact savings when real telemetry exists.
+- It’s designed to make simple changes stay simple, while still giving the AI enough structure to be useful.
 
 ## Short One-Shot Demo Prompt
 

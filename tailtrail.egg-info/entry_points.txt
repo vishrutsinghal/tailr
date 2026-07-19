@@ -1,0 +1,2 @@
+[console_scripts]
+tailtrail = tailtrail_cli:main
