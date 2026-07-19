@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_presence": {
+      "description": "Presence bands for local evidence artifacts."
+    },
+    "clarification_needed": {
+      "type": "boolean"
+    },
+    "created_month": {
+      "description": "YYYY-MM month only."
+    },
+    "dimension_fits": {
+      "description": "Categorical fit bands by harness dimension."
+    },
+    "event_type": {
+      "description": "Must be harness_summary."
+    },
+    "graph_cache_source": {
+      "description": "Categorical graph cache source."
+    },
+    "graph_cache_status": {
+      "description": "Categorical graph cache freshness/status."
+    },
+    "issue_type": {
+      "description": "Categorical issue type."
+    },
+    "language_family": {
+      "description": "Coarse language family only."
+    },
+    "learning_signal": {
+      "description": "Categorical learning signal."
+    },
+    "metric_confidence": {
+      "description": "Categorical metric confidence."
+    },
+    "overall_fit": {
+      "description": "Overall categorical harness fit."
+    },
+    "overall_score_band": {
+      "description": "Score band, not an exact task score."
+    },
+    "privacy": {
+      "description": "Privacy boundary statement."
+    },
+    "recommendation_codes": {
+      "description": "Normalized recommendation codes."
+    },
+    "requirement_fulfillment": {
+      "description": "Categorical requirement fulfillment band."
+    },
+    "review_scope": {
+      "description": "Categorical review scope."
+    },
+    "scanner_type": {
+      "description": "Categorical scanner type."
+    },
+    "schema_version": {
+      "description": "Schema version."
+    },
+    "tailtrail_version": {
+      "description": "TailTrail version label."
+    },
+    "task_type": {
+      "description": "Categorical task type."
+    },
+    "token_budget_fit": {
+      "description": "Categorical token budget fit."
+    },
+    "token_confidence_gate": {
+      "description": "Categorical Token Harness confidence gate status."
+    },
+    "token_evidence_label": {
+      "description": "Categorical Token Harness evidence label."
+    },
+    "token_exactness_class": {
+      "description": "Categorical Token Harness exactness class."
+    },
+    "token_holdout": {
+      "description": "Categorical Token Harness holdout status."
+    },
+    "token_proof_label": {
+      "description": "Categorical Token Harness proof label."
+    },
+    "token_quality_outcome": {
+      "description": "Categorical Token Harness quality outcome."
+    },
+    "token_reduction_band": {
+      "description": "Categorical Token Harness reduction band."
+    },
+    "token_strategy": {
+      "description": "Categorical Token Harness strategy."
+    },
+    "validation_fit": {
+      "description": "Categorical validation fit."
+    },
+    "workflow_selected": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "artifact_presence",
+    "clarification_needed",
+    "created_month",
+    "dimension_fits",
+    "event_type",
+    "graph_cache_source",
+    "graph_cache_status",
+    "issue_type",
+    "language_family",
+    "learning_signal",
+    "metric_confidence",
+    "overall_fit",
+    "overall_score_band",
+    "privacy",
+    "recommendation_codes",
+    "requirement_fulfillment",
+    "review_scope",
+    "scanner_type",
+    "schema_version",
+    "tailtrail_version",
+    "task_type",
+    "token_budget_fit",
+    "token_confidence_gate",
+    "token_evidence_label",
+    "token_exactness_class",
+    "token_holdout",
+    "token_proof_label",
+    "token_quality_outcome",
+    "token_reduction_band",
+    "token_strategy",
+    "validation_fit",
+    "workflow_selected"
+  ],
+  "title": "TailTrail Shared Harness Summary Event",
+  "type": "object"
+}

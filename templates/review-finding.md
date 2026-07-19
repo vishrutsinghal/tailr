@@ -1,0 +1,11 @@
+### `REPLACE_WITH_SEVERITY`
+
+- Issue: `REPLACE_WITH_ONE_LINE_ISSUE`
+- File: `REPLACE_WITH_FILE`
+- Function: `REPLACE_WITH_FUNCTION`
+- Line: `REPLACE_WITH_LINE`
+- Impact: `REPLACE_WITH_IMPACT`
+- Suggested fix: `REPLACE_WITH_FIX`
+- Validation: `REPLACE_WITH_VALIDATION`
+- Confidence: `REPLACE_WITH_CONFIDENCE`
+- Safe fix: `yes/no, with approval`
