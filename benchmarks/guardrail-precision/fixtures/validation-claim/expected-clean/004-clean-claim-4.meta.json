@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Need reviewer to verify."
+  },
+  "id": "validation-claim/expected-clean/004",
+  "label": "expected-clean",
+  "notes": "No unsupported validation success claim: Need reviewer to verify.",
+  "rule": "validation-claim",
+  "summary": "No unsupported validation success claim: Need reviewer to verify."
+}

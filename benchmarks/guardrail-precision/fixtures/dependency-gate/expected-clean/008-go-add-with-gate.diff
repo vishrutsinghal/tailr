@@ -1,0 +1,7 @@
+diff --git a/go.mod b/go.mod
+--- a/go.mod
++++ b/go.mod
+@@ -1,3 +1,5 @@
++// Dependency Gate approved
++require example.com/newlib v1.2.3
+ old = true

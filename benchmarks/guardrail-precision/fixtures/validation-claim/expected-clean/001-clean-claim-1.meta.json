@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Tests not yet run."
+  },
+  "id": "validation-claim/expected-clean/001",
+  "label": "expected-clean",
+  "notes": "No unsupported validation success claim: Tests not yet run.",
+  "rule": "validation-claim",
+  "summary": "No unsupported validation success claim: Tests not yet run."
+}

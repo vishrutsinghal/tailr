@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "approved dependency for fixture"
+  },
+  "id": "dependency-gate/expected-clean/004",
+  "label": "expected-clean",
+  "notes": "Near-miss dependency fixture with approval evidence",
+  "rule": "dependency-gate",
+  "summary": "Near-miss dependency fixture with approval evidence"
+}

@@ -1,0 +1,13 @@
+python3 -m unittest discover -s tests
+
+FAIL: test_rejects_zero_amount (test_claim_validation.ClaimValidationTests.test_rejects_zero_amount)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "tests/test_claim_validation.py", line 33, in test_rejects_zero_amount
+    with self.assertRaises(ClaimValidationError):
+AssertionError: ClaimValidationError not raised
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.002s
+
+FAILED (failures=1)

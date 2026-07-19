@@ -1,0 +1,5 @@
+diff --git a/.tailtrail/quality-runs/run.json b/.tailtrail/quality-runs/run.json
+--- /dev/null
++++ b/.tailtrail/quality-runs/run.json
+@@ -0,0 +1 @@
++{"local": true}

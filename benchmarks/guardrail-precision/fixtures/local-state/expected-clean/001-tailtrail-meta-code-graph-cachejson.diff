@@ -1,0 +1,6 @@
+diff --git a/tailtrail-meta/code-graph-cache.json b/tailtrail-meta/code-graph-cache.json
+--- a/tailtrail-meta/code-graph-cache.json
++++ b/tailtrail-meta/code-graph-cache.json
+@@ -1 +1,2 @@
+ old
++new

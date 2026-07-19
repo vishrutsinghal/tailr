@@ -1,0 +1,1 @@
+{"mode":"measured","task_id":"review-only-sample","provider":"sample","model":"sample-model","source":"committed_fake_usage_metadata_for_schema_validation","baseline":{"input_tokens":2100,"output_tokens":600},"tailtrail":{"input_tokens":1400,"output_tokens":850},"timestamp":"2026-07-18T00:00:00Z"}

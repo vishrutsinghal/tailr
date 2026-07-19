@@ -1,0 +1,72 @@
+{
+  "schema_version": "1",
+  "scenario_id": "dependency-decision",
+  "title": "Dependency Gate Decision",
+  "task_class": "dependency",
+  "evidence_label": "local-evidence",
+  "claim_boundaries": [
+    "Scores inspect saved artifact wording only.",
+    "Dependency decisions still require project review."
+  ],
+  "variants": [
+    {
+      "id": "baseline",
+      "artifact": "baseline-artifact.md"
+    },
+    {
+      "id": "tailtrail",
+      "artifact": "tailtrail-artifact.md"
+    }
+  ],
+  "dimensions": {
+    "requirement": {
+      "weight": 2,
+      "must_include": [
+        "user request"
+      ]
+    },
+    "validation": {
+      "weight": 1,
+      "must_include_any": [
+        "validation",
+        "test"
+      ]
+    },
+    "safeguards": {
+      "weight": 1,
+      "must_not_include": [
+        "bypass policy",
+        "ignore policy"
+      ]
+    },
+    "dependency": {
+      "weight": 3,
+      "must_include": [
+        "standard library",
+        "already-installed dependency",
+        "dependency gate"
+      ],
+      "must_not_include": [
+        "new dependency"
+      ]
+    },
+    "diff_focus": {
+      "weight": 1,
+      "must_include": [
+        "smallest maintainable change"
+      ]
+    },
+    "review": {
+      "weight": 1,
+      "must_include": [
+        "review"
+      ]
+    },
+    "approval": {
+      "weight": 1,
+      "must_include": [
+        "approval"
+      ]
+    }
+  }
+}

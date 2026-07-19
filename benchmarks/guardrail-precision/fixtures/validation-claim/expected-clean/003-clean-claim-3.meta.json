@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Build not run."
+  },
+  "id": "validation-claim/expected-clean/003",
+  "label": "expected-clean",
+  "notes": "No unsupported validation success claim: Build not run.",
+  "rule": "validation-claim",
+  "summary": "No unsupported validation success claim: Build not run."
+}

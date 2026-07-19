@@ -1,0 +1,6 @@
+diff --git a/templates/token-usage-example.jsonl b/templates/token-usage-example.jsonl
+--- a/templates/token-usage-example.jsonl
++++ b/templates/token-usage-example.jsonl
+@@ -1 +1,2 @@
+ old
++new

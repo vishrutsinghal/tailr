@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "local-state/expected-clean/008",
+  "label": "expected-clean",
+  "notes": "Allowed or unrelated path near local-state naming: docs/tailtrail-notes.md",
+  "rule": "local-state",
+  "summary": "Allowed or unrelated path near local-state naming: docs/tailtrail-notes.md"
+}

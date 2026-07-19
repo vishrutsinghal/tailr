@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "local-state/expected-clean/006",
+  "label": "expected-clean",
+  "notes": "Allowed or unrelated path near local-state naming: templates/token-usage-example.jsonl",
+  "rule": "local-state",
+  "summary": "Allowed or unrelated path near local-state naming: templates/token-usage-example.jsonl"
+}

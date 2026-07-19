@@ -1,0 +1,70 @@
+{
+  "schema_version": "1",
+  "scenario_id": "review-only",
+  "title": "Review Findings With Location Detail",
+  "task_class": "review",
+  "evidence_label": "local-evidence",
+  "claim_boundaries": [
+    "Scores are based on saved review artifact structure.",
+    "Real review quality still depends on source inspection."
+  ],
+  "variants": [
+    {
+      "id": "baseline",
+      "artifact": "baseline-artifact.md"
+    },
+    {
+      "id": "tailtrail",
+      "artifact": "tailtrail-artifact.md"
+    }
+  ],
+  "dimensions": {
+    "requirement": {
+      "weight": 2,
+      "must_include": [
+        "review scope"
+      ]
+    },
+    "validation": {
+      "weight": 1,
+      "must_include": [
+        "validation gap"
+      ]
+    },
+    "safeguards": {
+      "weight": 1,
+      "must_include_any": [
+        "security",
+        "safeguard"
+      ]
+    },
+    "dependency": {
+      "weight": 1,
+      "must_include_any": [
+        "dependency",
+        "package"
+      ]
+    },
+    "diff_focus": {
+      "weight": 1,
+      "must_include": [
+        "smallest maintainable change"
+      ]
+    },
+    "review": {
+      "weight": 3,
+      "must_include": [
+        "finding",
+        "file",
+        "function",
+        "line"
+      ]
+    },
+    "approval": {
+      "weight": 1,
+      "must_include": [
+        "review before changing"
+      ]
+    }
+  }
+}

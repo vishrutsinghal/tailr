@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "dependency-gate/expected-finding/003",
+  "label": "expected-finding",
+  "notes": "Dependency added in requirements.txt without Dependency Gate note",
+  "rule": "dependency-gate",
+  "summary": "Dependency added in requirements.txt without Dependency Gate note"
+}

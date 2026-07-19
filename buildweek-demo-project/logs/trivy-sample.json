@@ -1,0 +1,12 @@
+{
+  "SchemaVersion": 2,
+  "Results": [
+    {
+      "Target": "requirements.txt",
+      "Class": "lang-pkgs",
+      "Type": "pip",
+      "Vulnerabilities": []
+    }
+  ]
+}
+

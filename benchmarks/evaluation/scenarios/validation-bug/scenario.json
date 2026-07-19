@@ -1,0 +1,76 @@
+{
+  "schema_version": "1",
+  "scenario_id": "validation-bug",
+  "title": "Focused Bug Fix With Validation",
+  "task_class": "bug-fix",
+  "evidence_label": "local-evidence",
+  "claim_boundaries": [
+    "Scores are deterministic fixture evidence, not live model performance.",
+    "Exact token savings require measured telemetry."
+  ],
+  "variants": [
+    {
+      "id": "baseline",
+      "artifact": "baseline-artifact.md"
+    },
+    {
+      "id": "tailtrail",
+      "artifact": "tailtrail-artifact.md"
+    }
+  ],
+  "dimensions": {
+    "requirement": {
+      "weight": 2,
+      "must_include": [
+        "requirement satisfied",
+        "user request"
+      ]
+    },
+    "validation": {
+      "weight": 2,
+      "must_include_any": [
+        "focused unit test",
+        "validation passed"
+      ]
+    },
+    "safeguards": {
+      "weight": 1,
+      "must_not_include": [
+        "removed validation",
+        "disabled auth"
+      ]
+    },
+    "dependency": {
+      "weight": 1,
+      "must_not_include": [
+        "new dependency"
+      ]
+    },
+    "diff_focus": {
+      "weight": 1,
+      "must_include": [
+        "smallest maintainable change"
+      ]
+    },
+    "review": {
+      "weight": 1,
+      "must_include": [
+        "review"
+      ]
+    },
+    "approval": {
+      "weight": 1,
+      "must_include": [
+        "approval"
+      ]
+    },
+    "token": {
+      "weight": 1,
+      "must_include_any": [
+        "context receipt",
+        "token evidence",
+        "measured telemetry"
+      ]
+    }
+  }
+}

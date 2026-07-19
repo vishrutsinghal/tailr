@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/tailtrail-registry.schema.json",
+  "title": "TailTrail Feature Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "features"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "status",
+          "surface",
+          "roadmap_ref",
+          "owner",
+          "governance_class",
+          "commands",
+          "docs",
+          "scripts",
+          "tests",
+          "mcp_tools",
+          "requires_approval",
+          "read_only",
+          "evidence_label",
+          "depends_on",
+          "since_version",
+          "deprecated_in_version"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "implemented",
+              "deprecated"
+            ]
+          },
+          "surface": {
+            "type": "string",
+            "enum": [
+              "core",
+              "extended"
+            ]
+          },
+          "roadmap_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1
+          },
+          "governance_class": {
+            "type": "string",
+            "enum": [
+              "governance",
+              "product",
+              "dev-experience",
+              "benchmark",
+              "telemetry"
+            ]
+          },
+          "commands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "docs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scripts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mcp_tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requires_approval": {
+            "type": "boolean"
+          },
+          "read_only": {
+            "type": "boolean"
+          },
+          "evidence_label": {
+            "type": "string",
+            "enum": [
+              "none",
+              "estimated",
+              "local-evidence",
+              "measured",
+              "benchmark-measured"
+            ]
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            }
+          },
+          "since_version": {
+            "type": "string"
+          },
+          "deprecated_in_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

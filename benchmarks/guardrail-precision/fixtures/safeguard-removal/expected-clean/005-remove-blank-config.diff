@@ -1,0 +1,7 @@
+diff --git a/src/audit.go b/src/audit.go
+--- a/src/audit.go
++++ b/src/audit.go
+@@ -1,4 +1,3 @@
+ def handler():
+-    unusedValue := 0
+     return ok()

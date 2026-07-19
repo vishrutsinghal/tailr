@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "notes": "Precision floor per rule. A rule falling below its floor in CI blocks the build. Set conservatively; raise only after evidence.",
+  "rules": {
+    "dependency-gate": {
+      "min_precision": 0.85,
+      "min_fixtures": 8
+    },
+    "safeguard-removal": {
+      "min_precision": 0.8,
+      "min_fixtures": 8
+    },
+    "local-state": {
+      "min_precision": 0.95,
+      "min_fixtures": 8
+    },
+    "validation-claim": {
+      "min_precision": 0.75,
+      "min_fixtures": 8
+    }
+  }
+}

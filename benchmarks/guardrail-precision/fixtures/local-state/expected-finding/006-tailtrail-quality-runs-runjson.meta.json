@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "local-state/expected-finding/006",
+  "label": "expected-finding",
+  "notes": "Local TailTrail runtime state staged: .tailtrail/quality-runs/run.json",
+  "rule": "local-state",
+  "summary": "Local TailTrail runtime state staged: .tailtrail/quality-runs/run.json"
+}

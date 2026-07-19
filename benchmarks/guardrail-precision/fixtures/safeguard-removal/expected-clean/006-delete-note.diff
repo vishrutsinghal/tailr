@@ -1,0 +1,7 @@
+diff --git a/src/api.rb b/src/api.rb
+--- a/src/api.rb
++++ b/src/api.rb
+@@ -1,4 +1,3 @@
+ def handler():
+-# auth docs moved to README
+     return ok()

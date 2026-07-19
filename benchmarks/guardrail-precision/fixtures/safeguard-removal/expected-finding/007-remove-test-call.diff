@@ -1,0 +1,7 @@
+diff --git a/tests/test_service.py b/tests/test_service.py
+--- a/tests/test_service.py
++++ b/tests/test_service.py
+@@ -1,4 +1,3 @@
+ def handler():
+-    assert validator.validate(payload)
+     return ok()

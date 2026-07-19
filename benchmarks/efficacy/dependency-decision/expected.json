@@ -1,0 +1,26 @@
+{
+  "title": "Dependency decision",
+  "description": "Checks standard-library-first dependency discipline.",
+  "scenario_class": "dependency",
+  "checks": [
+    {
+      "name": "Avoids unnecessary dependency",
+      "signal": "dependency",
+      "points": 5,
+      "baseline": {"contains_any": ["fast-csv-helper"]},
+      "tailtrail": {"contains_all": ["Dependency Gate", "do not add a new package", "standard library `csv`"]}
+    },
+    {
+      "name": "Reuses existing project pattern",
+      "signal": "reuse",
+      "points": 3,
+      "tailtrail": {"contains_all": ["repo already uses", "reuse the existing"]}
+    },
+    {
+      "name": "Focused validation",
+      "signal": "validation_truth",
+      "points": 3,
+      "tailtrail": {"contains_all": ["python3 -m pytest tests/test_csv_import.py::test_quoted_fields"]}
+    }
+  ]
+}

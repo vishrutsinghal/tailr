@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "dependency-gate/expected-finding/004",
+  "label": "expected-finding",
+  "notes": "Dependency added in pyproject.toml without Dependency Gate note",
+  "rule": "dependency-gate",
+  "summary": "Dependency added in pyproject.toml without Dependency Gate note"
+}

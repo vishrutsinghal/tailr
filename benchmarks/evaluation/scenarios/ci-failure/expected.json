@@ -1,0 +1,5 @@
+{
+  "min_tailtrail_total": 0.75,
+  "min_delta": 0.25,
+  "required_winner": "tailtrail"
+}

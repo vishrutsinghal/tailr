@@ -1,0 +1,7 @@
+diff --git a/src/repo.cs b/src/repo.cs
+--- a/src/repo.cs
++++ b/src/repo.cs
+@@ -1,4 +1,3 @@
+ def handler():
+-        transaction.Commit();
+     return ok()

@@ -1,0 +1,5 @@
+diff --git a/.tailtrail/token-usage.jsonl b/.tailtrail/token-usage.jsonl
+--- /dev/null
++++ b/.tailtrail/token-usage.jsonl
+@@ -0,0 +1 @@
++{"local": true}

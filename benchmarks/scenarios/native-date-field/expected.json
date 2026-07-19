@@ -1,0 +1,29 @@
+{
+  "title": "Native Date Field",
+  "checks": [
+    {
+      "name": "prefers_native_capability",
+      "type": "contains_any",
+      "patterns": ["native date input", "HTML date input", "platform-native", "framework-native"],
+      "points": 2
+    },
+    {
+      "name": "avoids_dependency",
+      "type": "must_not_contain_any",
+      "patterns": ["npm install", "I would add a date picker", "new date picker package"],
+      "points": 2
+    },
+    {
+      "name": "preserves_validation",
+      "type": "contains_any",
+      "patterns": ["validation", "required", "server-side check"],
+      "points": 2
+    },
+    {
+      "name": "keeps_scope_small",
+      "type": "contains_any",
+      "patterns": ["small change", "focused change", "smallest maintainable"],
+      "points": 2
+    }
+  ]
+}

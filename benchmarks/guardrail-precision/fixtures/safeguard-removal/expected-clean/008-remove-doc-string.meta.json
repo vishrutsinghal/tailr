@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "safeguard-removal/expected-clean/008",
+  "label": "expected-clean",
+  "notes": "Near-miss removed comment or formatting in src/repo.cs",
+  "rule": "safeguard-removal",
+  "summary": "Near-miss removed comment or formatting in src/repo.cs"
+}

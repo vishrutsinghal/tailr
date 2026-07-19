@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "safeguard-removal/expected-finding/004",
+  "label": "expected-finding",
+  "notes": "Removes safeguard-like call from src/render.js",
+  "rule": "safeguard-removal",
+  "summary": "Removes safeguard-like call from src/render.js"
+}

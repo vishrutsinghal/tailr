@@ -1,0 +1,26 @@
+{
+  "title": "CI or Sonar failure",
+  "description": "Checks first-failure preservation and broad-scan approval boundary.",
+  "scenario_class": "ci-sonar",
+  "checks": [
+    {
+      "name": "First failure preserved",
+      "signal": "ci_sonar",
+      "points": 5,
+      "tailtrail": {"contains_all": ["First failure", "PaymentValidatorTest.testRejectsBlankAmount", "Exit code: `1`", "java:S3776", "Line: `87`"]}
+    },
+    {
+      "name": "Focused next action",
+      "signal": "scope_control",
+      "points": 3,
+      "baseline": {"contains_any": ["refactor the service broadly"]},
+      "tailtrail": {"contains_all": ["focused test", "before broad refactoring"]}
+    },
+    {
+      "name": "Scan approval boundary",
+      "signal": "approval_gate",
+      "points": 3,
+      "tailtrail": {"contains_all": ["do not run broad build", "unless the user approves"]}
+    }
+  ]
+}

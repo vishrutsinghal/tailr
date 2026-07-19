@@ -1,0 +1,30 @@
+{
+  "title": "CI/Sonar Review",
+  "checks": [
+    {
+      "name": "preserves_rule_evidence",
+      "type": "contains_any",
+      "patterns": ["rule ID", "job", "stage", "file", "line"],
+      "points": 2
+    },
+    {
+      "name": "smallest_root_cause",
+      "type": "contains_any",
+      "patterns": ["smallest root cause", "root cause", "shared helper"],
+      "points": 2
+    },
+    {
+      "name": "avoids_lossy_summary",
+      "type": "must_not_contain_any",
+      "patterns": ["some sonar issue", "generic scanner warning", "probably fine"],
+      "points": 2
+    },
+    {
+      "name": "exact_validation",
+      "type": "contains_any",
+      "patterns": ["exact validation", "rerun", "quality gate", "sonar"],
+      "points": 2
+    }
+  ]
+}
+

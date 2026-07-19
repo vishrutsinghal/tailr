@@ -1,0 +1,5 @@
+diff --git a/tailtrail/.tailtrail-install.json b/tailtrail/.tailtrail-install.json
+--- /dev/null
++++ b/tailtrail/.tailtrail-install.json
+@@ -0,0 +1 @@
++{"local": true}

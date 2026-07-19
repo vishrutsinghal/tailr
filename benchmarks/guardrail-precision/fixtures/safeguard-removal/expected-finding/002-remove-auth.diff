@@ -1,0 +1,7 @@
+diff --git a/src/controller.ts b/src/controller.ts
+--- a/src/controller.ts
++++ b/src/controller.ts
+@@ -1,4 +1,3 @@
+ def handler():
+-  requireAuth(user);
+     return ok()

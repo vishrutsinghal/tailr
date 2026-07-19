@@ -1,0 +1,977 @@
+{
+  "schema_version": "1",
+  "features": [
+    {
+      "id": "navigator",
+      "title": "Navigator And Task Start",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Phase 8 + V3.6",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail start",
+        "tailtrail do",
+        "tailtrail run",
+        "tailtrail guide",
+        "tailtrail next",
+        "tailtrail intent",
+        "tailtrail expand"
+      ],
+      "docs": [
+        "USER-GUIDE.md",
+        "context/navigator.md",
+        "NAVIGATOR-TEST-SCENARIOS.md"
+      ],
+      "scripts": [
+        "scripts/navigator.py",
+        "scripts/navigator_core.py",
+        "scripts/navigator_render.py",
+        "scripts/task-start.py",
+        "scripts/task-next.py",
+        "scripts/expand-intent.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [
+        "navigator_plan",
+        "start_report"
+      ],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "bootstrap-snapshot",
+      "title": "Environment Bootstrap Snapshot",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Meta-Harness Pre-Layer",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail bootstrap snapshot",
+        "tailtrail bootstrap status",
+        "tailtrail bootstrap refresh"
+      ],
+      "docs": [
+        "README.md",
+        "TAILTRAIL-COMMANDS.md",
+        "USER-GUIDE.md"
+      ],
+      "scripts": [
+        "scripts/bootstrap-snapshot.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "navigator"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "aidlc",
+      "title": "Portable AIDLC Pack",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Phase 2",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail aidlc init",
+        "tailtrail aidlc check"
+      ],
+      "docs": [
+        "AIDLC.md",
+        "USER-GUIDE.md",
+        "aidlc/stages/README.md"
+      ],
+      "scripts": [
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-check.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "guardrails",
+      "title": "Guardrail Enforcement",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "V3.0 + BL-5 + BL-7",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail guard check",
+        "tailtrail guardrail precision",
+        "tailtrail governance check"
+      ],
+      "docs": [
+        "GUARDRAILS.md",
+        "GOVERNANCE.md",
+        "context/guardrail-layers.md"
+      ],
+      "scripts": [
+        "scripts/guardrail-check.py",
+        "scripts/guardrail-precision.py",
+        "scripts/sync-governance.py"
+      ],
+      "tests": [
+        "tests/test_guardrail_precision.py",
+        "tests/test_governance_sync.py"
+      ],
+      "mcp_tools": [
+        "guardrail_check"
+      ],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "review",
+      "title": "Navigator-Led Review",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "V3.10",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail review"
+      ],
+      "docs": [
+        "TAILTRAIL-COMMANDS.md",
+        "context/review-lenses.md",
+        "USEFUL-PROMPTS.md"
+      ],
+      "scripts": [
+        "scripts/review-run.py",
+        "scripts/review-graph.py"
+      ],
+      "tests": [
+        "tests/test_review_scope.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "testing",
+      "title": "Test Precision",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Testing Feature",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail test plan",
+        "tailtrail test summarize"
+      ],
+      "docs": [
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/test-precision.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "review"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "quality-signals",
+      "title": "Quality, CI, And Sonar Signals",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Phase 8.5 + Phase 8.6",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail ci summarize",
+        "tailtrail sonar summarize",
+        "tailtrail validation summarize",
+        "tailtrail quality scan",
+        "tailtrail quality run",
+        "tailtrail quality-loop"
+      ],
+      "docs": [
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md",
+        "context/quality-loop.md"
+      ],
+      "scripts": [
+        "scripts/ci-summary.py",
+        "scripts/sonar-summary.py",
+        "scripts/validation-summary.py",
+        "scripts/quality-scan.py",
+        "scripts/quality-run.py",
+        "scripts/quality-loop.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "security-vulnerability",
+      "title": "Security And Vulnerability Intelligence",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Phase 8.7",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail vulnerability summarize",
+        "tailtrail vulnerability scan",
+        "tailtrail vulnerability run"
+      ],
+      "docs": [
+        "SECURITY.md",
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/vulnerability-summary.py",
+        "scripts/vulnerability-scan.py",
+        "scripts/vulnerability-run.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "guardrails",
+        "quality-signals"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "code-graph-mapper",
+      "title": "Code Graph Mapper",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Phase 8.8 + V2.7",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail graph",
+        "tailtrail graph ast",
+        "tailtrail graph overlay",
+        "tailtrail graph map",
+        "tailtrail graph status",
+        "tailtrail graph refresh"
+      ],
+      "docs": [
+        "context/code-graph-mapper.md",
+        "TAILTRAIL-COMMANDS.md",
+        "USER-GUIDE.md"
+      ],
+      "scripts": [
+        "scripts/code-graph-mapper.py",
+        "scripts/ast-map.py",
+        "scripts/scanner-graph-overlay.py",
+        "scripts/cache-summary.py",
+        "scripts/graph-learning.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [
+        "graph_map"
+      ],
+      "requires_approval": false,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "navigator"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "learning",
+      "title": "Learning Agent V2",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Phase 9",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail learn",
+        "tailtrail learn review",
+        "tailtrail learn govern",
+        "tailtrail learn graph",
+        "tailtrail learn refresh",
+        "tailtrail learnings"
+      ],
+      "docs": [
+        "LEARNING-GOVERNANCE.md",
+        "context/learning-agent.md",
+        "context/learning-refresh.md"
+      ],
+      "scripts": [
+        "scripts/learning-agent.py",
+        "scripts/learning-review.py",
+        "scripts/learning-refresh.py",
+        "scripts/learnings.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "meta-harness",
+      "title": "Meta-Harness Review",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Phase 9.8",
+      "owner": "tailtrail-core",
+      "governance_class": "telemetry",
+      "commands": [
+        "tailtrail harness quick",
+        "tailtrail harness review",
+        "tailtrail harness confidence",
+        "tailtrail harness recommendations",
+        "tailtrail harness export-summary",
+        "tailtrail harness shared-summary",
+        "tailtrail harness shared-status",
+        "tailtrail harness shared-sanitize",
+        "tailtrail harness aggregate-shared",
+        "tailtrail harness analyze",
+        "tailtrail harness readiness",
+        "tailtrail harness propose",
+        "tailtrail harness proposal-status",
+        "tailtrail harness proposal-record"
+      ],
+      "docs": [
+        "META-HARNESS-IMPLEMENTATION.md",
+        "TAILTRAIL-PITCH.md",
+        "tailtrail-meta/README.md"
+      ],
+      "scripts": [
+        "scripts/harness-review.py",
+        "scripts/meta-harness-analyze.py",
+        "scripts/meta-harness-propose.py"
+      ],
+      "tests": [
+        "tests/test_meta_harness.py",
+        "tests/test_meta_harness_token_feedback.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "navigator",
+        "reporting"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "token-harness",
+      "title": "Token Harness And Budgeting",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "BL-10",
+      "owner": "tailtrail-core",
+      "governance_class": "telemetry",
+      "commands": [
+        "tailtrail route",
+        "tailtrail token",
+        "tailtrail token route",
+        "tailtrail token-harness",
+        "tailtrail token-harness ledger append",
+        "tailtrail token-harness ledger summary",
+        "tailtrail token-harness ledger validate",
+        "tailtrail token-harness proof holdout",
+        "tailtrail token-harness proof report",
+        "tailtrail token-harness bridge plan",
+        "tailtrail token-harness bridge input",
+        "tailtrail token-harness bridge validate-output",
+        "tailtrail token-harness bridge run",
+        "tailtrail token-harness reduce",
+        "tailtrail token-harness route",
+        "tailtrail budget",
+        "tailtrail profile",
+        "tailtrail receipt",
+        "tailtrail telemetry",
+        "tailtrail savings"
+      ],
+      "docs": [
+        "TOKEN-HARNESS.md",
+        "TOKEN-SLICER.md",
+        "TOKEN-AUTOPILOT.md"
+      ],
+      "scripts": [
+        "scripts/route-context.py",
+        "scripts/token-auto.py",
+        "scripts/token-harness.py",
+        "scripts/token-harness-bridge.py",
+        "scripts/token-harness-ledger.py",
+        "scripts/token-harness-proof.py",
+        "scripts/token-harness-reduce.py",
+        "scripts/token-budget-coach.py",
+        "scripts/prompt-profile.py",
+        "scripts/context-receipt.py",
+        "scripts/token-telemetry.py",
+        "scripts/token-savings.py",
+        "scripts/slice-context.py",
+        "scripts/prune-context.py",
+        "scripts/context_receipt.py",
+        "scripts/prompt_profile.py",
+        "scripts/token_budget_coach.py",
+        "scripts/token_telemetry.py"
+      ],
+      "tests": [
+        "tests/test_token_harness_proof.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "estimated",
+      "depends_on": [
+        "navigator"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "reporting",
+      "title": "Value Reporting And Outcome Telemetry",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Phase 9.7 + V3.8",
+      "owner": "tailtrail-core",
+      "governance_class": "telemetry",
+      "commands": [
+        "tailtrail report",
+        "tailtrail report value",
+        "tailtrail report trend",
+        "tailtrail report pr",
+        "tailtrail outcome"
+      ],
+      "docs": [
+        "ENTERPRISE-REVIEW.md",
+        "TAILTRAIL-PITCH.md",
+        "USER-GUIDE.md"
+      ],
+      "scripts": [
+        "scripts/tailtrail-report.py",
+        "scripts/outcome-telemetry.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "token-harness"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "install-surfaces",
+      "title": "Install Surfaces And Updates",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "BL-8 + V2.1 + V2.2",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail install",
+        "tailtrail install codex",
+        "tailtrail update",
+        "tailtrail setup-scan",
+        "tailtrail team-init"
+      ],
+      "docs": [
+        "QUICKSTART.md",
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/install-launcher.py",
+        "scripts/install_surfaces.py",
+        "scripts/update-tailtrail.py",
+        "scripts/update-copilot.py",
+        "scripts/setup-scan.py",
+        "scripts/team-init.py"
+      ],
+      "tests": [
+        "tests/test_install_profiles.py"
+      ],
+      "mcp_tools": [
+        "install_status"
+      ],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "governance"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "mcp",
+      "title": "Read-Only MCP Guardrail Server",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "BL-9",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail mcp serve",
+        "tailtrail mcp tools",
+        "tailtrail mcp doctor"
+      ],
+      "docs": [
+        "MCP-SERVER.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/mcp-server.py"
+      ],
+      "tests": [
+        "tests/test_mcp_server.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "navigator",
+        "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "governance",
+      "title": "Governance And Policy",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "BL-6 + Phase 3 + Phase 3.5",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail governance",
+        "tailtrail policy"
+      ],
+      "docs": [
+        "GOVERNANCE.md",
+        "tailtrail-policy.example.md",
+        "PUBLIC-CLAIMS.md"
+      ],
+      "scripts": [
+        "scripts/policy-check.py",
+        "scripts/public-doc-audit.py"
+      ],
+      "tests": [
+        "tests/test_governance_sync.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "benchmark-efficacy",
+      "title": "Benchmark And Efficacy Harness",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Phase 7 + V3.5 + BL-1",
+      "owner": "tailtrail-core",
+      "governance_class": "benchmark",
+      "commands": [
+        "tailtrail benchmark",
+        "tailtrail efficacy",
+        "tailtrail analyze"
+      ],
+      "docs": [
+        "benchmarks/README.md",
+        "benchmarks/efficacy/README.md",
+        "TAILTRAIL-PITCH.md"
+      ],
+      "scripts": [
+        "scripts/benchmark-tailtrail.py",
+        "scripts/efficacy-benchmark.py",
+        "scripts/efficacy-run.py",
+        "scripts/analyze-benchmark.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "benchmark-measured",
+      "depends_on": [
+        "guardrails",
+        "reporting"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "release-admin",
+      "title": "Release And Admin Packaging",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Public Release Features + Release Mode Separation",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail release-check",
+        "tailtrail admin export"
+      ],
+      "docs": [
+        "ADMIN-RELEASE-MODES.md",
+        "RELEASE-CHECKLIST.md",
+        "PUBLIC-RELEASE-METADATA.md"
+      ],
+      "scripts": [
+        "scripts/release-check.py",
+        "scripts/export-release.py",
+        "scripts/smoke-test.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "install-surfaces",
+        "governance"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "command-surface",
+      "title": "Command Surface And Source Doctor",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "BL-2 + BL-3 + BL-11",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail help",
+        "tailtrail commands",
+        "tailtrail hello",
+        "tailtrail version",
+        "tailtrail doctor"
+      ],
+      "docs": [
+        "README.md",
+        "TAILTRAIL-COMMANDS.md",
+        "QUICKSTART.md"
+      ],
+      "scripts": [
+        "scripts/tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/sync-adapters.py"
+      ],
+      "tests": [
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "governance"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "assistant-adapters",
+      "title": "Validated Assistant Adapters",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Phase 6",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail adapters check",
+        "tailtrail adapters sync"
+      ],
+      "docs": [
+        "ASSISTANT-COMPATIBILITY.md",
+        "adapters/README.md",
+        "README.md",
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [],
+      "tests": [
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "governance",
+        "command-surface"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "evaluation-harness",
+      "title": "Evaluation Harness",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Evaluation Harness Consolidation Track / EH-0-EH-2",
+      "owner": "tailtrail-core",
+      "governance_class": "telemetry",
+      "commands": [
+        "tailtrail eval audit",
+        "tailtrail eval portfolio run",
+        "tailtrail eval portfolio report",
+        "tailtrail eval guardrails precision",
+        "tailtrail eval outcome capture",
+        "tailtrail eval outcome summarize",
+        "tailtrail eval workflow capture",
+        "tailtrail eval workflow review",
+        "tailtrail eval meta quick",
+        "tailtrail eval meta review",
+        "tailtrail eval meta readiness",
+        "tailtrail eval meta analyze",
+        "tailtrail eval meta propose",
+        "tailtrail eval tokens route",
+        "tailtrail eval tokens reduce",
+        "tailtrail eval tokens receipt",
+        "tailtrail eval tokens ledger",
+        "tailtrail eval tokens proof",
+        "tailtrail eval tokens telemetry",
+        "tailtrail eval tokens savings",
+        "tailtrail eval tokens budget",
+        "tailtrail eval report value",
+        "tailtrail eval artifact analyze",
+        "tailtrail eval artifact benchmark",
+        "tailtrail eval scenario list",
+        "tailtrail eval scenario run",
+        "tailtrail eval scenario compare",
+        "tailtrail eval scenario report",
+        "tailtrail eval normalize",
+        "tailtrail eval validate-events"
+      ],
+      "docs": [
+        "EVALUATION-HARNESS.md",
+        "ROADMAP.md",
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md",
+        "benchmarks/evaluation/README.md",
+        "schemas/evaluation-harness-event.schema.json",
+        "templates/evaluation-result.md"
+      ],
+      "scripts": [
+        "scripts/evaluation-audit.py",
+        "scripts/evaluation-harness.py"
+      ],
+      "tests": [
+        "tests/test_evaluation_audit.py",
+        "tests/test_evaluation_harness_router.py",
+        "tests/test_evaluation_harness_scenarios.py"
+      ],
+      "mcp_tools": [
+        "eval_scenario_list",
+        "eval_scenario_report"
+      ],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "registry",
+        "command-surface",
+        "token-harness",
+        "meta-harness"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "registry",
+      "title": "TailTrail Feature Registry",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "BL-11 Phase 11.1 + Phase 11.2 + Phase 11.3 + Phase 11.5",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail registry list",
+        "tailtrail registry show",
+        "tailtrail registry surfaces",
+        "tailtrail registry validate",
+        "tailtrail registry drift",
+        "tailtrail registry workflow",
+        "tailtrail registry mcp"
+      ],
+      "docs": [
+        "ROADMAP.md",
+        "META-HARNESS-IMPLEMENTATION.md",
+        "README.md",
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md",
+        "CONTRIBUTING.md",
+        "GOVERNANCE.md"
+      ],
+      "scripts": [
+        "scripts/tailtrail-registry.py",
+        "scripts/registry-drift.py"
+      ],
+      "tests": [
+        "tests/test_tailtrail_registry.py",
+        "tests/test_registry_drift.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "governance"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "context-engine",
+      "title": "Context Engine Helpers",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "V2.7 Engine Deepening",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail engine"
+      ],
+      "docs": [
+        "TOKEN-SLICER.md",
+        "context/slices.md",
+        "context/prune-rules.md"
+      ],
+      "scripts": [
+        "scripts/summarize-output.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "token-harness"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "cross-repo-reference",
+      "title": "Cross-Repo Reference Mode",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "V3 Cross-Repo Reference",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail reference"
+      ],
+      "docs": [
+        "context/cross-repo-reference.md",
+        "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/cross-repo-reference.py"
+      ],
+      "tests": [
+        "tests/test_navigator_core.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    }
+  ]
+}

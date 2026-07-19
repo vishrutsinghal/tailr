@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "dependency-gate/expected-finding/005",
+  "label": "expected-finding",
+  "notes": "Dependency added in pom.xml without Dependency Gate note",
+  "rule": "dependency-gate",
+  "summary": "Dependency added in pom.xml without Dependency Gate note"
+}

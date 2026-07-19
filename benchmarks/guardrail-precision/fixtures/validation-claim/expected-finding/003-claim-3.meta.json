@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "All checks green."
+  },
+  "id": "validation-claim/expected-finding/003",
+  "label": "expected-finding",
+  "notes": "Validation success claim without evidence: All checks green.",
+  "rule": "validation-claim",
+  "summary": "Validation success claim without evidence: All checks green."
+}

@@ -1,0 +1,1 @@
+{"mode":"measured","task_id":"dependency-decision-sample","provider":"sample","model":"sample-model","source":"committed_fake_usage_metadata_for_schema_validation","baseline":{"total_tokens":2500},"tailtrail":{"total_tokens":1600},"timestamp":"2026-07-18T00:00:00Z"}

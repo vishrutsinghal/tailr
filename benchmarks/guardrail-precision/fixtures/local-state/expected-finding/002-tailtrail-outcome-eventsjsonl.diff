@@ -1,0 +1,5 @@
+diff --git a/.tailtrail/outcome-events.jsonl b/.tailtrail/outcome-events.jsonl
+--- /dev/null
++++ b/.tailtrail/outcome-events.jsonl
+@@ -0,0 +1 @@
++{"local": true}

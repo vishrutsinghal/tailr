@@ -1,0 +1,86 @@
+{
+  "schema_version": "1",
+  "scenario_id": "buildweek-validation",
+  "title": "Build Week Demo Validation",
+  "task_class": "demo",
+  "evidence_label": "local-evidence",
+  "claim_boundaries": [
+    "This scenario scores committed demo artifacts only.",
+    "It does not prove live model performance, exact token savings, or real production defect reduction.",
+    "Exact token savings require measured provider telemetry."
+  ],
+  "variants": [
+    {
+      "id": "baseline",
+      "artifact": "baseline-artifact.md"
+    },
+    {
+      "id": "tailtrail",
+      "artifact": "tailtrail-artifact.md"
+    }
+  ],
+  "dimensions": {
+    "navigator": {
+      "weight": 2,
+      "must_include": [
+        "Navigator plan",
+        "approval before implementation"
+      ]
+    },
+    "requirement": {
+      "weight": 2,
+      "must_include": [
+        "requirement fulfilled",
+        "user goal"
+      ]
+    },
+    "validation": {
+      "weight": 2,
+      "must_include_any": [
+        "focused test",
+        "validation result",
+        "quality check"
+      ]
+    },
+    "review": {
+      "weight": 1,
+      "must_include": [
+        "review findings",
+        "file",
+        "line"
+      ]
+    },
+    "token": {
+      "weight": 1,
+      "must_include_any": [
+        "context budget",
+        "context receipt",
+        "token evidence"
+      ]
+    },
+    "graph": {
+      "weight": 1,
+      "must_include_any": [
+        "Code Graph",
+        "read order",
+        "impacted files"
+      ]
+    },
+    "safeguards": {
+      "weight": 2,
+      "must_not_include": [
+        "bypass validation",
+        "disable auth",
+        "ignore scanner"
+      ]
+    },
+    "claim_boundary": {
+      "weight": 1,
+      "must_include": [
+        "claim boundary",
+        "local-evidence"
+      ]
+    }
+  }
+}
+

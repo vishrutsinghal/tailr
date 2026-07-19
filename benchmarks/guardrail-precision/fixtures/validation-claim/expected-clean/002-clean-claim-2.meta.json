@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Validation skipped because this is docs-only."
+  },
+  "id": "validation-claim/expected-clean/002",
+  "label": "expected-clean",
+  "notes": "No unsupported validation success claim: Validation skipped because this is docs-only.",
+  "rule": "validation-claim",
+  "summary": "No unsupported validation success claim: Validation skipped because this is docs-only."
+}

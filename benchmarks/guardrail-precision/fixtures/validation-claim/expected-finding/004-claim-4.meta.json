@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Validated the fix."
+  },
+  "id": "validation-claim/expected-finding/004",
+  "label": "expected-finding",
+  "notes": "Validation success claim without evidence: Validated the fix.",
+  "rule": "validation-claim",
+  "summary": "Validation success claim without evidence: Validated the fix."
+}

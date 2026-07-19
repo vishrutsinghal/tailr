@@ -1,0 +1,6 @@
+{
+  "service_name": "claims-api-demo",
+  "port": 8080,
+  "allowed_claim_types": ["medical", "dental", "vision"],
+  "max_claim_amount": 50000
+}

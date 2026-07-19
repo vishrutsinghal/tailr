@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "description": "Optional project or organization overrides for TailTrail intent expansion.",
+  "flows": {
+    "aidlc": {
+      "prompt": "Use TailTrail AIDLC standard depth. Follow this organization's local delivery checkpoints, update aidlc-docs only with useful task state, and keep lifecycle artifacts compact.",
+      "load": [
+        "AIDLC.md",
+        "aidlc/stages/README.md",
+        "active AIDLC stage playbook",
+        "aidlc-docs/aidlc-state.md when present"
+      ],
+      "avoid": [
+        "unrelated lifecycle artifacts",
+        "all templates unless needed",
+        "broad historical audit notes"
+      ],
+      "validation": [
+        "python3 scripts/aidlc-check.py --root ."
+      ]
+    }
+  }
+}

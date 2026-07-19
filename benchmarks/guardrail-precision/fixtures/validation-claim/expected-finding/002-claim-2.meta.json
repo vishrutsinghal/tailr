@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Build passed."
+  },
+  "id": "validation-claim/expected-finding/002",
+  "label": "expected-finding",
+  "notes": "Validation success claim without evidence: Build passed.",
+  "rule": "validation-claim",
+  "summary": "Validation success claim without evidence: Build passed."
+}

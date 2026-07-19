@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Will run lint later."
+  },
+  "id": "validation-claim/expected-clean/008",
+  "label": "expected-clean",
+  "notes": "No unsupported validation success claim: Will run lint later.",
+  "rule": "validation-claim",
+  "summary": "No unsupported validation success claim: Will run lint later."
+}

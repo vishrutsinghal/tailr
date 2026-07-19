@@ -1,0 +1,41 @@
+{
+  "title": "Start Command UX",
+  "checks": [
+    {
+      "name": "makes start the first command",
+      "type": "contains_all",
+      "patterns": ["tailtrail.py start", "first command"],
+      "points": 4
+    },
+    {
+      "name": "requires approval first",
+      "type": "contains_all",
+      "patterns": ["approval-first", "approve implementation"],
+      "points": 4
+    },
+    {
+      "name": "shows selected and skipped features",
+      "type": "contains_all",
+      "patterns": ["selected features", "skipped features"],
+      "points": 4
+    },
+    {
+      "name": "mentions decision menu",
+      "type": "contains_all",
+      "patterns": ["decision menu", "edit", "leaner"],
+      "points": 4
+    },
+    {
+      "name": "keeps scans explicit",
+      "type": "contains_all",
+      "patterns": ["scan approval", "does not", "run scanners"],
+      "points": 4
+    },
+    {
+      "name": "does not implement directly",
+      "type": "must_not_contain_any",
+      "patterns": ["I implemented", "I changed the code", "scanner passed"],
+      "points": 4
+    }
+  ]
+}

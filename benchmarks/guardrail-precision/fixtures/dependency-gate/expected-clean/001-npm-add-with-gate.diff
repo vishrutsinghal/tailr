@@ -1,0 +1,7 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,3 +1,5 @@
++// Dependency Gate approved for small fixture
++    "left_pad": "1.0.0",
+ old = true

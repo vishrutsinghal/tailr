@@ -1,0 +1,33 @@
+{
+  "title": "Learning and Meta-Harness governance",
+  "description": "Checks advisory learning and evidence-gated Meta-Harness behavior.",
+  "scenario_class": "learning-governance",
+  "checks": [
+    {
+      "name": "Learning is advisory",
+      "signal": "learning_governance",
+      "points": 5,
+      "baseline": {"contains_any": ["accepted before, so apply it again"]},
+      "tailtrail": {"contains_all": ["Advisory only", "current source, tests, CI, scanner output, policy, guardrails", "do not apply automatically"]}
+    },
+    {
+      "name": "User approval choices",
+      "signal": "approval_gate",
+      "points": 3,
+      "tailtrail": {"contains_all": ["use learnings", "ignore learnings", "edit plan"]}
+    },
+    {
+      "name": "Meta-Harness proposal boundary",
+      "signal": "meta_harness",
+      "points": 4,
+      "baseline": {"contains_any": ["Update TailTrail rules automatically"]},
+      "tailtrail": {"contains_all": ["advise_repo_maintainer", "no central TailTrail change yet", "not enough repeated sanitized evidence"]}
+    },
+    {
+      "name": "Rollback named",
+      "signal": "rollback",
+      "points": 2,
+      "tailtrail": {"contains_all": ["Rollback", "rolled_back"]}
+    }
+  ]
+}

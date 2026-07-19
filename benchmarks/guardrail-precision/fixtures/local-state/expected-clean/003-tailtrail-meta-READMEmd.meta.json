@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "local-state/expected-clean/003",
+  "label": "expected-clean",
+  "notes": "Allowed or unrelated path near local-state naming: tailtrail-meta/README.md",
+  "rule": "local-state",
+  "summary": "Allowed or unrelated path near local-state naming: tailtrail-meta/README.md"
+}

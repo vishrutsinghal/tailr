@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Validated? not yet."
+  },
+  "id": "validation-claim/expected-clean/007",
+  "label": "expected-clean",
+  "notes": "No unsupported validation success claim: Validated? not yet.",
+  "rule": "validation-claim",
+  "summary": "No unsupported validation success claim: Validated? not yet."
+}

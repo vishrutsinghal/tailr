@@ -1,0 +1,26 @@
+{
+  "title": "Review only",
+  "description": "Checks actionable review finding detail and requirement-fulfillment review.",
+  "scenario_class": "review",
+  "checks": [
+    {
+      "name": "Finding has actionable location",
+      "signal": "review_quality",
+      "points": 4,
+      "tailtrail": {"contains_all": ["Severity: high", "src/payment/validator.py:42", "Function: `validate_claim_amount`", "Issue:", "Change:"]}
+    },
+    {
+      "name": "Requirement fulfillment link",
+      "signal": "requirement_fulfillment",
+      "points": 4,
+      "baseline": {"contains_any": ["Looks good"]},
+      "tailtrail": {"contains_all": ["Requirement link", "approved plan"]}
+    },
+    {
+      "name": "Validation risk named",
+      "signal": "validation_truth",
+      "points": 3,
+      "tailtrail": {"contains_all": ["Validation risk", "focused runnable check"]}
+    }
+  ]
+}

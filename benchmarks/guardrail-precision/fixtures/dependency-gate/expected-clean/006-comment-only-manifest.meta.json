@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "No package addition"
+  },
+  "id": "dependency-gate/expected-clean/006",
+  "label": "expected-clean",
+  "notes": "Near-miss dependency fixture with approval evidence",
+  "rule": "dependency-gate",
+  "summary": "Near-miss dependency fixture with approval evidence"
+}

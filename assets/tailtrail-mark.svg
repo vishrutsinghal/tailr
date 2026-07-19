@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">TailTrail mark</title>
+  <desc id="desc">A compact TailTrail mark showing a clean trail path inside a rounded square.</desc>
+  <rect width="256" height="256" rx="44" fill="#102034"/>
+  <path d="M54 168c30 0 34-30 59-30h29c20 0 36-16 36-36s-16-36-36-36h-22" fill="none" stroke="#7dd3fc" stroke-width="18" stroke-linecap="round"/>
+  <path d="M83 188h74c22 0 40-18 40-40v-7" fill="none" stroke="#f8fafc" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="62" cy="168" r="17" fill="#facc15"/>
+  <circle cx="120" cy="66" r="14" fill="#34d399"/>
+  <path d="M117 66h-17" stroke="#34d399" stroke-width="14" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,6 @@
+.tailtrail/learning-events.jsonl
+.tailtrail/outcome-events.jsonl
+.tailtrail/token-usage-events.jsonl
+.tailtrail/value-report.md
+__pycache__/
+*.pyc

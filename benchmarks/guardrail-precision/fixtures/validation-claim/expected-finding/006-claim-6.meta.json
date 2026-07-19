@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Lint passed."
+  },
+  "id": "validation-claim/expected-finding/006",
+  "label": "expected-finding",
+  "notes": "Validation success claim without evidence: Lint passed.",
+  "rule": "validation-claim",
+  "summary": "Validation success claim without evidence: Lint passed."
+}

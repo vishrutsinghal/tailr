@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "safeguard-removal/expected-finding/008",
+  "label": "expected-finding",
+  "notes": "Removes safeguard-like call from src/repo.cs",
+  "rule": "safeguard-removal",
+  "summary": "Removes safeguard-like call from src/repo.cs"
+}

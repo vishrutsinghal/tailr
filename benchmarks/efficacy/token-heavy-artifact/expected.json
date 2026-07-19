@@ -1,0 +1,32 @@
+{
+  "title": "Token-heavy artifact",
+  "description": "Checks Token Harness routing, reducer safety, and bridge claim boundaries.",
+  "scenario_class": "token-heavy",
+  "checks": [
+    {
+      "name": "Routes as reduce-safe log",
+      "signal": "token_harness",
+      "points": 4,
+      "tailtrail": {"contains_all": ["Content type: `log`", "Exactness: `reduce-safe`", "failure-focused-summary"]}
+    },
+    {
+      "name": "Preserves critical log evidence",
+      "signal": "exactness",
+      "points": 4,
+      "tailtrail": {"contains_all": ["Exit code: `1`", "First failure", "Retrieval: `cat \"build.log\"`"]}
+    },
+    {
+      "name": "Bridge disabled by default",
+      "signal": "approval_gate",
+      "points": 3,
+      "tailtrail": {"contains_all": ["Token Harness Bridge plan", "Status: `disabled`", "Fallback: exact pass-through"]}
+    },
+    {
+      "name": "No exact savings overclaim",
+      "signal": "claim_boundary",
+      "points": 3,
+      "baseline": {"contains_any": ["exactly 80%"]},
+      "tailtrail": {"contains_all": ["estimated/local evidence only", "measured model/API telemetry"]}
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "safeguard-removal/expected-clean/002",
+  "label": "expected-clean",
+  "notes": "Near-miss removed comment or formatting in src/controller.ts",
+  "rule": "safeguard-removal",
+  "summary": "Near-miss removed comment or formatting in src/controller.ts"
+}

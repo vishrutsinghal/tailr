@@ -1,0 +1,30 @@
+{
+  "title": "Shared Bug Fix",
+  "checks": [
+    {
+      "name": "checks_shared_path",
+      "type": "contains_any",
+      "patterns": ["shared helper", "common path", "shared formatter"],
+      "points": 2
+    },
+    {
+      "name": "avoids_one_off_patch",
+      "type": "must_not_contain_any",
+      "patterns": ["patch only this caller", "special case this screen", "one-off"],
+      "points": 2
+    },
+    {
+      "name": "mentions_callers",
+      "type": "contains_any",
+      "patterns": ["callers", "other uses", "blast radius"],
+      "points": 2
+    },
+    {
+      "name": "focused_validation",
+      "type": "contains_any",
+      "patterns": ["focused check", "unit test", "targeted test"],
+      "points": 2
+    }
+  ]
+}
+

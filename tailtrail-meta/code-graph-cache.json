@@ -1,0 +1,4583 @@
+{
+  "schema_version": "1",
+  "created_at": "2026-07-16T09:46:53.239016+00:00",
+  "updated_at": "2026-07-16T09:46:53.239606+00:00",
+  "tailtrail_version": "local",
+  "root": "/Users/vsingha7/Documents/tailtrail",
+  "cache_key": "1634aad9b7a3e412c90de5f4b1dfe7b77f72024f32719cdbe17e851c320998cd",
+  "graph_mode": "sonar-vulnerability-review",
+  "scope": [
+    "README.md",
+    "TAILTRAIL-COMMANDS.md",
+    "USER-GUIDE.md",
+    "scripts/guardrail-check.py",
+    "scripts/install-copilot.py",
+    "scripts/install-local.py",
+    "scripts/setup-scan.py",
+    "templates/tailtrail-gitignore.md",
+    "tests/test_deterministic_tools.py"
+  ],
+  "task_tags": [
+    "review",
+    "sonar",
+    "vulnerability"
+  ],
+  "language_profiles": {
+    "python": {
+      "level": 2,
+      "files": 5
+    }
+  },
+  "source_files": {
+    "README.md": {
+      "sha256": "983a87bcc822efa0f6333acbee4424f15125910471ce0adbb75f1e7cb4966940",
+      "mtime": 1784194974,
+      "size": 31021
+    },
+    "TAILTRAIL-COMMANDS.md": {
+      "sha256": "09b380b10bdb955816b3dd5d0f30fca5309907bf0fba471c783a957ddd774857",
+      "mtime": 1784195002,
+      "size": 51348
+    },
+    "USER-GUIDE.md": {
+      "sha256": "d15d0ef31e1c7f5a038f76814b85f45597b4dec8b656a9f20de7ce73ced3a4de",
+      "mtime": 1784194983,
+      "size": 118248
+    },
+    "scripts/guardrail-check.py": {
+      "sha256": "8dcae11448d1e4317f2b73af1d3fd083e10747f01451715ff5df0c222d94bb06",
+      "mtime": 1784194941,
+      "size": 14882
+    },
+    "scripts/install-copilot.py": {
+      "sha256": "faec9ea18f6e51b1db18228543e9a1e0365ed4fa4a3fa24e1bf9d9f012a8ef49",
+      "mtime": 1784194889,
+      "size": 15490
+    },
+    "scripts/install-local.py": {
+      "sha256": "92bc711dd3ebf69e80b82eb4fb54aef7524e53d4d4cda969c72e905c178751bc",
+      "mtime": 1784195028,
+      "size": 11762
+    },
+    "scripts/setup-scan.py": {
+      "sha256": "c176800603ca9e841d50b30c619ebe124b94ec0579d118d9c441a952c2492f23",
+      "mtime": 1784195111,
+      "size": 17571
+    },
+    "templates/tailtrail-gitignore.md": {
+      "sha256": "2e6d73c077937f1010cf473916e5a27d92db0518a0a19bcf4a75a50f3024d50f",
+      "mtime": 1784194867,
+      "size": 2028
+    },
+    "tests/test_deterministic_tools.py": {
+      "sha256": "1f318bcd9ebb48b095c010bf4ad3ebaa20b48406775b092ba5d2095f3e7d1bbf",
+      "mtime": 1784195039,
+      "size": 54172
+    },
+    "scripts/test-precision.py": {
+      "sha256": "242944aa3afe662818c093364ff868510423a16eb72c6f0d4348f9b646f12862",
+      "mtime": 1784046668,
+      "size": 22931
+    },
+    "tests/test_navigator_core.py": {
+      "sha256": "a379bbbebc33ed3ff501b6836c984418df45e526f97f94695f2e81a5ea7eb878",
+      "mtime": 1784181771,
+      "size": 13723
+    },
+    "scripts/check-tailtrail.py": {
+      "sha256": "890f405bb51a54c2eda2ab0c2ec98fc79794793a9e44e39ce358b396d8fa9c34",
+      "mtime": 1784191893,
+      "size": 20063
+    },
+    "scripts/expand-intent.py": {
+      "sha256": "f1f05d58aa79280d20e713cfc1a6803ab6498778e863ea917e965a663ac04c6f",
+      "mtime": 1784112480,
+      "size": 33287
+    },
+    "scripts/harness-review.py": {
+      "sha256": "b0c859a242d94521cf1e200d6e0ff68a7835679dad99d6162a5108cccd446623",
+      "mtime": 1784191847,
+      "size": 40779
+    },
+    "scripts/navigator.py": {
+      "sha256": "b201227ce7e33c8b1d97d91b8bafa5a4fad6562574252cc876c6d7b3b9f6a77f",
+      "mtime": 1784181524,
+      "size": 56366
+    },
+    "scripts/navigator_core.py": {
+      "sha256": "7f329c35d8b2ded1aed945fbd1e694cfe512985f09f1b61b68ae5cf4c606391d",
+      "mtime": 1784172567,
+      "size": 13793
+    }
+  },
+  "watch_files": {},
+  "scanner_evidence": {},
+  "graph": {
+    "changed_files": [
+      "README.md",
+      "TAILTRAIL-COMMANDS.md",
+      "USER-GUIDE.md",
+      "scripts/guardrail-check.py",
+      "scripts/install-copilot.py",
+      "scripts/install-local.py",
+      "scripts/setup-scan.py",
+      "templates/tailtrail-gitignore.md",
+      "tests/test_deterministic_tools.py"
+    ],
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "DiffLine",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 173,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "class",
+        "name": "Finding",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 181,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run_git",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 194,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "staged_diff",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 198,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "staged_files",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 205,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read_text",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 212,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "parse_diff",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 219,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_dependency_file",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 255,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "looks_like_dependency_addition",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 259,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "dependency_gate_present",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 268,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "check_dependency_gate",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 272,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "check_safeguard_removal",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 295,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_tailtrail_source_checkout",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 323,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "local_state_path",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 327,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "check_local_state",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 336,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "check_validation_claims",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 355,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load_policy_notes",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 380,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "report",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 397,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "markdown",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 415,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "build_parser",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 448,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 459,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "as_dict",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 190,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "copy_file",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 118,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "pack_ignore",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 127,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "copy_dir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 134,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "pack_entries",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 144,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "sha256",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 158,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_manifest",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 162,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "validate_pack_dir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 196,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "copilot_body",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 205,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_copilot",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 286,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "gitignore_covers",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 295,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_gitignore",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 305,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 327,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "class",
+        "name": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 57,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "relative",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 65,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 72,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "validate_repo",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 86,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "inspect_payload",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 92,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "print_inspect",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 118,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "generic_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 141,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "copilot_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 148,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "aidlc_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 163,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "hooks_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 177,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "team_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 187,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "steps_for",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 203,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "gitignore_covers",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 224,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_local_gitignore",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 234,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "print_plan",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 251,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "apply_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 272,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 295,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "class",
+        "name": "Finding",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 174,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "now_utc",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 191,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run_git",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 195,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "relative",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 202,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "list_files",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 209,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_tailtrail_like",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 225,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "matches_any",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 233,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_tailtrail_source_checkout",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 237,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "classify",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 241,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "gitignore_missing",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 306,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "gitignore_covers",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 326,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "detect_pack",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 336,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "build_report",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 348,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "markdown",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 408,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "display_category",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 463,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 477,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "as_dict",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 181,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load_script",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 16,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "class",
+        "name": "DeterministicToolTests",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 51,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_expand_intent_resolves_review_and_aidlc",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 52,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_guardrail_dependency_gate_detects_manifest_addition",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 60,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_guardrail_validation_claim_requires_evidence",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 73,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_policy_check_passes_example_shape",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 79,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_value_surface_summarizes_governance_outcomes",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 88,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_value_comparison_returns_numeric_deltas",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 131,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_learning_capture_records_fulfillment_and_requested_changes",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 158,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_release_export_filters_internal_public_files",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 203,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_release_export_writes_mode_markers",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 238,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_test_precision_plans_python_focused_validation",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 269,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_token_budget_coach_learns_from_approved_events",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 293,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_token_telemetry_manual_writes_normalized_measured_record",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 325,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_token_telemetry_import_openai_usage_blocks",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 358,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_token_telemetry_import_gemini_usage_metadata",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 399,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_install_launcher_creates_tailtrail_and_hello_alias",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 415,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_prompt_profile_chooses_security_for_vulnerability_work",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 434,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_context_receipt_captures_loaded_and_avoided_counts",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 442,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_token_savings_import_normalizes_measured_records",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 473,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_test_precision_uses_changed_python_test_file_without_pytest_manifest",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 503,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_test_precision_summarizes_existing_test_cases",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 518,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_test_precision_plans_java_maven_test_class",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 539,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_ast_v2_adds_semantic_metadata_without_external_provider",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 554,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_code_graph_mapper_adds_advanced_enterprise_metadata",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 593,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_code_graph_mapper_defaults_to_shared_cache_without_git_diff_overlay",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 634,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_tailtrail_install_hygiene_ignores_pack_but_allows_meta",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 648,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_install_local_writes_strict_gitignore_hygiene",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 662,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_setup_scan_classifies_install_files_local_and_meta_shareable",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 674,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_guardrail_flags_install_pack_but_allows_tailtrail_meta",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 688,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_harness_review_reads_local_artifacts_without_shared_metadata",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 699,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_harness_export_summary_is_allowlisted_and_sanitized",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 742,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_harness_shared_summary_writes_commit_friendly_jsonl",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 772,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_harness_shared_summary_rejects_private_looking_values",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 818,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_task_start_compact_output_surfaces_review_and_meta_harness",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 840,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_learning_governance_detects_stale_pattern_conflict",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 858,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_report_trend_aggregate_pr_and_filters",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 881,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_vulnerability_summary_parses_sarif_and_trivy_json",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 928,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_scanner_overlay_parses_grype_json_to_impacted_manifest",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 988,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_vulnerability_summary_redacts_evidence_and_limits_input_size",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 1013,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_scanner_overlay_normalizes_paths_and_filters_generic_related_tokens",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 1051,
+        "confidence": "python_ast"
+      }
+    ],
+    "references": [
+      {
+        "target": "tests/test_deterministic_tools.py",
+        "referring_file": "scripts/check-tailtrail.py",
+        "line": 260,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "user-guide.md",
+        "referring_file": "scripts/expand-intent.py",
+        "line": 39,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "readme.md",
+        "referring_file": "scripts/harness-review.py",
+        "line": 36,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "readme",
+        "referring_file": "scripts/navigator.py",
+        "line": 771,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "readme",
+        "referring_file": "scripts/navigator_core.py",
+        "line": 117,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "tailtrail-commands.md",
+        "referring_file": "scripts/quality-loop.py",
+        "line": 205,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "tailtrail-commands.md",
+        "referring_file": "scripts/release-check.py",
+        "line": 57,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "readme.md",
+        "referring_file": "scripts/route-context.py",
+        "line": 73,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "scripts/guardrail-check.py",
+        "referring_file": "scripts/tailtrail.py",
+        "line": 350,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "user-guide.md",
+        "referring_file": "scripts/task-start.py",
+        "line": 26,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "readme",
+        "referring_file": "scripts/test-precision.py",
+        "line": 311,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "scripts/install-copilot.py",
+        "referring_file": "scripts/update-copilot.py",
+        "line": 21,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "install_copilot",
+        "referring_file": "scripts/update-tailtrail.py",
+        "line": 30,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "tests/test_deterministic_tools.py",
+        "referring_file": "tailtrail-meta/code-graph-cache.json",
+        "line": 16,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "readme.md",
+        "referring_file": "templates/intent-overrides.json",
+        "line": 9,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      },
+      {
+        "target": "readme.md",
+        "referring_file": "tests/test_navigator_core.py",
+        "line": 60,
+        "reference_type": "text-or-import-token",
+        "confidence": "heuristic"
+      }
+    ],
+    "call_chains": [
+      {
+        "caller": "run_git",
+        "callee": "run",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 195,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "staged_diff",
+        "callee": "run_git",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 199,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "staged_diff",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 201,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "staged_files",
+        "callee": "run_git",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 206,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "staged_files",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 209,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "staged_files",
+        "callee": "splitlines",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 209,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "staged_files",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 209,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "read_text",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 214,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "read_text",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 216,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "compile",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 225,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "splitlines",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 227,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 228,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 233,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "match",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 236,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "int",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 238,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "int",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 239,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 243,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 244,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 231,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "group",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 238,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "group",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 239,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 243,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "DiffLine",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 244,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 246,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 247,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 249,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 246,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "parse_diff",
+        "callee": "DiffLine",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 247,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "is_dependency_file",
+        "callee": "Path",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 256,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "looks_like_dependency_addition",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 260,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "looks_like_dependency_addition",
+        "callee": "bool",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 265,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "looks_like_dependency_addition",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 261,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "looks_like_dependency_addition",
+        "callee": "search",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 265,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "dependency_gate_present",
+        "callee": "bool",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 269,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "dependency_gate_present",
+        "callee": "search",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 269,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "dependency_gate_present",
+        "callee": "join",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 269,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_dependency_gate",
+        "callee": "dependency_gate_present",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 273,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_dependency_gate",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 281,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_dependency_gate",
+        "callee": "looks_like_dependency_addition",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 279,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_dependency_gate",
+        "callee": "Finding",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 282,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_dependency_gate",
+        "callee": "is_dependency_file",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 277,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_dependency_gate",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 287,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_safeguard_removal",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 302,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_safeguard_removal",
+        "callee": "lower",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 303,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_safeguard_removal",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 309,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_safeguard_removal",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 304,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_safeguard_removal",
+        "callee": "Finding",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 310,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_safeguard_removal",
+        "callee": "Path",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 300,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "is_tailtrail_source_checkout",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 324,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "is_tailtrail_source_checkout",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 324,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "local_state_path",
+        "callee": "replace",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 328,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "local_state_path",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 329,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "local_state_path",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 333,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "local_state_path",
+        "callee": "is_tailtrail_source_checkout",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 331,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "local_state_path",
+        "callee": "search",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 333,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_local_state",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 341,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_local_state",
+        "callee": "local_state_path",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 339,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_local_state",
+        "callee": "Finding",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 342,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "bool",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 360,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "enumerate",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 361,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 358,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "search",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 360,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "splitlines",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 361,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 366,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "search",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 362,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "Finding",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 367,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "check_validation_claims",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 372,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "get",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 389,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "isinstance",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 390,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 383,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "loads",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 386,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "get",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 391,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "isinstance",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 392,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 386,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 393,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "load_policy_notes",
+        "callee": "str",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 393,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "report",
+        "callee": "sum",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 398,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "report",
+        "callee": "len",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 403,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "report",
+        "callee": "as_dict",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 405,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "markdown",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 443,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "markdown",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 444,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "markdown",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 442,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "markdown",
+        "callee": "join",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 445,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "markdown",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 429,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "ArgumentParser",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 449,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 450,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 451,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 452,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 453,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 454,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 455,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "build_parser",
+        "callee": "cwd",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 450,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "parse_args",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 460,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "resolve",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 461,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "parse_diff",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 468,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "sorted",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 469,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 478,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 479,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 480,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 481,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "report",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 483,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 463,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "staged_diff",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 466,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "staged_files",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 467,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "set",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 469,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 472,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 474,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "check_dependency_gate",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 478,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "check_safeguard_removal",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 479,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "check_local_state",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 480,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "check_validation_claims",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 481,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 485,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 487,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "build_parser",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 460,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "load_policy_notes",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 475,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "dumps",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 485,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "markdown",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 487,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 472,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 472,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 474,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 474,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "as_dict",
+        "callee": "copy",
+        "language": "python",
+        "file": "scripts/guardrail-check.py",
+        "line": 191,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_file",
+        "callee": "mkdir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 122,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_file",
+        "callee": "copy2",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 123,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_file",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 124,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_file",
+        "callee": "exists",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 119,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_file",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 120,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_file",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 124,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_file",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 120,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_ignore",
+        "callee": "intersection",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 128,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_ignore",
+        "callee": "update",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 130,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_ignore",
+        "callee": "Path",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 129,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_ignore",
+        "callee": "Path",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 129,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_ignore",
+        "callee": "endswith",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 130,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "exists",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 138,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "copytree",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 140,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 141,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "exists",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 135,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 136,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "rmtree",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 139,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 141,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copy_dir",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 136,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 146,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "extend",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 154,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "sorted",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 155,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "sorted",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 149,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "rglob",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 149,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 150,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 153,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 153,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "pack_entries",
+        "callee": "relative_to",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 153,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "sha256",
+        "callee": "hexdigest",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 159,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "sha256",
+        "callee": "sha256",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 159,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "sha256",
+        "callee": "read_bytes",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 159,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "write_text",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 192,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 193,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 163,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 166,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "hexdigest",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 174,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 179,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "isoformat",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 181,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 193,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "sha256",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 169,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "pack_entries",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 171,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "dumps",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 192,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "sha256",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 174,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "now",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 181,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "encode",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 174,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 186,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "copilot_body",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 174,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_manifest",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 186,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_pack_dir",
+        "callee": "Path",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 197,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_pack_dir",
+        "callee": "is_absolute",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 198,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_pack_dir",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 200,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_pack_dir",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 199,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_pack_dir",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 201,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_body",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 206,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_body",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 210,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_body",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 216,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_body",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 217,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "mkdir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 290,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "write_text",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 291,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 292,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "exists",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 287,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 288,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "copilot_body",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 291,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 292,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_copilot",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 288,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_covers",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 298,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_covers",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 300,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "list",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 309,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "mkdir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 322,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "write_text",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 323,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 324,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "exists",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 307,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "splitlines",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 307,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 308,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 311,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 314,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 324,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 310,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 314,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "rstrip",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 323,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 307,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 308,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "gitignore_covers",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 312,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 308,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "rstrip",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 311,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "join",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 323,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "lstrip",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 308,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_gitignore",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 311,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "ArgumentParser",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 328,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 329,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 330,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 331,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 332,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 333,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "parse_args",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 334,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "resolve",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 336,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "write_copilot",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 342,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 362,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 373,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "validate_pack_dir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 337,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "write_manifest",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 357,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "write_gitignore",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 360,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 364,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 366,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 370,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "cwd",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 329,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "copy_file",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 352,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "copy_dir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 354,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "copy_file",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 356,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 368,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 372,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "resolve",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 364,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "relative",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 67,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "relative",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 69,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "relative",
+        "callee": "relative_to",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 67,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "run",
+        "callee": "run",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 73,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "run",
+        "callee": "write",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 81,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "run",
+        "callee": "write",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 82,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_repo",
+        "callee": "run",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 87,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_repo",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 89,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "validate_repo",
+        "callee": "str",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 87,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "inspect_payload",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 95,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "inspect_payload",
+        "callee": "list",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 96,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "inspect_payload",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 119,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 120,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 121,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 122,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 123,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 124,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 127,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 128,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 131,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 132,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 135,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 136,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 126,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 130,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 134,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_inspect",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 138,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "generic_steps",
+        "callee": "exists",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 143,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "generic_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 145,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "generic_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 144,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_steps",
+        "callee": "str",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 151,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_steps",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 153,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_steps",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 159,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "copilot_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 160,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "aidlc_steps",
+        "callee": "str",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 166,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "aidlc_steps",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 168,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "aidlc_steps",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 173,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "aidlc_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 174,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "hooks_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 180,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "hooks_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 181,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "hooks_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 182,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "hooks_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 183,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "hooks_steps",
+        "callee": "relative",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 181,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "hooks_steps",
+        "callee": "relative",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 182,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "hooks_steps",
+        "callee": "relative",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 183,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "team_steps",
+        "callee": "str",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 190,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "team_steps",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 192,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "team_steps",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 199,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "team_steps",
+        "callee": "Step",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 200,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 221,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "generic_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 207,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "copilot_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 209,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "aidlc_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 211,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "hooks_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 213,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "copilot_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 216,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "aidlc_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 217,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "team_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 218,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "steps_for",
+        "callee": "hooks_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 219,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_covers",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 227,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_covers",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 229,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "write_text",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 247,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "exists",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 236,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "splitlines",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 236,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 237,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "rstrip",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 247,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 236,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 237,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "gitignore_covers",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 238,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 237,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "join",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 247,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "write_local_gitignore",
+        "callee": "lstrip",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 237,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 252,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 253,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 254,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 255,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 259,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 269,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 257,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 262,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 264,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 266,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 268,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "print_plan",
+        "callee": "join",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 264,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "write_local_gitignore",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 290,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 291,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "mkdir",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 281,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "copy2",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 282,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 283,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 280,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "run",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 287,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 286,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "apply_steps",
+        "callee": "relative",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 283,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "ArgumentParser",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 296,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 297,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 298,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 299,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 300,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 301,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 302,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 303,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 304,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "add_argument",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 305,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "parse_args",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 306,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "validate_repo",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 308,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "resolve",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 321,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "steps_for",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 322,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print_plan",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 323,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "flush",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 324,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "apply_steps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 325,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "SystemExit",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 319,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 327,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 313,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "print_inspect",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 315,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "dumps",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 313,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "main",
+        "callee": "inspect_payload",
+        "language": "python",
+        "file": "scripts/install-local.py",
+        "line": 313,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "now_utc",
+        "callee": "isoformat",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 192,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "now_utc",
+        "callee": "replace",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 192,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "now_utc",
+        "callee": "now",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 192,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "run_git",
+        "callee": "run",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 196,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "run_git",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 199,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "run_git",
+        "callee": "splitlines",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 199,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "run_git",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 199,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "relative",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 204,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "relative",
+        "callee": "as_posix",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 206,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "relative",
+        "callee": "relative_to",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 204,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "set",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 210,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "set",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 214,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "rglob",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 215,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "run_git",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 210,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 216,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 218,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "sorted",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 222,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "sorted",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 212,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "relative",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 219,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "is_tailtrail_like",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 220,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "list_files",
+        "callee": "add",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 221,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "is_tailtrail_like",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 226,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "is_tailtrail_like",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 230,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "matches_any",
+        "callee": "any",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 234,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "matches_any",
+        "callee": "fnmatch",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 234,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "is_tailtrail_source_checkout",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 238,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "is_tailtrail_source_checkout",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 238,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "is_tailtrail_source_checkout",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 242,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 243,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 255,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "matches_any",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 285,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "is_tailtrail_like",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 297,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 261,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 261,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 267,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 291,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 291,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "classify",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 291,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "is_file",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 309,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 310,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "is_tailtrail_source_checkout",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 313,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "gitignore_covers",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 321,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "append",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 322,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "splitlines",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 310,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 315,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 316,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 318,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "strip",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 310,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "read_text",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 310,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "gitignore_missing",
+        "callee": "startswith",
+        "language": "python",
+        "file": "scripts/setup-scan.py",
+        "line": 310,
+        "confidence": "python_ast"
+      }
+    ],
+    "type_hierarchy": [
+      {
+        "type": "DeterministicToolTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_deterministic_tools.py",
+        "line": 51,
+        "confidence": "python_ast"
+      }
+    ],
+    "endpoints": [],
+    "db_tables": [],
+    "config_usage": [],
+    "service_edges": [
+      {
+        "source_file": "tests/test_deterministic_tools.py",
+        "line": 596,
+        "target": "root",
+        "path_hint": "",
+        "edge_type": "service-config",
+        "confidence": "heuristic"
+      }
+    ],
+    "partitions": [
+      {
+        "partition": "scripts",
+        "files": 66,
+        "languages": {
+          "python": 66
+        },
+        "manifests": [],
+        "tests": [
+          "scripts/smoke-test.py",
+          "scripts/test-precision.py"
+        ],
+        "release_paths": [],
+        "in_scope": true
+      },
+      {
+        "partition": "templates",
+        "files": 2,
+        "languages": {},
+        "manifests": [],
+        "tests": [],
+        "release_paths": [],
+        "in_scope": true
+      },
+      {
+        "partition": "tests",
+        "files": 4,
+        "languages": {
+          "python": 4
+        },
+        "manifests": [],
+        "tests": [
+          "tests/test_deterministic_tools.py",
+          "tests/test_navigator_core.py",
+          "tests/test_review_output.py",
+          "tests/test_review_scope.py"
+        ],
+        "release_paths": [],
+        "in_scope": true
+      },
+      {
+        "partition": ".codex-plugin",
+        "files": 1,
+        "languages": {},
+        "manifests": [],
+        "tests": [],
+        "release_paths": [],
+        "in_scope": false
+      },
+      {
+        "partition": ".github",
+        "files": 1,
+        "languages": {},
+        "manifests": [],
+        "tests": [],
+        "release_paths": [
+          ".github/workflows/tailtrail-ci.yml"
+        ],
+        "in_scope": false
+      },
+      {
+        "partition": "benchmarks",
+        "files": 6,
+        "languages": {},
+        "manifests": [],
+        "tests": [],
+        "release_paths": [],
+        "in_scope": false
+      },
+      {
+        "partition": "demo-project-layout",
+        "files": 8,
+        "languages": {
+          "python": 4,
+          "sql": 2
+        },
+        "manifests": [],
+        "tests": [
+          "demo-project-layout/tailtrail-demo-workspace/services/claims-api/tests/test_validation.py"
+        ],
+        "release_paths": [],
+        "in_scope": false
+      },
+      {
+        "partition": "hooks",
+        "files": 4,
+        "languages": {
+          "python": 4
+        },
+        "manifests": [],
+        "tests": [],
+        "release_paths": [],
+        "in_scope": false
+      },
+      {
+        "partition": "tailtrail-meta",
+        "files": 2,
+        "languages": {},
+        "manifests": [],
+        "tests": [],
+        "release_paths": [],
+        "in_scope": false
+      }
+    ],
+    "endpoint_service_table_flows": [],
+    "owner_test_release_map": {
+      "codeowners_found": false,
+      "mappings": [
+        {
+          "file": "README.md",
+          "partition": "README.md",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "TAILTRAIL-COMMANDS.md",
+          "partition": "TAILTRAIL-COMMANDS.md",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "USER-GUIDE.md",
+          "partition": "USER-GUIDE.md",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/guardrail-check.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/test-precision.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/install-copilot.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/test-precision.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/install-local.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/test-precision.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/setup-scan.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/test-precision.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "templates/tailtrail-gitignore.md",
+          "partition": "templates",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "tests/test_deterministic_tools.py",
+          "partition": "tests",
+          "owners": [],
+          "likely_tests": [
+            "tests/test_navigator_core.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        }
+      ],
+      "release_paths": [
+        ".github/workflows/tailtrail-ci.yml"
+      ]
+    },
+    "workspace_overlays": [],
+    "likely_callers": [
+      "scripts/check-tailtrail.py",
+      "scripts/expand-intent.py",
+      "scripts/harness-review.py",
+      "scripts/navigator.py",
+      "scripts/navigator_core.py",
+      "scripts/quality-loop.py",
+      "scripts/release-check.py",
+      "scripts/route-context.py",
+      "scripts/tailtrail.py",
+      "scripts/task-start.py",
+      "scripts/update-copilot.py",
+      "scripts/update-tailtrail.py",
+      "tailtrail-meta/code-graph-cache.json",
+      "templates/intent-overrides.json"
+    ],
+    "likely_tests": [
+      "scripts/test-precision.py",
+      "tests/test_navigator_core.py"
+    ],
+    "nearby_manifests": [],
+    "risk_tags": [],
+    "confidence": "high",
+    "suggested_read_order": [
+      "README.md",
+      "TAILTRAIL-COMMANDS.md",
+      "USER-GUIDE.md",
+      "scripts/guardrail-check.py",
+      "scripts/install-copilot.py",
+      "scripts/install-local.py",
+      "scripts/setup-scan.py",
+      "templates/tailtrail-gitignore.md",
+      "tests/test_deterministic_tools.py",
+      "scripts/test-precision.py",
+      "tests/test_navigator_core.py",
+      "scripts/check-tailtrail.py",
+      "scripts/expand-intent.py",
+      "scripts/harness-review.py",
+      "scripts/navigator.py",
+      "scripts/navigator_core.py"
+    ]
+  },
+  "freshness": {
+    "status": "fresh",
+    "checked_at": "2026-07-16T09:46:53.328108+00:00",
+    "reasons": []
+  }
+}

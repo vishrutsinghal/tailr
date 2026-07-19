@@ -1,0 +1,26 @@
+{
+  "title": "Cross-file feature change",
+  "description": "Checks Navigator path selection and scoped feature planning.",
+  "scenario_class": "feature",
+  "checks": [
+    {
+      "name": "Navigator plan is scoped",
+      "signal": "navigator",
+      "points": 4,
+      "baseline": {"contains_any": ["filtering framework", "AIDLC was loaded"]},
+      "tailtrail": {"contains_all": ["Navigator plan", "AIDLC: skipped", "small scoped endpoint/service/test change"]}
+    },
+    {
+      "name": "Likely impacted files are focused",
+      "signal": "graph",
+      "points": 4,
+      "tailtrail": {"contains_all": ["src/account/controller.py", "src/account/service.py", "tests/test_account_api.py"], "must_not_contain_any": ["filter_framework.py", "query_builder.py"]}
+    },
+    {
+      "name": "Requirement fulfillment review",
+      "signal": "requirement_fulfillment",
+      "points": 3,
+      "tailtrail": {"contains_all": ["Requirement-fulfillment review", "active/inactive", "default no-filter behavior"]}
+    }
+  ]
+}

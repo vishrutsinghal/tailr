@@ -1,0 +1,6 @@
+diff --git a/benchmarks/results/.gitkeep b/benchmarks/results/.gitkeep
+--- a/benchmarks/results/.gitkeep
++++ b/benchmarks/results/.gitkeep
+@@ -1 +1,2 @@
+ old
++new

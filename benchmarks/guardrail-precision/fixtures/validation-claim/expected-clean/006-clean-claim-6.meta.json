@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Testing pending."
+  },
+  "id": "validation-claim/expected-clean/006",
+  "label": "expected-clean",
+  "notes": "No unsupported validation success claim: Testing pending.",
+  "rule": "validation-claim",
+  "summary": "No unsupported validation success claim: Testing pending."
+}

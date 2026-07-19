@@ -1,0 +1,6 @@
+diff --git a/tailtrail-meta/harness-summary.schema.json b/tailtrail-meta/harness-summary.schema.json
+--- a/tailtrail-meta/harness-summary.schema.json
++++ b/tailtrail-meta/harness-summary.schema.json
+@@ -1 +1,2 @@
+ old
++new

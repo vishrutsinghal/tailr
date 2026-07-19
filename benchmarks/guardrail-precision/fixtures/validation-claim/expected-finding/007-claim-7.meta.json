@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Deployed successfully."
+  },
+  "id": "validation-claim/expected-finding/007",
+  "label": "expected-finding",
+  "notes": "Validation success claim without evidence: Deployed successfully.",
+  "rule": "validation-claim",
+  "summary": "Validation success claim without evidence: Deployed successfully."
+}

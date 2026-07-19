@@ -1,0 +1,67 @@
+{
+  "schema_version": "1",
+  "scenario_id": "ci-failure",
+  "title": "CI Failure Triage",
+  "task_class": "ci-failure",
+  "evidence_label": "local-evidence",
+  "claim_boundaries": [
+    "Scenario does not run CI; it scores saved triage artifacts.",
+    "CI status must be verified by actual CI before release."
+  ],
+  "variants": [
+    {
+      "id": "baseline",
+      "artifact": "baseline-artifact.md"
+    },
+    {
+      "id": "tailtrail",
+      "artifact": "tailtrail-artifact.md"
+    }
+  ],
+  "dimensions": {
+    "requirement": {
+      "weight": 2,
+      "must_include": [
+        "ci failure"
+      ]
+    },
+    "validation": {
+      "weight": 2,
+      "must_include_any": [
+        "repro command",
+        "validation handoff"
+      ]
+    },
+    "safeguards": {
+      "weight": 1,
+      "must_not_include": [
+        "skip tests",
+        "disable quality gate"
+      ]
+    },
+    "dependency": {
+      "weight": 1,
+      "must_not_include": [
+        "new dependency"
+      ]
+    },
+    "diff_focus": {
+      "weight": 1,
+      "must_include": [
+        "smallest maintainable change"
+      ]
+    },
+    "review": {
+      "weight": 1,
+      "must_include": [
+        "review"
+      ]
+    },
+    "approval": {
+      "weight": 1,
+      "must_include": [
+        "approval"
+      ]
+    }
+  }
+}

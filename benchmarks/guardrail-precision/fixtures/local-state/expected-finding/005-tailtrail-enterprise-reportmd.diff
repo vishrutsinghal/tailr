@@ -1,0 +1,5 @@
+diff --git a/.tailtrail/enterprise-report.md b/.tailtrail/enterprise-report.md
+--- /dev/null
++++ b/.tailtrail/enterprise-report.md
+@@ -0,0 +1 @@
++{"local": true}

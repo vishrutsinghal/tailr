@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Verified behavior."
+  },
+  "id": "validation-claim/expected-finding/005",
+  "label": "expected-finding",
+  "notes": "Validation success claim without evidence: Verified behavior.",
+  "rule": "validation-claim",
+  "summary": "Validation success claim without evidence: Verified behavior."
+}

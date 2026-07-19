@@ -1,0 +1,9 @@
+{
+  "claim_id": "required",
+  "member_id": "required",
+  "claim_type": ["medical", "dental", "vision"],
+  "amount": {
+    "minimum_exclusive": 0,
+    "maximum_inclusive": 50000
+  }
+}

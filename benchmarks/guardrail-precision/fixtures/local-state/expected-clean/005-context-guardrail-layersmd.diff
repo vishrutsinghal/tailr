@@ -1,0 +1,6 @@
+diff --git a/context/guardrail-layers.md b/context/guardrail-layers.md
+--- a/context/guardrail-layers.md
++++ b/context/guardrail-layers.md
+@@ -1 +1,2 @@
+ old
++new

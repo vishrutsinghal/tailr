@@ -1,0 +1,10 @@
+{
+  "extra_texts": {
+    "commit_message": "Unit tests passed."
+  },
+  "id": "validation-claim/expected-finding/008",
+  "label": "expected-finding",
+  "notes": "Validation success claim without evidence: Unit tests passed.",
+  "rule": "validation-claim",
+  "summary": "Validation success claim without evidence: Unit tests passed."
+}

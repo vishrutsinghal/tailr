@@ -1,0 +1,8 @@
+{
+  "extra_texts": {},
+  "id": "safeguard-removal/expected-finding/003",
+  "label": "expected-finding",
+  "notes": "Removes safeguard-like call from src/access.java",
+  "rule": "safeguard-removal",
+  "summary": "Removes safeguard-like call from src/access.java"
+}

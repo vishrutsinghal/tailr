@@ -1,0 +1,5 @@
+diff --git a/.tailtrail/token-router-state.json b/.tailtrail/token-router-state.json
+--- /dev/null
++++ b/.tailtrail/token-router-state.json
+@@ -0,0 +1 @@
++{"local": true}
