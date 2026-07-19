@@ -1,0 +1,40 @@
+{
+  "provider": "pyright",
+  "language": "python",
+  "symbols": [
+    {
+      "name": "validate_claim_amount",
+      "kind": "function",
+      "file": "src/claims_api/validation.py",
+      "line": 9
+    },
+    {
+      "name": "validate_claim",
+      "kind": "function",
+      "file": "src/claims_api/validation.py",
+      "line": 14
+    }
+  ],
+  "calls": [
+    {
+      "caller": "validate_claim",
+      "callee": "validate_claim_amount",
+      "file": "src/claims_api/validation.py",
+      "line": 21
+    },
+    {
+      "caller": "accept_claim",
+      "callee": "validate_claim",
+      "file": "src/claims_api/service.py",
+      "line": 8
+    }
+  ],
+  "references": [
+    {
+      "symbol": "validate_claim_amount",
+      "file": "tests/test_claim_validation.py",
+      "line": 27
+    }
+  ]
+}
+

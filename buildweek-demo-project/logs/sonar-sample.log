@@ -1,0 +1,12 @@
+Issue: python:S1244
+Severity: MAJOR
+File: src/claims_api/validation.py
+Line: 10
+Message: Use explicit boundary checks for validation logic.
+
+Issue: python:S112
+Severity: INFO
+File: src/claims_api/validation.py
+Line: 7
+Message: Custom exception is acceptable here because it preserves domain semantics.
+
