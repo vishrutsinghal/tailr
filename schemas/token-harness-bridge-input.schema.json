@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Token Harness Bridge Input",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "type",
+    "content_type",
+    "exactness_class",
+    "strategy",
+    "allowed_reductions",
+    "blocked_reductions",
+    "preserve",
+    "retrieval",
+    "input"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "type": {
+      "const": "tailtrail-token-harness-bridge-input"
+    },
+    "content_type": {
+      "enum": [
+        "log",
+        "documentation",
+        "scanner-output",
+        "json",
+        "tool-output"
+      ]
+    },
+    "exactness_class": {
+      "enum": [
+        "reduce-safe",
+        "summary-safe",
+        "structure-exact"
+      ]
+    },
+    "strategy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowed_reductions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_reductions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "preserve": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "retrieval": {
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "input": {
+      "type": "object",
+      "required": [
+        "kind",
+        "path",
+        "text"
+      ],
+      "properties": {
+        "kind": {
+          "const": "path"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sample_truncated": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

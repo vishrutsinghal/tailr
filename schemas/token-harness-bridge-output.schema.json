@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Token Harness Bridge Output",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "type",
+    "status",
+    "content_type",
+    "exactness_class",
+    "strategy",
+    "preserved",
+    "blocked_reductions_honored",
+    "text",
+    "retrieval",
+    "adapter"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "type": {
+      "const": "tailtrail-token-harness-bridge-output"
+    },
+    "status": {
+      "const": "compressed"
+    },
+    "content_type": {
+      "enum": [
+        "log",
+        "documentation",
+        "scanner-output",
+        "json",
+        "tool-output"
+      ]
+    },
+    "exactness_class": {
+      "enum": [
+        "reduce-safe",
+        "summary-safe",
+        "structure-exact"
+      ]
+    },
+    "strategy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "preserved": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_reductions_honored": {
+      "const": true
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retrieval": {
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "adapter": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

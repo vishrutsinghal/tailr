@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/evaluation-harness-event.schema.json",
+  "title": "TailTrail Evaluation Harness Event",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_id",
+    "created_at",
+    "source_feature",
+    "task_class",
+    "scores",
+    "claim_boundaries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_feature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_class": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scores": {
+      "type": "object"
+    },
+    "claim_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_label": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "root": {
+      "type": "string"
+    },
+    "scenario_id": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "string"
+    },
+    "month": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

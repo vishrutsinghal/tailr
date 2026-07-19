@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tailtrail"
+version = "0.6.0"
+description = "Local-first development guidance for smaller, evidence-backed coding workflows."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "TailTrail" }]
+dependencies = []
+
+[project.scripts]
+tailtrail = "tailtrail_cli:main"
+
+[tool.setuptools]
+py-modules = ["tailtrail_cli"]
+include-package-data = true
+
+[tool.setuptools.package-data]
