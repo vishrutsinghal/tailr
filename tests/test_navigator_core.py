@@ -113,6 +113,23 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("The report labels this input as: `provider-backed`.", rendered)
         self.assertNotIn("## Provider Outputs", rendered)
 
+    def test_semantic_v2_markdown_matches_the_compact_evidence_pattern(self) -> None:
+        report = {
+            "depth": "v2",
+            "references": [{"symbol": "validate_claim_amount", "file": "tests/test_claim_validation.py", "line": 27, "confidence": "heuristic"}],
+            "call_hints": [{"caller": "accept_claim", "callee": "validate_claim", "file": "src/claims_api/service.py", "line": 8, "confidence": "local-ast"}],
+            "evidence_summary": {"heuristic": 14, "local-ast": 24, "provider-backed": 0, "measured/validated": 0},
+        }
+
+        rendered = ast_map.markdown(report)
+
+        self.assertIn("# TailTrail Semantic V2", rendered)
+        self.assertIn("| Evidence type | Count | Meaning |", rendered)
+        self.assertIn("| `provider-backed` | `0` | Not used in Semantic V2 |", rendered)
+        self.assertIn("## Local semantic additions include:", rendered)
+        self.assertIn("`validate_claim` call hint in `src/claims_api/service.py:8` [`local-ast`]", rendered)
+        self.assertIn("The report labels this input as: `local-ast` and `heuristic`.", rendered)
+
     def test_cross_repo_reference_parses_labeled_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

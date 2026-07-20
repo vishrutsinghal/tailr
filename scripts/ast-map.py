@@ -1061,9 +1061,46 @@ def semantic_v3_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def semantic_v2_markdown(report: dict[str, Any]) -> str:
+    """Render V2 with the same compact evidence pattern as the V3 demo."""
+    def evidence(item: dict[str, Any]) -> str:
+        return str(item.get("evidence_label") or evidence_label_for_confidence(item.get("confidence")))
+
+    summary = report.get("evidence_summary", {})
+    meanings = {
+        "local-ast": "Parsed from the local source tree",
+        "heuristic": "Local pattern-based hints",
+        "provider-backed": "Not used in Semantic V2",
+        "measured/validated": "No measured validation evidence",
+    }
+    lines = [
+        "# TailTrail Semantic V2",
+        "",
+        "Ran using only local source analysis.",
+        "No external provider, network call, language server, scanner, or model API was run.",
+        "",
+        "## Evidence labels",
+        "",
+        "| Evidence type | Count | Meaning |",
+        "| --- | ---: | --- |",
+    ]
+    lines.extend(f"| `{label}` | `{summary.get(label, 0)}` | {meanings[label]} |" for label in ("local-ast", "heuristic", "provider-backed", "measured/validated"))
+    lines.extend(["", "## Local semantic additions include:", ""])
+    additions: list[str] = []
+    for item in report.get("references", []):
+        additions.append(f"`{item.get('symbol')}` reference in `{item.get('file')}:{item.get('line')}` [`{evidence(item)}`]")
+    for item in report.get("call_hints", []):
+        additions.append(f"`{item.get('callee')}` call hint in `{item.get('file')}:{item.get('line')}` [`{evidence(item)}`]")
+    lines.extend(f"- {item}" for item in list(dict.fromkeys(additions))[:8] or ["none detected"])
+    lines.extend(["", "The report labels this input as: `local-ast` and `heuristic`."])
+    return "\n".join(lines) + "\n"
+
+
 def markdown(report: dict[str, Any]) -> str:
     if report.get("depth") == "v3":
         return semantic_v3_markdown(report)
+    if report.get("depth") == "v2":
+        return semantic_v2_markdown(report)
     lines = [
         "# TailTrail AST Map",
         "",
