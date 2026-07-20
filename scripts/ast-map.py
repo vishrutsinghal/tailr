@@ -1098,11 +1098,10 @@ def semantic_v3_markdown(report: dict[str, Any]) -> str:
         lines.append("| none detected | — | — | — |")
 
     summary = report.get("evidence_summary", {})
-    lines.extend([
-        "",
-        "**Evidence summary:** " + ", ".join(f"`{label}`: `{summary.get(label, 0)}`" for label in EVIDENCE_LABELS) + ".",
-        "Provider-backed metadata is advisory; exact source and focused tests remain the final proof.",
-    ])
+    lines.extend(["", "## Evidence totals", "", "| Evidence | Count |", "| --- | ---: |"])
+    lines.extend(f"| `{label}` | `{summary.get(label, 0)}` |" for label in EVIDENCE_LABELS)
+    lines.append("")
+    lines.append("Provider-backed metadata is advisory; exact source and focused tests remain the final proof.")
     return "\n".join(lines) + "\n"
 
 

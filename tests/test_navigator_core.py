@@ -110,6 +110,8 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("| `validate_claim_amount` | `src/claims_api/validation.py:9`", rendered)
         self.assertIn("| `tests/test_claim_validation.py` | `tests/test_claim_validation.py:27`", rendered)
         self.assertIn("| `src/claims_api/service.py` | `src/claims_api/service.py:8`", rendered)
+        self.assertIn("## Evidence totals", rendered)
+        self.assertIn("| `provider-backed` | `4` |", rendered)
         self.assertNotIn("## Provider Outputs", rendered)
 
     def test_cross_repo_reference_parses_labeled_paths(self) -> None:
