@@ -195,6 +195,8 @@ TEST_ADDITION_TERMS = (
     "add focused unit tests",
     "add validation test",
     "add validation tests",
+    "add focused validation",
+    "add validation coverage",
     "add test coverage",
 )
 

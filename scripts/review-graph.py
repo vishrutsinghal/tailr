@@ -236,7 +236,10 @@ def find_likely_callers(changed: Path, candidates: list[Path], root: Path, limit
     changed_tokens = tokens_for(changed, root)
     matches: list[dict[str, str]] = []
     for path in candidates:
-        if path == changed or looks_like_test(path):
+        # Markdown frequently repeats generic terms such as "validation". It is
+        # useful documentation, but it is not executable caller evidence for a
+        # code change and would otherwise crowd out the focused source/test plan.
+        if path == changed or looks_like_test(path) or path.suffix == ".md":
             continue
         body = read_text(path)
         if not body:

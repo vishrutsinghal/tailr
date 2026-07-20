@@ -36,6 +36,21 @@ TAILTRAIL_DISPATCH = {
 
 
 class CliDispatchTests(unittest.TestCase):
+    def test_start_without_a_goal_shows_feature_overview(self) -> None:
+        result = subprocess.run(
+            [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "start"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("# TailTrail Start", result.stdout)
+        self.assertIn("## Main Feature Groups", result.stdout)
+        self.assertIn("Navigator", result.stdout)
+        self.assertIn("Evaluation Harness", result.stdout)
+
     def test_hyphen_wrappers_delegate_to_importable_modules(self) -> None:
         for wrapper, module in WRAPPER_PAIRS.items():
             with self.subTest(wrapper=wrapper):

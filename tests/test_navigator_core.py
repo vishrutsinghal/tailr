@@ -27,6 +27,8 @@ def load_script_module(name: str, relative: str):
 
 
 task_start = load_script_module("tailtrail_task_start_test", "scripts/task-start.py")
+review_graph = load_script_module("tailtrail_review_graph_test", "scripts/review-graph.py")
+ast_map = load_script_module("tailtrail_ast_map_test", "scripts/ast-map.py")
 
 
 class NavigatorCoreTests(unittest.TestCase):
@@ -67,7 +69,48 @@ class NavigatorCoreTests(unittest.TestCase):
     def test_add_unit_tests_does_not_become_feature_task_by_itself(self) -> None:
         self.assertEqual(core.task_types("fix payment validation bug and add unit tests"), ["bug", "qa"])
         self.assertEqual(core.task_types("fix claim amount validation and add focused tests"), ["bug", "qa"])
+        self.assertEqual(core.task_types("fix the claim amount validation bug and add focused validation"), ["bug", "qa"])
         self.assertIn("feature", core.task_types("add payment approval feature and unit tests"))
+
+    def test_review_graph_excludes_markdown_from_code_caller_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src" / "claims_api").mkdir(parents=True)
+            (root / "tests").mkdir()
+            (root / "src" / "claims_api" / "validation.py").write_text("def valid(amount):\n    return amount > 0\n", encoding="utf-8")
+            (root / "tests" / "test_claim_validation.py").write_text("from claims_api.validation import valid\n", encoding="utf-8")
+            for name in ("AGENTS.md", "BUILDWEEK-SUBMISSION.md", "DEMO-PROMPTS.md"):
+                (root / name).write_text("Validation demo guidance.\n", encoding="utf-8")
+
+            report = review_graph.graph(root, ["src/claims_api/validation.py"], limit=5)
+
+        self.assertEqual(
+            report["suggested_read_order"],
+            ["src/claims_api/validation.py", "tests/test_claim_validation.py"],
+        )
+
+    def test_semantic_v3_markdown_uses_a_provenance_table(self) -> None:
+        report = {
+            "depth": "v3",
+            "scope": ["src/claims_api/validation.py"],
+            "symbols": [
+                {"name": "validate_claim_amount", "file": "src/claims_api/validation.py", "line": 9, "confidence": "provider-backed"},
+                {"name": "validate_claim", "file": "src/claims_api/validation.py", "line": 14, "confidence": "provider-backed"},
+            ],
+            "references": [{"symbol": "validate_claim_amount", "file": "tests/test_claim_validation.py", "line": 27, "confidence": "provider-backed"}],
+            "call_hints": [{"caller": "accept_claim", "callee": "validate_claim", "file": "src/claims_api/service.py", "line": 8, "confidence": "provider-backed"}],
+            "semantic": {"provider_outputs": [{"path": "tailtrail-meta/providers/sample-semantic.json"}]},
+            "evidence_summary": {"heuristic": 0, "local-ast": 2, "provider-backed": 4, "measured/validated": 0},
+        }
+
+        rendered = ast_map.markdown(report)
+
+        self.assertIn("# TailTrail Code Graph — Semantic V3", rendered)
+        self.assertIn("| Symbol | Location | Likely impact | Evidence |", rendered)
+        self.assertIn("| `validate_claim_amount` | `src/claims_api/validation.py:9`", rendered)
+        self.assertIn("| `tests/test_claim_validation.py` | `tests/test_claim_validation.py:27`", rendered)
+        self.assertIn("| `src/claims_api/service.py` | `src/claims_api/service.py:8`", rendered)
+        self.assertNotIn("## Provider Outputs", rendered)
 
     def test_cross_repo_reference_parses_labeled_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -128,6 +171,10 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertNotIn("Test Precision Planner", skipped)
         self.assertIn("test_precision", report["recommended_workflow"])
         self.assertNotIn("aidlc", report["recommended_workflow"])
+        self.assertEqual(
+            report["recommended_workflow"],
+            ["implementation", "qa_review", "test_precision", "review"],
+        )
         self.assertIn("tailtrail test plan", commands)
         self.assertIn("--root", commands)
         self.assertIn("--goal", commands)

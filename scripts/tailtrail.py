@@ -405,10 +405,36 @@ def guide(args: list[str]) -> int:
     return run_script("navigator.py", [*args, "--command-prefix", invocation()])
 
 
+def print_start_overview() -> None:
+    print("# TailTrail Start")
+    print()
+    print("TailTrail turns a coding request into a focused, approval-first workflow.")
+    print()
+    print("## Main Feature Groups")
+    print()
+    print("- Navigator: plans the next safe step before implementation.")
+    print("- Code Graph: maps relevant symbols, callers, and focused tests.")
+    print("- Guardrails and policy: preserve validation, dependency, and safety rules.")
+    print("- AIDLC and review lenses: add structure for broad or risky work.")
+    print("- Test Precision, CI/Sonar, and security: guide focused validation when approved.")
+    print("- Token tools: keep context lean and label estimates honestly.")
+    print("- Learning, handoff, value reports, Meta-Harness, and Evaluation Harness: preserve useful evidence after work.")
+    print()
+    print("## Start A Task")
+    print()
+    print('tailtrail start "your goal" --changed path/to/file')
+    print()
+    print("Example:")
+    print('tailtrail start "fix the claim amount validation bug" --changed src/claims_api/validation.py --verbose')
+    print()
+    print("Start is plan-only. It does not edit code until you approve the plan.")
+
+
 def start(args: list[str]) -> int:
     if not args:
-        print('Usage: tailtrail start "your goal" [--changed path/to/file]')
-        return 2
+        print_startup_banner()
+        print_start_overview()
+        return 0
     if not quiet_enabled(args) and not json_output_requested(args):
         print_startup_banner()
     return run_script("task-start.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])

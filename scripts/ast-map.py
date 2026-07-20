@@ -1020,7 +1020,95 @@ def language_profiles(paths: list[Path]) -> dict[str, dict[str, int]]:
     return profiles
 
 
+def semantic_v3_markdown(report: dict[str, Any]) -> str:
+    """Render the V3 demo path as a compact, provenance-first impact table."""
+    def evidence(item: dict[str, Any]) -> str:
+        return str(item.get("evidence_label") or evidence_label_for_confidence(item.get("confidence")))
+
+    def rank(item: dict[str, Any]) -> int:
+        return {"provider-backed": 2, "local-ast": 1}.get(evidence(item), 0)
+
+    symbols_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for item in report.get("symbols", []):
+        # Provider locations can differ by a line from the local parser. Treat
+        # the same named symbol in the same file as one row and prefer the
+        # provider-backed record when it exists.
+        key = (str(item.get("name", "")), str(item.get("file", "")))
+        current = symbols_by_key.get(key)
+        if current is None or rank(item) > rank(current):
+            symbols_by_key[key] = item
+    symbols = list(symbols_by_key.values())[:8]
+
+    references_by_symbol: dict[str, list[dict[str, Any]]] = {}
+    for item in report.get("references", []):
+        references_by_symbol.setdefault(str(item.get("symbol", "")), []).append(item)
+    calls_by_callee: dict[str, list[dict[str, Any]]] = {}
+    for item in report.get("call_hints", []):
+        calls_by_callee.setdefault(str(item.get("callee", "")), []).append(item)
+
+    scope = report.get("scope", [])
+    semantic = report.get("semantic", {})
+    providers = [str(item.get("path")) for item in semantic.get("provider_outputs", []) if item.get("path")]
+    evidence_source = ", ".join(f"`{item}`" for item in providers) or "approved local provider JSON"
+    lines = [
+        "# TailTrail Code Graph — Semantic V3",
+        "",
+        f"**Mapped file:** `{scope[0] if scope else 'none'}`",
+        f"**Evidence:** local AST + {evidence_source}; no external providers were run.",
+        "",
+        "| Symbol | Location | Likely impact | Evidence |",
+        "| --- | --- | --- | --- |",
+    ]
+    for item in symbols:
+        name = str(item.get("name", "unknown"))
+        location = f"`{item.get('file')}:{item.get('line')}`"
+        references = references_by_symbol.get(name, [])
+        calls = calls_by_callee.get(name, [])
+        if references:
+            impact_text = f"Referenced by `{references[0].get('file')}:{references[0].get('line')}`"
+        elif calls:
+            impact_text = f"Called by `{calls[0].get('caller')}`"
+        else:
+            impact_text = "Defined in the mapped validation path"
+        lines.append(f"| `{name}` | {location} | {impact_text} | `{evidence(item)}` |")
+    if not symbols:
+        lines.append("| none detected | — | — | — |")
+
+    areas: list[tuple[str, str, str, str]] = []
+    seen_areas: set[tuple[str, str, str]] = set()
+    for item in [*report.get("references", []), *report.get("call_hints", [])]:
+        file = str(item.get("file", ""))
+        line = str(item.get("line", "?"))
+        if not file:
+            continue
+        is_call = "callee" in item
+        relationship = (
+            f"`{item.get('caller')}` calls `{item.get('callee')}`"
+            if is_call
+            else f"References `{item.get('symbol')}`"
+        )
+        key = (file, line, relationship)
+        if key not in seen_areas:
+            seen_areas.add(key)
+            areas.append((file, line, relationship, evidence(item)))
+    lines.extend(["", "## Likely impacted areas", "", "| Area | Location | Relationship | Evidence |", "| --- | --- | --- | --- |"])
+    for file, line, relationship, label in areas[:8]:
+        lines.append(f"| `{file}` | `{file}:{line}` | {relationship} | `{label}` |")
+    if not areas:
+        lines.append("| none detected | — | — | — |")
+
+    summary = report.get("evidence_summary", {})
+    lines.extend([
+        "",
+        "**Evidence summary:** " + ", ".join(f"`{label}`: `{summary.get(label, 0)}`" for label in EVIDENCE_LABELS) + ".",
+        "Provider-backed metadata is advisory; exact source and focused tests remain the final proof.",
+    ])
+    return "\n".join(lines) + "\n"
+
+
 def markdown(report: dict[str, Any]) -> str:
+    if report.get("depth") == "v3":
+        return semantic_v3_markdown(report)
     lines = [
         "# TailTrail AST Map",
         "",

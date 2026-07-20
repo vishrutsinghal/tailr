@@ -8,6 +8,7 @@ import importlib.util
 import json
 import re
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,9 @@ import token_budget_coach
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PYTHON = "python3"
+# Reuse the interpreter that launched TailTrail. This keeps nested helper calls
+# working for Windows `py -3` installs as well as Unix `python3` installs.
+PYTHON = sys.executable
 
 
 def load_registry_module() -> Any | None:
@@ -1452,6 +1455,15 @@ def decide(goal: str, root: Path, changed_args: list[str], command_prefix: str) 
     else:
         if not workflow:
             workflow = ["implementation"]
+        elif "implementation" not in workflow:
+            # The workflow label is an execution path, not a list of planning
+            # lenses. A fix must visibly begin with the approved implementation.
+            workflow.insert(0, "implementation")
+        if "review" in workflow and ("qa_review" in workflow or "test_precision" in workflow):
+            # Review findings are most useful after the focused change and
+            # validation evidence exist, so display it as a post-change step.
+            workflow.remove("review")
+            workflow.append("review")
         implementation_plan = [
             "Review this Navigator plan and edit it if needed.",
             "If Code Graph Mapper is selected as missing, stale, or invalid, approve graph map or refresh before broad source reads.",
