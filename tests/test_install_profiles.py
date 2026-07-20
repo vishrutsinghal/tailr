@@ -26,6 +26,7 @@ def load_script(name: str):
 surfaces = load_script("install_surfaces.py")
 copilot = load_script("install-copilot.py")
 local = load_script("install-local.py")
+launcher = load_script("install-launcher.py")
 
 
 def run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -37,6 +38,14 @@ def relative_files(root: Path) -> set[str]:
 
 
 class InstallProfileTests(unittest.TestCase):
+    def test_windows_launcher_uses_cmd_shims(self):
+        bin_dir = Path("C:/TailTrail/bin")
+        self.assertEqual(launcher.command_destination(bin_dir, "tailtrail", windows=True), bin_dir / "tailtrail.cmd")
+        self.assertEqual(launcher.command_destination(bin_dir, "hello", windows=True), bin_dir / "hello.cmd")
+        self.assertIn("@echo off", launcher.launcher_body(windows=True))
+        self.assertIn("tailtrail.py", launcher.launcher_body(windows=True))
+        self.assertIn("hello %2", launcher.hello_alias_body(windows=True))
+
     def test_core_manifest_is_subset_of_extended_manifest(self):
         extended_files = set(copilot.PACK_FILES)
         extended_dirs = set(copilot.PACK_DIRS)
@@ -92,10 +101,7 @@ class InstallProfileTests(unittest.TestCase):
             self.assertEqual(steps[1].destination, target / ".codex-plugin")
             self.assertEqual(steps[2].action, "copytree")
             self.assertEqual(steps[2].destination, target / "skills")
-            self.assertEqual(steps[3].action, "run")
-            self.assertIn("--pack-only", steps[3].command or [])
-            self.assertIn("--surface", steps[3].command or [])
-            self.assertIn("extended", steps[3].command or [])
+            self.assertEqual(len(steps), 3)
 
     def test_core_omits_extended_only_files(self):
         core_files, core_dirs, core_scripts = surfaces.resolve("core", copilot.PACK_FILES, copilot.PACK_DIRS, copilot.PACK_SCRIPTS)

@@ -16,6 +16,12 @@ from install_surfaces import DEFAULT_SURFACE, SURFACES
 ROOT = Path(__file__).resolve().parents[1]
 
 PROFILES = ("inspect", "generic", "codex", "codex-plugin", "copilot", "aidlc", "hooks", "full")
+CODEX_PLUGIN_PAYLOAD = (
+    "AGENTS.md",
+    ".codex-plugin/plugin.json",
+    "skills/tailtrail/SKILL.md",
+    "skills/tailtrail-review/SKILL.md",
+)
 DEFERRED = [
     "Global Codex config writes are not implemented.",
     "Shell profile edits are not implemented.",
@@ -88,6 +94,12 @@ def validate_repo() -> None:
     code = run([sys.executable, str(ROOT / "scripts" / "check-tailtrail.py")], quiet=True)
     if code != 0:
         raise SystemExit(code)
+
+
+def validate_codex_plugin_payload() -> None:
+    missing = [path for path in CODEX_PLUGIN_PAYLOAD if not (ROOT / path).is_file()]
+    if missing:
+        raise SystemExit(f"TailTrail Codex plugin payload is incomplete: {', '.join(missing)}")
 
 
 def inspect_payload() -> dict[str, object]:
@@ -179,22 +191,6 @@ def codex_plugin_steps(target: Path, force: bool) -> list[Step]:
         steps.append(Step("skip", source=ROOT / "skills", destination=skills_destination, note="Skills directory already exists; use --force to merge/overwrite."))
     else:
         steps.append(Step("copytree", source=ROOT / "skills", destination=skills_destination, note="Install TailTrail Codex plugin skill sources."))
-
-    pack_command = [
-        sys.executable,
-        str(ROOT / "scripts" / "install-copilot.py"),
-        "--root",
-        target.as_posix(),
-        "--with-tailtrail-pack",
-        "--pack-only",
-        "--pack-dir",
-        "tailtrail",
-        "--surface",
-        "extended",
-    ]
-    if force:
-        pack_command.append("--force")
-    steps.append(Step("run", command=pack_command, note="Install the complete TailTrail managed pack for Codex."))
 
     return steps
 
@@ -379,9 +375,11 @@ def main() -> int:
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format for inspect mode.")
     args = parser.parse_args()
 
-    validate_repo()
-
     profile = "inspect" if args.inspect else args.profile
+    if profile in {"codex", "codex-plugin"}:
+        validate_codex_plugin_payload()
+    else:
+        validate_repo()
     if profile == "inspect":
         if args.format == "json":
             print(json.dumps(inspect_payload(), indent=2))
