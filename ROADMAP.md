@@ -615,6 +615,208 @@ Acceptance check:
 - Output remains explainable.
 - No vector DB, background service, or MCP adapter is added before a clear need exists.
 
+### V2.7.1: Harness Engineering — Guides, Sensors, And Self-Correction
+
+Goal: make TailTrail the outer quality harness around a coding agent. The
+harness should both raise the probability that the agent gets a change right on
+its first attempt and return fast, useful feedback so the agent can correct
+problems before they reach human review.
+
+Status: planned.
+
+This follows the coding-agent harness model described in Birgitta Böckeler's
+[Harness engineering for coding agent users](https://martinfowler.com/articles/harness-engineering.html): combine feedforward guides with feedback sensors, keep cheap quality checks left in the workflow, and use the results to improve both the current agent run and the harness itself.
+
+Detailed design, implementation phases, file plan, boundaries, and success
+criteria: [Harness Engineering](harness-engineering.md).
+
+Product definition:
+
+```text
+TailTrail Harness = guides that steer the agent before it acts
+                  + sensors that detect issues after it acts
+                  + a steering loop that turns findings into self-correction
+```
+
+The harness is not primarily an approval workflow or an agent runtime wrapper.
+Approval, policy, and scoped context remain useful governance controls, but the
+central value is quality regulation: make desired behaviour easier to produce,
+detect deviations early, and feed actionable results back to the agent.
+
+Execution types:
+
+| Execution type | Role in TailTrail | Examples | Characteristics |
+| --- | --- | --- | --- |
+| **Computational** | Default, always-preferred guides and sensors | Unit tests, linters, type checks, AST/structural analysis, architecture rules, dependency checks | Deterministic, CPU-run, fast (milliseconds to seconds), reliable enough to run on every relevant change. |
+| **Inferential** | Optional semantic guidance and judgment | Navigator reasoning, semantic analysis, AI review, LLM-as-judge | Richer but slower, costlier, and non-deterministic; used when computational controls cannot decide the issue. |
+
+Harness loop:
+
+```mermaid
+flowchart LR
+    A[Developer goal] --> B[Feedforward guides]
+    B --> C[Coding agent]
+    C --> D[Computational sensors]
+    D --> E{All fast checks pass?}
+    E -->|No| F[LLM-ready findings]
+    F --> C
+    E -->|Yes| G[Optional inferential review]
+    G --> H[Human review of the remaining judgment]
+    H --> I[Learn which guide or sensor needs improvement]
+    I --> B
+```
+
+### Guides: increase first-pass quality
+
+Guides are feedforward controls. They provide the agent with the constraints,
+examples, and tools that reduce mistakes before the first edit is made.
+
+| TailTrail guide | Execution type | Existing foundation | Planned improvement |
+| --- | --- | --- | --- |
+| Repository policy, `AGENTS.md`, skills, and guardrails | Inferential | Implemented | Load only the applicable rules and make their priority/reason explicit in the agent context. |
+| Navigator plan and Code Graph read order | Both | Implemented | Convert the plan into a compact task packet containing relevant symbols, callers, tests, and acceptance checks. |
+| Structural constraints | Computational | AST/Semantic V2 foundations implemented | Add project-defined rules for module boundaries, forbidden dependencies, naming, and protected paths. |
+| Test and validation guidance | Both | Test Precision implemented | Select the smallest reliable fast-check set before editing, with clear commands and expected failure modes. |
+| Reusable harness templates | Both | Deferred | Package guides and sensors for common service topologies, languages, and repository patterns. |
+
+### Sensors: self-correct before human review
+
+Sensors are feedback controls. They observe the resulting change and return
+findings in an agent-actionable form: exact command, affected path/symbol,
+evidence, failure reason, and recommended next action. A raw noisy log is not a
+good sensor output; TailTrail should compact and structure it without losing the
+exact evidence the agent needs to fix the issue.
+
+| TailTrail sensor | Execution type | When it runs | Feedback to the agent |
+| --- | --- | --- | --- |
+| Focused tests and test precision | Computational | After a code change, before review | Failing test, expected/actual result, relevant test and source paths. |
+| Linter, formatter, type checker, and build output | Computational | After a code change; repeated in CI | Normalized diagnostics with rule ID, location, and fix/re-read suggestion. |
+| AST and structural/architecture checks | Computational | Before and after relevant edits | Boundary violation, dependency drift, changed symbols, and affected test scope. |
+| Security and dependency checks | Computational | Locally when approved; repeated in CI | Exact scanner/dependency finding, severity, affected component, and policy gate. |
+| TailTrail requirement review | Inferential | After fast controls pass or on demand | Missing requirement, unnecessary complexity, weak validation, or conflict with project patterns. |
+| Semantic/provider-backed analysis | Inferential or provider-backed | Only when explicitly approved and useful | Advisory relationships with visible evidence labels; never substituted for source or tests. |
+
+Implementation plan:
+
+1. **Create one computational control contract**
+   - Add a machine-readable `harness-controls` format that describes a guide or
+     sensor: trigger, command, timeout, scope, result parser, severity, and
+     whether it is mandatory, advisory, or approval-gated.
+   - Start with repository-native tools already present. Do not install a new
+     linter, type checker, or scanner merely to fill out the framework.
+   - Normalize outputs into an LLM-ready finding format while retaining exact
+     original command output as local evidence.
+
+2. **Run the fast computational loop beside the agent**
+   - Add `tailtrail harness check --changed ...` to select and run the smallest
+     applicable fast controls: focused tests first, then configured lint/type/
+     structural checks.
+   - Return `pass`, `fail`, `skipped`, or `blocked` per control. A failure is a
+     correction opportunity, not an automatic success/failure claim for the
+     overall task.
+   - Support one or more bounded self-correction cycles: agent edits, checks
+     run, structured findings return to the agent, and the loop stops on pass,
+     explicit budget, repeated failure, or human escalation.
+
+3. **Add maintainability and architecture fitness sensors**
+   - Build on existing AST/Semantic V2 and guardrail work to make lightweight
+     structural checks configurable: prohibited imports, layer boundaries,
+     dependency direction, duplicate-pattern warnings, and protected paths.
+   - Add project-local harness templates for common topologies only after their
+     rules and checks have been proven useful in real repositories.
+
+4. **Connect inferential review after computational checks**
+   - Run TailTrail Review after fast deterministic checks, not instead of them.
+   - Give review the compact change summary plus sensor findings so it spends
+     reasoning budget on requirements, overengineering, and semantic judgment
+     rather than rediscovering mechanical failures.
+   - Treat inferential results as advisory unless independently validated.
+
+5. **Close the steering loop**
+   - When the same finding recurs, propose a harness improvement: a clearer
+     guide, stronger structural rule, missing focused test, or better result
+     parser. Human approval remains required before changing repository policy
+     or controls.
+   - Use opt-in local outcome evidence to evaluate whether a new guide/sensor
+     reduced repeated failures, review comments, correction loops, or context
+     load. Do not claim token savings without measured telemetry.
+
+Planned command surface:
+
+```bash
+# Print the selected guides and computational sensors without changing source.
+python3 scripts/tailtrail.py harness plan "fix validation bug" --changed src/service/foo.py
+
+# Run the smallest relevant deterministic feedback controls.
+python3 scripts/tailtrail.py harness check --changed src/service/foo.py
+
+# Convert exact local results into a compact agent correction packet.
+python3 scripts/tailtrail.py harness feedback --run <run-id>
+
+# Later: bounded, explicitly approved correction cycle with a supported agent adapter.
+python3 scripts/tailtrail.py harness steer <run-id> --adapter codex --max-cycles 2 --approved
+```
+
+Files expected to change:
+
+| File | Change |
+| --- | --- |
+| `scripts/harness-controls.py` | New stdlib-only control selector, command runner, timeout handling, result normalization, and run summary. |
+| `scripts/harness-feedback.py` | New LLM-ready feedback packet generator that preserves links to exact local test/lint/type/structural evidence. |
+| `scripts/tailtrail.py` | Expand the existing `harness` command group with `plan`, `check`, `feedback`, and later `steer`. |
+| `scripts/navigator_core.py` and `scripts/task-start.py` | Reuse task type, changed-path scope, policy, likely tests, and graph data to choose relevant controls. |
+| `scripts/test-precision.py`, `scripts/ci-summary.py`, and `scripts/quality-run.py` | Reuse current focused-test, build/lint/type-check, and approved-quality command handling rather than duplicating runners. |
+| `scripts/guardrail-check.py`, `scripts/code-graph-mapper.py`, and `scripts/review-run.py` | Provide structural sensors, policy/architecture findings, and the later inferential review layer. |
+| `schemas/harness-control.schema.json` and `schemas/harness-result.schema.json` | New versioned contracts for controls, sanitized results, evidence labels, and correction status. |
+| `templates/harness-feedback.md` and `templates/harness-template.example.yml` | New human- and agent-readable feedback template plus a documented project-local control-template example. |
+| `tests/test_harness_controls.py` and `tests/test_harness_feedback.py` | Focused tests for selection, timeout, parser behavior, fail/pass/skip states, and feedback precision. |
+| Existing tests for Navigator, Test Precision, CI, quality, graph, guardrails, and review | Verify the harness composes existing behavior without changing their standalone commands. |
+| `tailtrail-registry.json` | Register the harness controls, commands, scripts, tests, and evidence boundaries. |
+| `TAILTRAIL-COMMANDS.md`, `USER-GUIDE.md`, `ARCHITECTURE.md`, and `README.md` | Explain the guide/sensor model, computational-first execution, self-correction loop, and limitations. |
+
+Implementation boundaries:
+
+- Computational controls are preferred because they are fast and deterministic;
+  inferential controls never replace tests, linters, type checks, or source
+  evidence.
+- The first version runs only safe, existing, local commands chosen from project
+  policy. Networked scanners, package installation, and destructive commands
+  remain explicit approval paths.
+- The harness must stop and escalate after repeated failures, a timeout, an
+  ambiguous result, or a requested scope expansion; it must not retry forever.
+- No raw prompts, source, secrets, PII, PHI, customer data, or unredacted logs
+  are stored in learning or outcome data.
+- No claim that the harness prevented a defect, reduced review time, or saved
+  tokens without measured evidence from real usage.
+
+Expected benefits:
+
+| Benefit | Why the harness provides it |
+| --- | --- |
+| Higher first-pass correctness | Relevant guides make repository rules, test expectations, and structural constraints available before the agent edits. |
+| Fewer issues reach human review | Fast computational sensors catch mechanical, structural, and test failures in the agent's own correction loop. |
+| Lower review toil | Reviewers receive a change that has already passed selected deterministic checks, plus a compact proof of what was checked. |
+| Better system quality | Repeated feedback becomes a candidate new guide or sensor, steadily strengthening maintainability, architecture, and behaviour controls. |
+| Fewer wasted tokens | Fast local controls prevent the model from repeatedly reasoning about errors that a CPU can identify immediately; exact savings still require telemetry. |
+| Better use of model reasoning | Inferential review is delayed until deterministic checks pass, so model budget focuses on requirements and semantic judgment. |
+| Portable improvement path | The guide/sensor contract can serve Codex and other coding agents without locking TailTrail to a single model or IDE. |
+
+Acceptance criteria for the first useful release:
+
+- `harness plan` lists the selected guides and computational sensors for a
+  changed path without editing source.
+- `harness check` runs only policy-approved local controls and reports exact
+  `pass`, `fail`, `skipped`, or `blocked` results.
+- A failed test, lint, type, or structural check produces a compact correction
+  packet with the affected path, evidence, and next action.
+- A pass result is never emitted when a selected control was skipped, timed out,
+  or produced an ambiguous result.
+- A repeat failure triggers escalation rather than an unbounded agent loop.
+- TailTrail Review receives computational findings as input and remains an
+  advisory semantic/requirement layer.
+- Tests cover control selection, output parsing, timeout, failure feedback,
+  repeated-failure escalation, and preservation of existing standalone commands.
+
 ### V2.8: Enterprise Reporting Maturity
 
 Goal: improve reporting enough for enterprise evaluation without building a surveillance platform.
