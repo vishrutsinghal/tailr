@@ -300,6 +300,205 @@ trade-offs, and semantic intent.
 The loop must be bounded. TailTrail should never retry indefinitely or turn an
 unrun, skipped, timed-out, or ambiguous control into a passing result.
 
+## Token Harness Integration
+
+Token Harness is a supporting capability for Harness Engineering. It does not
+decide whether a requirement is correct or complete. Its role is to make each
+anchor, checkpoint, correction packet, and review packet small enough for an
+agent to use efficiently while preserving the exact evidence required for trust.
+
+```mermaid
+flowchart LR
+    A[approved.md and selected source] --> B[Token Harness context plan]
+    B --> C[Agent correction task]
+    C --> D[actual.md and control output]
+    D --> E[Smallest unmet anchor row]
+    E --> B
+```
+
+### Token Harness responsibilities inside one run
+
+| Harness stage | Token Harness responsibility | Safe context to provide |
+| --- | --- | --- |
+| Anchor proposal | Build the smallest exact context needed to understand current state and desired outcomes. | Compact goal, applicable policy, selected source/callers/tests, graph summary, known unknowns. |
+| Initial implementation | Create an agent packet tied to approved scope and evidence plan. | Relevant `approved.md` rows, exact changed files, required helpers, focused tests, allowed commands. |
+| Failed checkpoint | Prevent the agent from rereading unrelated history. | Unmet requirement row, relevant diff, exact failed output, affected source/caller/test, one next action. |
+| Review | Keep semantic review focused on the completed change. | Compact diff summary, changed tests with rationale, checkpoint state, unresolved risks, exact retrieval pointers. |
+| Retrospective | Produce privacy-safe evidence about context choices. | Context receipt metadata, selected/avoided artifact pointers, run ID, checkpoint number, evidence label. |
+
+Example correction packet context:
+
+```text
+Load exactly:
+- approved.md: zero-dollar submission behavior and architecture rule
+- actual.md: service-path mismatch
+- src/claims_api/service.py
+- tests/test_claim_service.py
+- exact focused test failure
+
+Avoid:
+- full roadmap and unrelated architecture documents
+- unrelated repository modules
+- previous long agent conversation
+- unrelated scanner logs
+```
+
+### Exactness boundaries
+
+Token reduction must never change the evidence that the harness uses to judge
+completion. The following material remains exact and retrievable:
+
+- approved requirements, invariants, allowed scope, and re-approval conditions;
+- current diff, changed source, policy/security rules, dependency manifests, and
+  lock files when relevant;
+- exact failed test, build, lint, type, scanner, or structural-check evidence;
+- public API/schema/security boundary changes; and
+- the original approved and actual scenario content used by a checkpoint.
+
+Safe bulky material can be reduced only when the Token Harness records a
+retrieval pointer and does not remove a material fact. Examples include verbose
+tool logs, repetitive scanner output, large JSON reports, or long documentation
+that is not itself part of the requirement or evidence.
+
+### Required Token Harness updates
+
+The existing Token Harness concepts should be extended, not rebuilt:
+
+| Update | Purpose |
+| --- | --- |
+| Run and checkpoint linkage | Associate context receipts and Token Harness ledger events with `run_id`, anchor fingerprint, and checkpoint number. |
+| Anchor-aware classification | Mark anchor rows and exact failure evidence as `must-be-exact`; mark safely reducible background artifacts separately. |
+| Correction-packet route | Build the next packet from the smallest unmet requirement row rather than prior chat history. |
+| Per-cycle receipts | Record selected, avoided, and escalated context for each correction cycle without raw prompts/source. |
+| Context-growth signal | Flag when repeated corrections require progressively broader context, which may indicate an unclear anchor, missed impact path, or loop drift. |
+| Measured-claim boundary | Keep estimated/local context evidence separate from actual provider token telemetry. |
+
+Useful local records could look like:
+
+```text
+.tailtrail/runs/<run-id>/context/checkpoint-01-receipt.json
+.tailtrail/runs/<run-id>/context/checkpoint-02-receipt.json
+.tailtrail/token-harness-events.jsonl
+```
+
+The harness may say that it loaded less irrelevant context or used a local
+context receipt. It must not claim exact token savings, cost reduction, or model
+efficiency unless normalized before/after provider usage telemetry exists.
+
+## Evaluation Harness Integration
+
+Evaluation Harness operates one level above a single harness run. The Change
+Intent Anchor and Completion Harness ask whether **this change** reached the
+approved desired state. Evaluation Harness asks whether using TailTrail Harness
+Engineering improves outcomes across repeatable scenarios or approved local
+portfolio evidence.
+
+```mermaid
+flowchart LR
+    A[One approved/actual run] --> B[Completion evidence]
+    B --> C[Sanitized saved scenario]
+    C --> D[Evaluation Harness comparison]
+    D --> E[Harness quality findings]
+    E --> F[Human-approved guide, sensor, or template improvement]
+```
+
+| Layer | Primary question | Typical evidence |
+| --- | --- | --- |
+| Completion Harness | Did this agent change fulfill the approved task? | `approved.md`, `actual.md`, checkpoints, focused controls, review result. |
+| Evaluation Harness | Does the harness improve completion quality across tasks? | Saved baseline/TailTrail artifacts, deterministic scenario scores, approved outcome records. |
+
+### What Evaluation Harness should measure
+
+Evaluation must not reduce the new harness to a generic "tests passed" score.
+Its dimensions should reflect the actual design goals:
+
+| Evaluation dimension | What it measures |
+| --- | --- |
+| Requirement completion | Share of required anchor rows that reach `validated` rather than missing, failed, or ambiguous. |
+| Architecture preservation | Whether approved required paths and boundaries were preserved rather than bypassed. |
+| Behaviour evidence | Whether approved scenarios have credible focused evidence, not only narrow agent-written tests. |
+| Scope discipline | Unexpected files, dependencies, API/schema changes, or unapproved boundary expansion. |
+| Test integrity | Requirement-linked test changes versus weakened, skipped, or suspicious assertions. |
+| Correction efficiency | Number of bounded cycles before pass, escalation, or abandonment. |
+| Escalation quality | Whether the harness stopped for an ambiguity instead of allowing the agent to invent behavior. |
+| Review readiness | Whether a human receives approved intent, actual result, evidence, and unresolved risks in one handoff. |
+| Context discipline | Whether receipts show relevant, bounded context; exact token savings remain a separate measured metric. |
+
+### Deterministic evaluation scenarios
+
+The first Evaluation Harness integration should use saved, sanitized artifacts,
+not live model calls. Each scenario can compare a baseline outcome with a
+TailTrail Harness outcome.
+
+```text
+Scenario: multi-file validation change
+
+Baseline artifact:
+- direct validation function changed
+- service caller missed
+- unit test passes
+- required submission behavior remains incomplete
+
+TailTrail Harness artifact:
+- approved desired behavior and service-path architecture rule
+- missing caller path detected at checkpoint
+- one bounded correction packet issued
+- focused service test passes
+- requirement matrix becomes complete
+```
+
+The scenario scorer should verify facts present in the artifacts. It should not
+pretend to prove that a live model will always behave identically. Optional live
+agent evaluation is a later explicit-approval mode, after deterministic scenario
+scoring is stable.
+
+### Required Evaluation Harness updates
+
+| Update | Purpose |
+| --- | --- |
+| Harness scenario type | Add saved scenarios for approved/actual comparison, architecture drift, behavior drift, test-chasing, and escalation. |
+| Anchor-aware event schema | Normalize run ID, anchor version/fingerprint, completion states, drift categories, checkpoint count, and evidence labels. |
+| Baseline vs. harness rubric | Score the quality of completion evidence and handoff, not just code/test output. |
+| Scenario fixtures | Commit sanitized `approved`, `actual`, baseline, and expected-score fixtures that are reproducible without a live model. |
+| Portfolio reporting | Summarize recurring completion gaps, drift categories, correction cycles, and unresolved-decision rates using opt-in local evidence. |
+| Claim guardrails | Separate observed local evidence from measured claims about defect reduction, review-time reduction, or token savings. |
+
+Potential fixture layout:
+
+```text
+benchmarks/evaluation/scenarios/harness-completion-validation/
+  scenario.json
+  baseline-artifact.md
+  tailtrail-artifact.md
+  approved.md
+  actual.md
+  expected.json
+  README.md
+```
+
+### Learning from evaluation without surveillance
+
+Evaluation results should improve TailTrail only through a controlled steering
+loop. For example, repeated service-path omissions could propose a stronger
+Navigator caller check or a new approved scenario. Repeated false-positive
+architecture findings could weaken or retire a noisy rule.
+
+Any such change remains proposal-first, human-approved, test-backed, reversible,
+and privacy-preserving. TailTrail should not upload raw prompts, source code,
+customer data, logs, agent transcripts, or repository identities merely to
+measure harness quality.
+
+### Integration sequence
+
+1. Implement the Change Intent Anchor and Requirement Completion Harness.
+2. Link Token Harness receipts and ledger events to run IDs/checkpoints.
+3. Add deterministic Evaluation Harness fixtures for approved/actual comparison
+   and drift detection.
+4. Gather opt-in local outcome evidence from real tasks.
+5. Use the evidence to improve guides, sensors, and templates.
+6. Make quality, review-effort, or token-efficiency claims only when the
+   corresponding evidence is measured and credible.
+
 ## Change Intent Anchor
 
 Drift awareness needs an anchor. Without an approved reference for the desired

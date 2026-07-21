@@ -8,7 +8,7 @@ class ClaimValidationError(ValueError):
 
 
 def validate_claim_amount(amount: float) -> None:
-    if amount < 0:
+    if amount <= 0:
         raise ClaimValidationError("claim amount must be positive")
 
 
@@ -20,4 +20,3 @@ def validate_claim(claim: Claim) -> None:
     if not claim.diagnosis_code.strip():
         raise ClaimValidationError("diagnosis code is required")
     validate_claim_amount(claim.amount)
-
