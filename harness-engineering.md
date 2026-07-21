@@ -1,5 +1,202 @@
 # TailTrail Harness Engineering
 
+## Document status and reading guide
+
+**Status:** design proposal. This document describes a future TailTrail harness;
+it does not claim that the runtime, commands, schemas, adapters, or control loops
+below already exist.
+
+This document records the working decisions behind TailTrail Harness Engineering:
+
+1. The hard agent-coding problem is not only syntax, lint, or type failures. It
+   is proving that a multi-file change actually fulfills the requested behavior
+   across callers, tests, and architectural boundaries.
+2. Fast deterministic controls are important inputs, but the primary product
+   value is a requirement-aware completion loop that reduces repeated human
+   prompts such as "run it again and fix the next failure."
+3. Drift awareness requires an approved anchor. TailTrail must compare each
+   correction cycle against a user-approved desired state, not merely against
+   the latest diff or a green test suite.
+4. The anchor is represented by `approved.md`; the observed state of each agent
+   attempt is represented by `actual.md`. Their comparison exposes behavior,
+   architecture, scope, and evidence drift.
+5. Maintainability, Architecture Fitness, and Behaviour are complementary
+   harnesses. They should share one approved anchor and one correction loop,
+   rather than become disconnected features.
+6. Human judgment remains essential for ambiguous requirements, changed public
+   contracts, design trade-offs, and approval of changed expected behavior.
+
+### What exists today versus what this design proposes
+
+TailTrail already has building blocks: Navigator planning, local policy and
+guardrails, Code Graph impact hints, Test Precision, requirement-aware review,
+quality/test command guidance, evaluation artifacts, and registry/governance
+drift checks. Those features are useful inputs, but they are not yet one
+persisted approved-anchor and correction-loop implementation.
+
+| Capability | Current position | Proposed harness addition |
+| --- | --- | --- |
+| Task planning | Navigator can produce a scoped plan and likely impact. | Turn the approved plan into a versioned desired-state contract. |
+| Requirements | Review can compare a diff with a compact goal. | Track every required outcome through explicit completion states across cycles. |
+| Impact | Code Graph and Test Precision find likely callers/tests. | Compare actual changed paths and behavior against the approved impact boundary. |
+| Validation | Tests, quality commands, and review are available separately. | Select controls, normalize results, and feed one bounded correction task to the agent. |
+| Drift | Registry/governance drift checks protect TailTrail's own docs and feature inventory. | Add task-level requirement, architecture, behavior, scope, and evidence drift detection. |
+| Agent control | Guidance files and commands influence an agent. | Keep the agent anchored without claiming a universal autonomous orchestration runtime. |
+
+### Design decisions and rejected simplifications
+
+| Decision | Reason |
+| --- | --- |
+| Do not make the harness primarily an approval workflow. | Approval is necessary, but it does not by itself tell whether a multi-file change is complete. |
+| Do not make it only a fast lint/test wrapper. | Modern agents often repair simple diagnostics; the costly failures are incomplete logic, missed callers, and test/behavior mismatches. |
+| Do not use one opaque drift score. | A score hides why work drifted. TailTrail must report requirement, architecture, behavior, scope, and evidence reasons separately. |
+| Do not treat green tests as completion proof. | Tests may be narrow, missing, stale, or weakened by the agent. Requirements need linked evidence. |
+| Do not let an agent overwrite expected behavior. | Silent updates to an approved fixture are behavior-level test-chasing. Only humans approve a changed desired state. |
+| Do not cache the entire repository. | The anchor should be a compact, privacy-preserving contract and evidence index, not a raw source/prompt archive. |
+| Do not create unbounded self-correction. | Correction loops must stop on pass, repeated failure, ambiguity, timeout, scope expansion, or human escalation. |
+
+### Core vocabulary
+
+| Term | Meaning |
+| --- | --- |
+| **Change Intent Anchor** | A user-approved local contract describing the relevant current state, desired state, boundaries, invariants, and required evidence. |
+| **Approved state** | The desired behavior and architectural shape accepted by a human, stored in `approved.md`. |
+| **Actual state** | The observed behavior, changed paths, control results, and unresolved gaps produced by the current agent attempt, stored in `actual.md`. |
+| **Drift checkpoint** | A per-cycle comparison of actual state to approved state. |
+| **Completion gap** | A requirement that is failed, blocked, ambiguous, or implemented without adequate evidence. |
+| **Correction packet** | The smallest agent task that explains one gap, exact evidence, allowed scope, and next validation. |
+| **Harness template** | A reusable set of guides, controls, scenario formats, and rules for a known project topology or technology stack. |
+
+### End-to-end reference lifecycle
+
+```mermaid
+flowchart TB
+    A[Developer task] --> B[Navigator or AIDLC requirement gathering]
+    B --> C[Current state, impact map, and risks]
+    C --> D[Draft approved.md]
+    D --> E{Human approves desired state?}
+    E -->|Revise| B
+    E -->|Approve| F[Change Intent Anchor]
+    F --> G[Agent implementation]
+    G --> H[actual.md: observed code, paths, and checks]
+    H --> I[Drift checkpoint]
+    I --> J{Requirement, architecture, behavior, scope, and evidence aligned?}
+    J -->|No| K[One bounded correction packet]
+    K --> G
+    J -->|Yes| L[Maintainability review]
+    L --> M[Human review and handoff]
+    M --> N[Optional approved learning: improve guide, scenario, or sensor]
+```
+
+## Navigator as Harness Router
+
+Navigator should steer Harness Engineering; Harness Engineering should not replace
+Navigator. Navigator decides whether a task needs no harness, a lightweight
+anchor, a requirement-completion loop, or the full maintainability/architecture/
+behaviour set. The harness then uses the selected anchor to evaluate the agent's
+actual change and provide correction feedback.
+
+```text
+Navigator: What is the smallest harness level that makes this task trustworthy?
+Harness:   Did the current change reach the approved desired state without drift?
+```
+
+The full harness must not run for every task. A typo, comment edit, formatting
+change, or tiny configuration change with no behavior impact should retain the
+normal lean TailTrail workflow. Requiring approval artifacts, scenarios, and
+correction loops for such work would add friction and teach users to ignore the
+harness.
+
+```mermaid
+flowchart TB
+    A[Developer task] --> B[Navigator]
+    B --> C{Task complexity and risk}
+    C -->|Tiny or no behavior change| D[Normal lean workflow]
+    C -->|Small code change| E[Light Change Intent Anchor]
+    C -->|Multi-file logic or behavior risk| F[Completion Harness proposal]
+    E --> G[Agent change]
+    F --> H{Human approves anchor?}
+    H -->|Yes| G
+    H -->|Revise| B
+    G --> I{Evidence or drift gap?}
+    I -->|No| J[Review and handoff]
+    I -->|Yes| K[Completion Harness loop]
+    K --> G
+```
+
+### Harness levels selected by Navigator
+
+| Level | When Navigator selects it | What TailTrail creates | What it intentionally avoids |
+| --- | --- | --- | --- |
+| **No harness** | Documentation, comments, formatting, or a trivial non-behavioral configuration edit | Normal plan and proportional validation guidance | No anchor, scenario, or correction-loop state. |
+| **Light Change Intent Anchor** | Small code fix with a clear requirement and one focused test path | Goal, one/two expected outcomes, changed-path boundary, focused evidence command | No multi-cycle correction loop unless a drift signal appears. |
+| **Requirement Completion Harness** | Logic/validation/business-rule change, multiple files/callers, regression risk, tests likely to change | `approved.md`, `actual.md`, requirement matrix, focused evidence plan, bounded correction loop | No broad architecture template or expensive inference unless needed. |
+| **Full three-lens harness** | Architecture boundary, security/data/API change, workflow/state-machine change, or risky multi-module work | Completion Harness plus Maintainability, Architecture Fitness, and Behaviour checks | No autonomous unlimited run; humans still approve material scope/intent changes. |
+| **AIDLC-assisted harness** | Broad, ambiguous, regulated, multi-team, or long-running feature | AIDLC gathers/clarifies requirements before Navigator proposes the anchor | AIDLC is not added to small, well-scoped fixes. |
+
+### Routing signals
+
+Navigator should use explainable local signals rather than a hidden complexity
+score. Any selected harness level must say why it was selected and which heavier
+controls were intentionally skipped.
+
+| Signal | Suggested routing implication |
+| --- | --- |
+| One known file, no behavior change, no affected caller/test | No harness or normal lean workflow. |
+| Small code fix with a clear expected outcome and focused existing test | Light anchor. |
+| More than one likely implementation file or important caller | Completion Harness. |
+| Validation, business rule, state transition, or error-contract change | Completion Harness with Behaviour evidence. |
+| Existing test failure or an expected test update | Completion Harness with failure classification and test-chasing protection. |
+| Public API, schema/data model, dependency, auth/security, or architectural boundary | Full three-lens harness and explicit re-approval conditions. |
+| Requirement says "all flows", "preserve", "do not break", or "regression" | Completion Harness because preserved behavior needs explicit evidence. |
+| One failed agent correction attempt | Escalate the current run to a Completion Harness checkpoint. |
+
+### Default behavior after implementation
+
+For meaningful code changes, Navigator should default to a **light anchor**, not
+a full correction loop. After the agent edits code, TailTrail evaluates the
+available evidence:
+
+| Post-change signal | Navigator handoff |
+| --- | --- |
+| Focused tests pass, approved paths were preserved, and no completion row is missing | Proceed to normal TailTrail Review and handoff. |
+| Test/check fails | Enter the Requirement Completion Harness and produce one bounded correction packet. |
+| Agent changes an unexpected path, dependency, protected file, API, schema, or security boundary | Mark scope/architecture drift; invalidate anchor when material and ask for re-approval. |
+| Test change lacks a requirement link or weakens an assertion | Mark evidence drift and require review before treating it as proof. |
+| Requirement row has no focused evidence | Mark `implemented-not-validated`; request/run the smallest adequate check. |
+
+### Example Navigator output
+
+For a task such as "change existing validation logic and add focused tests," a
+Navigator report should look like this:
+
+```text
+Harness recommendation: Requirement Completion Harness
+
+Why selected:
+- logic change affects shared validation and its service caller
+- focused tests must prove both changed and preserved behavior
+- error propagation is a likely multi-file completion risk
+
+Proposed anchor:
+- desired behavior: zero rejected; positive amount remains accepted
+- architecture: service uses shared validation path
+- evidence: validation and service-path tests
+- correction budget: at most two cycles before human escalation
+
+Skipped for now:
+- AIDLC: task is currently small and requirements are clear
+- provider-backed semantic analysis: local graph and focused source inspection are sufficient
+
+Next action:
+Review and approve approved.md before implementation.
+```
+
+Navigator remains advisory and deterministic. It can recommend a harness level,
+prepare the anchor, and explain its routing decision; it must not silently start
+an expensive agent loop, rewrite expected behavior, expand scope, or declare
+completion without the evidence defined by the approved anchor.
+
 ## Purpose
 
 TailTrail's harness engineering work builds an outer quality harness around a
@@ -18,7 +215,7 @@ existing tests, CI, security review, or repository policy. It makes those
 controls available to the agent at the right time and turns their results into
 actionable feedback.
 
-This design is informed by Birgitta Böckeler's
+This design is informed by Birgitta Boeckeler's
 [Harness engineering for coding agent users](https://martinfowler.com/articles/harness-engineering.html).
 
 ## Outcome
@@ -474,6 +671,86 @@ approved document. This prevents the scenario equivalent of test-chasing: an
 agent cannot make a failing behavior check pass merely by rewriting the expected
 output to match an incorrect implementation.
 
+### Approved scenarios as behaviour anchors
+
+For behavior that is easy to represent as domain data, `approved.md` can contain
+or link to **approved scenarios** (also called approved fixtures). This approach
+is based on the [Approved Scenarios pattern](https://lexler.github.io/augmented-coding-patterns/patterns/approved-scenarios/): validate the scenario runner once, then review human-readable input and expected output rather than large volumes of agent-written assertion code.
+
+An approved scenario is not a generic snapshot. It should contain only the
+domain-specific input, expected output, important side effects, and call sequence
+that a reviewer can validate by eye.
+
+| Scenario content | Why it belongs in the approved state |
+| --- | --- |
+| Input data, parameters, and initial state | Explains the condition the behavior must handle. |
+| Expected result | Gives the agent and reviewer an unambiguous behavioral destination. |
+| Expected side effects or service calls | Captures important workflow/order contracts where the final return value is insufficient. |
+| Normalization rules | Excludes dynamic IDs, timestamps, ordering, or other non-deterministic values from false diffs. |
+| Requirement link | Shows exactly which desired outcome the scenario proves. |
+| Approval metadata | Makes clear who approved a changed expected behavior and why. |
+
+Example approved scenario for a multi-step workflow:
+
+```md
+# Scenario: checkout with discount
+
+## Input
+
+User: premium member
+Cart: laptop x1, mouse x1
+Discount code: SAVE20
+
+## Expected service calls
+
+1. Reserve inventory for laptop and mouse.
+2. Calculate pricing for the premium member and discount code.
+3. Process payment for the discounted total.
+
+## Expected result
+
+Order: confirmed
+Discount: applied
+Email: order confirmation sent
+```
+
+When the scenario runner executes the current code, it writes the analogous
+actual result. TailTrail then performs a domain-readable diff:
+
+```text
+Scenario: checkout with discount
+
+Approved: pricing occurs before payment and discount is applied.
+Actual: payment is attempted before pricing; no discount is applied.
+
+Behaviour drift: required workflow order and price outcome are not satisfied.
+Next correction: restore the pricing step before payment. Do not change the
+approved scenario without human approval.
+```
+
+Approved scenarios are especially useful for API contracts, event payloads,
+workflow transitions, CLI output, generated reports, call sequences, structured
+JSON/YAML, and visually inspectable domain output. They are a poor fit for huge
+opaque object graphs, unstable output, performance claims, or purely internal
+implementation details. In those cases, the anchor should reference focused
+tests, metrics, or another appropriate evidence type instead.
+
+#### Scenario lifecycle
+
+```text
+1. Developer approves expected behavior in approved.md or <name>.approved.md.
+2. Trusted runner executes the scenario against current code.
+3. Runner writes actual.md or <name>.actual.md; it never overwrites approved.md.
+4. TailTrail compares approved and actual state.
+5. Agent receives a correction packet for a mismatch.
+6. If the product requirement legitimately changes, the agent may draft a proposal.
+7. Human reviews and explicitly promotes the proposal to approved state.
+```
+
+The runner itself is part of the harness and must be independently tested.
+Otherwise a friendly fixture diff can provide false confidence because the
+scenario execution logic is wrong.
+
 ## Architecture Fitness Harness
 
 The **Architecture Fitness Harness** compares the actual shape of a change to
@@ -628,6 +905,97 @@ Behaviour harnessing is harder than maintainability or architecture fitness:
 clear requirements and trusted tests are essential. When the desired behavior is
 ambiguous, TailTrail must surface a decision rather than fabricate a test or
 choose the easiest implementation path.
+
+### Full walkthrough: a multi-file logic change
+
+This walkthrough illustrates the expected experience when an agent changes
+existing logic, touches multiple files, and encounters several test failures.
+
+**Developer task:**
+
+> Reject zero-dollar claim amounts. Positive amounts must remain valid. Apply the
+> rule through all claim submission paths and add focused validation.
+
+#### Step 1: build and approve the anchor
+
+Navigator identifies `validation.py`, `service.py`, focused validation tests,
+and likely submission-path tests. The proposed `approved.md` states:
+
+```text
+Required behavior
+- zero is rejected by shared validation
+- positive values remain valid
+- submission preserves the validation failure
+
+Architecture
+- service uses shared validation
+- no controller-only special case
+
+Evidence
+- validation test: zero rejected
+- validation test: positive accepted
+- service-path test: rejection preserved
+```
+
+The developer approves it. The agent now has a concrete destination without
+being forced into a particular implementation.
+
+#### Step 2: agent makes an incomplete first change
+
+The agent updates `validate_claim_amount` to reject zero and adds a direct unit
+test. It does not change the service, which catches `ClaimValidationError` and
+returns a successful result.
+
+TailTrail writes `actual.md` and creates checkpoint one:
+
+```text
+Requirement coverage
+- zero rejected by validator: validated
+- positive value accepted: validated
+- zero rejected through submission: failed
+
+Architecture
+- shared validation changed: preserved
+- service error path: behavior drift
+
+Scope
+- no unexpected paths
+
+Next correction
+Preserve ClaimValidationError through src/claims_api/service.py. Do not alter
+the public contract or unrelated callers.
+```
+
+The developer does not need to discover or restate the next issue.
+
+#### Step 3: agent corrects the service but changes a test
+
+The agent updates the service and changes an existing test assertion. TailTrail
+does not assume that a changed test is legitimate. It classifies the test change:
+
+| Question | Result |
+| --- | --- |
+| Does the changed assertion link to the approved requirement? | Yes: zero must be rejected. |
+| Does production code now exhibit the approved behavior? | Yes: service returns the expected validation error. |
+| Was an assertion removed, output broadened, or test skipped? | No. |
+| Do focused validation and service tests pass? | Yes. |
+
+The test update becomes evidence rather than test-chasing.
+
+#### Step 4: completion and human review
+
+The next checkpoint reports every required behavior as `validated`, the shared
+architecture path as `preserved`, no scope expansion, and focused checks passed.
+TailTrail Review then spends its inferential effort on the remaining questions:
+
+- Did the implementation reuse existing validation and error conventions?
+- Did it introduce unnecessary abstraction or duplicate logic?
+- Did the diff fulfill the request without unrelated churn?
+- Is there any unresolved business or public-contract decision for a human?
+
+Only then does the change reach human review. The human sees the approved intent,
+actual evidence, changed tests with rationale, and any unresolved risks instead
+of a sequence of raw failures and agent retries.
 
 ## Requirement Completion Harness
 
@@ -1030,6 +1398,69 @@ manual evidence; distinguish a passing narrow test from full requirement proof.
 When a finding recurs, TailTrail proposes a better guide, focused test,
 structural rule, or result parser. Human approval is required before it changes
 repository policy or control configuration.
+
+### Proposed command contract
+
+These commands are design targets, not currently implemented commands. The first
+release should remain local, deterministic where possible, and explicit about
+what has and has not run.
+
+```bash
+# Propose current state, desired state, scope, scenarios, and evidence plan.
+tailtrail harness plan "reject zero-dollar claims" --changed src/claims_api/validation.py
+
+# Display the generated anchor for human review.
+tailtrail harness anchor show <run-id>
+
+# Record explicit approval of the desired state.
+tailtrail harness anchor approve <run-id>
+
+# Run only selected safe computational controls and write actual.md.
+tailtrail harness check <run-id>
+
+# Compare approved.md with actual.md and render a drift checkpoint.
+tailtrail harness checkpoint <run-id>
+
+# Produce exactly one bounded next task when a completion gap exists.
+tailtrail harness feedback <run-id>
+
+# Later, with explicit approval and a supported adapter, send that bounded task
+# to an agent for no more than the configured number of correction cycles.
+tailtrail harness steer <run-id> --adapter codex --max-cycles 2 --approved
+
+# Draft but never automatically promote a changed expected behavior.
+tailtrail harness scenario propose <run-id> --scenario zero-dollar-submission
+```
+
+### Minimal local data contract
+
+The first implementation should use simple versioned JSON for machine state and
+Markdown for human review. It should avoid a database, daemon, cloud service, or
+new dependency.
+
+| Artifact | Writer | Contents | Mutability |
+| --- | --- | --- | --- |
+| `approved.md` | TailTrail drafts; human approves | Goal, desired behavior, scenarios, architecture expectations, scope, invariants, evidence plan, known unknowns | Immutable after approval; human re-approval required for material change. |
+| `change-intent-anchor.json` | TailTrail | Same anchor in normalized, fingerprinted machine form | Rewritten only when a new/re-approved anchor is created. |
+| `actual.md` | TailTrail after each check | Observed behavior, changed paths, controls run, results, and gaps | Regenerated each cycle. |
+| `checkpoint-<n>.json` | TailTrail | Requirement/architecture/behavior/scope/evidence comparison and correction state | Append-only per cycle. |
+| `comparison-report.md` | TailTrail | Human-readable diff between approved and actual state | Regenerated each cycle. |
+| `proposal.md` | Agent/TailTrail | Proposed changed expected behavior or scope expansion | Never becomes approved state without human action. |
+
+### Compatibility with existing TailTrail surfaces
+
+The harness should compose existing surfaces rather than reimplement them:
+
+| Existing surface | Harness use |
+| --- | --- |
+| Navigator / `start` | Produces initial goal decomposition, impact boundary, risk posture, and suggested validation. |
+| AIDLC | Adds deeper requirement gathering and acceptance criteria only for broad, risky, or ambiguous tasks. |
+| Code Graph | Supplies likely callers, shared helpers, impacted symbols, and candidate tests for anchor/checkpoint comparison. |
+| Test Precision | Produces focused test matrix and commands for behavioral evidence. |
+| Guardrails / policy | Defines allowed controls, protected paths, dependency rules, and escalation conditions. |
+| Review | Performs requirement, maintainability, and semantic judgment after computational findings are available. |
+| Evaluation Harness | Provides deterministic fixtures and later measures whether harness controls improve outcomes. |
+| Learning / Meta-Harness | Proposes better guides/sensors only from approved, privacy-safe recurring evidence. |
 
 ## Expected files
 
