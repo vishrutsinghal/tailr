@@ -131,7 +131,7 @@ flowchart TB
 | **No harness** | Documentation, comments, formatting, or a trivial non-behavioral configuration edit | Normal plan and proportional validation guidance | No anchor, scenario, or correction-loop state. |
 | **Light Change Intent Anchor** | Small code fix with a clear requirement and one focused test path | Goal, one/two expected outcomes, changed-path boundary, focused evidence command | No multi-cycle correction loop unless a drift signal appears. |
 | **Requirement Completion Harness** | Logic/validation/business-rule change, multiple files/callers, regression risk, tests likely to change | `approved.md`, `actual.md`, requirement matrix, focused evidence plan, bounded correction loop | No broad architecture template or expensive inference unless needed. |
-| **Full three-lens harness** | Architecture boundary, security/data/API change, workflow/state-machine change, or risky multi-module work | Completion Harness plus Maintainability, Architecture Fitness, and Behaviour checks | No autonomous unlimited run; humans still approve material scope/intent changes. |
+| **Full three-lens harness** | Architecture boundary, Default behavior after implementationsecurity/data/API change, workflow/state-machine change, or risky multi-module work | Completion Harness plus Maintainability, Architecture Fitness, and Behaviour checks | No autonomous unlimited run; humans still approve material scope/intent changes. |
 | **AIDLC-assisted harness** | Broad, ambiguous, regulated, multi-team, or long-running feature | AIDLC gathers/clarifies requirements before Navigator proposes the anchor | AIDLC is not added to small, well-scoped fixes. |
 
 ### Routing signals
@@ -164,6 +164,201 @@ available evidence:
 | Agent changes an unexpected path, dependency, protected file, API, schema, or security boundary | Mark scope/architecture drift; invalidate anchor when material and ask for re-approval. |
 | Test change lacks a requirement link or weakens an assertion | Mark evidence drift and require review before treating it as proof. |
 | Requirement row has no focused evidence | Mark `implemented-not-validated`; request/run the smallest adequate check. |
+
+### Navigator requirement verification and impact proposal
+
+Navigator is responsible for the **planning-side** of requirement verification:
+it turns the request into an approval-ready, testable proposal. It is not the
+final authority on whether implementation succeeded. The Requirement Completion
+Harness and its checkpoints perform that comparison after code changes.
+
+| Stage | Responsibility | Output posture |
+| --- | --- | --- |
+| Navigator | Decompose the request into atomic required and preserved outcomes; inspect likely symbols, callers, tests, policy, and protected paths; select proportional sensors. | Proposed / likely, with confidence and explicit unknowns. |
+| Human approval | Confirm desired behavior, material scope, invariants, and acceptable evidence. | Approved desired state in `approved.md`. |
+| Harness checkpoint | Resolve changed files/symbols again, execute selected controls, and compare actual work against the anchor and prior checkpoint. | Measured local evidence in checkpoint-specific `actual.md`. |
+| Requirement Completion and Behaviour Harnesses | Verify that every approved outcome has adequate production-path and focused test/scenario evidence. | `validated`, gap state, or `needs-decision`; never an unsupported success claim. |
+| Review | Assess justified discoveries, trade-offs, and residual uncertainty before handoff. | Human/inferential judgment, supported by the evidence record. |
+
+Navigator must emit a **Requirement-to-Impact Matrix** before material edits.
+This is the bridge between a natural-language request and the later completion
+check. It becomes part of the proposed anchor and is frozen when the human
+approves it.
+
+| Requirement / preserve rule | Likely code path | Expected impact | Evidence plan | Confidence / unknown |
+| --- | --- | --- | --- | --- |
+| Reject a zero claim amount | `validate_claim_amount` -> `validate_claim` -> service caller | Validation, focused unit test, possibly service test | Invalid-zero unit case and submission-path check | High; caller path needs source confirmation |
+| Preserve positive claims | Same validation and service path | Existing acceptance behavior must not regress | Positive-amount unit/service case | High |
+| Do not add a dependency | Manifest and lockfile remain unchanged | No package/configuration changes | Changed-path/dependency sensor | High |
+
+#### Requirement-to-Impact Matrix: required contract
+
+The matrix is not a lightweight task checklist. It is the traceability contract
+for one harness run: every approved requirement must identify what behavior
+changes, what behavior is preserved, where that behavior is likely implemented,
+and what proof would justify completion. A requirement without a row is not
+approved for autonomous implementation; an implemented row without evidence is
+not complete.
+
+The human-readable Markdown matrix in `approved.md` and the normalized
+`requirement-impact-matrix.json` must carry the same stable `requirement_id`.
+The JSON is the machine contract; Markdown is the reviewable explanation. The
+matrix is versioned with the anchor (`anchor-v1`, `anchor-v2` after material
+re-approval) and must never be silently rewritten to make an actual result look
+complete.
+
+| Field | Required content | Why it is needed |
+| --- | --- | --- |
+| `requirement_id` | Stable ID such as `REQ-01`, never derived solely from row order | Links code, scenarios, evidence, corrections, and review across checkpoints. |
+| `kind` | `change`, `preserve`, `constraint`, `safety`, or `decision` | Makes “keep existing behavior” as visible as new behavior. |
+| `statement` | Atomic, observable outcome—not an implementation instruction | Allows a reviewer to judge completion independently of the chosen code shape. |
+| `acceptance_criteria` | Inputs, outputs/errors, invariants, and relevant edge cases | Gives Behaviour Harness a concrete target. |
+| `likely_implementation` | File, symbol, initial line range, fingerprint, and relationship type | Guides efficient inspection while preserving uncertainty. |
+| `likely_callers_and_tests` | Important caller paths, existing tests, or missing-test hypothesis | Prevents a correct local edit that misses an integration path. |
+| `expected_scope` | Expected files plus allowed discoveries and explicit non-goals | Supports scope drift and Task Recovery Boundary ownership checks. |
+| `evidence_plan` | Required focused test/scenario/structural check and acceptable manual evidence | Prevents “tests passed” from being an undefined proof claim. |
+| `confidence` and `unknowns` | `confirmed-by-local-source`, `likely`, or `unknown`, with explanation | Stops Navigator's inference being mistaken for fact. |
+| `approval_state` | `proposed`, `approved`, `superseded`, or `needs-decision` | Controls when an agent may rely on a row. |
+| `completion_state` | Checkpoint-owned state, never set by Navigator | Separates desired state from observed evidence. |
+
+#### Matrix lifecycle and ownership
+
+```mermaid
+flowchart LR
+    A[Prompt] --> B[Navigator decomposes requirements]
+    B --> C[Proposed matrix\nlikely impacts and evidence plan]
+    C --> D{Human approves anchor?}
+    D -->|Revise| B
+    D -->|Approve| E[Immutable approved matrix v1]
+    E --> F[Agent implementation]
+    F --> G[Harness resolves actual symbols, paths, tests, and diff]
+    G --> H[Checkpoint matrix\ncompletion and drift per REQ ID]
+    H --> I{All approved rows have adequate evidence?}
+    I -->|No| J[Correction packet or needs-decision]
+    J --> F
+    I -->|Yes| K[Review and handoff]
+```
+
+Navigator owns only the **proposed** side of the matrix. After approval, the
+approved requirement statement, preserve rules, and evidence standard are
+immutable. The harness writes a separate checkpoint overlay keyed by
+`requirement_id`; it records actual files/symbols, test receipts, drift, and
+completion. A correction can update actual evidence, but cannot change a
+requirement from “reject zero” to “accept zero” or remove a preserve rule. That
+would be a material desired-state change and must produce an `anchor-v2`
+proposal for human approval.
+
+| Event | Matrix action | Approval needed? |
+| --- | --- | --- |
+| Navigator finds an additional likely caller before approval | Add it as a proposed impact with confidence and reason. | No, until the anchor is approved. |
+| Agent discovers an in-scope helper after approval | Add as `justified-discovery` to the actual/checkpoint overlay. | No, if it does not change behavior, protected boundaries, or material scope. |
+| Agent needs a new module, public API, dependency, schema, or security-path change | Mark `new-drift`; prepare revised matrix/anchor. | Yes, material re-approval. |
+| Existing focused test does not cover a preserve rule | Mark `implemented-not-validated` or `needs-decision`; add an evidence gap. | No for a focused test; yes if expected behavior itself changes. |
+| Test expectation must change | Create a proposed scenario/requirement revision. | Yes; never overwrite the approved row. |
+
+#### Impact references, lines, and resolution rules
+
+Line numbers alone are too unstable to be a task boundary. Every impact record
+uses a layered identity so TailTrail can preserve precise evidence without
+pretending that line 21 will still be line 21 after a correction:
+
+```text
+impact reference =
+  repository-relative file path
+  + symbol identity (when available)
+  + relationship (definition / caller / test / contract / config)
+  + initial line span (human navigation only)
+  + content or AST fingerprint (baseline identity)
+  + confidence and discovery source
+```
+
+At each checkpoint, TailTrail resolves references in this order:
+
+1. Match the repository-relative file path and baseline fingerprint.
+2. Resolve the named symbol through local AST/code graph evidence.
+3. Use nearby changed hunk context only when symbol resolution is unavailable.
+4. Compare the actual diff and caller/test relationships to the approved
+   requirement, expected scope, and previous checkpoint.
+5. Record one of `confirmed`, `moved-but-confirmed`, `changed`, `missing`,
+   `ambiguous`, or `new-discovery`—never silently substitute a nearby line.
+
+If the file changed outside the task after the boundary, the Task Recovery
+Boundary's ownership ledger decides whether a hunk is task-owned, later user
+work, or ambiguous. The matrix may point to a file, but it never grants blanket
+ownership of the whole file.
+
+#### Worked multi-file example
+
+For “reject zero claim amounts, preserve valid submissions, and add focused
+validation,” Navigator should produce something at least this detailed before
+implementation:
+
+| ID | Kind and approved outcome | Likely impact and scope | Required proof | Initial confidence |
+| --- | --- | --- | --- | --- |
+| `REQ-01` | **Change:** amount `0` raises the existing validation error. | `src/claims_api/validation.py`, `validate_claim_amount`; allowed discovery: higher-level validation caller. | Focused zero-amount test asserts the existing error type/message contract. | Confirmed by local source for validator; caller likely. |
+| `REQ-02` | **Preserve:** positive amount still passes the same validation route. | Validator plus `validate_claim` and its submission/service caller; do not create a parallel validator. | Existing or added positive-case unit test and one caller-path/service check. | Validator confirmed; service relation likely. |
+| `REQ-03` | **Constraint:** use the existing error type and validation style. | Only existing claims validation/test paths; no new helper/module unless justified. | Diff/symbol scope check and source review. | Confirmed by local source. |
+| `REQ-04` | **Constraint:** do not add a dependency or alter configuration. | Dependency manifests, lockfiles, CI/configuration are outside expected scope. | Changed-path and manifest sensor report no changes. | Confirmed. |
+
+After the first agent attempt, a checkpoint could record:
+
+| ID | Actual implementation/evidence | Completion | Drift decision |
+| --- | --- | --- | --- |
+| `REQ-01` | Validator comparison changed; zero-amount focused test passes. | `validated` | None. |
+| `REQ-02` | Positive test passes, but no service-path check was executed. | `implemented-not-validated` | Issue one correction/evidence packet, not a completion claim. |
+| `REQ-03` | Existing error type reused; no duplicate helper. | `validated` | None. |
+| `REQ-04` | No manifest/configuration paths changed. | `validated` | None. |
+
+The next packet is therefore precise: prove `REQ-02` through the expected
+service path or explain, with local evidence, why that path cannot be affected.
+It does not ask the agent to reread the entire project or modify unrelated
+files.
+
+#### Matrix validation rules
+
+Before accepting an anchor, TailTrail should reject or flag a matrix when:
+
+- a requirement bundles several independently testable outcomes into one row;
+- a changed behavior has no preserve rule for an obvious existing contract;
+- an expected code path has no source, caller, test, or explicit `unknown`
+  evidence pointer;
+- a requirement has no evidence plan, or its only proof is a vague “run all
+  tests” instruction;
+- an expected test change has no requirement ID and approved reason;
+- a protected path, dependency, public contract, data schema, or security
+  boundary is named without its material approval gate; or
+- a row uses an implementation preference (“add a helper”) as the only
+  acceptance criterion instead of the observable outcome it must support.
+
+These rules keep the matrix practical. It should be as small as the task allows,
+but detailed enough that a failed completion loop identifies the missing
+requirement, impacted path, evidence, and next safe action without asking a
+human to reconstruct the task from the entire conversation.
+
+Accordingly, a Navigator impact is labelled `likely`,
+`confirmed-by-local-source`, or `unknown`, while the checkpoint records the
+actual changed lines, symbols, files, and evidence state. Prediction and proof
+remain deliberately separate.
+
+Navigator needs these implementation capabilities to create that proposal:
+
+1. Requirement decomposition, including explicit preserved behavior and
+   acceptance evidence.
+2. Local impact discovery through repository search, Code Graph/AST evidence,
+   relevant callers, tests, configuration, and project policy.
+3. Confidence and ambiguity classification, with AIDLC routing only when the
+   request is broad, risky, or genuinely unclear.
+4. Scope proposal: expected paths, allowed discoveries, protected paths, and
+   task ownership candidates.
+5. Guide and computational-sensor selection, including an explanation of heavy
+   controls intentionally skipped.
+6. Anchor drafting and approval-fingerprint creation; after approval it triggers
+   the Task Recovery Boundary before an execution agent writes source.
+
+Navigator must remain a router and anchor proposer. It may invoke read-only
+mapping tools, but it does not own the correction loop, mutate the approved
+state, or declare requirements complete merely because its impact prediction
+looked plausible.
 
 ### Example Navigator output
 
@@ -678,6 +873,36 @@ The checkpoint should separate these categories:
 | Scope drift | Did the diff move beyond the approved impact boundary? | Classify as required, regression, optional hardening, or unrelated; re-approve if material. |
 | Evidence drift | Did a test change, skipped control, or weak assertion make proof less trustworthy? | Require a requirement-linked rationale or escalate. |
 
+#### Checkpoint delta states
+
+Every checkpoint compares the current actual state both to the approved anchor
+and to the previous checkpoint. It must use explicit delta states rather than an
+opaque drift score:
+
+| Delta state | Meaning | Harness response |
+| --- | --- | --- |
+| `resolved` | A prior requirement, architecture, behavior, scope, or evidence gap is now validated. | Preserve the evidence and continue to remaining rows. |
+| `improved` | Evidence is stronger or the gap is smaller, but the requirement is not fully proven. | Issue the next bounded correction or focused validation. |
+| `unchanged` | The prior gap remains materially the same. | Count against correction budget; consider root-cause/recovery analysis. |
+| `regressed` | A previously validated requirement or invariant now fails. | Stop broad progress claims and correct/diagnose the regression. |
+| `new-drift` | The latest correction introduced an unexpected path, dependency, behavior, scope, or evidence problem. | Classify the drift; invalidate/re-approve if material. |
+| `needs-decision` | Evidence supports more than one reasonable interpretation, or proof is insufficient. | Pause automated correction and request human judgment. |
+
+Example:
+
+```text
+Checkpoint 01:
+- service submission rejects zero: failed
+
+Checkpoint 02:
+- service submission rejects zero: resolved
+- controller.py changed outside approved scope: new-drift
+
+Result:
+Behavior improved, but scope is no longer fully aligned. Do not mark the task
+complete until the controller change is justified, reversed, or approved.
+```
+
 ### Anchor invalidation and re-approval
 
 An approval only applies to the precise desired state that was reviewed. TailTrail
@@ -949,6 +1174,291 @@ tests, metrics, or another appropriate evidence type instead.
 The runner itself is part of the harness and must be independently tested.
 Otherwise a friendly fixture diff can provide false confidence because the
 scenario execution logic is wrong.
+
+## Task Recovery Boundary
+
+Git remains TailTrail's long-term source of repository history, but a simple
+rollback to Git `HEAD` is unsafe in a real developer workspace. A developer can
+finish Task 1, leave its valid work uncommitted, then start Task 2 in the same
+repository. If Task 2 fails, restoring the entire repository to `HEAD` would
+erase Task 1 even though TailTrail did not need to undo it.
+
+TailTrail therefore needs a **Task Recovery Boundary** for every approved
+harness run:
+
+> A local, append-only record of the current task's expected scope, pre-task
+> state, task-owned changes, and recovery artifacts. It enables reversal of the
+> current task without touching valid work that existed before that task began.
+
+The recovery boundary is not a replacement for Git and must not claim to be a
+repository backup service. It is the minimum local recovery data required to
+separate uncommitted Task 2 work from pre-existing Task 1 work.
+
+```mermaid
+flowchart LR
+    A["Task 1 complete<br/>uncommitted valid work"] --> B["Task 2 anchor approved"]
+    B --> C["Capture Task 2 baseline<br/>only task-scope files"]
+    C --> D["Agent changes Task 2 files"]
+    D --> E{"Task 2 completes?"}
+    E -->|Yes| F["Keep Task 1 and Task 2 work"]
+    E -->|No| G["Build selective recovery plan"]
+    G --> H{"Task-owned patch applies safely?"}
+    H -->|Yes| I["Reverse Task 2 only"]
+    H -->|Conflict| J["Assisted merge or human recovery"]
+    I --> K["Task 1 work preserved"]
+    J --> K
+```
+
+### Why GitHub and Git `HEAD` are not enough
+
+GitHub only knows pushed commits. Git `HEAD` only represents committed history.
+Neither contains Task 1 if the developer has finished it locally but has not
+committed it. A hash alone can detect a changed file but cannot restore the
+pre-task bytes that are needed for exact recovery.
+
+TailTrail needs one of these local safety mechanisms:
+
+| Option | Assessment |
+| --- | --- |
+| Reset repository to Git `HEAD` | Unsafe; destroys all uncommitted work. Never the default. |
+| Require a local commit before every task | Recoverable, but too disruptive to normal developer workflow. |
+| Require a named stash/branch checkpoint | Safer than reset but still shifts workflow burden to the developer. |
+| Local task-scoped baseline and patch artifacts | Recommended; preserves the user's existing uncommitted work and supports selective recovery. |
+
+### Boundary creation at anchor approval
+
+Before the execution agent can edit source, TailTrail records the recovery
+boundary alongside the approved anchor. It should not map or copy the entire
+repository. It captures only expected task paths, approved scope expansions, and
+the minimal Git/worktree metadata needed to detect conflicts.
+
+```text
+Task Recovery Boundary
+
+Run ID: claim-limit-002
+Anchor: approved-v1
+Git HEAD: abc1234
+Worktree already dirty: yes
+
+Expected task paths:
+- src/claims_api/validation.py
+- src/claims_api/service.py
+- tests/test_claim_validation.py
+
+Excluded by default:
+- all other repository files
+- protected/API/schema/dependency paths without explicit approval
+```
+
+The boundary must capture:
+
+| Artifact | Why it is required |
+| --- | --- |
+| Git `HEAD` revision | Gives a long-term repository reference point. |
+| Pre-task content hash for each task-scope file | Detects unexpected modification after the boundary is created. |
+| Exact pre-task file content or local baseline patch | Enables recovery when earlier work is uncommitted. |
+| Task-owned patch after each checkpoint | Identifies exactly what the current task changed. |
+| Unified diff hunks with surrounding context | More stable than line numbers when code shifts. |
+| Symbol/AST anchors when available | Helps explain/recover semantic locations after movement. |
+| File ownership ledger | Separates pre-existing, current-task, user, and unknown changes. |
+| New/deleted file records | Allows safe deletion/restoration only when the current task owns the file. |
+
+Line numbers may be included for display, but they are not sufficient recovery
+identifiers. Agent edits can shift lines. Recovery should prefer exact patch
+context, content hashes, and symbol anchors.
+
+### Local recovery artifact layout
+
+```text
+.tailtrail/runs/<run-id>/
+  approved-v1.md
+  approved-v1.json
+
+  recovery-boundary/
+    manifest.json
+    ownership-ledger.json
+    baseline/
+      validation.py.before
+      service.py.before
+      tests-test_claim_validation.py.before
+
+  checkpoints/
+    001/
+      actual.md
+      checkpoint.json
+      task-owned.patch
+    002/
+      actual.md
+      checkpoint.json
+      task-owned.patch
+
+  recovery/
+    reverse-current-task.patch
+    recovery-plan.md
+```
+
+These files are private local state and should be ignored by normal Git commits.
+They may contain exact source necessary for recovery, so TailTrail must not send
+them to telemetry, learning, model providers, or shared metadata by default.
+
+### Expected scope versus actual task ownership
+
+`approved.md` defines the expected impact boundary. It does not need a list of
+every non-impacted file in the repository. Everything outside the approved scope
+is excluded by default and should be treated as a scope event if changed.
+
+| Classification | Meaning | Recovery posture |
+| --- | --- | --- |
+| Expected task path | File was listed in the approved anchor. | Track task-owned hunks and allow selective recovery. |
+| Justified discovered path | Important caller/test discovered by Code Graph and allowed by the anchor's expansion rule. | Add to ownership ledger and baseline before agent edits it. |
+| Material scope expansion | API, schema, security, dependency, protected, or unrelated path. | Pause; require approval before adding it to task ownership. |
+| Pre-existing changed path | File already had user/earlier-task changes before this run. | Preserve as baseline; never treat it as current-task work. |
+| Unknown changed path | Changed after task start but no ownership/approval evidence exists. | Do not roll it back automatically; escalate. |
+
+The actual-state report should compare expected and observed paths:
+
+```text
+Expected scope:
+- validation.py
+- service.py
+- focused tests
+
+Actual task-owned paths:
+- validation.py
+- service.py
+- focused tests
+
+Unexpected path:
+- controller.py
+
+Decision:
+controller.py is outside the approved task. Treat as architecture/scope drift;
+do not include it in automatic recovery until ownership is resolved.
+```
+
+### Selective recovery algorithm
+
+Recovery should reverse the current task's delta, not restore entire files or
+the entire repository. The algorithm must be conservative:
+
+1. Freeze the latest checkpoint and record the current working-tree fingerprints.
+2. Build the reverse patch from task-owned changes relative to the task baseline.
+3. Check that the current file still matches the expected task-owned context.
+4. If it matches, apply the reverse patch only to the owned hunks.
+5. If context changed, attempt an assisted three-way merge using baseline,
+   latest task-owned state, and current working-tree state.
+6. If overlapping user/other-task edits make ownership ambiguous, do not modify
+   source. Render a recovery plan and ask the developer to choose.
+7. Record recovery as a new checkpoint; never erase prior checkpoints.
+
+```mermaid
+flowchart TB
+    A["Current task fails"] --> B["Freeze latest checkpoint"]
+    B --> C["Build reverse patch from task-owned delta"]
+    C --> D{"Current file matches task patch context?"}
+    D -->|Yes| E["Apply reverse task patch"]
+    D -->|No| F{"Three-way merge is conflict-free?"}
+    F -->|Yes| G["Create assisted selective recovery patch"]
+    F -->|No| H["No source write; human recovery decision"]
+    E --> I["Recovery checkpoint"]
+    G --> I
+    H --> I
+```
+
+### Recovery modes
+
+| Mode | Preconditions | TailTrail action |
+| --- | --- | --- |
+| Automatic reverse patch | Task-owned hunk context and file fingerprints still match expected state. | Reverse only current-task hunks. |
+| Assisted three-way recovery | File changed but baseline/current/task versions can merge without conflict. | Produce and show a candidate selective recovery patch. |
+| Human recovery required | User/another task changed the same hunk, file provenance is unknown, or merge conflicts remain. | Do not write source; show exact conflict and safe options. |
+
+TailTrail must never silently overwrite a whole file because it belongs to the
+current task. A file can contain valid prior work, user edits made during the
+run, or overlapping work from another task.
+
+### Example: Task 1 is uncommitted; Task 2 fails
+
+```text
+Task 1:
+- Add customer identifier field in src/claims_api/service.py.
+- Work is correct but remains uncommitted.
+
+Task 2:
+- Add claim-limit behavior in src/claims_api/service.py.
+- Agent fails after three correction cycles.
+```
+
+At Task 2 approval, TailTrail captures the exact Task 1 version of
+`service.py` as Task 2's local baseline. The Task 2 patch contains only
+claim-limit hunks.
+
+```text
+Task 2 selective recovery:
+- reverse only claim-limit hunks
+- restore service.py to its Task 2 baseline
+- preserve Task 1 customer identifier work
+```
+
+If the developer manually changed the same claim-limit hunk while Task 2 was
+running, automatic reversal is unsafe. TailTrail must provide a conflict report
+instead of overwriting the developer's change.
+
+### New and deleted files
+
+New and deleted files need ownership rules too:
+
+| File event | Safe recovery rule |
+| --- | --- |
+| New file created and modified only by current task | Offer to remove it with explicit user confirmation. |
+| New file changed later by user/another task | Do not remove automatically; show ownership conflict. |
+| Existing file deleted by current task | Restore from task baseline only when ownership/context is verified. |
+| Generated file changed by current task | Follow project policy; avoid recovery writes if generated files are controlled elsewhere. |
+
+### Recovery is not completion
+
+Selective recovery restores a safe prior task boundary; it does not prove the
+underlying requirement is solved. After recovery, Navigator should enter
+Recovery/Replan mode with the preserved anchor, checkpoints, failures, and
+recovery result. It should not restart from zero or discard evidence.
+
+### Recovery Diagnostician: optional and threshold-triggered
+
+TailTrail should not add another model call to every normal correction cycle.
+The deterministic Harness controls and regular TailTrail Review are the default
+first line of defense. A specialized **Recovery Diagnostician** is useful only
+when the correction budget is exhausted, the same gap repeats, several approved
+requirements regress, or the root cause remains semantically unclear.
+
+Its role is not to make a new implementation. Its role is to analyze preserved
+evidence and recommend the smallest next investigation or recovery strategy.
+
+| Input | Purpose |
+| --- | --- |
+| Approved anchor and approved scenarios | Establish the intended behavior and boundaries. |
+| Checkpoint deltas and task-owned patches | Show what changed, improved, repeated, or regressed. |
+| Exact failed controls and focused tests | Ground hypotheses in observed evidence. |
+| Relevant source/caller/impact map | Avoid rediscovering the entire repository. |
+| Recovery boundary and conflict state | Prevent a diagnosis from proposing unsafe rollback. |
+
+The Diagnostician should output:
+
+```text
+Root-cause hypotheses:
+1. Service catches ClaimValidationError and maps it to success. Evidence: service test and call path.
+2. Submission scenario expectation may be ambiguous. Evidence: existing contract test conflicts with approved behavior.
+
+Recommendation:
+- inspect service error-mapping branch before changing tests
+- if public response contract is intentionally changing, create approved-v2
+- otherwise issue a bounded service-path correction
+
+Confidence: inferred, not confirmed
+```
+
+It must label hypotheses as inferred and stop at `needs-decision` where evidence
+cannot determine the right product behavior. It receives a compact recovery
+packet, not raw conversation history or the whole repository.
 
 ## Architecture Fitness Harness
 
@@ -1543,6 +2053,235 @@ Success for this harness is not a larger number of comments. It is fewer
 avoidable human review comments, smaller and more consistent agent diffs, and
 clearer evidence that the requested change is maintainable.
 
+## Required changes to the current Harness Engineering plan
+
+The original harness proposal correctly introduced anchors, approved/actual
+state, checkpoints, correction packets, and recovery/review concepts. The
+following additions are required before implementation because a real workspace
+can contain valid uncommitted work from several tasks.
+
+| Current design area | Required change | Why it matters |
+| --- | --- | --- |
+| `approved.md` / `actual.md` | Version anchors and make actual state checkpoint-specific instead of a single overwritten file. | Preserves auditability and supports comparison across correction cycles. |
+| Anchor approval | Capture a Task Recovery Boundary before execution agent writes source. | A hash alone cannot recover pre-existing uncommitted task work. |
+| Scope model | Record expected paths, task-owned paths, justified discoveries, protected paths, and unknown changes. | Prevents an agent from rolling back or claiming ownership of unrelated work. |
+| Recovery | Replace repository-level rollback with reverse task patches, three-way recovery, and human conflict handling. | `git reset` to `HEAD` can destroy earlier uncommitted work. |
+| Checkpoints | Compare current state to both the approved anchor and the previous checkpoint. | Detects whether the latest correction resolved, preserved, or worsened drift. |
+| Approval model | Require approval at material intent/scope/behavior changes, not after every normal correction. | Keeps the loop useful without removing human control. |
+| Failed-loop handling | Add Recovery/Replan mode that preserves run history and resumes Navigator/AIDLC from evidence. | Avoids starting from zero and repeating earlier mistakes. |
+| Evaluation Harness | Capture recovery/replan outcome, correction count, scope conflicts, and task-boundary safety in deterministic scenarios. | Lets TailTrail prove the recovery design is safe and useful. |
+| Token Harness | Link context receipts to run, anchor, checkpoint, and recovery packet. | Prevents repeated failures from causing uncontrolled context growth. |
+| Agent graph | Keep Harness deterministic; reserve a diagnostic agent for repeated failure or semantic ambiguity. | Avoids expensive, self-chatting multi-agent loops. |
+
+### Required artifact lifecycle
+
+```text
+Task approved
+  -> approved-v1.md and Task Recovery Boundary created
+  -> checkpoint-01 actual state and task-owned patch
+  -> checkpoint-02 actual state and task-owned patch
+  -> recovery/replan if needed
+  -> approved-v2.md only after material human-approved intent change
+```
+
+### Required commands and safeguards
+
+The future command surface should include explicit recovery planning, but no
+destructive command should be implicit:
+
+```bash
+# Design targets, not implemented commands.
+tailtrail harness boundary show <run-id>
+tailtrail harness checkpoint <run-id>
+tailtrail harness recovery plan <run-id>
+tailtrail harness recovery apply <run-id> --approved
+tailtrail harness recovery replan <run-id>
+```
+
+`recovery apply` must verify task ownership and context before changing any file.
+If recovery conflicts with user/other-task work, it must exit without modifying
+source and produce a human-readable conflict report.
+
+### Additional acceptance criteria
+
+- A Task 2 recovery preserves all Task 1 work that existed before Task 2 began,
+  even if both tasks modified the same file.
+- TailTrail never performs a repository-wide reset or checkout as normal task
+  recovery.
+- Task-owned patch reversal succeeds only when patch context/fingerprints match;
+  otherwise TailTrail offers assisted or human recovery.
+- A manual edit or separate task edit made after the recovery boundary is never
+  silently overwritten.
+- Every recovery attempt is recorded as a checkpoint and remains available to
+  Navigator, Review, AIDLC, Token Harness, and Evaluation Harness.
+- Local recovery snapshots are ignored by Git and excluded from telemetry,
+  learning, shared metadata, and model context unless the developer explicitly
+  supplies exact material needed for a correction.
+
+### True Version 1 boundary
+
+Version 1 must prove the core loop on real multi-file tasks before TailTrail adds
+more agents or infrastructure.
+
+| Build in Version 1 | Defer until Version 1 has measured evidence |
+| --- | --- |
+| Light/approved Change Intent Anchor | Multi-agent autonomous execution graph |
+| Task Recovery Boundary and checkpoint-specific actual state | Broad architecture-template catalog |
+| Requirement-to-evidence matrix | Large approved-scenario library across every domain |
+| Focused local tests/checks and one bounded correction packet | Live model evaluation as the default evaluation method |
+| Two/three-cycle recovery limit and Recovery/Replan packet | Always-on diagnostic agent |
+| Selective no-write-safe recovery planning | Vector database, graph database, background daemon, or cloud service |
+| Deterministic saved-artifact Evaluation Harness fixtures | Claims about defect prevention, review-time reduction, or token savings without measurement |
+
+The implementation order is therefore:
+
+1. Anchor, expected scope, and task recovery boundary.
+2. Checkpoint-specific actual state and requirement matrix.
+3. Focused controls, drift deltas, and one correction packet.
+4. Recovery limit, no-write-safe recovery plan, and Navigator Recovery/Replan.
+5. Deterministic baseline-versus-harness evaluation fixtures.
+6. Only then add specialized agents, broader templates, or live evaluation when
+   observed evidence shows they solve a recurring gap.
+
+## Operational guardrails, boundaries, and loop configuration
+
+Harness Engineering needs two complementary kinds of protection. **Guardrails**
+decide whether a proposed action is permitted at all. **Boundary checks** compare
+the work that happened with the approved task contract. Neither is a generic
+quality score: each result must name its source, rule, and consequence.
+
+### Guardrail catalogue
+
+| Guardrail | Question it answers | Typical computational evidence | Harness response |
+| --- | --- | --- | --- |
+| Approval | Is there an approved desired state for this level of change? | Anchor fingerprint and approval record | Do not execute a full harness run without the required approval. |
+| Scope and ownership | Is the agent changing only paths, symbols, and tests this task owns or has justified discovering? | Diff, changed-path ledger, task recovery boundary | Mark `new-drift`; stop automatic correction on protected or unexplained scope. |
+| Policy and safety | Is the action allowed by repository policy and universal TailTrail safety rules? | `AGENTS.md`, local policy, protected-path and command allowlists | Block unsafe commands, networked tools, secret-bearing artifacts, or forbidden paths. |
+| Dependency and supply chain | Did the task add/change a package, lockfile, build tool, or external service? | Manifest/lockfile diff and Dependency Gate result | Require explicit dependency review and material re-approval. |
+| Architecture | Does the change preserve approved layers, contracts, ownership, and dependency direction? | Import/dependency checks, AST/code graph, protected API/schema paths | Mark architecture drift; request a justified anchor revision or focused repair. |
+| Behaviour and requirements | Does every required outcome have production and focused-evidence support? | Requirement matrix, scenarios, tests, service/contract checks | Mark a completion gap; create one correction packet, never silently alter the expected scenario. |
+| Test integrity | Did a changed test prove the approved behavior rather than weaken or redefine it? | Test diff, assertion comparison, requirement link, baseline result | Escalate test-chasing or unlinked expectation changes for human review. |
+| Evidence and claims | Is a success, token, quality, or recovery claim supported by exact evidence? | Command receipts, output hashes, source/test pointers | Label as `validated`, `local estimate`, `inferred`, or `unknown`; never overclaim. |
+| Recovery | Can a failed task be reversed without touching other valid uncommitted work? | Task-owned patch, file fingerprint, hunk context, ownership ledger | Use selective recovery only when safe; otherwise create a no-write assisted recovery plan. |
+| Loop and escalation | Is another correction likely to add information and remain within the approved budget? | Checkpoint delta, repeated-failure classifier, elapsed-time/context receipts | Stop and escalate rather than retrying blindly. |
+
+Universal safety rules are non-overridable: TailTrail must not silently run
+destructive recovery, change protected security/data contracts, install
+dependencies, use external services, weaken tests, or expose exact source and
+secrets merely to keep a loop moving. A repository may add stricter rules, but
+cannot relax these rules.
+
+### Boundary checks
+
+The approved anchor supplies the boundaries. Each checkpoint evaluates the
+following concrete comparisons; it does not read or claim ownership of every
+file in the repository.
+
+| Boundary | Anchor records | Checkpoint compares | Example failure |
+| --- | --- | --- | --- |
+| File and symbol | Expected files, allowed discoveries, relevant symbols/callers | Actual diff and code-graph references | A validation task unexpectedly edits an unrelated deployment workflow. |
+| Requirement | Atomic required outcomes and preserved outcomes | Requirement-to-evidence matrix | Zero amounts are rejected, but a valid positive-amount service flow is no longer proven. |
+| Behaviour | Approved scenarios, invariants, inputs/outputs, error contracts | Focused test/contract result and changed assertions | Agent changes a fixture so zero amounts are accepted instead of fixing validation. |
+| Architecture | Layer direction, shared helper, public/schema/protected boundaries | Imports, paths, API/schema diff, structural sensors | Service bypasses the shared validator and duplicates business logic. |
+| Dependency and environment | Approved packages, commands, external access | Manifest/lockfile/configuration and command receipts | A small fix adds a validation library without Dependency Gate approval. |
+| Evidence | Required proof and evidence freshness | Test/control receipt, source pointer, scenario linkage | A stale green test is cited although the relevant assertion was removed. |
+| Recovery ownership | Baseline fingerprint, task-owned hunks, later external edits | Patch applicability and three-way merge context | Task 2 recovery would overwrite Task 1's uncommitted lines in the same file. |
+
+The harness must classify an unexpected change before deciding what to do:
+`justified-discovery` can extend the boundary only with a recorded reason;
+`new-drift` requires correction or re-approval; `protected` or `unknown` stops
+automatic execution. This is the key distinction between a useful completion
+loop and an over-broad automated reviewer.
+
+### Selected guides and computational sensors
+
+Navigator selects only the guides and sensors that answer a real task question.
+It should display both selected and intentionally skipped controls, including
+why. A guide provides feedforward context; a sensor produces an observable
+result. The two must not be confused.
+
+| Task signal | Applicable guides | Computational sensors | Normally skipped |
+| --- | --- | --- | --- |
+| Tiny non-behavioural edit | Local policy, normal TailTrail plan | Diff scope; optionally formatting check | Anchor, scenarios, correction loop, broad scans |
+| One-file validation/bug fix | Light anchor, Code Graph, Test Precision, policy | Focused unit test, diff/symbol scope, changed-test integrity | AIDLC and full architecture scan unless a drift signal appears |
+| Multi-file logic change | Completion Harness, requirement matrix, Code Graph, Test Precision | Focused unit/service tests, caller paths, AST/import and diff scope checks | Broad repository scans unless policy requires them |
+| Public API/schema/security/dependency change | Full three-lens harness, Guardrails, Dependency Gate, AIDLC when requirements are unclear | Contract/type tests, migration/schema/API diff, dependency and protected-path checks | Automatic material approval or autonomous recovery |
+| Repeated failed correction | Recovery/Replan packet; optional Recovery Diagnostician | Delta comparison, failure clustering, task-owned recovery applicability | Another identical correction with no new evidence |
+
+The guide set can include `AGENTS.md`, `tailtrail-policy.md`, Navigator's impact
+map, Code Graph, Test Precision, the approved anchor, AIDLC requirements,
+approved scenarios, Dependency Gate, and Token Harness context receipts.
+Computational sensors can include focused tests, build/lint/type commands,
+AST/import/dependency analysis, structural checks, changed-path and changed-test
+analysis, scenario fixtures, security/configuration checks, and recovery
+ownership checks. Review remains inferential and advisory; it interprets the
+evidence but must not replace deterministic proof.
+
+### Where controls live: root, repository, and task
+
+Controls should be designed as one layered system, rather than copied entirely
+into every harness run or centralized so far away that repositories cannot state
+their real rules.
+
+```mermaid
+flowchart TB
+    A[Universal TailTrail root rules\nsafety, schemas, default stop conditions] --> B[Repository policy and templates\ncommands, protected paths, architecture rules]
+    B --> C[Approved task anchor\nrequirements, expected scope, scenarios, evidence]
+    C --> D[Navigator selection\napplicable guides and sensors]
+    D --> E[Checkpoint and bounded correction loop]
+```
+
+| Layer | Owns | May override | Must not override |
+| --- | --- | --- | --- |
+| TailTrail root | Result schemas, evidence labels, universal safety, default recovery semantics, default loop limits | Default sensor sets and presentation | No-destructive-write, no hidden network/telemetry, approval and evidence integrity rules |
+| Repository | Allowed commands, timeouts, protected files, test/build conventions, architecture rules, approved templates | Root defaults by becoming stricter or more specific | Universal safety and required evidence labels |
+| Harness template | Reusable technology/domain control bundles | Sensor selection for matching repositories | Repository policy or task intent |
+| Approved task anchor | Exact requirements, scope, scenarios, invariants, material approval gates, task-specific budget | Which approved optional controls run | Root/repository safety and protected boundaries |
+| Checkpoint | Observed results and delta status | Nothing; it is evidence, not policy | The approved state or prior evidence |
+
+The precedence rule is explicit: **user instruction and universal safety first,
+then approved task anchor, repository policy, selected template, and TailTrail
+defaults.** A narrower rule wins when it adds protection; an anchor cannot use a
+task-specific exception to bypass a repository-protected path.
+
+### Bounded loop validation and cycle budget
+
+An implementation attempt is not a correction cycle. The default configuration
+is **one initial implementation plus at most two automatic correction cycles**.
+That gives the agent a meaningful chance to use newly observed test/behaviour
+evidence without turning TailTrail into an unbounded retry system.
+
+| Harness level | Initial attempt | Default automatic corrections | Maximum without fresh explicit approval | Rationale |
+| --- | ---: | ---: | ---: | --- |
+| No harness | 1 | 0 | 0 | Normal review/validation is enough. |
+| Light anchor | 1 | 1 | 1 | One focused failure is often locally repairable. |
+| Requirement Completion / full three-lens | 1 | 2 | 2 | Multi-file behaviour changes may need one correction from fresh evidence and one final convergence attempt. |
+| Regulated, security, schema, or public-contract work | 1 | 1 | 1 | Human decision is safer than repeated autonomous contract changes. |
+| Explicit experimental run | 1 | Up to 3 | 3 | Only with a declared budget, retained checkpoints, and no material drift. |
+
+Before any correction, TailTrail validates that it has **new, actionable
+evidence**, the correction remains in scope, and the previous checkpoint is not
+`regressed`, `needs-decision`, or an unresolved `new-drift`. It then emits one
+minimal packet: the failed requirement, exact observed evidence, allowed files,
+invariants, and one next check. It should never issue a vague “try again” prompt.
+
+The loop stops immediately—before consuming another cycle—when any of these
+conditions occurs:
+
+- a requirement or expected behavior is ambiguous, or the proposed change alters
+  a public API, schema, dependency, security boundary, or protected file;
+- the same failure recurs without materially new evidence, a checkpoint
+  regresses, or the agent begins test-chasing;
+- a task-owned recovery patch conflicts with later user/other-task work;
+- a command times out, its result is ambiguous, or policy does not authorize
+  the needed sensor; or
+- the approved cycle/time/context budget is exhausted.
+
+At a stop condition, TailTrail writes a `needs-decision` or Recovery/Replan
+packet with the preserved anchor, checkpoint deltas, exact failed controls, and
+the smallest human decision needed. Navigator may then re-route the task; it
+does not erase the prior anchor, `actual.md`, recovery boundary, or evidence.
+
 ## Planned implementation
 
 ### Phase 1 — Control contract and local fast checks
@@ -1640,6 +2379,7 @@ new dependency.
 | Artifact | Writer | Contents | Mutability |
 | --- | --- | --- | --- |
 | `approved.md` | TailTrail drafts; human approves | Goal, desired behavior, scenarios, architecture expectations, scope, invariants, evidence plan, known unknowns | Immutable after approval; human re-approval required for material change. |
+| `requirement-impact-matrix.json` | Navigator; frozen with anchor approval | Atomic requirements and preserve rules, likely file/symbol/line/fingerprint references, confidence, expected scope, and evidence plan | Proposed before approval; versioned and immutable within an approved anchor. |
 | `change-intent-anchor.json` | TailTrail | Same anchor in normalized, fingerprinted machine form | Rewritten only when a new/re-approved anchor is created. |
 | `actual.md` | TailTrail after each check | Observed behavior, changed paths, controls run, results, and gaps | Regenerated each cycle. |
 | `checkpoint-<n>.json` | TailTrail | Requirement/architecture/behavior/scope/evidence comparison and correction state | Append-only per cycle. |
@@ -1668,19 +2408,23 @@ The harness should compose existing surfaces rather than reimplement them:
 | `scripts/harness-controls.py` | Select, run, time-bound, and normalize computational controls. |
 | `scripts/harness-feedback.py` | Build compact correction packets from exact local evidence. |
 | `scripts/change-intent-anchor.py` | Propose, validate, fingerprint, approve, invalidate, and compare the local current/desired-state contract. |
+| `scripts/navigator_core.py`, `scripts/task-start.py` | Decompose requirements, produce the Requirement-to-Impact Matrix, label local impact confidence, select guides/sensors, and draft the anchor without declaring completion. |
 | `scripts/harness-checkpoint.py` | Persist and render requirement, architecture, scope, and evidence drift after each correction cycle. |
+| `scripts/task-recovery-boundary.py` | Capture task-scope baselines, ownership ledger, file fingerprints, and task-owned checkpoint patches before/after execution. |
+| `scripts/task-recovery.py` | Plan selective recovery, verify patch context, produce assisted three-way recovery, and refuse unsafe writes. |
 | `scripts/completion-review.py` | Compare requirements, diff, impact map, tests, and review evidence; classify gaps and emit bounded correction tasks. |
 | `scripts/tailtrail.py` | Provide `harness plan`, `check`, `feedback`, and later `steer`. |
-| `scripts/navigator_core.py`, `scripts/task-start.py` | Supply scope, policy, tests, graph, and validation recommendations. |
 | `scripts/test-precision.py`, `scripts/ci-summary.py`, `scripts/quality-run.py` | Reused focused-test and local quality runners. |
 | `scripts/guardrail-check.py`, `scripts/code-graph-mapper.py`, `scripts/review-run.py` | Structural sensors, policy evidence, and inferential review. |
 | `schemas/harness-control.schema.json`, `schemas/harness-result.schema.json` | Versioned control and result contracts. |
 | `schemas/change-intent-anchor.schema.json`, `schemas/harness-checkpoint.schema.json` | Versioned approved target-state, fingerprint, invalidation, and checkpoint contracts. |
+| `schemas/task-recovery-boundary.schema.json`, `schemas/task-recovery-plan.schema.json` | Versioned task ownership, baseline, patch, conflict, and selective-recovery contracts. |
 | `schemas/requirement-evidence.schema.json` | Versioned requirement matrix, completion state, test-change rationale, and escalation contract. |
 | `templates/harness-feedback.md`, `templates/harness-template.example.yml` | Feedback output and project-local template example. |
 | `templates/change-intent-anchor.md`, `templates/harness-checkpoint.md` | Human-readable approved intent and per-cycle drift report. |
+| `templates/task-recovery-plan.md`, `templates/task-recovery-conflict.md` | Human-readable selective recovery plan and no-write conflict report. |
 | `templates/completion-review.md` | Human- and agent-readable requirement completion report. |
-| `tests/test_change_intent_anchor.py`, `tests/test_harness_checkpoint.py`, `tests/test_harness_controls.py`, `tests/test_harness_feedback.py`, `tests/test_completion_review.py` | Anchor approval/invalidation, checkpoint comparison, control selection, parsing, failure classification, test-chasing, and escalation tests. |
+| `tests/test_task_recovery_boundary.py`, `tests/test_task_recovery.py`, `tests/test_change_intent_anchor.py`, `tests/test_harness_checkpoint.py`, `tests/test_harness_controls.py`, `tests/test_harness_feedback.py`, `tests/test_completion_review.py` | Task ownership, uncommitted-work preservation, reverse patch, conflict/no-write behavior, anchor approval/invalidation, checkpoint comparison, controls, failure classification, test-chasing, and escalation tests. |
 
 ## Boundaries
 
@@ -1709,6 +2453,13 @@ The harness should compose existing surfaces rather than reimplement them:
   evidence drift rather than emitting an opaque score.
 - Material scope, policy, public-contract, dependency, data-model, or security
   changes invalidate the anchor and require re-approval.
+- Every approved run captures a Task Recovery Boundary before an execution agent
+  edits source, including task scope, baseline fingerprints, and task-owned patch
+  provenance.
+- A failed task can reverse only verified task-owned changes while preserving
+  valid earlier uncommitted work, including earlier work in the same file.
+- When recovery context overlaps later user/other-task edits, TailTrail performs
+  no automatic write and emits an assisted or human recovery plan.
 - A changed test has a requirement-linked rationale and production-behavior
   evidence, or it is escalated for human review.
 - Repeated failures escalate instead of producing unbounded correction loops.

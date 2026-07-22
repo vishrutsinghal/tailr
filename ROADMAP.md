@@ -630,6 +630,10 @@ This follows the coding-agent harness model described in Birgitta Böckeler's
 Detailed design, implementation phases, file plan, boundaries, and success
 criteria: [Harness Engineering](harness-engineering.md).
 
+MCP tool architecture, tool-family boundaries, schemas, authority tiers,
+Navigator Requirement-to-Impact Matrix tools, Harness/Token/Evaluation tool
+projections, and staged delivery plan: [TailTrail MCP Architecture](tailtrail-mcp.md).
+
 Product definition:
 
 ```text
@@ -8312,6 +8316,9 @@ Boundaries:
 - Goal: An opt-in local MCP server that exposes Navigator, guardrail-check, and read-only context helpers to MCP-capable agents, with the Markdown path as fallback.
 
 Status: implemented end to end for the read-only BL-9 V1 scope. TailTrail now has an opt-in stdio MCP server, a CLI surface, tests, docs, CI validation, and Extended-pack inclusion. The implementation deliberately does not add autonomous development chaining, write tools, scanner execution, background service behavior, telemetry upload, or MCP-only behavior.
+
+The next MCP evolution is intentionally **not** a broad autonomous agent. It is
+the staged, thin capability architecture in [TailTrail MCP Architecture](tailtrail-mcp.md): first structured Navigator decisions and Requirement-to-Impact Matrix proposals, then approval-gated harness artifacts and allowlisted controls, then read-only recovery/replan planning. Any source-writing or agent-steering tool remains deferred behind explicit safety, ownership, and real-usage gates.
 
 Shipped files and behavior:
 
