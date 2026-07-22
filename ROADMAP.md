@@ -634,6 +634,14 @@ MCP tool architecture, tool-family boundaries, schemas, authority tiers,
 Navigator Requirement-to-Impact Matrix tools, Harness/Token/Evaluation tool
 projections, and staged delivery plan: [TailTrail MCP Architecture](tailtrail-mcp.md).
 
+For broad one-prompt implementation spanning multiple features, later refactor
+discovery, and integration drift, see [Program Delivery
+Harness](program-delivery-harness.md). It defines program/feature/cycle planning,
+versioned approved and actual state, cross-feature drift, refactor remediation,
+selective recovery, integration evidence, and final completion. It is a future
+layer after Harness Engineering Version 1, not a replacement for small-task
+workflows.
+
 Product definition:
 
 ```text

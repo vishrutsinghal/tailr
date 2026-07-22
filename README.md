@@ -6,6 +6,35 @@ TailTrail is a small local development helper for making cleaner, smaller, reuse
 
 TailTrail's default workflow is simple: start with one command, review the plan, then approve or edit the next step. The goal is to help an agent read the existing code before changing it, reuse project patterns, avoid unnecessary dependencies, keep diffs easy to review, and preserve important safeguards.
 
+## Product Direction
+
+TailTrail is a **requirement-completion and drift-control system for AI-assisted
+software delivery**. Its direction is to make coding agents reliably complete
+multi-file requirements:
+
+```text
+approved intent -> scoped implementation -> computational evidence
+-> drift detection -> bounded correction -> safe recovery -> integration proof
+```
+
+Each capability has a clear role in that workflow:
+
+- **Navigator** tells the agent what matters: requirements, likely impact,
+  constraints, and proportionate validation.
+- **Token Harness** keeps relevant context manageable while preserving exact
+  source, policy, diff, and evidence boundaries.
+- **Harness Engineering** verifies whether the actual implementation meets the
+  approved intent and identifies requirement, behavior, architecture, scope, or
+  evidence drift.
+- **Evaluation Harness** proves whether TailTrail's workflow helps through
+  deterministic saved-artifact evidence before broader claims are made.
+- **MCP** makes stable TailTrail capabilities callable and inspectable across
+  supported hosts.
+
+The full requirement-completion, recovery, and program-delivery layers are
+documented future design work. Current TailTrail commands remain local,
+approval-first, and explicit about which checks have actually run.
+
 ## Start Here
 
 For most coding tasks:
