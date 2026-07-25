@@ -630,6 +630,13 @@ This follows the coding-agent harness model described in Birgitta Böckeler's
 Detailed design, implementation phases, file plan, boundaries, and success
 criteria: [Harness Engineering](harness-engineering.md).
 
+Navigator requirement gathering must be approval-first: a first material proposal
+rejection triggers mandatory requirement-by-requirement feedback, targeted
+questions, and an optional AIDLC Requirements mode; a second material rejection
+automatically enters that minimal AIDLC gathering path. Proposal versions,
+feedback, and deltas remain separate from implementation drift, and no feature
+starts with unresolved requirement rows.
+
 MCP tool architecture, tool-family boundaries, schemas, authority tiers,
 Navigator Requirement-to-Impact Matrix tools, Harness/Token/Evaluation tool
 projections, and staged delivery plan: [TailTrail MCP Architecture](tailtrail-mcp.md).
@@ -828,6 +835,187 @@ Acceptance criteria for the first useful release:
   advisory semantic/requirement layer.
 - Tests cover control selection, output parsing, timeout, failure feedback,
   repeated-failure escalation, and preservation of existing standalone commands.
+
+### V2.7.1.5: TailTrail Runtime Foundation
+
+Goal: establish the local canonical state backbone required before Program
+Delivery and Orchestration become reliable: append-only Run Ledger, derived state,
+execution adapter contract, single-worktree ownership/locking/resume rules, and
+reproducible evidence receipts.
+
+Priority: prerequisite for the Delivery Orchestrator after Harness Engineering
+V1 has validated the underlying anchor/checkpoint workflow.
+
+Status: design only. Detailed architecture, event/state examples, safety
+boundaries, phased delivery, and success criteria: [TailTrail Runtime
+Foundation](tailtrail-runtime-foundation.md).
+
+Key boundary: Markdown remains the review surface, but approved anchors,
+checkpoints, drift, recovery, and completion status must derive from one local
+append-only state model. No database, cloud service, daemon, raw prompt/source
+collection, or automatic source-write behavior belongs in the first slice.
+
+### V2.7.2: Deterministic Delivery Orchestrator
+
+Goal: coordinate approved requirements, feature dependencies, actual checkpoints,
+drift results, correction budgets, recovery/replan states, and final
+reconciliation into the next safe delivery action. The Orchestrator is the
+control layer above Navigator and Harness Engineering; it is not a new coding
+agent, a hidden autonomous runtime, or a replacement for human approval.
+
+Priority: later than Harness Engineering V1 and Program Delivery Harness core.
+
+Status: design only. Do not implement until approved anchors, requirement IDs,
+actual checkpoints, bounded correction, task recovery boundaries, and final
+anchor reconciliation have proven useful on real multi-file work.
+
+Detailed design sources:
+
+- `harness-engineering.md`: anchors, requirements, drift, correction, recovery,
+  reconciliation, and approval boundaries.
+- `program-delivery-harness.md`: program -> feature -> cycle delivery model,
+  dependency-aware phases, refactor discovery, integration, and closure.
+- `tailtrail-mcp.md`: local MCP capability contracts and authority tiers.
+
+Role separation:
+
+```text
+Navigator / AIDLC
+  -> decides what is required, what is uncertain, and what needs approval.
+
+Delivery Orchestrator
+  -> reads approved state and evidence, then selects the next allowed transition.
+
+Harness / Code Mapper / Test Precision / Guardrails / Token Harness
+  -> supply deterministic evidence about what actually happened.
+
+Coding agent
+  -> implements only an approved, bounded work packet.
+```
+
+The Orchestrator must not invent requirements, rewrite `approved.md`, apply
+source changes, run arbitrary shell commands, bypass policy, silently recover
+source, or treat a green test as complete delivery proof.
+
+State model:
+
+```mermaid
+flowchart TB
+    A["Approved Program/Feature Anchor"] --> B["Orchestrator state machine"]
+    B --> C["Activate dependency-ready feature slice"]
+    C --> D["Agent implementation"]
+    D --> E["Harness controls and checkpoint"]
+    E --> F{"Evidence-backed state decision"}
+    F -->|"Validated"| G["Activate next dependency-ready feature"]
+    F -->|"Completion gap"| H["One bounded correction packet"]
+    H --> D
+    F -->|"Design gap / repeat failure"| I["Navigator Recovery/Replan"]
+    I --> B
+    F -->|"Material change"| J["Human approval gate"]
+    J --> B
+    G --> K["Integration reconciliation"]
+    K --> L["Completion / handoff"]
+```
+
+First version input and output:
+
+```json
+{
+  "input": {
+    "program_anchor": "approved-v1",
+    "feature_dependency_graph": "P-01",
+    "active_feature": "F-02",
+    "latest_checkpoint": "F-02-checkpoint-003",
+    "requirement_states": {"REQ-04": "failed"},
+    "drift_states": ["failed"],
+    "correction_budget_remaining": 1,
+    "policy_and_approval_state": "approved"
+  },
+  "output": {
+    "state": "awaiting_correction",
+    "next_action": "issue_correction_packet",
+    "target_requirements": ["REQ-04"],
+    "blocked_features": ["F-03"],
+    "approval_required": false,
+    "reason": "REQ-04 failed with new actionable service-path evidence."
+  }
+}
+```
+
+Initial state transitions:
+
+| Current evidence/state | Allowed next action |
+| --- | --- |
+| Approved feature has no implementation checkpoint | Activate feature slice and request implementation packet. |
+| All active requirement/global rows validate | Mark feature complete; activate dependency-ready feature or integration. |
+| One/more rows fail with new actionable evidence and budget remains | Issue smallest correction packet. |
+| Same failure repeats, result is ambiguous, or budget ends | Enter Recovery/Replan or `needs-decision`; do not retry blindly. |
+| Material scope/API/schema/security/dependency drift | Pause feature; request human approval for new anchor version. |
+| Recovery conflict | Emit no-write recovery plan and block affected transition. |
+| All program features and integration evidence validate | Run Anchor Reconciliation and close with `complete-validated`. |
+
+Implementation phases:
+
+1. **DO-0 State contract audit:** define explicit program, feature, cycle,
+   requirement, approval, drift, recovery, and completion states. Reuse existing
+   schemas where possible; do not create parallel requirement/drift truth.
+2. **DO-1 Read-only next-action engine:** consume existing approved anchors,
+   dependency graph, checkpoints, and policy; render `program status` and
+   `program next-action` without source writes or model calls.
+3. **DO-2 Feature activation and gates:** enforce dependency-ready activation,
+   unresolved-requirement blocks, correction budgets, approval gates, and
+   integration readiness.
+4. **DO-3 Recovery/Replan routing:** route repeat failures/design gaps to
+   Navigator with preserved evidence; never restart from zero or recover source
+   automatically.
+5. **DO-4 Anchor reconciliation routing:** select final reconciliation only when
+   all feature/integration conditions are satisfied; render closure status.
+6. **DO-5 MCP projection:** expose stable read-only status/next-action tools
+   first; approval-gated artifact actions only after CLI/domain behavior and
+   safety tests are stable.
+
+Likely files:
+
+| File | Planned responsibility |
+| --- | --- |
+| `scripts/delivery-orchestrator.py` | Deterministic state evaluation and next-action selection. |
+| `schemas/delivery-state.schema.json` | Versioned program/feature/cycle/approval/drift state contract. |
+| `schemas/delivery-transition.schema.json` | Allowed transition, reason, evidence, blockers, and approval fields. |
+| `scripts/program-delivery-plan.py` | Reused Navigator program/feature/dependency input. |
+| `scripts/harness-checkpoint.py`, `scripts/completion-review.py` | Reused actual/drift/completion evidence providers. |
+| `scripts/task-recovery*.py`, `scripts/program-replan.py` | Reused recovery and replan routing. |
+| `scripts/tailtrail.py` | Later `program status`, `program next-action`, and explicit transition commands. |
+| `scripts/mcp-server.py` | Later read-only `program.status` and `program.next_action` tools. |
+| `tests/test_delivery_orchestrator.py` | State transition, blocked dependency, budget, approval, recovery, and reconciliation fixtures. |
+
+Safety boundaries:
+
+- Deterministic state machine first; no model-driven orchestration logic in V1.
+- The Orchestrator routes only allowed transitions; Navigator owns intent,
+  Harness owns evidence, and the agent owns approved implementation.
+- No daemon, hidden background loop, automatic source edit, commit, push,
+  package install, scanner execution, or arbitrary command runner.
+- No automatic recovery write; task-owned recovery remains fingerprinted,
+  conflict-safe, explicit-approval work.
+- No generic “continue” transition when no new evidence exists.
+- Keep a compact user view: current feature, requirement states, blockers,
+  next safe action, and why. Do not expose workflow-engine complexity by default.
+
+Acceptance criteria:
+
+- Same approved state and checkpoint evidence always produce the same next
+  action.
+- The engine never activates a feature whose dependencies or requirement gates
+  are unresolved.
+- A failed row with fresh evidence produces one focused correction transition.
+- Repeated/ambiguous failure routes to Recovery/Replan, not an unbounded loop.
+- Material drift always blocks continuation pending the correct approval state.
+- Recovery conflict always yields a no-write blocked state.
+- Final reconciliation is selected only after feature/global/integration evidence
+  satisfies the active anchor.
+- CLI and MCP read-only outputs use the same deterministic domain result.
+- Fixtures cover partial success, regression after correction, blocked dependent
+  feature, material amendment, recovery conflict, and complete closure.
 
 ### V2.8: Enterprise Reporting Maturity
 

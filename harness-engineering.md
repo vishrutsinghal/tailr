@@ -221,6 +221,52 @@ complete.
 | `approval_state` | `proposed`, `approved`, `superseded`, or `needs-decision` | Controls when an agent may rely on a row. |
 | `completion_state` | Checkpoint-owned state, never set by Navigator | Separates desired state from observed evidence. |
 
+##### `kind` and `statement`: how to read a requirement row
+
+`kind` and `statement` work together but serve different purposes:
+
+| Field | Meaning | Example |
+| --- | --- | --- |
+| `kind` | The role this row plays in the approved contract. | `change`, `preserve`, `constraint`, `safety`, or `decision` |
+| `statement` | The exact atomic outcome, rule, or question represented by that row. | “A claim amount of zero must raise the existing validation error.” |
+
+`kind` tells TailTrail **how to interpret the row**. `statement` tells
+TailTrail **what must be true**. A statement must describe an observable,
+reviewable result, not an implementation suggestion. “Update `validation.py`”
+is weak because the file can change while the required behavior remains wrong.
+“A claim amount of zero must raise `ClaimValidationError`” is a testable result.
+
+| Kind | Meaning | Claims example | Harness treatment |
+| --- | --- | --- | --- |
+| `change` | New or intentionally altered behavior. | “Zero-value claims are rejected.” | Prove changed production behavior and focused evidence. |
+| `preserve` | Existing behavior that must continue working. | “Positive-value claims remain accepted.” | Require regression/prevention evidence, not only the new test. |
+| `constraint` | Implementation boundary or non-functional rule. | “Do not add a dependency or duplicate the validator.” | Check diff, dependency, path, architecture, or review evidence. |
+| `safety` | Safeguard that must not weaken. | “Invalid claims must not reach persistence.” | Require stronger flow evidence; escalate safety drift. |
+| `decision` | Unresolved choice requiring human input before completion. | “Preserve old API error shape or introduce structured error?” | Do not guess; remain `needs-decision` until resolved. |
+
+The `statement` should answer:
+
+```text
+What must be true after this work?
+What existing behavior must remain true?
+What can a test, source inspection, or reviewer observe?
+```
+
+Complete example:
+
+| ID | Kind | Statement |
+| --- | --- | --- |
+| `REQ-01` | `change` | A claim amount of zero must raise the existing `ClaimValidationError`. |
+| `REQ-02` | `preserve` | A positive claim amount must remain accepted through the existing validation and submission path. |
+| `REQ-03` | `constraint` | The change must reuse the shared validation helper and must not introduce a second validator. |
+| `REQ-04` | `safety` | A rejected claim must not be submitted to the persistence layer. |
+| `DEC-01` | `decision` | Decide whether the API retains the existing validation-error format or introduces a new structured response. |
+
+This distinction is essential for drift: a failed `change` is incomplete new
+behavior; a failed `preserve` is regression; a failed `constraint` is
+architecture/scope drift; a failed `safety` is safeguard drift; and an unresolved
+`decision` requires a pause rather than agent guesswork.
+
 #### Matrix lifecycle and ownership
 
 ```mermaid
@@ -255,6 +301,141 @@ proposal for human approval.
 | Agent needs a new module, public API, dependency, schema, or security-path change | Mark `new-drift`; prepare revised matrix/anchor. | Yes, material re-approval. |
 | Existing focused test does not cover a preserve rule | Mark `implemented-not-validated` or `needs-decision`; add an evidence gap. | No for a focused test; yes if expected behavior itself changes. |
 | Test expectation must change | Create a proposed scenario/requirement revision. | Yes; never overwrite the approved row. |
+
+#### Requirement identity and traceability
+
+`requirement_id` is a readable anchor-local ID such as `REQ-01`. Every task may
+begin with `REQ-01`, so it must not be the global key for recovery or evaluation.
+At approval, TailTrail freezes the display ID and assigns an immutable
+fully-qualified `requirement_uid`.
+
+| Field | Example | Use |
+| --- | --- | --- |
+| `requirement_id` | `REQ-01` | Human-readable ID within one approved anchor. |
+| `requirement_uid` | `tt://run-2026-07-23-claims-001/P-01/F-02/v1/REQ-01` | Global key for actual state, drift, patch ownership, recovery, and evaluation. |
+| `requirement_type` | `behavior.validation.reject-invalid-value` | Cross-run evaluation category. |
+
+```text
+run_id:       run-2026-07-23-claims-001
+program_id:   P-01
+feature_id:   F-02
+anchor:       v1
+requirement:  REQ-01
+
+requirement_uid:
+tt://run-2026-07-23-claims-001/P-01/F-02/v1/REQ-01
+```
+
+An orders task can also use `REQ-01` without ambiguity:
+
+```text
+tt://run-2026-07-24-orders-004/P-01/F-01/v1/REQ-01
+```
+
+Navigator may propose provisional IDs, but identity becomes durable only when a
+human approves the anchor. After approval, TailTrail never silently renames,
+reuses, deletes, or redefines a requirement to make implementation look complete.
+
+```mermaid
+flowchart LR
+    A["Proposed REQ-01"] --> B["Approved anchor"]
+    B --> C["Frozen requirement_uid"]
+    C --> D["Actual evidence"]
+    D --> E["Drift checkpoint"]
+    E --> F["Correction or recovery"]
+    F --> G["Evaluation result"]
+```
+
+| Event | Rule |
+| --- | --- |
+| Missed caller/test or non-behavioral clarification | Keep UID and append evidence/history. |
+| Split into independent outcomes | Mark original UID `superseded`; create UIDs with `derived_from`. |
+| Material behavior change | Preserve old UID; create a new requirement under approved Anchor v2. |
+| Approved removal | Mark `retired-by-approved-amendment`; never reuse the ID. |
+
+##### Actual-state overlay
+
+Every checkpoint attaches actual evidence using the same UID. It does not alter
+the approved row:
+
+```json
+{
+  "requirement_uid": "tt://run-2026-07-23-claims-001/P-01/F-01/v1/REQ-01",
+  "requirement_id": "REQ-01",
+  "status": "validated",
+  "actual_files": ["src/claims_api/validation.py", "tests/test_claim_validation.py"],
+  "actual_symbols": ["validate_claim_amount"],
+  "evidence": [{"kind": "focused-test", "test": "test_rejects_zero_amount", "result": "pass", "receipt_ref": "controls/test-004.json"}]
+}
+```
+
+An overlay can be `implemented-not-validated`, `failed`, `blocked`, or
+`needs-decision`; it must not claim `validated` without the planned proof.
+
+##### Drift, recovery, and Evaluation Harness linkage
+
+Every drift record references one or more UIDs. A drift can affect several
+requirements, and a requirement can have several drift events, so this is a
+many-to-many relationship.
+
+```json
+{
+  "drift_id": "DRIFT-014",
+  "checkpoint_id": "F-02-checkpoint-003",
+  "requirement_uids": ["tt://run-2026-07-23-claims-001/P-01/F-02/v1/REQ-01"],
+  "state": "new-drift",
+  "lens": "architecture",
+  "reason": "API mapper bypasses the shared validation path.",
+  "affected_files": ["src/claims_api/api.py", "src/claims_api/service.py"],
+  "evidence_refs": ["checkpoints/F-02-checkpoint-003.json", "graph/graph-map-018.json", "controls/test-receipt-009.json"]
+}
+```
+
+That produces an exact answer to “why did F-02 fail?”: `REQ-01` drifted because
+the API path bypassed the approved validation route, with source, graph, and test
+evidence.
+
+Requirement identity informs recovery but is not recovery authority by itself.
+The Task Recovery Boundary maps requirements to task-owned files, symbols, hunks,
+patches, and baseline fingerprints. One requirement can affect many hunks and
+one hunk can support several requirements.
+
+```text
+requirement_uid
+  -> actual evidence
+  -> file / symbol / task-owned hunk
+  -> task-owned patch + baseline fingerprint
+  -> recovery plan / recovery attempt
+```
+
+Recovery may plan “reverse verified task-owned changes linked to F-02 / REQ-01,”
+but only if patch context and fingerprints match. This prevents overwriting Task
+1's valid uncommitted work, later user edits, or another task's changes in the
+same file.
+
+Evaluation Harness uses `requirement_uid`, never only `REQ-01`:
+
+```text
+evaluation_run_id -> scenario_id -> program_run_id -> feature_id
+  -> anchor_version -> requirement_uid -> checkpoint_id -> evidence/drift/outcome
+```
+
+It can learn across runs by `requirement_type` and tags. For example, claim,
+order, and payment tasks may each have local `REQ-01`, while all share the type
+`behavior.validation.reject-invalid-value`. The UID answers what happened to one
+exact approved requirement; the normalized type supports safe aggregation.
+
+Example amendment:
+
+```text
+F-02 v1 / REQ-01: API uses existing validation error contract.
+F-02 v2 / REQ-03: API returns structured validation error response.
+
+REQ-03 supersedes REQ-01 after human-approved public contract change.
+```
+
+The old UID remains visible with its historic actual/drift records, preserving
+evaluation and recovery traceability while the revised program proceeds.
 
 #### Impact references, lines, and resolution rules
 
@@ -359,6 +540,371 @@ Navigator must remain a router and anchor proposer. It may invoke read-only
 mapping tools, but it does not own the correction loop, mutate the approved
 state, or declare requirements complete merely because its impact prediction
 looked plausible.
+
+### Navigator Requirement Discovery and Approval Protocol
+
+Navigator must not treat a rejected requirement proposal as permission to guess
+again. A rejection is a requirement-gathering event. Before an anchor exists,
+TailTrail records **requirement-discovery evolution** or a **proposal delta**;
+it is not implementation drift because no approved intent or code execution yet
+exists.
+
+```mermaid
+flowchart TB
+    A["User prompt"] --> B["Navigator requirement proposal v0.1"]
+    B --> C{"All proposed rows approved?"}
+    C -->|"Yes"| D["Freeze approved anchor v1"]
+    C -->|"No: first material rejection"| E["Mandatory row-by-row requirement review"]
+    E --> F["Targeted questions for rejected or unclear rows"]
+    F --> G{"User chooses AIDLC?"}
+    G -->|"Yes"| H["AIDLC Requirements mode"]
+    G -->|"No"| I["Navigator revised proposal v0.2"]
+    I --> J{"All proposed rows approved?"}
+    J -->|"Yes"| D
+    J -->|"No: second material rejection"| K["Automatic AIDLC Requirements mode"]
+    H --> L["Requirements brief, scenarios, constraints, decisions"]
+    K --> L
+    L --> M["Navigator revised proposal v0.3"]
+    M --> N{"Every row resolved?"}
+    N -->|"Yes"| D
+    N -->|"No"| L
+    D --> O["Capture recovery boundary, then implementation"]
+```
+
+#### Mandatory requirement-by-requirement review
+
+On a material rejection, Navigator presents every proposed requirement for an
+explicit disposition. A missing answer is not approval and must remain visible
+as unresolved. Navigator must not infer that silence means agreement.
+
+| Disposition | Meaning | Comment rule |
+| --- | --- | --- |
+| `approved` | User accepts the requirement as written. | A simple yes is sufficient. |
+| `revise` | Relevant requirement, but behavior, scope, proof, or wording is wrong. | Comment required. |
+| `rejected` | Requirement does not belong in this task. | Comment required. |
+| `deferred` | Valid work, intentionally not part of this delivery. | Comment required. |
+| `needs-decision` | User cannot approve without options or more context. | Question/comment required. |
+| `not-reviewed` | No explicit response yet. | Navigator must ask; implementation is blocked for this row. |
+
+Example review:
+
+```text
+P-REQ-01 — Reject zero claim amount
+Disposition: approved
+
+P-REQ-02 — Add a new API validation error response
+Disposition: revise
+Comment: Preserve the existing API error response; do not change the public contract.
+
+P-REQ-03 — Persist valid claims
+Disposition: rejected
+Comment: Persistence is out of scope for this task.
+
+P-REQ-04 — Preserve positive claim acceptance
+Disposition: not-reviewed
+Navigator action: ask for explicit approval or feedback.
+```
+
+For each `revise`, `rejected`, `deferred`, or `needs-decision` row without an
+adequate comment, Navigator asks a focused follow-up. It may not invent the
+reason for the rejection.
+
+#### First rejection: targeted questions and optional AIDLC
+
+After the row review, Navigator asks only questions required to resolve the
+unclear rows. It should not re-interview the user about requirements already
+approved.
+
+```text
+You revised P-REQ-02 because the API contract must remain unchanged.
+
+Question:
+Should this task:
+A. preserve the existing API error format exactly, or
+B. keep API behavior out of scope and change domain validation only?
+```
+
+Navigator also offers an explicit early escalation:
+
+```text
+The proposal has unresolved requirements.
+Would you like to switch to AIDLC Requirements mode for structured gathering?
+```
+
+The developer can choose AIDLC after the first material rejection when the task
+is broad, cross-team, regulated, behavior-heavy, or difficult to explain.
+
+#### Second material rejection: automatic minimal AIDLC escalation
+
+If a revised proposal is materially rejected a second time, Navigator enters
+**AIDLC Requirements mode** automatically. This is not permission to start the
+entire heavyweight lifecycle. The minimum AIDLC slice gathers only what ordinary
+planning failed to establish:
+
+```text
+goal and stakeholders
+-> behavior and preserve rules
+-> constraints and non-goals
+-> unresolved decisions
+-> acceptance scenarios
+-> dependency and risk assessment
+-> revised Navigator proposal
+```
+
+The escalation threshold is a **material** rejection: rejected requirement
+model, several rejected/revised rows, a user statement that Navigator
+misunderstood the task, or unresolved coupled requirements. A typo, wording-only
+correction, or one small clarification does not count toward automatic AIDLC.
+
+#### Proposal history, deltas, and quality checks
+
+Navigator must preserve rejected proposals and feedback. It must not overwrite a
+draft `approved.md` and lose the reason the requirement model changed.
+
+```text
+proposal-v0.1
+  -> user rejection and row feedback
+  -> proposal-v0.2
+  -> second material rejection and row feedback
+  -> AIDLC requirements brief
+  -> proposal-v0.3
+  -> approved-v1
+```
+
+Suggested local discovery artifacts:
+
+```text
+.tailtrail/runs/<run-id>/discovery/
+  proposal-v0.1.md
+  proposal-v0.1.json
+  requirement-feedback-v0.1.json
+  proposal-delta-v0.1-to-v0.2.md
+  proposal-v0.2.md
+  requirement-feedback-v0.2.json
+  aidlc-requirements-brief.md
+  proposal-v0.3.md
+  approval-decision.md
+```
+
+The delta records previous/revised version, user feedback, added/removed/modified
+requirements, unresolved decisions, confidence changes, and source/evidence
+references. It prevents later evaluation from treating intentionally rejected or
+deferred work as an implementation omission.
+
+Example:
+
+```text
+Proposal delta v0.1 -> v0.2
+
+User feedback:
+- Do not change API response yet.
+- Existing service behavior must be preserved.
+- Persistence is out of scope.
+
+Removed:
+- Persist valid claims.
+
+Changed:
+- “Add API validation error response” became
+  “Preserve existing API and service error behavior.”
+
+Added:
+- Focused service-path proof for preserved error behavior.
+```
+
+Before presenting a revision for approval, Navigator performs a requirement
+proposal quality check:
+
+| Check | Question |
+| --- | --- |
+| Coverage | Is every meaningful prompt item represented as a requirement, preserve rule, constraint, non-goal, or decision? |
+| Atomicity | Can each row be tested or judged independently? |
+| No overlap | Are two rows requesting the same outcome? |
+| Preservation | Did Navigator identify behavior that must not regress? |
+| Scope clarity | Are exclusions and deferred work explicit? |
+| Evidence plan | Does each change/preserve/safety row have proportional proof? |
+| Ambiguity | Are unknown choices marked as `decision` instead of guessed? |
+| Feasibility | Does the plan respect policy, protected paths, dependencies, and likely architecture? |
+| Traceability | Can each final row be traced to prompt text, user feedback, or local evidence? |
+
+Navigator renders a compact result, for example:
+
+```text
+Proposal quality: ready for approval
+
+Coverage:
+- 3 requested outcomes represented
+- 2 preserve rules added
+- 1 out-of-scope item recorded
+- 0 unresolved decisions
+
+Changes since v0.1:
+- Removed persistence work per user feedback
+- Added service behavior preservation
+- Narrowed API work to existing error contract
+```
+
+#### AIDLC preservation and final implementation gate
+
+AIDLC Requirements mode receives the rejected assumptions, accepted rows,
+feedback, non-goals, and unresolved decisions. It must not overwrite prior
+proposals:
+
+```text
+Rejected assumptions:
+- API response must not change.
+- Persistence is out of scope.
+
+Accepted requirements carried forward:
+- Reject zero amount.
+- Preserve positive amount acceptance.
+
+Unresolved:
+- Whether service-level validation evidence is required.
+
+New requirement discovered:
+- Existing service error behavior must remain unchanged.
+```
+
+For a broad program, independent features can be approved separately only when
+their boundaries do not depend on unresolved decisions. For example, F-01
+validation may begin while F-02 API contract remains blocked; F-03 persistence
+may be explicitly deferred. Navigator must report those states rather than
+pretend the full program is approved.
+
+Implementation begins only when each relevant row is one of:
+
+```text
+approved
+or explicitly deferred/rejected with recorded reason
+or resolved by an approved AIDLC decision record
+```
+
+`not-reviewed`, unanswered `revise` feedback, and unresolved `needs-decision`
+rows block their feature boundary. Only after this gate does TailTrail create the
+durable `approved-v1`/`requirement_uid` artifacts and capture a Task Recovery
+Boundary before implementation.
+
+### Navigator Reuse, Dependency, and Implementation-Strategy Checklist
+
+Before Navigator proposes feature requirements, dependencies, or implementation
+layout, it must establish whether the repository already contains the correct
+path to reuse. Reuse-first behavior is a planning requirement, not a generic
+coding preference applied only after the agent begins editing.
+
+| Check | Navigator must determine |
+| --- | --- |
+| Existing behavior | Which current user flow, API/error contract, data path, and safeguard already solve part of the goal? |
+| Reusable code | Which helpers, services, types, validators, components, utilities, error types, and test fixtures already fit? |
+| Caller impact | Which callers, consumers, endpoints, jobs, UI paths, and tests depend on the reusable path? |
+| Existing conventions | Which naming, error, validation, logging, authorization, persistence, and test patterns must be followed? |
+| Native capability | Can the language, framework, database, or installed dependency solve this without new code/package? |
+| Dependency posture | Is a new dependency genuinely required? If yes, mark Dependency Gate and material approval before planning. |
+| New abstraction need | Is a helper/module/interface required now, or speculative/single-use complexity? |
+| Scope boundary | Which files are expected, which existing paths must be reused, and which new files are prohibited unless justified? |
+| Preserve rules | Which existing behavior must remain true when the reusable path changes? |
+| Proof | Which focused tests prove reuse was correct and callers were not bypassed? |
+
+Navigator follows this decision order and records why it moves past any earlier
+option:
+
+```text
+1. Existing repository helper / service / type / component
+2. Existing framework or platform capability
+3. Existing installed dependency
+4. Standard library / language-native implementation
+5. Small direct implementation
+6. New reusable abstraction
+7. New dependency
+```
+
+New modules, helpers, abstractions, or dependencies are not rejected by default.
+A proposal must state why an existing path is unsuitable. “It is cleaner” or
+“it may be useful later” is insufficient evidence for a new abstraction.
+
+#### Reuse and Dependency Decision Log
+
+The Requirement-to-Impact Matrix remains focused on observable requirements.
+Navigator records reuse, dependency, and implementation strategy in a
+feature-level decision log beside the matrix.
+
+```text
+Feature: F-01 Claim amount validation
+
+Reuse candidates checked:
+- validate_claim_amount: suitable; reuse required.
+- ClaimValidationError: suitable; reuse required.
+- Existing claim validation tests: suitable; extend focused cases.
+- Third-party validation package: not needed.
+
+Decision:
+- Change the existing shared validator.
+- Do not add a helper, module, or dependency.
+- Service/API callers must continue through the shared path.
+
+Rejected alternatives:
+- Controller-only validation: bypasses shared domain validation.
+- New amount-validator module: duplicates existing helper.
+- New validation package: existing implementation is sufficient.
+```
+
+The log identifies evidence source, confidence, callers/tests, rejected
+alternatives, Dependency Gate status, and the smallest expected scope.
+
+#### Requirement and dependency example
+
+```text
+REQ-01
+Kind: change
+Statement: Zero claim amount must raise existing ClaimValidationError.
+
+Reuse requirement:
+- Reuse validate_claim_amount and ClaimValidationError.
+
+Architecture rule:
+- Service/API must continue using validate_claim; do not add a parallel path.
+
+Dependency posture:
+- No dependency or configuration change allowed.
+
+Proof:
+- Zero-value unit test.
+- Positive-value preserve test.
+- Service-path test.
+```
+
+Feature dependency declarations explain *why*, not only order:
+
+```text
+F-02 API workflow depends on F-01 validation because:
+- API must use the approved shared validation contract.
+- API error mapping depends on the validation error type remaining stable.
+- API tests cannot prove the final path until F-01 behavior is approved.
+```
+
+```mermaid
+flowchart LR
+    A["Existing shared validator"] --> B["Service validation path"]
+    B --> C["API mapping"]
+    A --> D["Focused validator tests"]
+    B --> E["Service-path tests"]
+    C --> F["API contract tests"]
+```
+
+#### Reuse-first proposal gate
+
+Navigator cannot mark a proposal `ready for approval` when it recommends “add
+helper,” “add module,” “add abstraction,” or “add dependency” without recording:
+
+1. Existing helpers, framework capabilities, and installed dependencies checked.
+2. Why the existing option does not fit the approved requirement.
+3. Caller, test, architecture, and preserve-rule impact.
+4. Whether the new path needs material approval or Dependency Gate.
+5. The smallest implementation and evidence scope.
+
+This gate composes existing `AGENTS.md`, Guardrails, Dependency Gate, Code Graph,
+and Test Precision guidance into one Navigator planning control. It prevents a
+feature plan from becoming an unreviewed abstraction or dependency proposal.
 
 ### Example Navigator output
 
@@ -642,6 +1188,90 @@ TailTrail Harness artifact:
 - requirement matrix becomes complete
 ```
 
+“Deterministic” means the same saved input, scoring rules, and expected result
+produce the same evaluation result every time. There is no live model randomness,
+API cost, changing provider behavior, network dependency, or ambiguity about
+whether the model rather than the Harness caused an outcome.
+
+The baseline artifact represents a plausible incomplete coding outcome without
+the requirement-completion loop:
+
+```text
+Agent changes only the direct validation function.
+The direct unit test passes.
+The agent misses the service caller.
+The real submission flow still accepts the invalid claim.
+```
+
+The TailTrail Harness artifact represents what the surrounding workflow adds;
+it does not claim that TailTrail magically makes a model correct:
+
+```text
+Navigator/anchor defines the required submission behavior.
+The requirement matrix identifies the service path as relevant.
+The checkpoint detects missing caller-path evidence.
+One bounded correction packet targets the service propagation gap.
+Focused service evidence passes after correction.
+All required matrix rows become complete.
+```
+
+```text
+Without TailTrail:
+direct function change -> unit test passes -> hidden integration miss remains
+
+With TailTrail:
+approved requirement -> likely caller path -> checkpoint finds gap
+-> focused correction -> service test proves final behavior
+```
+
+The scenario should test the Harness logic itself:
+
+```text
+Given a known incomplete baseline artifact, does TailTrail detect:
+- the missing service caller;
+- the incomplete requirement matrix;
+- the relevant architecture/behavior drift; and
+- the intended focused correction packet?
+```
+
+Typical fixture layout and expected outcome:
+
+```text
+benchmarks/evaluation/scenarios/multi-file-validation/
+  scenario.json
+  baseline-artifact.md
+  tailtrail-artifact.md
+  expected.json
+  README.md
+```
+
+```json
+{
+  "requirements": {
+    "REQ-01": "validated",
+    "REQ-02": "validated",
+    "REQ-03": "validated"
+  },
+  "baseline": {
+    "completion": "incomplete",
+    "missed_caller": true
+  },
+  "tailtrail": {
+    "completion": "validated",
+    "correction_packets": 1,
+    "focused_service_test": "passed"
+  }
+}
+```
+
+This can prove a narrow, honest statement: for this saved multi-file scenario,
+TailTrail identified the missing caller, marked the requirement incomplete, and
+recommended the intended correction. It cannot by itself prove that TailTrail
+always improves every coding agent, prevents defects at a measured percentage,
+saves a specific number of tokens, or performs equally well in every real
+repository. Those claims require later controlled live-agent evaluation and/or
+measured real-task telemetry.
+
 The scenario scorer should verify facts present in the artifacts. It should not
 pretend to prove that a live model will always behave identically. Optional live
 agent evaluation is a later explicit-approval mode, after deterministic scenario
@@ -800,6 +1430,280 @@ known_unknowns:
 The human-facing view should be Markdown, concise, and approval-ready. The
 machine-readable view should be sanitized JSON or YAML that supports stable
 comparison throughout the correction loop.
+
+### Phased Anchor Activation and Context Slices
+
+For a broad task, distinguish the **draft anchor**, the **approved anchor**, and
+the active feature slice. “Creating the anchor” is the requirement-gathering and
+planning process; `approved.md` is the human-readable rendering of the accepted
+desired-state contract; `actual.md` is observed implementation evidence and is
+not an anchor.
+
+```text
+Draft Change Intent Anchor
+= Navigator requirement bifurcation, feature/dependency plan, reuse decisions,
+  scope, invariants, evidence plan, and known unknowns before user approval.
+
+Approved Change Intent Anchor
+= The same contract after human acceptance, frozen as approved-v1.md and
+  normalized anchor/matrix JSON.
+
+Actual checkpoint
+= What the code and selected controls demonstrate after one implementation or
+  correction cycle, written as actual/checkpoint-<n>.md and checkpoint JSON.
+```
+
+```mermaid
+flowchart LR
+    A["Navigator planning"] --> B["Draft Change Intent Anchor"]
+    B --> C["Requirements proposal and feature plan"]
+    C --> D{"Human approves?"}
+    D -->|"No"| A
+    D -->|"Yes"| E["Approved Anchor v1\napproved.md plus JSON"]
+    E --> F["Activate one feature slice"]
+    F --> G["Implementation"]
+    G --> H["actual checkpoint"]
+    H --> I["Drift comparison"]
+    I --> J["Next cycle, replan, or completion"]
+```
+
+#### Full approved program, small active context
+
+The root approved contract preserves the complete desired end state. TailTrail
+must not create a phase-only `approved.md` that forgets future requirements,
+global constraints, dependencies, or integration proof. Instead, it preserves a
+full program anchor and activates one independently verifiable feature slice.
+
+```text
+program-approved-v1.md
+  - complete approved end state
+  - all features and dependencies
+  - global constraints and integration definition of done
+
+features/F-01-domain-validation/approved-v1.md
+  - active requirements and requirement UIDs
+  - inherited global constraints
+  - focused expected scope, reuse decisions, and proof
+
+features/F-01-domain-validation/actual/checkpoint-001.md
+  - observed changes, evidence, failures, and drift for this slice
+```
+
+Example broad program plan:
+
+```text
+Program: Claims submission workflow
+
+F-01 Domain validation
+  REQ-01 Reject zero amount.
+  REQ-02 Preserve positive amount acceptance.
+  REQ-03 Reuse shared validator.
+
+F-02 API and service flow (depends on F-01)
+  REQ-04 API/service uses shared validation path.
+  REQ-05 Preserve error contract.
+
+F-03 Persistence (depends on F-01 and F-02)
+  REQ-06 Persist only validated claims.
+  REQ-07 Invalid claims have no persistence side effect.
+
+F-04 Integration (depends on F-01 through F-03)
+  REQ-08 Valid end-to-end submission works.
+  REQ-09 Invalid end-to-end submission is rejected.
+```
+
+When F-01 is active, TailTrail loads only the context needed for safe work:
+
+```text
+Load:
+- F-01 requirements, approved scope, reuse decisions, and evidence plan.
+- Relevant inherited global constraints and upstream dependency facts.
+- Relevant source, callers, focused tests, and latest F-01 checkpoint.
+
+Avoid loading by default:
+- Future persistence implementation detail.
+- Unrelated API design detail.
+- Completed feature history unless it affects F-01's active boundary.
+```
+
+This is a context-reduction strategy, not an exact token-savings claim. It keeps
+the active coding context likely smaller and more relevant while the root anchor
+retains full traceability. Exact token savings require measured telemetry.
+
+#### Phase quality and activation gates
+
+A phase is not an arbitrary file-edit batch such as “modify three files.” It is
+a meaningful feature boundary with outcomes, preserve rules, scope, and proof.
+
+| Strong phase | Weak phase |
+| --- | --- |
+| F-01 — Domain validation behavior and focused proof. | Phase 1 — Edit `validation.py` and `service.py`. |
+| Has requirements, invariants, expected scope, and completion evidence. | Is a task list without an observable completion condition. |
+| Can be independently validated and integrated later. | Cannot say whether its work is correct without the next arbitrary phase. |
+
+The developer approves the full Program Anchor, feature sequence, global
+constraints, and integration definition of done. TailTrail activates one feature
+at a time. It asks for another approval only when a material requirement,
+dependency, API/schema/security boundary, design gap, or recovery/replan decision
+changes the accepted contract.
+
+For a broad program, independent features may begin separately only when their
+approved boundaries do not depend on unresolved decisions. For example, F-01
+validation can proceed while F-02 API contract is `needs-decision`; F-03
+persistence can be explicitly deferred. The program status must show this
+honestly rather than claim that every feature is approved.
+
+```text
+Program P-01: approved
+F-01 Domain validation: active
+F-02 API contract: blocked by needs-decision
+F-03 Persistence: deferred by developer
+F-04 Integration: waiting on active/dependent features
+```
+
+### Validated Requirement Retention, Revalidation, and Amendment History
+
+A validated requirement remains part of the approved anchor and final
+reconciliation history, but it should not be loaded in full or retested on every
+later cycle. For context discipline, TailTrail moves it into a
+**preservation-only** posture: retain its compact statement, evidence pointer,
+and impact triggers; reload detailed context only when current work can affect
+it.
+
+```text
+approved -> active -> validated -> preservation-only -> complete
+                              \-> revalidated when an impact trigger appears
+```
+
+Example active program state:
+
+```text
+REQ-01 to REQ-05: validated / preservation-only
+REQ-06 to REQ-09: active or incomplete
+REQ-10 to REQ-15: future or blocked by dependencies
+```
+
+For an active correction, TailTrail loads full context for REQ-06 through REQ-09,
+relevant global constraints, and only the previously validated requirements
+whose paths, symbols, callers, contracts, or dependency edges are impacted.
+Unrelated validated/future requirement details remain outside the active context.
+
+#### Targeted revalidation triggers
+
+| Trigger | Revalidate a previously validated requirement? |
+| --- | --- |
+| Current work changes its file, symbol, or task-owned hunk | Yes. |
+| Current work changes a caller, shared helper, dependency, API, schema, or contract it relies on | Yes. |
+| Code Mapper/impact analysis finds a relevant relationship edge | Yes; label confidence and inspect exact source if needed. |
+| Global constraint or policy affecting it changes | Yes. |
+| Required feature/program integration phase begins | Usually through the selected integration proof. |
+| Unrelated module/future feature changes | No. |
+| Documentation-only or non-behavioral change | No, unless policy says otherwise. |
+
+Example:
+
+```text
+Current cycle modifies service.py for REQ-04.
+
+Impact analysis:
+- REQ-04 is active and targets service.py.
+- REQ-02 was previously validated but also relies on service.py for
+  positive-amount submission.
+
+Action:
+- Load full REQ-04 context.
+- Add compact REQ-02 preservation assertion.
+- Rerun REQ-02 focused positive-value proof after correction.
+```
+
+#### Contradiction, duplication, and requirement design review
+
+If later discovery shows that earlier requirements contradict, duplicate, or
+otherwise make the approved design incoherent, this is a **requirement design
+issue**, not ordinary implementation drift. TailTrail pauses the affected
+feature boundary and creates an amendment proposal. It never silently edits or
+deletes the previous approved requirement.
+
+```mermaid
+flowchart TB
+    A["Earlier requirement validated"] --> B["Later discovery finds contradiction or duplication"]
+    B --> C["Pause affected feature boundary"]
+    C --> D["Requirement design review"]
+    D --> E["Draft amendment, merge, or supersession map"]
+    E --> F{"Human approves revised intent?"}
+    F -->|"No"| G["Keep active approved version; needs-decision"]
+    F -->|"Yes"| H["Create approved Anchor v2"]
+    H --> I["Mark old requirements superseded, merged, or retired"]
+    I --> J["Replan affected work and revalidate dependencies"]
+```
+
+Example contradiction:
+
+```text
+F-02 v1 / REQ-03:
+API must preserve the existing validation error contract.
+
+Later requirement/design discovery:
+API must return a structured validation error response.
+
+Result:
+REQ-03 and the new behavior cannot both remain active.
+Pause API feature; obtain a human-approved amendment.
+```
+
+#### Requirement Amendment Log
+
+Prior requirement intent and evidence are never “revoked” by deletion. TailTrail
+maintains a Requirement Amendment Log that records how the active contract
+evolved. An earlier requirement can be `superseded`, `merged`,
+`retired-by-approved-amendment`, or retained with a clarification; its historical
+approval, actual evidence, and drift remain readable.
+
+```json
+{
+  "amendment_id": "AMD-003",
+  "anchor_from": "approved-v1",
+  "anchor_to": "approved-v2",
+  "change_type": "supersede",
+  "old_requirement_uids": ["tt://run-001/P-01/F-02/v1/REQ-03"],
+  "new_requirement_uids": ["tt://run-001/P-01/F-02/v2/REQ-08"],
+  "reason": "Approved public API error-contract change.",
+  "approval": "human-approved",
+  "affected_features": ["F-02", "F-04"],
+  "required_revalidation": ["API contract test", "service-path test", "invalid-submission integration scenario"]
+}
+```
+
+```text
+approved-v1:
+REQ-03 — Preserve existing API validation error contract.
+Status: superseded.
+
+approved-v2:
+REQ-08 — Return structured API validation error response.
+Status: approved.
+
+Relationship:
+REQ-08 supersedes REQ-03 after human-approved public contract change.
+```
+
+#### Requirement intent rollback versus source rollback
+
+These are separate operations:
+
+| Need | Mechanism |
+| --- | --- |
+| Restore or inspect prior desired intent | Anchor versions and Requirement Amendment Log. |
+| Explain why requirement changed | Proposal history, amendment record, and approval evidence. |
+| Restore prior code | Git history or task-owned selective recovery. |
+| Undo failed current-task work | Task Recovery Boundary and verified reverse patch. |
+| Return to a prior approved contract | Explicit human decision to reactivate/supersede anchor version; never automatic. |
+
+Validated/preservation-only, future/blocked, and superseded/retired requirements
+are all retained in history. Only active requirements and relevant preservation
+assertions consume active implementation context. This gives TailTrail a small
+working set without losing final reconciliation, evaluation, recovery, or
+requirement-version traceability.
 
 ### Desired state is not a frozen implementation
 
@@ -968,13 +1872,77 @@ actual.md   = what the project currently does after this agent attempt
 comparison  = where behavior, architecture, scope, or evidence has drifted
 ```
 
-`approved.md` is not merely a test fixture. It may contain the goal, behavioral
-scenarios, architecture expectations, invariants, expected scope, evidence plan,
-known unknowns, and approval fingerprint. `actual.md` uses the same scenario
-structure where possible, but records observed results, actual changed paths,
-checks run, and unresolved gaps.
+`approved.md` and `actual.md` are active implementation surfaces, not full run
+archives. They should contain the minimum information needed to implement or
+validate the active feature safely. Detailed scenario payloads, full graph output,
+raw control output, recovery data, proposal history, and exhaustive scope/hunk
+mapping belong in linked structured artifacts and reports.
 
-Example `approved.md`:
+```text
+approved.md: active requirements, boundaries, reusable path, and required proof
+actual.md: current status, smallest relevant evidence, drift, and next action
+```
+
+The root Program Anchor retains full desired-state traceability, while a feature
+`approved.md` is a compact active slice. `actual.md` is checkpoint-specific and
+compact; its JSON counterpart retains detailed provenance for later audit.
+
+Every meaningful approved scope item, actual change, failure, drift record,
+correction packet, recovery hunk, and evaluation result must reference a
+`requirement_id` and immutable `requirement_uid`, plus a brief readable
+requirement statement. This prevents users from having to remember what
+`REQ-03` represented when reviewing the run later. Program-wide rules use an
+explicit global ID such as `GLOBAL-01`; a new unapproved discovery uses a
+temporary `DISC-01` identity until it maps to an approved requirement or is
+rejected.
+
+Minimal active-slice `approved.md`:
+
+```md
+# TailTrail Change Intent Anchor
+
+**Feature:** F-01 Domain validation
+**Goal:** Reject zero amount; preserve valid submission behavior.
+
+| ID | Requirement | Scope / proof |
+| --- | --- | --- |
+| REQ-01 | Reject zero amount with existing `ClaimValidationError`. | `validation.py`; zero-value test. |
+| REQ-02 | Preserve positive amount acceptance. | Service path; positive-value test. |
+| REQ-03 | Reuse shared validation; no parallel validator. | Validation/service path; source + service test. |
+| GLOBAL-01 | No API, dependency, schema, or config change. | Changed-path check. |
+
+**Required path:** `service.submit_claim -> validate_claim -> validate_claim_amount`
+**Allowed files:** `validation.py`, `service.py`, focused claim tests
+**Detailed contract:** `approved-v1.json`, `requirement-impact-matrix-v1.json`
+```
+
+Minimal checkpoint-specific `actual.md`:
+
+```md
+# TailTrail Actual State
+
+**Feature:** F-01 Domain validation
+**Checkpoint:** F-01-checkpoint-002
+**Status:** incomplete
+
+| ID | Requirement | Result | Brief evidence |
+| --- | --- | --- | --- |
+| REQ-01 | Reject zero amount. | `implemented-not-validated` | Validator rejects zero; submission still accepts it. |
+| REQ-02 | Preserve positive acceptance. | `validated` | Positive-value test passed. |
+| REQ-03 | Reuse shared validation path. | `failed` | Service converts validation error to success. |
+| GLOBAL-01 | No material scope change. | `validated` | No manifest/API/schema/config changes. |
+
+**Changed:** `validation.py`, `service.py`, focused claim tests
+**Drift:** `DRIFT-021` — REQ-01/REQ-03 service propagation gap
+**Next:** CP-004 — stop service flow after `ClaimValidationError`
+**Detailed evidence:** `checkpoint-002.json`, `controls/`, `graph/`
+```
+
+The longer examples below remain reference examples for scenario-rich work. They
+should be rendered as linked detail or expanded only when a developer needs it,
+not loaded into every implementation cycle.
+
+Detailed scenario-rich `approved.md` reference:
 
 ```md
 # TailTrail Change Intent Anchor
@@ -984,6 +1952,12 @@ Example `approved.md`:
 Reject zero-dollar claim amounts while keeping positive claim amounts valid.
 
 ## Approved behaviour
+
+## REQ-01 — Reject zero-dollar claim amount
+
+**Requirement UID:** `tt://run-.../P-01/F-01/v1/REQ-01`
+**Kind:** `change`
+**Statement:** A claim amount of zero must raise the existing `ClaimValidationError`.
 
 ### Scenario: zero-dollar claim submission
 
@@ -997,6 +1971,12 @@ Submission: rejected
 Error type: `ClaimValidationError`
 Message: `Claim amount must be greater than zero`
 
+## REQ-02 — Preserve positive claim acceptance
+
+**Requirement UID:** `tt://run-.../P-01/F-01/v1/REQ-02`
+**Kind:** `preserve`
+**Statement:** A positive claim amount remains accepted through the existing validation and submission path.
+
 ### Scenario: positive claim submission
 
 **Input**
@@ -1007,17 +1987,31 @@ Claim amount: `100`
 
 Submission: accepted
 
+## REQ-03 — Reuse shared validation path
+
+**Requirement UID:** `tt://run-.../P-01/F-01/v1/REQ-03`
+**Kind:** `constraint`
+**Statement:** The change reuses shared validation and does not introduce a controller-only or duplicate validator path.
+
+## GLOBAL-01 — Preserve public contract and dependency posture
+
+**Global UID:** `tt://run-.../P-01/GLOBAL-01`
+**Statement:** No public response-contract or dependency/configuration change occurs without re-approval.
+
 ## Architecture expectations
 
 - Submission uses the existing service to shared-validation path.
 - No controller-only special case.
 - No public response-contract change without re-approval.
 
-## Allowed scope
+## Approved scope mapped to requirements
 
-- `src/claims_api/validation.py`
-- `src/claims_api/service.py`
-- focused claim tests
+| Scope item | Requirement mapping | Reason |
+| --- | --- | --- |
+| `src/claims_api/validation.py` | `REQ-01`, `REQ-02`, `REQ-03` | Change zero behavior, preserve positive behavior, reuse shared validator. |
+| `src/claims_api/service.py` | `REQ-02`, `REQ-03` | Preserve submission path and shared-validation propagation. |
+| Focused claim tests | `REQ-01`, `REQ-02` | Prove changed and preserved behavior. |
+| Dependency/configuration manifests | `GLOBAL-01` | Must remain unchanged. |
 
 ## Required evidence
 
@@ -1025,10 +2019,16 @@ Submission: accepted
 - Positive-value regression scenario passes.
 ```
 
-Example `actual.md` after an incomplete agent attempt:
+Detailed scenario-rich `actual.md` reference after an incomplete agent attempt:
 
 ```md
 # TailTrail Actual State
+
+## REQ-01 — Reject zero-dollar claim amount
+
+**Requirement UID:** `tt://run-.../P-01/F-01/v1/REQ-01`
+**Checkpoint:** `F-01-checkpoint-002`
+**Status:** `implemented-not-validated`
 
 ## Scenario: zero-dollar claim submission
 
@@ -1037,22 +2037,44 @@ Example `actual.md` after an incomplete agent attempt:
 Validation: rejected
 Submission: accepted
 
+## REQ-02 — Preserve positive claim acceptance
+
+**Requirement UID:** `tt://run-.../P-01/F-01/v1/REQ-02`
+**Checkpoint:** `F-01-checkpoint-002`
+**Status:** `validated`
+
 ## Scenario: positive claim submission
 
 **Observed result**
 
 Submission: accepted
 
+## REQ-03 — Reuse shared validation path
+
+**Requirement UID:** `tt://run-.../P-01/F-01/v1/REQ-03`
+**Checkpoint:** `F-01-checkpoint-002`
+**Status:** `failed`
+
+## Actual scope mapped to requirements
+
+| Actual item | Requirement mapping | Observation |
+| --- | --- | --- |
+| `src/claims_api/validation.py` | `REQ-01`, `REQ-02`, `REQ-03` | Shared validation rejects zero. |
+| `src/claims_api/service.py` | `REQ-01`, `REQ-03` | Service converts validation error into success. |
+| Submission-path test | `REQ-01`, `REQ-03` | Failed; invalid submission was accepted. |
+
 ## Architecture observation
 
 - Shared validation rejects zero.
 - Service converts the validation error into a success result.
 
-## Evidence run
+## Failure and evidence mapped to requirements
 
-- Validation test: passed
-- Positive-value test: passed
-- Submission-path test: failed
+| Requirement | Brief statement | Evidence | Result |
+| --- | --- | --- | --- |
+| `REQ-01` | Reject zero-dollar claim amount | Validation test | Passed locally; submission outcome incomplete. |
+| `REQ-02` | Preserve positive claim acceptance | Positive-value test | Passed. |
+| `REQ-03` | Reuse shared validation path | Submission-path test | Failed; error propagation bypassed. |
 ```
 
 The comparison report can then state the gap without requiring a reviewer to
@@ -1062,16 +2084,235 @@ read all test assertion code or an agent to reread the whole task history:
 Anchor status: partially satisfied
 
 Behaviour drift:
+- Requirement: REQ-01 — Reject zero-dollar claim amount.
 - Approved: zero-dollar submission is rejected.
 - Actual: zero-dollar submission is accepted.
 
 Architecture drift:
+- Requirement: REQ-03 — Reuse shared validation path.
 - Approved: service preserves the shared-validation outcome.
 - Actual: service converts the validation error to success.
+- Affected files: src/claims_api/service.py, focused submission-path test.
 
 Next correction:
-Fix service error propagation. Do not change approved behavior or public API.
+Fix service error propagation for REQ-01 and REQ-03. Do not change approved
+behavior, GLOBAL-01 public-contract boundary, or dependency posture.
 ```
+
+Implementation rule: no changed file, symbol, test receipt, failure, drift,
+correction packet, recovery hunk, or evaluation result may be orphaned. Each must
+link to a `requirement_uid`, a `GLOBAL-*` constraint, or a documented `DISC-*`
+justified discovery. A single file/hunk may link to several requirements; the
+Task Recovery Boundary still verifies exact task-owned hunk context before any
+selective rollback.
+
+### Multi-requirement checkpoints, correction, and drift history
+
+A feature with several requirements is never simply “pass” or “fail.” Harness
+Engineering preserves validated rows, isolates unresolved rows, and sends the
+next correction only against the smallest unresolved requirement set. A locally
+passing latest test cannot hide a failed safety requirement or a regression in a
+previously validated preserve rule.
+
+```mermaid
+flowchart TB
+    A["Approved Feature Anchor"] --> B["Implementation attempt"]
+    B --> C["Actual state plus focused controls"]
+    C --> D["Requirement-by-requirement checkpoint"]
+    D --> E{"Failed, incomplete, or drifted rows?"}
+    E -->|"No"| F["Feature validated"]
+    E -->|"Yes"| G["Classify unresolved requirement rows"]
+    G --> H["Smallest correction packet"]
+    H --> I["Correction implementation"]
+    I --> J["New actual checkpoint"]
+    J --> K["Compare approved anchor and prior checkpoint"]
+    K --> E
+```
+
+Example approved requirements:
+
+```text
+F-01 Claim amount validation
+
+REQ-01 — Change
+Zero claim amount must raise ClaimValidationError.
+
+REQ-02 — Preserve
+Positive claim amount remains accepted.
+
+REQ-03 — Constraint
+Reuse validate_claim_amount; do not create a parallel validator.
+
+REQ-04 — Safety
+Rejected claims must not reach persistence.
+
+GLOBAL-01
+No dependency, API, schema, or configuration change without approval.
+```
+
+#### First implementation attempt: partial success
+
+| Requirement | Result | Evidence | Status |
+| --- | --- | --- | --- |
+| REQ-01 | Zero amount rejected in validator | Zero-value unit test passed | `validated` |
+| REQ-02 | Positive amount accepted | Positive-value test passed | `validated` |
+| REQ-03 | Shared validator reused | Source/diff inspection passed | `validated` |
+| REQ-04 | Service catches error but still persists claim | Service-path test failed | `failed` |
+| GLOBAL-01 | No dependency/API/configuration change | Changed-path check passed | `validated` |
+
+```text
+Feature status: incomplete
+
+Validated:
+- REQ-01
+- REQ-02
+- REQ-03
+- GLOBAL-01
+
+Unresolved:
+- REQ-04
+
+Next action:
+Create a correction packet only for REQ-04.
+```
+
+Checkpoint example:
+
+```md
+# F-01 Checkpoint 001
+
+## REQ-01 — Reject zero claim amount
+Status: validated
+Evidence: `test_rejects_zero_amount` passed; `validate_claim_amount` raises `ClaimValidationError`.
+
+## REQ-02 — Preserve positive claim acceptance
+Status: validated
+Evidence: `test_accepts_valid_claim` passed.
+
+## REQ-03 — Reuse shared validation path
+Status: validated
+Evidence: existing `validate_claim_amount` reused; no duplicate validator module.
+
+## REQ-04 — Invalid claim must not reach persistence
+Status: failed
+Observed behavior: validation error is raised, but persistence still occurs.
+Evidence: `test_invalid_claim_is_not_persisted` failed.
+Affected files: `src/claims_api/service.py`, `tests/test_claim_service.py`.
+
+## GLOBAL-01 — Dependency/API/schema/configuration posture
+Status: validated
+```
+
+The failure creates a requirement-linked drift record:
+
+```json
+{
+  "drift_id": "DRIFT-021",
+  "checkpoint_id": "F-01-checkpoint-001",
+  "requirement_uids": ["tt://run-.../P-01/F-01/v1/REQ-04"],
+  "global_constraint_uids": ["tt://run-.../P-01/GLOBAL-02"],
+  "state": "failed",
+  "lens": "behavior-and-safety",
+  "reason": "Validation failure does not stop persistence.",
+  "affected_files": ["src/claims_api/service.py", "tests/test_claim_service.py"],
+  "evidence_refs": ["controls/test-invalid-claim-not-persisted.json", "checkpoints/F-01-checkpoint-001.json"],
+  "prior_status": "not-validated",
+  "next_action": "correction-packet-004"
+}
+```
+
+#### Correction packet: target only the unresolved work
+
+TailTrail must not tell the agent “fix everything that is failing.” It produces a
+narrow, evidence-backed packet:
+
+```text
+Correction packet: CP-004
+
+Target:
+REQ-04 — Invalid claim must not reach persistence.
+
+Current failure:
+Service catches ClaimValidationError but continues to persistence.
+
+Allowed scope:
+- src/claims_api/service.py
+- tests/test_claim_service.py
+
+Must preserve:
+- REQ-01 zero amount rejection.
+- REQ-02 positive amount acceptance.
+- REQ-03 shared validator reuse.
+- GLOBAL-01 no dependency/API/schema/configuration change.
+
+Required correction:
+Stop submission flow after ClaimValidationError.
+Do not add controller-only validation or a duplicate validator.
+
+Focused validation:
+- test_invalid_claim_is_not_persisted
+- test_rejects_zero_amount
+- test_accepts_valid_claim
+```
+
+Previously validated requirements are preservation checks during correction; they
+are not reopened as failures unless new evidence shows regression.
+
+#### Second checkpoint: resolved versus regressed
+
+If the correction succeeds without collateral damage:
+
+| Requirement | Checkpoint 001 | Checkpoint 002 | Delta |
+| --- | --- | --- | --- |
+| REQ-01 | `validated` | `validated` | `preserved` |
+| REQ-02 | `validated` | `validated` | `preserved` |
+| REQ-03 | `validated` | `validated` | `preserved` |
+| REQ-04 | `failed` | `validated` | `resolved` |
+| GLOBAL-01 | `validated` | `validated` | `preserved` |
+
+If the correction prevents persistence but accidentally rejects positive claims:
+
+| Requirement | Checkpoint 001 | Checkpoint 002 | Delta |
+| --- | --- | --- | --- |
+| REQ-01 | `validated` | `validated` | `preserved` |
+| REQ-02 | `validated` | `failed` | `regressed` |
+| REQ-03 | `validated` | `validated` | `preserved` |
+| REQ-04 | `failed` | `validated` | `resolved` |
+
+The feature remains incomplete. The next packet targets REQ-02, while preserving
+REQ-01, REQ-03, REQ-04, and GLOBAL-01. TailTrail must not declare success merely
+because the latest failing requirement was fixed.
+
+#### Iteration policy and feature completion
+
+| Situation | Harness action |
+| --- | --- |
+| One row fails; others pass | Correct only failed row; rerun affected preservation evidence. |
+| Related rows fail from one root cause | Use one packet when one path safely resolves them. |
+| Separate root causes | Separate/prioritize packets; safety/public-contract first. |
+| Correction resolves one row but breaks another | Record `regressed`; next packet targets regression. |
+| Same row fails without new evidence | Stop retry; enter Recovery/Replan or `needs-decision`. |
+| Unexpected API/dependency/schema/path change | Record `new-drift`; pause for approval if material. |
+| All rows validate | Mark feature validated; run required integration evidence. |
+
+Drift history remains append-only:
+
+```text
+REQ-04
+  checkpoint-001: failed; invalid claim persisted; CP-004
+  checkpoint-002: resolved; invalid-persistence test passed
+
+REQ-02
+  checkpoint-002: regressed; positive amount rejected; CP-005
+  checkpoint-003: resolved
+```
+
+A feature is complete only when every approved `REQ-*` row is validated or
+explicitly approved as deferred; every `GLOBAL-*` constraint is validated or has
+an approved exception; no unresolved/new drift remains; no previously validated
+row regressed in the latest checkpoint; required integration evidence passes; and
+every changed file/symbol/test/hunk maps to a requirement, global constraint, or
+justified discovery.
 
 For a larger feature, the root `approved.md` can link to focused approved
 scenarios, while `actual/` contains generated counterparts:
@@ -1094,6 +2335,150 @@ proposal or regenerate `actual.md`, but it must never silently overwrite an
 approved document. This prevents the scenario equivalent of test-chasing: an
 agent cannot make a failing behavior check pass merely by rewriting the expected
 output to match an incorrect implementation.
+
+### Anchor Reconciliation and Closure
+
+Implementation does not update the approved anchor to match the code. During
+partial or complete work, TailTrail updates only actual checkpoints, requirement
+evidence overlays, drift history, and feature status. At the end of a feature or
+program, it performs an explicit **Anchor Reconciliation**: a final comparison of
+the immutable approved anchor with final observed state and all relevant evidence.
+
+```text
+approved anchor = immutable desired-state contract
+actual checkpoints = evolving observed implementation state
+completion report = final reconciliation and closure record
+```
+
+```mermaid
+flowchart LR
+    A["Approved Anchor v1"] --> D["Anchor Reconciliation"]
+    B["Final actual checkpoint"] --> D
+    C["Drift, correction, and recovery history"] --> D
+    D --> E{"Every requirement, constraint, and integration proof satisfied?"}
+    E -->|"Yes"| F["Completion report + closed anchor status"]
+    E -->|"No"| G["Incomplete: correction, replan, or needs-decision"]
+```
+
+#### During partial implementation
+
+Partial completion never removes or rewrites an approved requirement. TailTrail
+records the current state against the anchor:
+
+```text
+Approved Anchor v1
+- REQ-01 Reject zero amount.
+- REQ-02 Preserve positive amount.
+- REQ-03 Reuse shared validator.
+- REQ-04 Prevent invalid persistence.
+
+Checkpoint 001
+- REQ-01 validated
+- REQ-02 validated
+- REQ-03 validated
+- REQ-04 failed
+```
+
+The next correction targets REQ-04. The anchor remains unchanged because REQ-04
+is still a required outcome. A correction updates actual evidence and drift
+state, not approved desired behavior.
+
+#### Final reconciliation inputs
+
+The reconciler compares:
+
+| Input | Question answered |
+| --- | --- |
+| Approved requirements and preserve rules | Did every `REQ-*` row reach its approved outcome or approved deferral? |
+| Global constraints | Did every `GLOBAL-*` rule remain valid or receive an approved exception? |
+| Final actual checkpoint | What code, paths, symbols, tests, and observed behavior exist now? |
+| Drift/correction history | Is any drift unresolved, regressed, or hidden by a later change? |
+| Requirement/evidence matrix | Does every required row have adequate linked proof? |
+| Scope and recovery ownership | Is every changed file/symbol/test/hunk mapped to a requirement, global rule, or justified discovery? |
+| Integration evidence | Do required cross-feature, service, API, persistence, or scenario checks pass? |
+| Approval history | Did any material behavior/scope change receive the required Anchor v2 approval? |
+
+#### Completion artifacts and statuses
+
+Closing an anchor produces new artifacts; it does not mutate `approved-v1.md`:
+
+```text
+approved-v1.md                 immutable approved intent
+actual/checkpoint-004.md       final observed state
+anchor-completion-report.md    final reconciliation result
+anchor-status.json             status and final checkpoint pointer
+```
+
+| Status | Meaning | Next action |
+| --- | --- | --- |
+| `complete-validated` | All approved requirements, constraints, and required integration evidence validate. | Handoff/review; close anchor. |
+| `complete-with-decision` | A developer approved a documented exception, limitation, or deferral. | Handoff with decision clearly visible. |
+| `incomplete` | One or more required rows/evidence remain failed or missing. | Continue bounded correction or replan. |
+| `blocked` | Required authority, environment, dependency, or human decision is unavailable. | Preserve state and request the smallest decision. |
+| `superseded` | Anchor v1 was materially replaced by approved Anchor v2. | Reconcile active version; retain v1 history. |
+
+Example completion report:
+
+```md
+# Anchor Completion Report
+
+Anchor: approved-v1
+Final checkpoint: F-01-checkpoint-004
+Status: complete-validated
+
+## Requirements
+- REQ-01 — Reject zero claim amount: validated
+- REQ-02 — Preserve positive claim acceptance: validated
+- REQ-03 — Reuse shared validation path: validated
+- REQ-04 — Invalid claim must not reach persistence: validated
+
+## Global constraints
+- GLOBAL-01 — No dependency/API/schema/configuration change: validated
+
+## Drift history
+- DRIFT-021: resolved in checkpoint-002
+- No unresolved or regressed drift remains.
+
+## Integration evidence
+- Valid submission scenario: passed
+- Invalid submission scenario: passed
+
+## Scope traceability
+- Every changed file, symbol, test, and task-owned hunk maps to a requirement,
+  global constraint, or justified discovery.
+```
+
+Example `anchor-status.json`:
+
+```json
+{
+  "anchor_version": "approved-v1",
+  "status": "complete-validated",
+  "final_checkpoint": "F-01-checkpoint-004",
+  "completion_report": "anchor-completion-report.md",
+  "unresolved_requirement_uids": [],
+  "unresolved_drift_ids": []
+}
+```
+
+#### When an anchor version changes
+
+| Situation | Anchor action |
+| --- | --- |
+| Partial implementation, failed test, or incomplete requirement | Keep anchor; update actual/drift/checkpoint evidence. |
+| New internal caller discovered without material behavior/scope change | Keep anchor; record justified discovery and evidence. |
+| Clarification without behavior change | Keep Anchor v1; record clarification history. |
+| User changes desired behavior | Propose and approve Anchor v2. |
+| API/schema/security/dependency/material architecture change | Propose and approve Anchor v2. |
+| Work fully completes | Keep Anchor v1 immutable; create completion report/status. |
+
+The governing rule is:
+
+```text
+The anchor does not move to match implementation.
+Implementation is measured against the anchor.
+Only human-approved desired-state change creates a new anchor version.
+```
 
 ### Approved scenarios as behaviour anchors
 
@@ -1530,6 +2915,130 @@ Architecture fitness should begin with deterministic, explainable local signals:
 changed paths, imports, AST relationships, known module rules, and focused
 contract tests. Inferential review can then decide whether an unusual structure
 is justified, but it should not replace direct source and structural evidence.
+
+### Code Mapper: optional architecture evidence, not a Version 1 graph subsystem
+
+Code Mapper is valuable for architecture fitness, but Harness Engineering Version
+1 does not need persistent `approved-code-map`, `actual-code-map`, and
+`graph-drift` artifacts for every task. The existing Requirement-to-Impact
+Matrix, approved scope/architecture expectations, actual changed files/symbols,
+diff/caller inspection, and focused controls already cover the core completion
+loop.
+
+The Version 1 position is:
+
+```text
+Use Code Mapper as an on-demand Navigator/Harness sensor.
+Do not make a persistent graph-drift subsystem mandatory.
+Do not treat graph output as source-of-truth completion proof.
+```
+
+Navigator uses Code Mapper when task complexity justifies it and carries the
+relevant relationships into the approved matrix/anchor. Harness invokes it again
+when scope or architecture ambiguity appears, then records its result as linked
+checkpoint evidence.
+
+```mermaid
+flowchart LR
+    A["Navigator + Code Mapper"] --> B["Approved impact and relationship assertions"]
+    B --> C["Implementation"]
+    C --> D["Actual diff, source, tests"]
+    D --> E["Code Mapper only when relevant"]
+    E --> F["Architecture/scope checkpoint evidence"]
+    F --> G["Correction, replan, or review"]
+```
+
+Example approved relationship assertion:
+
+```text
+REQ-01: Reject zero claim amount
+
+Expected path:
+API -> service.submit_claim -> validate_claim -> validate_claim_amount
+
+Expected files:
+- src/claims_api/validation.py
+- src/claims_api/service.py
+- tests/test_claim_validation.py
+
+Allowed discovery:
+- Existing API mapper or service-path test only when local evidence confirms it.
+
+Forbidden without approval:
+- New validator module
+- Dependency manifest change
+- Public API, schema, or security path
+```
+
+After implementation, a lightweight checkpoint can record:
+
+```text
+REQ-01: validated
+Architecture: preserved
+Observed path: service.submit_claim -> validate_claim -> validate_claim_amount
+Changed files: validation.py, test_claim_validation.py
+Evidence: local AST map + focused test receipt
+```
+
+Or it can report a precise drift:
+
+```text
+REQ-01: new-drift
+Lens: architecture + reuse
+
+Expected path:
+API -> service -> shared validator
+
+Observed new path:
+API -> api.validate_amount
+
+Unexpected node:
+src/claims_api/api_validation.py
+
+Risk:
+Duplicate validation and shared validation bypass.
+
+Required correction:
+Reuse validate_claim_amount through the service path.
+```
+
+#### When Code Mapper is selected
+
+| Task shape | Code Mapper posture |
+| --- | --- |
+| Documentation, formatting, isolated test-only change | Skip. |
+| One-file validation/bug fix with known caller | Lightweight/optional; use only if scope ambiguity appears. |
+| Multi-file business logic, reuse constraint, or likely caller impact | Select local mapper evidence during Navigator and checkpoint comparison. |
+| Public API, schema, security, dependency, architecture boundary, or refactor discovery | Select Code Mapper plus exact source and focused contract/integration proof. |
+| Program Delivery integration checkpoint | Use relevant relationship assertions to validate cross-feature paths. |
+
+Code Mapper is strong at new files/imports/modules, changed symbols/callers,
+likely layer violations, duplicate/bypass paths, test proximity, and dependency
+hints. It is weak at dynamic dispatch, reflection, dependency injection,
+generated code, framework magic, and full runtime semantics. Every result must
+therefore retain its evidence label such as `local-ast`, `local-source`,
+`heuristic`, `provider-backed`, or `measured/validated`.
+
+#### Promotion criteria and metrics
+
+Do not build a persistent graph-drift layer until evidence from real Harness V1
+runs shows it is needed. Promote relationship assertions into versioned graph
+artifacts only if repeated tasks demonstrate that ordinary matrix/diff/caller
+evidence misses material architecture drift.
+
+| Metric | What to measure | Promotion signal |
+| --- | --- | --- |
+| Missed architecture drift | Later review/integration finds bypass, duplicate path, or wrong layer not caught by V1 evidence. | Recurring confirmed misses across representative multi-file tasks. |
+| Mapper precision | Mapper findings confirmed by exact source/review divided by total findings. | High enough that added graph artifacts will not become noisy. |
+| Correction value | Architecture findings that lead to a valid correction without another human rediscovery. | Repeated useful correction packets. |
+| Manual investigation cost | Times developers must manually reconstruct caller/edge impact after Navigator planning. | Persistent friction on multi-module/refactor tasks. |
+| Artifact overhead | Time/context/storage required to create, compare, and interpret graph slices. | Low enough relative to confirmed value. |
+
+The next step, if warranted, is a small **relationship-assertion layer**, not a
+full repository graph snapshot. It stores only approved expected paths and
+observed relevant edges per requirement. Full `approved-code-map-slice`,
+`actual-code-map-slice`, and graph-drift artifacts remain deferred until local
+evidence proves they improve completion more than they add complexity.
 
 ## Behaviour Harness
 
