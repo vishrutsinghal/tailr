@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["control_id","outcome","evidence_label"],"properties":{"control_id":{"type":"string"},"outcome":{"enum":["pass","fail","skipped","blocked","timed-out"]},"evidence_label":{"type":"string"}}}

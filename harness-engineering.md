@@ -6,6 +6,11 @@
 it does not claim that the runtime, commands, schemas, adapters, or control loops
 below already exist.
 
+For the current testing assessment and the proposed unit-to-release-smoke
+validation roadmap, see [Testing Confidence: Current State And Improvement
+Plan](testing-confidence.md). That document is the source of truth for testing
+tiers, validation contracts, environment evidence, and testing-runtime phases.
+
 This document records the working decisions behind TailTrail Harness Engineering:
 
 1. The hard agent-coding problem is not only syntax, lint, or type failures. It
@@ -396,15 +401,17 @@ the API path bypassed the approved validation route, with source, graph, and tes
 evidence.
 
 Requirement identity informs recovery but is not recovery authority by itself.
-The Task Recovery Boundary maps requirements to task-owned files, symbols, hunks,
-patches, and baseline fingerprints. One requirement can affect many hunks and
-one hunk can support several requirements.
+In Mode A, the Task Recovery Boundary maps a requirement to its local Git
+checkpoint/ref, validation receipt, and allowed active diff. In Mode B, it also
+maps requirements to task-owned files, symbols, hunks, patches, and baseline
+fingerprints. One requirement can affect many hunks and one hunk can support
+several requirements.
 
 ```text
 requirement_uid
   -> actual evidence
-  -> file / symbol / task-owned hunk
-  -> task-owned patch + baseline fingerprint
+  -> Mode A: local requirement commit/ref + active diff receipt
+  -> Mode B: file / symbol / task-owned hunk + baseline fingerprint
   -> recovery plan / recovery attempt
 ```
 
@@ -2576,22 +2583,26 @@ harness run:
 > current task without touching valid work that existed before that task began.
 
 The recovery boundary is not a replacement for Git and must not claim to be a
-repository backup service. It is the minimum local recovery data required to
-separate uncommitted Task 2 work from pre-existing Task 1 work.
+repository backup service. In the default autonomous mode, it is a thin
+requirement-to-Git-checkpoint ledger. It records which approved requirement is
+represented by which local commit and what proof made that checkpoint valid.
+Only the fallback mode needs exact source snapshots and hunk-level recovery
+artifacts.
 
 ```mermaid
-flowchart LR
-    A["Task 1 complete<br/>uncommitted valid work"] --> B["Task 2 anchor approved"]
-    B --> C["Capture Task 2 baseline<br/>only task-scope files"]
-    C --> D["Agent changes Task 2 files"]
-    D --> E{"Task 2 completes?"}
-    E -->|Yes| F["Keep Task 1 and Task 2 work"]
-    E -->|No| G["Build selective recovery plan"]
-    G --> H{"Task-owned patch applies safely?"}
-    H -->|Yes| I["Reverse Task 2 only"]
-    H -->|Conflict| J["Assisted merge or human recovery"]
-    I --> K["Task 1 work preserved"]
-    J --> K
+flowchart TB
+    A["Approved plan"] --> B["Git Readiness Gate"]
+    B --> C{"Clean worktree and local commit available?"}
+    C -->|Yes| D["Create/use TailTrail task branch"]
+    D --> E["Implement and validate REQ-01"]
+    E --> F["Create local REQ-01 checkpoint commit + ref"]
+    F --> G["Implement REQ-02 as active uncommitted delta"]
+    G --> H{"REQ-02 validates?"}
+    H -->|Yes| I["Create local REQ-02 checkpoint commit + ref"]
+    H -->|No| J["Verify active delta is REQ-02-owned"]
+    J --> K["Restore only REQ-02 paths to REQ-01 checkpoint"]
+    K --> L["Continue or Recovery/Replan"]
+    C -->|No| M["Show exact Git state; user resolves it or explicitly selects patch-stack fallback"]
 ```
 
 ### Why GitHub and Git `HEAD` are not enough
@@ -2601,29 +2612,163 @@ Neither contains Task 1 if the developer has finished it locally but has not
 committed it. A hash alone can detect a changed file but cannot restore the
 pre-task bytes that are needed for exact recovery.
 
-TailTrail needs one of these local safety mechanisms:
+TailTrail has two explicit recovery modes. **Mode A is the default. Mode B is a
+fallback, never an invisible downgrade.**
 
-| Option | Assessment |
+| Mode / option | Assessment |
 | --- | --- |
 | Reset repository to Git `HEAD` | Unsafe; destroys all uncommitted work. Never the default. |
-| Require a local commit before every task | Recoverable, but too disruptive to normal developer workflow. |
-| Require a named stash/branch checkpoint | Safer than reset but still shifts workflow burden to the developer. |
-| Local task-scoped baseline and patch artifacts | Recommended; preserves the user's existing uncommitted work and supports selective recovery. |
+| **Mode A: clean-worktree local requirement checkpoints** | **Default for autonomous delivery.** Each validated requirement is a local commit/ref on a TailTrail task branch. No network, credentials, or remote push are required. |
+| Mode B: patch-stack snapshots and reconciliation | Explicit fallback for a workspace that cannot be made clean or cannot safely create a requirement commit. More evidence-heavy and used only after user selection. |
+
+### Mode A (default): Git Readiness Gate and local requirement checkpoints
+
+Navigator may inspect and plan in a dirty repository, but an autonomous writing
+run cannot start until the **Git Readiness Gate** passes. This deliberately
+makes the normal recovery path cheap: Git stores the validated state, and the
+active requirement is the only uncommitted delta.
+
+| Gate check | Required in Mode A | Reason |
+| --- | --- | --- |
+| Repository and current `HEAD` exist | Yes | A local checkpoint needs a valid Git base. |
+| Working tree has no staged, unstaged, or untracked files (other than policy-approved ignored files) | Yes | Prevents TailTrail from accidentally committing, reverting, or masking prior work. |
+| Current branch is known and a TailTrail task branch can be used | Yes | Keeps requirement commits isolated from the user's main branch. |
+| Local commit can be created | Yes | Proves the primary recovery mechanism is available. |
+| Remote, GitHub access, or credentials | No | Push is a later delivery action, not a recovery dependency. |
+
+If the gate fails, TailTrail must show the exact paths and stop before writing.
+It must never silently stash, commit, reset, discard, or delete user work.
+
+```text
+TailTrail Git Readiness Gate
+
+Autonomous requirement checkpoints require a clean worktree.
+
+Detected:
+- Modified: src/claims_api/service.py
+- Untracked: notes/experiment.md
+
+Resolve before implementation:
+1. Commit the existing work.
+2. Stash the existing work.
+3. Discard it yourself.
+4. Explicitly select Mode B: patch-stack fallback.
+```
+
+After a requirement's focused proof passes, TailTrail stages only the approved,
+requirement-owned change, creates a local checkpoint commit, and records an
+immutable local ref such as
+`refs/tailtrail/runs/<run-id>/requirements/<requirement_uid>`. The user may
+later squash or reorganize commits during normal delivery; TailTrail keeps the
+ref only for the active run's recovery/audit lifecycle.
+
+```text
+REQ-01 validates
+  -> local commit on tailtrail/<run-id>
+  -> ref: refs/tailtrail/runs/<run-id>/requirements/claims-v1/REQ-01
+  -> REQ-02 starts with REQ-01 as its Git base
+
+REQ-02 fails before validation
+  -> verify current diff is only REQ-02-owned paths/hunks
+  -> restore those paths to the REQ-01 checkpoint
+  -> REQ-01 commit remains untouched
+```
+
+Mode A recovery is deliberately computational and low-context:
+
+1. Read the active requirement's commit/ref and allowed path receipt.
+2. Compute the current Git diff against the last validated requirement commit.
+3. If that diff contains only the active requirement's approved paths and
+   expected changes, restore **only those paths** to the last validated local
+   checkpoint. No model reasoning, snapshot loading, or whole-repository reset
+   is needed.
+4. If the diff contains an unexpected path, hunk, staged change, or manual edit,
+   stop the automatic restore. Preserve the worktree and offer Recovery/Replan
+   or the explicit Mode B patch-stack fallback.
+5. Create a recovery receipt. Re-run earlier requirement proof only if recovery
+   required reconciliation or changed a dependency/path in its preservation
+   matrix; an exact return to the validated Git checkpoint reuses its recorded
+   proof receipt.
+
+### Implemented V1: conflict classification and bounded reconciliation
+
+Mode A now also supports a narrow overlap-aware recovery path through
+`tailtrail harness reconcile`. The execution agent supplies the exact patch it
+created for the active requirement. TailTrail never guesses task ownership from
+line numbers, timestamps, or a whole-file hash; it asks Git whether that exact
+patch can be reversed from the current workspace.
+
+```mermaid
+flowchart TB
+    A["Active requirement + supplied task patch"] --> B["Validate patch paths against approved boundary"]
+    B -->|"outside boundary"| C["scope-conflict: preserve work, replan"]
+    B -->|"inside boundary"| D{"git apply --check --reverse"}
+    D -->|"passes"| E["exact-task-patch: approved reverse of task hunks only"]
+    D -->|"fails"| F{"forward patch applies?"}
+    F -->|"yes"| G["task-patch-absent: preserve work"]
+    F -->|"no"| H["same-hunk-overlap: save no-write reconciliation plan"]
+```
+
+An exact reverse is safe even if another tracked file has valid uncommitted
+work: TailTrail records SHA-256 fingerprints for those unrelated changed paths,
+reverses only the supplied patch after `--approved`, and verifies those
+fingerprints stayed unchanged. A same-hunk overlap is deliberately *not*
+auto-merged. The artifact records the classification, patch paths, unrelated
+paths, reverse-check evidence, decision, and safety boundary at
+`.tailtrail/runs/<run-id>/recovery/reconciliation/assessment-<n>.json`.
+
+```powershell
+py -3 scripts/tailtrail.py harness reconcile plan --root . --run-id claim-validation --task-patch .tailtrail/task.patch
+py -3 scripts/tailtrail.py harness reconcile apply --root . --run-id claim-validation --task-patch .tailtrail/task.patch --approved
+```
+
+V1 rejects binary, copied, renamed, untracked, and unsafe-path patches. It does
+not implement a three-way merge, synthesize a conflict resolution, reset the
+repository, or alter a prior validated requirement commit. A later version may
+add an agent-led reconciliation proposal, but only after it can prove a unique
+approved-intent-preserving result.
+
+This means SHA-256 file fingerprints and full snapshots are not normal
+per-requirement costs in Mode A. Git's commit graph and diff are the source of
+truth. Those additional artifacts exist only when Mode B is explicitly active.
+
+The remote push happens only at a user-requested milestone, final delivery, or
+explicit release workflow. A credential, network, or remote-conflict failure
+cannot lose local requirement checkpoints; it only delays publication.
+
+### Mode B (explicit fallback): patch-stack recovery
+
+Use Mode B only when the user deliberately keeps a dirty worktree, a local
+checkpoint commit is unavailable, or project policy prohibits the Mode A branch
+workflow. It preserves earlier work using task-scoped snapshots, patches,
+fingerprints, symbol anchors, and focused preservation proof. This is slower
+and can require bounded AI reconciliation, which is why it is not the default.
+
+**Implemented V1:** `tailtrail harness mode-b capture|seal|plan|apply` captures
+the active requirement's approved-path baseline, seals its after-state
+fingerprints and unified patch, then restores only paths whose current content
+still exactly matches that sealed task state. Any later edit becomes an overlap
+and a no-write plan. `tailtrail harness diagnose` is invoked only with repeated
+failure artifacts; it derives local-evidence hypotheses and a bounded replan
+direction, but cannot merge, modify source, or change approved intent.
 
 ### Boundary creation at anchor approval
 
 Before the execution agent can edit source, TailTrail records the recovery
-boundary alongside the approved anchor. It should not map or copy the entire
-repository. It captures only expected task paths, approved scope expansions, and
-the minimal Git/worktree metadata needed to detect conflicts.
+boundary alongside the approved anchor. In Mode A, it records the clean-worktree
+receipt, task branch, base commit, expected requirement paths, and checkpoint
+ref plan. In Mode B, it additionally captures the snapshots and hunk metadata
+needed for patch-stack recovery. It should not map or copy the entire repository.
 
 ```text
 Task Recovery Boundary
 
 Run ID: claim-limit-002
 Anchor: approved-v1
-Git HEAD: abc1234
-Worktree already dirty: yes
+Mode: A (clean-worktree local Git checkpoints)
+Git base: abc1234
+Task branch: tailtrail/claim-limit-002
+Worktree clean: yes
 
 Expected task paths:
 - src/claims_api/validation.py
@@ -2639,52 +2784,51 @@ The boundary must capture:
 
 | Artifact | Why it is required |
 | --- | --- |
-| Git `HEAD` revision | Gives a long-term repository reference point. |
-| Pre-task content hash for each task-scope file | Detects unexpected modification after the boundary is created. |
-| Exact pre-task file content or local baseline patch | Enables recovery when earlier work is uncommitted. |
-| Task-owned patch after each checkpoint | Identifies exactly what the current task changed. |
-| Unified diff hunks with surrounding context | More stable than line numbers when code shifts. |
-| Symbol/AST anchors when available | Helps explain/recover semantic locations after movement. |
-| File ownership ledger | Separates pre-existing, current-task, user, and unknown changes. |
-| New/deleted file records | Allows safe deletion/restoration only when the current task owns the file. |
+| Mode A: Git base, task branch, local requirement commit/ref, and validation receipt | Primary recovery pointer and proof of the retained requirement state. |
+| Mode A: expected paths and active requirement diff receipt | Verifies that an unvalidated requirement may be restored without touching prior checkpoint commits. |
+| Mode B: pre-task content hash and exact pre-task file content/local baseline patch | Detects change and enables recovery when the worktree cannot be made clean. |
+| Mode B: task-owned patch, unified diff context, and symbol/AST anchors | Identifies the current task's contribution when source moved or overlaps. |
+| Mode B: ownership ledger and new/deleted file records | Separates pre-existing, current-task, user, and unknown changes. |
+| Both modes: requirement recovery manifest | Links requirement, proof, checkpoint/ref, and (in Mode B) owned hunk/recovery evidence. |
 
 Line numbers may be included for display, but they are not sufficient recovery
-identifiers. Agent edits can shift lines. Recovery should prefer exact patch
-context, content hashes, and symbol anchors.
+identifiers. Mode A normally recovers through a local checkpoint commit. Mode B
+prefers exact patch context, content hashes, and symbol anchors.
 
-### Local recovery artifact layout
+### Recovery artifact layout by mode
 
 ```text
+# Mode A: default clean-worktree Git checkpoint mode
 .tailtrail/runs/<run-id>/
   approved-v1.md
   approved-v1.json
+  git-readiness.json
+  requirements/
+    claims-v1--REQ-01.json  # branch, commit/ref, owned paths, proof receipt
+    claims-v1--REQ-02.json
 
+# Mode B only: explicit patch-stack fallback
   recovery-boundary/
     manifest.json
     ownership-ledger.json
     baseline/
       validation.py.before
       service.py.before
-      tests-test_claim_validation.py.before
-
   checkpoints/
     001/
       actual.md
       checkpoint.json
       task-owned.patch
-    002/
-      actual.md
-      checkpoint.json
-      task-owned.patch
-
   recovery/
     reverse-current-task.patch
     recovery-plan.md
+    requirement-recovery-manifest.json
 ```
 
 These files are private local state and should be ignored by normal Git commits.
-They may contain exact source necessary for recovery, so TailTrail must not send
-them to telemetry, learning, model providers, or shared metadata by default.
+Mode B files may contain exact source necessary for recovery, so TailTrail must
+not send them to telemetry, learning, model providers, or shared metadata by
+default.
 
 ### Expected scope versus actual task ownership
 
@@ -2694,11 +2838,11 @@ is excluded by default and should be treated as a scope event if changed.
 
 | Classification | Meaning | Recovery posture |
 | --- | --- | --- |
-| Expected task path | File was listed in the approved anchor. | Track task-owned hunks and allow selective recovery. |
-| Justified discovered path | Important caller/test discovered by Code Graph and allowed by the anchor's expansion rule. | Add to ownership ledger and baseline before agent edits it. |
+| Expected task path | File was listed in the approved anchor. | In Mode A, include it in the active requirement diff receipt; in Mode B, track owned hunks. |
+| Justified discovered path | Important caller/test discovered by Code Graph and allowed by the anchor's expansion rule. | In Mode A, add it to the active diff receipt before commit; in Mode B, add to ledger and baseline before edit. |
 | Material scope expansion | API, schema, security, dependency, protected, or unrelated path. | Pause; require approval before adding it to task ownership. |
-| Pre-existing changed path | File already had user/earlier-task changes before this run. | Preserve as baseline; never treat it as current-task work. |
-| Unknown changed path | Changed after task start but no ownership/approval evidence exists. | Do not roll it back automatically; escalate. |
+| Pre-existing changed path | File already had user/earlier-task changes before this run. | Mode A rejects it at readiness; Mode B preserves it as a baseline. |
+| Unknown changed path | Changed after task start but no ownership/approval evidence exists. | Mode A rejects automatic restore and routes to Mode B/recovery planning; Mode B classifies ownership before any write. |
 
 The actual-state report should compare expected and observed paths:
 
@@ -2721,7 +2865,51 @@ controller.py is outside the approved task. Treat as architecture/scope drift;
 do not include it in automatic recovery until ownership is resolved.
 ```
 
-### Selective recovery algorithm
+### Mode B conflict reconciliation is agent-led, not an automatic human handoff
+
+An overlap is not automatically a request for a person to inspect a merge.
+Most conflicts have a safe answer already present in the approved anchor, the
+requirement-to-impact matrix, the ownership ledger, current source, and focused
+controls. TailTrail should use that evidence before it interrupts the user.
+
+The recovery engine first classifies the conflict, then asks a bounded AI
+Conflict Resolver (or the Recovery Diagnostician after repeated failures) to
+produce a reconciliation plan. The resolver does not receive authority to
+invent a new product decision or overwrite unrelated work.
+
+| Conflict class | Typical cause | Default agent action | Requires a decision only when |
+| --- | --- | --- | --- |
+| Context/fingerprint mismatch | A formatter or nearby edit shifted the hunk. | Re-locate with symbol and AST/context anchors; rebuild a scoped reverse patch. | The intended symbol cannot be identified. |
+| Same-file, non-overlapping change | Task 1 and Task 2 changed different regions of one file. | Preserve Task 1 baseline region and reverse/reconcile Task 2-owned hunks. | Never, if ownership remains clear. |
+| Same-hunk overlap | A user or Task 1 edit shares lines with Task 2's patch. | Perform a three-way semantic merge from baseline, task-owned delta, and current file; validate preservation controls. | Both alternatives satisfy different approved requirements or the current edit has unknown intent. |
+| Rename/move/delete | A symbol/path moved after the boundary. | Use AST/symbol anchors and Git-aware rename evidence to find the new location; rebuild the smallest patch. | The file/symbol was deliberately removed for an incompatible approved change. |
+| Requirement/architecture conflict | Task 2's solution breaks REQ-01, a protected path, or a required call path. | Restore/reconstruct the approved REQ-01 behavior, then replan Task 2 within remaining boundaries. | The approved requirements themselves are incompatible. |
+| Policy/dependency conflict | Recovery would add a package, change schema, or touch a protected boundary. | Do not make that expansion; seek an existing approved path or emit a replan. | A material dependency, schema, security, or public-contract choice is necessary. |
+| Evidence conflict | Tests, source, and approved scenario disagree. | Run the smallest decisive computational check and inspect the exact path. | Evidence still supports multiple incompatible desired behaviors. |
+
+```mermaid
+flowchart TB
+    A["Conflict detected"] --> B["Classify conflict and preserve boundary evidence"]
+    B --> C["AI Conflict Resolution"]
+    C --> D{"Can approved intent resolve it safely?"}
+    D -->|"Yes"| E["Create bounded reconciliation plan"]
+    E --> F["Apply only task-owned / approved changes"]
+    F --> G["Run focused controls and checkpoint"]
+    G --> H{"Requirements and preservation checks pass?"}
+    H -->|"Yes"| I["Continue delivery automatically"]
+    H -->|"No"| C
+    D -->|"No"| J["Recovery/Replan against approved anchor"]
+    J --> K{"Approved intent gives one safe answer?"}
+    K -->|"Yes"| E
+    K -->|"No"| L["needs-decision: smallest human approval request"]
+```
+
+The status is therefore one of `reconciling`, `reconciled`,
+`replan-required`, `needs-decision`, or `blocked`. `blocked` is reserved for a
+real external inability such as a required unavailable credential or an
+explicit policy prohibition; it is not a synonym for an ordinary merge conflict.
+
+### Mode B selective recovery algorithm
 
 Recovery should reverse the current task's delta, not restore entire files or
 the entire repository. The algorithm must be conservative:
@@ -2730,11 +2918,19 @@ the entire repository. The algorithm must be conservative:
 2. Build the reverse patch from task-owned changes relative to the task baseline.
 3. Check that the current file still matches the expected task-owned context.
 4. If it matches, apply the reverse patch only to the owned hunks.
-5. If context changed, attempt an assisted three-way merge using baseline,
-   latest task-owned state, and current working-tree state.
-6. If overlapping user/other-task edits make ownership ambiguous, do not modify
-   source. Render a recovery plan and ask the developer to choose.
-7. Record recovery as a new checkpoint; never erase prior checkpoints.
+5. If context changed, classify the conflict and build a three-way
+   reconciliation using baseline, latest task-owned state, and current
+   working-tree state.
+6. Give the Conflict Resolver only the approved requirement slice, recovery
+   manifest, relevant source, and exact failed controls. It must choose the
+   smallest patch that preserves pre-existing valid work and satisfies approved
+   intent.
+7. Run the preservation proof for previously validated requirements and the
+   focused recovery proof for the active requirement.
+8. Continue automatically when the result is evidenced. Enter
+   `needs-decision` only if the evidence exposes a genuine product, authority,
+   schema, public-contract, dependency, or incompatible-requirement choice.
+9. Record recovery as a new checkpoint; never erase prior checkpoints.
 
 ```mermaid
 flowchart TB
@@ -2742,52 +2938,184 @@ flowchart TB
     B --> C["Build reverse patch from task-owned delta"]
     C --> D{"Current file matches task patch context?"}
     D -->|Yes| E["Apply reverse task patch"]
-    D -->|No| F{"Three-way merge is conflict-free?"}
-    F -->|Yes| G["Create assisted selective recovery patch"]
-    F -->|No| H["No source write; human recovery decision"]
+    D -->|No| F["Classify and reconcile with approved intent"]
+    F --> G{"Safe bounded patch evidenced?"}
+    G -->|Yes| H["Apply reconciled selective recovery patch"]
+    G -->|No| J["needs-decision; preserve workspace"]
     E --> I["Recovery checkpoint"]
-    G --> I
-    H --> I
+    H --> K["REQ preservation + focused controls"]
+    K --> I
 ```
 
-### Recovery modes
+### Mode B recovery modes
 
 | Mode | Preconditions | TailTrail action |
 | --- | --- | --- |
 | Automatic reverse patch | Task-owned hunk context and file fingerprints still match expected state. | Reverse only current-task hunks. |
-| Assisted three-way recovery | File changed but baseline/current/task versions can merge without conflict. | Produce and show a candidate selective recovery patch. |
-| Human recovery required | User/another task changed the same hunk, file provenance is unknown, or merge conflicts remain. | Do not write source; show exact conflict and safe options. |
+| Reconciled three-way recovery | File changed, but source, ownership, and approved intent yield one safe merged result. | Apply a bounded reconciliation patch, then run preservation and recovery controls. |
+| Replan-required | A safe patch exists only after the active requirement's implementation approach changes. | Preserve all evidence, create a bounded replan packet, and continue automatically. |
+| Needs decision | The evidence supports multiple incompatible behavior/authority choices. | Do not make the material choice; preserve workspace and present the exact decision. |
 
 TailTrail must never silently overwrite a whole file because it belongs to the
 current task. A file can contain valid prior work, user edits made during the
 run, or overlapping work from another task.
 
-### Example: Task 1 is uncommitted; Task 2 fails
+### Mode B Requirement Recovery Manifest: enough evidence to preserve REQ-01 and undo REQ-02
+
+This section applies when the user explicitly selected Mode B. File ownership
+alone is not enough in that mode. It can prove that Task 2 edited a hunk, but it
+cannot prove that reversing the hunk still preserves REQ-01's behavior. TailTrail
+therefore needs two linked evidence layers:
+
+1. **Mechanical recovery evidence** identifies exactly what REQ-02 changed and
+   how to reverse or reconcile it.
+2. **Semantic preservation evidence** proves that REQ-01 remains satisfied
+   after that operation.
+
+At the start of REQ-02, the Mode B harness captures a baseline *after REQ-01
+has passed its checkpoint*. This makes the valid REQ-01 implementation the
+retained state, even if it is uncommitted. Each REQ-02 patch hunk then points to
+the requirement UID, its baseline and current fingerprints, relevant symbols,
+and the exact proof that must keep REQ-01 valid.
+
+```json
+{
+  "run_id": "claims-feature-018",
+  "cycle_id": "F-02-C-01",
+  "baseline_checkpoint": "F-01-checkpoint-004",
+  "preserve_requirement_uids": ["claims-v1/REQ-01"],
+  "active_requirement_uids": ["claims-v1/REQ-02"],
+  "baseline_files": [
+    {
+      "path": "src/claims_api/service.py",
+      "fingerprint": "sha256:task2-baseline",
+      "local_snapshot_ref": "recovery-boundary/baseline/service.py.before"
+    }
+  ],
+  "owned_hunks": [
+    {
+      "hunk_id": "H-02-003",
+      "requirement_uid": "claims-v1/REQ-02",
+      "path": "src/claims_api/service.py",
+      "symbol": "submit_claim",
+      "forward_patch_ref": "checkpoints/006/task-owned.patch#H-02-003",
+      "reverse_patch_ref": "recovery/reverse-req-02.patch#H-02-003"
+    }
+  ],
+  "required_preservation_proof": [
+    "tests/test_customer_identifier.py::test_submit_preserves_customer_id",
+    "tests/test_claim_validation.py::test_existing_positive_claim_still_submits"
+  ],
+  "active_recovery_proof": [
+    "tests/test_claim_limit.py::test_limit_failure_is_not_reported_as_success"
+  ]
+}
+```
+
+#### Why the file fingerprint is captured
+
+A SHA-256 fingerprint is a **safety detector**, not a rollback mechanism. The
+exact local snapshot and REQ-02 reverse patch provide recovery material; the
+fingerprints tell the harness whether that material can be applied directly or
+must first be reconciled with newer work.
+
+The preservation record created after REQ-01 validates, and before REQ-02 is
+allowed to write, should be explicit about both states:
+
+```json
+{
+  "requirement_uid": "claims-v1/REQ-01",
+  "requirement_statement": "Preserve and submit customer identifier with every claim.",
+  "checkpoint_id": "F-01-checkpoint-004",
+  "status": "validated",
+  "retained_baseline_for_next_requirement": true,
+  "files": [
+    {
+      "path": "src/claims_api/service.py",
+      "snapshot_ref": "recovery-boundary/baseline/service.py.before-req-02",
+      "baseline_fingerprint": "sha256:aaa...",
+      "req_02_after_fingerprint": "sha256:bbb...",
+      "symbols": ["submit_claim"],
+      "req_01_owned_hunks": ["H-01-001", "H-01-002"]
+    }
+  ],
+  "required_preservation_proof": [
+    "tests/test_customer_identifier.py::test_submit_preserves_customer_id",
+    "tests/test_claim_validation.py::test_existing_positive_claim_still_submits"
+  ]
+}
+```
+
+During REQ-02 recovery, TailTrail calculates the current fingerprint of
+`service.py` and compares it with `req_02_after_fingerprint`:
+
+| Current-file result | Meaning | Safe next action |
+| --- | --- | --- |
+| Fingerprint matches | No later change is detected after the REQ-02 checkpoint. | Apply the known REQ-02 reverse patch to its owned hunks, then run REQ-01 preservation proof. |
+| Fingerprint differs, but owned hunk context matches | A non-overlapping or nearby change occurred. | Keep the newer source, apply a scoped hunk-level reverse/reconciliation patch, then run preservation proof. |
+| Fingerprint and hunk context differ | Later work overlaps or the source moved. | Use the snapshot, owned-hunk/symbol anchors, approved intent, and focused controls to build a three-way reconciliation; never replace the whole file. |
+
+The fingerprint therefore answers **“may the old patch be applied as-is?”** It
+never answers **“what should be restored?”**. The snapshot answers that second
+question, the owned patch identifies what REQ-02 contributed, and REQ-01's
+focused tests prove that the preserved behavior still holds.
+
+The manifest is local, append-only, ignored by Git, and never sent to model
+providers or telemetry by default. `requirement_uid`, not the display label
+`REQ-01`, is the durable join key across the approved slice, actual state,
+drift record, patch hunk, recovery checkpoint, and Evaluation Harness result.
+
+```mermaid
+flowchart LR
+    A["REQ-01 validated checkpoint"] --> B["Capture REQ-02 baseline<br/>after REQ-01"]
+    B --> C["REQ-02 owned hunks + reverse patch"]
+    C --> D{"REQ-02 fails or is abandoned"}
+    D --> E["Reconcile/reverse REQ-02 hunks only"]
+    E --> F["Run REQ-01 preservation proof"]
+    F --> G{"REQ-01 still valid?"}
+    G -->|Yes| H["Record REQ-02 recovery; continue/replan"]
+    G -->|No| I["Reconstruct approved REQ-01 state from baseline + evidence"]
+    I --> J["Run focused proofs again"]
+```
+
+### Example: REQ-01 is retained; REQ-02 fails
 
 ```text
-Task 1:
-- Add customer identifier field in src/claims_api/service.py.
+REQ-01 (already validated):
+- Preserve and submit the customer identifier in src/claims_api/service.py.
 - Work is correct but remains uncommitted.
 
-Task 2:
+REQ-02 (active):
 - Add claim-limit behavior in src/claims_api/service.py.
 - Agent fails after three correction cycles.
 ```
 
-At Task 2 approval, TailTrail captures the exact Task 1 version of
-`service.py` as Task 2's local baseline. The Task 2 patch contains only
-claim-limit hunks.
+At REQ-02 approval, TailTrail captures the exact REQ-01-valid version of
+`service.py` as the REQ-02 baseline. The REQ-02 patch contains only
+claim-limit hunks, while the manifest lists the customer-ID proof as a required
+preservation control.
 
 ```text
-Task 2 selective recovery:
+REQ-02 selective recovery:
 - reverse only claim-limit hunks
-- restore service.py to its Task 2 baseline
-- preserve Task 1 customer identifier work
+- restore/reconcile service.py to its REQ-02 baseline
+- preserve REQ-01 customer identifier work
+- rerun the REQ-01 customer-ID test before the checkpoint is accepted
 ```
 
-If the developer manually changed the same claim-limit hunk while Task 2 was
-running, automatic reversal is unsafe. TailTrail must provide a conflict report
-instead of overwriting the developer's change.
+If the developer manually changed the same claim-limit hunk while REQ-02 was
+running, TailTrail first attempts an intent-guided three-way reconciliation. It
+may safely keep the manual change when it is compatible with the approved
+requirements, or rebuild the REQ-02 patch around it. It asks for a decision only
+if, for example, the manual edit deliberately changes the public error contract
+while the approved anchor requires the old contract and neither choice has
+authority over the other.
+
+When REQ-02 changed the same lines that REQ-01 originally introduced, a raw
+reverse patch may be insufficient. TailTrail must reconstruct the retained
+state from the REQ-02 baseline, REQ-01's approved/actual evidence, and current
+source; then it must rerun REQ-01 proof. This is why the recovery manifest keeps
+both hunk-level provenance and requirement-level preservation proof.
 
 ### New and deleted files
 
@@ -2795,10 +3123,10 @@ New and deleted files need ownership rules too:
 
 | File event | Safe recovery rule |
 | --- | --- |
-| New file created and modified only by current task | Offer to remove it with explicit user confirmation. |
-| New file changed later by user/another task | Do not remove automatically; show ownership conflict. |
+| New file created and modified only by current task | Remove automatically as part of the evidenced reverse patch; record the deletion in the recovery checkpoint. |
+| New file changed later by user/another task | Classify ownership and reconcile. Do not delete unless the manifest and current evidence establish that the remaining content is current-task-owned. |
 | Existing file deleted by current task | Restore from task baseline only when ownership/context is verified. |
-| Generated file changed by current task | Follow project policy; avoid recovery writes if generated files are controlled elsewhere. |
+| Generated file changed by current task | Follow project policy and regenerate through the approved generator when possible; enter `needs-decision` only when the generator, provenance, or policy authority is unavailable. |
 
 ### Recovery is not completion
 
@@ -2852,6 +3180,12 @@ the architectural expectations in the approved Change Intent Anchor. It answers:
 
 > Did the agent achieve the desired behavior through the intended system path,
 > while preserving the boundaries that make the project maintainable?
+
+**Implementation status:** Architecture Fitness Harness V1 is implemented as a
+deterministic local sensor. It evaluates approved required/protected paths and
+Python AST forbidden-import rules, writes a run-linked assessment artifact, and
+exposes that saved evidence for MCP inspection. The broader layer-direction,
+runtime-path, and cross-language rules described below remain future extensions.
 
 This matters because a change can appear to work in one test while being placed
 in the wrong layer, bypassing shared validation, duplicating business logic, or
@@ -3041,6 +3375,12 @@ observed relevant edges per requirement. Full `approved-code-map-slice`,
 evidence proves they improve completion more than they add complexity.
 
 ## Behaviour Harness
+
+**Implementation status:** Behaviour Harness V1 is implemented as a
+requirement-linked scenario-evidence assessor. It records a scenario only as
+validated when a local receipt matches the requirement UID, declared tier,
+asserted behavior, and passing outcome. Environment provisioning, fixture
+generation, and live E2E execution remain future work.
 
 The **Behaviour Harness** compares the observed user- or system-visible behavior
 to the desired behavior and invariants in the anchor. It answers:
@@ -3234,6 +3574,65 @@ For this class of work, TailTrail should provide a **Requirement Completion
 Harness**. It sits after an initial implementation and before human review. Its
 job is to determine whether the requested behavior is complete across impacted
 code and tests, then give the agent the smallest useful correction task.
+
+### Implemented local V2-V4 controls
+
+The initial V1 loop is now extended with three local, inspectable layers. They
+do not run a model, change source, or turn mapping evidence into a completion
+claim.
+
+| Version | Local artifact and command | Decision it supports | Boundary |
+| --- | --- | --- | --- |
+| V2 | `impact-maps/map-<n>.json` via `harness impact-map` | Requirement -> changed symbol -> candidate caller/test mapping and applicable architecture/behaviour controls. | Python AST and repository structure only; candidates still need focused proof. |
+| V3 | `convergence/cycle-<n>.json` via `harness converge` | One bounded correction per requirement, then Mode A/Mode B recovery routing or replan. | Every cycle retains the approved anchor and prior evidence; replan remains approval-required. |
+| V4 | `template-selections/selection-<n>.json` via `harness template` | Project-owned control and proof-tier selection by requirement kind/path. | Templates are additive: they union evidence tiers and never remove approved validation. |
+
+This makes the completion loop more precise without making it autonomous by
+default: implementation authority, command execution, recovery application,
+and material requirement amendments retain their existing approval boundaries.
+
+### Relationship to user requirement approval and AIDLC
+
+The Requirement Completion Harness must not be confused with the earlier
+**Navigator Requirement Discovery and Approval Protocol**. They use different
+failure signals and have different owners:
+
+| Stage | What failed | TailTrail response | When AIDLC enters |
+| --- | --- | --- | --- |
+| Before implementation: Navigator proposal | The user rejects the proposed requirement model, scope, preserve rule, or acceptance evidence. | Present every requirement row for explicit feedback; do not implement. | First material rejection: targeted questions and optional AIDLC Requirements mode. Second material rejection: automatically enter minimal AIDLC Requirements mode. |
+| After implementation: Completion Harness | A test, requirement check, impact review, or computational control contradicts an already approved requirement. | Issue one bounded, evidence-backed correction packet and revalidate against the same approved anchor. | Not merely because a test failed. AIDLC/replanning is used only when repeated evidence shows that the approved requirement model or design is incomplete, ambiguous, or materially incompatible. |
+
+The first stage is a **user approval gate**. The second stage is an
+**implementation evidence loop**. A failed test does not automatically mean the
+user must repeat requirement feedback: the agent should first correct a clear,
+approved requirement using exact evidence.
+
+However, if a completion failure reveals that the approved requirement is wrong
+or incomplete, TailTrail must stop treating it as an ordinary code defect. It
+returns to Navigator with the preserved anchor, actual state, test evidence, and
+drift history. Navigator then applies the same approval protocol:
+
+```mermaid
+flowchart TB
+    A["Approved requirement matrix"] --> B["Implementation and completion evidence"]
+    B --> C{"Clear implementation defect?"}
+    C -->|"Yes"| D["One bounded correction packet"]
+    D --> B
+    C -->|"No: requirement/design ambiguity"| E["Return to Navigator with preserved evidence"]
+    E --> F["Requirement-by-requirement user feedback"]
+    F --> G{"First or second material proposal rejection?"}
+    G -->|"First"| H["Targeted questions; optional AIDLC Requirements mode"]
+    G -->|"Second"| I["Automatic minimal AIDLC Requirements mode"]
+    H --> J["Revised proposal and approval"]
+    I --> J
+    J --> A
+```
+
+The automatic AIDLC threshold is therefore **two material rejections of the
+requirement proposal**, not two ordinary red test runs. This prevents an agent
+from turning a straightforward implementation bug into a heavyweight lifecycle,
+while still ensuring that a flawed requirement model is re-gathered with the
+user rather than guessed.
 
 ```mermaid
 flowchart TB
@@ -3433,7 +3832,30 @@ Decision options:
 | Wrong interpretation of an ambiguous requirement | Return `needs-decision`; do not let the agent choose the easiest interpretation. |
 | Excess context and token use | Send only the requirement row, relevant diff, caller/test evidence, and next action in each correction packet. |
 
+## Higher-tier testing and release confidence (implemented V1)
+
+TailTrail now extends its receipt model beyond focused unit proof without
+pretending that every repository has the same integration environment. A testing
+profile declares the repository-owned command and adapter type for
+`integration`, `contract`, `e2e`, `infrastructure`, and `release-smoke` work.
+The higher-tier runner executes only that argv command, honors approval gates,
+requires separate remote approval plus a declared safe test account for remote
+adapters, and saves a sanitized requirement-linked receipt.
+
+`release-confidence` compares every approved requirement's validation contract
+with saved receipts across all tiers. Missing, unavailable, blocked, timed-out,
+or failed higher-tier evidence remains visible as incomplete. The assessment is
+evidence completeness only—it never means that a deployment is approved or
+that production behavior has been proven.
+
 ## Maintainability Harness
+
+**Implementation status (V1): implemented.** TailTrail now provides
+`tailtrail harness maintainability`: a local post-change assessment that records
+approved-scope and test-only-change findings, plus duplicate-definition and
+specialised-abstraction advisories from the changed Python source. It writes a
+versioned local artifact and an append-only ledger event; source review remains
+the final decision for every advisory.
 
 The **Maintainability Harness** is the first concrete TailTrail harness category.
 It regulates whether an agent-generated change remains understandable,
@@ -3572,55 +3994,73 @@ can contain valid uncommitted work from several tasks.
 | Current design area | Required change | Why it matters |
 | --- | --- | --- |
 | `approved.md` / `actual.md` | Version anchors and make actual state checkpoint-specific instead of a single overwritten file. | Preserves auditability and supports comparison across correction cycles. |
-| Anchor approval | Capture a Task Recovery Boundary before execution agent writes source. | A hash alone cannot recover pre-existing uncommitted task work. |
-| Scope model | Record expected paths, task-owned paths, justified discoveries, protected paths, and unknown changes. | Prevents an agent from rolling back or claiming ownership of unrelated work. |
-| Recovery | Replace repository-level rollback with reverse task patches, three-way recovery, and human conflict handling. | `git reset` to `HEAD` can destroy earlier uncommitted work. |
+| Anchor approval | Run the Git Readiness Gate and capture a Mode A Task Recovery Boundary before execution writes source. | A clean worktree and local checkpoint commits make normal recovery fast and deterministic. |
+| Scope model | Record expected paths, active requirement paths, justified discoveries, protected paths, and unexpected changes. | Prevents an agent from committing or restoring unrelated work. |
+| Recovery | Make local requirement checkpoint commits the primary rollback mechanism; retain requirement-linked reverse patches and intent-guided reconciliation only as explicit Mode B fallback. | `git reset` to `HEAD` can destroy earlier uncommitted work; expensive conflict logic should not be normal-path work. |
 | Checkpoints | Compare current state to both the approved anchor and the previous checkpoint. | Detects whether the latest correction resolved, preserved, or worsened drift. |
 | Approval model | Require approval at material intent/scope/behavior changes, not after every normal correction. | Keeps the loop useful without removing human control. |
 | Failed-loop handling | Add Recovery/Replan mode that preserves run history and resumes Navigator/AIDLC from evidence. | Avoids starting from zero and repeating earlier mistakes. |
 | Evaluation Harness | Capture recovery/replan outcome, correction count, scope conflicts, and task-boundary safety in deterministic scenarios. | Lets TailTrail prove the recovery design is safe and useful. |
 | Token Harness | Link context receipts to run, anchor, checkpoint, and recovery packet. | Prevents repeated failures from causing uncontrolled context growth. |
-| Agent graph | Keep Harness deterministic; reserve a diagnostic agent for repeated failure or semantic ambiguity. | Avoids expensive, self-chatting multi-agent loops. |
+| Agent graph | Keep Harness deterministic by default; use the implemented opt-in graph-plan artifact for bounded role routing, and reserve the Diagnostician for repeated failure or semantic ambiguity. | Prevents expensive, self-chatting loops from becoming a default. |
 
 ### Required artifact lifecycle
 
 ```text
 Task approved
-  -> approved-v1.md and Task Recovery Boundary created
-  -> checkpoint-01 actual state and task-owned patch
-  -> checkpoint-02 actual state and task-owned patch
-  -> recovery/replan if needed
+  -> Git Readiness Gate passes
+  -> approved-v1.md, task branch, and Mode A boundary created
+  -> REQ-01 validates and receives local checkpoint commit/ref
+  -> REQ-02 validates and receives local checkpoint commit/ref
+  -> recovery/replan if needed; Mode B only when explicitly selected
   -> approved-v2.md only after material human-approved intent change
 ```
 
-### Required commands and safeguards
+### Implemented Mode A commands and safeguards
 
-The future command surface should include explicit recovery planning, but no
-destructive command should be implicit:
+The local Mode A command surface provides explicit recovery planning. No
+branch-changing, committing, or restore command is implicit:
 
 ```bash
-# Design targets, not implemented commands.
-tailtrail harness boundary show <run-id>
-tailtrail harness checkpoint <run-id>
-tailtrail harness recovery plan <run-id>
-tailtrail harness recovery apply <run-id> --approved
-tailtrail harness recovery replan <run-id>
+tailtrail harness git-readiness --root .
+tailtrail harness boundary init --root . --run-id <run-id> --expected-path src/service --approved
+tailtrail harness boundary activate --root . --run-id <run-id> --requirement-uid <uid>
+tailtrail harness boundary checkpoint --root . --run-id <run-id> --requirement-uid <uid> --approved
+tailtrail harness recovery plan --root . --run-id <run-id>
+tailtrail harness recovery apply --root . --run-id <run-id> --approved
 ```
 
-`recovery apply` must verify task ownership and context before changing any file.
-If recovery conflicts with user/other-task work, it must exit without modifying
-source and produce a human-readable conflict report.
+`git-readiness` must run before an autonomous writing run. `recovery apply` in
+Mode A must verify that the active Git diff belongs only to the current
+requirement before restoring its approved paths to the previous checkpoint. If
+that condition does not hold, it must preserve the worktree and enter
+Recovery/Replan or the explicit Mode B path. Mode B recovery must verify task
+ownership and context before changing any file, then reconcile against approved
+intent. It stops at `needs-decision` only when a material behavior or authority
+choice has no approved answer.
 
 ### Additional acceptance criteria
 
-- A Task 2 recovery preserves all Task 1 work that existed before Task 2 began,
-  even if both tasks modified the same file.
+- Mode A refuses to begin autonomous implementation in a dirty worktree and
+  never silently resolves it through a stash, commit, reset, discard, or delete.
+- A validated REQ-01 has a local Git checkpoint commit/ref before REQ-02 starts;
+  a failed active REQ-02 can be restored without touching that REQ-01 commit.
+- Mode B is entered only by explicit user selection or a documented policy
+  constraint. In Mode B, a REQ-02 recovery stores a requirement-linked
+  mechanical delta *and* executes REQ-01 preservation proof before it can claim
+  the retained work is safe.
 - TailTrail never performs a repository-wide reset or checkout as normal task
   recovery.
-- Task-owned patch reversal succeeds only when patch context/fingerprints match;
-  otherwise TailTrail offers assisted or human recovery.
+- In Mode A, recovery uses the local requirement checkpoint and active-diff
+  receipt. Mode B patch reversal succeeds only when patch context/fingerprints
+  match; otherwise it attempts deterministic classification and intent-guided
+  reconciliation before it considers `needs-decision`.
 - A manual edit or separate task edit made after the recovery boundary is never
   silently overwritten.
+- A conflict is not treated as an automatic human handoff. Human input is needed
+  only for an unresolved material choice: incompatible approved requirements,
+  product behavior, public contract, schema, dependency, security authority, or
+  a genuinely unknown edit intent.
 - Every recovery attempt is recorded as a checkpoint and remains available to
   Navigator, Review, AIDLC, Token Harness, and Evaluation Harness.
 - Local recovery snapshots are ignored by Git and excluded from telemetry,
@@ -3635,17 +4075,17 @@ more agents or infrastructure.
 | Build in Version 1 | Defer until Version 1 has measured evidence |
 | --- | --- |
 | Light/approved Change Intent Anchor | Multi-agent autonomous execution graph |
-| Task Recovery Boundary and checkpoint-specific actual state | Broad architecture-template catalog |
+| Git Readiness Gate, local requirement checkpoint refs, and checkpoint-specific actual state | Broad architecture-template catalog |
 | Requirement-to-evidence matrix | Large approved-scenario library across every domain |
 | Focused local tests/checks and one bounded correction packet | Live model evaluation as the default evaluation method |
-| Two/three-cycle recovery limit and Recovery/Replan packet | Always-on diagnostic agent |
-| Selective no-write-safe recovery planning | Vector database, graph database, background daemon, or cloud service |
+| Two/three-cycle recovery limit and Recovery/Replan packet | Always-on diagnostic agent; the implemented Diagnostician remains threshold-triggered |
+| Explicit Mode B patch-stack recovery planning | Vector database, graph database, background daemon, or cloud service |
 | Deterministic saved-artifact Evaluation Harness fixtures | Claims about defect prevention, review-time reduction, or token savings without measurement |
 
 The implementation order is therefore:
 
-1. Anchor, expected scope, and task recovery boundary.
-2. Checkpoint-specific actual state and requirement matrix.
+1. Git Readiness Gate, TailTrail task branch, expected scope, and Mode A task recovery boundary.
+2. Local requirement checkpoint refs, checkpoint-specific actual state, and requirement matrix.
 3. Focused controls, drift deltas, and one correction packet.
 4. Recovery limit, no-write-safe recovery plan, and Navigator Recovery/Replan.
 5. Deterministic baseline-versus-harness evaluation fixtures.
@@ -3671,7 +4111,7 @@ quality score: each result must name its source, rule, and consequence.
 | Behaviour and requirements | Does every required outcome have production and focused-evidence support? | Requirement matrix, scenarios, tests, service/contract checks | Mark a completion gap; create one correction packet, never silently alter the expected scenario. |
 | Test integrity | Did a changed test prove the approved behavior rather than weaken or redefine it? | Test diff, assertion comparison, requirement link, baseline result | Escalate test-chasing or unlinked expectation changes for human review. |
 | Evidence and claims | Is a success, token, quality, or recovery claim supported by exact evidence? | Command receipts, output hashes, source/test pointers | Label as `validated`, `local estimate`, `inferred`, or `unknown`; never overclaim. |
-| Recovery | Can a failed task be reversed without touching other valid uncommitted work? | Task-owned patch, file fingerprint, hunk context, ownership ledger | Use selective recovery only when safe; otherwise create a no-write assisted recovery plan. |
+| Recovery | Can a failed task be reversed without touching validated work or unrelated edits? | Mode A: Git readiness receipt, local checkpoint/ref, active diff; Mode B: task-owned patch, fingerprint, hunk context, ownership ledger | Restore the active requirement only in Mode A when the diff is verified; otherwise use explicit Mode B planning or preserve the workspace. |
 | Loop and escalation | Is another correction likely to add information and remain within the approved budget? | Checkpoint delta, repeated-failure classifier, elapsed-time/context receipts | Stop and escalate rather than retrying blindly. |
 
 Universal safety rules are non-overridable: TailTrail must not silently run
@@ -3781,15 +4221,17 @@ conditions occurs:
   a public API, schema, dependency, security boundary, or protected file;
 - the same failure recurs without materially new evidence, a checkpoint
   regresses, or the agent begins test-chasing;
-- a task-owned recovery patch conflicts with later user/other-task work;
+- a task-owned recovery patch has no safe, evidence-backed reconciliation after
+  conflict classification;
 - a command times out, its result is ambiguous, or policy does not authorize
   the needed sensor; or
 - the approved cycle/time/context budget is exhausted.
 
-At a stop condition, TailTrail writes a `needs-decision` or Recovery/Replan
-packet with the preserved anchor, checkpoint deltas, exact failed controls, and
-the smallest human decision needed. Navigator may then re-route the task; it
-does not erase the prior anchor, `actual.md`, recovery boundary, or evidence.
+At a stop condition, TailTrail writes a Recovery/Replan packet with the
+preserved anchor, checkpoint deltas, exact failed controls, and the next bounded
+agent action. It creates a `needs-decision` record only when a material human
+choice truly remains. Navigator may then re-route the task; it does not erase
+the prior anchor, `actual.md`, recovery boundary, or evidence.
 
 ## Planned implementation
 
@@ -3808,7 +4250,7 @@ read-only until the developer approves the desired state.
 ```bash
 python3 scripts/tailtrail.py harness plan "fix validation bug" --changed src/service/foo.py
 python3 scripts/tailtrail.py harness check --changed src/service/foo.py
-python3 scripts/tailtrail.py harness feedback --run <run-id>
+python3 scripts/tailtrail.py harness feedback --root . --run-id <run-id> --review review.json
 ```
 
 ### Phase 2 — Structured feedback and bounded correction
@@ -3846,30 +4288,33 @@ When a finding recurs, TailTrail proposes a better guide, focused test,
 structural rule, or result parser. Human approval is required before it changes
 repository policy or control configuration.
 
-### Proposed command contract
+### Implemented command contract and later targets
 
-These commands are design targets, not currently implemented commands. The first
-release should remain local, deterministic where possible, and explicit about
-what has and has not run.
+The Phase 1–4 local commands below are implemented: `ledger`, `anchor`,
+`harness plan`, `harness check`, `harness checkpoint`, `harness
+completion-review`, `harness feedback`, `harness testing-profile`, `harness
+validation-receipt`, `harness requirement-completion`, `harness git-readiness`,
+`harness boundary`, and `harness recovery`. They write versioned
+local JSON artifacts and append-only run events; they do not edit source. The
+later `steer` command remains a future target and is intentionally not implied
+by the implemented commands.
 
 ```bash
-# Propose current state, desired state, scope, scenarios, and evidence plan.
-tailtrail harness plan "reject zero-dollar claims" --changed src/claims_api/validation.py
+# Create and approve the local desired-state contract.
+tailtrail ledger init --run-id claims --goal "reject zero-dollar claims"
+tailtrail anchor draft --run-id claims --input proposal.json
+tailtrail anchor approve --run-id claims
 
-# Display the generated anchor for human review.
-tailtrail harness anchor show <run-id>
-
-# Record explicit approval of the desired state.
-tailtrail harness anchor approve <run-id>
-
-# Run only selected safe computational controls and write actual.md.
-tailtrail harness check <run-id>
+# Select then run only approved repository-native controls.
+tailtrail harness plan --run-id claims --controls controls.json --changed src/claims_api/validation.py
+tailtrail harness check --run-id claims --controls controls.json --changed src/claims_api/validation.py --approved --output results.json
 
 # Compare approved.md with actual.md and render a drift checkpoint.
-tailtrail harness checkpoint <run-id>
+tailtrail harness checkpoint --run-id claims --changed src/claims_api/validation.py --results results.json
 
 # Produce exactly one bounded next task when a completion gap exists.
-tailtrail harness feedback <run-id>
+tailtrail harness completion-review --run-id claims --output review.json
+tailtrail harness feedback --root . --run-id claims --review review.json --output feedback.json
 
 # Later, with explicit approval and a supported adapter, send that bounded task
 # to an agent for no more than the configured number of correction cycles.
@@ -3919,21 +4364,23 @@ The harness should compose existing surfaces rather than reimplement them:
 | `scripts/change-intent-anchor.py` | Propose, validate, fingerprint, approve, invalidate, and compare the local current/desired-state contract. |
 | `scripts/navigator_core.py`, `scripts/task-start.py` | Decompose requirements, produce the Requirement-to-Impact Matrix, label local impact confidence, select guides/sensors, and draft the anchor without declaring completion. |
 | `scripts/harness-checkpoint.py` | Persist and render requirement, architecture, scope, and evidence drift after each correction cycle. |
-| `scripts/task-recovery-boundary.py` | Capture task-scope baselines, ownership ledger, file fingerprints, and task-owned checkpoint patches before/after execution. |
-| `scripts/task-recovery.py` | Plan selective recovery, verify patch context, produce assisted three-way recovery, and refuse unsafe writes. |
+| `scripts/git-readiness.py` | Verify repository, clean worktree, branch/ref capability, and policy-approved ignored paths before autonomous writes. |
+| `scripts/task-recovery-boundary.py` | Persist Mode A task branch, Git base, requirement commit/ref, expected paths, and validation receipts; capture Mode B artifacts only when selected. |
+| `scripts/task-recovery.py` | Restore a verified active requirement delta to the previous local checkpoint in Mode A; plan selective patch-stack recovery and reconciliation only in Mode B. |
+| `scripts/requirement-recovery-manifest.py` | Persist requirement-to-checkpoint/proof linkage in Mode A and requirement-to-hunk/preservation provenance in Mode B. |
 | `scripts/completion-review.py` | Compare requirements, diff, impact map, tests, and review evidence; classify gaps and emit bounded correction tasks. |
 | `scripts/tailtrail.py` | Provide `harness plan`, `check`, `feedback`, and later `steer`. |
 | `scripts/test-precision.py`, `scripts/ci-summary.py`, `scripts/quality-run.py` | Reused focused-test and local quality runners. |
 | `scripts/guardrail-check.py`, `scripts/code-graph-mapper.py`, `scripts/review-run.py` | Structural sensors, policy evidence, and inferential review. |
 | `schemas/harness-control.schema.json`, `schemas/harness-result.schema.json` | Versioned control and result contracts. |
 | `schemas/change-intent-anchor.schema.json`, `schemas/harness-checkpoint.schema.json` | Versioned approved target-state, fingerprint, invalidation, and checkpoint contracts. |
-| `schemas/task-recovery-boundary.schema.json`, `schemas/task-recovery-plan.schema.json` | Versioned task ownership, baseline, patch, conflict, and selective-recovery contracts. |
+| `schemas/git-readiness.schema.json`, `schemas/task-recovery-boundary.schema.json`, `schemas/task-recovery-plan.schema.json`, `schemas/requirement-recovery-manifest.schema.json` | Versioned readiness, task branch/ref, ownership, fallback baseline, requirement-linked patch, conflict classification, preservation proof, and recovery contracts. |
 | `schemas/requirement-evidence.schema.json` | Versioned requirement matrix, completion state, test-change rationale, and escalation contract. |
 | `templates/harness-feedback.md`, `templates/harness-template.example.yml` | Feedback output and project-local template example. |
 | `templates/change-intent-anchor.md`, `templates/harness-checkpoint.md` | Human-readable approved intent and per-cycle drift report. |
-| `templates/task-recovery-plan.md`, `templates/task-recovery-conflict.md` | Human-readable selective recovery plan and no-write conflict report. |
+| `templates/task-recovery-plan.md`, `templates/task-recovery-conflict.md` | Human-readable reconciliation plan and concise `needs-decision` record for the rare unresolved material choice. |
 | `templates/completion-review.md` | Human- and agent-readable requirement completion report. |
-| `tests/test_task_recovery_boundary.py`, `tests/test_task_recovery.py`, `tests/test_change_intent_anchor.py`, `tests/test_harness_checkpoint.py`, `tests/test_harness_controls.py`, `tests/test_harness_feedback.py`, `tests/test_completion_review.py` | Task ownership, uncommitted-work preservation, reverse patch, conflict/no-write behavior, anchor approval/invalidation, checkpoint comparison, controls, failure classification, test-chasing, and escalation tests. |
+| `tests/test_git_readiness.py`, `tests/test_task_recovery_boundary.py`, `tests/test_task_recovery.py`, `tests/test_requirement_recovery_manifest.py`, `tests/test_change_intent_anchor.py`, `tests/test_harness_checkpoint.py`, `tests/test_harness_controls.py`, `tests/test_harness_feedback.py`, `tests/test_completion_review.py` | Dirty-worktree refusal, local REQ checkpoint/reversion, Mode B REQ-01 preservation/REQ-02 reversion, uncommitted-work protection, conflict classification, anchor approval/invalidation, checkpoint comparison, controls, failure classification, test-chasing, and escalation tests. |
 
 ## Boundaries
 
@@ -3962,13 +4409,18 @@ The harness should compose existing surfaces rather than reimplement them:
   evidence drift rather than emitting an opaque score.
 - Material scope, policy, public-contract, dependency, data-model, or security
   changes invalidate the anchor and require re-approval.
-- Every approved run captures a Task Recovery Boundary before an execution agent
-  edits source, including task scope, baseline fingerprints, and task-owned patch
-  provenance.
-- A failed task can reverse only verified task-owned changes while preserving
-  valid earlier uncommitted work, including earlier work in the same file.
-- When recovery context overlaps later user/other-task edits, TailTrail performs
-  no automatic write and emits an assisted or human recovery plan.
+- Every autonomous approved run passes the Git Readiness Gate before an
+  execution agent edits source, then captures its task branch, Git base,
+  expected scope, and local requirement checkpoint/ref plan.
+- A validated requirement receives a local checkpoint commit/ref before the
+  next requirement begins. A failed active requirement can restore only its
+  verified paths to that prior checkpoint without touching validated work.
+- Mode B snapshot/fingerprint/patch provenance is created only when the user
+  explicitly selects fallback recovery or policy prevents Mode A.
+- When recovery context overlaps later user/other-task edits, TailTrail
+  classifies the overlap and automatically reconciles only when approved intent,
+  ownership, and focused controls prove one safe result. Otherwise it preserves
+  the workspace and emits a `needs-decision` record naming the material choice.
 - A changed test has a requirement-linked rationale and production-behavior
   evidence, or it is escalated for human review.
 - Repeated failures escalate instead of producing unbounded correction loops.

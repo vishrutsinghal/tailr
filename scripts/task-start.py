@@ -357,6 +357,10 @@ def build_report(goal: str, root: Path, changed: list[str], command_prefix: str)
 
 def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     plan = report["navigator"]
+    if plan.get("navigator_request", {}).get("explicit"):
+        # An explicit Navigator invocation already has a concise decision and
+        # separate approval gate. Do not bury it in the broader Start report.
+        return navigator.markdown(plan)
     token = report["token_posture"]
     learning = report["learning_quality"]
     setup = report["setup_posture"]

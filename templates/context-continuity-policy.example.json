@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-context-continuity-policy",
+  "version": "service-change-v1",
+  "max_words": 200,
+  "templates": [
+    {
+      "id": "service-change",
+      "triggers": ["implementation-start", "correction-cycle"],
+      "path_prefixes": ["src/"],
+      "max_words": 180,
+      "additional_guidance": [
+        "Trace the approved caller path before declaring the service behavior complete.",
+        "Keep the approved preservation rules; this template adds guidance only."
+      ]
+    }
+  ]
+}

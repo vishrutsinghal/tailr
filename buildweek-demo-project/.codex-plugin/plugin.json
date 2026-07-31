@@ -1,0 +1,14 @@
+{
+  "name": "tailtrail",
+  "version": "0.6.0",
+  "description": "TailTrail local development guidance for Codex with native plugin skills and review prompts.",
+  "license": "Apache-2.0",
+  "skills": "./skills/",
+  "interface": {
+    "defaultPrompt": [
+      "You are TailTrail, a Codex plugin for local development guidance and review.",
+      "Use @tailtrail for implementation tasks and @tailtrail-review for review tasks.",
+      "Keep changes small, reuse existing project patterns, preserve safeguards, and use strict mode for reviews."
+    ]
+  }
+}

@@ -66,6 +66,56 @@ class NavigatorCoreTests(unittest.TestCase):
     def test_repo_overview_prompt_is_not_feature_implementation(self) -> None:
         self.assertEqual(core.task_types("tell me important features of this repo"), ["repo-overview"])
 
+    def test_explicit_navigator_parser_keeps_control_words_out_of_task_scope(self) -> None:
+        request = core.explicit_navigator_request(
+            "using TailTrail Navigator, give me plan for Phase 1 before implementation"
+        )
+        self.assertIsNotNone(request)
+        assert request is not None
+        self.assertEqual(request.depth, "plan")
+        self.assertEqual(request.subject, "Phase 1")
+
+    def test_explicit_navigator_plan_resolves_phase_and_keeps_edit_gate_separate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tailtrail-implementation-backlog.md").write_text(
+                "# Backlog\n\n## Phase 1 — Canonical local state\n\nPlan the local state.\n",
+                encoding="utf-8",
+            )
+            report = navigator.decide(
+                "TailTrail Navigator plan tailtrail-implementation-backlog.md Phase 1",
+                root,
+                [],
+                "tailtrail",
+            )
+        self.assertEqual(report["navigator_request"]["depth"], "plan")
+        self.assertEqual(report["phase_context"]["status"], "resolved")
+        rendered = navigator.markdown(report)
+        self.assertIn("# TailTrail Navigator Decision", rendered)
+        self.assertIn("Approve the Navigator plan", rendered)
+        self.assertNotIn("## Detailed Implementation Proposal", rendered)
+        self.assertIn("**No files were changed.**", rendered)
+        self.assertIn("## Proposed Requirement-to-Impact Matrix", rendered)
+        self.assertIn("## Requirement Discovery Feedback", rendered)
+
+    def test_explicit_navigator_implementation_has_separate_proposal(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = navigator.decide("TailTrail Navigator implement fix validation", root, [], "tailtrail")
+        rendered = navigator.markdown(report)
+        self.assertIn("## Navigator Plan", rendered)
+        self.assertIn("## Detailed Implementation Proposal", rendered)
+        self.assertIn("Approve the implementation proposal", rendered)
+
+    def test_explicit_navigator_does_not_guess_ambiguous_phase_document(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name in ("ROADMAP.md", "harness-engineering.md"):
+                (root / name).write_text("## Phase 1 — Example\n", encoding="utf-8")
+            report = navigator.decide("TailTrail Navigator plan Phase 1", root, [], "tailtrail")
+        self.assertEqual(report["phase_context"]["status"], "ambiguous")
+        self.assertIn("Choose one before implementation planning", navigator.markdown(report))
+
     def test_add_unit_tests_does_not_become_feature_task_by_itself(self) -> None:
         self.assertEqual(core.task_types("fix payment validation bug and add unit tests"), ["bug", "qa"])
         self.assertEqual(core.task_types("fix claim amount validation and add focused tests"), ["bug", "qa"])

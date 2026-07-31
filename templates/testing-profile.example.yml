@@ -1,0 +1,7 @@
+{
+  "tiers": [
+    {"name": "unit", "command": ["python", "-m", "unittest"], "environment": "local", "requires_approval": true, "prerequisites": [], "cleanup": []},
+    {"name": "integration", "adapter": "integration", "command": ["project-owned-integration-command"], "environment": "local-service", "requires_approval": true, "prerequisites": ["service running"], "cleanup": ["remove test data"]},
+    {"name": "release-smoke", "adapter": "release-smoke", "command": ["project-owned-release-smoke"], "environment": "staging", "requires_approval": true, "remote": true, "safe_test_account": true, "prerequisites": ["approved staging target"], "cleanup": ["remove test data"]}
+  ]
+}

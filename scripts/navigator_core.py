@@ -14,6 +14,39 @@ class FeatureDecision:
     reason: str
 
 
+@dataclass(frozen=True)
+class NavigatorRequest:
+    explicit: bool
+    depth: str
+    subject: str
+
+
+def requirement_impact_matrix(requirements: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Normalize Navigator requirement rows without assigning durable run UIDs.
+
+    Durable UIDs are intentionally assigned by the approved local anchor, not
+    inferred from a transient conversational proposal.
+    """
+    rows: list[dict[str, object]] = []
+    for index, requirement in enumerate(requirements, start=1):
+        statement = str(requirement.get("statement", "")).strip()
+        if not statement:
+            raise ValueError(f"requirement {index} needs a statement")
+        rows.append(
+            {
+                "display_id": str(requirement.get("display_id") or f"REQ-{index:02d}"),
+                "kind": str(requirement.get("kind") or "change"),
+                "statement": statement,
+                "acceptance_criteria": list(requirement.get("acceptance_criteria", [])),
+                "preserve_rules": list(requirement.get("preserve_rules", [])),
+                "likely_paths": list(requirement.get("likely_paths", [])),
+                "evidence_plan": list(requirement.get("evidence_plan", [])),
+                "confidence": str(requirement.get("confidence") or "local-estimate"),
+            }
+        )
+    return rows
+
+
 RISK_KEYWORDS = {
     "auth": "auth/security",
     "authorization": "auth/security",
@@ -115,6 +148,39 @@ TASK_KEYWORDS = {
 }
 
 TINY_KEYWORDS = ("typo", "comment", "rename", "readme", "docs only", "documentation only")
+
+NAVIGATOR_PREFIX = re.compile(
+    r"^\s*(?:(?:using|use)\s+)?(?:tailtrail\s+)?navigator\b\s*[:,.-]?\s*",
+    re.IGNORECASE,
+)
+
+
+def explicit_navigator_request(goal: str) -> NavigatorRequest | None:
+    """Parse a short explicit Navigator request without treating it as task text."""
+    match = NAVIGATOR_PREFIX.match(goal)
+    if not match:
+        return None
+
+    remainder = goal[match.end() :].strip()
+    lowered = remainder.lower()
+    if re.match(r"context\b", lowered):
+        depth = "context"
+    elif "before implementation" in lowered:
+        depth = "plan"
+    elif re.match(r"(?:implement|implementation)\b", lowered):
+        depth = "implement"
+    elif re.search(r"\b(?:give|show|create|make)?\s*(?:me\s+)?(?:a\s+)?plan\b", lowered):
+        depth = "plan"
+    else:
+        depth = "context"
+
+    subject = remainder
+    subject = re.sub(r"^context\s+(?:for\s+)?", "", subject, flags=re.IGNORECASE)
+    subject = re.sub(r"^(?:give|show|create|make)\s+(?:me\s+)?", "", subject, flags=re.IGNORECASE)
+    subject = re.sub(r"^(?:a\s+)?(?:navigator\s+)?plan\s+(?:for\s+)?", "", subject, flags=re.IGNORECASE)
+    subject = re.sub(r"^(?:implement|implementation)(?:\s+plan)?\s+(?:for\s+)?", "", subject, flags=re.IGNORECASE)
+    subject = re.sub(r"\s+before\s+implementation\s*$", "", subject, flags=re.IGNORECASE).strip(" .:")
+    return NavigatorRequest(explicit=True, depth=depth, subject=subject or "current task")
 
 CI_SONAR_TERMS = (
     "sonar",

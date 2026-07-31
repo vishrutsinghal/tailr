@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""Local, append-only run state for the Phase 1 requirement foundation."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+try:
+    import fcntl  # type: ignore
+except ImportError:  # Windows uses msvcrt below.
+    fcntl = None
+try:
+    import msvcrt  # type: ignore
+except ImportError:  # POSIX uses fcntl above.
+    msvcrt = None
+
+
+SCHEMA_VERSION = "1"
+EVENT_TYPES = {"run_created", "anchor_drafted", "anchor_approved", "anchor_invalidated", "proposal_rejected", "graph_receipt", "harness_plan", "harness_check", "harness_checkpoint", "completion_review", "harness_feedback", "validation_receipt", "higher_tier_executed", "completion_gate", "release_confidence_assessed", "recovery_boundary_created", "recovery_requirement_activated", "recovery_requirement_checkpointed", "recovery_planned", "recovery_applied", "recovery_reconciled", "mode_b_captured", "mode_b_sealed", "mode_b_planned", "mode_b_applied", "recovery_diagnosed", "program_initialized", "program_amended", "program_checkpointed", "program_orchestrated", "program_correction_recorded", "architecture_assessed", "behavior_assessed", "maintainability_assessed", "requirement_impact_mapped", "harness_convergence_assessed", "harness_template_selected", "minimum_tier_selected", "ci_evidence_ingested", "flaky_test_observed", "evidence_metrics_reported", "journey_mapped", "contract_parsed", "environment_lifecycle_assessed", "deployment_safety_planned", "release_policy_evaluated", "evaluation_calibrated", "agent_graph_planned", "cloud_runner_assessed", "live_evaluation_recorded", "claim_audited", "context_continuity_rendered", "context_continuity_calibrated", "context_continuity_advisory_recorded", "context_continuity_advisory_rejected"}
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def state_dir(root: Path, run_id: str) -> Path:
+    return root / ".tailtrail" / "runs" / run_id
+
+
+def canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def event_id(run_id: str, sequence: int, event_type: str) -> str:
+    digest = hashlib.sha256(f"{run_id}:{sequence}:{event_type}".encode()).hexdigest()[:16]
+    return f"evt-{sequence:04d}-{digest}"
+
+
+class RunLock:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.handle: Any = None
+
+    def __enter__(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.handle = self.path.open("a+", encoding="utf-8")
+        if fcntl is not None:
+            fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX)
+        elif msvcrt is not None:
+            self.handle.seek(0)
+            if not self.handle.read(1):
+                self.handle.write("0")
+                self.handle.flush()
+            self.handle.seek(0)
+            msvcrt.locking(self.handle.fileno(), msvcrt.LK_LOCK, 1)
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        if self.handle is None:
+            return
+        if fcntl is not None:
+            fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+        elif msvcrt is not None:
+            self.handle.seek(0)
+            msvcrt.locking(self.handle.fileno(), msvcrt.LK_UNLCK, 1)
+        self.handle.close()
+
+
+def atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+        temporary = Path(handle.name)
+    os.replace(temporary, path)
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_events(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def validate_event(event: dict[str, Any], expected_sequence: int | None = None) -> list[str]:
+    required = {"schema_version", "type", "run_id", "sequence", "event_id", "created_at", "event_type", "payload"}
+    issues = [f"missing `{field}`" for field in sorted(required - set(event))]
+    if event.get("schema_version") != SCHEMA_VERSION:
+        issues.append("schema_version must be `1`")
+    if event.get("type") != "tailtrail-run-event":
+        issues.append("type must be `tailtrail-run-event`")
+    if event.get("event_type") not in EVENT_TYPES:
+        issues.append("event_type is not allowed")
+    if expected_sequence is not None and event.get("sequence") != expected_sequence:
+        issues.append("sequence is not monotonic")
+    if isinstance(event.get("run_id"), str) and isinstance(event.get("sequence"), int) and isinstance(event.get("event_type"), str):
+        if event.get("event_id") != event_id(event["run_id"], event["sequence"], event["event_type"]):
+            issues.append("event_id does not match deterministic value")
+    return issues
+
+
+def init_run(root: Path, run_id: str, goal: str) -> dict[str, Any]:
+    directory = state_dir(root, run_id)
+    manifest_path = directory / "manifest.json"
+    with RunLock(directory / ".lock"):
+        if manifest_path.exists():
+            raise ValueError(f"run `{run_id}` already exists")
+        manifest = {"schema_version": SCHEMA_VERSION, "type": "tailtrail-run-manifest", "run_id": run_id, "goal": goal, "created_at": utc_now(), "status": "draft"}
+        atomic_json(manifest_path, manifest)
+    append_event(root, run_id, "run_created", {"goal": goal})
+    return manifest
+
+
+def append_event(root: Path, run_id: str, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if event_type not in EVENT_TYPES:
+        raise ValueError(f"unsupported event type `{event_type}`")
+    directory = state_dir(root, run_id)
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.exists():
+        raise ValueError(f"run `{run_id}` does not exist")
+    with RunLock(directory / ".lock"):
+        events_path = directory / "events.jsonl"
+        events = read_events(events_path)
+        sequence = len(events) + 1
+        event = {"schema_version": SCHEMA_VERSION, "type": "tailtrail-run-event", "run_id": run_id, "sequence": sequence, "event_id": event_id(run_id, sequence, event_type), "created_at": utc_now(), "event_type": event_type, "payload": payload}
+        issues = validate_event(event, sequence)
+        if issues:
+            raise ValueError("invalid event: " + "; ".join(issues))
+        with events_path.open("a", encoding="utf-8") as handle:
+            handle.write(canonical(event) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    return event
+
+
+def projection(root: Path, run_id: str) -> dict[str, Any]:
+    directory = state_dir(root, run_id)
+    manifest = read_json(directory / "manifest.json")
+    events = read_events(directory / "events.jsonl")
+    approved = [event for event in events if event["event_type"] == "anchor_approved"]
+    invalidated = [event for event in events if event["event_type"] == "anchor_invalidated"]
+    activity = {event_type: len([event for event in events if event["event_type"] == event_type]) for event_type in sorted(EVENT_TYPES) if any(event["event_type"] == event_type for event in events)}
+    return {"schema_version": SCHEMA_VERSION, "type": "tailtrail-run-projection", "run_id": run_id, "goal": manifest["goal"], "status": "invalidated" if invalidated else ("approved" if approved else "draft"), "events": len(events), "activity": activity, "approved_anchor": approved[-1]["payload"] if approved else None, "latest_invalidation": invalidated[-1]["payload"] if invalidated else None}
+
+
+def parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser(description="Manage append-only local TailTrail run events.")
+    sub = result.add_subparsers(dest="command", required=True)
+    init = sub.add_parser("init")
+    init.add_argument("--root", type=Path, default=Path.cwd()); init.add_argument("--run-id", required=True); init.add_argument("--goal", required=True)
+    append = sub.add_parser("append")
+    append.add_argument("--root", type=Path, default=Path.cwd()); append.add_argument("--run-id", required=True); append.add_argument("--event-type", choices=sorted(EVENT_TYPES), required=True); append.add_argument("--payload", default="{}")
+    for name in ("state", "validate"):
+        item = sub.add_parser(name); item.add_argument("--root", type=Path, default=Path.cwd()); item.add_argument("--run-id", required=True)
+    return result
+
+
+def main() -> int:
+    args = parser().parse_args(); root = args.root.resolve()
+    try:
+        if args.command == "init": payload = init_run(root, args.run_id, args.goal)
+        elif args.command == "append": payload = append_event(root, args.run_id, args.event_type, json.loads(args.payload))
+        else:
+            payload = projection(root, args.run_id)
+            if args.command == "validate":
+                events = read_events(state_dir(root, args.run_id) / "events.jsonl")
+                issues = [issue for index, event in enumerate(events, 1) for issue in validate_event(event, index)]
+                payload = {"valid": not issues, "issues": issues, **payload}
+                if issues: print(json.dumps(payload, indent=2, sort_keys=True)); return 1
+        print(json.dumps(payload, indent=2, sort_keys=True)); return 0
+    except (ValueError, OSError, json.JSONDecodeError) as error:
+        print(f"Run ledger error: {error}"); return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

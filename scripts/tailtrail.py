@@ -28,6 +28,9 @@ COMMANDS = {
     "run": "Alias for start; run Navigator-first planning for a free-form task.",
     "next": "Recommend one deterministic next action after a Start report.",
     "guide": "Preview the future Navigator entry point for a user goal.",
+    "navigator": "Use the short TailTrail Navigator context, plan, or implementation-proposal modes.",
+    "ledger": "Create, append, validate, or project local Phase 1 run state.",
+    "anchor": "Draft, approve, invalidate, or review a local change-intent anchor.",
     "intent": "Expand a short TailTrail prompt through expand-intent.py.",
     "expand": "Alias for intent.",
     "route": "Choose a token-saving context route through route-context.py.",
@@ -405,6 +408,21 @@ def guide(args: list[str]) -> int:
     return run_script("navigator.py", [*args, "--command-prefix", invocation()])
 
 
+def navigator(args: list[str]) -> int:
+    if not args:
+        print('Usage: tailtrail navigator [context|plan|implement] "your scope" [--changed path/to/file]')
+        return 2
+    mode = "context"
+    if args[0] in {"context", "plan", "implement"}:
+        mode, args = args[0], args[1:]
+    if not args:
+        print(f'Usage: tailtrail navigator {mode} "your scope" [--changed path/to/file]')
+        return 2
+    flag_index = next((index for index, value in enumerate(args) if value.startswith("--")), len(args))
+    goal = f"TailTrail Navigator {mode} " + " ".join(args[:flag_index])
+    return run_script("navigator.py", [goal, *args[flag_index:], "--command-prefix", invocation()])
+
+
 def print_start_overview() -> None:
     print("# TailTrail Start")
     print()
@@ -744,6 +762,65 @@ def efficacy(args: list[str]) -> int:
 
 
 def harness(args: list[str]) -> int:
+    if args and args[0] == "git-readiness":
+        return run_script("git-readiness.py", args[1:])
+    if args and args[0] == "boundary":
+        return run_script("task-recovery-boundary.py", args[1:])
+    if args and args[0] == "recovery":
+        return run_script("task-recovery.py", args[1:])
+    if args and args[0] == "reconcile":
+        return run_script("recovery-reconcile.py", args[1:])
+    if args and args[0] == "mode-b":
+        return run_script("requirement-recovery-manifest.py", args[1:])
+    if args and args[0] == "diagnose":
+        return run_script("recovery-diagnostician.py", args)
+    if args and args[0] == "program":
+        return run_script("program-plan.py", args[1:])
+    if args and args[0] == "program-checkpoint":
+        return run_script("program-checkpoint.py", args[1:])
+    if args and args[0] == "orchestrate":
+        return run_script("delivery-orchestrator.py", args[1:])
+    if args and args[0] == "architecture":
+        return run_script("architecture-fitness.py", args[1:])
+    if args and args[0] == "behavior":
+        return run_script("behavior-harness.py", args[1:])
+    if args and args[0] == "maintainability":
+        return run_script("maintainability-harness.py", args[1:])
+    if args and args[0] == "higher-tier":
+        return run_script("higher-tier-testing.py", args[1:])
+    if args and args[0] == "release-confidence":
+        return run_script("release-confidence.py", args[1:])
+    if args and args[0] in {"plan", "check"}:
+        return run_script("harness-controls.py", args)
+    if args and args[0] == "checkpoint":
+        return run_script("harness-checkpoint.py", args[1:])
+    if args and args[0] == "completion-review":
+        return run_script("completion-review.py", args[1:])
+    if args and args[0] == "feedback":
+        return run_script("harness-feedback.py", args[1:])
+    if args and args[0] == "impact-map":
+        return run_script("requirement-impact-map.py", args[1:])
+    if args and args[0] == "converge":
+        return run_script("harness-convergence.py", args[1:])
+    if args and args[0] == "template":
+        return run_script("harness-template.py", args[1:])
+    if args and args[0] == "tier-select":
+        return run_script("test-tier-selector.py", args[1:])
+    if args and args[0] == "ci-ingest":
+        return run_script("ci-evidence-ingest.py", args[1:])
+    if args and args[0] == "flaky":
+        return run_script("flaky-test-tracker.py", args[1:])
+    if args and args[0] == "evidence-metrics":
+        return run_script("evidence-metrics.py", args[1:])
+    if args and args[0] == "phase8":
+        return run_script("phase8-advanced.py", args[1:])
+    if args and args[0] == "advanced":
+        return run_script("advanced-runtime.py", args[1:])
+    if args and args[0] == "continuity":
+        return run_script("context-continuity.py", args[1:])
+    if args and args[0] in {"testing-profile", "validation-receipt", "requirement-completion"}:
+        scripts = {"testing-profile": "testing-profile.py", "validation-receipt": "validation-receipt.py", "requirement-completion": "requirement-completion.py"}
+        return run_script(scripts[args[0]], args[1:])
     if args and args[0] in {"aggregate-shared", "analyze", "readiness"}:
         return run_script("meta-harness-analyze.py", args)
     if args and args[0] == "propose":
@@ -821,6 +898,12 @@ def main() -> int:
         return run_script("task-next.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
     if command == "guide":
         return guide(args)
+    if command == "navigator":
+        return navigator(args)
+    if command == "ledger":
+        return run_script("run-ledger.py", args)
+    if command == "anchor":
+        return run_script("change-intent-anchor.py", args)
     if command in {"intent", "expand"}:
         return run_script("expand-intent.py", args)
     if command == "route":

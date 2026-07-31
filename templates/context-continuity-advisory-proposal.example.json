@@ -1,0 +1,10 @@
+{
+  "intervene": true,
+  "requirement_uid": "req-02",
+  "reason": "The approved service path still lacks evidence after the prior correction.",
+  "artifact_pointers": [".tailtrail/runs/claim-validation/checkpoints/checkpoint-1.json"],
+  "reminder": "Keep the active requirement focused on the approved service path and its missing evidence.",
+  "uncertainty": "inferred",
+  "authority": "advisory-only",
+  "model": "host-supplied-model-output"
+}

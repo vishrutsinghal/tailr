@@ -2,7 +2,10 @@
 
 ## Status and purpose
 
-**Status:** future design proposal for broad, one-prompt, end-to-end delivery.
+**Status:** implemented V1 for explicit hands-free activation, versioned local
+program state, dependency-safe feature checkpoints, approved amendments, and a
+deterministic next-action router. It remains a coordinator, not a coding model
+or source-writing autonomous agent.
 
 This document extends [Harness Engineering](harness-engineering.md) for a task
 that spans many features, files, integrations, and correction cycles. It does
@@ -549,6 +552,16 @@ starting over or allowing the agent to drift.
 ## Approval and bounded autonomy
 
 Hands-free means fewer unnecessary interruptions, not no authority boundaries.
+
+### Explicit activation rule
+
+Hands-free Program Delivery is never inferred merely because a request is long,
+multi-file, risky, or routed through AIDLC. The user must explicitly say
+`hands-free` or `end-to-end`, or invoke the equivalent Phase 7 command/flag.
+Navigator records that exact activation reason in program state and displays the
+feature slices, budgets, and material approval boundaries before execution. If
+the phrase/command is absent, Navigator uses ordinary approval-first planning
+instead of silently granting program-delivery authority.
 
 | Approval required | Why |
 | --- | --- |

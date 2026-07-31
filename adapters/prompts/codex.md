@@ -6,6 +6,8 @@
 Use TailTrail Navigator for this task. Show the plan only first, including files to inspect, selected TailTrail features, skipped features, validation, review, and approval questions. Do not implement until I approve.
 ```
 
+For a short explicit Navigator request, use the requested depth: `using TailTrail Navigator, <scope>` for context discovery; `... plan <scope>` for a TailTrail decision only; `... implement <scope>` for that decision plus a separately labeled implementation proposal. Never treat the word “implementation” in this control phrase as permission to edit.
+
 ## Implement
 
 ```text
@@ -41,4 +43,3 @@ Use TailTrail token-saving rules. Route only if the task is broad, noisy, risky,
 ```text
 Use TailTrail Handoff. Summarize task intent, changed files, reused patterns, validation run, validation not run, skipped work, remaining risk, and the next owner or approval needed.
 ```
-

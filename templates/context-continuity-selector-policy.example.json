@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-context-continuity-selector-policy",
+  "version": "selector-v1",
+  "enabled": true,
+  "approved": true,
+  "model": "host-supplied-model-output",
+  "max_reminder_words": 70,
+  "data_boundary": "Structured V1/V2 state and approved artifact pointers only; no raw source, logs, or credentials.",
+  "retention_boundary": "The host owns model retention. TailTrail persists only the local advisory validation receipt.",
+  "rollback_switch": "Remove this policy or set enabled false."
+}

@@ -40,6 +40,16 @@ python3 scripts/tailtrail.py start "user goal"
 python3 scripts/tailtrail.py next
 ```
 
+For an explicit Navigator request, keep the response at the requested depth instead of turning `implementation` into a generic task keyword:
+
+```text
+using TailTrail Navigator, Phase 1
+using TailTrail Navigator, plan Phase 1 before implementation
+using TailTrail Navigator, implement Phase 1
+```
+
+The first form is context discovery; `plan` returns the TailTrail feature decision and requires approval only to create a detailed implementation proposal; `implement` shows both the Navigator decision and the detailed proposal, but still requires a separate implementation approval before edits. If a phase exists in multiple planning documents, do not guess—ask the user to choose the document.
+
 Navigator is advisory and deterministic. It should show the likely TailTrail path, impacted files, context to load, context to avoid, suggested commands, and approval questions. Do not run scanners, vulnerability checks, broad builds, or learning capture without explicit approval.
 
 For broad, risky, ambiguous, multi-team, regulated, or long-running work, use `AIDLC.md` at the smallest useful depth. Use `templates/change-brief.md` only for non-trivial work, and resume from `aidlc-docs/aidlc-state.md` instead of reloading every lifecycle artifact.

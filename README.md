@@ -191,6 +191,25 @@ python3 scripts/tailtrail.py start "fix Sonar issue" --changed src/service/foo.p
 python3 scripts/tailtrail.py start "fix Sonar issue" --changed src/service/foo.py --verbose
 python3 scripts/tailtrail.py guide "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py guide "fix Sonar issue" --changed src/service/foo.py
+python3 scripts/tailtrail.py navigator plan "tailtrail-implementation-backlog.md Phase 1"
+python3 scripts/tailtrail.py navigator implement "tailtrail-implementation-backlog.md Phase 1"
+python3 scripts/tailtrail.py ledger init --run-id example-change --goal "describe the change"
+python3 scripts/tailtrail.py anchor draft --run-id example-change --input proposal.json
+python3 scripts/tailtrail.py anchor approve --run-id example-change
+python3 scripts/tailtrail.py harness plan --run-id example-change --controls controls.json --changed src/service.py
+python3 scripts/tailtrail.py harness check --run-id example-change --controls controls.json --changed src/service.py --approved --output results.json
+python3 scripts/tailtrail.py harness checkpoint --run-id example-change --changed src/service.py --results results.json
+python3 scripts/tailtrail.py harness completion-review --run-id example-change --output review.json
+python3 scripts/tailtrail.py harness feedback --root . --run-id example-change --review review.json --output feedback.json
+python3 scripts/tailtrail.py harness testing-profile validate --profile testing-profile.json
+python3 scripts/tailtrail.py harness requirement-completion --run-id example-change --receipts receipts.json
+python3 scripts/tailtrail.py harness git-readiness --root .
+python3 scripts/tailtrail.py harness boundary init --root . --run-id example-change --expected-path src/service.py --approved
+python3 scripts/tailtrail.py harness boundary activate --root . --run-id example-change --requirement-uid req-...
+python3 scripts/tailtrail.py harness boundary checkpoint --root . --run-id example-change --requirement-uid req-... --approved
+python3 scripts/tailtrail.py harness recovery plan --root . --run-id example-change
+python3 scripts/tailtrail.py harness recovery apply --root . --run-id example-change --approved
+python3 scripts/tailtrail.py ledger state --run-id example-change
 python3 scripts/tailtrail.py bootstrap snapshot --root . --write-result
 python3 scripts/tailtrail.py bootstrap status --root .
 python3 scripts/tailtrail.py graph --changed src/service/foo.py

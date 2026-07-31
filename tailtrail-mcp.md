@@ -16,6 +16,16 @@ because it appears in a table. Every planned tool must be marked `planned` in
 its registry/schema until its handler, tests, documentation, and safety checks
 actually exist.
 
+**Current implemented addition:** `maintainability_assessment_show` is an R0,
+read-only projection of the latest saved Maintainability Harness V1 artifact.
+It complements `architecture_assessment_show`; neither tool runs an assessment,
+executes a command, changes a run artifact, or edits source.
+
+`recovery_reconciliation_show` is also implemented as an R0 read-only
+projection of a saved conflict classification. It can show why an exact
+task-patch reversal was safe or why a same-hunk overlap stayed no-write; it
+cannot invoke a reconciliation or mutate the workspace.
+
 Related design sources:
 
 - [Harness Engineering](harness-engineering.md): approved anchors,
@@ -572,8 +582,16 @@ selective source write.
 2. Test Task 1 valid uncommitted work + Task 2 failure in the same file.
 3. Test context mismatch, new/deleted file, protected file, and later user edit
    cases.
-4. Add optional Recovery Diagnostician output only after repeated failure or
-   ambiguity; it must label hypotheses as inferred vs confirmed.
+4. The implemented optional Recovery Diagnostician runs only after repeated
+   failure or ambiguity and labels hypotheses as inferred vs confirmed.
+
+### Implemented controlled source steering
+
+`source_patch_apply` is a controlled MCP tool, not an arbitrary source-writing
+agent. It requires `approved: true`, accepts one unified Git patch, validates
+every `a/` and `b/` path stays inside the selected repository, runs `git apply
+--check`, and only then applies the patch. It never commits, pushes, invokes a
+shell command supplied by the caller, or starts an autonomous follow-up chain.
 
 Acceptance: conflicts always return a no-write plan. `apply_recovery` remains
 absent until selective-recovery fixtures have proven safe over real tasks.
@@ -703,7 +721,25 @@ The MCP architecture is succeeding when:
    and real usage evidence show that it reduces friction without weakening
    safeguards.
 
-## Recommended first implementation slice
+## Phase 5 implementation status
+
+Phase 5 is now implemented as a **local, inspection-first MCP V1**. The server
+uses stdio JSON-RPC and delegates to the existing Phase 1–4 scripts/artifacts;
+it does not create a parallel harness implementation.
+
+Implemented inspection tools cover Navigator/Start, guardrails, graph guidance,
+install and evaluation status, plus the durable run ledger, approved anchor,
+checkpoint, completion feedback, testing profile, validation receipt, Git
+readiness, and recovery boundary. The only controlled tool is
+`harness_control_check`. It requires `approved: true`, accepts a
+repository-relative existing control file instead of a raw command string, and
+can write only normal local control evidence—not source, Git history, or remote
+state.
+
+The following remain deliberately CLI-only: source edits, commits, pushes,
+branch/recovery-boundary creation, recovery apply, arbitrary command execution,
+scanner execution, deployment, and autonomous agent steering. Those need later
+evidence and policy work; MCP cannot bypass them.
 
 Do **not** build every planned MCP tool now. The smallest high-value next slice
 is MCP-1:

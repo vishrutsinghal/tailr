@@ -53,7 +53,7 @@ Use these when a user is new to TailTrail, onboarding a team, or checking whethe
 | I want to record whether TailTrail helped. | `python3 scripts/tailtrail.py outcome capture ... --approved` | `Use TailTrail outcome capture for this completed task. Record acceptance, validation result, review result, time-saved band, and learning quality only after I approve.` | Records one compact approved adoption outcome. |
 | I want Navigator to start from safe repo facts. | `python3 scripts/tailtrail.py bootstrap snapshot --root . --write-result` | `Use TailTrail Bootstrap Snapshot for this repo. Capture safe repo/runtime facts before Navigator planning, without reading source bodies or executing project code.` | Creates `.tailtrail/bootstrap-snapshot.json` for local pre-task planning. |
 | I want to know whether TailTrail itself behaved well. | `python3 scripts/tailtrail.py harness review --root .` | `Use TailTrail Harness Review locally. Check workflow fit, context fit, validation fit, metric confidence, learning fit, scanner/security fit, and code precision fit. Do not share or commit metadata.` | Reviews local TailTrail harness behavior without model calls or git sharing. |
-| I want an MCP-capable assistant to call TailTrail directly. | `python3 scripts/tailtrail.py mcp tools` then `python3 scripts/tailtrail.py mcp serve` | `Use TailTrail MCP. List read-only tools and start the local stdio server only if this assistant supports MCP.` | Exposes Navigator, Start report, guardrail check, graph map, and install status as read-only local MCP tools. |
+| I want an MCP-capable assistant to call TailTrail directly. | `python3 scripts/tailtrail.py mcp tools` then `python3 scripts/tailtrail.py mcp serve` | `Use TailTrail MCP. Inspect local TailTrail artifacts first; use a controlled check only with explicit approval.` | Exposes Navigator, run/evidence/recovery inspection, and one approval-gated repository-control runner. |
 | I cloned a repo that already has TailTrail files. | `python3 scripts/tailtrail.py setup-scan --root .` | `Use TailTrail setup scan for this repo. Classify shared TailTrail files, local runtime state, overrides, and safe next setup steps.` | Classifies shared project context versus local user state. |
 ## Governance Sync
 
@@ -119,9 +119,9 @@ python3 scripts/tailtrail.py mcp doctor
 python3 scripts/tailtrail.py mcp serve
 ```
 
-Use this only for MCP-capable assistants. `mcp tools` lists the read-only tool contract, `mcp doctor` validates schemas and safety boundaries, and `mcp serve` starts the stdio server for an MCP client. The server exposes `navigator_plan`, `start_report`, `guardrail_check`, `graph_map`, `install_status`, `eval_scenario_list`, and `eval_scenario_report`.
+Use this only for MCP-capable assistants. `mcp tools` lists the inspection-first tool contract, `mcp doctor` validates schemas and safety boundaries, and `mcp serve` starts the stdio server for an MCP client. The server exposes existing Navigator/review/evaluation tools plus `ledger_state`, `anchor_show`, `harness_checkpoint_show`, `completion_feedback_show`, `profile_view`, `validation_receipt_show`, `git_readiness`, and `recovery_boundary_show`. `harness_control_check` is the sole controlled tool and requires explicit `approved: true`.
 
-BL-9 MCP support improves tool access and consistency. It does not automatically complete development, run scanners, edit files, write evaluation result files, apply fixes, upload telemetry, or bypass user approval. Non-MCP assistants should keep using `start`, `guide`, `guard check`, `eval scenario`, and the Markdown instruction files.
+MCP support improves tool access and consistency. It does not automatically complete development, edit source, commit, push, apply recovery, upload telemetry, or bypass user approval. Non-MCP assistants should keep using `start`, `guide`, `guard check`, `eval scenario`, and the Markdown instruction files.
 
 ## Setup Scan
 
@@ -204,6 +204,231 @@ python3 scripts/tailtrail.py start "triage GHSA vulnerability in package.json" -
 ```
 
 ## Navigator
+
+Short explicit Navigator modes keep discovery, planning, and edit authorization separate:
+
+```bash
+python3 scripts/tailtrail.py navigator "Phase 1"
+python3 scripts/tailtrail.py navigator plan "tailtrail-implementation-backlog.md Phase 1"
+python3 scripts/tailtrail.py navigator implement "tailtrail-implementation-backlog.md Phase 1"
+```
+
+`plan` approval authorizes only a detailed proposal. `implement` still needs an explicit implementation approval before files may change. When a phase name appears in multiple planning documents, Navigator asks which document is intended rather than guessing.
+
+## Canonical Local State (Phase 1)
+
+```bash
+python3 scripts/tailtrail.py ledger init --run-id claim-validation --goal "reject zero claim amounts"
+python3 scripts/tailtrail.py anchor draft --run-id claim-validation --input proposal.json
+python3 scripts/tailtrail.py anchor approve --run-id claim-validation
+python3 scripts/tailtrail.py ledger state --run-id claim-validation
+```
+
+These commands write only `.tailtrail/runs/<run-id>/`: an append-only event ledger, immutable approved anchor, requirement matrix, and selected graph-evidence receipts. They do not edit project source. A rejected matrix must include feedback for every requirement; after the second material rejection, the returned state requires AIDLC Requirements mode.
+
+## Requirement Completion Harness (Phase 2 V1-V4)
+
+```bash
+python3 scripts/tailtrail.py harness plan --run-id example-change --controls controls.json --changed src/service.py
+python3 scripts/tailtrail.py harness check --run-id example-change --controls controls.json --changed src/service.py --approved --output results.json
+python3 scripts/tailtrail.py harness checkpoint --run-id example-change --changed src/service.py --results results.json
+python3 scripts/tailtrail.py harness completion-review --run-id example-change --output review.json
+python3 scripts/tailtrail.py harness feedback --root . --run-id example-change --review review.json --output feedback.json
+python3 scripts/tailtrail.py harness impact-map --root . --run-id example-change --changed src/service.py
+python3 scripts/tailtrail.py harness converge --root . --run-id example-change --requirement-uid req-... --state unchanged --max-cycles 2
+python3 scripts/tailtrail.py harness template --root . --run-id example-change --requirement-uid req-... --template harness-templates.json
+```
+
+`impact-map` is local AST evidence only; its candidate callers/tests are not a
+completion claim. `converge` records one bounded correction cycle and routes to
+an existing recovery mode or an approval-required replan. `template` only adds
+controls and proof tiers to the approved requirement contract.
+
+Controls are repository-native command arrays and require `--approved` to run.
+The harness stores actual state per checkpoint, classifies requirement-level
+evidence drift, and creates only one correction packet at a time. It does not
+edit code, run an unbounded retry loop, or treat a single passing test as proof
+of every approved requirement.
+
+Add `--run-id <run-id>` to `harness plan`, `harness check`, and `harness
+validation-receipt` to retain complete normalized artifacts under the Phase 1
+run directory. Checkpoints and completion gates always write there. The
+append-only ledger records event type, requirement UID, result summary, and an
+artifact pointer; it does not copy raw source into the ledger.
+
+## Safe Git checkpoints and recovery (Phase 4)
+
+```bash
+# Read-only; requires a named branch, current HEAD, committer identity, and a clean worktree.
+python3 scripts/tailtrail.py harness git-readiness --root .
+
+# Changes branch only with explicit approval and creates tailtrail/<run-id>.
+python3 scripts/tailtrail.py harness boundary init --root . --run-id example-change --expected-path src/service.py --approved
+python3 scripts/tailtrail.py harness boundary activate --root . --run-id example-change --requirement-uid req-...
+python3 scripts/tailtrail.py harness boundary checkpoint --root . --run-id example-change --requirement-uid req-... --approved
+
+# Recovery never resets the repository. It plans first, then restores verified
+# active tracked paths only when explicitly approved.
+python3 scripts/tailtrail.py harness recovery plan --root . --run-id example-change
+python3 scripts/tailtrail.py harness recovery apply --root . --run-id example-change --approved
+```
+
+Mode A refuses dirty starting worktrees, detached HEAD, missing commit identity,
+untracked/renamed active files, and paths outside the approved requirement
+boundary. Validated requirement commits are retained under local immutable refs
+at `refs/tailtrail/<run-id>/<requirement-uid>`; no remote push occurs.
+
+### Conflict classification and reconciliation (Phase 6 V1)
+
+```bash
+python3 scripts/tailtrail.py harness reconcile plan --root . --run-id example-change --task-patch .tailtrail/task.patch
+python3 scripts/tailtrail.py harness reconcile apply --root . --run-id example-change --task-patch .tailtrail/task.patch --approved
+```
+
+Reconciliation only applies an exact supplied task-owned patch when Git proves
+its reverse applies cleanly. It preserves unrelated changed paths, records their
+fingerprints, and classifies same-hunk overlap as a no-write bounded
+reconciliation plan. It never restores a whole file or resets the repository.
+
+## Program Delivery Harness (Phase 7 V1)
+
+```bash
+python3 scripts/tailtrail.py harness program init --root . --run-id claims-program --plan program-plan.json --hands-free --approved
+python3 scripts/tailtrail.py harness orchestrate next --root . --run-id claims-program
+python3 scripts/tailtrail.py harness program-checkpoint --root . --run-id claims-program --feature F-01 --state validated --evidence receipt.json
+python3 scripts/tailtrail.py harness program amend --root . --run-id claims-program --plan amended-program-plan.json --reason "approved refactor discovery" --approved
+```
+
+Program Delivery is available only through explicit `--hands-free` activation.
+It coordinates approved feature order, dependencies, correction budget, pause and
+resume state; it does not edit code, execute tests, or bypass feature/material
+approval gates.
+
+## Mode B Recovery And Diagnosis (Phase 6 V1)
+
+```bash
+python3 scripts/tailtrail.py harness mode-b capture --root . --run-id example-change --requirement-uid req-... --approved
+python3 scripts/tailtrail.py harness mode-b seal --root . --run-id example-change --requirement-uid req-... --approved
+python3 scripts/tailtrail.py harness mode-b plan --root . --run-id example-change --requirement-uid req-...
+python3 scripts/tailtrail.py harness mode-b apply --root . --run-id example-change --requirement-uid req-... --approved
+python3 scripts/tailtrail.py harness diagnose --root . --run-id example-change --failure-artifact assessment-1.json --failure-artifact assessment-2.json
+```
+
+Mode B is an explicit dirty-worktree fallback. It captures only the active
+requirement's approved path baselines, seals its exact task delta, and restores
+only paths that still match the sealed post-change fingerprint. Later overlap is
+always a no-write recovery plan. The diagnoser starts only after repeated local
+failure evidence and returns hypotheses/replan guidance—not source edits.
+
+## Architecture Fitness Harness (Phase 6 V1)
+
+```bash
+python3 scripts/tailtrail.py harness architecture --root . --run-id example-change --changed src/service.py --profile architecture-profile.json
+```
+
+This deterministic local assessment compares changed paths with the approved
+requirement matrix and checks approved/profile rules for required caller paths,
+protected paths, and forbidden Python imports. It records requirement-linked
+scope or architecture drift; it does not edit source or claim an inference is
+architectural proof.
+
+## Behaviour Harness (Phase 6 V1)
+
+```bash
+python3 scripts/tailtrail.py harness behavior --root . --run-id example-change --scenarios behavior-scenarios.json --evidence behavior-evidence.json
+```
+
+Behaviour Harness verifies requirement-linked user-flow scenarios against exact
+local receipts. A scenario needs matching requirement UID, tier, asserted
+behavior, and passing outcome; missing integration/E2E proof remains incomplete.
+
+## Maintainability Harness (Phase 6 V1)
+
+```bash
+python3 scripts/tailtrail.py harness maintainability --root . --run-id example-change --changed src/service.py --changed tests/test_service.py
+```
+
+Maintainability Harness records deterministic approved-scope and test-only
+change findings, then labels duplicate definitions and possible specialised
+single-use abstractions as advisory local-AST signals. It does not edit source,
+run tests, or claim that an advisory signal is a defect. The latest local
+assessment is also available to an MCP host through
+`maintainability_assessment_show`.
+
+## Evidence-Aware Testing (Phase 3 V1-V5)
+
+```bash
+python3 scripts/tailtrail.py harness testing-profile validate --profile testing-profile.json
+python3 scripts/tailtrail.py harness validation-receipt --requirement-uid req-... --tier unit --command "python -m unittest" --outcome pass --environment local --asserted-behavior "behavior" --output receipt.json
+python3 scripts/tailtrail.py harness requirement-completion --run-id example-change --receipts receipts.json
+python3 scripts/tailtrail.py harness tier-select --root . --run-id example-change --profile testing-profile.json --changed src/service.py
+python3 scripts/tailtrail.py harness ci-ingest --root . --run-id example-change --input saved-ci-results.json
+python3 scripts/tailtrail.py harness flaky --root . --run-id example-change --test-id tests/test_service.py::test_submit --outcome fail
+python3 scripts/tailtrail.py harness evidence-metrics --root . --run-id example-change --receipts receipts.json
+```
+
+Tier selection only uses the approved contract and repository-declared profile.
+CI ingestion reads a supplied local artifact; it never calls CI. Flaky tracking
+preserves failures, while evidence metrics report receipt completeness—not a
+probability of correctness or deployment authorization.
+
+Testing profiles contain repository-owned tier commands, prerequisites, approval
+requirements, environments, and cleanup. The completion gate reports missing,
+blocked, unavailable, or insufficient evidence; it never upgrades unit proof to
+integration, E2E, infrastructure, or release proof.
+
+## Higher-Tier Testing And Release Confidence (Phase 8 V1)
+
+```bash
+python3 scripts/tailtrail.py harness higher-tier plan --profile testing-profile.json --tier contract
+python3 scripts/tailtrail.py harness higher-tier run --root . --run-id example-change --profile testing-profile.json --tier contract --requirement-uid req-... --asserted-behavior "API contract remains compatible" --approved
+python3 scripts/tailtrail.py harness release-confidence --root . --run-id example-change --receipts receipts.json
+python3 scripts/tailtrail.py harness phase8 journey --root . --run-id example-change --input journeys.json
+python3 scripts/tailtrail.py harness phase8 contracts --root . --run-id example-change --input openapi.json
+python3 scripts/tailtrail.py harness phase8 lifecycle --root . --run-id example-change --input lifecycle.json --approved
+python3 scripts/tailtrail.py harness phase8 deployment --root . --run-id example-change --input deployment-plan.json
+python3 scripts/tailtrail.py harness phase8 release-policy --root . --run-id example-change --policy release-policy.json --receipts receipts.json
+python3 scripts/tailtrail.py harness phase8 calibration --root . --run-id example-change --input real-run-metrics.json
+```
+
+## Advanced Runtime Boundaries
+
+```bash
+python3 scripts/tailtrail.py harness advanced graph --root . --run-id example-change --input agent-graph.json
+python3 scripts/tailtrail.py harness advanced cloud --root . --run-id example-change --input declared-cloud-commands.json --approved --remote-approved
+python3 scripts/tailtrail.py harness advanced live-eval --root . --run-id example-change --input model-result.json --approved
+python3 scripts/tailtrail.py harness advanced claims --root . --run-id example-change --input claims.json
+```
+
+The graph command records bounded roles but does not spawn agents. Cloud commands
+must be repository-owned and require two approvals. Live model evaluation is
+never default. Claim auditing rejects unmeasured quality, time, and token claims.
+
+## Context Continuity Harness (V1-V3)
+
+```bash
+python3 scripts/tailtrail.py harness continuity render --root . --run-id example-change --requirement-uid req-...
+python3 scripts/tailtrail.py harness continuity render --root . --run-id example-change --requirement-uid req-... --policy templates/context-continuity-policy.example.json
+python3 scripts/tailtrail.py harness continuity show --root . --run-id example-change --sequence 1
+python3 scripts/tailtrail.py harness continuity calibrate --root . --run-id example-change --input saved-interventions.json
+python3 scripts/tailtrail.py harness continuity advise --root . --run-id example-change --input sanitized-model-proposal.json --policy templates/context-continuity-selector-policy.example.json --approved
+python3 scripts/tailtrail.py harness continuity advisory-show --root . --run-id example-change --sequence 1
+```
+
+V1 renders compact local continuity packets from approved anchors and relevant
+run artifacts. V2 adds optional local policy templates that can only add
+guidance, plus saved-artifact calibration and append-only intervention receipts.
+V3 accepts a host-supplied, sanitized model proposal only under an explicit
+approved selector policy; it deterministically validates the proposal and falls
+back to V2 when it is invalid. It does not call a model, run tests, edit source,
+or change the approved requirement.
+
+The profile owns the exact adapter command for `integration`, `contract`,
+`e2e`, `infrastructure`, or `release-smoke`. TailTrail uses argv execution only;
+it does not install browser/cloud tooling or invent infrastructure commands.
+Remote adapters also require `--remote-approved` and `safe_test_account: true`.
+Release confidence is receipt-based evidence completeness, never a deployment
+approval or a claim of production behavior.
 
 ```bash
 python3 scripts/tailtrail.py guide "fix Sonar issue and prepare PR"

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/git-readiness.schema.json",
+  "title": "TailTrail Git Readiness",
+  "type": "object",
+  "required": ["schema_version", "type", "root", "ready", "issues", "dirty_paths", "mode"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-git-readiness"},
+    "root": {"type": "string"}, "ready": {"type": "boolean"}, "head": {"type": ["string", "null"]},
+    "branch": {"type": ["string", "null"]}, "committer_identity": {"type": "boolean"},
+    "dirty_paths": {"type": "array", "items": {"type": "string"}}, "issues": {"type": "array", "items": {"type": "string"}},
+    "mode": {"const": "mode-a-local-checkpoints"}
+  }, "additionalProperties": false
+}

@@ -622,13 +622,73 @@ harness should both raise the probability that the agent gets a change right on
 its first attempt and return fast, useful feedback so the agent can correct
 problems before they reach human review.
 
-Status: planned.
+Status: Phases 1–8 are implemented as local-first foundations. Phase 3 adds
+repository-declared test tiers, requirement-linked validation receipts, and an
+evidence gate that never turns unavailable integration/E2E proof into a pass.
+Phase 4 now adds a read-only Git readiness gate, an approval-gated local task
+branch, requirement checkpoint commits/refs, and verified active-path-only
+recovery. It never pushes remotely or performs a repository-wide reset. Mode B
+fallback recovery V1 is implemented as an explicit, requirement-scoped path.
+Phase 5 now exposes the implemented local state, evidence, and recovery
+inspection surfaces through stdio MCP, plus one approval-gated existing-control
+runner. MCP remains a thin transport layer: it has one approval-gated,
+path-validated unified-patch source-apply tool, but no commit, push, deployment,
+or arbitrary shell tool.
+Phase 6 now includes the implemented Architecture Fitness Harness V1: approved
+requirement path contracts, required/protected-path checks, local Python-AST
+forbidden-import checks, requirement-linked findings, local artifacts, and MCP
+inspection. Maintainability Harness V1 is also implemented: it records
+approved-scope and test-only-change findings, and surfaces duplicate-definition
+and specialised-abstraction signals as local-AST advisories. Conflict
+classification and reconciliation V1 is also implemented: it reverses only an
+explicit, Git-verified task patch, preserves unrelated tracked work, and turns
+same-hunk overlap into a no-write reconciliation artifact. Mode B recovery V1
+is now implemented as explicit per-requirement capture, seal, plan, and restore
+over `.tailtrail` baselines; it refuses later overlap. The Recovery Diagnostician
+is also implemented as a threshold-gated, local-artifact-only replan aid.
+Behaviour Harness V1 is implemented: approved user-flow scenarios are
+linked to requirement IDs and exact evidence receipts, while missing or blocked
+integration/E2E proof remains a visible completion gap. Mode B recovery and the
+threshold-triggered Recovery Diagnostician are implemented local V1 controls.
+
+Higher-tier testing and release confidence V1 is implemented through
+repository-declared integration, contract, E2E, infrastructure, and
+release-smoke adapter commands. Every outcome is recorded as tier-labelled,
+sanitized local evidence; remote commands need explicit remote approval and a
+profile-declared safe test account. The resulting confidence matrix is not a
+deployment authorization or production-behavior claim. A deterministic saved
+Evaluation Harness fixture evaluates evidence completeness, missed callers,
+correction count, recovery safety, and tier selection.
+
+Program Delivery Harness and Deterministic Orchestrator V1 is implemented for
+explicit `hands-free` delivery: it stores an approved program feature graph,
+preserves versioned plan/amendment history, enforces dependency-safe feature
+activation and correction budgets, and returns the next safe action. It does
+not edit source or replace the existing approval and evidence controls.
 
 This follows the coding-agent harness model described in Birgitta Böckeler's
 [Harness engineering for coding agent users](https://martinfowler.com/articles/harness-engineering.html): combine feedforward guides with feedback sensors, keep cheap quality checks left in the workflow, and use the results to improve both the current agent run and the harness itself.
 
 Detailed design, implementation phases, file plan, boundaries, and success
 criteria: [Harness Engineering](harness-engineering.md).
+
+Context continuity V1-V3 implementation for selective requirement reminders,
+iteration memory, additive local project templates, intervention receipts,
+saved-artifact calibration, and opt-in validated host-supplied model advisories;
+it also covers hands-free program state and requirement-discovery rejection
+memory. TailTrail owns the local validation/fallback boundary, not model calls,
+credentials, or host retention:
+[Context Continuity Harness](context-continuity-harness.md).
+
+Testing assessment and the proposed path from focused unit checks to
+requirement-linked integration, contract, E2E, infrastructure, and release-smoke
+evidence: [Testing Confidence: Current State And Improvement
+Plan](testing-confidence.md). Local V1–V5 and Phase 8 evidence controls are
+implemented; real environments remain repository-owned and approval-gated.
+
+Consolidated implementation order for the recent Harness, Runtime, MCP, Testing,
+Recovery, Program Delivery, and Orchestrator designs: [TailTrail Implementation
+Backlog And Delivery Order](tailtrail-implementation-backlog.md).
 
 Navigator requirement gathering must be approval-first: a first material proposal
 rejection triggers mandatory requirement-by-requirement feedback, targeted
@@ -645,9 +705,9 @@ For broad one-prompt implementation spanning multiple features, later refactor
 discovery, and integration drift, see [Program Delivery
 Harness](program-delivery-harness.md). It defines program/feature/cycle planning,
 versioned approved and actual state, cross-feature drift, refactor remediation,
-selective recovery, integration evidence, and final completion. It is a future
-layer after Harness Engineering Version 1, not a replacement for small-task
-workflows.
+selective recovery, integration evidence, and final completion. Its deterministic
+V1 is implemented; advanced autonomous orchestration remains opt-in future work
+and it is not a replacement for small-task workflows.
 
 Product definition:
 
@@ -1221,6 +1281,23 @@ Acceptance check:
 - `python3 scripts/update-tailtrail.py --root /path/to/project --dry-run` provides the general update command.
 - `python3 scripts/team-init.py --root /path/to/project --mode optional` adds team guidance.
 - `python3 scripts/learnings.py init --root /path/to/project` creates a durable learnings file.
+
+> **Implementation update — Requirement Completion Harness V2-V4:** local
+> requirement-to-symbol/caller/test impact maps, bounded per-requirement
+> convergence and recovery/replan routing, and additive project-specific
+> harness templates are implemented. The implementation detail and command flow
+> live in `tailtrail-implementation-backlog.md` and `harness-engineering.md`.
+
+> **Implementation update — Evidence-Aware Testing V2-V5:** approved minimum
+> tier selection, behaviour/integration scenario linkage, saved CI evidence
+> ingestion, guarded infrastructure/release evidence, flaky-test observations,
+> and calibrated receipt metrics are implemented. Details live in
+> `tailtrail-implementation-backlog.md` and `testing-confidence.md`.
+
+> **Implementation update — Phase 8.2-8.8:** structured journey and contract
+> evidence, CI provenance ingestion, repository-owned lifecycle adapters,
+> deployment/migration/rollback planning, policy sign-off artifacts, and
+> real-run calibration are implemented with local-only and approval boundaries.
 
 ## Phase 2: Portable AIDLC Pack
 

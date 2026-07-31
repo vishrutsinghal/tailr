@@ -22,7 +22,23 @@ DEFAULT_READ_ONLY_TOOLS = (
     "install_status",
     "eval_scenario_list",
     "eval_scenario_report",
+    "ledger_state",
+    "anchor_show",
+    "harness_checkpoint_show",
+    "completion_feedback_show",
+    "profile_view",
+    "validation_receipt_show",
+    "release_confidence_show",
+    "git_readiness",
+    "recovery_boundary_show",
+    "recovery_reconciliation_show",
+    "architecture_assessment_show",
+    "maintainability_assessment_show",
+    "context_continuity_show",
+    "context_continuity_render",
+    "context_continuity_advisory_show",
 )
+CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply")
 DENIED_TOOL_TERMS = (
     "apply",
     "build",
@@ -55,19 +71,7 @@ def load_registry() -> Any | None:
 
 
 def registry_read_only_tools() -> tuple[str, ...]:
-    module = load_registry()
-    if module is None:
-        return DEFAULT_READ_ONLY_TOOLS
-    try:
-        registry = module.load_registry()
-        tools = [
-            item["tool"]
-            for item in module.mcp_projection(registry)
-            if item.get("read_only") is True and item.get("requires_approval") is False
-        ]
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
-        return DEFAULT_READ_ONLY_TOOLS
-    return tuple(tool for tool in tools if tool in DEFAULT_READ_ONLY_TOOLS) or DEFAULT_READ_ONLY_TOOLS
+    return DEFAULT_READ_ONLY_TOOLS
 
 
 READ_ONLY_TOOLS = registry_read_only_tools()
@@ -160,22 +164,39 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
                 ["scenario"],
             ),
         },
+        "ledger_state": {"name": "ledger_state", "description": "Read the append-only local run projection. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "anchor_show": {"name": "anchor_show", "description": "Read an approved local change-intent anchor. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "harness_checkpoint_show": {"name": "harness_checkpoint_show", "description": "Read the latest or named requirement checkpoint. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "checkpoint": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "completion_feedback_show": {"name": "completion_feedback_show", "description": "Read the latest completion review and bounded feedback packet. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "profile_view": {"name": "profile_view", "description": "Validate and display a repository testing profile. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "profile": {"type": "string"}}, ["profile"])},
+        "validation_receipt_show": {"name": "validation_receipt_show", "description": "Read a requirement-linked validation receipt by filename. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "receipt": {"type": "string"}}, ["run_id", "receipt"])},
+        "release_confidence_show": {"name": "release_confidence_show", "description": "Read the latest tier-labelled release confidence assessment. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "git_readiness": {"name": "git_readiness", "description": "Return the read-only Mode A Git readiness report.", "inputSchema": json_schema({"root": {"type": "string"}})},
+        "recovery_boundary_show": {"name": "recovery_boundary_show", "description": "Read the Mode A task recovery boundary. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "recovery_reconciliation_show": {"name": "recovery_reconciliation_show", "description": "Read the latest task recovery conflict classification. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "architecture_assessment_show": {"name": "architecture_assessment_show", "description": "Read the latest Architecture Fitness assessment. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "maintainability_assessment_show": {"name": "maintainability_assessment_show", "description": "Read the latest Maintainability Harness assessment. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "context_continuity_show": {"name": "context_continuity_show", "description": "Read a saved Context Continuity V1 state and packet. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "context_continuity_render": {"name": "context_continuity_render", "description": "Preview a deterministic Context Continuity V1/V2 packet without writing state, editing source, running tests, or calling a model. An optional repository-relative policy can add template guidance only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "requirement_uid": {"type": "string"}, "trigger": {"type": "string"}, "policy": {"type": "string"}}, ["run_id"])},
+        "context_continuity_advisory_show": {"name": "context_continuity_advisory_show", "description": "Read a saved Context Continuity V3 advisory validation record. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
+        "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["patch", "approved"])},
     }
 
 
 def tool_list() -> list[dict[str, Any]]:
-    return [tool_definitions()[name] for name in READ_ONLY_TOOLS]
+    return [tool_definitions()[name] for name in (*READ_ONLY_TOOLS, *CONTROLLED_TOOLS)]
 
 
 def ensure_safe_tools() -> list[str]:
     errors: list[str] = []
     definitions = tool_definitions()
-    if tuple(definitions) != READ_ONLY_TOOLS:
+    if tuple(definitions) != (*READ_ONLY_TOOLS, *CONTROLLED_TOOLS):
         errors.append("tool registry order does not match READ_ONLY_TOOLS")
     for name in definitions:
-        if name != "install_status" and any(term in name for term in DENIED_TOOL_TERMS):
+        if name not in (*CONTROLLED_TOOLS, "install_status") and any(term in name for term in DENIED_TOOL_TERMS):
             errors.append(f"tool name is not read-only: {name}")
-    for name in READ_ONLY_TOOLS:
+    for name in (*READ_ONLY_TOOLS, *CONTROLLED_TOOLS):
         schema = definitions[name].get("inputSchema")
         if not isinstance(schema, dict) or schema.get("type") != "object":
             errors.append(f"{name}: inputSchema must be an object schema")
@@ -347,6 +368,151 @@ def eval_scenario_report(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "eval_scenario_report", "result": parse_stdout(result, fmt), "execution": result}
 
 
+def run_id(args: dict[str, Any]) -> str:
+    value = str(args.get("run_id", "")).strip()
+    if not value or Path(value).name != value: raise ValueError("run_id must be a single local run identifier")
+    return value
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    if not path.is_file(): raise ValueError(f"local artifact does not exist: {path.name}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def run_artifact(root: Path, identifier: str, section: str, pattern: str) -> dict[str, Any] | None:
+    directory = root / ".tailtrail" / "runs" / identifier / section
+    matches = sorted(directory.glob(pattern))
+    return read_json(matches[-1]) if matches else None
+
+
+def ledger_state(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args)
+    result = command_result([PYTHON, script("run-ledger.py").as_posix(), "state", "--root", root.as_posix(), "--run-id", identifier], root)
+    return {"tool": "ledger_state", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def anchor_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args)
+    return {"tool": "anchor_show", "result": read_json(root / ".tailtrail" / "runs" / identifier / "anchors" / "approved-v1.json"), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def harness_checkpoint_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); number = args.get("checkpoint")
+    path = root / ".tailtrail" / "runs" / identifier / "checkpoints" / (f"checkpoint-{number}.json" if isinstance(number, int) else "")
+    result = read_json(path) if isinstance(number, int) else run_artifact(root, identifier, "checkpoints", "checkpoint-*.json")
+    if result is None: raise ValueError("no checkpoint artifact exists")
+    return {"tool": "harness_checkpoint_show", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def completion_feedback_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args)
+    return {"tool": "completion_feedback_show", "result": {"review": run_artifact(root, identifier, "reviews", "review-*.json"), "feedback": run_artifact(root, identifier, "feedback", "feedback-*.json")}, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def safe_relative(root: Path, value: Any) -> Path:
+    path = Path(str(value))
+    if path.is_absolute() or ".." in path.parts: raise ValueError("path must be repository-relative")
+    resolved = (root / path).resolve()
+    if root not in resolved.parents and resolved != root: raise ValueError("path is outside root")
+    return resolved
+
+
+def profile_view(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); profile = safe_relative(root, args.get("profile", ""))
+    result = command_result([PYTHON, script("testing-profile.py").as_posix(), "validate", "--profile", profile.as_posix()], root)
+    return {"tool": "profile_view", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def validation_receipt_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); receipt = Path(str(args.get("receipt", "")))
+    if receipt.name != str(receipt): raise ValueError("receipt must be one receipt filename")
+    return {"tool": "validation_receipt_show", "result": read_json(root / ".tailtrail" / "runs" / identifier / "validation-receipts" / receipt), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def release_confidence_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); result = run_artifact(root, identifier, "release-confidence", "assessment-*.json")
+    if result is None: raise ValueError("no release confidence assessment artifact exists")
+    return {"tool": "release_confidence_show", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def git_readiness(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); result = command_result([PYTHON, script("git-readiness.py").as_posix(), "--root", root.as_posix()], root)
+    return {"tool": "git_readiness", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def recovery_boundary_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args)
+    return {"tool": "recovery_boundary_show", "result": read_json(root / ".tailtrail" / "runs" / identifier / "recovery" / "boundary.json"), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def recovery_reconciliation_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); result = run_artifact(root, identifier, "recovery/reconciliation", "assessment-*.json")
+    if result is None: raise ValueError("no recovery reconciliation artifact exists")
+    return {"tool": "recovery_reconciliation_show", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def architecture_assessment_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); result = run_artifact(root, identifier, "architecture", "assessment-*.json")
+    if result is None: raise ValueError("no architecture assessment artifact exists")
+    return {"tool": "architecture_assessment_show", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def maintainability_assessment_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); result = run_artifact(root, identifier, "maintainability", "assessment-*.json")
+    if result is None: raise ValueError("no maintainability assessment artifact exists")
+    return {"tool": "maintainability_assessment_show", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def harness_control_check(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("harness_control_check requires approved: true")
+    root = root_from(args); identifier = run_id(args); controls = safe_relative(root, args.get("controls", ""))
+    if not controls.is_file(): raise ValueError("controls must name an existing repository control file")
+    command = [PYTHON, script("harness-controls.py").as_posix(), "check", "--root", root.as_posix(), "--run-id", identifier, "--controls", controls.as_posix(), "--approved"]
+    for item in as_string_list(args.get("changed")): command.extend(["--changed", item])
+    result = command_result(command, root); result["read_only"] = False; result["requires_approval"] = True
+    return {"tool": "harness_control_check", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def source_patch_apply(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("source_patch_apply requires approved: true")
+    root = root_from(args); patch = str(args.get("patch", ""))
+    if not patch.startswith("diff --git "): raise ValueError("patch must be a unified git diff")
+    for line in patch.splitlines():
+        if line.startswith(("+++ b/", "--- a/")):
+            safe_relative(root, line[6:])
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".patch", dir=root, delete=False) as handle:
+        handle.write(patch); patch_path = Path(handle.name)
+    try:
+        checked = command_result(["git", "apply", "--check", patch_path.as_posix()], root)
+        if checked["returncode"] != 0: raise ValueError("patch did not pass git apply --check")
+        applied = command_result(["git", "apply", patch_path.as_posix()], root)
+        if applied["returncode"] != 0: raise ValueError("patch apply failed")
+        return {"tool": "source_patch_apply", "result": {"applied": True}, "execution": applied, "read_only": False, "requires_approval": True}
+    finally:
+        patch_path.unlink(missing_ok=True)
+
+
+def context_continuity_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("context_continuity_mcp", script("context-continuity.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return {"tool": "context_continuity_show", "result": module.show(root_from(args), run_id(args), args.get("sequence"))}
+
+
+def context_continuity_render(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("context_continuity_mcp", script("context-continuity.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    root = root_from(args)
+    policy = module.load_policy(safe_relative(root, args["policy"])) if args.get("policy") else None
+    result = module.packet_for(root, run_id(args), args.get("requirement_uid"), args.get("trigger"), 220, policy)
+    return {"tool": "context_continuity_render", "result": result, "read_only": True}
+
+
+def context_continuity_advisory_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("context_continuity_mcp", script("context-continuity.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return {"tool": "context_continuity_advisory_show", "result": module.advisory_show(root_from(args), run_id(args), args.get("sequence")), "read_only": True}
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "navigator_plan": navigator_plan,
     "start_report": start_report,
@@ -355,6 +521,11 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "install_status": install_status,
     "eval_scenario_list": eval_scenario_list,
     "eval_scenario_report": eval_scenario_report,
+    "ledger_state": ledger_state, "anchor_show": anchor_show, "harness_checkpoint_show": harness_checkpoint_show,
+    "completion_feedback_show": completion_feedback_show, "profile_view": profile_view,
+    "validation_receipt_show": validation_receipt_show, "release_confidence_show": release_confidence_show, "git_readiness": git_readiness,
+    "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
+    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply,
 }
 
 
@@ -431,16 +602,17 @@ def render_tools() -> str:
 
 def doctor() -> int:
     errors = ensure_safe_tools()
-    if set(HANDLERS) != set(READ_ONLY_TOOLS):
-        errors.append("handler registry does not match READ_ONLY_TOOLS")
+    if set(HANDLERS) != set((*READ_ONLY_TOOLS, *CONTROLLED_TOOLS)):
+        errors.append("handler registry does not match the MCP tool allowlist")
     if errors:
         print("TailTrail MCP doctor failed.")
         for item in errors:
             print(f"- {item}")
         return 1
     print("TailTrail MCP doctor passed.")
-    print(f"Tools: {', '.join(READ_ONLY_TOOLS)}")
-    print("Mode: stdio, local, read-only")
+    print(f"Read-only tools: {', '.join(READ_ONLY_TOOLS)}")
+    print(f"Controlled tools: {', '.join(CONTROLLED_TOOLS)} (explicit approval required)")
+    print("Mode: stdio, local, inspection-first")
     return 0
 
 
@@ -453,7 +625,7 @@ def main() -> int:
         return serve()
     if args.action == "tools":
         if args.format == "json":
-            print(json.dumps({"tools": tool_list(), "read_only": True}, indent=2, sort_keys=True))
+            print(json.dumps({"tools": tool_list(), "read_only": list(READ_ONLY_TOOLS), "controlled": list(CONTROLLED_TOOLS)}, indent=2, sort_keys=True))
         else:
             print(render_tools(), end="")
         return 0

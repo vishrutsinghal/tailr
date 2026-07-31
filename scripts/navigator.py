@@ -979,8 +979,147 @@ def evaluation_only_requested(goal: str, evaluation_plan: dict[str, Any]) -> boo
     return True
 
 
-def decide(goal: str, root: Path, changed_args: list[str], command_prefix: str) -> dict[str, Any]:
-    changed = changed_args or git_changed(root)
+PHASE_PATTERN = re.compile(r"\bphase\s+(\d+(?:\.\d+)*)\b", re.IGNORECASE)
+NAVIGATOR_CONTEXT_DOCUMENTS = (
+    "tailtrail-implementation-backlog.md",
+    "ROADMAP.md",
+    "harness-engineering.md",
+    "testing-confidence.md",
+    "program-delivery-harness.md",
+)
+
+
+def navigator_phase_context(subject: str, root: Path) -> dict[str, Any] | None:
+    """Resolve a requested planning phase without guessing between documents."""
+    match = PHASE_PATTERN.search(subject)
+    if not match:
+        return None
+    phase = match.group(1)
+    mentioned = [Path(token.strip(" `,.:")) for token in re.findall(r"[\w./-]+\.md\b", subject)]
+    candidates: list[Path] = []
+    for path in mentioned:
+        resolved = path if path.is_absolute() else root / path
+        if resolved.is_file():
+            candidates.append(resolved)
+    if not candidates:
+        candidates = [root / name for name in NAVIGATOR_CONTEXT_DOCUMENTS if (root / name).is_file()]
+
+    heading = re.compile(rf"^#+\s+.*\bphase\s+{re.escape(phase)}\b.*$", re.IGNORECASE | re.MULTILINE)
+    matches: list[dict[str, str]] = []
+    for path in candidates:
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        found = heading.search(content)
+        if found:
+            title = found.group(0).lstrip("#").strip()
+            matches.append({"path": path.relative_to(root).as_posix(), "heading": title})
+    if len(matches) == 1:
+        return {"status": "resolved", "phase": phase, "document": matches[0]["path"], "heading": matches[0]["heading"]}
+    if matches:
+        return {"status": "ambiguous", "phase": phase, "matches": matches}
+    return {"status": "not_found", "phase": phase, "searched": [path.relative_to(root).as_posix() for path in candidates]}
+
+
+def explicit_navigator_report(
+    request: core.NavigatorRequest,
+    root: Path,
+    changed_args: list[str],
+    command_prefix: str,
+) -> dict[str, Any]:
+    """Return a request-depth contract while reusing the normal decision engine."""
+    # A named planning phase is not a request to inspect every unrelated local
+    # git change. Concrete `--changed` paths remain honored.
+    base = decide(
+        request.subject,
+        root,
+        changed_args,
+        command_prefix,
+        allow_explicit=False,
+        detect_git_changes=False,
+    )
+    phase_context = navigator_phase_context(request.subject, root)
+    likely_paths = [item["path"] for item in base.get("likely_impacted_files", [])[:6]]
+    matrix = core.requirement_impact_matrix(
+        [
+            {
+                "statement": request.subject,
+                "likely_paths": likely_paths,
+                "acceptance_criteria": ["User-approved expected behavior is observable on the intended path."],
+                "preserve_rules": ["Do not change behavior outside the approved scope."],
+                "evidence_plan": ["Inspect selected source/callers/tests, then run focused approved validation."],
+            }
+        ]
+    )
+    selected = [
+        {"name": "TailTrail Navigator", "reason": "explicit Navigator request; decide scope and workflow before any edit"},
+        *[item for item in base["selected_features"] if item["name"] != "TailTrail Navigator"],
+    ]
+    skipped = list(base["skipped_features"])
+    if phase_context and phase_context["status"] in {"resolved", "ambiguous", "not_found"}:
+        selected = [item for item in selected if item["name"] != "Code Graph Mapper"]
+        skipped = [item for item in skipped if item["name"] != "Code Graph Mapper"]
+        skipped.append({"name": "Code Graph Mapper", "reason": "a planning phase is being interpreted; map source only after a concrete code path is approved"})
+
+    plan = [
+        "Confirm the requested scope, existing conventions, callers, tests, and local policy before proposing edits.",
+        "Turn the approved scope into a requirement-to-impact matrix with focused proof for each requirement.",
+        "Keep the first implementation cycle bounded; validate the changed behavior and preservation cases before review.",
+    ]
+    if phase_context and phase_context["status"] == "resolved":
+        plan.insert(0, f"Read `{phase_context['document']}` at `{phase_context['heading']}` as the approved planning context.")
+    elif phase_context and phase_context["status"] == "ambiguous":
+        plan = ["Choose the planning document for the requested phase before producing an implementation plan."]
+    elif phase_context and phase_context["status"] == "not_found":
+        plan = ["Provide the planning document or exact phase heading before producing an implementation plan."]
+
+    if request.depth == "context":
+        approval = ["No approval is needed: this is read-only context discovery.", "Next: ask `navigator plan <scope>` when you want the TailTrail decision and approval gate."]
+    elif request.depth == "plan":
+        approval = ["Approve the Navigator plan to generate a detailed implementation proposal. This does not authorize edits."]
+    else:
+        approval = ["Approve the implementation proposal to authorize code edits. Until then, this remains planning only."]
+
+    base.update(
+        {
+            "navigator_mode": "explicit_request",
+            "navigator_request": {"explicit": True, "depth": request.depth, "subject": request.subject},
+            "phase_context": phase_context,
+            "requirement_matrix": matrix,
+            "proposal_feedback_protocol": {
+                "first_rejection": "Collect an approve/reject decision for every requirement row; every rejection needs a comment, then ask targeted questions or offer AIDLC Requirements mode.",
+                "second_rejection": "Automatically require minimal AIDLC Requirements mode before another material proposal.",
+                "history": "Rejected proposal feedback is retained in the append-only run ledger and is separate from implementation drift.",
+            },
+            "selected_features": selected,
+            "skipped_features": skipped,
+            "navigator_plan": plan,
+            "approval": approval,
+            "notes": [
+                "Explicit Navigator requests are planning-only and do not edit files.",
+                "A Navigator-plan approval and implementation approval are separate gates.",
+            ],
+        }
+    )
+    if request.depth == "implement":
+        base["implementation_proposal"] = list(base["implementation_plan"])
+    return base
+
+
+def decide(
+    goal: str,
+    root: Path,
+    changed_args: list[str],
+    command_prefix: str,
+    allow_explicit: bool = True,
+    detect_git_changes: bool = True,
+) -> dict[str, Any]:
+    if allow_explicit:
+        request = core.explicit_navigator_request(goal)
+        if request:
+            return explicit_navigator_report(request, root, changed_args, command_prefix)
+    changed = changed_args or (git_changed(root) if detect_git_changes else [])
     tasks = core.task_types(goal)
     risks = core.risk_indicators(goal, changed)
     tiny = core.is_tiny(goal, risks, changed)

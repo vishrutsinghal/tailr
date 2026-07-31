@@ -102,13 +102,14 @@ def mcp_projection(registry: dict[str, Any]) -> list[dict[str, Any]]:
         for tool in tools:
             if not isinstance(tool, str) or not tool:
                 continue
+            controlled = tool in {"harness_control_check"}
             projection.append(
                 {
                     "tool": tool,
                     "feature_id": feature.get("id"),
                     "feature_title": feature.get("title"),
-                    "read_only": True,
-                    "requires_approval": False,
+                    "read_only": not controlled,
+                    "requires_approval": controlled,
                     "feature_read_only": feature.get("read_only"),
                     "feature_requires_approval": feature.get("requires_approval"),
                     "surface": feature.get("surface"),

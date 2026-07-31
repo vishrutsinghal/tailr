@@ -1,0 +1,11 @@
+{
+  "templates": [
+    {
+      "id": "python-service-change",
+      "kinds": ["change"],
+      "path_prefixes": ["src"],
+      "controls": ["architecture-fitness", "maintainability"],
+      "required_tiers": ["integration"]
+    }
+  ]
+}

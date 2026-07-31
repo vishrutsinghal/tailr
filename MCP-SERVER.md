@@ -1,6 +1,6 @@
 # TailTrail MCP Server
 
-TailTrail MCP support is an optional local bridge for MCP-capable assistants. It exposes a small set of read-only TailTrail tools so agents can ask TailTrail for plans, guardrail findings, graph guidance, Start reports, install status, and fixture-backed evaluation evidence without loading large TailTrail docs.
+TailTrail MCP support is an optional local bridge for MCP-capable assistants. It exposes inspection-first TailTrail tools plus one explicit approval-gated computational control runner, without loading large TailTrail docs.
 
 ## Commands
 
@@ -21,13 +21,18 @@ Use `mcp tools` to inspect the available tool contract. Use `mcp doctor` before 
 - `install_status`: reads `.tailtrail-install.json` when present and reports Core, Extended, or unknown status.
 - `eval_scenario_list`: lists committed Evaluation Harness scenarios.
 - `eval_scenario_report`: returns a deterministic scenario report from committed fixtures. It does not write result files.
+- `ledger_state`, `anchor_show`, `harness_checkpoint_show`, and `completion_feedback_show`: inspect the Phase 1–2 local run trail.
+- `profile_view`, `validation_receipt_show`, and `release_confidence_show`: inspect declared testing tiers, requirement-linked proof, and the latest receipt-based release-confidence view.
+- `git_readiness`, `recovery_boundary_show`, and `recovery_reconciliation_show`: inspect Phase 4 Mode A readiness, boundary state, and the latest no-write conflict classification.
+- `architecture_assessment_show` and `maintainability_assessment_show`: inspect the latest requirement-linked architecture or maintainability assessment.
+- `harness_control_check`: the only controlled tool. It requires `approved: true`, accepts a repository-relative control file rather than a raw shell command, and records local computational evidence only.
 
 ## Safety Boundaries
 
 - Local stdio only.
-- Read-only tools only.
-- No arbitrary shell command tool.
-- No scanner, test, build, install, deploy, push, commit, apply, fix, or write-result tool.
+- Inspection tools are read-only. `harness_control_check` is explicit approval-gated computation, not a source-write tool.
+- No arbitrary shell command tool; the controlled runner uses existing repository-native control definitions.
+- No source edit, deploy, push, commit, apply, fix, package-install, or arbitrary write-result tool.
 - No network listener.
 - No telemetry upload.
 - No background service.

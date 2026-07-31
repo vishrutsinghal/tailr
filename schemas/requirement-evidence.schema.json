@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/requirement-evidence.schema.json",
+  "title": "TailTrail Requirement Impact Row",
+  "type": "object",
+  "required": ["requirement_uid", "display_id", "kind", "statement", "acceptance_criteria", "preserve_rules", "likely_paths", "evidence_plan", "status"],
+  "properties": {
+    "requirement_uid": {"type": "string", "pattern": "^req-[a-f0-9]{12}$"},
+    "display_id": {"type": "string", "pattern": "^REQ-[0-9]{2,}$"},
+    "kind": {"enum": ["change", "preserve", "constraint", "safety", "decision"]},
+    "statement": {"type": "string", "minLength": 1},
+    "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+    "preserve_rules": {"type": "array", "items": {"type": "string"}},
+    "likely_paths": {"type": "array", "items": {"type": "string"}},
+    "evidence_plan": {"type": "array", "items": {"type": "string"}},
+    "validation_contract": {"type": "object", "properties": {"state": {"enum": ["required", "conditional", "not-applicable", "unavailable", "insufficient"]}, "tiers": {"type": "array", "items": {"enum": ["unit", "component", "integration", "contract", "e2e", "infrastructure"]}}}},
+    "status": {"enum": ["proposed", "approved", "revoked", "blocked", "validated"]}
+  }
+}

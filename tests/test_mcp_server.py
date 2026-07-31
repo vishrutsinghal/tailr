@@ -24,31 +24,24 @@ mcp = load_module()
 
 
 class McpServerTests(unittest.TestCase):
-    def test_tool_list_is_read_only_allowlist(self):
-        self.assertEqual(
-            mcp.READ_ONLY_TOOLS,
-            (
-                "navigator_plan",
-                "start_report",
-                "guardrail_check",
-                "graph_map",
-                "install_status",
-                "eval_scenario_list",
-                "eval_scenario_report",
-            ),
-        )
-        self.assertEqual(set(mcp.HANDLERS), set(mcp.READ_ONLY_TOOLS))
+    def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
+        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness"}.issubset(set(mcp.READ_ONLY_TOOLS)))
+        self.assertEqual(mcp.CONTROLLED_TOOLS, ("harness_control_check", "source_patch_apply"))
+        self.assertEqual(set(mcp.HANDLERS), set((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         self.assertEqual(mcp.ensure_safe_tools(), [])
 
     def test_tool_list_is_projected_from_registry(self):
         projection = mcp.load_registry().mcp_projection(mcp.load_registry().load_registry())
 
-        self.assertEqual([item["tool"] for item in projection], list(mcp.READ_ONLY_TOOLS))
-        self.assertTrue(all(item["read_only"] is True for item in projection))
+        projected = {item["tool"]: item for item in projection}
+        self.assertTrue(set(mcp.READ_ONLY_TOOLS).issubset(projected))
+        self.assertTrue(projected["anchor_show"]["read_only"])
+        self.assertFalse(projected["harness_control_check"]["read_only"])
+        self.assertTrue(projected["harness_control_check"]["requires_approval"])
 
     def test_tool_schemas_are_json_objects(self):
         tools = mcp.tool_list()
-        self.assertEqual([item["name"] for item in tools], list(mcp.READ_ONLY_TOOLS))
+        self.assertEqual([item["name"] for item in tools], list((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         for tool in tools:
             self.assertIsInstance(tool["description"], str)
             self.assertIsInstance(tool["inputSchema"], dict)
@@ -76,7 +69,7 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["id"], 1)
-        self.assertEqual([item["name"] for item in payload["result"]["tools"]], list(mcp.READ_ONLY_TOOLS))
+        self.assertEqual([item["name"] for item in payload["result"]["tools"]], list((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
 
     def test_doctor_passes(self):
         result = subprocess.run(
@@ -87,7 +80,21 @@ class McpServerTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
-        self.assertIn("read-only", result.stdout)
+        self.assertIn("Read-only", result.stdout)
+
+    def test_maintainability_assessment_show_reads_latest_artifact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_dir = root / ".tailtrail" / "runs" / "demo" / "maintainability"
+            artifact_dir.mkdir(parents=True)
+            (artifact_dir / "assessment-1.json").write_text(json.dumps({"type": "tailtrail-maintainability-harness", "complete": True}), encoding="utf-8")
+            result = mcp.maintainability_assessment_show({"root": root.as_posix(), "run_id": "demo"})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertTrue(result["result"]["complete"])
+
+    def test_control_check_requires_explicit_approval(self):
+        with self.assertRaises(ValueError):
+            mcp.harness_control_check({"run_id": "demo", "controls": "controls.json", "approved": False})
 
     def test_navigator_plan_command_construction(self):
         calls = []

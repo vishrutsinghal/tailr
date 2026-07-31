@@ -6,6 +6,8 @@ from typing import Any
 
 
 def markdown(report: dict[str, Any], view: str = "full") -> str:
+    if report.get("navigator_request", {}).get("explicit"):
+        return explicit_navigator_markdown(report)
     if view == "compact":
         return compact_markdown(report)
     if view == "commands-only":
@@ -278,6 +280,54 @@ def markdown(report: dict[str, Any], view: str = "full") -> str:
     lines.extend(["", "## Notes", ""])
     lines.extend(f"- {item}" for item in report["notes"])
     return "\n".join(lines) + "\n"
+
+
+def explicit_navigator_markdown(report: dict[str, Any]) -> str:
+    """Render the short, approval-gated contract for an explicit Navigator call."""
+    request = report["navigator_request"]
+    depth = request["depth"]
+    title = {"context": "Context Discovery", "plan": "Navigator Plan", "implement": "Navigator + Implementation Proposal"}[depth]
+    lines = ["# TailTrail Navigator Decision", "", f"**Mode:** {title}", "", "## Scope", "", f"- {request['subject']}"]
+    context = report.get("phase_context")
+    if context:
+        lines.extend(["", "## Planning Context", ""])
+        if context["status"] == "resolved":
+            lines.append(f"- Resolved: `{context['document']}` - {context['heading']}")
+        elif context["status"] == "ambiguous":
+            lines.append(f"- `Phase {context['phase']}` appears in more than one document. Choose one before implementation planning:")
+            lines.extend(f"  - `{item['path']}` - {item['heading']}" for item in context["matches"])
+        else:
+            searched = ", ".join(f"`{item}`" for item in context.get("searched", [])) or "known planning documents"
+            lines.append(f"- `Phase {context['phase']}` was not found in {searched}. Provide the document or exact heading.")
+
+    lines.extend(["", "## Selected TailTrail Features", ""])
+    lines.extend(f"- **{item['name']}** - {item['reason']}" for item in report["selected_features"])
+    lines.extend(["", "## Skipped Features", ""])
+    lines.extend(f"- **{item['name']}** - {item['reason']}" for item in report["skipped_features"])
+    if report.get("requirement_matrix"):
+        lines.extend(["", "## Proposed Requirement-to-Impact Matrix", ""])
+        lines.extend(["| ID | Kind | Requirement | Likely path | Preserve | Proof |", "| --- | --- | --- | --- | --- | --- |"])
+        for row in report["requirement_matrix"]:
+            paths = ", ".join(str(item) for item in row["likely_paths"]) or "confirm during discovery"
+            preserve = "; ".join(str(item) for item in row["preserve_rules"]) or "none recorded"
+            proof = "; ".join(str(item) for item in row["evidence_plan"])
+            lines.append(f"| {row['display_id']} | {row['kind']} | {row['statement']} | {paths} | {preserve} | {proof} |")
+        lines.append("- Durable requirement UIDs are assigned only when this matrix is saved in an approved local anchor.")
+    if report.get("proposal_feedback_protocol"):
+        protocol = report["proposal_feedback_protocol"]
+        lines.extend(["", "## Requirement Discovery Feedback", ""])
+        lines.append(f"- First material rejection: {protocol['first_rejection']}")
+        lines.append(f"- Second material rejection: {protocol['second_rejection']}")
+        lines.append(f"- History: {protocol['history']}")
+    lines.extend(["", "## Navigator Plan", ""])
+    lines.extend(f"{index}. {item}" for index, item in enumerate(report["navigator_plan"], start=1))
+    if depth == "implement":
+        lines.extend(["", "## Detailed Implementation Proposal", ""])
+        lines.extend(f"{index}. {item}" for index, item in enumerate(report["implementation_proposal"], start=1))
+    lines.extend(["", "## Approval", ""])
+    lines.extend(f"- {item}" for item in report["approval"])
+    lines.extend(["", "**No files were changed.**", ""])
+    return "\n".join(lines)
 
 
 def compact_markdown(report: dict[str, Any]) -> str:

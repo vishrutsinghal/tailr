@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["schema_version","type","run_id","changed_paths","requirements"],"properties":{"schema_version":{"const":"1"},"type":{"const":"tailtrail-requirement-impact-map"},"run_id":{"type":"string"},"changed_paths":{"type":"array","items":{"type":"string"}},"requirements":{"type":"array"}}}

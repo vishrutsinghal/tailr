@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/task-recovery-plan.schema.json",
+  "title": "TailTrail Mode A Task Recovery Plan",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "mode", "safe_to_apply", "active_requirement_uid", "restore_from_commit", "expected_paths", "changed_paths", "issues", "rule"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-task-recovery-plan"}, "run_id": {"type": "string"}, "mode": {"const": "mode-a"},
+    "safe_to_apply": {"type": "boolean"}, "active_requirement_uid": {"type": ["string", "null"]}, "restore_from_commit": {"type": "string"},
+    "expected_paths": {"type": "array", "items": {"type": "string"}}, "changed_paths": {"type": "array", "items": {"type": "string"}},
+    "issues": {"type": "array", "items": {"type": "string"}}, "rule": {"type": "string"}
+  }, "additionalProperties": false
+}

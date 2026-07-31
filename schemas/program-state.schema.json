@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["schema_version","type","run_id","activation","features","correction_budget"],"properties":{"type":{"const":"tailtrail-program-state"},"activation":{"const":"hands-free"},"features":{"type":"array"}}}

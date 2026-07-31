@@ -1,0 +1,28 @@
+
+# TailTrail local install/runtime files
+# Keep TailTrail setup files local. Commit only reviewed tailtrail-meta/ metadata.
+.tailtrail/
+tailtrail/
+.github/copilot-instructions.md
+.cursor/rules/tailtrail.mdc
+.openai/chatgpt-instructions.md
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+AIDLC.md
+DEPENDENCY-GATE.md
+GUARDRAILS.md
+GOVERNANCE.md
+TOKEN-AUTOPILOT.md
+TOKEN-SLICER.md
+TAILTRAIL-COMMANDS.md
+USEFUL-PROMPTS.md
+USER-GUIDE.md
+tailtrail-policy.md
+tailtrail-policy.example.md
+aidlc-docs/
+!tailtrail-meta/
+!tailtrail-meta/README.md
+!tailtrail-meta/code-graph-cache.json
+!tailtrail-meta/harness-summary.schema.json
+!tailtrail-meta/harness-summary.jsonl

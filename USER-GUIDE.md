@@ -199,7 +199,7 @@ Use this quick choice table when you are unsure:
 
 ## MCP Server
 
-TailTrail includes an optional read-only MCP server for MCP-capable assistants:
+TailTrail includes an optional inspection-first MCP server for MCP-capable assistants:
 
 ```bash
 python3 scripts/tailtrail.py mcp tools
@@ -207,7 +207,7 @@ python3 scripts/tailtrail.py mcp doctor
 python3 scripts/tailtrail.py mcp serve
 ```
 
-The server exposes `navigator_plan`, `start_report`, `guardrail_check`, `graph_map`, `install_status`, `eval_scenario_list`, and `eval_scenario_report`. It is local stdio only. It does not implement code, run scanners, run tests, edit files, write evaluation result files, apply fixes, upload telemetry, or run in the background by default. Use it when the assistant can call MCP tools directly; otherwise use the normal CLI and Markdown instructions.
+The server exposes Navigator/review/evaluation tools plus `ledger_state`, `anchor_show`, `harness_checkpoint_show`, `completion_feedback_show`, `profile_view`, `validation_receipt_show`, `git_readiness`, and `recovery_boundary_show`. It is local stdio only. `harness_control_check` is the only controlled tool: it requires `approved: true` and a repository-native control file, and it cannot edit source. MCP has no source-edit, commit, push, recovery-apply, telemetry-upload, or background-service tool. Use it when the assistant can call MCP tools directly; otherwise use the normal CLI and Markdown instructions.
 
 ## Guardrail Enforcement Lite
 
@@ -361,6 +361,113 @@ Use Navigator when:
 - you want the agent to propose a plan before implementation
 
 Skip Navigator for tiny tasks when the next step is obvious, such as fixing one typo, formatting one sentence, or answering a simple factual question.
+
+### Canonical Local State And Requirements
+
+For a multi-file change that needs an approval record, use the Phase 1 local
+state commands. They create only `.tailtrail/runs/<run-id>/` artifacts; they do
+not edit project source or call a network service.
+
+```bash
+python3 scripts/tailtrail.py ledger init --run-id claim-validation --goal "reject zero claim amounts"
+python3 scripts/tailtrail.py anchor draft --run-id claim-validation --input proposal.json
+python3 scripts/tailtrail.py anchor approve --run-id claim-validation
+python3 scripts/tailtrail.py ledger state --run-id claim-validation
+```
+
+The draft input contains atomic requirement rows with a statement, kind,
+acceptance criteria, preserve rules, likely paths, and evidence plan. TailTrail
+assigns a durable requirement UID at draft time. If a proposal is rejected, send
+one approve/reject decision for every UID; a rejected row needs a comment. The
+second material rejection requires minimal AIDLC Requirements mode before a new
+material proposal. Phase 1 records approved intent and selected graph evidence;
+it does not yet decide implementation completion or drift.
+
+### Requirement Completion Harness V1
+
+After an anchor is approved, Phase 2 turns selected repository-native checks
+into requirement-linked evidence. The check command is never automatic: it
+requires `--approved` and accepts a JSON control list containing command arrays,
+scope, timeout, severity, evidence label, and approval flag.
+
+```bash
+python3 scripts/tailtrail.py harness plan --run-id claim-validation --controls controls.json --changed src/claims_api/validation.py
+python3 scripts/tailtrail.py harness check --run-id claim-validation --controls controls.json --changed src/claims_api/validation.py --approved --output results.json
+python3 scripts/tailtrail.py harness checkpoint --run-id claim-validation --changed src/claims_api/validation.py --results results.json
+python3 scripts/tailtrail.py harness completion-review --run-id claim-validation --output review.json
+python3 scripts/tailtrail.py harness feedback --root . --run-id claim-validation --review review.json --output feedback.json
+```
+
+The checkpoint records exact control receipts and classifies requirement evidence
+as validated or still incomplete. Completion review emits one bounded correction
+packet when there is a gap. A failing check is implementation evidence, not a
+request to re-gather requirements; re-plan only when the approved requirement
+itself is materially incomplete or incompatible.
+
+Add `--run-id claim-validation` to `harness plan` and `harness check` to retain
+their complete normalized artifacts under `.tailtrail/runs/claim-validation/`.
+Use the same run ID for validation receipts and the completion gate. `ledger
+state --run-id claim-validation` then shows append-only activity counts and
+artifact pointers without copying source into the ledger.
+
+### Evidence-Aware Testing V1
+
+Phase 3 makes test proof requirement-specific. Declare repository-owned tiers
+in a JSON-compatible YAML profile, then record one validation receipt for each
+requirement and tier that ran.
+
+```bash
+python3 scripts/tailtrail.py harness testing-profile validate --profile testing-profile.json
+python3 scripts/tailtrail.py harness validation-receipt --requirement-uid req-... --tier unit --command "python -m unittest" --outcome pass --environment local --asserted-behavior "zero amount is rejected" --output receipt.json
+python3 scripts/tailtrail.py harness requirement-completion --run-id claim-validation --receipts receipts.json
+```
+
+A pass is proof only for the named tier and environment. If required integration,
+contract, E2E, or infrastructure evidence is unavailable or blocked, the gate
+returns incomplete rather than presenting unit evidence as end-to-end proof.
+
+Include `--root . --run-id claim-validation` on `harness validation-receipt` to
+store the complete receipt beside the active run as well as any optional output
+file.
+
+### Phase 1–3 implementation record
+
+Use one run ID across the complete change. TailTrail then retains the exact
+implementation trail in `.tailtrail/runs/<run-id>/`: draft and approved anchor,
+selected controls, normalized command outcomes, requirement checkpoints,
+completion reviews, bounded feedback packets, validation receipts, completion
+gates, and an append-only `events.jsonl` index.
+
+```text
+anchor -> plan -> approved check -> checkpoint -> review -> feedback -> receipt -> completion gate
+```
+
+`ledger state --run-id <run-id>` is the read-only summary command. It reports
+activity counts and artifact pointers. The ledger contains metadata and links;
+the full normalized details stay in their individual JSON artifacts. TailTrail
+does not copy source bodies into this local audit trail.
+
+### Safe Git checkpoints and normal recovery (Phase 4)
+
+Phase 4 is the default safe recovery path for a clean Git repository. Before
+any TailTrail-managed source writing, run `harness git-readiness`. It checks for
+a current `HEAD`, a named branch, local committer identity, and a clean
+worktree; it never stashes, commits, discards, or modifies user work.
+
+Ensure `.tailtrail/` is already ignored by the repository before beginning the
+run. The local ledger and recovery artifacts remain untracked; TailTrail does
+not edit `.gitignore` or create a prerequisite commit on the user's behalf.
+
+After an approved anchor exists, `harness boundary init --approved` creates the
+local `tailtrail/<run-id>` task branch. Activate exactly one approved
+requirement, make and validate its scoped change, then create its local
+checkpoint with `harness boundary checkpoint --approved`. TailTrail records the
+commit and immutable local ref but does not push.
+
+If the active requirement is not working, use `harness recovery plan` first.
+`harness recovery apply --approved` restores only verified, tracked active paths
+to the prior requirement checkpoint. It refuses untracked, renamed, copied,
+out-of-scope, or concurrent edits rather than risking valid earlier work.
 
 ### Bootstrap Snapshot
 
