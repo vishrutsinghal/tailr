@@ -125,8 +125,15 @@ def should_update(
     return True
 
 
-def write_manifest(pack_root: Path, pack_dir: Path) -> None:
-    install_copilot.write_manifest(pack_root, pack_dir, [])
+def write_manifest(
+    pack_root: Path,
+    pack_dir: Path,
+    surface: str,
+    pack_files: list[str] | tuple[str, ...],
+    pack_dirs: list[str] | tuple[str, ...],
+    pack_scripts: list[str] | tuple[str, ...],
+) -> None:
+    install_copilot.write_manifest(pack_root, pack_dir, [], surface, pack_files, pack_dirs, pack_scripts)
 
 
 def update_file(
@@ -158,6 +165,15 @@ def update_copilot(
 ) -> UpdateReport:
     pack_root = target_root / pack_dir
     manifest = load_manifest(pack_root)
+    surface = install_copilot.installed_surface(manifest)
+    if surface not in install_copilot.SURFACES:
+        surface = install_copilot.DEFAULT_SURFACE
+    pack_files, pack_dirs, pack_scripts = install_copilot.resolve(
+        surface,
+        install_copilot.PACK_FILES,
+        install_copilot.PACK_DIRS,
+        install_copilot.PACK_SCRIPTS,
+    )
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     backup_root = target_root / ".tailtrail" / "backups" / f"copilot-update-{timestamp}"
     report = UpdateReport(updated=[], skipped_same=[], conflicts=[], missing=[], backed_up=[])
@@ -172,13 +188,13 @@ def update_copilot(
             write_text_file(copilot_destination, copilot_body)
         report.updated.append(COPILOT_PATH.as_posix())
 
-    for relative_path in install_copilot.pack_entries():
+    for relative_path in install_copilot.pack_entries_for(pack_files, pack_dirs, pack_scripts):
         source = ROOT / relative_path
         destination = pack_root / relative_path
         update_file(destination, source, relative_path, target_root, backup_root, manifest, strategy, dry_run, report)
 
     if not dry_run and not report.conflicts:
-        write_manifest(pack_root, pack_dir)
+        write_manifest(pack_root, pack_dir, surface, pack_files, pack_dirs, pack_scripts)
     if dry_run:
         report.updated = [f"{path} (dry-run)" for path in report.updated]
     return report

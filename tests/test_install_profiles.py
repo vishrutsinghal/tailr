@@ -27,6 +27,7 @@ surfaces = load_script("install_surfaces.py")
 copilot = load_script("install-copilot.py")
 local = load_script("install-local.py")
 launcher = load_script("install-launcher.py")
+updater = load_script("update-copilot.py")
 
 
 def run(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -197,6 +198,15 @@ class InstallProfileTests(unittest.TestCase):
         }
         self.assertLessEqual(registered_scripts, set(copilot.PACK_SCRIPTS))
         self.assertLessEqual(registered_root_docs, set(copilot.PACK_FILES))
+
+    def test_copilot_update_rewrites_manifest_with_the_installed_surface(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            report = updater.update_copilot(target, Path("tailtrail"), "preserve", False)
+            manifest = json.loads((target / "tailtrail" / ".tailtrail-install.json").read_text(encoding="utf-8"))
+        self.assertFalse(report.conflicts)
+        self.assertEqual(manifest["surface"], "extended")
+        self.assertIn("scripts/completion-report.py", manifest["files"])
 
 
 if __name__ == "__main__":
