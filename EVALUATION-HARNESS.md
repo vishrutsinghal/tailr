@@ -414,6 +414,74 @@ Live mode requires:
 - saved sanitized output
 - no automatic leaderboard publication
 
+## Implemented: Paired Multi-File Delivery Dataset V1
+
+The original deterministic scenario harness scores text artifacts. That is useful
+for rubric behavior, but it is not enough to show whether TailTrail's delivery
+controls help on the multi-file failures users actually see: missed callers,
+missing integration tests, repeated correction loops, and scope drift.
+
+`benchmarks/evaluation/delivery-dataset/v1.json` now supplies a separate,
+versioned paired dataset with 12 realistic cross-file tasks. Each task names its
+affected paths and stores the same outcome fields for a `baseline` and
+`tailtrail` variant. The current task set covers validation, retries, API
+contracts, permissions, concurrency, migration safety, workers, webhooks,
+search, retention, quotas, and refactoring.
+
+```text
+curated paired task fixtures
+          |
+          v
+eval dataset validate ----> schema/count/metric checks
+          |
+          v
+eval dataset report ------> deterministic aggregate comparison
+          |
+          v
+metric contract ready for blinded real runs
+```
+
+### Metric contract
+
+| Metric | Source field | Interpretation |
+| --- | --- | --- |
+| Requirement completion | `requirements.completed / total` | Whether all accepted requirements were delivered. |
+| Missed caller/test cases | `missed_callers`, `missed_tests` | Known paths or proof obligations omitted by the variant. |
+| Correction cycles | `correction_cycles` | Implementation/review correction rounds needed before closure. |
+| Scope drift | `scope_drift_paths` | Changed paths outside the approved requirement boundary. |
+| False interventions | `false_interventions` | Harness actions that added cost without identifying a real gap. |
+| Developer review time | `developer_review_minutes` | Time recorded against the review rubric. |
+
+The evaluator totals count metrics and requirement counts across the dataset,
+then reports TailTrail-minus-baseline deltas. Completion-rate improvement is
+positive; lower count/time deltas are improvements. It intentionally does not
+calculate a synthetic single quality score, because that would hide tradeoffs.
+
+### Commands and implementation boundary
+
+```bash
+python3 scripts/tailtrail.py eval dataset validate
+python3 scripts/tailtrail.py eval dataset list
+python3 scripts/tailtrail.py eval dataset report --format json
+```
+
+Changed surfaces are intentionally narrow:
+
+| Area | Implementation |
+| --- | --- |
+| Dataset | `benchmarks/evaluation/delivery-dataset/v1.json` contains only sanitized task metadata and numeric outcome fixtures. |
+| Evaluator | `scripts/evaluation-dataset.py` validates 10–20 paired multi-file tasks and renders deterministic Markdown/JSON aggregation. |
+| Router | `scripts/evaluation-harness.py` exposes `eval dataset`; existing scenario commands remain unchanged. |
+| Contract | `schemas/evaluation-delivery-dataset.schema.json` documents the versioned dataset shape. |
+| Guardrails | Tests reject wrong variant sets, invalid counts, duplicate IDs, and tasks with fewer than two affected files. |
+
+V1 is **curated-local-fixture** evidence. It proves the dataset format,
+aggregation code, and report vocabulary—not that a particular model or developer
+will obtain the displayed outcomes. A later measured dataset must use blinded,
+repeated runs with a fixed repository revision, task brief, model/configuration,
+time budget, and reviewer rubric. Those observations must be labelled
+`measured`, retain run references, and never overwrite the fixture dataset.
+
 ## Proposed Command Surface
 
 Primary umbrella command:

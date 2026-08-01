@@ -37,6 +37,8 @@ DEFAULT_READ_ONLY_TOOLS = (
     "context_continuity_show",
     "context_continuity_render",
     "context_continuity_advisory_show",
+    "completion_report_show",
+    "workflow_dashboard_show",
 )
 CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply")
 DENIED_TOOL_TERMS = (
@@ -179,6 +181,8 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "context_continuity_show": {"name": "context_continuity_show", "description": "Read a saved Context Continuity V1 state and packet. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
         "context_continuity_render": {"name": "context_continuity_render", "description": "Preview a deterministic Context Continuity V1/V2 packet without writing state, editing source, running tests, or calling a model. An optional repository-relative policy can add template guidance only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "requirement_uid": {"type": "string"}, "trigger": {"type": "string"}, "policy": {"type": "string"}}, ["run_id"])},
         "context_continuity_advisory_show": {"name": "context_continuity_advisory_show", "description": "Read a saved Context Continuity V3 advisory validation record. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "completion_report_show": {"name": "completion_report_show", "description": "Read a saved end-of-task TailTrail Completion Report. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "workflow_dashboard_show": {"name": "workflow_dashboard_show", "description": "Read the current local TailTrail requirement, checkpoint, drift, evidence, and recovery dashboard. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
         "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["patch", "approved"])},
     }
@@ -513,6 +517,18 @@ def context_continuity_advisory_show(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "context_continuity_advisory_show", "result": module.advisory_show(root_from(args), run_id(args), args.get("sequence")), "read_only": True}
 
 
+def completion_report_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("completion_report_mcp", script("completion-report.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return {"tool": "completion_report_show", "result": module.show(root_from(args), run_id(args), args.get("sequence")), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def workflow_dashboard_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("workflow_dashboard_mcp", script("workflow-dashboard.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return {"tool": "workflow_dashboard_show", "result": module.dashboard(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "navigator_plan": navigator_plan,
     "start_report": start_report,
@@ -525,7 +541,7 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "completion_feedback_show": completion_feedback_show, "profile_view": profile_view,
     "validation_receipt_show": validation_receipt_show, "release_confidence_show": release_confidence_show, "git_readiness": git_readiness,
     "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
-    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply,
+    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply,
 }
 
 

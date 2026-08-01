@@ -71,6 +71,7 @@ COMMANDS = {
     "registry": "Inspect and validate the TailTrail feature registry.",
     "policy": "Initialize or validate local TailTrail policy files.",
     "install": "Run install helpers.",
+    "first-run": "Verify a local TailTrail install and show one simple first action.",
     "update": "Run update-tailtrail.py.",
     "team-init": "Run team-init.py.",
     "adapters": "Check or sync assistant adapter files and required adapter behavior.",
@@ -796,6 +797,10 @@ def harness(args: list[str]) -> int:
         return run_script("harness-checkpoint.py", args[1:])
     if args and args[0] == "completion-review":
         return run_script("completion-review.py", args[1:])
+    if args and args[0] == "completion-report":
+        return run_script("completion-report.py", args[1:])
+    if args and args[0] == "dashboard":
+        return run_script("workflow-dashboard.py", args[1:])
     if args and args[0] == "feedback":
         return run_script("harness-feedback.py", args[1:])
     if args and args[0] == "impact-map":
@@ -991,6 +996,8 @@ def main() -> int:
         return run_script("policy-check.py", args)
     if command == "install":
         return install(args)
+    if command == "first-run":
+        return run_script("first-run.py", args)
     if command == "update":
         return run_script("update-tailtrail.py", args)
     if command == "team-init":

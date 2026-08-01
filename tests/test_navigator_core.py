@@ -448,7 +448,7 @@ class NavigatorCoreTests(unittest.TestCase):
             report = task_start.build_report("fix typo in README", root, ["README.md"], "tailtrail")
 
         self.assertEqual(report["navigator"]["recommended_workflow"], ["lean"])
-        self.assertEqual(report["next_step"], "Review the plan, choose one next action, then approve or edit before implementation.")
+        self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
         actions = {item["action"] for item in report["next_actions"]}
         self.assertIn("review", actions)
         self.assertIn("approve", actions)
@@ -457,6 +457,48 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertEqual(report["code_intelligence"]["default_engine_path"], ["lite", "v1", "v2"])
         self.assertIn("V3 is never default", report["code_intelligence"]["v3_rule"])
         self.assertIn("must not auto-run JDT", report["code_intelligence"]["auto_run_rule"])
+        self.assertEqual(report["guided_delivery"]["mode"], "lean")
+        self.assertIn("Lean delivery", {item["name"] for item in report["guided_delivery"]["selected"]})
+
+    def test_task_start_selects_multi_file_delivery_controls_without_auto_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = task_start.build_report("add payment API workflow", root, ["src/api.py", "src/service.py"], "tailtrail")
+            rendered = task_start.render_markdown(report)
+
+        selected = {item["name"] for item in report["guided_delivery"]["selected"]}
+        self.assertTrue({"Canonical requirements", "Requirement Completion Harness", "Architecture Fitness Harness", "Behaviour Harness"}.issubset(selected))
+        self.assertIn("## Guided Delivery", rendered)
+        self.assertIn("does not itself edit source", report["guided_delivery"]["execution_boundary"])
+
+    def test_task_start_uses_only_explicit_run_evidence_for_correction_and_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run = root / ".tailtrail" / "runs" / "payment-retry"
+            (run / "feedback").mkdir(parents=True)
+            (run / "checkpoints").mkdir()
+            (run / "recovery").mkdir()
+            (run / "feedback" / "feedback-1.json").write_text(json.dumps({"packet": {"evidence": "worker proof missing"}}), encoding="utf-8")
+            (run / "checkpoints" / "checkpoint-1.json").write_text(json.dumps({"drift": [{"classification": "regressed"}]}), encoding="utf-8")
+            (run / "recovery" / "plan-1.json").write_text("{}", encoding="utf-8")
+            report = task_start.build_report("fix payment retry", root, ["src/worker.py"], "tailtrail", "payment-retry")
+
+        selected = {item["name"] for item in report["guided_delivery"]["selected"]}
+        self.assertIn("Context Continuity Harness", selected)
+        self.assertIn("Bounded Correction", selected)
+        self.assertIn("Git Readiness / Recovery Boundary", selected)
+        self.assertEqual(report["guided_delivery"]["run_signals"]["drift"], ["regressed"])
+
+    def test_task_start_does_not_guess_prior_run_state_without_run_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".tailtrail" / "runs" / "other-task" / "feedback").mkdir(parents=True)
+            (root / ".tailtrail" / "runs" / "other-task" / "feedback" / "feedback-1.json").write_text("{}", encoding="utf-8")
+            report = task_start.build_report("fix payment retry", root, ["src/worker.py"], "tailtrail")
+
+        selected = {item["name"] for item in report["guided_delivery"]["selected"]}
+        self.assertNotIn("Context Continuity Harness", selected)
+        self.assertEqual(report["guided_delivery"]["run_signals"]["status"], "not-requested")
 
     def test_task_start_keeps_evaluation_harness_available_for_simple_tasks(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

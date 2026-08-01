@@ -397,6 +397,8 @@ def main() -> int:
     code = apply_steps(target, steps, args.dry_run)
     if code == 0:
         print("Done. Review target project changes before committing.")
+        if not args.dry_run:
+            return run([sys.executable, str(ROOT / "scripts" / "first-run.py"), "--target", target.as_posix(), "--profile", profile, "--pack-dir", args.pack_dir])
     return code
 
 

@@ -54,7 +54,7 @@ def run_script(name: str, args: list[str]) -> int:
 
 
 def usage() -> int:
-    print("Usage: tailtrail eval audit|normalize|validate-events|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
+    print("Usage: tailtrail eval audit|normalize|validate-events|dataset|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
     print("")
     print("Implemented in EH-2 aliases:")
     print("- eval audit")
@@ -69,6 +69,7 @@ def usage() -> int:
     print("")
     print("Implemented in EH-3 events:")
     print("- eval scenario list|run|compare|report")
+    print("- eval dataset list|validate|report")
     print("- eval normalize --source <kind> --input <path>")
     print("- eval validate-events [path]")
     print("")
@@ -698,6 +699,10 @@ def artifact(args: list[str]) -> int:
     return 2
 
 
+def dataset(args: list[str]) -> int:
+    return run_script("evaluation-dataset.py", args)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help", "help"}:
@@ -712,6 +717,8 @@ def main(argv: list[str] | None = None) -> int:
         return validate_events(rest)
     if action == "scenario":
         return scenario(rest)
+    if action == "dataset":
+        return dataset(rest)
     if action == "portfolio":
         return portfolio(rest)
     if action == "guardrails":

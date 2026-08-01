@@ -43,6 +43,14 @@ class EvaluationHarnessRouterTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("TailTrail Evaluation Scenarios", result.stdout)
 
+    def test_eval_dataset_reports_paired_multifile_metrics(self) -> None:
+        result = self.run_tailtrail("eval", "dataset", "report", "--format", "json")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["type"], "tailtrail-delivery-evaluation-report")
+        self.assertEqual(report["task_count"], 12)
+
     def test_eval_portfolio_run_delegates_to_efficacy_runner(self) -> None:
         result = self.run_tailtrail("eval", "portfolio", "run", "--help")
 

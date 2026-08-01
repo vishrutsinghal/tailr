@@ -161,6 +161,9 @@ def install(destination: Path, dry_run: bool, force: bool, hello_alias: str | No
         print()
         print("PATH note:")
         print(f"- Add `{destination.parent.as_posix()}` to PATH, or run the launcher by full path.")
+    print()
+    print("Smoke test passed: TailTrail launcher files were installed.")
+    print('First command: tailtrail start "<your task>"')
     return 0
 
 

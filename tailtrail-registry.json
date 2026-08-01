@@ -209,11 +209,11 @@
       "roadmap_ref": "Harness Engineering Phase 2",
       "owner": "tailtrail-core",
       "governance_class": "governance",
-      "commands": ["tailtrail harness plan", "tailtrail harness check", "tailtrail harness checkpoint", "tailtrail harness completion-review", "tailtrail harness feedback", "tailtrail harness impact-map", "tailtrail harness converge", "tailtrail harness template"],
-      "docs": ["README.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "tailtrail-implementation-backlog.md", "schemas/harness-control.schema.json", "schemas/harness-result.schema.json", "schemas/harness-checkpoint.schema.json", "schemas/requirement-impact-map.schema.json", "schemas/harness-convergence.schema.json", "schemas/harness-template-selection.schema.json", "templates/harness-checkpoint.md", "templates/harness-feedback.md", "templates/harness-templates.example.json"],
-      "scripts": ["scripts/harness-controls.py", "scripts/harness-checkpoint.py", "scripts/completion-review.py", "scripts/harness-feedback.py", "scripts/requirement-impact-map.py", "scripts/harness-convergence.py", "scripts/harness-template.py"],
-      "tests": ["tests/test_harness_controls.py", "tests/test_harness_checkpoint.py", "tests/test_harness_feedback.py", "tests/test_completion_review.py", "tests/test_requirement_harness_v2_v4.py"],
-      "mcp_tools": [],
+      "commands": ["tailtrail harness plan", "tailtrail harness check", "tailtrail harness checkpoint", "tailtrail harness completion-review", "tailtrail harness completion-report", "tailtrail harness dashboard", "tailtrail harness feedback", "tailtrail harness impact-map", "tailtrail harness converge", "tailtrail harness template"],
+      "docs": ["README.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "tailtrail-automation-guide.md", "harness-engineering-workflow.md", "tailtrail-implementation-backlog.md", "schemas/harness-control.schema.json", "schemas/harness-result.schema.json", "schemas/harness-checkpoint.schema.json", "schemas/completion-report.schema.json", "schemas/workflow-dashboard.schema.json", "schemas/requirement-impact-map.schema.json", "schemas/harness-convergence.schema.json", "schemas/harness-template-selection.schema.json", "templates/harness-checkpoint.md", "templates/harness-feedback.md", "templates/harness-templates.example.json"],
+      "scripts": ["scripts/harness-controls.py", "scripts/harness-checkpoint.py", "scripts/completion-review.py", "scripts/completion-report.py", "scripts/workflow-dashboard.py", "scripts/harness-feedback.py", "scripts/requirement-impact-map.py", "scripts/harness-convergence.py", "scripts/harness-template.py"],
+      "tests": ["tests/test_harness_controls.py", "tests/test_harness_checkpoint.py", "tests/test_harness_feedback.py", "tests/test_completion_review.py", "tests/test_completion_report.py", "tests/test_workflow_dashboard.py", "tests/test_requirement_harness_v2_v4.py"],
+      "mcp_tools": ["completion_report_show", "workflow_dashboard_show"],
       "requires_approval": true,
       "read_only": false,
       "evidence_label": "local-evidence",
@@ -262,7 +262,9 @@
       "docs": [
         "USER-GUIDE.md",
         "context/navigator.md",
-        "NAVIGATOR-TEST-SCENARIOS.md"
+        "NAVIGATOR-TEST-SCENARIOS.md",
+        "tailtrail-automation-guide.md",
+        "harness-engineering-workflow.md"
       ],
       "scripts": [
         "scripts/navigator.py",
@@ -786,6 +788,7 @@
       "commands": [
         "tailtrail install",
         "tailtrail install codex",
+        "tailtrail first-run",
         "tailtrail update",
         "tailtrail setup-scan",
         "tailtrail team-init"
@@ -798,6 +801,7 @@
       "scripts": [
         "scripts/install-copilot.py",
         "scripts/install-local.py",
+        "scripts/first-run.py",
         "scripts/install-launcher.py",
         "scripts/install_surfaces.py",
         "scripts/update-tailtrail.py",
@@ -806,7 +810,8 @@
         "scripts/team-init.py"
       ],
       "tests": [
-        "tests/test_install_profiles.py"
+        "tests/test_install_profiles.py",
+        "tests/test_first_run.py"
       ],
       "mcp_tools": [
         "install_status"
@@ -846,7 +851,7 @@
       "tests": [
         "tests/test_mcp_server.py"
       ],
-      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "harness_control_check"],
+      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "workflow_dashboard_show", "harness_control_check"],
       "requires_approval": true,
       "read_only": false,
       "evidence_label": "local-evidence",
@@ -1077,7 +1082,8 @@
         "tailtrail eval scenario compare",
         "tailtrail eval scenario report",
         "tailtrail eval normalize",
-        "tailtrail eval validate-events"
+        "tailtrail eval validate-events",
+        "tailtrail eval dataset list|validate|report"
       ],
       "docs": [
         "EVALUATION-HARNESS.md",
@@ -1085,17 +1091,21 @@
         "USER-GUIDE.md",
         "TAILTRAIL-COMMANDS.md",
         "benchmarks/evaluation/README.md",
+        "benchmarks/evaluation/delivery-dataset/v1.json",
         "schemas/evaluation-harness-event.schema.json",
+        "schemas/evaluation-delivery-dataset.schema.json",
         "templates/evaluation-result.md"
       ],
       "scripts": [
         "scripts/evaluation-audit.py",
-        "scripts/evaluation-harness.py"
+        "scripts/evaluation-harness.py",
+        "scripts/evaluation-dataset.py"
       ],
       "tests": [
         "tests/test_evaluation_audit.py",
         "tests/test_evaluation_harness_router.py",
-        "tests/test_evaluation_harness_scenarios.py"
+        "tests/test_evaluation_harness_scenarios.py",
+        "tests/test_evaluation_dataset.py"
       ],
       "mcp_tools": [
         "eval_scenario_list",

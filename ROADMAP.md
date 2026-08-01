@@ -71,13 +71,13 @@ Goal: make TailTrail approachable for a new user who does not know the feature m
 
 Priority: highest.
 
-Status: implemented for the first V2.1 slice. `start` is now the primary documented first command, the command catalog includes a decision table, and the Start report includes a Start Here section plus a Decision Menu.
+Status: implemented. `start` is the primary documented first command, the command catalog includes a decision table, and the Start report includes Start Here, a Decision Menu, and a deterministic Guided Delivery sequence.
 
 Scope:
 
 - Make Navigator-first task entry the primary first step in README, user guide, demo, and command catalog. Implemented through `start`, daily `do`, and free-form task fallback.
 - Add a command decision table. Implemented in `TAILTRAIL-COMMANDS.md` and summarized in `USER-GUIDE.md`.
-- Tighten `start` output so the next action is obvious. Implemented with Start Here, Decision Menu, and approval/edit/scan/learning/leaner prompts.
+- Tighten `start` output so the next action is obvious. Implemented with Start Here, Decision Menu, approval/edit/scan/learning/leaner prompts, and a Guided Delivery selection that shows which harnesses run after approval versus which activate only on a documented trigger.
 - Add a benchmark scenario for the Start command user experience. Implemented with `benchmarks/scenarios/start-command-ux/`.
 - `tailtrail.py next` is now implemented as read-only continuation guidance after `start`.
 - Keep advanced commands visible but secondary. Implemented in docs.
@@ -85,8 +85,8 @@ Scope:
 Implementation design:
 
 - `scripts/task-start.py` remains a report generator, not an implementation agent.
-- It calls Navigator, then adds a small `next_actions` list to make the user decision explicit.
-- The Markdown output starts with `Start Here`, followed by a `Decision Menu`.
+- It calls Navigator, derives the smallest deterministic Guided Delivery sequence from task type, risk, known changed files, explicit hands-free intent, and (only when explicitly named) `--run-id` evidence, then adds a small `next_actions` list to make the user decision explicit. At closure, `harness completion-report` consolidates the saved requirement, scope, test, lens, drift, and recovery evidence into one fail-closed handoff artifact.
+- The Markdown output starts with `Start Here`, followed by Guided Delivery and a Decision Menu. It selects requirements, impact mapping, evidence-aware testing, architecture/behaviour/maintainability checks only when relevant; continuity and recovery become selected only for an explicit run containing relevant local evidence, while higher-tier testing remains trigger-based.
 - Scan and learning actions only appear when Navigator reports `scan_approval` or `learning_approval`.
 - Token posture remains a cautious local estimate and is not presented as exact model/API usage.
 
@@ -676,9 +676,28 @@ Context continuity V1-V3 implementation for selective requirement reminders,
 iteration memory, additive local project templates, intervention receipts,
 saved-artifact calibration, and opt-in validated host-supplied model advisories;
 it also covers hands-free program state and requirement-discovery rejection
-memory. TailTrail owns the local validation/fallback boundary, not model calls,
+handling. Evaluation Harness now also includes a deterministic paired 12-task
+multi-file delivery dataset via `eval dataset`. It validates and aggregates
+requirement completion, missed callers/tests, correction cycles, scope drift,
+false interventions, and review time. The V1 results are explicitly labelled
+curated fixture evidence; live-model or productivity claims remain deferred until
+blinded repeated observations exist. First-run guidance now verifies an installed
+profile and gives users one short, profile-appropriate starting action; the
+read-only Workflow Dashboard renders active requirement, checkpoint, evidence,
+drift, recovery, and completion state from saved artifacts only. Neither feature
+starts an agent, executes project tests, changes source, or opens a server.
+
+Context Continuity uses compact requirement-level iteration memory. TailTrail owns the local validation/fallback boundary, not model calls,
 credentials, or host retention:
 [Context Continuity Harness](context-continuity-harness.md).
+
+The exact automatic-selection triggers, required evidence, and intentionally
+non-automatic execution boundaries are documented in [TailTrail Automatic
+Routing and Trigger Guide](tailtrail-automation-guide.md). The updated broad
+reference flow that connects Navigator, all harness lenses, first-run guidance,
+dashboard visibility, explicit completion reporting, and product-level
+evaluation is [TailTrail Harness Engineering: Maximum-Coverage
+Workflow](harness-engineering-workflow.md).
 
 Testing assessment and the proposed path from focused unit checks to
 requirement-linked integration, contract, E2E, infrastructure, and release-smoke
@@ -11094,10 +11113,11 @@ Implementation phases:
 4. **EH-3 Shared Evaluation Event Schema - Implemented**: added the common Evaluation Harness event contract, `schemas/evaluation-harness-event.schema.json`, `templates/evaluation-result.md`, and approval-gated local JSONL output at `.tailtrail/evaluation/events.jsonl`. `eval normalize` and `eval validate-events` are available without scenario scoring, hidden telemetry, raw prompt/source/log storage, uploads, or report migration. Detailed schema, privacy rules, source adapters, write modes, tests, and acceptance criteria live in `EVALUATION-HARNESS.md`.
 5. **EH-4 Scenario Harness V1 - Implemented**: deterministic saved-artifact scenario scoring is available through `eval scenario list|run|compare|report`, with committed fixtures under `benchmarks/evaluation/scenarios/`, rubric-backed per-dimension scores, winner/delta comparison, Markdown/JSON reports, claim boundaries, and approval-gated report writes. No live agents, model/API calls, repo modification, scanners, package managers, hidden telemetry, or exact token claims. Detailed scenario layout, scoring rubric, initial scenario set, files, tests, and acceptance criteria live in `EVALUATION-HARNESS.md`.
 6. **EH-8 Build Week Demo As Scenario - Implemented**: add a formal `buildweek-validation` scenario under `benchmarks/evaluation/scenarios/` so the Build Week demo has repeatable fixture-backed proof through `eval scenario report --scenario buildweek-validation`. The live `buildweek-demo-project/` remains human-readable and independent; the scenario reads only committed sanitized artifacts and uses the existing EH-4 deterministic scorer. Planned files include `scenario.json`, `baseline-artifact.md`, `tailtrail-artifact.md`, `expected.json`, and a scenario README. Navigator should route Build Week/demo/proof prompts to this scenario, and MCP can use existing read-only `eval_scenario_list` and `eval_scenario_report` tools. No live agents, model/API calls, scanner/test/build execution, raw prompt/source/log capture, automatic report writes, or exact token-saving claims are included. Detailed implementation design, scoring dimensions, tests, acceptance criteria, and non-goals live in `EVALUATION-HARNESS.md`.
-7. **EH-5 Portfolio Consolidation**: migrate efficacy portfolio into the umbrella report model.
-8. **EH-7 Token Evidence Integration**: consume Token Harness proof, receipts, ledger, and measured telemetry.
-9. **EH-6 Meta-Harness Integration**: Meta-Harness consumes normalized Evaluation Harness evidence and produces registry-aware proposals.
-10. **EH-9 Optional Live-Agent Mode**: deferred to a separate RFC/design doc; explicit-approval isolated Codex/Claude runs only after deterministic scoring is stable.
+7. **EH-4.1 Paired Multi-File Delivery Dataset - Implemented**: `eval dataset list|validate|report` now reads `benchmarks/evaluation/delivery-dataset/v1.json`, a 12-task paired baseline/TailTrail fixture set. The report exposes requirement completion, missed callers/tests, correction cycles, scope drift, false interventions, and review-time deltas without collapsing them into an unsupported quality score. It validates task count, paired variants, requirement counts, metric types, unique IDs, and a two-file minimum. V1 is curated fixture evidence only; measured real-run comparisons require a separately versioned, blinded dataset.
+8. **EH-5 Portfolio Consolidation**: migrate efficacy portfolio into the umbrella report model.
+9. **EH-7 Token Evidence Integration**: consume Token Harness proof, receipts, ledger, and measured telemetry.
+10. **EH-6 Meta-Harness Integration**: Meta-Harness consumes normalized Evaluation Harness evidence and produces registry-aware proposals.
+11. **EH-9 Optional Live-Agent Mode**: deferred to a separate RFC/design doc; explicit-approval isolated Codex/Claude runs only after deterministic scoring is stable.
 
 Success criteria:
 

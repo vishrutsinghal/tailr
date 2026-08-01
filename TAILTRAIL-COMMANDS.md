@@ -233,6 +233,7 @@ python3 scripts/tailtrail.py harness plan --run-id example-change --controls con
 python3 scripts/tailtrail.py harness check --run-id example-change --controls controls.json --changed src/service.py --approved --output results.json
 python3 scripts/tailtrail.py harness checkpoint --run-id example-change --changed src/service.py --results results.json
 python3 scripts/tailtrail.py harness completion-review --run-id example-change --output review.json
+python3 scripts/tailtrail.py harness completion-report --root . --run-id example-change
 python3 scripts/tailtrail.py harness feedback --root . --run-id example-change --review review.json --output feedback.json
 python3 scripts/tailtrail.py harness impact-map --root . --run-id example-change --changed src/service.py
 python3 scripts/tailtrail.py harness converge --root . --run-id example-change --requirement-uid req-... --state unchanged --max-cycles 2
@@ -255,6 +256,52 @@ validation-receipt` to retain complete normalized artifacts under the Phase 1
 run directory. Checkpoints and completion gates always write there. The
 append-only ledger records event type, requirement UID, result summary, and an
 artifact pointer; it does not copy raw source into the ledger.
+
+`completion-report` writes one compact, end-of-task artifact under
+`.tailtrail/runs/<run-id>/completion-reports/`. It aggregates—not replaces—the
+approved anchor, checkpoint, completion review/gate, Architecture Fitness,
+Behaviour Harness, validation receipts, drift state, and recovery boundary. A
+missing artifact is shown as `unavailable` or `not-assessed`; it is never shown
+as a pass. Add `--show` to read the most recent saved report without writing.
+
+### First-run guidance and workflow dashboard
+
+Every successful `install-local.py` profile installation now finishes with a
+read-only smoke check and one short first action. Run it again at any time:
+
+```bash
+python3 scripts/first-run.py --target /path/to/project --profile codex-plugin
+```
+
+The check verifies the expected installed guidance/skill files and TailTrail's
+local `hello` command. It does not edit the target, run its tests, or invoke an
+agent. Codex users should start with `Using TailTrail Navigator, plan "<task>"
+before implementation.`
+
+The workflow dashboard is a local, read-only view of an existing run:
+
+```bash
+python3 scripts/tailtrail.py harness dashboard --root . --run-id example-change
+python3 scripts/tailtrail.py harness dashboard --root . --run-id example-change --format html --output tailtrail-dashboard.html
+```
+
+It reads the approved anchor, latest checkpoint, requirement states, drift,
+review/gate posture, recovery availability, and any Completion Report. HTML is
+rendered only when an explicit `--output` path is supplied; it never starts a
+server, runs checks, edits source, or applies recovery.
+
+## Real evaluation dataset
+
+```bash
+python3 scripts/tailtrail.py eval dataset validate
+python3 scripts/tailtrail.py eval dataset report
+```
+
+The delivery dataset contains 12 paired, realistic multi-file task fixtures. It
+reports requirement completion, missed caller/test cases, correction cycles,
+scope drift, false interventions, and developer review time for baseline versus
+TailTrail outcomes. The current V1 values are curated local fixtures that prove
+the evaluation contract and aggregation pipeline—not live model performance.
 
 ## Safe Git checkpoints and recovery (Phase 4)
 
@@ -1201,10 +1248,13 @@ hello tailtrail
 tailtrail hello
 tailtrail guide "tell me important features of this repo"
 tailtrail start "fix Sonar issue and prepare PR" --changed path/to/file
+tailtrail start "continue payment retry correction" --changed src/worker.py --run-id payment-retry
 tailtrail reference --target /path/to/service-a --reference /path/to/service-b --goal "match validation style"
 ```
 
 The `hello` alias handles `hello tailtrail`, `hello TailTrail`, and the common typo `hello taitrail`, then delegates to `tailtrail hello`. If the launcher was installed before the alias existed, rerun `python3 scripts/tailtrail.py install launcher --force`.
+
+`tailtrail start` is the default guided-delivery entry point: it selects the smallest applicable TailTrail controls, shows the approval-ready sequence, and marks recovery, continuity, higher-tier testing, and other advanced controls as later triggers. It remains approval-first and does not edit source, run tests, or invoke an implementation agent by itself.
 
 If the installer says the bin directory is not on `PATH`, add that directory to your shell profile or run the launcher by full path.
 

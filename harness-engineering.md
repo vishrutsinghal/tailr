@@ -548,6 +548,67 @@ mapping tools, but it does not own the correction loop, mutate the approved
 state, or declare requirements complete merely because its impact prediction
 looked plausible.
 
+### Navigator Feature Auto-Selection and Guided Delivery
+
+The command surface must not require a developer to understand every TailTrail
+harness before beginning ordinary work. `tailtrail start` is therefore the
+**feature-selection entry point**: Navigator identifies task/scope/risk facts;
+Start converts those facts into the smallest approval-ready delivery sequence.
+This is routing, not an implementation agent or a background orchestrator.
+
+```mermaid
+flowchart TB
+    A["User goal + optional changed files"] --> B["Navigator: task type, risk, likely scope"]
+    B --> C{"Tiny and low risk?"}
+    C -->|"Yes"| D["Lean delivery + focused proof"]
+    C -->|"No"| E["Canonical requirements + completion + evidence-aware testing"]
+    E --> F{"Multi-file, feature, service, API, migration?"}
+    F -->|"Yes"| G["Impact map + architecture fitness"]
+    F -->|"No"| H["Keep baseline narrow"]
+    G --> I{"User-facing/API/journey contract?"}
+    I -->|"Yes"| J["Behaviour Harness"]
+    I -->|"No"| K["Approval-ready delivery plan"]
+    J --> K
+    K --> L{"Explicit --run-id evidence?"}
+    L -->|"Feedback or unresolved drift"| M["Continuity packet + one bounded correction"]
+    L -->|"Recovery artifact"| N["Git readiness + recovery boundary"]
+    L -->|"No run ID / no trigger"| O["Implementation begins only after approval"]
+```
+
+#### Selection contract
+
+| Input signal | Select now | Defer until trigger | Reason |
+| --- | --- | --- | --- |
+| Tiny low-risk task | Lean delivery, exact target, focused proof | All broad controls | Small work must stay small. |
+| Normal code task | Canonical requirements, Requirement Completion Harness, Evidence-Aware Testing | Architecture/behaviour unless scope requires them | Every non-trivial change needs an approved outcome and proof. |
+| Multiple `--changed` paths or feature/service/API/migration wording | Requirement-to-Impact Map, Architecture Fitness | Recovery unless evidence requires it | Callers and layer boundaries are likely relevant. |
+| UI/API/workflow/user journey wording | Behaviour Harness | Higher-tier environment proof unless evidence profile selects it | A passing unit test is not sufficient flow evidence. |
+| Refactor wording | Maintainability Harness | Behaviour unless behavior changes | Detects abstraction/duplication/scope drift. |
+| `hands-free` / `end-to-end` wording | Program Delivery Harness | Per-feature recovery/continuity unless triggered | Broad work needs feature sequencing and resume state. |
+| Explicit `--run-id` with feedback or `unchanged`, `regressed`, `new-drift`, or `needs-decision` checkpoint | Context Continuity Harness, one Bounded Correction | More corrections after the budget/evidence gate | Prevents repeating the last incomplete approach. |
+| Explicit `--run-id` with recovery plan/reconciliation artifact | Git Readiness / Task Recovery Boundary | Selective recovery execution until approved | Preserves active-task ownership and unrelated developer work. |
+
+`--run-id` is intentionally required for run-state escalation. Auto-discovering
+the newest failed run could attach another task's feedback, drift, or recovery
+boundary to the user’s current request. The router therefore reports
+`not-requested` without the flag, `missing` for an unknown run, or `found` with
+exact local evidence pointers for a matching run.
+
+#### Runtime implementation boundary
+
+`scripts/task-start.py` owns the deterministic selection table and exposes it
+as `guided_delivery` in the Markdown/JSON Start report. It reads only the named
+run's compact feedback, checkpoint, and recovery artifact paths. It does not
+render a continuity packet, apply a correction, initialize Git recovery, edit
+source, run tests, invoke a model, or claim completion. Those actions remain
+separate approved steps owned by the relevant harness/host agent.
+
+The Start report must show four things compactly: selected controls and why;
+later-only controls and their exact triggers; run-evidence status/pointers; and
+the explicit approval sentence. This lets a developer challenge an overly heavy
+route before code changes begin, while removing the need to memorize every
+individual TailTrail command.
+
 ### Navigator Requirement Discovery and Approval Protocol
 
 Navigator must not treat a rejected requirement proposal as permission to guess
@@ -3556,6 +3617,59 @@ actual evidence, changed tests with rationale, and any unresolved risks instead
 of a sequence of raw failures and agent retries.
 
 ## Requirement Completion Harness
+
+### Single Completion Report: end-of-task evidence without artifact hunting
+
+The Harness retains detailed, requirement-linked artifacts because they are
+needed for correction and recovery. At handoff, however, a developer should not
+have to open the anchor, checkpoint, review, receipt, architecture assessment,
+behaviour assessment, drift output, and recovery boundary separately. The
+implemented `tailtrail harness completion-report --root . --run-id <run-id>`
+creates one local `completion-reports/report-N.json` artifact and renders a short
+Markdown report.
+
+```mermaid
+flowchart LR
+    A["Approved anchor"] --> H["Completion Report"]
+    B["Actual checkpoint + drift"] --> H
+    C["Completion review + gate"] --> H
+    D["Architecture / Behaviour assessments"] --> H
+    E["Validation receipts"] --> H
+    F["Recovery boundary"] --> H
+    H --> I["One honest task handoff"]
+```
+
+The report normalizes only the delivery question: requirement count, approved
+scope, architecture and behaviour posture, passed test tiers, unresolved drift,
+and recovery checkpoint. It does **not** create proof, run checks, or silently
+upgrade absent evidence. A missing architecture or behaviour assessment is
+`not-assessed` when that lens was not selected; a required-but-missing artifact
+is `unavailable`; failed findings remain `fail` or `unresolved`. `overall_status`
+is `complete` only when all approved requirements are validated, scope is
+approved, the completion gate passes, and no unresolved drift remains.
+
+### Implemented Workflow Dashboard: trustable current state without orchestration
+
+The Completion Report answers “did this run close?” The local Workflow Dashboard
+answers “where is the run now?” `tailtrail harness dashboard --root . --run-id
+<run-id>` reads the exact same saved run artifacts and presents the active
+requirement, latest checkpoint, evidence counts, review/gate state, unresolved
+drift, recovery availability, and latest Completion Report status.
+
+```mermaid
+flowchart LR
+    A["Approved anchor"] --> D["Read-only dashboard"]
+    B["Checkpoint + drift"] --> D
+    C["Review / gate / recovery"] --> D
+    D --> E["Terminal Markdown or explicit local HTML file"]
+```
+
+This is deliberately a **viewer**, not an orchestrator: no daemon, port,
+network server, source edit, test execution, recovery apply, or completion claim
+is introduced. The dashboard needs an approved anchor, so it cannot invent task
+state for an unapproved plan. HTML output is written only to an explicit local
+path. The read-only MCP companion exposes the same normalized state for hosts
+that use MCP.
 
 Fast computational feedback is necessary, but it is not the most difficult
 agent-coding problem. Modern coding agents usually resolve syntax, formatting,

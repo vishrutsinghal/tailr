@@ -6,6 +6,8 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -553,6 +555,10 @@ def upgrade_to_extended(pack_root: Path, pack_dir: Path, force: bool, written: l
     return 0
 
 
+def print_first_run(target: Path, pack_dir: Path) -> int:
+    return subprocess.run([sys.executable, str(ROOT / "scripts" / "first-run.py"), "--target", target.as_posix(), "--profile", "copilot", "--pack-dir", pack_dir.as_posix()], cwd=ROOT, check=False).returncode
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install TailTrail GitHub Copilot support into a target project.")
     parser.add_argument("--root", type=Path, default=Path.cwd(), help="Target project root.")
@@ -593,6 +599,8 @@ def main() -> int:
             print("Skipped:")
             for path in skipped:
                 print(f"- {path}")
+        if code == 0:
+            return print_first_run(target_root, pack_dir)
         return code
 
     if not args.pack_only:
@@ -635,6 +643,8 @@ def main() -> int:
     if pack_dir is not None and args.surface == "core":
         print("Core installed. Run 'tailtrail install upgrade-to-extended' when ready.")
     print("Next: review target changes. Do not commit TailTrail install/runtime files; commit only intentional tailtrail-meta/ metadata.")
+    if pack_dir is not None:
+        return print_first_run(target_root, pack_dir)
     return 0
 
 

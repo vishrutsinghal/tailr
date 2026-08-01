@@ -303,6 +303,7 @@ python3 scripts/tailtrail.py start "triage GHSA in package.json" --changed packa
 The Start report contains:
 
 - **Start Here**: the immediate next step, default action, and reminder that nothing has been changed yet.
+- **Guided Delivery**: the smallest selected sequence after approval—requirements, impact mapping, implementation, computational proof, and one completion report—plus safeguards that activate only when a trigger occurs.
 - **Decision Menu**: short prompts for review, approve, edit, focused validation, scan approval, learning approval, or leaner workflow.
 - **Navigator Summary**: selected workflow, task type, risk signals, selected feature count, skipped feature count, and impacted file count.
 - **Token Posture**: approximate token estimate for focused files versus broad TailTrail docs intentionally avoided.
@@ -319,8 +320,8 @@ Recommended user flow:
 2. Add `--changed` for files the user already knows.
 3. Review the Start report.
 4. Edit the plan if it is too heavy, too light, missing a file, or recommending the wrong command.
-5. Approve implementation only after the plan looks right.
-6. After implementation, run only the validation, learning capture, quality-loop, or update commands that the user explicitly approves.
+5. Approve implementation only after the plan looks right. The host/agent then follows the selected Guided Delivery controls; users do not need to manually invoke every harness command.
+6. After implementation, return one requirement-completion report and run later-only controls only when their documented trigger occurs.
 
 Common Start examples:
 
@@ -341,6 +342,54 @@ How to use the Decision Menu:
 - Choose **Approve exactly one scan command** only when the scan command is reviewed and repo-approved.
 - Choose **Choose how to handle surfaced learnings** when the report finds advisory learning matches.
 - Choose **Make the workflow leaner** for narrow fixes where broad scanners, AIDLC, or handoff would add noise.
+
+### Guided Delivery Auto-Selection
+
+`start` is the normal entry point. Users describe the task; they do not need to
+name every TailTrail harness. Navigator first proposes scope, then Start selects
+the smallest applicable delivery controls for the approved work.
+
+| Task/evidence signal | Auto-selected controls | Reason |
+| --- | --- | --- |
+| Tiny low-risk fix | Lean delivery and focused proof | Keeps a narrow change narrow. |
+| Normal code change | Canonical requirements, Requirement Completion Harness, Evidence-Aware Testing | Links intent to proof before completion is claimed. |
+| Multiple known files or feature/service/API scope | Requirement-to-Impact Map and Architecture Fitness Harness | Finds callers/layers before implementation. |
+| API, UI, workflow, endpoint, or user journey | Behaviour Harness | Proves the expected flow, not just local unit behavior. |
+| Refactor | Maintainability Harness | Detects duplicate logic, unnecessary abstraction, and scope creep. |
+| Explicit `hands-free` or `end-to-end` work | Program Delivery Harness | Preserves feature order, resume state, and completed-work protections. |
+| Explicit `--run-id` with feedback or unresolved checkpoint drift | Context Continuity Harness and one Bounded Correction | Carries the active requirement and prior evidence gap into the next cycle. |
+| Explicit `--run-id` with a recovery plan/reconciliation artifact | Git Readiness / Recovery Boundary | Preserves task ownership before any recovery action. |
+
+```mermaid
+flowchart TB
+    A["tailtrail start goal"] --> B["Navigator: task, scope, risk, changed files"]
+    B --> C{"Tiny low-risk task?"}
+    C -->|"Yes"| D["Lean delivery + focused proof"]
+    C -->|"No"| E["Requirements + completion + evidence-aware testing"]
+    E --> F{"Multi-file / feature / service / API?"}
+    F -->|"Yes"| G["Impact map + architecture fitness"]
+    F -->|"No"| H["Keep narrow path"]
+    G --> I{"User-facing flow?"}
+    I -->|"Yes"| J["Behaviour Harness"]
+    I -->|"No"| K["Approval-ready delivery plan"]
+    J --> K
+    K --> L{"Explicit run evidence?"}
+    L -->|"Correction / drift"| M["Continuity + bounded correction"]
+    L -->|"Recovery artifact"| N["Git readiness + recovery boundary"]
+    L -->|"None"| O["Implement after approval"]
+```
+
+Use `--run-id` only when continuing a known TailTrail run. Start deliberately
+does not search for some other failed run and apply its correction/recovery
+state to a new task.
+
+```bash
+python3 scripts/tailtrail.py start "fix payment retry" --changed src/worker.py --run-id payment-retry
+```
+
+`start` selects and sequences controls; it does not itself edit source, execute
+tests, invoke a model, or perform recovery. Those actions begin only after the
+user approves the displayed plan.
 
 ## TailTrail Navigator
 
@@ -395,6 +444,7 @@ python3 scripts/tailtrail.py harness plan --run-id claim-validation --controls c
 python3 scripts/tailtrail.py harness check --run-id claim-validation --controls controls.json --changed src/claims_api/validation.py --approved --output results.json
 python3 scripts/tailtrail.py harness checkpoint --run-id claim-validation --changed src/claims_api/validation.py --results results.json
 python3 scripts/tailtrail.py harness completion-review --run-id claim-validation --output review.json
+python3 scripts/tailtrail.py harness completion-report --root . --run-id claim-validation
 python3 scripts/tailtrail.py harness feedback --root . --run-id claim-validation --review review.json --output feedback.json
 ```
 
@@ -441,6 +491,41 @@ gates, and an append-only `events.jsonl` index.
 ```text
 anchor -> plan -> approved check -> checkpoint -> review -> feedback -> receipt -> completion gate
 ```
+
+At task closure, run `tailtrail harness completion-report --root . --run-id
+<run-id>`. It creates one readable Completion Report with requirement progress,
+approved-scope posture, architecture and behaviour evidence, test tiers, drift,
+and recovery availability. It is an aggregation view: unavailable evidence stays
+unavailable, rather than becoming a green completion claim.
+
+### Delivery evaluation dataset
+
+TailTrail includes a deterministic 12-task multi-file dataset for testing the
+evaluation pipeline itself. Use `tailtrail eval dataset report` to inspect the
+paired baseline/TailTrail metric summary. It tracks requirement completion,
+missed caller/test cases, correction cycles, scope drift, false interventions,
+and review minutes. Its current data is curated fixture evidence, not a claim
+about live-agent performance; real comparisons require blinded repeated runs.
+
+### First run without TailTrail vocabulary
+
+You do not need to learn anchors, harnesses, policies, or schemas before using
+TailTrail. A successful local install ends with a smoke check and one suggested
+first action. In Codex, simply say:
+
+```text
+Using TailTrail Navigator, plan "add payment retry handling" before implementation.
+```
+
+After approval, the selected workflow explains the next relevant controls.
+
+### Workflow dashboard
+
+For a named active run, `harness dashboard` provides one read-only status view:
+the active requirement, checkpoint, evidence count, unresolved drift, recovery
+posture, and final Completion Report if it exists. Use Markdown in the terminal
+or explicitly write a standalone local HTML file; it does not expose a network
+server or perform any delivery action.
 
 `ledger state --run-id <run-id>` is the read-only summary command. It reports
 activity counts and artifact pointers. The ledger contains metadata and links;

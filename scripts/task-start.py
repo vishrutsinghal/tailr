@@ -45,6 +45,107 @@ EVALUATION_TRIGGER_WORDS = {
 }
 
 
+def delivery_run_signals(root: Path, run_id: str | None) -> dict[str, Any]:
+    if not run_id:
+        return {"status": "not-requested", "run_id": None, "correction_cycle": False, "recovery_risk": False, "drift": []}
+    if Path(run_id).name != run_id:
+        raise ValueError("run_id must be a single local run identifier")
+    directory = root / ".tailtrail" / "runs" / run_id
+    if not directory.is_dir():
+        return {"status": "missing", "run_id": run_id, "correction_cycle": False, "recovery_risk": False, "drift": []}
+    feedback = sorted((directory / "feedback").glob("feedback-*.json"))
+    checkpoints = sorted((directory / "checkpoints").glob("checkpoint-*.json"))
+    drift: list[str] = []
+    if checkpoints:
+        try:
+            checkpoint = json.loads(checkpoints[-1].read_text(encoding="utf-8"))
+            drift = sorted({str(item.get("classification")) for item in checkpoint.get("drift", []) if isinstance(item, dict) and item.get("classification") in {"unchanged", "regressed", "new-drift", "needs-decision"}})
+        except (OSError, json.JSONDecodeError):
+            drift = ["unreadable-checkpoint"]
+    recovery_paths = list((directory / "recovery").glob("plan-*.json")) + list((directory / "recovery" / "reconciliation").glob("assessment-*.json"))
+    return {
+        "status": "found", "run_id": run_id, "correction_cycle": bool(feedback) or bool(drift),
+        "recovery_risk": bool(recovery_paths), "drift": drift,
+        "evidence": [path.relative_to(root).as_posix() for path in [feedback[-1] if feedback else None, checkpoints[-1] if checkpoints else None, *recovery_paths] if path],
+    }
+
+
+def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: Path, run_id: str | None = None) -> dict[str, Any]:
+    """Choose the smallest delivery harness sequence after Navigator planning.
+
+    This is a local routing decision, not an executor. The host/agent remains
+    responsible for implementation after the user approves the plan.
+    """
+    lowered = goal.lower()
+    tasks = {str(item).lower() for item in plan.get("task_types", [])}
+    risks = {str(item).lower() for item in plan.get("risk_indicators", [])}
+    tiny = plan.get("recommended_workflow") == ["lean"]
+    broad = len(changed) > 1 or any(word in lowered for word in ("feature", "implement", "workflow", "service", "endpoint", "api", "migration"))
+    user_facing = any(word in lowered for word in ("user", "journey", "screen", "page", "ui", "endpoint", "api", "workflow"))
+    hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
+    run = delivery_run_signals(root, run_id)
+    selected: list[dict[str, str]] = []
+    later: list[dict[str, str]] = []
+
+    def add(name: str, why: str) -> None:
+        selected.append({"name": name, "why": why})
+
+    def defer(name: str, when: str) -> None:
+        later.append({"name": name, "when": when})
+
+    if tiny:
+        add("Lean delivery", "narrow, low-risk task; preserve the existing small-diff workflow")
+        stages = ["inspect the exact target", "implement the smallest change", "run focused proof", "report completion"]
+    else:
+        add("Canonical requirements", "create or confirm the approved requirement boundary before source changes")
+        add("Requirement Completion Harness", "map the requirement to code, preservation rules, and proof")
+        if changed or broad:
+            add("Requirement-to-Impact Map", "trace likely files, callers, and focused tests before implementation")
+        add("Evidence-Aware Testing", "choose focused proof before claiming the requirement is complete")
+        if broad:
+            add("Architecture Fitness Harness", "multi-file or service/API scope can miss callers or change the wrong layer")
+        if user_facing:
+            add("Behaviour Harness", "the task names a user-facing/API/workflow outcome that needs flow evidence")
+        if "refactor" in tasks:
+            add("Maintainability Harness", "confirm the change did not add duplicate logic or unnecessary abstraction")
+        if hands_free:
+            add("Program Delivery Harness", "explicit hands-free/end-to-end request needs feature ordering and resume state")
+        stages = ["approve requirements and scope", "map impacted paths", "implement the approved smallest change", "run selected computational checks", "issue one completion report"]
+
+    if run["correction_cycle"]:
+        add("Context Continuity Harness", "the selected run has a feedback packet or unresolved checkpoint drift: " + ", ".join(run["drift"] or ["feedback packet"]))
+        add("Bounded Correction", "use the active requirement and evidence gap for one correction cycle before re-checking completion")
+        stages = ["load current requirement evidence", "render continuity packet", "apply one bounded correction", "rerun selected computational checks", "issue updated completion report"]
+    if run["recovery_risk"]:
+        add("Git Readiness / Recovery Boundary", "the selected run has a recovery plan or reconciliation assessment; preserve task ownership before any recovery action")
+        stages.insert(0, "verify the task recovery boundary")
+
+    if not run["correction_cycle"]:
+        defer("Context Continuity Harness", "a correction cycle, repeated evidence gap, scope drift, recovery, feature transition, or rejected requirement occurs; pass --run-id to evaluate that run")
+    if not run["recovery_risk"]:
+        defer("Safe Git Recovery", "the selected task has recovery risk, a failed bounded correction, or explicit rollback need; pass --run-id to evaluate that run")
+    defer("Higher-Tier Testing", "the selected evidence profile requires integration, contract, E2E, infrastructure, or release confidence")
+    if not hands_free:
+        defer("Program Delivery Harness", "the user explicitly asks for hands-free or end-to-end multi-feature delivery")
+    if not user_facing:
+        defer("Behaviour Harness", "the approved requirement includes a user-facing, API, or journey contract")
+    if not broad:
+        defer("Architecture Fitness Harness", "the approved scope expands beyond a narrow one-file change or adds callers/layers")
+    if not risks:
+        defer("Security / release controls", "the approved task introduces auth, secrets, dependency, migration, production, or release risk")
+
+    return {
+        "mode": "lean" if tiny else "guided-delivery",
+        "selected": selected,
+        "activated_later": later,
+        "stages": stages,
+        "run_signals": run,
+        "approval_required": True,
+        "approval_prompt": "Approve this guided delivery plan. Implement only the approved scope, run the selected proof, and return one completion report with unresolved evidence clearly named.",
+        "execution_boundary": "Start selects and sequences TailTrail controls. It does not itself edit source, run tests, or invoke an implementation agent; those actions begin only after explicit approval.",
+    }
+
+
 def approx_tokens(chars: int) -> int:
     if chars <= 0:
         return 0
@@ -336,12 +437,14 @@ def next_actions(plan: dict[str, Any]) -> list[dict[str, str]]:
     return actions
 
 
-def build_report(goal: str, root: Path, changed: list[str], command_prefix: str) -> dict[str, Any]:
+def build_report(goal: str, root: Path, changed: list[str], command_prefix: str, run_id: str | None = None) -> dict[str, Any]:
     plan = navigator.decide(goal, root, changed, command_prefix)
+    delivery = guided_delivery(plan, goal, changed, root, run_id)
     return {
         "goal": goal,
         "root": root.as_posix(),
         "navigator": plan,
+        "guided_delivery": delivery,
         "next_actions": next_actions(plan),
         "token_posture": token_posture(root, plan),
         "learning_quality": learning_quality(root, plan),
@@ -351,7 +454,7 @@ def build_report(goal: str, root: Path, changed: list[str], command_prefix: str)
         "bootstrap_posture": bootstrap_posture(plan, command_prefix),
         "evaluation_posture": evaluation_posture(goal, plan, command_prefix),
         "code_intelligence": code_intelligence_policy(command_prefix),
-        "next_step": "Review the plan, choose one next action, then approve or edit before implementation.",
+        "next_step": "Review the guided delivery plan, then approve or edit before implementation.",
     }
 
 
@@ -369,6 +472,8 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     bootstrap = report["bootstrap_posture"]
     evaluation = report["evaluation_posture"]
     code_intel = report["code_intelligence"]
+    delivery = report["guided_delivery"]
+    run_signals = delivery["run_signals"]
     selected = plan.get("selected_features", [])
     skipped = plan.get("skipped_features", [])
     actions = report.get("next_actions", [])
@@ -385,6 +490,16 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         f"- Bootstrap Snapshot: `{bootstrap['status']}`.",
         "- Meta-Harness: available after work to review TailTrail behavior and metric confidence.",
         f"- Evaluation Harness: {'selected' if evaluation['selected'] else 'available'} for deterministic proof scenarios.",
+        "- The guided delivery sequence below is the default path after approval; advanced harnesses activate only when their trigger occurs.",
+        "",
+        "## Guided Delivery",
+        "",
+        f"- Mode: `{delivery['mode']}`",
+        "- After approval: " + " -> ".join(delivery["stages"]),
+        "- Selected controls: " + ", ".join(item["name"] for item in delivery["selected"]),
+        f"- Run evidence: `{run_signals['status']}`" + (f" for `{run_signals['run_id']}`" if run_signals["run_id"] else "; no prior-run state was inferred."),
+        f"- Boundary: {delivery['execution_boundary']}",
+        "- Approval: `" + delivery["approval_prompt"] + "`",
         "",
         "## Goal",
         "",
@@ -403,6 +518,8 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         lines.append(f"- More selected features: `{len(selected) - 5}` hidden in compact view; use `--verbose` for full detail.")
     if skipped:
         lines.append(f"- Skipped features: `{len(skipped)}` hidden in compact view.")
+    if delivery["activated_later"]:
+        lines.append("- Activates later: " + "; ".join(f"{item['name']} ({item['when']})" for item in delivery["activated_later"][:3]))
     if plan.get("scan_approval"):
         lines.append("- Scan approval: required before any broad scanner, audit, build, or vulnerability command.")
 
@@ -542,7 +659,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         "",
         f"- {report['goal']}",
         "",
-        "## Navigator Summary",
+            "## Navigator Summary",
         "",
         "- Workflow: " + " -> ".join(plan.get("recommended_workflow", [])),
         "- Task types: " + ", ".join(plan.get("task_types", [])),
@@ -554,6 +671,11 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         "Top selected features:",
         ]
     )
+    lines.extend(["", "## Guided Delivery Details", ""])
+    lines.extend(f"- {item['name']}: {item['why']}" for item in delivery["selected"])
+    lines.extend(f"- Later — {item['name']}: {item['when']}" for item in delivery["activated_later"])
+    if run_signals.get("evidence"):
+        lines.append("- Run evidence pointers: " + ", ".join(f"`{item}`" for item in run_signals["evidence"]))
     for item in selected[:6]:
         lines.append(f"- {item['name']}: {item['reason']}")
     if plan.get("scan_approval"):
@@ -655,6 +777,7 @@ def main() -> int:
     parser.add_argument("goal", nargs="*", help="User goal or task description.")
     parser.add_argument("--root", type=Path, default=Path.cwd(), help="Project root to inspect.")
     parser.add_argument("--changed", action="append", default=[], help="Changed or target file path. Repeat for multiple files.")
+    parser.add_argument("--run-id", help="Optional exact TailTrail run ID. Enables evidence-driven correction and recovery routing for that run only.")
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
     parser.add_argument("--verbose", action="store_true", help="Include full decision menu, posture details, and Navigator output.")
@@ -663,7 +786,10 @@ def main() -> int:
     goal = " ".join(args.goal).strip()
     if not goal:
         parser.error("goal is required")
-    report = build_report(goal, args.root.resolve(), args.changed, args.command_prefix)
+    try:
+        report = build_report(goal, args.root.resolve(), args.changed, args.command_prefix, args.run_id)
+    except ValueError as error:
+        parser.error(str(error))
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
     else:

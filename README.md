@@ -137,7 +137,7 @@ TailTrail helps with local, evidence-aware AI coding workflows. It does not repl
 - A unified local command surface at `scripts/tailtrail.py`.
 - An optional `tailtrail` command launcher installer at `scripts/install-launcher.py`.
 - A command catalog in `TAILTRAIL-COMMANDS.md`.
-- A one-command task start report at `scripts/task-start.py`.
+- A one-command guided-delivery start report at `scripts/task-start.py`: it selects the smallest applicable TailTrail controls after approval and keeps advanced safeguards trigger-based.
 - A deterministic Navigator at `scripts/navigator.py`.
 - Cross-Repo Reference Mode at `scripts/cross-repo-reference.py` for read-only sibling repo pattern usage.
 - Named flow and review-lens guidance in `context/flow-catalog.md` and `context/review-lenses.md`.
@@ -200,9 +200,34 @@ python3 scripts/tailtrail.py harness plan --run-id example-change --controls con
 python3 scripts/tailtrail.py harness check --run-id example-change --controls controls.json --changed src/service.py --approved --output results.json
 python3 scripts/tailtrail.py harness checkpoint --run-id example-change --changed src/service.py --results results.json
 python3 scripts/tailtrail.py harness completion-review --run-id example-change --output review.json
+python3 scripts/tailtrail.py harness completion-report --root . --run-id example-change
 python3 scripts/tailtrail.py harness feedback --root . --run-id example-change --review review.json --output feedback.json
 python3 scripts/tailtrail.py harness testing-profile validate --profile testing-profile.json
 python3 scripts/tailtrail.py harness requirement-completion --run-id example-change --receipts receipts.json
+
+## First run and workflow dashboard
+
+After a local TailTrail installation, the installer runs a tiny non-mutating
+smoke check and gives one appropriate first action. For Codex installations,
+start a task in chat with:
+
+```text
+Using TailTrail Navigator, plan "<your task>" before implementation.
+```
+
+For the CLI, use:
+
+```bash
+tailtrail start "<your task>"
+```
+
+During an active run, inspect saved requirement/evidence state without running
+tests or changing files:
+
+```bash
+python3 scripts/tailtrail.py harness dashboard --root . --run-id example-change
+python3 scripts/tailtrail.py harness dashboard --root . --run-id example-change --format html --output tailtrail-dashboard.html
+```
 python3 scripts/tailtrail.py harness git-readiness --root .
 python3 scripts/tailtrail.py harness boundary init --root . --run-id example-change --expected-path src/service.py --approved
 python3 scripts/tailtrail.py harness boundary activate --root . --run-id example-change --requirement-uid req-...

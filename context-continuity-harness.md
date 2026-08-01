@@ -270,7 +270,7 @@ new gathering mode inspectable.
 
 | Existing system | Context Continuity Harness use |
 | --- | --- |
-| Navigator | Supplies approved requirements, scope, preserve rules, phase/feature structure, and rejection feedback. |
+| Navigator / `start` auto-selection | Supplies approved requirements, scope, preserve rules, phase/feature structure, and rejection feedback. `start` selects continuity only when the user names an exact run ID with feedback/checkpoint evidence; it never borrows state from an unrelated run. |
 | Requirement-to-Impact Matrix | Supplies likely path/symbol/caller/test pointers. |
 | Requirement Completion Harness | Supplies checkpoint delta, review finding, feedback packet, and correction budget. |
 | Architecture/Behaviour/Maintainability Harnesses | Supply precise drift and preservation signals. |

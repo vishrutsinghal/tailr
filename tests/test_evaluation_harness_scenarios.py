@@ -30,7 +30,7 @@ class EvaluationHarnessScenarioTests(unittest.TestCase):
         scenario_ids = {item["scenario_id"] for item in payload["scenarios"]}
         self.assertEqual(
             scenario_ids,
-            {"validation-bug", "dependency-decision", "review-only", "ci-failure", "security-triage", "buildweek-validation"},
+            {"validation-bug", "dependency-decision", "review-only", "ci-failure", "security-triage", "buildweek-validation", "higher-tier-release-confidence"},
         )
 
     def test_scenario_run_scores_deterministically(self) -> None:

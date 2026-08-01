@@ -80,6 +80,16 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn('if action == "codex-plugin":', body)
         self.assertIn('return run_script("install-local.py", ["--profile", "codex-plugin", *rest])', body)
 
+    def test_completion_report_has_a_public_harness_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if args and args[0] == "completion-report":', body)
+        self.assertIn('return run_script("completion-report.py", args[1:])', body)
+
+    def test_first_run_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if command == "first-run":', body)
+        self.assertIn('return run_script("first-run.py", args)', body)
+
     def test_user_facing_docs_do_not_advertise_importable_module_paths(self) -> None:
         for doc in USER_FACING_DOCS:
             with self.subTest(doc=doc):
@@ -102,7 +112,7 @@ class CliDispatchTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(report["goal"], "fix validation bug")
         self.assertIn("navigator", report)
-        self.assertEqual(report["next_step"], "Review the plan, choose one next action, then approve or edit before implementation.")
+        self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
 
     def test_free_form_task_routes_to_start(self) -> None:
         result = subprocess.run(
@@ -117,7 +127,7 @@ class CliDispatchTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(report["goal"], "fix validation bug")
         self.assertIn("navigator", report)
-        self.assertEqual(report["next_step"], "Review the plan, choose one next action, then approve or edit before implementation.")
+        self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
 
     def test_known_review_command_still_dispatches_directly(self) -> None:
         result = subprocess.run(

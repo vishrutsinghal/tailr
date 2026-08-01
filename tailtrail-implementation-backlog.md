@@ -89,11 +89,15 @@ The order is intentional:
 | Phase | Status | Implemented local capability | Explicit boundary |
 | --- | --- | --- | --- |
 | **1 — Canonical state** | Implemented | Append-only run ledger, immutable approved anchor, requirement UIDs, proposal feedback/invalidation, and graph receipts. | No source edit, test execution, branch, database, network, or completion claim. |
-| **2 — Completion harness** | Implemented | Approval-gated repository-native controls, actual checkpoints, drift classification, completion review, and one bounded feedback packet. | No automatic retry, source edit, or broad completion claim from a narrow test. |
+| **2 — Completion harness** | Implemented | Approval-gated repository-native controls, actual checkpoints, drift classification, completion review, one bounded feedback packet, and one fail-closed Completion Report. | No automatic retry, source edit, or broad completion claim from a narrow test. |
 | **3 — Evidence-aware testing** | Implemented | Repository testing profile, requirement/tier receipts, exact environment labels, and evidence completion gate. | Missing/blocked integration, E2E, or infrastructure proof remains incomplete. |
 | **4 — Safe Git recovery** | Implemented (Mode A + Mode B V1) | Clean-worktree recovery plus explicit requirement-owned fallback manifests and selective recovery planning. | No remote push, stash, repository-wide reset, or recovery of untracked/renamed/out-of-scope work. |
 | **5 — MCP layer** | Implemented | Stdio inspection tools, an approval-gated control runner, and an approval-gated path-validated unified-patch apply tool. | No commit, push, arbitrary shell, network listener, or autonomous chain. |
 | **6 — Architecture + Behaviour + Maintainability V1** | Implemented | Requirement-linked architecture rules, scenario-to-receipt user-flow evidence, maintainability signals, Mode B support, and threshold-triggered local Recovery Diagnostician. | No always-on model diagnostician, provider execution, or runtime-architecture claim. |
+
+| **Evaluation dataset — paired delivery evidence** | Implemented | A 12-task realistic multi-file dataset, baseline/TailTrail outcome shape, deterministic aggregation, validation command, and six delivery-quality metrics. | Curated fixtures are not live-agent performance, token-saving, or productivity claims. |
+
+| **First-run guidance + workflow dashboard** | Implemented | Installer completion smoke check, profile-aware first action, CLI/HTML read-only run dashboard, and MCP inspection view. | No automatic implementation, test execution, web server, source change, or recovery apply. |
 
 **Mode A prerequisite:** `.tailtrail/` must already be ignored by the repository
 before a run starts, so its local audit artifacts do not make the Git worktree
@@ -291,8 +295,36 @@ py -3 scripts/tailtrail.py harness check --run-id claim-validation --controls co
 # Convert exact control outcomes into requirement state and completion findings.
 py -3 scripts/tailtrail.py harness checkpoint --run-id claim-validation --changed src/claims_api/validation.py --results results.json
 py -3 scripts/tailtrail.py harness completion-review --run-id claim-validation --output review.json
+py -3 scripts/tailtrail.py harness completion-report --root . --run-id claim-validation
 py -3 scripts/tailtrail.py harness feedback --root . --run-id claim-validation --review review.json --output feedback.json
 ```
+
+### Completion Report implementation detail
+
+`harness completion-report --root . --run-id <run-id>` is the final readout for
+a completed delivery run. It reads the immutable approved anchor, the latest
+actual checkpoint and drift entries, completion review, completion gate,
+Architecture Fitness and Behaviour assessments when selected, requirement-linked
+validation receipts, and any captured recovery boundary. It writes a versioned
+`completion-reports/report-N.json` artifact and appends a
+`completion_report_created` ledger event.
+
+The report is intentionally an aggregator, not a new source of truth:
+
+```text
+approved anchor + actual checkpoint + completion gate
+        + architecture/behaviour assessments + receipts + recovery boundary
+                                  |
+                                  v
+                       single fail-closed Completion Report
+```
+
+It marks absent evidence as `unavailable` or `not-assessed`, not pass. Overall
+completion requires every approved requirement to be validated, approved scope,
+a passing completion gate, and no unresolved drift. This impacts the harness
+CLI dispatcher, run-ledger vocabulary, MCP read-only inspection, feature
+registry, schema contract, user commands/docs, and focused completion-report
+tests; it does not edit source or run project checks on its own.
 
 Artifacts: `plans/`, `controls/`, `checkpoints/`, `reviews/`, and `feedback/`.
 The feedback packet contains only the highest-value unresolved requirement; it
