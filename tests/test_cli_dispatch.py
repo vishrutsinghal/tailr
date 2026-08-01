@@ -80,6 +80,11 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn('if action == "codex-plugin":', body)
         self.assertIn('return run_script("install-local.py", ["--profile", "codex-plugin", *rest])', body)
 
+    def test_install_claude_routes_to_the_claude_profile(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if action == "claude":', body)
+        self.assertIn('return run_script("install-local.py", ["--profile", "claude", *rest])', body)
+
     def test_completion_report_has_a_public_harness_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if args and args[0] == "completion-report":', body)

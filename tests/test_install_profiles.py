@@ -104,6 +104,14 @@ class InstallProfileTests(unittest.TestCase):
             self.assertEqual(steps[2].destination, target / "skills")
             self.assertEqual(len(steps), 3)
 
+    def test_claude_profile_installs_guidance_and_atomic_start_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            steps = local.steps_for("claude", target, "tailtrail", "standard", "optional", False, "extended")
+            self.assertEqual([step.action for step in steps], ["copy", "copy"])
+            self.assertEqual(steps[0].destination, target / "CLAUDE.md")
+            self.assertEqual(steps[1].destination, target / ".claude" / "commands" / "tailtrail-start.md")
+
     def test_core_omits_extended_only_files(self):
         core_files, core_dirs, core_scripts = surfaces.resolve("core", copilot.PACK_FILES, copilot.PACK_DIRS, copilot.PACK_SCRIPTS)
         core_entries = set(copilot.pack_entries_for(core_files, core_dirs, core_scripts))

@@ -196,13 +196,15 @@ Every tool declares a tier in its schema and `tools/list` description.
 | --- | --- | --- | --- |
 | `R0-read` | Reads local permitted artifacts and returns analysis. | `navigator_plan`, `map_impact`, `token_classify` | Available in current local MCP baseline. |
 | `R1-render` | Writes only a disposable result to the tool response or a caller-supplied temporary output, never repository state. | `render_checkpoint_preview` | Later; local-only. |
-| `W1-approved-artifact` | Writes a versioned local TailTrail artifact, not source code. | `anchor_approve`, `capture_recovery_boundary` | Requires explicit approval and repository policy permission. |
+| `W1-approved-artifact` | Writes a versioned local TailTrail artifact, not source code. | `tailtrail_start`, `planning_lock_start`, `anchor_approve`, `capture_recovery_boundary` | Requires an explicit user Start request or a separate approval, as appropriate, plus repository policy permission. |
 | `X1-approved-control` | Runs a policy-allowlisted deterministic command and records its receipt. | `run_focused_controls` | Requires approved run, command allowlist, timeout, and explicit approval. |
 | `W2-source-change` | Applies a verified task-owned patch or correction to source. | `apply_recovery` | Deferred; requires explicit approval and safe ownership checks. |
 
-The initial server remains R0-only. A later tool cannot claim R0 merely because
-its normal path is usually harmless: a tool that may write, run commands, or
-change user state belongs to its stricter tier.
+The current server exposes both R0 inspection and a deliberately narrow W1/X1/W2
+surface. `tailtrail_start` is the preferred W1 start entry: it writes only the
+Planning Lock/run metadata and renders the full report atomically. A tool cannot
+claim R0 merely because its normal path is usually harmless: a tool that may
+write, run commands, or change user state belongs to its stricter tier.
 
 ### Common request fields
 
@@ -594,11 +596,14 @@ inside the selected repository, runs `git apply
 --check`, and only then applies the patch. It never commits, pushes, invokes a
 shell command supplied by the caller, or starts an autonomous follow-up chain.
 
-`planning_lock_start` and `planning_lock_approve` make that same lock lifecycle
-available to every MCP-capable host, including Codex, GitHub Copilot, and
-Claude. They write only TailTrail's local run metadata; neither runs a project
-command nor edits project source. The first tool requires `approved: true` to
-represent the user's explicit `tailtrail start` request. The second requires a
+`tailtrail_start` is the preferred MCP entry point for every MCP-capable host,
+including Codex, GitHub Copilot, and Claude: one explicit call creates the
+Planning Lock and full Start Report together, avoiding a partial lock-only
+exchange. `planning_lock_start` remains a lower-level compatibility tool, and
+`planning_lock_approve` records the later separate approval. These tools write
+only TailTrail local metadata; none runs a project command or edits project
+source. The Start tools require `approved: true` to represent the user's
+explicit `tailtrail start` request. Approval requires a
 separate `approved: true` before it changes the run from `awaiting-approval` to
 `approved`.
 

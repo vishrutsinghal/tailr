@@ -29,6 +29,7 @@ Use `mcp tools` to inspect the available tool contract. Use `mcp doctor` before 
 - `source_patch_apply`: an approval-gated source-change tool. It requires `approved: true` and an approved Planning Lock for the same `run_id`; it accepts one repository-safe unified Git patch only.
 - `planning_lock_start`: creates an `awaiting-approval` Planning Lock after the user explicitly asks to start TailTrail. It writes TailTrail metadata only; it does not edit project source or run project commands.
 - `planning_lock_approve`: records the separate explicit approval for one Planning Lock run. It does not edit project source or run project commands.
+- `tailtrail_start`: the recommended atomic Start action. It creates the Planning Lock and returns the complete TailTrail Start Report in one call; it never implements or runs project commands.
 
 ## Safety Boundaries
 
@@ -73,14 +74,13 @@ For a managed pack inside a project:
 
 ## Recommended Flow
 
-1. The assistant calls `navigator_plan`.
-2. The assistant shows the plan.
-3. When the host has MCP configured, it calls `planning_lock_start` with the user-requested goal and `approved: true`; otherwise it runs `tailtrail start "<goal>"`. Both paths return an exact run ID.
-4. The user approves the exact Planning Lock run with `tailtrail planning approve --root . --run-id <run-id> --approved` or `planning_lock_approve` with `approved: true`.
-5. The assistant calls read-only support tools only when useful.
-6. The assistant implements code or runs controlled checks only after the matching lock is approved.
-7. The assistant runs guardrail or review checks when appropriate.
-8. The user reviews final output.
+1. The user invokes a Start entry point: `tailtrail start "<goal>"`, a host command, or MCP `tailtrail_start` with `approved: true`.
+2. The atomic action creates one `awaiting-approval` Planning Lock and returns the complete Start Report with its run ID.
+3. The user approves the exact Planning Lock run with `tailtrail planning approve --root . --run-id <run-id> --approved` or `planning_lock_approve` with `approved: true`.
+4. The assistant calls read-only support tools only when useful.
+5. The assistant implements code or runs controlled checks only after the matching lock is approved.
+6. The assistant runs guardrail or review checks when appropriate.
+7. The user reviews final output.
 
 For evidence or demo prompts, the assistant can call `eval_scenario_list`, then `eval_scenario_report` for the selected scenario. Scenario reports are deterministic local fixture evidence, not live model/API performance claims.
 

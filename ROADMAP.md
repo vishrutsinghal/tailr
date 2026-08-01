@@ -84,7 +84,7 @@ Scope:
 
 Implementation design:
 
-- `scripts/task-start.py` remains a report generator, not an implementation agent. It creates a versioned local Planning Lock in `awaiting-approval` state for each normal `start` run; the lock records optional read-only reference roots and must be explicitly approved before TailTrail-managed source changes or controlled execution for that run.
+- `scripts/task-start.py` remains a report generator, not an implementation agent. It creates a versioned local Planning Lock in `awaiting-approval` state for each normal `start` run; the lock records optional read-only reference roots and must be explicitly approved before TailTrail-managed source changes or controlled execution for that run. `tailtrail_start` is the matching atomic MCP entry point: it creates the lock and renders the full report in one call, avoiding partial lock-only host behavior.
 - It calls Navigator, derives the smallest deterministic Guided Delivery sequence from task type, risk, known changed files, explicit hands-free intent, and (only when explicitly named) `--run-id` evidence, then adds a small `next_actions` list to make the user decision explicit. At closure, `harness completion-report` consolidates the saved requirement, scope, test, lens, drift, and recovery evidence into one fail-closed handoff artifact.
 - The Markdown output starts with `Start Here`, followed by Guided Delivery and a Decision Menu. It selects requirements, impact mapping, evidence-aware testing, architecture/behaviour/maintainability checks only when relevant; continuity and recovery become selected only for an explicit run containing relevant local evidence, while higher-tier testing remains trigger-based.
 - Scan and learning actions only appear when Navigator reports `scan_approval` or `learning_approval`.
@@ -8607,17 +8607,17 @@ Boundaries:
 - Related: `V2.7` deferred MCP adapter, `Phase 6 Multi-Agent Adapters`.
 - Goal: An opt-in local MCP server that exposes Navigator, guardrail-check, and read-only context helpers to MCP-capable agents, with the Markdown path as fallback.
 
-Status: implemented end to end for the read-only BL-9 V1 scope. TailTrail now has an opt-in stdio MCP server, a CLI surface, tests, docs, CI validation, and Extended-pack inclusion. The implementation deliberately does not add autonomous development chaining, write tools, scanner execution, background service behavior, telemetry upload, or MCP-only behavior.
+Status: implemented end to end for the local BL-9 baseline. TailTrail now has an opt-in stdio MCP server, a CLI surface, tests, docs, CI validation, Extended-pack inclusion, an atomic W1 `tailtrail_start` entry point, approval-gated computational controls, and one tightly bounded patch-apply tool. The implementation deliberately does not add autonomous development chaining, arbitrary write or shell tools, background service behavior, telemetry upload, or MCP-only behavior.
 
 The next MCP evolution is intentionally **not** a broad autonomous agent. It is
 the staged, thin capability architecture in [TailTrail MCP Architecture](tailtrail-mcp.md): first structured Navigator decisions and Requirement-to-Impact Matrix proposals, then approval-gated harness artifacts and allowlisted controls, then read-only recovery/replan planning. Any source-writing or agent-steering tool remains deferred behind explicit safety, ownership, and real-usage gates.
 
 Shipped files and behavior:
 
-- `scripts/mcp-server.py`: stdio JSON-RPC MCP server with allowlisted read-only tools: `navigator_plan`, `start_report`, `guardrail_check`, `graph_map`, `install_status`, `eval_scenario_list`, and `eval_scenario_report`.
+- `scripts/mcp-server.py`: stdio JSON-RPC MCP server with allowlisted inspection tools plus narrow controlled tools. `tailtrail_start` is the atomic planning entry point; `planning_lock_approve`, `harness_control_check`, and `source_patch_apply` remain explicitly approval-gated.
 - `python3 scripts/tailtrail.py mcp serve`: starts the local stdio MCP server for MCP-capable hosts.
-- `python3 scripts/tailtrail.py mcp tools`: lists the read-only MCP tool contract.
-- `python3 scripts/tailtrail.py mcp doctor`: validates tool schemas, handler coverage, and read-only posture.
+- `python3 scripts/tailtrail.py mcp tools`: lists the typed MCP tool contract and mutability/approval posture.
+- `python3 scripts/tailtrail.py mcp doctor`: validates tool schemas, handler coverage, and controlled-tool boundaries.
 - `tests/test_mcp_server.py`: covers tool list, JSON schemas, unknown-tool rejection, stdio `tools/list`, doctor, command construction, guardrail diff handling, and install-status read-only behavior.
 - `MCP-SERVER.md`: documents setup, tools, safety boundaries, MCP host config shape, recommended user flow, and non-MCP fallback.
 - `scripts/check-tailtrail.py`, `scripts/install-copilot.py`, and `.github/workflows/tailtrail-ci.yml`: include MCP in package validation, Extended managed packs, syntax checks, and CI doctor validation.
@@ -8706,10 +8706,10 @@ Recommended user flow:
 What BL-9 improves:
 
 - Less prompt dependence: MCP-capable assistants can discover TailTrail tools instead of waiting for a long user prompt.
-- More reliable planning: `navigator_plan` and `start_report` return structured, deterministic TailTrail output.
+- More reliable planning: `tailtrail_start` creates the persisted Planning Lock and structured Start Report together, while `navigator_plan` and `start_report` remain inspection/report helpers.
 - Lower context use: agents can call compact tools instead of loading large TailTrail docs.
 - Better multi-assistant consistency: Codex, Claude, Cursor, Copilot, ChatGPT, Gemini, and future MCP-capable hosts can share the same local TailTrail tool contract.
-- Safer boundary: V1 exposes read-only tools only and keeps implementation/scanners/fixes behind user approval.
+- Safer boundary: all potentially mutating operations are narrow and approval-gated; project execution remains constrained to declared controls and source application to one repository-safe patch.
 - Future automation path: a later Navigator Orchestrator can chain approved tools, but only after precision, UX, and safety evidence justify it.
 
 Future candidate: Navigator Orchestrator:

@@ -69,12 +69,29 @@ not a Codex-only behavior:
 | Host capability | Required action after the user says `tailtrail start` | Persisted result |
 | --- | --- | --- |
 | Can execute local commands | Run `tailtrail start "<goal>"` in the target repository. | Planning Lock and run ledger under `.tailtrail/runs/<run-id>/`. |
-| Has local TailTrail MCP | Call `planning_lock_start` with the goal and `approved: true`, then obtain the plan through `start_report` or `navigator_plan`. | The same Planning Lock and run ledger. |
+| Has local TailTrail MCP | Call the single `tailtrail_start` tool with the goal and `approved: true`. | The Planning Lock and complete Start Report are created together. |
 | Cannot execute commands or MCP | Return a plan only and state that it is not persisted; show the exact local command. | No artifact and no claim of a saved run. |
 
 Every adapter carries this rule. A later `planning_lock_approve` MCP call or
 `tailtrail planning approve` CLI command is still required before managed
 execution.
+
+### Reliable host entry points
+
+Natural-language detection remains a convenience and cannot guarantee that a
+host model invokes a tool. For a deterministic Start boundary, use one of the
+provided host entry points:
+
+| Host | Entry point | Result |
+| --- | --- | --- |
+| Codex | `$tailtrail-start <goal>` skill | Invokes or requests the atomic Start flow and returns the full report. |
+| GitHub Copilot | `.github/prompts/tailtrail-start.prompt.md` | A reusable custom prompt for a planning-only Start run. |
+| Claude Code | `/tailtrail-start <goal>` from `.claude/commands/tailtrail-start.md` | A planning-only Start command. |
+| MCP-capable host | `tailtrail_start` | One tool call creates the lock and returns the full report. |
+| Any shell | `tailtrail start "<goal>"` | The portable deterministic CLI path. |
+
+Host command assets are shipped with the source checkout. Installed packs must
+be updated or reinstalled before an existing project can use them.
 
 ### Hands-free is planning-first
 

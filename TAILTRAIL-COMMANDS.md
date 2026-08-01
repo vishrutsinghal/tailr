@@ -1231,6 +1231,7 @@ python3 scripts/tailtrail.py install codex --target /path/to/project
 python3 scripts/tailtrail.py install codex-plugin --target /path/to/project --dry-run
 python3 scripts/tailtrail.py install codex-plugin --target /path/to/project
 python3 scripts/tailtrail.py install copilot --root /path/to/project --with-tailtrail-pack
+python3 scripts/tailtrail.py install claude --target /path/to/project
 python3 scripts/tailtrail.py install copilot --target /path/to/project --surface core
 python3 scripts/tailtrail.py install local --target /path/to/project --profile copilot --surface core
 python3 scripts/tailtrail.py install status --target /path/to/project
@@ -1241,7 +1242,7 @@ python3 scripts/tailtrail.py team-init --root /path/to/project --mode optional
 
 Use these for onboarding a repo, installing a managed TailTrail pack, refreshing an existing pack, adding team guidance, or creating a `tailtrail` command that works from any repo.
 
-`install codex` installs TailTrail's portable `AGENTS.md` guidance for Codex and preserves an existing `AGENTS.md` unless `--force` is supplied. It does not install a global Codex plugin or change Codex settings. Use `install codex-plugin` to install TailTrail's `.codex-plugin/plugin.json` and `skills/` source needed for native `@tailtrail` and `@tailtrail-review` invocation. `--profile` and `--surface` are independent on `install-local.py`: `--profile` selects the installation context or assistant host (`codex`, `codex-plugin`, `copilot`, `aidlc`, `hooks`, `full`), while `--surface` selects file breadth (`core` or `extended`). Extended is the default and matches the full pack behavior; Core is the smaller first-run pack.
+`install codex` installs TailTrail's portable `AGENTS.md` guidance for Codex and preserves an existing `AGENTS.md` unless `--force` is supplied. Use `install codex-plugin` to install TailTrail's `.codex-plugin/plugin.json` and skills, including `$tailtrail-start`. Use `install claude` to install `CLAUDE.md` plus Claude Code's `/tailtrail-start` command. Copilot installation writes `.github/copilot-instructions.md` plus `.github/prompts/tailtrail-start.prompt.md`. `--profile` and `--surface` are independent on `install-local.py`: `--profile` selects the installation context or assistant host (`codex`, `codex-plugin`, `copilot`, `claude`, `aidlc`, `hooks`, `full`), while `--surface` selects file breadth (`core` or `extended`). Extended is the default and matches the full pack behavior; Core is the smaller first-run pack.
 
 The launcher writes small executables, usually under `~/.local/bin/tailtrail` and `~/.local/bin/hello`, that point back to this TailTrail checkout. After installation, run from any project:
 

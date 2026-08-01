@@ -1762,6 +1762,7 @@ Apply a setup:
 ```bash
 python3 scripts/install-local.py --target /path/to/project --profile generic
 python3 scripts/install-local.py --target /path/to/project --profile copilot
+python3 scripts/tailtrail.py install claude --target /path/to/project
 python3 scripts/install-local.py --target /path/to/project --profile aidlc --depth standard
 python3 scripts/install-local.py --target /path/to/project --profile hooks
 python3 scripts/install-local.py --target /path/to/project --profile full

@@ -21,6 +21,7 @@ COPILOT_SOURCE = ROOT / "adapters" / "copilot-instructions.md"
 PACK_FILES = [
     ".cursor/rules/tailtrail.mdc",
     ".github/copilot-instructions.md",
+    ".github/prompts/tailtrail-start.prompt.md",
     ".openai/chatgpt-instructions.md",
     "AGENTS.md",
     "AIDLC.md",
@@ -214,6 +215,7 @@ LOCAL_INSTALL_GITIGNORE = [
     ".tailtrail/",
     "tailtrail/",
     ".github/copilot-instructions.md",
+    ".github/prompts/tailtrail-start.prompt.md",
     ".cursor/rules/tailtrail.mdc",
     ".openai/chatgpt-instructions.md",
     "CLAUDE.md",
@@ -651,6 +653,13 @@ def main() -> int:
         write_copilot(
             target_root / ".github" / "copilot-instructions.md",
             pack_dir,
+            args.force,
+            written,
+            skipped,
+        )
+        copy_file(
+            ROOT / ".github" / "prompts" / "tailtrail-start.prompt.md",
+            target_root / ".github" / "prompts" / "tailtrail-start.prompt.md",
             args.force,
             written,
             skipped,

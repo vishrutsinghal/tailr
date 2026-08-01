@@ -54,10 +54,11 @@ Navigator is advisory and deterministic. It should show the likely TailTrail pat
 
 `tailtrail start` is a Planning Lock command. It returns a plan only even if the
 same prompt includes implementation wording. When this host can execute project
-commands, run `tailtrail start "<goal>"` and return the lock run ID; when the
-local TailTrail MCP server is configured, call `planning_lock_start` with
-`approved: true`, then call `start_report`. If neither capability exists, say
-clearly that the plan is not persisted and provide the exact command. Do not edit
+commands, run `tailtrail start "<goal>"` and return its complete Start Report
+with run ID; when the local TailTrail MCP server is configured, call the single
+`tailtrail_start` tool with `approved: true`, rather than splitting lock creation
+from plan rendering. If neither capability exists, say clearly that the plan is
+not persisted and provide the exact command. Do not edit
 source, run project commands/scanners/Terraform, or mutate Git after planning
 until the user separately approves the exact Planning Lock run ID.
 

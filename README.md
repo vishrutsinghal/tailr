@@ -231,6 +231,13 @@ returned run ID separately before any TailTrail-managed source change:
 tailtrail planning approve --root . --run-id <run-id> --approved
 ```
 
+For a deterministic assistant entry point, use the host-specific Start asset:
+Codex `$tailtrail-start`, GitHub Copilot's
+`.github/prompts/tailtrail-start.prompt.md`, Claude Code
+`/tailtrail-start <goal>`, or the atomic MCP `tailtrail_start` tool. Plain
+natural-language detection remains a convenience; host commands, MCP, and CLI
+are the enforceable entry points.
+
 During an active run, inspect saved requirement/evidence state without running
 tests or changing files:
 
@@ -372,7 +379,13 @@ To install the Codex plugin source and skills into a target project, run:
 ```bash
 python3 scripts/tailtrail.py install codex-plugin --target /path/to/project --dry-run
 python3 scripts/tailtrail.py install codex-plugin --target /path/to/project
+python3 scripts/tailtrail.py install claude --target /path/to/project --dry-run
+python3 scripts/tailtrail.py install claude --target /path/to/project
 ```
+
+Use `--force` when refreshing an existing local installation so the current
+host Start entry point is copied. Restart the host or begin a new task after
+installation so it reloads the installed guidance.
 
 The Codex guidance installer writes `AGENTS.md` only. It does not write global Codex configuration, install a plugin, change IDE settings, or enable hooks. The plugin installer writes `.codex-plugin/plugin.json`, the `skills/` source needed for native `@tailtrail` and `@tailtrail-review` invocation, and a complete managed TailTrail pack under `tailtrail/` with scripts, context, guardrails, policy templates, AIDLC, hooks, benchmarks, and reporting tools. It does not write Copilot instructions. If you only want portable project guidance, you can also copy `AGENTS.md` into the root of the target project.
 

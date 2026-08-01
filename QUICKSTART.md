@@ -27,7 +27,9 @@ Examples:
 ```bash
 python3 scripts/tailtrail.py install codex --target /path/to/project --dry-run
 python3 scripts/tailtrail.py install codex --target /path/to/project
+python3 scripts/tailtrail.py install codex-plugin --target /path/to/project
 python3 scripts/tailtrail.py install copilot --target /path/to/project --surface core
+python3 scripts/tailtrail.py install claude --target /path/to/project
 python3 scripts/tailtrail.py install local --target /path/to/project --profile copilot --surface core
 python3 scripts/tailtrail.py install status --target /path/to/project
 python3 scripts/tailtrail.py install upgrade-to-extended --target /path/to/project

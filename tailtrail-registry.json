@@ -871,7 +871,7 @@
       "tests": [
         "tests/test_mcp_server.py"
       ],
-      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "planning_lock_show", "planning_lock_start", "planning_lock_approve", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "workflow_dashboard_show", "harness_control_check"],
+      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "planning_lock_show", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "workflow_dashboard_show", "harness_control_check"],
       "requires_approval": true,
       "read_only": false,
       "evidence_label": "local-evidence",

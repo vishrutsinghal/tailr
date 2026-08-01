@@ -1,0 +1,31 @@
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class StartEntrypointTests(unittest.TestCase):
+    def test_host_command_assets_describe_the_atomic_start_boundary(self) -> None:
+        assets = (
+            ROOT / ".github" / "prompts" / "tailtrail-start.prompt.md",
+            ROOT / ".claude" / "commands" / "tailtrail-start.md",
+            ROOT / "skills" / "tailtrail-start" / "SKILL.md",
+        )
+        for path in assets:
+            with self.subTest(path=path):
+                body = path.read_text(encoding="utf-8")
+                self.assertIn("Planning Lock", body)
+                self.assertIn("Do not", body)
+
+    def test_copilot_pack_and_codex_payload_include_start_entrypoints(self) -> None:
+        install_copilot = (ROOT / "scripts" / "install-copilot.py").read_text(encoding="utf-8")
+        install_local = (ROOT / "scripts" / "install-local.py").read_text(encoding="utf-8")
+        self.assertIn(".github/prompts/tailtrail-start.prompt.md", install_copilot)
+        self.assertIn("skills/tailtrail-start/SKILL.md", install_local)
+
+
+if __name__ == "__main__":
+    unittest.main()

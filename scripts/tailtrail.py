@@ -592,11 +592,13 @@ def aidlc(args: list[str]) -> int:
 
 def install(args: list[str]) -> int:
     if not args:
-        print("Usage: tailtrail install codex|codex-plugin|copilot|local|launcher|upgrade-to-extended|status [args]")
+        print("Usage: tailtrail install codex|codex-plugin|copilot|claude|local|launcher|upgrade-to-extended|status [args]")
         return 2
     action, rest = args[0], args[1:]
     if action == "copilot":
         return run_script("install-copilot.py", rest)
+    if action == "claude":
+        return run_script("install-local.py", ["--profile", "claude", *rest])
     if action == "codex":
         return run_script("install-local.py", ["--profile", "codex", *rest])
     if action == "codex-plugin":
@@ -609,7 +611,7 @@ def install(args: list[str]) -> int:
         return run_script("install-copilot.py", ["--surface", "extended", "--upgrade", *rest])
     if action == "status":
         return run_script("install-copilot.py", ["--status", *rest])
-    print("Unknown install action. Use: codex, codex-plugin, copilot, local, launcher, upgrade-to-extended, or status")
+    print("Unknown install action. Use: codex, codex-plugin, copilot, claude, local, launcher, upgrade-to-extended, or status")
     return 2
 
 

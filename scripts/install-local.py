@@ -15,12 +15,13 @@ from install_surfaces import DEFAULT_SURFACE, SURFACES
 
 ROOT = Path(__file__).resolve().parents[1]
 
-PROFILES = ("inspect", "generic", "codex", "codex-plugin", "copilot", "aidlc", "hooks", "full")
+PROFILES = ("inspect", "generic", "codex", "codex-plugin", "copilot", "claude", "aidlc", "hooks", "full")
 CODEX_PLUGIN_PAYLOAD = (
     "AGENTS.md",
     ".codex-plugin/plugin.json",
     "skills/tailtrail/SKILL.md",
     "skills/tailtrail-review/SKILL.md",
+    "skills/tailtrail-start/SKILL.md",
 )
 DEFERRED = [
     "Global Codex config writes are not implemented.",
@@ -35,6 +36,8 @@ LOCAL_INSTALL_GITIGNORE = [
     ".tailtrail/",
     "tailtrail/",
     ".github/copilot-instructions.md",
+    ".github/prompts/tailtrail-start.prompt.md",
+    ".claude/commands/tailtrail-start.md",
     ".cursor/rules/tailtrail.mdc",
     ".openai/chatgpt-instructions.md",
     "CLAUDE.md",
@@ -212,6 +215,20 @@ def copilot_steps(target: Path, pack_dir: str, force: bool, surface: str) -> lis
     return [Step("run", command=command, note="Install GitHub Copilot instructions and managed TailTrail pack.")]
 
 
+def claude_steps(target: Path, force: bool) -> list[Step]:
+    sources = (
+        (ROOT / "CLAUDE.md", target / "CLAUDE.md", "Install TailTrail guidance for Claude."),
+        (ROOT / ".claude" / "commands" / "tailtrail-start.md", target / ".claude" / "commands" / "tailtrail-start.md", "Install the /tailtrail-start command for Claude Code."),
+    )
+    steps: list[Step] = []
+    for source, destination, note in sources:
+        if destination.exists() and not force:
+            steps.append(Step("skip", source=source, destination=destination, note="File already exists; use --force to overwrite."))
+        else:
+            steps.append(Step("copy", source=source, destination=destination, note=note))
+    return steps
+
+
 def aidlc_steps(target: Path, depth: str, force: bool) -> list[Step]:
     command = [
         sys.executable,
@@ -263,6 +280,8 @@ def steps_for(profile: str, target: Path, pack_dir: str, depth: str, team_mode: 
         return codex_plugin_steps(target, force)
     if profile == "copilot":
         return copilot_steps(target, pack_dir, force, surface)
+    if profile == "claude":
+        return claude_steps(target, force)
     if profile == "aidlc":
         return aidlc_steps(target, depth, force)
     if profile == "hooks":
@@ -270,6 +289,7 @@ def steps_for(profile: str, target: Path, pack_dir: str, depth: str, team_mode: 
     if profile == "full":
         return [
             *copilot_steps(target, pack_dir, force, surface),
+            *claude_steps(target, force),
             *aidlc_steps(target, depth, force),
             *team_steps(target, pack_dir, team_mode, force),
             *hooks_steps(target, pack_dir),

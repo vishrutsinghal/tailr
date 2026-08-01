@@ -26,7 +26,7 @@ mcp = load_module()
 class McpServerTests(unittest.TestCase):
     def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
         self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
-        self.assertEqual(mcp.CONTROLLED_TOOLS, ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve"))
+        self.assertEqual(mcp.CONTROLLED_TOOLS, ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start"))
         self.assertEqual(set(mcp.HANDLERS), set((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         self.assertEqual(mcp.ensure_safe_tools(), [])
 
@@ -42,6 +42,8 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(projected["source_patch_apply"]["requires_approval"])
         self.assertFalse(projected["planning_lock_start"]["read_only"])
         self.assertTrue(projected["planning_lock_approve"]["requires_approval"])
+        self.assertFalse(projected["tailtrail_start"]["read_only"])
+        self.assertTrue(projected["tailtrail_start"]["requires_approval"])
 
     def test_tool_schemas_are_json_objects(self):
         tools = mcp.tool_list()
@@ -104,7 +106,7 @@ class McpServerTests(unittest.TestCase):
         original = mcp.command_result
 
         def denied_lock(command, cwd):
-            return {"command": command, "returncode": 2, "stdout": "", "stderr": "Planning Lock error"}
+            return {"command": command, "exit_code": 2, "stdout": "", "stderr": "Planning Lock error"}
 
         try:
             mcp.command_result = denied_lock
@@ -117,7 +119,7 @@ class McpServerTests(unittest.TestCase):
         original = mcp.command_result
 
         def denied_lock(command, root):
-            return {"returncode": 2, "stdout": "", "stderr": "Planning Lock is awaiting approval"}
+            return {"exit_code": 2, "stdout": "", "stderr": "Planning Lock is awaiting approval"}
 
         try:
             mcp.command_result = denied_lock
@@ -136,7 +138,7 @@ class McpServerTests(unittest.TestCase):
 
         def fake_command_result(command, cwd):
             calls.append(command)
-            return {"command": command, "cwd": cwd.as_posix(), "returncode": 0, "stdout": "{\"ok\": true}", "stderr": ""}
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{\"ok\": true}", "stderr": ""}
 
         try:
             mcp.command_result = fake_command_result
@@ -151,6 +153,30 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("--reference-root", calls[0])
         self.assertEqual(calls[1][2], "approve")
         self.assertIn("--approved", calls[1])
+
+    def test_atomic_tailtrail_start_requires_explicit_request_and_returns_one_report(self):
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.tailtrail_start({"goal": "plan task 1"})
+
+        calls = []
+        original = mcp.command_result
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{\"planning_lock\": {\"run_id\": \"run-1\"}}", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            result = mcp.tailtrail_start({"goal": "plan task 1 and task 2 hands-free", "root": ROOT.as_posix(), "run_id": "program-1", "changed": ["src/a.py"], "approved": True})
+        finally:
+            mcp.command_result = original
+
+        self.assertEqual(result["result"]["planning_lock"]["run_id"], "run-1")
+        self.assertTrue(result["execution"]["local_metadata_only"])
+        self.assertTrue(result["execution"]["execution_blocked"])
+        self.assertIn("task-start.py", calls[0][1])
+        self.assertIn("--planning-run-id", calls[0])
+        self.assertNotIn("--no-planning-lock", calls[0])
 
     def test_navigator_plan_command_construction(self):
         calls = []
@@ -179,7 +205,7 @@ class McpServerTests(unittest.TestCase):
 
         def fake_command_result(command, cwd):
             calls.append(command)
-            return {"command": command, "cwd": cwd.as_posix(), "returncode": 0, "stdout": "{\"ok\": true}", "stderr": ""}
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{\"ok\": true}", "stderr": ""}
 
         try:
             mcp.command_result = fake_command_result
