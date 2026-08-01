@@ -54,6 +54,26 @@ class McpServerTests(unittest.TestCase):
             self.assertEqual(tool["inputSchema"]["type"], "object")
             self.assertIn("additionalProperties", tool["inputSchema"])
 
+    def test_doctor_names_the_first_tool_order_mismatch(self):
+        original = mcp.tool_definitions
+
+        def out_of_order_definitions():
+            definitions = original()
+            planning_lock = definitions.pop("planning_lock_show")
+            definitions["planning_lock_show"] = planning_lock
+            return definitions
+
+        try:
+            mcp.tool_definitions = out_of_order_definitions
+            errors = mcp.ensure_safe_tools()
+        finally:
+            mcp.tool_definitions = original
+
+        self.assertEqual(
+            errors[0],
+            "tool registry order mismatch at index 24: expected `planning_lock_show`, got `harness_control_check`",
+        )
+
     def test_unknown_tool_is_rejected(self):
         with self.assertRaises(ValueError):
             mcp.call_tool("write_file", {})

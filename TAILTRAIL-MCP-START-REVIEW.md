@@ -1,9 +1,9 @@
 # TailTrail MCP / Start Review and Implementation Plan
 
-Status: proposal for review. This document records what was investigated, the
-one code fix already applied, the documentation fixes already applied, and the
-remaining recommended improvements. Nothing in the "Proposed" sections has been
-implemented yet; they await your approval.
+Status: reviewed and corrected. This document records the investigation, the
+MCP declaration-order fix now present in source, documentation corrections, and
+remaining recommended improvements. Proposed phases below remain unimplemented
+unless explicitly stated otherwise.
 
 Date: 2026-08-01
 
@@ -22,8 +22,8 @@ Date: 2026-08-01
 | --- | --- | --- |
 | Start CLI | `python3 scripts/task-start.py "<goal>" --root <repo> --format markdown` | PASS — correct Start Report + `awaiting-approval` Planning Lock |
 | MCP tool end-to-end | `initialize` + `tools/call` `tailtrail_start` over stdio `serve` | PASS — returned the full TailTrail Start Report |
-| MCP self-check | `python3 scripts/mcp-server.py doctor` | **FAIL (before fix)** — `tool registry order does not match READ_ONLY_TOOLS` |
-| MCP unit tests | `python3 -m unittest tests.test_mcp_server` | PASS (19 tests, after fix) |
+| MCP self-check | `python3 scripts/mcp-server.py doctor` | Must pass after the declaration-order correction; not rerun in this workspace because no Python runtime is available. |
+| MCP unit tests | `python3 -m unittest tests.test_mcp_server` | Focused coverage exists, including declaration-order diagnostics; not rerun in this workspace because no Python runtime is available. |
 
 ### Root-cause conclusions
 
@@ -51,9 +51,9 @@ was placed between the read-only tools `workflow_dashboard_show` and
 `planning_lock_show`. `ensure_safe_tools()` requires the dict key order to equal
 `(*READ_ONLY_TOOLS, *CONTROLLED_TOOLS)`, so `doctor` failed.
 
-**Fix:** Moved `harness_control_check` into the controlled-tools group, after
-`planning_lock_show` and before `source_patch_apply`, so declaration order
-matches the allowlist.
+**Fix:** `planning_lock_show` remains at the end of the read-only group;
+`harness_control_check` follows it at the beginning of the controlled-tools
+group. This makes declaration order match the allowlist.
 
 Before (order excerpt):
 ```text
@@ -64,9 +64,14 @@ After (order excerpt):
 ... workflow_dashboard_show, planning_lock_show, harness_control_check, source_patch_apply ...
 ```
 
-**Validation:**
-- `python3 scripts/mcp-server.py doctor` → `TailTrail MCP doctor passed.`
-- `python3 -m unittest tests.test_mcp_server` → `OK` (19 tests, incl. `test_doctor_passes`).
+**Validation status:** static order inspection and regression coverage were
+updated. Run the commands below in a Python-enabled environment before claiming
+runtime success:
+
+```bash
+python3 scripts/mcp-server.py doctor
+python3 -m unittest tests.test_mcp_server
+```
 
 ### 3.2 Documentation fixes (earlier in session)
 
@@ -126,10 +131,9 @@ After (order excerpt):
 
 ### Priority P1 — diagnosability
 
-- **F3. `doctor` failure message is vague.** It prints
-  `tool registry order does not match READ_ONLY_TOOLS` without naming the
-  offending tool(s). Recommend printing the first differing index and the
-  expected vs. actual tool name.
+- **F3. `doctor` diagnostics — implemented.** It now reports the first
+  differing index and the expected versus actual tool name. The focused test
+  covers this failure mode.
 - **F4. `registry_read_only_tools()` ignores the registry.** It loads nothing and
   just returns `DEFAULT_READ_ONLY_TOOLS`; `load_registry()` is defined but unused.
   Either wire the registry projection in (and validate it) or remove the dead
@@ -169,7 +173,7 @@ Smallest-safe-change ordering. Each phase is independently reviewable.
 - Files: CI workflow (e.g. `.github/workflows/*.yml`).
 - Risk: minimal (read-only check).
 
-### Phase 2 — Better `doctor` diagnostics (P1)
+### Phase 2 — Better `doctor` diagnostics (P1) — implemented
 - In `ensure_safe_tools()`, when order mismatches, append the first differing
   position with expected vs. actual name.
 - Acceptance: `doctor` output names the offending tool.
@@ -202,18 +206,23 @@ Smallest-safe-change ordering. Each phase is independently reviewable.
 
 ---
 
-## 7. Validation performed so far
+## 7. Validation status
 
-- `python3 scripts/task-start.py "add payment retry handling" --root /tmp/tt-test-repo --format markdown` → correct Start Report (measured).
-- MCP `tools/call` `tailtrail_start` over `serve` → correct Start Report (measured).
-- `python3 scripts/mcp-server.py doctor` → passed after the fix (measured).
-- `python3 -m unittest tests.test_mcp_server` → 19 tests OK (measured).
+- Static inspection confirms `tool_definitions()` now has the same read-only /
+  controlled boundary as `READ_ONLY_TOOLS` and `CONTROLLED_TOOLS`.
+- `tests/test_mcp_server.py` now checks both the correct order and the precise
+  failure diagnostic.
+- Runtime doctor and Python tests remain required in a Python-enabled
+  environment. They were not run from this workspace because `py -3` reports
+  `No installed Python found!`.
 
-## 8. Validation NOT yet performed
+## 8. Remaining validation and implementation
 
-- Full repository test suite (`python3 -m unittest discover`) — not run.
-- CI wiring — proposed, not implemented.
-- Phases 2–5 — proposed, not implemented.
+- Run `python3 scripts/mcp-server.py doctor` and
+  `python3 -m unittest tests.test_mcp_server`.
+- Full repository test suite (`python3 -m unittest discover`) remains not run.
+- CI wiring, registry decision, troubleshooting/health tooling, and patch-header
+  hardening remain proposed.
 
 ## 9. Residual risk
 
