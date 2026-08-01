@@ -20,6 +20,14 @@ navigator = importlib.util.module_from_spec(SPEC)
 sys.modules["tailtrail_navigator"] = navigator
 SPEC.loader.exec_module(navigator)
 
+PLANNING_LOCK_PATH = ROOT / "scripts" / "planning-lock.py"
+LOCK_SPEC = importlib.util.spec_from_file_location("tailtrail_planning_lock", PLANNING_LOCK_PATH)
+if LOCK_SPEC is None or LOCK_SPEC.loader is None:
+    raise SystemExit("Unable to load scripts/planning-lock.py")
+planning_lock = importlib.util.module_from_spec(LOCK_SPEC)
+sys.modules["tailtrail_planning_lock"] = planning_lock
+LOCK_SPEC.loader.exec_module(planning_lock)
+
 APPROX_CHARS_PER_TOKEN = 4
 LARGE_CONTEXT_FILES = (
     "ROADMAP.md",
@@ -79,10 +87,10 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
     lowered = goal.lower()
     tasks = {str(item).lower() for item in plan.get("task_types", [])}
     risks = {str(item).lower() for item in plan.get("risk_indicators", [])}
-    tiny = plan.get("recommended_workflow") == ["lean"]
-    broad = len(changed) > 1 or any(word in lowered for word in ("feature", "implement", "workflow", "service", "endpoint", "api", "migration"))
-    user_facing = any(word in lowered for word in ("user", "journey", "screen", "page", "ui", "endpoint", "api", "workflow"))
     hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
+    tiny = plan.get("recommended_workflow") == ["lean"] and not hands_free
+    broad = hands_free or len(changed) > 1 or any(word in lowered for word in ("feature", "implement", "workflow", "service", "endpoint", "api", "migration"))
+    user_facing = any(word in lowered for word in ("user", "journey", "screen", "page", "ui", "endpoint", "api", "workflow"))
     run = delivery_run_signals(root, run_id)
     selected: list[dict[str, str]] = []
     later: list[dict[str, str]] = []
@@ -111,6 +119,8 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
         if hands_free:
             add("Program Delivery Harness", "explicit hands-free/end-to-end request needs feature ordering and resume state")
         stages = ["approve requirements and scope", "map impacted paths", "implement the approved smallest change", "run selected computational checks", "issue one completion report"]
+        if hands_free:
+            stages = ["propose feature requirements and dependency order", "approve the program anchor and first active slice", "map and implement one approved slice at a time", "run selected computational checks at each checkpoint", "reconcile against the full approved program anchor"]
 
     if run["correction_cycle"]:
         add("Context Continuity Harness", "the selected run has a feedback packet or unresolved checkpoint drift: " + ", ".join(run["drift"] or ["feedback packet"]))
@@ -134,6 +144,23 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
     if not risks:
         defer("Security / release controls", "the approved task introduces auth, secrets, dependency, migration, production, or release risk")
 
+    hands_free_program = None
+    if hands_free:
+        hands_free_program = {
+            "status": "proposed",
+            "source_goal": goal,
+            "feature_requirements": "Derive atomic feature requirements from the requested outcomes; do not treat the raw request as approved implementation scope.",
+            "dependency_order": [
+                "Requirement and acceptance breakdown",
+                "Read-only impact mapping and reusable-pattern discovery",
+                "First independently verifiable implementation slice",
+                "Remaining slices in dependency order",
+                "Cross-slice integration proof and completion reconciliation",
+            ],
+            "first_active_slice": "Requirement gathering and program-anchor proposal only; no source implementation is active yet.",
+            "approval_gate": "Approve the proposed feature requirements, dependency order, and first active slice before implementation begins.",
+        }
+
     return {
         "mode": "lean" if tiny else "guided-delivery",
         "selected": selected,
@@ -143,6 +170,7 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
         "approval_required": True,
         "approval_prompt": "Approve this guided delivery plan. Implement only the approved scope, run the selected proof, and return one completion report with unresolved evidence clearly named.",
         "execution_boundary": "Start selects and sequences TailTrail controls. It does not itself edit source, run tests, or invoke an implementation agent; those actions begin only after explicit approval.",
+        "hands_free_program": hands_free_program,
     }
 
 
@@ -443,6 +471,7 @@ def build_report(goal: str, root: Path, changed: list[str], command_prefix: str,
     return {
         "goal": goal,
         "root": root.as_posix(),
+        "command_prefix": command_prefix,
         "navigator": plan,
         "guided_delivery": delivery,
         "next_actions": next_actions(plan),
@@ -460,10 +489,22 @@ def build_report(goal: str, root: Path, changed: list[str], command_prefix: str,
 
 def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     plan = report["navigator"]
+    lock = report.get("planning_lock")
+    lock_lines = []
+    if lock:
+        lock_lines = [
+            "## Planning Lock",
+            "",
+            f"- Run ID: `{lock['run_id']}`",
+            f"- State: **{lock['status']}**; managed writes allowed: **{str(lock['writes_allowed']).lower()}**.",
+            "- Source edits, Git mutations, Terraform/Sonar execution, scanners, and managed patch application are blocked until a separate approval.",
+            f"- Approve this exact plan later: `{report['command_prefix']} planning approve --root . --run-id {lock['run_id']} --approved`",
+            "",
+        ]
     if plan.get("navigator_request", {}).get("explicit"):
         # An explicit Navigator invocation already has a concise decision and
         # separate approval gate. Do not bury it in the broader Start report.
-        return navigator.markdown(plan)
+        return "\n".join(lock_lines) + navigator.markdown(plan)
     token = report["token_posture"]
     learning = report["learning_quality"]
     setup = report["setup_posture"]
@@ -473,6 +514,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     evaluation = report["evaluation_posture"]
     code_intel = report["code_intelligence"]
     delivery = report["guided_delivery"]
+    hands_free_program = delivery.get("hands_free_program")
     run_signals = delivery["run_signals"]
     selected = plan.get("selected_features", [])
     skipped = plan.get("skipped_features", [])
@@ -482,6 +524,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         "",
         "Navigator-first plan. Review or edit this before implementation.",
         "",
+        *lock_lines,
         "## Start Here",
         "",
         f"- Next step: {report['next_step']}",
@@ -513,6 +556,20 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         f"- Impacted files: `{len(plan.get('likely_impacted_files', []))}`",
         f"- Selected features: `{', '.join(item['name'] for item in selected[:5]) if selected else 'none'}`",
     ]
+
+    if hands_free_program:
+        lines.extend(
+            [
+                "",
+                "## Hands-Free Program Plan",
+                "",
+                "- Status: `proposed`; no implementation slice is active yet.",
+                f"- Feature requirements: {hands_free_program['feature_requirements']}",
+                "- Proposed dependency order: " + " -> ".join(hands_free_program["dependency_order"]),
+                f"- First active slice: {hands_free_program['first_active_slice']}",
+                f"- Approval gate: {hands_free_program['approval_gate']}",
+            ]
+        )
 
     if len(selected) > 5:
         lines.append(f"- More selected features: `{len(selected) - 5}` hidden in compact view; use `--verbose` for full detail.")
@@ -778,6 +835,9 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd(), help="Project root to inspect.")
     parser.add_argument("--changed", action="append", default=[], help="Changed or target file path. Repeat for multiple files.")
     parser.add_argument("--run-id", help="Optional exact TailTrail run ID. Enables evidence-driven correction and recovery routing for that run only.")
+    parser.add_argument("--planning-run-id", help="Optional new Planning Lock run ID. Defaults to a generated run ID.")
+    parser.add_argument("--reference-root", action="append", default=[], help="Read-only reference repository path for this plan. Repeat for multiple references.")
+    parser.add_argument("--no-planning-lock", action="store_true", help="Advanced compatibility escape hatch; does not create the local planning artifact.")
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
     parser.add_argument("--verbose", action="store_true", help="Include full decision menu, posture details, and Navigator output.")
@@ -788,6 +848,8 @@ def main() -> int:
         parser.error("goal is required")
     try:
         report = build_report(goal, args.root.resolve(), args.changed, args.command_prefix, args.run_id)
+        if not args.no_planning_lock:
+            report["planning_lock"] = planning_lock.create(args.root.resolve(), goal, args.planning_run_id, args.reference_root)
     except ValueError as error:
         parser.error(str(error))
     if args.format == "json":

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/planning-lock.schema.json",
+  "title": "TailTrail Planning Lock",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "goal", "status", "writes_allowed", "reference_roots", "approval", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-planning-lock"},
+    "run_id": {"type": "string"},
+    "goal": {"type": "string"},
+    "status": {"enum": ["awaiting-approval", "approved"]},
+    "writes_allowed": {"type": "boolean"},
+    "reference_roots": {"type": "array"},
+    "approval": {"type": ["object", "null"]},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": true
+}

@@ -71,6 +71,7 @@ hello tailtrail
 tailtrail hello
 tailtrail guide "tell me important features of this repo"
 tailtrail start "fix Sonar issue and prepare PR" --changed path/to/file
+tailtrail planning approve --root . --run-id <run-id> --approved
 tailtrail reference --target /path/to/service-a --reference /path/to/service-b --goal "match validation style"
 ```
 

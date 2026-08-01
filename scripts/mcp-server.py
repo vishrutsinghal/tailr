@@ -39,8 +39,9 @@ DEFAULT_READ_ONLY_TOOLS = (
     "context_continuity_advisory_show",
     "completion_report_show",
     "workflow_dashboard_show",
+    "planning_lock_show",
 )
-CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply")
+CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve")
 DENIED_TOOL_TERMS = (
     "apply",
     "build",
@@ -183,8 +184,11 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "context_continuity_advisory_show": {"name": "context_continuity_advisory_show", "description": "Read a saved Context Continuity V3 advisory validation record. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
         "completion_report_show": {"name": "completion_report_show", "description": "Read a saved end-of-task TailTrail Completion Report. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
         "workflow_dashboard_show": {"name": "workflow_dashboard_show", "description": "Read the current local TailTrail requirement, checkpoint, drift, evidence, and recovery dashboard. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
-        "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
-        "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["patch", "approved"])},
+        "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
+        "planning_lock_show": {"name": "planning_lock_show", "description": "Read one TailTrail Planning Lock. Read-only; reports whether managed writes are still blocked or approved.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
+        "planning_lock_start": {"name": "planning_lock_start", "description": "Create an awaiting-approval Planning Lock after the user explicitly asks to start TailTrail. Writes only TailTrail local metadata; it never edits project source or runs project commands.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
+        "planning_lock_approve": {"name": "planning_lock_approve", "description": "Explicitly approve one existing Planning Lock run for managed execution. It does not edit project source or run project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
     }
 
 
@@ -265,7 +269,7 @@ def start_report(args: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("goal is required")
     root = root_from(args)
     fmt = output_format(args)
-    command = [PYTHON, script("task-start.py").as_posix(), goal, "--root", root.as_posix(), "--format", fmt]
+    command = [PYTHON, script("task-start.py").as_posix(), goal, "--root", root.as_posix(), "--format", fmt, "--no-planning-lock"]
     for item in as_string_list(args.get("changed")):
         command.extend(["--changed", item])
     if bool(args.get("verbose")):
@@ -378,6 +382,15 @@ def run_id(args: dict[str, Any]) -> str:
     return value
 
 
+def require_approved_planning_lock(root: Path, identifier: str, action: str) -> None:
+    result = command_result(
+        [PYTHON, script("planning-lock.py").as_posix(), "assert-write", "--root", root.as_posix(), "--run-id", identifier],
+        root,
+    )
+    if result["returncode"] != 0:
+        raise ValueError(f"{action} denied by Planning Lock; explicitly approve this exact run before managed execution")
+
+
 def read_json(path: Path) -> dict[str, Any]:
     if not path.is_file(): raise ValueError(f"local artifact does not exist: {path.name}")
     return json.loads(path.read_text(encoding="utf-8"))
@@ -470,6 +483,7 @@ def maintainability_assessment_show(args: dict[str, Any]) -> dict[str, Any]:
 def harness_control_check(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True: raise ValueError("harness_control_check requires approved: true")
     root = root_from(args); identifier = run_id(args); controls = safe_relative(root, args.get("controls", ""))
+    require_approved_planning_lock(root, identifier, "harness_control_check")
     if not controls.is_file(): raise ValueError("controls must name an existing repository control file")
     command = [PYTHON, script("harness-controls.py").as_posix(), "check", "--root", root.as_posix(), "--run-id", identifier, "--controls", controls.as_posix(), "--approved"]
     for item in as_string_list(args.get("changed")): command.extend(["--changed", item])
@@ -479,7 +493,8 @@ def harness_control_check(args: dict[str, Any]) -> dict[str, Any]:
 
 def source_patch_apply(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True: raise ValueError("source_patch_apply requires approved: true")
-    root = root_from(args); patch = str(args.get("patch", ""))
+    root = root_from(args); identifier = run_id(args); patch = str(args.get("patch", ""))
+    require_approved_planning_lock(root, identifier, "source_patch_apply")
     if not patch.startswith("diff --git "): raise ValueError("patch must be a unified git diff")
     for line in patch.splitlines():
         if line.startswith(("+++ b/", "--- a/")):
@@ -500,6 +515,47 @@ def context_continuity_show(args: dict[str, Any]) -> dict[str, Any]:
     spec = importlib.util.spec_from_file_location("context_continuity_mcp", script("context-continuity.py")); assert spec and spec.loader
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     return {"tool": "context_continuity_show", "result": module.show(root_from(args), run_id(args), args.get("sequence"))}
+
+
+def planning_lock_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args)
+    result = command_result([PYTHON, script("planning-lock.py").as_posix(), "show", "--root", root.as_posix(), "--run-id", identifier], root)
+    return {"tool": "planning_lock_show", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def planning_lock_start(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("planning_lock_start requires approved: true after the user explicitly requests TailTrail Start")
+    goal = str(args.get("goal", "")).strip()
+    if not goal:
+        raise ValueError("goal is required")
+    root = root_from(args)
+    command = [PYTHON, script("planning-lock.py").as_posix(), "start", "--root", root.as_posix(), "--goal", goal]
+    run = str(args.get("run_id", "")).strip()
+    if run:
+        command.extend(["--run-id", run])
+    for reference in as_string_list(args.get("reference_roots")):
+        command.extend(["--reference-root", reference])
+    result = command_result(command, root)
+    result["read_only"] = False
+    result["requires_approval"] = True
+    result["local_metadata_only"] = True
+    return {"tool": "planning_lock_start", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def planning_lock_approve(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("planning_lock_approve requires approved: true")
+    root = root_from(args)
+    identifier = run_id(args)
+    result = command_result(
+        [PYTHON, script("planning-lock.py").as_posix(), "approve", "--root", root.as_posix(), "--run-id", identifier, "--approved"],
+        root,
+    )
+    result["read_only"] = False
+    result["requires_approval"] = True
+    result["local_metadata_only"] = True
+    return {"tool": "planning_lock_approve", "result": parse_stdout(result, "json"), "execution": result}
 
 
 def context_continuity_render(args: dict[str, Any]) -> dict[str, Any]:
@@ -541,7 +597,7 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "completion_feedback_show": completion_feedback_show, "profile_view": profile_view,
     "validation_receipt_show": validation_receipt_show, "release_confidence_show": release_confidence_show, "git_readiness": git_readiness,
     "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
-    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply,
+    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_lock_approve": planning_lock_approve,
 }
 
 

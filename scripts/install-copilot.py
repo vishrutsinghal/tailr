@@ -146,6 +146,7 @@ PACK_SCRIPTS = [
     "scripts/outcome-telemetry.py",
     "scripts/policy-check.py",
     "scripts/phase8-advanced.py",
+    "scripts/planning-lock.py",
     "scripts/prompt-profile.py",
     "scripts/prompt_profile.py",
     "scripts/prune-context.py",

@@ -2,6 +2,26 @@
   "schema_version": "1",
   "features": [
     {
+      "id": "planning-lock",
+      "title": "Planning Lock",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Planning Lock",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": ["tailtrail start", "tailtrail planning start", "tailtrail planning approve", "tailtrail planning show", "tailtrail planning assert-write"],
+      "docs": ["tailtrail-automation-guide.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "schemas/planning-lock.schema.json"],
+      "scripts": ["scripts/planning-lock.py"],
+      "tests": ["tests/test_planning_lock.py", "tests/test_mcp_server.py", "tests/test_navigator_core.py"],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["canonical-local-state", "navigator"],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
       "id": "context-continuity-harness",
       "title": "Context Continuity Harness V1-V3",
       "status": "implemented",
@@ -851,7 +871,7 @@
       "tests": [
         "tests/test_mcp_server.py"
       ],
-      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "workflow_dashboard_show", "harness_control_check"],
+      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "planning_lock_show", "planning_lock_start", "planning_lock_approve", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "workflow_dashboard_show", "harness_control_check"],
       "requires_approval": true,
       "read_only": false,
       "evidence_label": "local-evidence",

@@ -31,9 +31,10 @@ Each capability has a clear role in that workflow:
 - **MCP** makes stable TailTrail capabilities callable and inspectable across
   supported hosts.
 
-The full requirement-completion, recovery, and program-delivery layers are
-documented future design work. Current TailTrail commands remain local,
-approval-first, and explicit about which checks have actually run.
+TailTrail's requirement-completion, recovery, and program-delivery layers are
+local, approval-first, and explicit about which checks have actually run.
+`start` now creates a run-specific Planning Lock so a plan cannot silently turn
+into TailTrail-managed implementation.
 
 ## Start Here
 
@@ -137,7 +138,7 @@ TailTrail helps with local, evidence-aware AI coding workflows. It does not repl
 - A unified local command surface at `scripts/tailtrail.py`.
 - An optional `tailtrail` command launcher installer at `scripts/install-launcher.py`.
 - A command catalog in `TAILTRAIL-COMMANDS.md`.
-- A one-command guided-delivery start report at `scripts/task-start.py`: it selects the smallest applicable TailTrail controls after approval and keeps advanced safeguards trigger-based.
+- A one-command guided-delivery start report at `scripts/task-start.py`: it creates a Planning Lock, selects the smallest applicable TailTrail controls after approval, and keeps advanced safeguards trigger-based.
 - A deterministic Navigator at `scripts/navigator.py`.
 - Cross-Repo Reference Mode at `scripts/cross-repo-reference.py` for read-only sibling repo pattern usage.
 - Named flow and review-lens guidance in `context/flow-catalog.md` and `context/review-lenses.md`.
@@ -219,6 +220,13 @@ For the CLI, use:
 
 ```bash
 tailtrail start "<your task>"
+```
+
+`start` creates a local Planning Lock and is always planning-only. Approve the
+returned run ID separately before any TailTrail-managed source change:
+
+```bash
+tailtrail planning approve --root . --run-id <run-id> --approved
 ```
 
 During an active run, inspect saved requirement/evidence state without running

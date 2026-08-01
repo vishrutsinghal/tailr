@@ -84,7 +84,7 @@ Scope:
 
 Implementation design:
 
-- `scripts/task-start.py` remains a report generator, not an implementation agent.
+- `scripts/task-start.py` remains a report generator, not an implementation agent. It creates a versioned local Planning Lock in `awaiting-approval` state for each normal `start` run; the lock records optional read-only reference roots and must be explicitly approved before TailTrail-managed source changes or controlled execution for that run.
 - It calls Navigator, derives the smallest deterministic Guided Delivery sequence from task type, risk, known changed files, explicit hands-free intent, and (only when explicitly named) `--run-id` evidence, then adds a small `next_actions` list to make the user decision explicit. At closure, `harness completion-report` consolidates the saved requirement, scope, test, lens, drift, and recovery evidence into one fail-closed handoff artifact.
 - The Markdown output starts with `Start Here`, followed by Guided Delivery and a Decision Menu. It selects requirements, impact mapping, evidence-aware testing, architecture/behaviour/maintainability checks only when relevant; continuity and recovery become selected only for an explicit run containing relevant local evidence, while higher-tier testing remains trigger-based.
 - Scan and learning actions only appear when Navigator reports `scan_approval` or `learning_approval`.

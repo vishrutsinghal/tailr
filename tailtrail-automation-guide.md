@@ -31,6 +31,60 @@ tailtrail start "add payment retry handling" --changed src/payments/worker.py
 more accurate. `--run-id` is required when retry/recovery must read evidence
 from one particular prior run.
 
+## Planning Lock: `tailtrail start` never implements
+
+An explicit `tailtrail start` creates a local Planning Lock and returns a plan
+only. This precedence rule wins even when the same prompt says `implement`,
+`set up`, `create`, `replicate`, or `do similar`.
+
+```text
+tailtrail start -> Start Report + Planning Lock (awaiting-approval)
+                -> no source edits / Git mutations / Terraform or Sonar execution
+                -> explicit approval for the exact run ID
+                -> managed writes become permitted for that run only
+```
+
+The lock is stored under `.tailtrail/runs/<run-id>/planning/lock-v1.json` and
+can include read-only reference repositories. The plan response names the run
+ID and prints the exact separate approval command:
+
+```bash
+tailtrail planning approve --root . --run-id <run-id> --approved
+```
+
+`tailtrail planning assert-write --root . --run-id <run-id>` is the managed
+execution gate. The controlled MCP patch and computational-control tools both
+require `approved: true` and an approved matching Planning Lock; without them
+they refuse source changes or project-command execution. This is a real
+boundary for TailTrail-managed actions. A host agent with
+unrestricted shell/file tools can still bypass it, so adapters also repeat the
+planning-only rule as a behavioral guardrail.
+
+### Host-neutral persistence
+
+Codex, GitHub Copilot, Claude, Cursor, Gemini, and ChatGPT do not all have the
+same execution permissions. TailTrail therefore uses one artifact protocol,
+not a Codex-only behavior:
+
+| Host capability | Required action after the user says `tailtrail start` | Persisted result |
+| --- | --- | --- |
+| Can execute local commands | Run `tailtrail start "<goal>"` in the target repository. | Planning Lock and run ledger under `.tailtrail/runs/<run-id>/`. |
+| Has local TailTrail MCP | Call `planning_lock_start` with the goal and `approved: true`, then obtain the plan through `start_report` or `navigator_plan`. | The same Planning Lock and run ledger. |
+| Cannot execute commands or MCP | Return a plan only and state that it is not persisted; show the exact local command. | No artifact and no claim of a saved run. |
+
+Every adapter carries this rule. A later `planning_lock_approve` MCP call or
+`tailtrail planning approve` CLI command is still required before managed
+execution.
+
+### Hands-free is planning-first
+
+Treat `tailtrail start,`, `tailtrail start:`, and `tailtrail start -` as the
+same explicit Start request. `hands-free` or `end-to-end` does not mean that an
+agent may silently begin work. It means the initial Start report must select the
+Program Delivery Harness and show the proposed feature requirements, dependency
+order, first active slice, and approval gate. Only a later approval permits the
+first slice to execute.
+
 ## Trigger matrix
 
 | Capability | Trigger | Inputs/evidence required | Result | Never automatic |

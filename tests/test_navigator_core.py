@@ -471,6 +471,20 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("## Guided Delivery", rendered)
         self.assertIn("does not itself edit source", report["guided_delivery"]["execution_boundary"])
 
+    def test_hands_free_multi_task_request_still_returns_a_program_plan_before_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = task_start.build_report("tailtrail start, work on task 1 and task 2 using hands free mode", root, [], "tailtrail")
+
+        selected = {item["name"] for item in report["guided_delivery"]["selected"]}
+        self.assertEqual(report["guided_delivery"]["mode"], "guided-delivery")
+        self.assertIn("Program Delivery Harness", selected)
+        self.assertIn("propose feature requirements and dependency order", report["guided_delivery"]["stages"])
+        self.assertTrue(report["guided_delivery"]["approval_required"])
+        self.assertEqual(report["guided_delivery"]["hands_free_program"]["status"], "proposed")
+        self.assertIn("no source implementation", report["guided_delivery"]["hands_free_program"]["first_active_slice"])
+        self.assertIn("does not itself edit source", report["guided_delivery"]["execution_boundary"])
+
     def test_task_start_uses_only_explicit_run_evidence_for_correction_and_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

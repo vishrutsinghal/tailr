@@ -5,6 +5,8 @@ Use TailTrail for implementation, review, planning, and handoff in this reposito
 ## Adapter Contract
 
 - Use a Navigator-first workflow for non-trivial tasks: understand the goal, identify likely files and TailTrail features, then ask for approval before implementation.
+- **Planning Lock:** when the user says `tailtrail start`, `TailTrail Start`, or asks for a Navigator plan, return planning only even if the same prompt says implement, set up, create, replicate, or do similar. If this host can run project commands, execute `tailtrail start "<goal>"` first and return its run ID. If the local TailTrail MCP server is configured, call `planning_lock_start` with `approved: true`, then call `start_report`. If neither capability is available, clearly say the plan is not persisted and provide the exact command. Do not edit files, run project commands, scanners, Terraform, or Git mutations after planning; require a separate approval before implementation.
+- **Exact Start trigger:** treat `tailtrail start,`, `tailtrail start:`, and `tailtrail start -` as the same command. A `hands-free` or `end-to-end` request means comprehensive requirement and phase planning first, never immediate execution. Return the run ID, selected Program Delivery Harness, proposed feature order, active first slice, and explicit approval gate.
 - After code changes, recommend post-change review against both code health and requirement fulfillment.
 - Require scanner approval before running Sonar, vulnerability, audit, build, broad test, or other heavy local commands.
 - Treat learnings as advisory; current source, tests, CI, scanners, policy, guardrails, and explicit user direction always win.

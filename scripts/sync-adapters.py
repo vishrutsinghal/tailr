@@ -20,6 +20,7 @@ ADAPTERS = {
 REQUIRED_CONTRACT_PHRASES = {
     "navigator-first": "Navigator-first",
     "approval-before-implementation": "approval before implementation",
+    "planning-lock": "tailtrail start",
     "post-change-review": "post-change review",
     "scanner-approval": "scanner approval",
     "learning-advisory": "learnings as advisory",

@@ -24,6 +24,7 @@ COMMANDS = {
     "hello": "Confirm TailTrail is installed and reachable.",
     "version": "Show source/pack location.",
     "start": "Start a task with Navigator-first plan, metrics, setup posture, and learning quality.",
+    "planning": "Create, inspect, approve, or enforce a Planning Lock for one run.",
     "do": "Alias for start; run Navigator-first planning for a free-form task.",
     "run": "Alias for start; run Navigator-first planning for a free-form task.",
     "next": "Recommend one deterministic next action after a Start report.",
@@ -484,6 +485,7 @@ def doctor() -> int:
             "USEFUL-PROMPTS.md",
             "USER-GUIDE.md",
             "scripts/tailtrail.py",
+            "scripts/planning-lock.py",
             "scripts/tailtrail-registry.py",
             "scripts/task-next.py",
             "scripts/ast-map.py",
@@ -899,6 +901,8 @@ def main() -> int:
         return print_version()
     if command in {"start", "do", "run"}:
         return start(args)
+    if command == "planning":
+        return run_script("planning-lock.py", args)
     if command == "next":
         return run_script("task-next.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
     if command == "guide":

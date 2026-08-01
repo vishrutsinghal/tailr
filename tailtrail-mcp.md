@@ -588,10 +588,19 @@ selective source write.
 ### Implemented controlled source steering
 
 `source_patch_apply` is a controlled MCP tool, not an arbitrary source-writing
-agent. It requires `approved: true`, accepts one unified Git patch, validates
-every `a/` and `b/` path stays inside the selected repository, runs `git apply
+agent. It requires `approved: true` and an approved Planning Lock for the same
+run ID, accepts one unified Git patch, validates every `a/` and `b/` path stays
+inside the selected repository, runs `git apply
 --check`, and only then applies the patch. It never commits, pushes, invokes a
 shell command supplied by the caller, or starts an autonomous follow-up chain.
+
+`planning_lock_start` and `planning_lock_approve` make that same lock lifecycle
+available to every MCP-capable host, including Codex, GitHub Copilot, and
+Claude. They write only TailTrail's local run metadata; neither runs a project
+command nor edits project source. The first tool requires `approved: true` to
+represent the user's explicit `tailtrail start` request. The second requires a
+separate `approved: true` before it changes the run from `awaiting-approval` to
+`approved`.
 
 Acceptance: conflicts always return a no-write plan. `apply_recovery` remains
 absent until selective-recovery fixtures have proven safe over real tasks.

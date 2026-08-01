@@ -52,6 +52,20 @@ The first form is context discovery; `plan` returns the TailTrail feature decisi
 
 Navigator is advisory and deterministic. It should show the likely TailTrail path, impacted files, context to load, context to avoid, suggested commands, and approval questions. Do not run scanners, vulnerability checks, broad builds, or learning capture without explicit approval.
 
+`tailtrail start` is a Planning Lock command. It returns a plan only even if the
+same prompt includes implementation wording. When this host can execute project
+commands, run `tailtrail start "<goal>"` and return the lock run ID; when the
+local TailTrail MCP server is configured, call `planning_lock_start` with
+`approved: true`, then call `start_report`. If neither capability exists, say
+clearly that the plan is not persisted and provide the exact command. Do not edit
+source, run project commands/scanners/Terraform, or mutate Git after planning
+until the user separately approves the exact Planning Lock run ID.
+
+Treat `tailtrail start,`, `tailtrail start:`, and `tailtrail start -` as the
+same explicit command. A `hands-free` or `end-to-end` request requires a
+comprehensive Program Delivery plan—feature requirements, dependency order,
+first active slice, and approval gate—before any execution.
+
 For broad, risky, ambiguous, multi-team, regulated, or long-running work, use `AIDLC.md` at the smallest useful depth. Use `templates/change-brief.md` only for non-trivial work, and resume from `aidlc-docs/aidlc-state.md` instead of reloading every lifecycle artifact.
 
 For non-trivial, risky, dependency-sensitive, lifecycle-driven, or unclear work, apply `GUARDRAILS.md`. Use only the relevant guardrail sections; do not load the full file for tiny low-risk edits.

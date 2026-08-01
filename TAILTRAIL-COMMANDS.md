@@ -26,6 +26,8 @@ python3 scripts/tailtrail.py run "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR" --verbose
+python3 scripts/tailtrail.py planning show --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning approve --root . --run-id <run-id> --approved
 python3 scripts/tailtrail.py governance check
 ```
 
@@ -36,7 +38,7 @@ Use these when a user is new to TailTrail, onboarding a team, or checking whethe
 | User situation | Use command | Prompt alternative | Why |
 |---|---|---|---|
 | I want to confirm TailTrail is installed and reachable. | `python3 scripts/tailtrail.py hello`, `tailtrail hello`, or `hello tailtrail` | `Hello TailTrail. Confirm this repo can use TailTrail and show the install location.` | Fast smoke check that prints the TailTrail location. |
-| I have a real task and do not know which TailTrail feature applies. | `python3 scripts/tailtrail.py do "task"`, `python3 scripts/tailtrail.py start "task"`, or `python3 scripts/tailtrail.py "task"` | `Use TailTrail for this task: <task>. Start with Navigator, show the recommended workflow, and wait for approval before implementation.` | Compact one-command entry point with workflow selection, review/Meta-Harness next steps, key commands, and metrics. `do` is the easiest daily form; `start` is the explicit backend command; free-form input routes to `start`. Use `--verbose` for the full plan. |
+| I have a real task and do not know which TailTrail feature applies. | `python3 scripts/tailtrail.py do "task"`, `python3 scripts/tailtrail.py start "task"`, or `python3 scripts/tailtrail.py "task"` | `Use TailTrail for this task: <task>. Start with Navigator, show the recommended workflow, and wait for approval before implementation.` | Compact one-command entry point with workflow selection, review/Meta-Harness next steps, key commands, and metrics. It creates a Planning Lock and does not implement—even if the task wording also says “implement” or “set up.” Approve the returned run ID separately. `do` is the easiest daily form; `start` is the explicit backend command; free-form input routes to `start`. Use `--verbose` for the full plan. |
 | I paused after `start` and need one lean reminder. | `python3 scripts/tailtrail.py next` | `Use TailTrail next. Read current local state and recommend exactly one next action without running scanners, editing files, or capturing learnings.` | Secondary resume command. Use after `start` when you paused and want a lean reminder of the single next action. |
 | I only want a workflow plan. | `python3 scripts/tailtrail.py guide "task"` | `Run TailTrail Navigator for this task: <task>. Show the plan only; do not implement until I approve.` | Navigator plan without the extra Start report. |
 | I know the changed or target file. | `python3 scripts/tailtrail.py graph --changed path/to/file` | `Use TailTrail Code Graph for <path/to/file>. Show likely callers, tests, helpers, and read order before changing code.` | Finds likely callers, tests, helpers, and read order. |
@@ -1249,12 +1251,14 @@ tailtrail hello
 tailtrail guide "tell me important features of this repo"
 tailtrail start "fix Sonar issue and prepare PR" --changed path/to/file
 tailtrail start "continue payment retry correction" --changed src/worker.py --run-id payment-retry
+tailtrail planning show --root . --run-id <run-id>
+tailtrail planning approve --root . --run-id <run-id> --approved
 tailtrail reference --target /path/to/service-a --reference /path/to/service-b --goal "match validation style"
 ```
 
 The `hello` alias handles `hello tailtrail`, `hello TailTrail`, and the common typo `hello taitrail`, then delegates to `tailtrail hello`. If the launcher was installed before the alias existed, rerun `python3 scripts/tailtrail.py install launcher --force`.
 
-`tailtrail start` is the default guided-delivery entry point: it selects the smallest applicable TailTrail controls, shows the approval-ready sequence, and marks recovery, continuity, higher-tier testing, and other advanced controls as later triggers. It remains approval-first and does not edit source, run tests, or invoke an implementation agent by itself.
+`tailtrail start` is the default guided-delivery entry point: it selects the smallest applicable TailTrail controls, creates a local Planning Lock, shows the approval-ready sequence, and marks recovery, continuity, higher-tier testing, and other advanced controls as later triggers. It remains planning-only even if the same prompt says implement, set up, or replicate. It does not edit source, run tests, or invoke an implementation agent by itself; managed source changes require a separately approved Planning Lock run.
 
 If the installer says the bin directory is not on `PATH`, add that directory to your shell profile or run the launcher by full path.
 

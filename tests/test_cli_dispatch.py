@@ -112,6 +112,8 @@ class CliDispatchTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(report["goal"], "fix validation bug")
         self.assertIn("navigator", report)
+        self.assertEqual(report["planning_lock"]["status"], "awaiting-approval")
+        self.assertFalse(report["planning_lock"]["writes_allowed"])
         self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
 
     def test_free_form_task_routes_to_start(self) -> None:
@@ -127,6 +129,8 @@ class CliDispatchTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(report["goal"], "fix validation bug")
         self.assertIn("navigator", report)
+        self.assertEqual(report["planning_lock"]["status"], "awaiting-approval")
+        self.assertFalse(report["planning_lock"]["writes_allowed"])
         self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
 
     def test_known_review_command_still_dispatches_directly(self) -> None:

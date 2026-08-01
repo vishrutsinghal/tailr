@@ -61,6 +61,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/navigator.py",
     "scripts/navigator_core.py",
     "scripts/navigator_render.py",
+    "scripts/planning-lock.py",
     "scripts/policy-check.py",
     "scripts/program-checkpoint.py",
     "scripts/program-plan.py",
