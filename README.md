@@ -1,6 +1,8 @@
-# TailTrail
+<p align="center">
+  <img src="assets/tailtrail-mark.png" width="150" alt="TailTrail logo" />
+</p>
 
-![TailTrail logo](assets/tailtrail-logo.svg)
+<h1 align="center">TailTrail</h1>
 
 TailTrail is a small local development helper for making cleaner, smaller, reuse-first code changes across Codex, Claude, Cursor, GitHub Copilot, ChatGPT, and Gemini.
 
