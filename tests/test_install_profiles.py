@@ -182,6 +182,22 @@ class InstallProfileTests(unittest.TestCase):
         self.assertIn("tailtrail-registry.json", files)
         self.assertIn("scripts/tailtrail-registry.py", scripts)
 
+    def test_extended_pack_includes_every_registered_feature_script_and_root_guide(self):
+        registry = json.loads((ROOT / "tailtrail-registry.json").read_text(encoding="utf-8"))
+        registered_scripts = {
+            script
+            for feature in registry["features"]
+            for script in feature.get("scripts", [])
+        }
+        registered_root_docs = {
+            doc
+            for feature in registry["features"]
+            for doc in feature.get("docs", [])
+            if "/" not in doc
+        }
+        self.assertLessEqual(registered_scripts, set(copilot.PACK_SCRIPTS))
+        self.assertLessEqual(registered_root_docs, set(copilot.PACK_FILES))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -417,7 +417,7 @@ For GitHub Copilot setup, prefer:
 python3 scripts/install-copilot.py --root /path/to/project --with-tailtrail-pack
 ```
 
-This writes `.github/copilot-instructions.md` and keeps the TailTrail support pack under `/path/to/project/tailtrail/`. Use `--pack-dir tools/tailtrail` for a custom managed folder.
+This writes `.github/copilot-instructions.md` and keeps the TailTrail support pack under `/path/to/project/tailtrail/`. The default `extended` surface includes every registered TailTrail feature script and root-level feature guide, including Navigator, all Harness lenses, Completion Report, Workflow Dashboard, first-run guidance, and evaluation tooling. Use `--pack-dir tools/tailtrail` for a custom managed folder.
 
 The installed pack includes `tailtrail/context/guardrail-layers.md` so Copilot and other instruction-file assistants can load only the relevant implementation, code consistency, review, QA, dependency, AIDLC, handoff, CI/Sonar, release, or token-saving layer.
 
