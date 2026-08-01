@@ -17,6 +17,7 @@ from install_surfaces import DEFAULT_SURFACE, SURFACES, resolve
 ROOT = Path(__file__).resolve().parents[1]
 
 COPILOT_SOURCE = ROOT / "adapters" / "copilot-instructions.md"
+START_PROMPT_SOURCE = ROOT / ".github" / "prompts" / "tailtrail-start.prompt.md"
 
 PACK_FILES = [
     ".cursor/rules/tailtrail.mdc",
@@ -316,6 +317,9 @@ def write_manifest(
     files[".github/copilot-instructions.md"] = {
         "sha256": hashlib.sha256(copilot_body(pack_dir).encode("utf-8")).hexdigest(),
     }
+    files[".github/prompts/tailtrail-start.prompt.md"] = {
+        "sha256": hashlib.sha256(start_prompt_body(pack_dir).encode("utf-8")).hexdigest(),
+    }
     manifest = {
         "version": 1,
         "tool": "tailtrail",
@@ -442,6 +446,24 @@ def write_copilot(destination: Path, pack_dir: Path | None, force: bool, written
     written.append(destination.as_posix())
 
 
+def start_prompt_body(pack_dir: Path | None) -> str:
+    body = START_PROMPT_SOURCE.read_text(encoding="utf-8")
+    if pack_dir is None or pack_dir.as_posix() == ".":
+        script_path = "scripts/tailtrail.py"
+    else:
+        script_path = f"{pack_dir.as_posix()}/scripts/tailtrail.py"
+    return body.replace("{{TAILTRAIL_START_COMMAND}}", f'python3 {script_path} start "<goal>"')
+
+
+def write_start_prompt(destination: Path, pack_dir: Path | None, force: bool, written: list[str], skipped: list[str]) -> None:
+    if destination.exists() and not force:
+        skipped.append(destination.as_posix())
+        return
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(start_prompt_body(pack_dir), encoding="utf-8")
+    written.append(destination.as_posix())
+
+
 def gitignore_covers(pattern: str, lines: list[str]) -> bool:
     if pattern in lines:
         return True
@@ -508,6 +530,8 @@ def installed_surface(manifest: dict[str, object] | None) -> str:
 def source_hash(relative_path: str, pack_dir: Path) -> str:
     if relative_path == ".github/copilot-instructions.md":
         return hashlib.sha256(copilot_body(pack_dir).encode("utf-8")).hexdigest()
+    if relative_path == ".github/prompts/tailtrail-start.prompt.md":
+        return hashlib.sha256(start_prompt_body(pack_dir).encode("utf-8")).hexdigest()
     return sha256(ROOT / relative_path)
 
 
@@ -515,6 +539,8 @@ def write_entry(relative_path: str, destination: Path, pack_dir: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     if relative_path == ".github/copilot-instructions.md":
         destination.write_text(copilot_body(pack_dir), encoding="utf-8")
+    elif relative_path == ".github/prompts/tailtrail-start.prompt.md":
+        destination.write_text(start_prompt_body(pack_dir), encoding="utf-8")
     else:
         shutil.copy2(ROOT / relative_path, destination)
 
@@ -657,9 +683,9 @@ def main() -> int:
             written,
             skipped,
         )
-        copy_file(
-            ROOT / ".github" / "prompts" / "tailtrail-start.prompt.md",
+        write_start_prompt(
             target_root / ".github" / "prompts" / "tailtrail-start.prompt.md",
+            pack_dir,
             args.force,
             written,
             skipped,
@@ -669,6 +695,9 @@ def main() -> int:
         pack_files, pack_dirs, pack_scripts = resolve(args.surface, PACK_FILES, PACK_DIRS, PACK_SCRIPTS)
         for relative_path in pack_files:
             if relative_path == ".github/copilot-instructions.md":
+                continue
+            if relative_path == ".github/prompts/tailtrail-start.prompt.md":
+                write_start_prompt(pack_root / relative_path, pack_dir, args.force, written, skipped)
                 continue
             copy_file(ROOT / relative_path, pack_root / relative_path, args.force, written, skipped)
         for relative_path in pack_dirs:

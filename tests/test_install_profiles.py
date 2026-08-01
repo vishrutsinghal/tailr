@@ -147,6 +147,11 @@ class InstallProfileTests(unittest.TestCase):
         }
         self.assertLessEqual(required, entries)
 
+    def test_copilot_start_prompt_uses_the_installed_pack_path(self):
+        rendered = copilot.start_prompt_body(Path("tools/tailtrail"))
+        self.assertIn('python3 tools/tailtrail/scripts/tailtrail.py start "<goal>"', rendered)
+        self.assertNotIn("{{TAILTRAIL_START_COMMAND}}", rendered)
+
     def test_upgrade_to_extended_is_additive(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "core"

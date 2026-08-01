@@ -57,8 +57,10 @@ same prompt includes implementation wording. When this host can execute project
 commands, run `tailtrail start "<goal>"` and return its complete Start Report
 with run ID; when the local TailTrail MCP server is configured, call the single
 `tailtrail_start` tool with `approved: true`, rather than splitting lock creation
-from plan rendering. If neither capability exists, say clearly that the plan is
-not persisted and provide the exact command. Do not edit
+from plan rendering. After a successful Start tool or CLI invocation, return its
+complete Start Report verbatim and stop; do not append an implementation plan,
+steps, analysis, or guidance. If neither capability exists, say clearly that the
+plan is not persisted and provide the exact command. Do not edit
 source, run project commands/scanners/Terraform, or mutate Git after planning
 until the user separately approves the exact Planning Lock run ID.
 

@@ -8,8 +8,7 @@ ${input:goal:Describe the task to plan}
 
 If the local TailTrail MCP server is configured, call the single
 `tailtrail_start` tool with `approved: true` and the goal above.
-Otherwise run: `python3 scripts/tailtrail.py start "<goal>"` and return its
-output.
+Otherwise run: `{{TAILTRAIL_START_COMMAND}}` and return its output.
 
 **Return the tool or CLI output exactly as produced. Do not add your own
 implementation plan, steps, analysis, or guidance after it. The TailTrail Start

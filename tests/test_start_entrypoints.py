@@ -24,7 +24,30 @@ class StartEntrypointTests(unittest.TestCase):
         install_copilot = (ROOT / "scripts" / "install-copilot.py").read_text(encoding="utf-8")
         install_local = (ROOT / "scripts" / "install-local.py").read_text(encoding="utf-8")
         self.assertIn(".github/prompts/tailtrail-start.prompt.md", install_copilot)
+        self.assertIn("start_prompt_body", install_copilot)
         self.assertIn("skills/tailtrail-start/SKILL.md", install_local)
+
+    def test_stop_rule_is_consistent_across_host_guidance(self) -> None:
+        guidance = (
+            "AGENTS.md",
+            "CLAUDE.md",
+            "GEMINI.md",
+            "adapters/claude.md",
+            "adapters/copilot-instructions.md",
+            "adapters/chatgpt-instructions.md",
+            "adapters/gemini.md",
+            "adapters/cursor.mdc",
+            ".github/copilot-instructions.md",
+            ".openai/chatgpt-instructions.md",
+            ".cursor/rules/tailtrail.mdc",
+            "skills/tailtrail/SKILL.md",
+            "skills/tailtrail-start/SKILL.md",
+            ".claude/commands/tailtrail-start.md",
+        )
+        for relative_path in guidance:
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
+                self.assertIn("start report verbatim and stop", body)
 
 
 if __name__ == "__main__":
