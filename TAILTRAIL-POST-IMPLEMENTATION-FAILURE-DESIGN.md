@@ -2,11 +2,11 @@
 
 ## Document Status
 
-- Status: finalized design; ready for phased implementation
+- Status: phases 0 through 8 implemented as safe local V1 integrations
 - Finalized date: 2026-08-03
 - Decision state: no open design decisions remain in this version; changes
   require a reviewed design amendment
-- Scope: design only; no runtime implementation is included in this document
+- Scope: design plus an implementation record for phases 0 and 1; later phases remain design-only
 - Target branch: `master`
 - Related local commit: `0314a99` (`Fix TailTrail Start context carryover`)
 - Primary design objective: prevent avoidable implementation and CI/CD failures
@@ -417,6 +417,9 @@ this lifecycle.
 15. Require explicit approval before writing Learning Agent events.
 16. Retrieve a maximum of three relevant learnings in later iterations and
     verify them against current evidence.
+17. Make failure recognition visible: every error TailTrail attaches to a run
+    must return a compact user-facing acknowledgement before diagnosis or
+    correction begins.
 
 ## Non-Goals
 
@@ -508,6 +511,65 @@ Expected TailTrail behavior:
    approval before editing.
 6. Do not persist the raw pasted text in learning or run metadata.
 
+#### Mandatory Failure Intake Receipt
+
+Every recognized user-pasted or agent-observed error must produce an immediate,
+compact acknowledgement before TailTrail diagnoses, retries, edits source, or
+creates a durable failure record. This makes attachment to an active run
+observable instead of relying on invisible conversational context.
+
+An attached error returns a receipt like:
+
+~~~text
+TailTrail Failure Intake
+
+Status: attached to active run
+Run: start-20260808-a31f9c
+Context: REQ-02 — Terraform backend setup
+Failure type: configuration / provider authentication
+Scope match: high confidence
+
+Recorded:
+- Sanitized error signature
+- Related requirement ID and current checkpoint
+- Relevant setup and validation evidence
+
+Next action: diagnose under the existing approved run.
+No new TailTrail Start run was created.
+~~~
+
+If TailTrail cannot safely connect the error to an existing run, it must say so:
+
+~~~text
+TailTrail Failure Intake
+
+Status: not attached automatically
+Reason: the error may belong to a different task, repository, or environment.
+Current run remains unchanged: start-20260808-a31f9c
+
+Next action: attach it to the current run, or start a separate task.
+No source or run-state change was made.
+~~~
+
+If the error is attached but correction crosses an authority or material scope
+boundary, the receipt is also explicit:
+
+~~~text
+TailTrail Failure Intake
+
+Status: attached, correction blocked
+Run: start-20260808-a31f9c
+Requirement: REQ-02
+Reason: credential, infrastructure, or material design boundary outside scope.
+
+Next action: create a bounded recovery/replan decision.
+No blind retry, source edit, or infrastructure mutation was performed.
+~~~
+
+The receipt is deliberately simple. It gives a user immediate confirmation that
+TailTrail saw the error and explains the next action; detailed diagnostic state
+continues in the sanitized run artifact.
+
 ### External or infrastructure failure
 
 Example:
@@ -565,18 +627,18 @@ continue the correction cycle
 
 The stored classification is provisional until evidence supports a root cause.
 
-| Classification | Typical evidence | Default route |
-|---|---|---|
-| `code` | Exception in changed logic, failing focused behavior test | Inspect implementation and callers; correct in approved scope |
-| `configuration` | Missing key, invalid config, environment mismatch | Inspect configuration sources and validation; avoid embedding environment values in code |
-| `environment` | Toolchain, path, OS, runtime, or local setup mismatch | Compare declared and actual environment; avoid project changes when setup is the cause |
-| `infrastructure` | Terraform plan/apply, network, service, or resource mismatch | Diagnose read-only; require approval for mutation |
-| `dependency` | Import/module/version/API incompatibility | Apply Dependency Gate before manifest or lock-file changes |
-| `permission` | 401, 403, IAM, filesystem, token scope | Inspect identity and authorization boundaries; never expose credentials |
-| `data` | Schema, migration, constraint, serialization, or corrupt input | Preserve data-integrity safeguards; require approval for data mutation |
-| `external-service` | Vendor outage, API failure, rate limit, unavailable service | Distinguish product defect from external blocker; use bounded retry only when safe |
-| `transient` | Timeout or intermittent network/platform signal | Retry safely and finitely before changing code |
-| `unknown` | Insufficient evidence | Preserve evidence, state hypotheses, and avoid speculative edits |
+| Classification | Typical evidence | Default route | New approval needed? |
+|---|---|---|---|
+| `code` | Exception in changed logic, failing focused behavior test | Inspect implementation and callers; make a bounded correction inside approved scope | No, when the correction stays within the active approved requirement, paths, and preservation rules; otherwise replan/amend first. |
+| `configuration` | Missing key, invalid config, environment mismatch | Inspect configuration sources and validation; avoid embedding environment values in code | No for an already-approved, non-protected configuration path; yes for protected config, secrets, environment changes, or scope expansion. |
+| `environment` | Toolchain, path, OS, runtime, or local setup mismatch | Compare declared and actual environment; avoid project changes when setup is the cause | No for read-only diagnosis or a safe retry; yes if correcting the environment needs a protected setup, shared runner, or external-state change. |
+| `infrastructure` | Terraform plan/apply, network, service, or resource mismatch | Diagnose read-only; require approval for mutation | Yes for Terraform, deploy, cloud, resource, or network mutation. |
+| `dependency` | Import/module/version/API incompatibility | Apply Dependency Gate before manifest or lock-file changes | Yes before changing a manifest, lock file, package, or runtime dependency. |
+| `permission` | 401, 403, IAM, filesystem, token scope | Inspect identity and authorization boundaries; never expose credentials | Yes for IAM, credentials, token scope, filesystem access, or other authority changes. |
+| `data` | Schema, migration, constraint, serialization, or corrupt input | Preserve data-integrity safeguards; require approval for data mutation | Yes for migrations, data repair, destructive operations, or schema changes outside approved scope. |
+| `external-service` | Vendor outage, API failure, rate limit, unavailable service | Distinguish product defect from external blocker; use bounded retry only when safe | No for safe finite diagnosis/retry; yes for service configuration, contract, quota, or vendor-side changes. |
+| `transient` | Timeout or intermittent network/platform signal | Retry safely and finitely before changing code | No for a policy-safe bounded retry; yes before changing code, retry policy, infrastructure, or operational configuration. |
+| `unknown` | Insufficient evidence | Preserve evidence, state hypotheses, and avoid speculative edits | No mutation approval applies yet: read-only diagnosis first. Require approval once a proposed correction crosses the approved scope or authority boundary. |
 
 The classifier must not claim certainty from keywords alone. The artifact should
 contain `classification_confidence` with one of:
@@ -584,6 +646,75 @@ contain `classification_confidence` with one of:
 - `observed`
 - `supported-hypothesis`
 - `unknown`
+
+## Failure-to-Drift Mapping
+
+Every credible pasted or agent-observed error receives a Failure Intake Receipt.
+That intake is an acknowledgement and diagnostic record; it is **not**
+automatically requirement drift.
+
+Create a requirement-level drift link only when evidence shows that the failure
+contradicts approved intent, an approved preservation rule, an approved
+architecture path, an approved behaviour scenario, or the approved scope.
+This keeps drift history useful instead of filling it with unrelated local
+environment, CI, network, and vendor noise.
+
+~~~mermaid
+flowchart LR
+    A["Credible pasted or agent error"] --> B["Failure Intake Receipt"]
+    B --> C{"Attached to explicit approved run?"}
+    C -->|"No or uncertain"| D["Intake only<br/>no drift"]
+    C -->|"Yes"| E["Classify and map to requirement"]
+    E --> F{"Contradicts approved intent or boundary?"}
+    F -->|"Yes"| G["Create requirement-level drift link"]
+    F -->|"No"| H["Track operational blocker or evidence<br/>without requirement drift"]
+~~~
+
+| Failure outcome | Intake tracking | Drift decision | Typical next action |
+| --- | --- | --- | --- |
+| Error cannot be safely mapped to an active run | Record not-attached receipt only | No drift | Ask for attachment or a separate task; do not guess. |
+| Code or logic failure contradicts an approved requirement | Attached failure record and fingerprint | Yes: unchanged, regressed, or new-drift from checkpoint evidence | Bounded correction inside scope, or recovery/replan when budget/scope requires it. |
+| Missed caller or wrong-layer implementation | Attached failure record plus architecture evidence | Yes: architecture/requirement drift | Correct required caller/path if approved; otherwise amend/replan. |
+| User-facing/API scenario fails | Attached failure record plus behaviour evidence | Yes: behaviour drift | Correct the approved flow and add focused behaviour proof. |
+| Local environment/toolchain mismatch | Attached or diagnose-read-only receipt | Normally no drift | Compare declared and actual environment; avoid source edits. |
+| Permission, IAM, or external infrastructure failure | Attached failure record as authority/external blocker | Normally no drift | Diagnose; require explicit authority before mutation. |
+| Dependency, data, schema, or public-contract failure | Attached failure record | Usually needs-decision or new-drift when approved design is insufficient | Dependency Gate, safe migration/design amendment, and approval. |
+| External-service outage or safe transient failure | Attached receipt with recurrence evidence | No drift initially | Bounded retry/diagnosis; create drift only if repeated evidence disproves an approved reliability assumption. |
+
+The drift link must contain a requirement ID only when mapping is supported by
+the approved anchor, changed/affected paths, scenario evidence, or focused
+control evidence. A classification label by itself is never enough.
+
+Example requirement contradiction:
+
+~~~json
+{
+  "failure_id": "failure-0002",
+  "run_id": "start-20260808-a31f9c",
+  "requirement_uid": "req-02...",
+  "classification": "code",
+  "drift_link": {
+    "drift_created": true,
+    "checkpoint_delta": "unchanged",
+    "reason": "REQ-02 service-path behavior still fails after correction."
+  }
+}
+~~~
+
+Example external blocker:
+
+~~~json
+{
+  "failure_id": "failure-0003",
+  "run_id": "start-20260808-a31f9c",
+  "classification": "permission",
+  "drift_link": {
+    "drift_created": false,
+    "checkpoint_delta": null,
+    "reason": "IAM permission is an external authority blocker; approved code intent is not disproven."
+  }
+}
+~~~
 
 ## Correction Authority Matrix
 
@@ -655,6 +786,25 @@ Proposed schema shape:
   "source": "agent-command",
   "classification": "unknown",
   "classification_confidence": "unknown",
+  "correlation": {
+    "fingerprint_version": "v1",
+    "failure_fingerprint": "sha256:...",
+    "signature_fields": {
+      "requirement_uid": "req-...",
+      "classification": "code",
+      "error_code": "AssertionError",
+      "project_frame": "tests/auth.test.js",
+      "command_label": "focused auth test"
+    },
+    "prior_matching_failure_id": null,
+    "occurrence": 1
+  },
+  "drift_link": {
+    "drift_created": false,
+    "requirement_uid": "req-...",
+    "checkpoint_delta": null,
+    "reason": "No approved requirement contradiction has been established."
+  },
   "evidence": {
     "exit_code": 1,
     "command_label": "focused auth test",
@@ -703,6 +853,102 @@ Proposed schema shape:
 - `command_label`, `error_code`, and `project_frame` must be compact and length
   limited.
 - Sanitization is defense in depth, not permission to store raw text.
+
+### Sanitized failure fingerprint and loop prevention
+
+Every attached failure receives a deterministic, sanitized fingerprint after
+TailTrail has enough evidence to map it to an approved requirement or explicit
+run scope. The fingerprint detects repeated failure patterns without storing
+the raw pasted error or a full command.
+
+The Version 1 input is the normalized tuple:
+
+~~~text
+requirement_uid
++ classification
++ error_code
++ project_frame
++ command_label
+~~~
+
+The stored failure fingerprint is the SHA-256 digest of a canonical JSON form
+of that tuple. Normalization must trim values, apply a documented case rule,
+use repository-relative project frames, and reject or replace absent values
+with a fixed sentinel. The digest is a correlation key, not proof of root
+cause.
+
+Only the bounded signature fields shown in the schema are persisted. TailTrail
+must never derive a fingerprint from raw stack-trace text, raw logs, complete
+commands, environment values, secrets, customer data, source bodies, or prompt
+text.
+
+#### Matching and convergence rules
+
+1. Search only prior failure records for the same explicit run and requirement.
+   Never use a similar error from another run as a correction target.
+2. If the fingerprint matches an open prior failure after a correction and its
+   focused validation, set the new record's prior matching failure ID and
+   increment occurrence.
+3. A repeated matching fingerprint with no stronger evidence is classified as
+   an unchanged convergence state. It consumes one correction-cycle budget; it
+   does not start another open-ended retry.
+4. A changed fingerprint on the same requirement is not automatically progress.
+   Compare requirements, preservation evidence, and checkpoint delta. Mark
+   improved, regressed, new-drift, or unknown only from evidence.
+5. If a classification materially changes during diagnosis, retain the original
+   intake signature for audit and create a refined fingerprint under the same
+   failure record. Convergence uses the refined fingerprint only after the
+   classification is supported by local evidence.
+6. At the configured correction limit, or after a regression or
+   needs-decision state, stop automatic correction. Preserve the full chain and
+   route to recovery or Navigator replan rather than retrying the same fix.
+
+Example:
+
+~~~text
+Cycle 1: REQ-02 + code + AssertionError + tests/auth.test.js
+         + focused auth test  -> fingerprint A, bounded correction allowed
+
+Cycle 2: same signature after correction and validation
+         -> fingerprint A, occurrence 2, unchanged, correction budget used
+
+Cycle 3: same signature after final allowed correction
+         -> fingerprint A, occurrence 3, stop automatic retry
+         -> recovery/replan packet with prior evidence
+~~~
+
+The completion report and dashboard should show compact recurrence information:
+active fingerprint occurrence, last convergence state, remaining correction
+budget, and the next action. They must not expose raw error contents.
+
+### Failure intake acknowledgement contract
+
+Each recognition attempt produces a non-sensitive intake outcome, even when no
+durable failure record can be created. The immediate receipt and any persisted
+state must agree on these fields:
+
+| Field | Meaning | Persisted when |
+| --- | --- | --- |
+| intake status | attached, not-attached, diagnose-read-only, or blocked | Always as an append-only intake event; a full failure record only for an attached approved run. |
+| run ID | Exact active run, or absent when no safe run match exists | When a run is known. |
+| requirement ID | Matched approved requirement, or absent | Only when anchor and scope evidence support it. |
+| classification | Provisional failure type and confidence | When a credible failure signal exists. |
+| next action | Diagnose, bounded correction, recovery/replan, or explicit user choice | Always. |
+| new Start created | Explicitly false for this flow | Always. |
+
+Receipt delivery has three surfaces:
+
+1. **Conversation:** return the compact receipt immediately after recognition
+   and before diagnostic work.
+2. **Run ledger:** append an execution-failure intake event containing safe
+   identifiers, match confidence, and next action—never raw pasted text.
+3. **Workflow Dashboard and Completion Report:** show active intake/failure
+   state so a later user can see acknowledgement and resolution status.
+
+No attachment is silent. When evidence is insufficient, TailTrail reports
+not-attached rather than guessing a run or requirement. When a run is found but
+its Planning Lock is not approved, the receipt says diagnose-read-only; the
+acknowledgement must never be mistaken for permission to edit.
 
 ## Final CLI Design
 
@@ -768,15 +1014,21 @@ Agent algorithm:
 1. Identify the current run and Planning Lock state from explicit conversation
    context or local run state. Do not guess a different run.
 2. Preserve the exact error in current context.
-3. Inspect the recent diff, failing path, callers, configuration, and focused
+3. Create and return the Failure Intake Receipt before inspecting broadly,
+   editing, retrying, or creating a durable failure record.
+4. Derive and compare the sanitized failure fingerprint against records for the
+   same explicit run and requirement; include recurrence and remaining
+   correction budget in the receipt/diagnostic context.
+5. Inspect the recent diff, failing path, callers, configuration, and focused
    tests.
-4. Classify the failure provisionally.
-5. State whether the correction is inside approved scope.
-6. Record sanitized failure metadata only when an approved run exists.
-7. Apply the smallest correction or report the authority/external blocker.
-8. Rerun the exact focused failure command when safe.
-9. Record resolution and evidence honestly.
-10. Offer approved learning capture only for reusable validated patterns.
+6. Classify the failure provisionally.
+7. State whether the correction is inside approved scope.
+8. Record sanitized failure metadata only when an approved run exists.
+9. Apply the smallest correction only when the convergence budget and authority
+   rules permit it; otherwise report recovery/replan or the external blocker.
+10. Rerun the exact focused failure command when safe.
+11. Record resolution and evidence honestly.
+12. Offer approved learning capture only for reusable validated patterns.
 
 ## Learning Integration
 
@@ -838,7 +1090,11 @@ Proposed dashboard fields:
     "total": 2,
     "open": 1,
     "resolved": 1,
+    "drift_linked": 1,
+    "operational_blockers": 0,
     "latest_failure_id": "failure-0002",
+    "latest_intake_status": "attached",
+    "latest_requirement_uid": "req-...",
     "status": "correction-required"
   }
 }
@@ -856,6 +1112,12 @@ Rules:
 - `task-start.py` should treat an unresolved execution failure for the explicit
   run ID as correction-cycle evidence.
 - TailTrail must not search other runs for a convenient failure artifact.
+- The dashboard must distinguish attached from not-attached. An unrecognized
+  pasted error is not an open failure for a run, but its receipt still shows
+  the user that TailTrail did not silently ignore it.
+- The dashboard must also distinguish requirement-linked drift from a
+  non-drift operational blocker. Both can prevent a completion claim, but only
+  the former changes requirement convergence and correction routing.
 
 ## MCP Design
 
@@ -974,6 +1236,11 @@ Functions:
 - `diagnose(root, run_id, failure_id, ...)`
 - `resolve(root, run_id, failure_id, ...)`
 - `validate_transition(current, requested)`
+- `normalize_fingerprint_fields(requirement_uid, classification, error_code, project_frame, command_label)`
+- `failure_fingerprint(normalized_fields)`
+- `find_matching_open_failure(root, run_id, requirement_uid, fingerprint)`
+- `convergence_route(root, run_id, requirement_uid, fingerprint, occurrence, checkpoint_delta)`
+- `map_failure_to_drift(root, run_id, failure, anchor, checkpoint_evidence)`
 - `learning_suggestion(payload)`
 - `main()`
 
@@ -986,12 +1253,26 @@ Implementation requirements:
 - Reject path traversal and external artifact paths by default.
 - Never accept or write raw log bodies.
 - Bound free-text field lengths.
+- Canonicalize only the five approved safe signature fields, then derive the
+  fingerprint with SHA-256. The fingerprint helper must not accept raw error
+  text, full commands, environment values, source bodies, or arbitrary JSON.
+- Search recurrence only within the exact run and requirement UID. On a match,
+  link the prior failure ID, increment occurrence, and reuse the existing
+  Harness Convergence correction budget rather than creating a second retry
+  counter.
+- At exhausted budget, unchanged recurrence, regression, or needs-decision,
+  return recovery/replan routing and preserve all prior artifacts.
+- Create a drift link only from supported requirement, architecture, behaviour,
+  preservation, or scope contradiction evidence. Do not create drift merely
+  because an error was pasted or a failure classification was assigned.
 - Return JSON and exit code 2 for validation errors.
 
 #### `schemas/execution-failure.schema.json`
 
 Purpose: validate schema version, type, identifiers, enums, nested evidence,
-diagnosis, scope, resolution, learning, recurrence, and the privacy boundary.
+diagnosis, scope, resolution, learning, recurrence, fingerprint fields, drift
+links, and the privacy boundary.
+privacy boundary.
 
 #### `tests/test_execution_failure.py`
 
@@ -1031,6 +1312,7 @@ Coverage is listed in the Test Plan section below.
 
 Add event types:
 
+- `execution_failure_intake`
 - `execution_failure_recorded`
 - `execution_failure_diagnosed`
 - `execution_failure_blocked`
@@ -1426,6 +1708,56 @@ Final registry approval semantics:
 9. Resolve requires root cause and validation outcome.
 10. Recurrence links to an earlier failure without reopening it.
 
+### Failure fingerprint and recurrence
+
+1. The same normalized safe signature in the same run and requirement produces
+   the same fingerprint.
+2. Equivalent raw stack traces that differ only in volatile line or host detail
+   produce the same fingerprint when their safe signature fields match.
+3. Raw error bodies, secrets, full commands, and environment values cannot
+   alter or appear in the persisted fingerprint inputs.
+4. A matching fingerprint after correction increments occurrence and produces
+   unchanged convergence evidence instead of a blind retry.
+5. A different fingerprint on the same requirement is compared with checkpoint
+   evidence; it is not automatically treated as progress.
+6. A supported classification refinement preserves the intake fingerprint and
+   creates a linked refined fingerprint.
+7. A matching fingerprint at the correction limit routes to recovery/replan
+   and does not issue another automatic correction packet.
+8. Fingerprint matching never crosses run boundaries.
+
+### Failure-to-drift mapping
+
+1. An unassociated pasted error creates an intake receipt but no run drift.
+2. A service-path failure supported by an approved requirement and focused
+   evidence creates a requirement-level unchanged or regressed drift link.
+3. A missed caller creates architecture/requirement drift only when caller
+   evidence supports the approved path relationship.
+4. A failed approved API or user scenario creates behaviour drift.
+5. A permission, local environment, vendor outage, or first transient failure
+   remains a non-drift operational blocker unless evidence disproves approved
+   intent or a preservation rule.
+6. Dependency, schema, data, or public-contract evidence routes to new-drift or
+   needs-decision only when the approved design is insufficient.
+7. The dashboard and completion report distinguish open non-drift blockers from
+   unresolved requirement drift.
+
+### Failure intake acknowledgement
+
+1. A recognized pasted error returns an attached receipt before diagnosis.
+2. The receipt names the exact run and requirement only when scope evidence
+   supports the match.
+3. An ambiguous pasted error returns not-attached and does not create a run,
+   failure artifact, or hidden association.
+4. An awaiting-approval matched run returns diagnose-read-only and does not
+   authorize source edits.
+5. A blocked receipt names the authority or material-scope boundary and does
+   not claim that correction will continue automatically.
+6. The run ledger stores safe intake status and next action without raw pasted
+   text.
+7. Dashboard fields distinguish attached, not-attached, and resolved intake
+   outcomes.
+
 ### Classification and authority
 
 1. Classification enums accept only documented values.
@@ -1469,6 +1801,8 @@ Final registry approval semantics:
 13. Learning capture occurs only after resolution and separate approval.
 14. MCP show returns only sanitized artifact content.
 15. Adapter, governance, registry, and installer checks pass.
+16. Every recognized user-pasted error returns a visible Failure Intake Receipt
+    before diagnosis, correction, or retry.
 
 ## Acceptance Criteria
 
@@ -1504,12 +1838,134 @@ The feature is ready when all of the following are true:
 19. Later Navigator runs surface at most three relevant advisory learnings.
 20. Existing recovery, learning, Start, CLI, MCP, registry, and installer tests
     continue to pass.
+21. Every recognized pasted error returns an acknowledgement stating whether it
+    attached to the active run, the supported requirement/scope mapping, and
+    the next permitted action.
+22. An ambiguous or out-of-scope error is explicitly reported as not-attached
+    or blocked; TailTrail does not silently ignore it or guess a new run.
+23. A repeated failure with the same approved sanitized fingerprint is linked
+    to its prior occurrence, consumes the existing correction budget, and
+    cannot trigger an unbounded automatic retry loop.
+24. Fingerprint inputs never include raw error text, complete commands, secrets,
+    environment values, source bodies, or data from another run.
+25. Every credible error is tracked as an intake outcome, but a requirement
+    drift link is created only when evidence contradicts approved intent,
+    architecture, behaviour, preservation rules, or scope.
+26. Dashboard and completion reporting distinguish unresolved requirement drift
+    from an open operational or external blocker that does not disprove the
+    approved implementation.
 
 ## Implementation Phases and Delivery Gates
 
 Implementation is divided into release-oriented phases. A phase cannot begin
 until the previous phase's exit criteria pass. The later file-level slices map
 the exact files to these phases.
+
+### Practical implementation sequence
+
+The release phases below remain the authoritative detailed plan. This sequence
+groups them into the order an implementation team should actually build and
+validate them. It prevents the product from exposing failure correction,
+automatic routing, or MCP views before the corresponding evidence and safety
+boundaries exist.
+
+| Build phase | Primary deliverable | Main outcome | Exit gate |
+|---|---|---|---|
+| 0. Baseline contracts | Synthetic fixtures and current-behavior audit | A stable before-state for Start, anchors, checkpoints, recovery, and host adapters | Existing focused tests pass and fixtures contain no customer/production data. |
+| 1. Failure artifact foundation | Execution-failure module, schema, and run-ledger events | Sanitized failure records can be created, shown, validated, and linked to one explicit run | Invalid IDs/transitions fail closed; no raw logs, prompts, secrets, or full commands persist. |
+| 2. Failure Intake Receipt | Recognition, attached/not-attached/read-only/blocked receipt, and safe intake event | A user can see whether TailTrail acknowledged and attached a pasted error | Pasted errors never silently disappear, create a new Start run, or authorize edits. |
+| 3. Classification and authority | Classifier, approval matrix, and protected-action routing | Code, configuration, IAM, infrastructure, dependency, data, external, and transient failures take safe different paths | Dependency, infrastructure, IAM, data, and destructive changes retain explicit approval gates. |
+| 4. Requirement and drift mapping | Requirement link, sanitized fingerprint, recurrence, and drift link | Failures become requirement drift only when approved intent/boundaries are contradicted | Operational blockers do not pollute drift; repeated matching failures consume bounded correction budget. |
+| 5. Bounded correction integration | Context Continuity, Harness Convergence, checkpoints, and correction routing | One evidence-backed correction cycle at a time; no blind error loops | Initial attempt plus configured correction budget routes to recovery/replan on exhaustion or regression. |
+| 6. Setup and readiness integration | Organization Setup Contract, readiness, and setup-aware preflight | Missing CI/CD, configuration, reference, or infrastructure assumptions are found before completion | Not-ready blocks implementation approval; setup violations block completion. |
+| 7. Recovery, completion, and product surfaces | Navigator amendment/replan, dashboard, completion report, MCP views, registry, adapters, and packaging | Safe end-to-end experience across supported hosts | Completion fails closed for open failures/unresolved drift; installed packs expose the same behavior. |
+| 8. Evaluation and learning | Deterministic scenarios, metrics, and separately approved learning suggestions | Measure whether the flow reduces missed requirements and unnecessary retries | No live-model or token-savings claim is made without measured evidence. |
+
+### Implementation record: phases 0 through 8
+
+Completed on 2026-08-08:
+
+- **Phase 0:** Added synthetic, non-production baseline scenarios under
+  `tests/fixtures/execution-failure/`. They define approved-run,
+  unapproved-run, and sanitized user-pasted-evidence contracts before the
+  lifecycle becomes conversational.
+- **Phase 1:** Added `scripts/execution-failure.py`,
+  `schemas/execution-failure.schema.json`, and `tailtrail failure record|show`.
+  Records are scoped to one approved Planning Lock and live under
+  `.tailtrail/runs/<run-id>/execution-failures/`.
+- The implementation accepts bounded metadata only. It rejects raw-log input,
+  unsafe run/failure IDs, outside-project artifact references, absent evidence
+  files, unapproved runs, negative exit codes, and non-stable/sensitive error
+  metadata. Optional evidence files are referenced project-relatively and
+  recorded by SHA-256.
+- `execution_failure_recorded` now appears in the local run ledger. Intake,
+  diagnosis, and blocked-decision events now appear in the local run ledger.
+- **Phase 2:** `tailtrail failure intake` returns an immediate visible receipt.
+  It never guesses or creates a run. With no explicit approved run it returns
+  `not-attached` without writing state; with one it writes a sanitized intake
+  artifact and `execution_failure_intake` event.
+- **Phase 3:** `tailtrail failure diagnose` records a provisional
+  classification, confidence, hypothesis, and authority route. It permits only
+  read-only diagnosis by default; a safe retry is a proposal only; protected
+  infrastructure, dependency, permission, and data actions are recorded as
+  blocked pending explicit authority. No diagnosis command edits source,
+  executes retries, changes dependencies, or mutates external systems.
+- **Phase 4:** `tailtrail failure map` requires a requirement UID from the
+  immutable approved anchor and a named approved-path, architecture, behaviour,
+  preservation, or scope evidence basis. It stores the approved requirement
+  statement, a five-field sanitized SHA-256 fingerprint, same-run recurrence,
+  and a drift link only when the checkpoint delta contradicts approved intent.
+- **Phase 5:** `tailtrail failure correction-route` reuses Harness Convergence
+  for the configured cycle limit. It records one bounded correction, recovery,
+  or replan route and preserves all prior artifacts. It never applies a patch,
+  executes a retry, or creates a new Planning Lock.
+- **Phase 6:** `tailtrail failure readiness` combines the existing read-only
+  Setup Scan with saved failure state. It emits `ready`, `needs-correction`, or
+  `blocked` and cannot approve work, alter configuration, or run project
+  commands.
+- **Phase 7:** Completion Reports and the Workflow Dashboard now aggregate
+  sanitized execution-failure status. Any unresolved failure forces completion
+  to `evidence-incomplete`. The existing recovery boundary and convergence
+  routes remain the only recovery mechanisms; this integration does not perform
+  recovery. Existing MCP run/dashboard views remain available; a dedicated
+  failure MCP view stays deferred until the registry contract is extended.
+- **Phase 8:** Failure artifacts use the existing deterministic local
+  Evaluation Dataset and approval-gated Learning Agent rather than adding a
+  second evaluator or learning store. Failure records are safe inputs for
+  review/evaluation; no live model evaluation, raw-error ingestion, or automatic
+  learning capture is enabled.
+- Automatic conversational error recognition and source-changing correction are
+  intentionally not enabled: a host must invoke the explicit failure commands
+  under an existing approved run.
+
+~~~mermaid
+flowchart LR
+    P0["0 Baseline"] --> P1["1 Failure artifacts"]
+    P1 --> P2["2 Intake receipt"]
+    P2 --> P3["3 Classification and authority"]
+    P3 --> P4["4 Requirement and drift mapping"]
+    P4 --> P5["5 Bounded correction"]
+    P5 --> P6["6 Setup and readiness"]
+    P6 --> P7["7 Recovery, completion, and surfaces"]
+    P7 --> P8["8 Evaluation and learning"]
+~~~
+
+#### First usable release
+
+Phases 1 through 5 are the first usable failure-management release:
+
+~~~text
+Pasted error
+→ visible acknowledgement
+→ same-run attachment
+→ safe classification
+→ requirement/drift mapping
+→ bounded correction or recovery/replan
+~~~
+
+Phases 6 through 8 make that capability production-ready across organization
+setup complexity, multi-host distribution, recovery/completion visibility, and
+measured product evaluation.
 
 Priority meanings:
 

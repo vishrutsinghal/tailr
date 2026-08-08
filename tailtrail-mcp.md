@@ -36,6 +36,9 @@ Related design sources:
   evidence normalization, and outcome evaluation.
 - [MCP Server](MCP-SERVER.md): current setup and the existing read-only tool
   contract.
+- [MCP Learning Guide](tailtrail-mcp-learning-guide.md): beginner-to-advanced
+  explanation of MCP transport, tool contracts, TailTrail's safety model, and
+  the complete Start-to-evidence flow.
 - [Roadmap](roadmap.md): BL-9 scope, delivery sequencing, and feature status.
 
 ## Executive decision

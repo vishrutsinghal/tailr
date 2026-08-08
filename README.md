@@ -82,6 +82,17 @@ python3 scripts/tailtrail.py do "describe your task" --changed path/to/file
 python3 scripts/tailtrail.py start "describe your task" --changed path/to/file --verbose
 ```
 
+Start saves the exact plan under `.tailtrail/runs/<run-id>/planning/`. Once you
+approve it, activate that saved plan instead of asking Navigator to plan again:
+
+```bash
+python3 scripts/tailtrail.py planning activate --root . --run-id <run-id> --approved
+```
+
+For guided or hands-free work, activation creates the immutable requirement
+anchor at `.tailtrail/runs/<run-id>/anchors/approved-v1.json`. Lean, tiny tasks
+intentionally stay lightweight and keep only the Planning Lock.
+
 For local guardrail checks before commit:
 
 ```bash
@@ -224,11 +235,11 @@ For the CLI, use:
 tailtrail start "<your task>"
 ```
 
-`start` creates a local Planning Lock and is always planning-only. Approve the
-returned run ID separately before any TailTrail-managed source change:
+`start` creates a local Planning Lock and is always planning-only. Activate the
+saved plan for the returned run ID before any TailTrail-managed source change:
 
 ```bash
-tailtrail planning approve --root . --run-id <run-id> --approved
+tailtrail planning activate --root . --run-id <run-id> --approved
 ```
 
 For a deterministic assistant entry point, use the host-specific Start asset:

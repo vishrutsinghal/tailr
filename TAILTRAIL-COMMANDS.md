@@ -27,7 +27,7 @@ python3 scripts/tailtrail.py "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR" --verbose
 python3 scripts/tailtrail.py planning show --root . --run-id <run-id>
-python3 scripts/tailtrail.py planning approve --root . --run-id <run-id> --approved
+python3 scripts/tailtrail.py planning activate --root . --run-id <run-id> --approved
 python3 scripts/tailtrail.py governance check
 ```
 
@@ -38,7 +38,7 @@ Use these when a user is new to TailTrail, onboarding a team, or checking whethe
 | User situation | Use command | Prompt alternative | Why |
 |---|---|---|---|
 | I want to confirm TailTrail is installed and reachable. | `python3 scripts/tailtrail.py hello`, `tailtrail hello`, or `hello tailtrail` | `Hello TailTrail. Confirm this repo can use TailTrail and show the install location.` | Fast smoke check that prints the TailTrail location. |
-| I have a real task and do not know which TailTrail feature applies. | `python3 scripts/tailtrail.py do "task"`, `python3 scripts/tailtrail.py start "task"`, or `python3 scripts/tailtrail.py "task"` | `Use TailTrail for this task: <task>. Start with Navigator, show the recommended workflow, and wait for approval before implementation.` | Compact one-command entry point with workflow selection, review/Meta-Harness next steps, key commands, and metrics. It creates a Planning Lock and does not implement—even if the task wording also says “implement” or “set up.” Approve the returned run ID separately. `do` is the easiest daily form; `start` is the explicit backend command; free-form input routes to `start`. Use `--verbose` for the full plan. |
+| I have a real task and do not know which TailTrail feature applies. | `python3 scripts/tailtrail.py do "task"`, `python3 scripts/tailtrail.py start "task"`, or `python3 scripts/tailtrail.py "task"` | `Use TailTrail for this task: <task>. Start with Navigator, show the recommended workflow, and wait for approval before implementation.` | Compact one-command entry point with workflow selection, review/Meta-Harness next steps, key commands, and metrics. It creates a Planning Lock and saved Start Report; it does not implement—even if the task wording also says “implement” or “set up.” Activate the returned run with `planning activate` after approval. `do` is the easiest daily form; `start` is the explicit backend command; free-form input routes to `start`. Use `--verbose` for the full plan. |
 | I paused after `start` and need one lean reminder. | `python3 scripts/tailtrail.py next` | `Use TailTrail next. Read current local state and recommend exactly one next action without running scanners, editing files, or capturing learnings.` | Secondary resume command. Use after `start` when you paused and want a lean reminder of the single next action. |
 | I only want a workflow plan. | `python3 scripts/tailtrail.py guide "task"` | `Run TailTrail Navigator for this task: <task>. Show the plan only; do not implement until I approve.` | Navigator plan without the extra Start report. |
 | I know the changed or target file. | `python3 scripts/tailtrail.py graph --changed path/to/file` | `Use TailTrail Code Graph for <path/to/file>. Show likely callers, tests, helpers, and read order before changing code.` | Finds likely callers, tests, helpers, and read order. |
@@ -227,6 +227,51 @@ python3 scripts/tailtrail.py ledger state --run-id claim-validation
 ```
 
 These commands write only `.tailtrail/runs/<run-id>/`: an append-only event ledger, immutable approved anchor, requirement matrix, and selected graph-evidence receipts. They do not edit project source. A rejected matrix must include feedback for every requirement; after the second material rejection, the returned state requires AIDLC Requirements mode.
+
+## Sanitized Failure Artifacts (Foundation)
+
+```bash
+python3 scripts/tailtrail.py failure record --root . --run-id claim-validation --source agent-command --error-code TEST_FAILURE --command-label "focused pytest" --project-frame "claim validation" --exit-code 1
+python3 scripts/tailtrail.py failure show --root . --run-id claim-validation
+python3 scripts/tailtrail.py failure intake --root . --run-id claim-validation --source user-pasted --error-code ACCESS_DENIED --command-label "terraform plan" --project-frame "backend setup" --exit-code 1
+python3 scripts/tailtrail.py failure diagnose --root . --run-id claim-validation --failure-id failure-0001 --classification permission --confidence supported-hypothesis --hypothesis "The active identity lacks the required permission." --proposed-action bounded-correction
+python3 scripts/tailtrail.py failure map --root . --run-id claim-validation --failure-id failure-0001 --requirement-uid req-... --evidence-kind approved-path --checkpoint-delta unchanged --reason "The approved validation path still fails." --suspected-path src/claims.py
+python3 scripts/tailtrail.py failure correction-route --root . --run-id claim-validation --failure-id failure-0001 --max-cycles 2
+python3 scripts/tailtrail.py failure readiness --root . --run-id claim-validation
+```
+
+`failure record` requires an approved Planning Lock and writes one local artifact
+under `.tailtrail/runs/<run-id>/execution-failures/`. It accepts structured,
+bounded metadata only: a stable error code, safe command label, project frame,
+optional exit code, and an optional project-relative evidence file with its
+SHA-256. Raw logs, pasted error bodies, full commands, prompts, secrets, and
+environment values are neither accepted nor stored. `failure show` is read-only.
+
+`failure intake` creates an immediate receipt. Without an explicit approved run,
+it returns `not-attached` and writes nothing; it never guesses or creates a run.
+With an approved run, it stores a sanitized intake receipt and ledger event.
+`failure diagnose` records a provisional classification and authority decision
+only. Infrastructure, dependency, permission, and data corrections are blocked
+for explicit authority; other corrections remain a proposal until later scope
+and drift evidence exists. No command here edits source, retries a command, or
+changes infrastructure.
+
+`failure map` requires an approved anchor and an approved requirement UID. It
+creates a SHA-256 fingerprint from only five sanitized fields: requirement UID,
+classification, stable error code, project frame, and command label. A drift
+link is created only with an explicit approved-path, architecture, behaviour,
+preservation, or scope evidence basis. `failure correction-route` delegates the
+cycle limit to Harness Convergence and returns one of bounded correction,
+recovery, or replan. It records the route only—no source patch or retry is run.
+
+Resolution and automatic correction remain intentionally deferred to later
+failure-flow phases.
+
+`failure readiness` combines the existing read-only setup scan with the saved
+failure lifecycle. It reports `ready`, `needs-correction`, or `blocked`; it
+cannot approve implementation or change setup. Completion reports and the
+workflow dashboard now show sanitized unresolved-failure status and will not
+report a run complete while an execution failure remains unresolved.
 
 ## Requirement Completion Harness (Phase 2 V1-V4)
 
@@ -1253,13 +1298,13 @@ tailtrail guide "tell me important features of this repo"
 tailtrail start "fix Sonar issue and prepare PR" --changed path/to/file
 tailtrail start "continue payment retry correction" --changed src/worker.py --run-id payment-retry
 tailtrail planning show --root . --run-id <run-id>
-tailtrail planning approve --root . --run-id <run-id> --approved
+tailtrail planning activate --root . --run-id <run-id> --approved
 tailtrail reference --target /path/to/service-a --reference /path/to/service-b --goal "match validation style"
 ```
 
 The `hello` alias handles `hello tailtrail`, `hello TailTrail`, and the common typo `hello taitrail`, then delegates to `tailtrail hello`. If the launcher was installed before the alias existed, rerun `python3 scripts/tailtrail.py install launcher --force`.
 
-`tailtrail start` is the default guided-delivery entry point: it selects the smallest applicable TailTrail controls, creates a local Planning Lock, shows the approval-ready sequence, and marks recovery, continuity, higher-tier testing, and other advanced controls as later triggers. It remains planning-only even if the same prompt says implement, set up, or replicate. It does not edit source, run tests, or invoke an implementation agent by itself; managed source changes require a separately approved Planning Lock run.
+`tailtrail start` is the default guided-delivery entry point: it selects the smallest applicable TailTrail controls, creates a local Planning Lock, and saves the exact Start Report at `.tailtrail/runs/<run-id>/planning/start-report-v1.json`. It remains planning-only even if the same prompt says implement, set up, or replicate. After the user approves, use `tailtrail planning activate --root . --run-id <run-id> --approved`: guided-delivery and hands-free plans receive an immutable approved anchor at `anchors/approved-v1.json`; lean tasks keep only the lock. It does not edit source, run tests, or invoke an implementation agent by itself; managed source changes require that separately approved Planning Lock run.
 
 If the installer says the bin directory is not on `PATH`, add that directory to your shell profile or run the launcher by full path.
 

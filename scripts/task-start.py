@@ -497,8 +497,9 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
             "",
             f"- Run ID: `{lock['run_id']}`",
             f"- State: **{lock['status']}**; managed writes allowed: **{str(lock['writes_allowed']).lower()}**.",
+            f"- Saved plan: `{report.get('planning_report', {}).get('artifact', 'saved with this run')}`.",
             "- Source edits, Git mutations, Terraform/Sonar execution, scanners, and managed patch application are blocked until a separate approval.",
-            f"- Approve this exact plan later: `{report['command_prefix']} planning approve --root . --run-id {lock['run_id']} --approved`",
+            f"- Approve and activate this exact plan later: `{report['command_prefix']} planning activate --root . --run-id {lock['run_id']} --approved`",
             "",
         ]
     if plan.get("navigator_request", {}).get("explicit"):
@@ -850,6 +851,7 @@ def main() -> int:
         report = build_report(goal, args.root.resolve(), args.changed, args.command_prefix, args.run_id)
         if not args.no_planning_lock:
             report["planning_lock"] = planning_lock.create(args.root.resolve(), goal, args.planning_run_id, args.reference_root)
+            report["planning_report"] = planning_lock.save_start_report(args.root.resolve(), report["planning_lock"]["run_id"], report)
     except ValueError as error:
         parser.error(str(error))
     if args.format == "json":

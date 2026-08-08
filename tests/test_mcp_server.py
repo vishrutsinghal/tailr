@@ -174,6 +174,27 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(calls[1][2], "approve")
         self.assertIn("--approved", calls[1])
 
+    def test_start_report_approval_activates_the_saved_plan(self):
+        calls = []
+        original = mcp.command_result
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = root / ".tailtrail" / "runs" / "saved-plan" / "planning" / "start-report-v1.json"
+            report.parent.mkdir(parents=True)
+            report.write_text("{}", encoding="utf-8")
+
+            def fake_command_result(command, cwd):
+                calls.append(command)
+                return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{\"ok\": true}", "stderr": ""}
+
+            try:
+                mcp.command_result = fake_command_result
+                result = mcp.planning_lock_approve({"root": root.as_posix(), "run_id": "saved-plan", "approved": True})
+            finally:
+                mcp.command_result = original
+        self.assertTrue(result["execution"]["local_metadata_only"])
+        self.assertEqual(calls[0][2], "activate")
+
     def test_atomic_tailtrail_start_requires_explicit_request_and_returns_one_report(self):
         with self.assertRaisesRegex(ValueError, "approved: true"):
             mcp.tailtrail_start({"goal": "plan task 1"})

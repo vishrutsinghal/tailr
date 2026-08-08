@@ -188,7 +188,7 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
         "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
         "planning_lock_start": {"name": "planning_lock_start", "description": "Create an awaiting-approval Planning Lock after the user explicitly asks to start TailTrail. Writes only TailTrail local metadata; it never edits project source or runs project commands.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
-        "planning_lock_approve": {"name": "planning_lock_approve", "description": "Explicitly approve one existing Planning Lock run for managed execution. It does not edit project source or run project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "planning_lock_approve": {"name": "planning_lock_approve", "description": "Explicitly approve one existing Planning Lock run for managed execution. For a saved TailTrail Start report, it also activates that exact plan's canonical requirement anchor. It never edits project source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically create a Planning Lock and return the full TailTrail Start Report. Use only after the user explicitly asks to start TailTrail. It writes TailTrail local metadata only; it never implements, edits project source, runs project commands, scanners, tests, Terraform, or Git mutations.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
     }
 
@@ -560,8 +560,9 @@ def planning_lock_approve(args: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("planning_lock_approve requires approved: true")
     root = root_from(args)
     identifier = run_id(args)
+    action = "activate" if (root / ".tailtrail" / "runs" / identifier / "planning" / "start-report-v1.json").is_file() else "approve"
     result = command_result(
-        [PYTHON, script("planning-lock.py").as_posix(), "approve", "--root", root.as_posix(), "--run-id", identifier, "--approved"],
+        [PYTHON, script("planning-lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved"],
         root,
     )
     result["read_only"] = False

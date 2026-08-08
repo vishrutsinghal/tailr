@@ -49,6 +49,36 @@ class StartEntrypointTests(unittest.TestCase):
                 body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
                 self.assertIn("start report verbatim and stop", body)
 
+    def test_start_trigger_is_limited_to_the_current_user_message(self) -> None:
+        guidance = (
+            "AGENTS.md",
+            "CLAUDE.md",
+            "GEMINI.md",
+            "adapters/claude.md",
+            "adapters/copilot-instructions.md",
+            "adapters/chatgpt-instructions.md",
+            "adapters/gemini.md",
+            "adapters/cursor.mdc",
+            ".github/copilot-instructions.md",
+            ".openai/chatgpt-instructions.md",
+            ".cursor/rules/tailtrail.mdc",
+            "skills/tailtrail/SKILL.md",
+            "skills/tailtrail-start/SKILL.md",
+            ".claude/commands/tailtrail-start.md",
+            ".github/prompts/tailtrail-start.prompt.md",
+        )
+        for relative_path in guidance:
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
+                self.assertIn("current user message", body)
+                self.assertIn("error output", body)
+                self.assertIn("new planning lock", body)
+
+    def test_implicit_navigator_routing_does_not_recommend_start(self) -> None:
+        body = (ROOT / "skills" / "tailtrail" / "SKILL.md").read_text(encoding="utf-8")
+        implicit_section = body.split("For an explicit Navigator request", 1)[0]
+        self.assertNotIn('python3 scripts/tailtrail.py start "user goal"', implicit_section)
+
 
 if __name__ == "__main__":
     unittest.main()

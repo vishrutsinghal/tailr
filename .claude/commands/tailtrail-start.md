@@ -1,5 +1,10 @@
 # TailTrail Start
 
+This command is activated only by the **current user message**. A prior chat
+mention, pasted **error output**, log, stack trace, or follow-up debugging
+request must not create a **new Planning Lock**. Reuse an awaiting-approval run
+ID; continue an approved in-scope run without another Start approval.
+
 Run the atomic TailTrail Start flow for: `$ARGUMENTS`
 
 Create one persisted Planning Lock and return the complete TailTrail Start

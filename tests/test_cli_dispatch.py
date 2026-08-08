@@ -32,6 +32,7 @@ TAILTRAIL_DISPATCH = {
     "receipt": "context-receipt.py",
     "telemetry": "token-telemetry.py",
     "token-harness": "token-harness.py",
+    "failure": "execution-failure.py",
 }
 
 
@@ -119,6 +120,7 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn("navigator", report)
         self.assertEqual(report["planning_lock"]["status"], "awaiting-approval")
         self.assertFalse(report["planning_lock"]["writes_allowed"])
+        self.assertIn("planning_report", report)
         self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
 
     def test_free_form_task_routes_to_start(self) -> None:

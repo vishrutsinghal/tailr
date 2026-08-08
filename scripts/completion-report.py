@@ -43,6 +43,12 @@ def status(value: bool | None, *, not_selected: bool = False) -> str:
     return "pass" if value else "fail"
 
 
+def failure_summary(directory: Path) -> dict[str, Any]:
+    records = [read(path) for path in sorted((directory / "execution-failures").glob("failure-*.json"))]
+    unresolved = [item for item in records if item.get("status") != "resolved"]
+    return {"status": "none-recorded" if not records else ("unresolved" if unresolved else "resolved"), "count": len(records), "unresolved": [{"failure_id": item.get("failure_id"), "requirement_uid": (item.get("requirement") or {}).get("requirement_uid"), "classification": (item.get("diagnosis") or {}).get("classification")} for item in unresolved]}
+
+
 def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
     anchor = read(directory / "anchors" / "approved-v1.json")
@@ -55,6 +61,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     boundary_path = directory / "recovery" / "boundary.json"
     boundary = read(boundary_path) if boundary_path.is_file() else None
     receipts = [read(path) for path in sorted((directory / "validation-receipts").glob("*.json"))]
+    failures = failure_summary(directory)
 
     actual = {row.get("requirement_uid"): row for row in (checkpoint or {}).get("requirements", [])}
     findings_by_requirement: dict[str, list[dict[str, Any]]] = {}
@@ -145,6 +152,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "status": "available" if boundary else "not-configured",
             "boundary": boundary,
         },
+        "execution_failures": failures,
         "source_artifacts": {
             "approved_anchor": "anchors/approved-v1.json",
             "checkpoint": checkpoint_path,
@@ -162,6 +170,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         and payload["changed_scope"]["status"] == "approved"
         and payload["tests"]["status"] == "pass"
         and payload["drift"]["status"] == "none-unresolved"
+        and failures["status"] != "unresolved"
         and payload["architecture"]["status"] in {"pass", "not-assessed"}
         and payload["behaviour"]["status"] in {"pass", "not-assessed"}
     )
@@ -197,6 +206,7 @@ def render(payload: dict[str, Any]) -> str:
         f"Tests: **{tests['status']}** ({tiers})",
         f"Drift: **{payload['drift']['status']}**",
         f"Recovery checkpoint: **{payload['recovery_checkpoint']['status']}**",
+        f"Execution failures: **{payload['execution_failures']['status']}**",
         "",
         "## Harness usage",
         "",

@@ -39,6 +39,8 @@ def dashboard(root: Path, run_id: str) -> dict[str, Any]:
     architecture = latest(directory / "architecture", "assessment-*.json")
     behaviour = latest(directory / "behavior", "assessment-*.json")
     maintainability = latest(directory / "maintainability", "assessment-*.json")
+    failure_records = [read(path) for path in sorted((directory / "execution-failures").glob("failure-*.json"))]
+    open_failures = [item for item in failure_records if item.get("status") != "resolved"]
     actual = {item.get("requirement_uid"): item for item in (checkpoint or {}).get("requirements", [])}
     rows = []
     for requirement in anchor.get("requirements", []):
@@ -63,7 +65,7 @@ def dashboard(root: Path, run_id: str) -> dict[str, Any]:
         harness("Maintainability Harness", maintainability, basis="recorded refactor/maintainability assessment"),
         harness("Evidence-Aware Testing", gate, required=True, basis="completion gate and validation receipts"),
     ]
-    return {"schema_version": "1", "type": "tailtrail-workflow-dashboard", "run_id": run_id, "goal": anchor.get("goal", ""), "requirements": rows, "harnesses": harnesses, "active_requirement": active, "checkpoint": (checkpoint or {}).get("checkpoint"), "completion_review": "pass" if (review or {}).get("complete") else ("fail" if review else "unavailable"), "evidence_gate": "pass" if (gate or {}).get("complete") else ("fail" if gate else "unavailable"), "drift": {"unresolved": unresolved, "status": "unresolved" if unresolved else ("none-unresolved" if checkpoint else "unavailable")}, "recovery": "available" if recovery else "not-configured", "completion": (completion or {}).get("overall_status", "not-generated"), "boundary": "Read-only summary of saved local run artifacts. It does not run checks, edit source, apply recovery, or create a completion claim."}
+    return {"schema_version": "1", "type": "tailtrail-workflow-dashboard", "run_id": run_id, "goal": anchor.get("goal", ""), "requirements": rows, "harnesses": harnesses, "active_requirement": active, "checkpoint": (checkpoint or {}).get("checkpoint"), "completion_review": "pass" if (review or {}).get("complete") else ("fail" if review else "unavailable"), "evidence_gate": "pass" if (gate or {}).get("complete") else ("fail" if gate else "unavailable"), "drift": {"unresolved": unresolved, "status": "unresolved" if unresolved else ("none-unresolved" if checkpoint else "unavailable")}, "execution_failures": {"status": "none-recorded" if not failure_records else ("unresolved" if open_failures else "resolved"), "open": [{"failure_id": item.get("failure_id"), "requirement_uid": (item.get("requirement") or {}).get("requirement_uid"), "route": (item.get("correction_route") or {}).get("action")} for item in open_failures]}, "recovery": "available" if recovery else "not-configured", "completion": (completion or {}).get("overall_status", "not-generated"), "boundary": "Read-only summary of saved local run artifacts. It does not run checks, edit source, apply recovery, or create a completion claim."}
 
 
 def markdown(payload: dict[str, Any]) -> str:

@@ -46,6 +46,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/check-tailtrail.py",
     "scripts/completion-review.py",
     "scripts/delivery-orchestrator.py",
+    "scripts/execution-failure.py",
     "scripts/expand-intent.py",
     "scripts/git-readiness.py",
     "scripts/guardrail-check.py",

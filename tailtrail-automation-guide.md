@@ -49,8 +49,16 @@ can include read-only reference repositories. The plan response names the run
 ID and prints the exact separate approval command:
 
 ```bash
-tailtrail planning approve --root . --run-id <run-id> --approved
+tailtrail planning activate --root . --run-id <run-id> --approved
 ```
+
+`activate` preserves the exact Start Report as
+`.tailtrail/runs/<run-id>/planning/start-report-v1.json`. For guided-delivery
+and hands-free work it derives and approves the canonical anchor at
+`.tailtrail/runs/<run-id>/anchors/approved-v1.json` before managed execution.
+Lean tasks intentionally keep only the Planning Lock. `tailtrail planning
+approve` remains available as the lower-level lock-only command for compatible
+integrations.
 
 `tailtrail planning assert-write --root . --run-id <run-id>` is the managed
 execution gate. The controlled MCP patch and computational-control tools both
@@ -73,8 +81,26 @@ not a Codex-only behavior:
 | Cannot execute commands or MCP | Return a plan only and state that it is not persisted; show the exact local command. | No artifact and no claim of a saved run. |
 
 Every adapter carries this rule. A later `planning_lock_approve` MCP call or
-`tailtrail planning approve` CLI command is still required before managed
-execution.
+`tailtrail planning activate` CLI command is still required before managed
+execution. When the run began through `tailtrail_start`, the MCP approval
+automatically activates the saved plan and creates the required anchor.
+
+### From approval to observed actual state
+
+Activation is the boundary between planning and implementation. It does not
+pretend that code or tests have run. After the approved implementation cycle,
+the agent records the real control output with the existing checkpoint command:
+
+```bash
+tailtrail harness checkpoint --root . --run-id <run-id> \
+  --changed src/example.py --results .tailtrail/results.json
+```
+
+That writes `.tailtrail/runs/<run-id>/checkpoints/checkpoint-N.json`: the
+canonical V1 actual state, including changed-path fingerprints, requirement
+status, control evidence, and drift. A checkpoint is created only from recorded
+validation evidence—it is not fabricated merely because an agent says it has
+finished.
 
 ### Reliable host entry points
 

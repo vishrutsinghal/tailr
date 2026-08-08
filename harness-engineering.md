@@ -67,6 +67,25 @@ persisted approved-anchor and correction-loop implementation.
 | **Change Intent Anchor** | A user-approved local contract describing the relevant current state, desired state, boundaries, invariants, and required evidence. |
 | **Approved state** | The desired behavior and architectural shape accepted by a human, stored in `approved.md`. |
 | **Actual state** | The observed behavior, changed paths, control results, and unresolved gaps produced by the current agent attempt, stored in `actual.md`. |
+
+### Current implementation artifact mapping
+
+The design names `approved.md` and `actual.md` because they are useful
+human-readable concepts. The implemented V1 protocol keeps the canonical
+machine-readable state in JSON so that the CLI, MCP server, Codex, Copilot, and
+Claude adapters consume the same exact data:
+
+| Lifecycle concept | Current local artifact | When it is written |
+| --- | --- | --- |
+| Start proposal | `.tailtrail/runs/<run-id>/planning/start-report-v1.json` | `tailtrail start`; this is planning-only. |
+| Approved desired state | `.tailtrail/runs/<run-id>/anchors/approved-v1.json` | `tailtrail planning activate --run-id <run-id> --approved` for guided-delivery and hands-free work. |
+| Actual observed state | `.tailtrail/runs/<run-id>/checkpoints/checkpoint-N.json` | After an implementation/validation cycle is recorded with `tailtrail harness checkpoint`. |
+
+Activation deliberately derives the anchor from the saved Start Report, rather
+than asking Navigator to decide again. This prevents a repository change made
+between planning and approval from silently changing the approved requirement.
+Lean tasks remain lock-only and do not create an anchor or checkpoint unless
+their scope expands into guided delivery.
 | **Drift checkpoint** | A per-cycle comparison of actual state to approved state. |
 | **Completion gap** | A requirement that is failed, blocked, ambiguous, or implemented without adequate evidence. |
 | **Correction packet** | The smallest agent task that explains one gap, exact evidence, allowed scope, and next validation. |

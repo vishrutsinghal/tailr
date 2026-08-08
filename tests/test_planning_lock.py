@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import tempfile
 import unittest
@@ -47,6 +48,35 @@ class PlanningLockTests(unittest.TestCase):
             lock.create(root, "plan", "plan-2")
             with self.assertRaisesRegex(ValueError, "--approved"):
                 lock.approve(root, "plan-2", False)
+
+    def test_activation_creates_anchor_from_the_saved_start_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix claim validation", "plan-3")
+            lock.save_start_report(root, "plan-3", {
+                "goal": "fix claim validation",
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"likely_impacted_files": [{"path": "src/claims.py"}]},
+            })
+            activated = lock.activate(root, "plan-3", True)
+            artifact = root / activated["anchor"]["artifact"]
+            approved = json.loads(artifact.read_text(encoding="utf-8"))
+        self.assertEqual(activated["planning_lock"]["status"], "approved")
+        self.assertEqual(activated["anchor"]["status"], "created")
+        self.assertEqual(approved["requirements"][0]["statement"], "fix claim validation")
+        self.assertEqual(approved["requirements"][0]["likely_paths"], ["src/claims.py"])
+
+    def test_lean_activation_does_not_create_an_anchor(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "rename one local variable", "plan-4")
+            lock.save_start_report(root, "plan-4", {
+                "goal": "rename one local variable",
+                "guided_delivery": {"mode": "lean"},
+                "navigator": {},
+            })
+            activated = lock.activate(root, "plan-4", True)
+        self.assertEqual(activated["anchor"]["status"], "not-required")
 
 
 if __name__ == "__main__":

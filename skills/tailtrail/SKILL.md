@@ -36,7 +36,6 @@ For user requests that are broad, unclear, cross-file, scanner-driven, review-he
 
 ```bash
 python3 scripts/tailtrail.py guide "user goal"
-python3 scripts/tailtrail.py start "user goal"
 python3 scripts/tailtrail.py next
 ```
 
@@ -51,6 +50,17 @@ using TailTrail Navigator, implement Phase 1
 The first form is context discovery; `plan` returns the TailTrail feature decision and requires approval only to create a detailed implementation proposal; `implement` shows both the Navigator decision and the detailed proposal, but still requires a separate implementation approval before edits. If a phase exists in multiple planning documents, do not guess—ask the user to choose the document.
 
 Navigator is advisory and deterministic. It should show the likely TailTrail path, impacted files, context to load, context to avoid, suggested commands, and approval questions. Do not run scanners, vulnerability checks, broad builds, or learning capture without explicit approval.
+
+### Current-turn Start boundary
+
+Evaluate TailTrail Start only from the **current user message**. A prior chat
+mention, pasted **error output**, log, stack trace, or follow-up debugging
+request is not a new Start invocation and must not create a **new Planning Lock**.
+If a persisted run is awaiting approval, reuse its exact run ID and ask
+for approval of that plan. If it is approved, continue the in-scope debugging
+work under the same run without another Start approval. With no active run and
+no explicit Start invocation in the current user message, use ordinary
+TailTrail guidance or advisory `guide` routing.
 
 `tailtrail start` is a Planning Lock command. It returns a plan only even if the
 same prompt includes implementation wording. When this host can execute project

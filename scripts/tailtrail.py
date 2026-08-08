@@ -31,6 +31,7 @@ COMMANDS = {
     "guide": "Preview the future Navigator entry point for a user goal.",
     "navigator": "Use the short TailTrail Navigator context, plan, or implementation-proposal modes.",
     "ledger": "Create, append, validate, or project local Phase 1 run state.",
+    "failure": "Record or inspect sanitized post-implementation failure artifacts.",
     "anchor": "Draft, approve, invalidate, or review a local change-intent anchor.",
     "intent": "Expand a short TailTrail prompt through expand-intent.py.",
     "expand": "Alias for intent.",
@@ -913,6 +914,8 @@ def main() -> int:
         return navigator(args)
     if command == "ledger":
         return run_script("run-ledger.py", args)
+    if command == "failure":
+        return run_script("execution-failure.py", args)
     if command == "anchor":
         return run_script("change-intent-anchor.py", args)
     if command in {"intent", "expand"}:

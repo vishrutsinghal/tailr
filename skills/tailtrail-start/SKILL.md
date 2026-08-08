@@ -8,6 +8,15 @@ description: Use when the user explicitly asks to start TailTrail planning, incl
 Treat an explicit TailTrail Start request as a planning-only command, not as
 permission to implement. When commands are available, run:
 
+Evaluate that explicit request only from the **current user message**. A prior
+chat mention, pasted **error output**, log, stack trace, or follow-up debugging
+request is not a new Start invocation and must not create a **new Planning Lock**.
+If a persisted run is awaiting approval, reuse its exact run ID and ask
+for approval of that plan. If it is approved, continue the in-scope debugging
+work under the same run without another Start approval. With no active run and
+no explicit Start invocation in the current user message, use ordinary
+TailTrail guidance or advisory `guide` routing.
+
 ```text
 tailtrail start "<user goal>"
 ```
@@ -20,7 +29,7 @@ into separate lock and report calls. Otherwise, run:
 python3 scripts/tailtrail.py start "<user goal>"
 ```
 
-**Return the tool or CLI output verbatim and stop. Do not append your own
+**Return the complete Start Report verbatim and stop. Do not append your own
 implementation plan, steps, analysis, or guidance after the Start Report. The
 Start Report is the complete and only response.**
 

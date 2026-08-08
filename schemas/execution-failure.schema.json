@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/execution-failure.schema.json",
+  "title": "TailTrail Execution Failure",
+  "type": "object",
+  "required": ["schema_version", "type", "failure_id", "run_id", "status", "observed_at", "source", "evidence", "raw_persisted"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-execution-failure"},
+    "failure_id": {"type": "string", "pattern": "^failure-[0-9]{4}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["observed", "diagnosed", "blocked"]},
+    "observed_at": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "minLength": 1},
+    "source": {"enum": ["agent-command", "user-pasted", "external-observation"]},
+    "raw_persisted": {"const": false},
+    "evidence": {
+      "type": "object",
+      "required": ["artifact_reference", "artifact_sha256", "command_label", "error_code", "exit_code", "project_frame"],
+      "properties": {
+        "artifact_reference": {"type": ["string", "null"]},
+        "artifact_sha256": {"type": ["string", "null"]},
+        "command_label": {"type": "string", "minLength": 1, "maxLength": 160},
+        "error_code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_-]{1,79}$"},
+        "exit_code": {"type": ["integer", "null"], "minimum": 0},
+        "project_frame": {"type": "string", "minLength": 1, "maxLength": 240}
+      },
+      "additionalProperties": false
+    },
+    "diagnosis": {
+      "type": "object",
+      "required": ["basis", "classification", "confidence", "hypothesis"],
+      "properties": {
+        "basis": {"const": "explicit-diagnosis-input"},
+        "classification": {"enum": ["code", "configuration", "environment", "infrastructure", "dependency", "permission", "data", "external-service", "transient", "unknown"]},
+        "confidence": {"enum": ["observed", "supported-hypothesis", "unknown"]},
+        "hypothesis": {"type": "string", "minLength": 1, "maxLength": 280}
+      },
+      "additionalProperties": false
+    },
+    "authority": {
+      "type": "object",
+      "required": ["approval_required", "proposed_action", "reason", "route", "status"],
+      "properties": {
+        "approval_required": {"type": "boolean"},
+        "proposed_action": {"enum": ["read-only-diagnosis", "bounded-correction", "safe-retry"]},
+        "reason": {"type": "string", "minLength": 1},
+        "route": {"type": "string", "minLength": 1},
+        "status": {"enum": ["allowed", "blocked", "needs-scope-evidence"]}
+      },
+      "additionalProperties": false
+    },
+    "requirement": {
+      "type": "object",
+      "required": ["requirement_uid", "statement"],
+      "properties": {
+        "requirement_uid": {"type": "string", "minLength": 1},
+        "statement": {"type": "string", "minLength": 1, "maxLength": 280}
+      },
+      "additionalProperties": false
+    },
+    "correlation": {
+      "type": "object",
+      "required": ["fingerprint_version", "failure_fingerprint", "signature_fields", "prior_matching_failure_id", "occurrence"],
+      "properties": {
+        "fingerprint_version": {"const": "v1"},
+        "failure_fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "signature_fields": {
+          "type": "object",
+          "required": ["requirement_uid", "classification", "error_code", "project_frame", "command_label"],
+          "properties": {
+            "requirement_uid": {"type": "string", "minLength": 1},
+            "classification": {"type": "string", "minLength": 1},
+            "error_code": {"type": "string", "minLength": 1},
+            "project_frame": {"type": "string", "minLength": 1},
+            "command_label": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "prior_matching_failure_id": {"type": ["string", "null"]},
+        "occurrence": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "drift_link": {
+      "type": "object",
+      "required": ["drift_created", "requirement_uid", "checkpoint_delta", "evidence_kind", "suspected_paths", "reason"],
+      "properties": {
+        "drift_created": {"type": "boolean"},
+        "requirement_uid": {"type": "string", "minLength": 1},
+        "checkpoint_delta": {"enum": ["resolved", "improved", "unchanged", "regressed", "new-drift", "needs-decision"]},
+        "evidence_kind": {"enum": ["approved-path", "architecture", "behavior", "preservation", "scope"]},
+        "suspected_paths": {"type": "array", "items": {"type": "string"}},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 320}
+      },
+      "additionalProperties": false
+    },
+    "correction_route": {"type": "object"}
+  },
+  "additionalProperties": false
+}

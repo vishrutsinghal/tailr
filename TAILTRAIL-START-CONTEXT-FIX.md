@@ -2,14 +2,14 @@
 
 ## Status
 
-- Implementation: complete
-- Focused tests: passed
-- Adapter synchronization: passed
-- Governance synchronization: passed
-- Registry validation: passed
-- Local commit: `0314a99` (`Fix TailTrail Start context carryover`)
-- Push status: blocked by GitHub HTTP 403 because the authenticated account
-  `vsingha7_uhg` does not have write access to `vishrutsinghal/tailr`
+- Implementation: implemented locally; explicit Start CLI behavior is unchanged.
+- Focused regression coverage: added in `tests/test_start_entrypoints.py`.
+- Adapter synchronization: source and checked-in host targets updated together.
+- Governance synchronization: root `AGENTS.md`, both TailTrail skills, and Start
+  host entry points now use the same current-turn boundary.
+- Runtime validation: pending because this workspace has no runnable Python
+  interpreter; static consistency and whitespace checks are still required.
+- Commit/push: not performed as part of this implementation.
 
 ## Problem
 
@@ -154,8 +154,7 @@ The existing adapter synchronizer propagated the source changes to:
 - Aligned the stop instruction with the tested contract phrase: “Return the
   complete Start Report verbatim and stop.”
 
-These two adjustments also repaired pre-existing failures in the Start
-entrypoint contract test on `master`.
+These two adjustments repair the Start entrypoint contract test expectations.
 
 ### Regression tests
 
@@ -171,6 +170,26 @@ all supported project, adapter, and skill guidance for:
 Added `test_implicit_navigator_routing_does_not_recommend_start`, which verifies
 that the general skill's implicit Navigator section does not contain the Start
 command example.
+
+## Implemented Routing Contract
+
+The behavior is intentionally implemented in guidance and entry points rather
+than in the Start CLI parser. The parser already requires `start`; the failure
+was conversational carryover in hosts that load TailTrail instructions.
+
+```text
+current message explicitly says Start
+  -> create one Planning Lock -> return Start Report -> stop
+
+error/log/stack trace or follow-up debugging
+  -> preserve current run context
+  -> awaiting approval: request approval for that exact run ID
+  -> approved: continue in scope under the same run
+  -> no active run: ordinary TailTrail guidance or advisory guide
+```
+
+This keeps diagnostics from silently resetting a task while preserving the
+explicit planning gate when the user actually begins a new TailTrail Start run.
 
 ## Intentionally Unchanged
 

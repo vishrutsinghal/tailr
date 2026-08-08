@@ -39,3 +39,11 @@ class RunLedgerTests(unittest.TestCase):
     def test_validation_rejects_non_deterministic_event_id(self) -> None:
         event = {"schema_version": "1", "type": "tailtrail-run-event", "run_id": "run", "sequence": 1, "event_id": "wrong", "created_at": "2026-01-01T00:00:00+00:00", "event_type": "run_created", "payload": {}}
         self.assertIn("event_id does not match deterministic value", ledger.validate_event(event, 1))
+
+    def test_failure_event_is_accepted_and_projected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ledger.init_run(root, "run-failure", "fix validation")
+            ledger.append_event(root, "run-failure", "execution_failure_recorded", {"failure_id": "failure-0001"})
+            state = ledger.projection(root, "run-failure")
+        self.assertEqual(state["activity"]["execution_failure_recorded"], 1)

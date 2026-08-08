@@ -1,5 +1,39 @@
 # TailTrail Roadmap
 
+## Start Context Carryover — implemented local guidance V1
+
+TailTrail Start is now a current-turn-only Planning Lock instruction across the
+root governance, TailTrail skills, Claude, ChatGPT, Copilot, Cursor, Gemini, and
+Start prompt entry points. A prior Start mention, pasted error output, log,
+stack trace, or follow-up debugging request cannot create a new lock. An
+awaiting-approval run reuses its existing run ID; an approved run continues
+in-scope without another Start approval. The general skill routes implicit or
+noisy work to advisory `guide`, not `start`. Focused regression coverage lives
+in `tests/test_start_entrypoints.py`; CLI parsing and persisted lock storage are
+intentionally unchanged.
+
+## Post-Implementation Failure Flow — delivered local V1
+
+TailTrail now has a complete local, evidence-first failure-flow foundation:
+
+```text
+approved run → sanitized intake → provisional classification/authority
+→ approved requirement + drift mapping → bounded correction route
+→ setup/failure readiness → recovery or completion evidence
+→ deterministic evaluation and approval-gated learning
+```
+
+Implemented components include `tailtrail failure intake`, `record`, `show`,
+`diagnose`, `map`, `correction-route`, and `readiness`; append-only run-ledger
+events; recurrence fingerprints scoped to a run and requirement; failure-aware
+completion reports/dashboard; existing recovery boundaries; deterministic
+evaluation datasets; and the existing Learning Agent. Dedicated failure MCP
+inspection remains a registry-backed follow-up.
+
+Safety boundary: these commands do not persist raw logs, create a new run,
+apply source patches, retry commands, mutate infrastructure, or automatically
+capture learning. Those actions remain separately approval-gated.
+
 This roadmap keeps future work simple and staged. Each phase should be useful on its own, easy to remove if it does not help, and consistent with TailTrail's core promise: small changes, clear ownership, and no weakened safeguards.
 
 ## Direction

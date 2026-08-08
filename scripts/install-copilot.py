@@ -114,6 +114,7 @@ PACK_SCRIPTS = [
     "scripts/evaluation-audit.py",
     "scripts/evaluation-dataset.py",
     "scripts/evaluation-harness.py",
+    "scripts/execution-failure.py",
     "scripts/export-release.py",
     "scripts/expand-intent.py",
     "scripts/evidence-metrics.py",

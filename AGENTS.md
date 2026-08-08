@@ -41,4 +41,15 @@ When the user gives an explicit `tailtrail <command>` request, run the equivalen
 
 Treat `tailtrail start,`, `tailtrail start:`, and `tailtrail start -` as the same explicit command. A `hands-free` or `end-to-end` request requires a comprehensive Program Delivery plan—feature requirements, dependency order, first active slice, and approval gate—before any execution.
 
+### Current-turn Start boundary
+
+Evaluate TailTrail Start only from the **current user message**. A prior chat
+mention, pasted **error output**, log, stack trace, or follow-up debugging
+request is not a new Start invocation and must not create a **new Planning Lock**.
+If an existing run is awaiting approval, identify and reuse that exact
+run ID when asking for approval. If it is already approved, continue the
+in-scope debugging work under that run without asking for Start approval again.
+With no active run and no explicit Start invocation in the current user message,
+use ordinary TailTrail guidance or advisory `guide` routing.
+
 Use named flows and review lenses when requested: `delivery flow`, `risk flow`, `release flow`, `architecture review`, `security review`, `QA review`, `maintainability review`, and `dependency review`. Capture durable project facts in `.tailtrail/learnings.md` only when they will help future agents avoid repeated discovery or repeated mistakes.
