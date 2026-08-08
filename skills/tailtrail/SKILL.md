@@ -62,6 +62,14 @@ work under the same run without another Start approval. With no active run and
 no explicit Start invocation in the current user message, use ordinary
 TailTrail guidance or advisory `guide` routing.
 
+### Hello command response boundary
+
+For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`,
+run the real Hello command. Return its ASCII TailTrail banner and installation
+result **verbatim as the complete response**. Do not preface it with narration,
+summarize it, add a todo/status update, omit the banner, or suggest `doctor`
+after it. If the command fails, return its actual error output verbatim instead.
+
 `tailtrail start` is a Planning Lock command. It returns a plan only even if the
 same prompt includes implementation wording. When this host can execute project
 commands, run `tailtrail start "<goal>"` and return its complete Start Report

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import ast
 import json
 import sys
 import tempfile
@@ -47,3 +48,25 @@ class RunLedgerTests(unittest.TestCase):
             ledger.append_event(root, "run-failure", "execution_failure_recorded", {"failure_id": "failure-0001"})
             state = ledger.projection(root, "run-failure")
         self.assertEqual(state["activity"]["execution_failure_recorded"], 1)
+
+    def test_start_report_saved_event_is_accepted_and_projected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ledger.init_run(root, "run-start", "fix validation")
+            ledger.append_event(root, "run-start", "start_report_saved", {"artifact": ".tailtrail/runs/run-start/start-report.json"})
+            state = ledger.projection(root, "run-start")
+        self.assertEqual(state["activity"]["start_report_saved"], 1)
+
+    def test_all_literal_event_emissions_are_declared(self) -> None:
+        emitted: set[str] = set()
+        for path in (ROOT / "scripts").glob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                    continue
+                if node.func.attr != "append_event" or len(node.args) < 3:
+                    continue
+                event_type = node.args[2]
+                if isinstance(event_type, ast.Constant) and isinstance(event_type.value, str):
+                    emitted.add(event_type.value)
+        self.assertTrue(emitted.issubset(ledger.EVENT_TYPES), sorted(emitted - ledger.EVENT_TYPES))

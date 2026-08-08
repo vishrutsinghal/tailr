@@ -45,6 +45,25 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("Hello from TailTrail.", result.stdout)
         self.assertIn("Installation check: passed", result.stdout)
 
+    def test_changed_file_discovery_excludes_managed_packs_and_bytecode(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tailtrail").mkdir()
+            (root / "tailtrail" / ".tailtrail-install.json").write_text("{}", encoding="utf-8")
+            self.assertFalse(navigator.is_actionable_changed_path(root, "tailtrail/scripts/navigator.py"))
+            self.assertFalse(navigator.is_actionable_changed_path(root, "src/__pycache__/service.pyc"))
+            self.assertTrue(navigator.is_actionable_changed_path(root, "src/order_service/service.py"))
+
+    def test_review_graph_paths_are_bounded_for_windows_safe_subprocesses(self) -> None:
+        changed = [f"generated/{index:04d}-{'x' * 300}.py" for index in range(100)]
+        selected = navigator.bounded_review_graph_paths(changed)
+        self.assertLessEqual(len(selected), navigator.MAX_REVIEW_GRAPH_CHANGED_PATHS)
+        self.assertLessEqual(
+            sum(len("--changed") + 1 + len(path) + 1 for path in selected),
+            navigator.MAX_REVIEW_GRAPH_ARGUMENT_CHARS,
+        )
+        self.assertLess(len(selected), len(changed))
+
     def test_classifies_sonar_vulnerability_handoff_prompt(self) -> None:
         goal = "Fix failing Sonar issue, check CVE impact, and prepare PR handoff"
         tasks = core.task_types(goal)

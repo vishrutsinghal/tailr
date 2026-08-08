@@ -104,6 +104,11 @@ class InstallProfileTests(unittest.TestCase):
             self.assertEqual(steps[2].destination, target / "skills")
             self.assertEqual(len(steps), 3)
 
+    def test_installer_preflight_uses_adapter_sync_not_release_tree_audit(self):
+        body = (SCRIPTS / "install-local.py").read_text(encoding="utf-8")
+        self.assertIn('"sync-adapters.py"', body)
+        self.assertNotIn('str(ROOT / "scripts" / "check-tailtrail.py")', body)
+
     def test_claude_profile_installs_guidance_and_atomic_start_command(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp)

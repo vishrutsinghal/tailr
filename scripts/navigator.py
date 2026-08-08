@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 # Reuse the interpreter that launched TailTrail. This keeps nested helper calls
 # working for Windows `py -3` installs as well as Unix `python3` installs.
 PYTHON = sys.executable
+MAX_REVIEW_GRAPH_ARGUMENT_CHARS = 8_000
+MAX_REVIEW_GRAPH_CHANGED_PATHS = 50
 
 
 def load_registry_module() -> Any | None:
@@ -127,7 +129,30 @@ def git_changed(root: Path) -> list[str]:
     untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"], cwd=root, text=True, capture_output=True, check=False)
     if untracked.returncode == 0:
         files.extend(line.strip() for line in untracked.stdout.splitlines() if line.strip())
-    return sorted(dict.fromkeys(files))
+    return sorted(dict.fromkeys(path for path in files if is_actionable_changed_path(root, path)))
+
+
+def is_actionable_changed_path(root: Path, path: str) -> bool:
+    """Ignore generated files and managed packs that are not project changes."""
+    relative = Path(path)
+    if "__pycache__" in relative.parts:
+        return False
+    if relative.parts and (root / relative.parts[0] / ".tailtrail-install.json").is_file():
+        return False
+    return True
+
+
+def bounded_review_graph_paths(changed: list[str]) -> list[str]:
+    """Keep nested review-graph calls below Windows command-line limits."""
+    selected: list[str] = []
+    argument_chars = 0
+    for path in changed:
+        next_chars = len("--changed") + 1 + len(path) + 1
+        if len(selected) >= MAX_REVIEW_GRAPH_CHANGED_PATHS or argument_chars + next_chars > MAX_REVIEW_GRAPH_ARGUMENT_CHARS:
+            break
+        selected.append(path)
+        argument_chars += next_chars
+    return selected
 
 
 def existing_state(root: Path) -> dict[str, bool]:
@@ -143,10 +168,11 @@ def existing_state(root: Path) -> dict[str, bool]:
 
 
 def run_review_graph(root: Path, changed: list[str]) -> dict[str, Any] | None:
-    if not changed:
+    graph_paths = bounded_review_graph_paths(changed)
+    if not graph_paths:
         return None
     command = [PYTHON, (ROOT / "scripts" / "review-graph.py").as_posix(), "--root", root.as_posix(), "--format", "json"]
-    for item in changed:
+    for item in graph_paths:
         command.extend(["--changed", item])
     result = subprocess.run(command, cwd=root, text=True, capture_output=True, check=False)
     if result.returncode != 0:

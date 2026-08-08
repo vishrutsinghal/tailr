@@ -111,7 +111,7 @@ python3 scripts/tailtrail.py hello
 tailtrail hello
 ```
 
-Use this after install, update, clone, or launcher setup. It is read-only and fast. It confirms the command resolved, prints whether TailTrail is running as a source checkout or installed pack, and points to `doctor` for full validation.
+Use this after install, update, clone, or launcher setup. It is read-only and fast. It confirms the command resolved, prints whether TailTrail is running as a source checkout or installed pack, and points to `doctor` for full validation. In an assistant chat, the ASCII banner and installation result must be returned verbatim as the entire response—no narration, todo update, or added doctor suggestion.
 
 ## MCP Server
 

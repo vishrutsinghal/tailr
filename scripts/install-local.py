@@ -94,7 +94,20 @@ def run(command: list[str], quiet: bool = False) -> int:
 
 
 def validate_repo() -> None:
-    code = run([sys.executable, str(ROOT / "scripts" / "check-tailtrail.py")], quiet=True)
+    required = (
+        ROOT / "AGENTS.md",
+        ROOT / "scripts" / "install-copilot.py",
+        ROOT / "scripts" / "install_surfaces.py",
+        ROOT / "scripts" / "sync-adapters.py",
+    )
+    missing = [path.relative_to(ROOT).as_posix() for path in required if not path.is_file()]
+    if missing:
+        raise SystemExit(f"TailTrail installer payload is incomplete: {', '.join(missing)}")
+
+    # Installation must work from a normal development checkout, which can
+    # contain virtual environments, demo projects, and other local artifacts.
+    # Release hygiene remains available through `tailtrail doctor`.
+    code = run([sys.executable, str(ROOT / "scripts" / "sync-adapters.py"), "--check"], quiet=True)
     if code != 0:
         raise SystemExit(code)
 

@@ -497,6 +497,8 @@ def list_files() -> list[str]:
             continue
         if ".idea" in path.parts:
             continue
+        if ".video-tools" in path.parts:
+            continue
         if "__pycache__" in path.parts:
             continue
         if "benchmarks" in path.parts and "results" in path.parts and path.name != ".gitkeep":
@@ -561,7 +563,11 @@ def check_content() -> None:
     unfinished_pattern = re.compile(rf"\[{unfinished_marker}|{unfinished_marker}:", re.IGNORECASE)
 
     for file in list_files():
-        body = read(file)
+        try:
+            body = read(file)
+        except UnicodeDecodeError:
+            # Expected assets can be binary; file inventory still validates them.
+            continue
         if unfinished_pattern.search(body):
             fail(f"{file} contains an unfinished placeholder")
         if "\t" in body:

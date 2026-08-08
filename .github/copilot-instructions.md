@@ -76,7 +76,7 @@ If these files are not present, still follow the Core Rules above.
 
 When the user says a short command such as `hello tailtrail`, `tailtrail hello`, `use TailTrail`, `use review`, `use dependency gate`, `use AIDLC`, `use AIDLC and review`, `review then AIDLC`, `use handoff`, or `save tokens`, resolve it before acting.
 
-For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`, run `tailtrail hello` when the launcher is installed, otherwise run `python3 scripts/tailtrail.py hello`. Show the command output; do not replace it with a conversational greeting.
+For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`, run `tailtrail hello` when the launcher is installed, otherwise run `python3 scripts/tailtrail.py hello`. Return the ASCII TailTrail banner and installation result **verbatim as the complete response**; do not preface it with narration, summarize it, add a todo/status update, omit the banner, or suggest `doctor` after it. If the command fails, return its actual error output verbatim instead.
 
 If available, use `scripts/expand-intent.py` or the installed pack path shown below to expand the command into the full TailTrail workflow. If the script cannot be run, follow `context/intent-aliases.md` and apply the matching expanded flow manually.
 

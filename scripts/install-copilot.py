@@ -315,12 +315,16 @@ def write_manifest(
         }
         for relative_path in pack_entries_for(pack_files, pack_dirs, pack_scripts)
     }
-    files[".github/copilot-instructions.md"] = {
-        "sha256": hashlib.sha256(copilot_body(pack_dir).encode("utf-8")).hexdigest(),
-    }
-    files[".github/prompts/tailtrail-start.prompt.md"] = {
-        "sha256": hashlib.sha256(start_prompt_body(pack_dir).encode("utf-8")).hexdigest(),
-    }
+    # Hash the written files rather than the in-memory rendered text. On Windows
+    # text output can use a different newline representation, and the manifest
+    # must describe the exact bytes later used for safe upgrade checks.
+    for relative_path, rendered in (
+        (".github/copilot-instructions.md", copilot_body(pack_dir)),
+        (".github/prompts/tailtrail-start.prompt.md", start_prompt_body(pack_dir)),
+    ):
+        destination = pack_root / relative_path
+        digest = sha256(destination) if destination.is_file() else hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+        files[relative_path] = {"sha256": digest}
     manifest = {
         "version": 1,
         "tool": "tailtrail",
