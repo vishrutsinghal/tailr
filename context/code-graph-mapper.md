@@ -1,6 +1,12 @@
 # Code Graph Mapper
 
 Code Graph Mapper creates a compact, freshness-checked metadata cache at `tailtrail-meta/code-graph-cache.json`.
+It also stores a lightweight repository inventory fingerprint (relative path, size,
+and modified time only). Navigator automatically marks the cache stale when a
+relevant source, test, manifest, config, or IaC file is added, removed, renamed,
+or changed—even before Git tracks that file. The next selected graph refresh
+updates the cache after the plan is approved; end users do not need to name the
+new file manually. Planning Lock never refreshes the shared cache by itself.
 
 Use it for heavy Sonar, vulnerability, dependency, QA, review, handoff, or broad implementation work where repeated source discovery would waste tokens.
 

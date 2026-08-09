@@ -157,6 +157,28 @@ def update_file(
     report.updated.append(relative_path)
 
 
+def update_rendered_text(
+    destination: Path,
+    content: str,
+    relative_path: str,
+    target_root: Path,
+    backup_root: Path,
+    manifest: dict[str, Any] | None,
+    strategy: str,
+    dry_run: bool,
+    report: UpdateReport,
+) -> None:
+    """Update generated adapter content without copying its unresolved template."""
+    source_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    if not should_update(destination, relative_path, source_hash, manifest, strategy, report):
+        return
+    if destination.exists() and strategy == "backup-overwrite":
+        backup_file(destination, target_root, backup_root, report)
+    if not dry_run:
+        write_text_file(destination, content)
+    report.updated.append(relative_path)
+
+
 def update_copilot(
     target_root: Path,
     pack_dir: Path,
@@ -188,7 +210,34 @@ def update_copilot(
             write_text_file(copilot_destination, copilot_body)
         report.updated.append(COPILOT_PATH.as_posix())
 
+    prompt_relative = ".github/prompts/tailtrail-start.prompt.md"
+    prompt_body = install_copilot.start_prompt_body(pack_dir)
+    update_rendered_text(
+        target_root / prompt_relative,
+        prompt_body,
+        prompt_relative,
+        target_root,
+        backup_root,
+        manifest,
+        strategy,
+        dry_run,
+        report,
+    )
+
     for relative_path in install_copilot.pack_entries_for(pack_files, pack_dirs, pack_scripts):
+        if relative_path == prompt_relative:
+            update_rendered_text(
+                pack_root / relative_path,
+                prompt_body,
+                relative_path,
+                target_root,
+                backup_root,
+                manifest,
+                strategy,
+                dry_run,
+                report,
+            )
+            continue
         source = ROOT / relative_path
         destination = pack_root / relative_path
         update_file(destination, source, relative_path, target_root, backup_root, manifest, strategy, dry_run, report)

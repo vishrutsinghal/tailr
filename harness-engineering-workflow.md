@@ -20,105 +20,103 @@ boundaries, see [TailTrail Automatic Routing and Trigger Guide](tailtrail-automa
 
 ```mermaid
 flowchart TB
-    FR["First-run: profile smoke test + suggested first prompt"]
-    U["Developer task: add per-customer claim limits"]
+    U["User goal"] --> N["Navigator / TailTrail Start"]
+    N --> P["Planning Lock + saved Start Report\nplanning only; no source/test/Git work"]
 
-    subgraph Entry["1. Understand and route"]
-        B["Bootstrap Snapshot"]
-        N["Navigator / Start"]
-        AIDLC["AIDLC: requirements, risks, decisions"]
-        TP["Token Harness: context route and receipts"]
-        POL["AGENTS.md, policy, and Guardrails"]
-        DG["Dependency Gate"]
+    subgraph Route["1. Select proportionate local controls"]
+        POL["AGENTS.md, local policy, Guardrails"]
+        LITE["Code Review Graph Lite\nfresh caller/test/read-order hints"]
+        CACHE["Code Graph Mapper cache\nmetadata inventory freshness"]
+        TP["Token Harness\nright-sized context + exactness boundary"]
+        SEL["Requirement, Architecture, Behaviour, Maintainability\nselected only when task signals justify them"]
     end
 
-    subgraph Map["2. Map current state"]
-        CG["Code Graph: AST, Semantic V2, approved V3"]
-        IMP["Impact map: callers, tests, endpoints, config, data paths"]
-        TST["Test Precision: focused behavior and regression matrix"]
-        SEC["Approved quality, CI, Sonar, and vulnerability inputs"]
+    P --> POL --> LITE --> SEL
+    P --> CACHE
+    P --> TP
+
+    subgraph Intent["2. Establish approved intent"]
+        FB{"Plan accepted?"}
+        FEED["Requirement-by-requirement feedback\nreject all or revise only rejected rows"]
+        AIDLC["AIDLC Requirements stage\nquestions, options, rationale"]
+        CYCLE["aidlc-cycle\nresume -> answers -> revised boundary"]
+        ANCHOR["Immutable approved anchor\nrequirement IDs, scope, preserve rules, proof"]
+        HF["Hands-free Program Delivery\nfeature requirements, dependency order, first slice"]
     end
 
-    subgraph Anchor["3. Approve destination"]
-        A1["Change Intent Anchor"]
-        AP["Approved anchor: behavior, architecture, scope, evidence"]
-        SCN["Approved scenarios"]
-        HAPP{"Human approves desired state?"}
+    P --> FB
+    FB -->|"Reject"| FEED
+    FEED -->|"AIDLC selected or second rejection"| AIDLC --> CYCLE --> FB
+    FB -->|"Approve"| ANCHOR
+    ANCHOR --> HF
+
+    subgraph Deliver["3. Deliver one approved slice at a time"]
+        AG["Main coding agent"]
+        WATCH["Context Continuity Watcher\nnon-writing requirement-memory observer"]
+        ACT["Actual checkpoint\nrequirement ID -> changed paths/symbols/evidence"]
+        FAST["Computational controls\nfocused tests, lint, type, AST, contract/CI receipts"]
+        LENSES["Completion + Architecture + Behaviour + Maintainability lenses"]
+        DRIFT["Drift classification\nresolved / improved / unchanged / regressed / new-drift"]
+        CORR["Bounded correction packet\nprior gap + do-not-repeat + next proof"]
     end
 
-    subgraph Execute["4. Implement and self-correct"]
-        AG["Codex / coding agent"]
-        WATCH["Context Continuity Watcher: non-writing drift observer"]
-        ACT["Actual checkpoint: observed behavior, paths, controls"]
-        FAST["Computational controls: tests, build, lint, type, AST"]
-        ARCH["Architecture Fitness Harness"]
-        BEH["Behaviour Harness"]
-        MAINT["Maintainability Harness"]
-        CP["Drift checkpoint"]
-        GAP{"Anchor satisfied?"}
-        CORR["Context Continuity + bounded correction packet"]
-        ESC{"Blocked, ambiguous, or correction limit reached?"}
+    ANCHOR --> WATCH --> AG --> ACT --> FAST --> LENSES --> DRIFT
+    TP -. "compact active context" .-> WATCH
+    WATCH -. "active requirement, preserve rules, prior failure" .-> AG
+    DRIFT -->|"gap"| CORR --> WATCH
+
+    subgraph Recover["4. Failure and recovery when a bounded loop cannot converge"]
+        INTAKE["Failure intake receipt\nclassification + failure fingerprint"]
+        REPLAN["Recovery / replan\nreuse anchor, evidence, and history"]
+        SAFE["Task Recovery Boundary\nselective task-owned reconciliation"]
     end
 
-    subgraph Review["5. Prove and hand off"]
-        DASH["Workflow Dashboard: read-only status"]
-        REV["TailTrail Review"]
-        HUMAN["Human review"]
-        COMP["Completion Report: explicit fail-closed closure"]
-        HAND["Handoff / PR evidence"]
-        REL["Registry drift, governance, docs, changelog, release checks"]
+    DRIFT -->|"repeated failure / regression"| INTAKE --> REPLAN --> SAFE --> WATCH
+
+    subgraph Close["5. Prove, close, and learn"]
+        DASH["Workflow Dashboard\nread-only active status"]
+        REVIEW["TailTrail Review\nrequirements + code health"]
+        COMP["Completion Report\nfail-closed requirement and evidence status"]
+        HAND["Handoff / PR / release evidence"]
+        EVAL["Evaluation Harness\nsaved baseline vs TailTrail artifacts"]
+        MCP["MCP inspection and approval-gated controls"]
     end
 
-    subgraph Improve["6. Evaluate and improve"]
-        EVAL["Evaluation Harness"]
-        DATA["Paired delivery dataset: product-level metrics"]
-        OUT["Opt-in outcome telemetry"]
-        META["Meta-Harness / Learning"]
-        REG["Feature Registry and governance drift"]
-    end
+    DRIFT -->|"requirements complete"| DASH --> REVIEW --> COMP --> HAND --> EVAL
+    MCP -. "inspect state; never bypass approval" .-> P
+    MCP -. "inspect artifacts" .-> DASH
+```
 
-    FR --> U --> B --> N
-    N --> POL
-    N --> TP
-    N --> AIDLC
-    N --> CG
-    POL --> DG
-    AIDLC --> A1
-    CG --> IMP --> A1
-    TST --> A1
-    SEC --> A1
-    TP -. "right-sized exact context" .-> A1
+## What changed in this workflow
 
-    A1 --> AP --> SCN --> HAPP
-    HAPP -->|Revise| AIDLC
-    HAPP -->|Approved| WATCH --> AG
+The diagram above reflects the current implementation and recent design
+decisions. It makes the following rules explicit:
 
-    AG --> ACT --> FAST
-    FAST --> ARCH
-    FAST --> BEH
-    FAST --> MAINT
-    ARCH --> CP
-    BEH --> CP
-    MAINT --> CP
-    TP -. "compact correction context" .-> CORR
-    CP --> WATCH --> GAP
-    WATCH -. "active requirement, preserve rules, prior failure evidence" .-> AG
-    CP --> DASH
+| Area | Current rule |
+| --- | --- |
+| Start | `tailtrail start` always creates planning only. It returns a persisted Planning Lock and full Start Report when the host can execute the local command. |
+| Graphs | Graph Lite is fresh per meaningful plan. The reusable Code Graph Mapper cache carries a lightweight file-inventory fingerprint, so new or untracked relevant files make it stale automatically. Cache refresh occurs after approval, never during Planning Lock. |
+| Requirement rejection | The first rejection requires requirement-by-requirement feedback; the second material rejection requires AIDLC Requirements mode before another material proposal. |
+| AIDLC | `planning aidlc-cycle` resumes gathering, records answers, or activates an approved revised boundary on the same run ID. It reduces control-plane command churn but does not bypass material approval. |
+| Hands-free | An explicit `hands-free` or `end-to-end` goal selects Program Delivery. The first report shows atomic requirement rows, dependency order, first active slice, and approval gate; it does not begin broad source edits. |
+| Failure | Pasted error output becomes a failure intake record and requirement/drift mapping, not a new Start run. Repeated fingerprints stop blind retry loops. |
+| Recovery | Recovery preserves the approved anchor and prior evidence. It reconciles task-owned deltas rather than resetting the worktree and losing earlier valid uncommitted work. |
+| Completion | The Workflow Dashboard is visibility only. The Completion Report is the authoritative fail-closed closure surface and lists selected harness outcomes. |
 
-    GAP -->|No: drift or gap| CORR --> AG
-    GAP -->|Yes| REV
-    CORR --> ESC
-    ESC -->|No: continue within limit| AG
-    ESC -->|Yes| HUMAN
+## Current artifact and control flow
 
-    DASH -. "saved status only" .-> HUMAN
-    REV --> HUMAN --> COMP --> HAND --> REL
-    HAND --> EVAL
-    HAND --> OUT
-    EVAL --> DATA --> META
-    OUT --> META
-    META --> REG
-    REG --> N
+```mermaid
+flowchart LR
+    S["Start Report + Planning Lock"] --> R[".tailtrail/runs/<run-id>/planning"]
+    A["Approved requirements / AIDLC revision"] --> N[".tailtrail/runs/<run-id>/anchors/approved-v1.json"]
+    I["Implementation + selected checks"] --> C["checkpoints/checkpoint-N.json"]
+    F["Pasted error / failed command"] --> X["failure receipt + fingerprint"]
+    C --> D["drift state and continuity packet"]
+    D --> H["Completion Report + Workflow Dashboard"]
+    G["Graph Mapper"] --> M["tailtrail-meta/code-graph-cache.json\nmetadata-only inventory + graph"]
+    T["MCP"] -. "read / controlled approval-gated action" .-> R
+    T -. "read" .-> N
+    T -. "read" .-> C
 ```
 
 ## 1. Navigator chooses the route
@@ -212,9 +210,10 @@ Do not change API behavior or introduce a dependency.
 ```
 
 The agent receives one precise correction task, not "run it again and fix
-everything." The loop stops when the anchor is satisfied or when timeout,
-repeated failure, ambiguity, material scope expansion, or the correction-cycle
-limit requires human judgment.
+everything." The loop stops when the anchor is satisfied. Repeated failure,
+ambiguity, material scope expansion, or the correction-cycle limit first routes
+to AI recovery/replan using the preserved anchor and evidence. A human decision
+is requested only when approved intent cannot determine one safe answer.
 
 ## 4a. Context Continuity Watcher prevents trajectory drift
 
@@ -384,7 +383,7 @@ workflow transitions, CLI output, generated reports, service-call sequences, and
 structured domain output. They are not a good fit for large opaque snapshots,
 unstable output, performance claims, or purely internal implementation details.
 
-## 7. Review and human judgment
+## 7. Review, automated reconciliation, and material decisions
 
 Once focused computational controls and the drift checkpoint are satisfied,
 TailTrail Review performs requirement and maintainability judgment:
@@ -397,7 +396,10 @@ TailTrail Review performs requirement and maintainability judgment:
 - Is there a business, API, architecture, or behavior decision only a human can
   make?
 
-Human review receives an evidence handoff rather than raw logs:
+TailTrail attempts automated reconciliation against approved intent before
+asking for a person. A human receives an evidence handoff only for a material
+business, API, security, compliance, or scope decision that has no uniquely
+safe answer in the approved anchor. The handoff is not raw logs:
 
 ```text
 - approved desired state

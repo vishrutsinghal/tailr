@@ -78,6 +78,34 @@ def delivery_run_signals(root: Path, run_id: str | None) -> dict[str, Any]:
     }
 
 
+def hands_free_requirements(goal: str) -> list[dict[str, str]]:
+    """Turn a broad hands-free goal into an approval-ready, local requirement boundary."""
+    lowered = goal.lower()
+    statements: list[str] = []
+    if "cancel" in lowered:
+        statements.append("Define the cancellation eligibility rule and preserve non-cancellable order behavior.")
+    if "stock" in lowered or "inventory" in lowered or "restock" in lowered:
+        statements.append("Release inventory exactly once after an eligible cancellation succeeds.")
+    if "refund" in lowered or "payment" in lowered:
+        statements.append("Issue one refund for an eligible cancellation and preserve payment failure handling.")
+    if "notification" in lowered or "notify" in lowered:
+        statements.append("Send one cancellation notification only after the required cancellation effects succeed.")
+    if "audit" in lowered:
+        statements.append("Record an audit event with the cancellation outcome and relevant identifiers.")
+    if "api" in lowered or "contract" in lowered or "endpoint" in lowered:
+        statements.append("Update the API contract without weakening existing order behavior outside cancellation.")
+    if "test" in lowered or "validation" in lowered:
+        statements.append("Add focused unit, integration, contract, and behaviour evidence appropriate to the changed paths.")
+    if "rollout" in lowered or "terraform" in lowered or "release" in lowered:
+        statements.append("Provide rollout, rollback, and infrastructure-impact evidence; do not apply infrastructure in the local demo.")
+    if not statements:
+        statements = [
+            "Break the requested outcome into independently verifiable feature requirements.",
+            "Map each approved requirement to code paths, preservation rules, and computational evidence.",
+        ]
+    return [{"display_id": f"REQ-{index:02d}", "statement": statement} for index, statement in enumerate(statements, start=1)]
+
+
 def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: Path, run_id: str | None = None) -> dict[str, Any]:
     """Choose the smallest delivery harness sequence after Navigator planning.
 
@@ -149,7 +177,7 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
         hands_free_program = {
             "status": "proposed",
             "source_goal": goal,
-            "feature_requirements": "Derive atomic feature requirements from the requested outcomes; do not treat the raw request as approved implementation scope.",
+            "feature_requirements": hands_free_requirements(goal),
             "dependency_order": [
                 "Requirement and acceptance breakdown",
                 "Read-only impact mapping and reusable-pattern discovery",
@@ -466,6 +494,7 @@ def next_actions(plan: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def build_report(goal: str, root: Path, changed: list[str], command_prefix: str, run_id: str | None = None) -> dict[str, Any]:
+    command_prefix = normalize_command_prefix(root, command_prefix)
     plan = navigator.decide(goal, root, changed, command_prefix)
     delivery = guided_delivery(plan, goal, changed, root, run_id)
     return {
@@ -487,6 +516,199 @@ def build_report(goal: str, root: Path, changed: list[str], command_prefix: str,
     }
 
 
+def normalize_command_prefix(root: Path, command_prefix: str) -> str:
+    """Render commands relative to the target project, not the agent's cwd."""
+    if "tailtrail.py" not in command_prefix:
+        return command_prefix
+    if "tailtrail/scripts/tailtrail.py" in command_prefix.replace("\\", "/"):
+        return command_prefix
+    runner = command_prefix.split("tailtrail.py", 1)[0].strip()
+    if not runner:
+        return command_prefix
+    if (root / "tailtrail" / "scripts" / "tailtrail.py").is_file():
+        return f"{runner} tailtrail/scripts/tailtrail.py"
+    if (root / "scripts" / "tailtrail.py").is_file():
+        return f"{runner} scripts/tailtrail.py"
+    return command_prefix
+
+
+def focused_validation_command(root: Path, impacted: list[dict[str, Any]], command_prefix: str) -> str | None:
+    """Suggest one runnable focused test command when the local convention is clear."""
+    test_paths = [str(item.get("path", "")) for item in impacted if isinstance(item, dict) and "test" in str(item.get("path", "")).lower()]
+    if not test_paths:
+        return None
+    test_path = Path(test_paths[0])
+    candidate = root / test_path
+    try:
+        body = candidate.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    # The project path can itself contain "tailtrail" (for example
+    # D:/PD/TailTrail_Test/tailtrail/scripts/tailtrail.py), so never derive
+    # the interpreter by splitting the full launcher path.
+    lowered = command_prefix.lower().lstrip()
+    if lowered.startswith("py -3 "):
+        runner = "py -3"
+    elif lowered.startswith("python3 "):
+        runner = "python3"
+    elif lowered.startswith("python "):
+        runner = "python"
+    else:
+        runner = "python3"
+    if "import unittest" in body or "from unittest" in body:
+        return f"{runner} -m unittest discover -s {test_path.parent.as_posix()} -p {test_path.name} -v"
+    if test_path.suffix == ".py":
+        return f"{runner} -m pytest {test_path.as_posix()}"
+    return None
+
+
+def compact_start_report(report: dict[str, Any]) -> str:
+    """Keep the normal Start response short enough to approve confidently."""
+    plan = report["navigator"]
+    delivery = report["guided_delivery"]
+    lock = report.get("planning_lock")
+    impacted = [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)]
+    root = Path(str(report["root"]))
+    goal = str(report["goal"])
+    lowered_goal = goal.lower()
+    lines = ["# TailTrail Start Plan", "", f"**Goal:** {goal}", ""]
+    if lock:
+        lines.extend(
+            [
+                "## Planning Lock",
+                "",
+                f"- Run ID: `{lock['run_id']}`",
+                "- Status: **awaiting approval** — no source files, tests, scanners, or Git changes were run.",
+                "",
+            ]
+        )
+    lines.extend(["## Scope", ""])
+    for item in impacted[:4]:
+        lines.append(f"- `{item['path']}` — {item['reason']}")
+    if not impacted:
+        lines.append("- No concrete path found yet. Add `--changed path/to/file` to strengthen the plan.")
+    lines.extend(["", "## Requirements", ""])
+    hands_free_program = delivery.get("hands_free_program")
+    if hands_free_program:
+        for item in hands_free_program["feature_requirements"]:
+            lines.append(f"- **{item['display_id']}:** {item['statement']}")
+    elif "zero" in lowered_goal and "quantity" in lowered_goal:
+        lines.extend(
+            [
+                "- Reject zero quantities.",
+                "- Preserve valid positive quantities.",
+                "- Keep order-service behavior unchanged outside this validation boundary.",
+            ]
+        )
+    else:
+        lines.append("- Implement the approved goal with the smallest maintainable change.")
+    selected = [item for item in delivery.get("selected", []) if isinstance(item, dict)]
+    feature_rows = [("Navigator", "Planning now", "created this scoped Planning Lock and approval gate")]
+    if any("Code Review Graph" in str(item.get("reason", "")) for item in impacted):
+        feature_rows.append(("Code Review Graph Lite", "Planning now", "identified likely callers and focused validation context"))
+    feature_rows.extend((str(item.get("name", "TailTrail control")), "After approval", str(item.get("why", "Selected for this task."))) for item in selected)
+    if feature_rows:
+        lines.extend(["", "## Selected TailTrail features", "", "| Feature | When | Used for this task |", "| --- | --- | --- |"])
+        for name, when, why in feature_rows:
+            lines.append(f"| {name} | {when} | {why} |")
+    lines.extend(["", "## Plan", ""])
+    if hands_free_program:
+        lines.append("- Proposed dependency order:")
+        for index, stage in enumerate(hands_free_program["dependency_order"], start=1):
+            lines.append(f"  {index}. {stage}")
+        lines.append(f"- First active slice: {hands_free_program['first_active_slice']}")
+        lines.append(f"- Program approval gate: {hands_free_program['approval_gate']}")
+    else:
+        lines.append("- Inspect the validator, its focused test, and the likely caller.")
+        lines.append("- Make the smallest change within the listed scope.")
+        lines.append("- Run focused proof, then review the changed scope.")
+    validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
+    if validation:
+        lines.extend(["", "## Focused validation", "", f"- `{validation}`"])
+    lines.extend(["", "## Approval", ""])
+    lines.append("- Approve this plan to begin implementation, or name any file/scope change before approval.")
+    if delivery.get("hands_free_program"):
+        lines.append("- This is a hands-free request; approve the proposed program slices before implementation begins.")
+    lines.extend(["", "_Run with `--verbose` for advanced harness, token, code-intelligence, recovery, and product-metrics detail._", ""])
+    return "\n".join(lines)
+
+
+def verbose_start_report(report: dict[str, Any]) -> str:
+    """Render a detailed but bounded Start report that chat hosts can reproduce."""
+    plan = report["navigator"]
+    delivery = report["guided_delivery"]
+    lock = report.get("planning_lock")
+    root = Path(str(report["root"]))
+    impacted = [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)]
+    selected = [item for item in delivery.get("selected", []) if isinstance(item, dict)]
+    deferred = [item for item in delivery.get("activated_later", []) if isinstance(item, dict)]
+    goal = str(report["goal"])
+    lowered_goal = goal.lower()
+    code_intel = report["code_intelligence"]
+    token = report["token_posture"]
+    review = report["review_posture"]
+    lines = ["# TailTrail Start Report", "", "Navigator-first plan. Review or edit this before implementation.", ""]
+    lines.extend(["## Planning Lock", ""])
+    if lock:
+        lines.extend(
+            [
+                f"- Run ID: `{lock['run_id']}`",
+                f"- State: **{lock['status']}**; managed writes allowed: **{str(lock['writes_allowed']).lower()}**.",
+                "- No source files, tests, scanners, or Git changes were run.",
+            ]
+        )
+    else:
+        lines.append("- No persisted Planning Lock is attached to this rendered report.")
+    lines.extend(["", "## Start Here", "", "- Review the scope, selected controls, and proof before approval.", "- Nothing in this report implements the task.", "", "## Goal", "", f"- {goal}", "", "## Navigator Decision", ""])
+    lines.extend(
+        [
+            "- Workflow: " + " -> ".join(plan.get("recommended_workflow", [])),
+            "- Task types: " + ", ".join(plan.get("task_types", [])),
+            "- Risks: " + (", ".join(plan.get("risk_indicators", [])) if plan.get("risk_indicators") else "none detected"),
+            f"- Post-change review: {'selected' if review['selected'] else 'available'} for `{review['scope']}`.",
+            "",
+            "## Scope",
+            "",
+            "| Path | Planning evidence |",
+            "| --- | --- |",
+        ]
+    )
+    for item in impacted[:8]:
+        lines.append(f"| `{item.get('path')}` | {item.get('reason')} |")
+    if not impacted:
+        lines.append("| No concrete path yet | Add `--changed path/to/file` to strengthen the plan. |")
+    lines.extend(["", "## Requirements", ""])
+    hands_free_program = delivery.get("hands_free_program")
+    if hands_free_program:
+        lines.extend(f"- **{item['display_id']}:** {item['statement']}" for item in hands_free_program["feature_requirements"])
+    elif "zero" in lowered_goal and "quantity" in lowered_goal:
+        lines.extend(["- Reject zero quantities.", "- Preserve valid positive quantities.", "- Keep order-service behavior unchanged outside this validation boundary."])
+    else:
+        lines.append("- Implement the approved goal with the smallest maintainable change.")
+    lines.extend(["", "## Selected TailTrail features", "", "| Feature | When | Why |", "| --- | --- | --- |", "| Navigator | Planning now | created this scoped Planning Lock and approval gate |"])
+    if any("Code Review Graph" in str(item.get("reason", "")) for item in impacted):
+        lines.append("| Code Review Graph Lite | Planning now | identified likely callers and focused validation context |")
+    for item in selected:
+        lines.append(f"| {item.get('name')} | After approval | {item.get('why')} |")
+    lines.extend(["", "## Deferred TailTrail features", "", "| Feature | Activates when |", "| --- | --- |"])
+    for item in deferred:
+        lines.append(f"| {item.get('name')} | {item.get('when')} |")
+    lines.extend(["", "## Guided Delivery", "", f"- Mode: `{delivery['mode']}`", "- After approval:"])
+    for index, stage in enumerate(delivery["stages"], start=1):
+        lines.append(f"  {index}. {stage}")
+    if hands_free_program:
+        lines.append("- Program dependency order: " + " -> ".join(hands_free_program["dependency_order"]))
+        lines.append(f"- First active slice: {hands_free_program['first_active_slice']}")
+        lines.append(f"- Program approval gate: {hands_free_program['approval_gate']}")
+    lines.extend([f"- Boundary: {delivery['execution_boundary']}", "", "## Validation", ""])
+    validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
+    lines.append(f"- Focused proof: `{validation}`" if validation else "- Focused proof: select the repository-native test for the approved changed behavior.")
+    lines.append("- Tests and validation run only after approval.")
+    lines.extend(["", "## Evidence posture", "", "- Code intelligence: local-only `lite`, `v1`, and `v2`; provider-backed V3 is not default.", "- Evidence: local estimate only; no exact token-savings claim.", f"- Token posture: approximately `{token['used_tokens']}` focused tokens; exact savings require model/API telemetry.", "", "## Approval", ""])
+    lines.append("- Approve this plan to begin implementation, or name any file/scope change before approval.")
+    return "\n".join(lines) + "\n"
+
+
 def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     plan = report["navigator"]
     lock = report.get("planning_lock")
@@ -506,6 +728,8 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         # An explicit Navigator invocation already has a concise decision and
         # separate approval gate. Do not bury it in the broader Start report.
         return "\n".join(lock_lines) + navigator.markdown(plan)
+    if verbose:
+        return verbose_start_report(report)
     token = report["token_posture"]
     learning = report["learning_quality"]
     setup = report["setup_posture"]
@@ -520,6 +744,8 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     selected = plan.get("selected_features", [])
     skipped = plan.get("skipped_features", [])
     actions = report.get("next_actions", [])
+    if not verbose:
+        return compact_start_report(report)
     lines = [
         "# TailTrail Start Report",
         "",
@@ -549,6 +775,26 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         "",
         f"- {report['goal']}",
         "",
+        "## Navigator Decision",
+        "",
+        "- Workflow: " + " -> ".join(plan.get("recommended_workflow", [])),
+        "- Task types: " + ", ".join(plan.get("task_types", [])),
+        "- Risks: " + (", ".join(plan.get("risk_indicators", [])) if plan.get("risk_indicators") else "none detected"),
+        f"- Likely impacted files: `{len(plan.get('likely_impacted_files', []))}`",
+        "",
+        "## Selected TailTrail features",
+        "",
+        "| Feature | When | Why |",
+        "| --- | --- | --- |",
+        "| Navigator | Planning now | created this scoped Planning Lock and approval gate |",
+        *[f"| {item['name']} | After approval | {item['why']} |" for item in delivery["selected"]],
+        "",
+        "## Deferred TailTrail features",
+        "",
+        "| Feature | Activates when |",
+        "| --- | --- |",
+        *[f"| {item['name']} | {item['when']} |" for item in delivery["activated_later"]],
+        "",
         "## Recommended Path",
         "",
         "- Workflow: " + " -> ".join(plan.get("recommended_workflow", [])),
@@ -565,7 +811,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
                 "## Hands-Free Program Plan",
                 "",
                 "- Status: `proposed`; no implementation slice is active yet.",
-                f"- Feature requirements: {hands_free_program['feature_requirements']}",
+                "- Feature requirements: " + "; ".join(f"{item['display_id']} {item['statement']}" for item in hands_free_program["feature_requirements"]),
                 "- Proposed dependency order: " + " -> ".join(hands_free_program["dependency_order"]),
                 f"- First active slice: {hands_free_program['first_active_slice']}",
                 f"- Approval gate: {hands_free_program['approval_gate']}",
@@ -591,7 +837,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
             lines.append(f"- ...and `{len(impacted) - 6}` more in verbose Navigator output.")
 
     commands = plan.get("suggested_commands", [])
-    lines.extend(["", "## Key Commands", ""])
+    lines.extend(["", "## Validation", ""])
     for command in commands[:5]:
         lines.append(f"- `{command}`")
     lines.extend(
@@ -630,7 +876,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
             f"- Local example: `{code_intel['default_command']}`",
             f"- V3 example: `{code_intel['v3_command']}`",
             "",
-            "## Token And Evidence",
+            "## Evidence posture",
             "",
             f"- Approx focused tokens: `{token['used_tokens']}`",
             f"- Approx avoided tokens: `{token['avoided_tokens']}`",
@@ -680,17 +926,6 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         )
     if len(actions) > 4:
         lines.append(f"- Additional approval options hidden in compact view: `{len(actions) - 4}`.")
-
-    if not verbose:
-        lines.extend(
-            [
-                "",
-                "## More Detail",
-                "",
-                "- Re-run with `--verbose` for the full decision menu, learning/setup details, and full Navigator plan.",
-            ]
-        )
-        return "\n".join(lines) + "\n"
 
     lines.extend(
         [

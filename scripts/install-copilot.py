@@ -89,6 +89,7 @@ PACK_DIRS = [
 PACK_SCRIPTS = [
     "scripts/aidlc-check.py",
     "scripts/aidlc-init.py",
+    "scripts/aidlc-requirements.py",
     "scripts/advanced-runtime.py",
     "scripts/analyze-benchmark.py",
     "scripts/architecture-fitness.py",
@@ -105,6 +106,7 @@ PACK_SCRIPTS = [
     "scripts/delivery-orchestrator.py",
     "scripts/ci-summary.py",
     "scripts/code-graph-mapper.py",
+    "scripts/code_graph_inventory.py",
     "scripts/context-receipt.py",
     "scripts/context-continuity.py",
     "scripts/context_receipt.py",

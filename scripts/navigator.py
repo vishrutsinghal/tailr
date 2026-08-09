@@ -25,6 +25,18 @@ ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
 MAX_REVIEW_GRAPH_ARGUMENT_CHARS = 8_000
 MAX_REVIEW_GRAPH_CHANGED_PATHS = 50
+GOAL_DISCOVERY_SUFFIXES = {
+    ".cs", ".go", ".java", ".js", ".jsx", ".kt", ".py", ".rb",
+    ".rs", ".ts", ".tsx",
+}
+GOAL_DISCOVERY_STOP_WORDS = {
+    "add", "and", "bug", "code", "defect", "fix", "focused", "for",
+    "the", "this", "validation", "with",
+}
+GOAL_DISCOVERY_EXCLUDED_PARTS = {
+    ".git", ".tailtrail", ".venv", "__pycache__", "build", "dist",
+    "node_modules", "tailtrail", "venv",
+}
 
 
 def load_registry_module() -> Any | None:
@@ -130,6 +142,67 @@ def git_changed(root: Path) -> list[str]:
     if untracked.returncode == 0:
         files.extend(line.strip() for line in untracked.stdout.splitlines() if line.strip())
     return sorted(dict.fromkeys(path for path in files if is_actionable_changed_path(root, path)))
+
+
+def goal_discovery_terms(goal: str) -> list[str]:
+    """Return concrete domain terms useful for a small local code search."""
+    terms = []
+    for term in re.findall(r"[a-zA-Z][a-zA-Z0-9_]{2,}", goal.lower()):
+        if term not in GOAL_DISCOVERY_STOP_WORDS and term not in terms:
+            terms.append(term)
+    return terms[:6]
+
+
+def goal_discovered_paths(root: Path, goal: str, limit: int = 2) -> list[str]:
+    """Find likely source/test targets when Start has no --changed path.
+
+    This is intentionally local and lexical. It gives Navigator a useful first
+    file for common bug-fix requests without treating unrelated Git/install
+    changes as the task scope.
+    """
+    terms = goal_discovery_terms(goal)
+    if not terms:
+        return []
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=root, text=True, capture_output=True, check=False
+        )
+        candidates = [root / line.strip() for line in tracked.stdout.splitlines() if line.strip()] if tracked.returncode == 0 else []
+    except OSError:
+        candidates = []
+    if not candidates:
+        candidates = list(root.rglob("*"))[:10_000]
+
+    ranked: list[tuple[int, str]] = []
+    for path in candidates:
+        if not path.is_file() or path.suffix.lower() not in GOAL_DISCOVERY_SUFFIXES:
+            continue
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            continue
+        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
+            continue
+        try:
+            body = path.read_text(encoding="utf-8", errors="ignore")[:131_072].lower()
+        except OSError:
+            continue
+        relative_text = relative.as_posix().lower()
+        parts = {part.lower() for part in relative.parts}
+        score = 12 if "src" in parts else 0
+        score += 9 if any(part in {"test", "tests"} for part in parts) else 0
+        for term in terms:
+            if term in relative_text:
+                score += 10
+            if term in body:
+                score += 4
+        if "validation" in goal.lower() and "validation" in relative_text:
+            score += 8
+        if "validation" in goal.lower() and any(part in {"test", "tests"} for part in parts):
+            score += 5
+        if score >= 14:
+            ranked.append((score, relative.as_posix()))
+    return [path for _, path in sorted(ranked, key=lambda item: (-item[0], item[1]))[:limit]]
 
 
 def is_actionable_changed_path(root: Path, path: str) -> bool:
@@ -558,6 +631,15 @@ def graph_cache_candidates(root: Path) -> tuple[Path, Path]:
     return (root / "tailtrail-meta" / "code-graph-cache.json", root / ".tailtrail" / "code-graph-cache.json")
 
 
+def graph_inventory(root: Path) -> dict[str, Any]:
+    """Load the mapper's shared metadata-only inventory logic without source parsing."""
+    spec = importlib.util.spec_from_file_location("tailtrail_code_graph_inventory", ROOT / "scripts" / "code_graph_inventory.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module.snapshot(root)
+
+
 def choose_graph_cache_path(root: Path) -> tuple[Path, str]:
     shared, local = graph_cache_candidates(root)
     if shared.exists():
@@ -644,6 +726,15 @@ def graph_cache_status(root: Path, changed: list[str], goal: str, tasks: list[st
                 stale_reasons.append(f"{relative} is missing.")
             elif actual != expected:
                 stale_reasons.append(f"{relative} changed after the graph was created.")
+
+    saved_inventory = entry.get("inventory")
+    current_inventory = graph_inventory(root)
+    if not isinstance(saved_inventory, dict) or not isinstance(saved_inventory.get("fingerprint"), str):
+        stale_reasons.append("Cache predates repository inventory tracking; refresh it once.")
+    elif saved_inventory.get("algorithm") != current_inventory["algorithm"]:
+        stale_reasons.append("Cache inventory algorithm is unsupported; refresh it once.")
+    elif saved_inventory.get("fingerprint") != current_inventory["fingerprint"]:
+        stale_reasons.append("Relevant repository file inventory changed after the graph was created.")
 
     cache_root = entry.get("root")
     if cache_root and Path(str(cache_root)).resolve() != root.resolve():
@@ -1145,7 +1236,15 @@ def decide(
         request = core.explicit_navigator_request(goal)
         if request:
             return explicit_navigator_report(request, root, changed_args, command_prefix)
-    changed = changed_args or (git_changed(root) if detect_git_changes else [])
+    if changed_args:
+        changed = changed_args
+        target_origin = "provided"
+    else:
+        changed = goal_discovered_paths(root, goal)
+        target_origin = "goal-discovery" if changed else "none"
+        if not changed and detect_git_changes:
+            changed = git_changed(root)
+            target_origin = "git-changes" if changed else "none"
     tasks = core.task_types(goal)
     risks = core.risk_indicators(goal, changed)
     tiny = core.is_tiny(goal, risks, changed)
@@ -1347,6 +1446,17 @@ def decide(
     test_precision_needed = core.test_precision_requested(goal, tasks, risks, changed)
     cross_repo_plan = core.cross_repo_reference_plan(goal, root, command_prefix)
     graph_cache = graph_cache_status(root, changed, goal, tasks, risks)
+    focused_goal_discovery = (
+        target_origin == "goal-discovery"
+        and "bug" in tasks
+        and not risks
+        and len(changed) <= 3
+        and not any(task in tasks for task in ("feature", "implementation", "refactor", "review", "ci-sonar", "security", "dependency"))
+    )
+    if focused_goal_discovery:
+        # A first plan that already located a validator and its focused test
+        # needs the lightweight review graph, not a cache build/refresh.
+        graph_cache = None
     strategy = context_strategy(goal, root, changed, tasks, risks, graph_cache, command_prefix)
     token_budget = token_budget_coach.estimate_payload(root, goal, changed)
     graph_learning = None
@@ -1422,7 +1532,7 @@ def decide(
             if changed:
                 commands.append(f"{command_prefix} graph refresh {root_arg(root)} " + " ".join(f"--changed {path}" for path in changed[:5]))
             else:
-                commands.append(f"{command_prefix} graph refresh {root_arg(root)} --changed path/to/file")
+                commands.append(f"{command_prefix} graph refresh {root_arg(root)}")
         elif status == "invalid":
             selected.append(FeatureDecision("Code Graph Mapper", "graph cache exists but is invalid; recreate before relying on graph guidance"))
             avoid.append("using invalid graph cache")
@@ -1435,7 +1545,7 @@ def decide(
             if changed:
                 commands.append(f"{command_prefix} graph map {root_arg(root)} " + " ".join(f"--changed {path}" for path in changed[:5]))
             else:
-                commands.append(f"{command_prefix} graph map {root_arg(root)} --changed path/to/file")
+                commands.append(f"{command_prefix} graph map {root_arg(root)}")
     elif graph_cache:
         skipped.append(FeatureDecision("Code Graph Mapper", "task is tiny, graph was explicitly skipped, or no useful code-impact signal exists"))
     else:
@@ -1501,11 +1611,15 @@ def decide(
     else:
         skipped.append(FeatureDecision("CI/Sonar Intelligence", "no pipeline, Sonar, static-analysis, lint, test, or quality-gate signal detected"))
 
-    if ci_sonar_needed or "qa" in tasks:
+    if ci_sonar_needed:
         selected.append(FeatureDecision("QA / CI-Sonar Lens", "validation, pipeline, or scanner signal detected"))
         workflow.append("qa_review")
         commands.append(f"{command_prefix} route ci-sonar")
         load.extend(["templates/validation-handoff.md", "templates/tool-summary.md", "exact CI/Sonar rule, job, file, line, and command evidence"])
+    elif "qa" in tasks:
+        selected.append(FeatureDecision("Focused QA Lens", "validation behavior needs a targeted regression and preservation check"))
+        workflow.append("qa_review")
+        load.extend(["existing nearby tests and fixtures", "focused validation expectations"])
     else:
         skipped.append(FeatureDecision("QA / CI-Sonar Lens", "no validation, scanner, or pipeline signal detected"))
 
@@ -1647,12 +1761,25 @@ def decide(
 
     graph = run_review_graph(root, changed) if needs_graph and changed else None
     impacted = []
+    impact_reason = {
+        "provided": "user-provided target",
+        "goal-discovery": "goal-matched target",
+        "git-changes": "detected Git change",
+    }.get(target_origin, "target file")
     if graph and graph.get("changed"):
-        impacted.extend({"path": path, "reason": "changed file"} for path in graph.get("changed", []))
+        impacted.extend({"path": path, "reason": impact_reason} for path in graph.get("changed", []))
         for path in graph.get("suggested_read_order", [])[1:6]:
             impacted.append({"path": path, "reason": "suggested by Code Review Graph Lite"})
     else:
-        impacted.extend({"path": path, "reason": "provided or detected changed file"} for path in changed[:8])
+        impacted.extend({"path": path, "reason": impact_reason} for path in changed[:8])
+
+    deduplicated_impacted = []
+    seen_impacted_paths: set[str] = set()
+    for item in impacted:
+        path = str(item["path"])
+        if path not in seen_impacted_paths:
+            seen_impacted_paths.add(path)
+            deduplicated_impacted.append(item)
 
     approval = [
         "Review this plan before implementation.",
@@ -1663,6 +1790,7 @@ def decide(
     return {
         "goal": goal,
         "root": root.as_posix(),
+        "target_origin": target_origin,
         "task_types": tasks,
         "risk_indicators": risks,
         "existing_state": state,
@@ -1670,7 +1798,7 @@ def decide(
         "registry_workflow": registry_projection,
         "selected_features": [decision.__dict__ for decision in selected],
         "skipped_features": [decision.__dict__ for decision in skipped],
-        "likely_impacted_files": impacted,
+        "likely_impacted_files": deduplicated_impacted,
         "load": list(dict.fromkeys(load)),
         "avoid": list(dict.fromkeys(avoid)),
         "suggested_commands": list(dict.fromkeys(commands)),

@@ -18,6 +18,9 @@ SKIP_DIRS = {
     ".hg",
     ".svn",
     ".tailtrail",
+    # An installed TailTrail pack is workflow tooling, not application caller
+    # evidence. Its generic hooks otherwise pollute first-task read order.
+    "tailtrail",
     "__pycache__",
     "aidlc-rules",
     "node_modules",

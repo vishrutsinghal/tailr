@@ -47,7 +47,8 @@ class StartEntrypointTests(unittest.TestCase):
         for relative_path in guidance:
             with self.subTest(path=relative_path):
                 body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
-                self.assertIn("start report verbatim and stop", body)
+                self.assertIn("complete start report verbatim", body)
+                self.assertIn("collapsible terminal/tool-result panel", body)
 
     def test_start_trigger_is_limited_to_the_current_user_message(self) -> None:
         guidance = (
@@ -74,10 +75,44 @@ class StartEntrypointTests(unittest.TestCase):
                 self.assertIn("error output", body)
                 self.assertIn("new planning lock", body)
 
+    def test_copilot_resolves_installed_pack_before_declaring_start_unavailable(self) -> None:
+        body = (ROOT / "adapters" / "copilot-instructions.md").read_text(encoding="utf-8")
+        self.assertIn("tailtrail/scripts/tailtrail.py", body)
+        self.assertIn("scripts/tailtrail.py", body)
+        self.assertIn("before saying TailTrail Start cannot run", body)
+        self.assertIn("substitute a manual plan", body)
+
+    def test_copilot_forbids_a_synthesized_start_task_list(self) -> None:
+        for relative_path in (
+            "adapters/copilot-instructions.md",
+            ".github/prompts/tailtrail-start.prompt.md",
+            "skills/tailtrail-start/SKILL.md",
+        ):
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertIn("Never synthesize a substitute plan or task list", body)
+                self.assertIn("# TailTrail Start Plan", body)
+                self.assertIn("complete Start Report verbatim", body)
+                self.assertIn("Selected TailTrail features", body)
+                self.assertIn("replace it with `Next step`", body)
+
     def test_implicit_navigator_routing_does_not_recommend_start(self) -> None:
         body = (ROOT / "skills" / "tailtrail" / "SKILL.md").read_text(encoding="utf-8")
         implicit_section = body.split("For an explicit Navigator request", 1)[0]
         self.assertNotIn('python3 scripts/tailtrail.py start "user goal"', implicit_section)
+
+    def test_rejected_start_has_a_no_inspection_feedback_route(self) -> None:
+        for relative_path in (
+            "adapters/copilot-instructions.md",
+            ".github/prompts/tailtrail-start.prompt.md",
+            "skills/tailtrail-start/SKILL.md",
+            "AGENTS.md",
+        ):
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertIn("feedback-template", body)
+                self.assertIn("do not inspect", body.lower().replace("**", ""))
+                self.assertIn("AIDLC Requirements mode", body)
 
 
 if __name__ == "__main__":

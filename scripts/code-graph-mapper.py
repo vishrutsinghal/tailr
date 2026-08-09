@@ -8,9 +8,16 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+from code_graph_inventory import snapshot as inventory_snapshot
 
 
 SCHEMA_VERSION = "1"
@@ -853,6 +860,7 @@ def build_graph(root: Path, changed_values: list[str], mode: str, scanner_values
         "source_files": source_files,
         "watch_files": watch_files,
         "scanner_evidence": scanner_evidence,
+        "inventory": inventory_snapshot(root),
         "graph": {
             "changed_files": scope,
             "symbols": graph_data["symbols"][: limit * 20],
@@ -963,6 +971,15 @@ def status_for(root: Path, cache: dict[str, Any] | None, changed_values: list[st
                 reasons.append(f"{rel} is missing.")
             elif actual != expected:
                 reasons.append(f"{rel} changed after the graph was created.")
+
+    saved_inventory = cache.get("inventory")
+    current_inventory = inventory_snapshot(root)
+    if not isinstance(saved_inventory, dict) or not isinstance(saved_inventory.get("fingerprint"), str):
+        reasons.append("Cache predates repository inventory tracking; refresh it once.")
+    elif saved_inventory.get("algorithm") != current_inventory["algorithm"]:
+        reasons.append("Cache inventory algorithm is unsupported; refresh it once.")
+    elif saved_inventory.get("fingerprint") != current_inventory["fingerprint"]:
+        reasons.append("Relevant repository file inventory changed after the graph was created.")
 
     if invalid:
         return {"status": "invalid", "reasons": invalid, "scope": list(cached_scope)}

@@ -155,6 +155,7 @@ class InstallProfileTests(unittest.TestCase):
     def test_copilot_start_prompt_uses_the_installed_pack_path(self):
         rendered = copilot.start_prompt_body(Path("tools/tailtrail"))
         self.assertIn('python3 tools/tailtrail/scripts/tailtrail.py start "<goal>"', rendered)
+        self.assertNotIn("--open-report", rendered)
         self.assertNotIn("{{TAILTRAIL_START_COMMAND}}", rendered)
 
     def test_upgrade_to_extended_is_additive(self):
@@ -225,6 +226,18 @@ class InstallProfileTests(unittest.TestCase):
         self.assertFalse(report.conflicts)
         self.assertEqual(manifest["surface"], "extended")
         self.assertIn("scripts/completion-report.py", manifest["files"])
+
+    def test_copilot_update_renders_start_prompt_for_project_and_pack(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            updater.update_copilot(target, Path("tailtrail"), "preserve", False)
+            for prompt in (
+                target / ".github" / "prompts" / "tailtrail-start.prompt.md",
+                target / "tailtrail" / ".github" / "prompts" / "tailtrail-start.prompt.md",
+            ):
+                rendered = prompt.read_text(encoding="utf-8")
+                self.assertNotIn('--open-report', rendered)
+                self.assertNotIn("{{TAILTRAIL_START_COMMAND}}", rendered)
 
 
 if __name__ == "__main__":

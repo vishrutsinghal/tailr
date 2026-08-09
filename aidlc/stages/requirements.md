@@ -18,6 +18,19 @@ Purpose: turn the request into clear, testable intent.
 - `aidlc-docs/questions.md` when needed
 - `aidlc-docs/stage-gate-requirements.md` for standard or comprehensive depth
 
+## TailTrail integration
+
+When TailTrail routes an awaiting-approval Planning Lock into AIDLC, this stage
+owns requirement decomposition and questions. TailTrail supplies the saved goal,
+proposed requirement boundary, and recorded rejection feedback; it preserves the
+run, persists the stage artifact, detects drift, and enforces the approval gate.
+
+Every question must use the `templates/question-file.md` contract: meaningful
+choices, a recommended option, and brief reasoning. TailTrail must not replace
+this stage with an unrelated generic question generator. Source inspection,
+tests, and implementation remain blocked until this stage's revised requirement
+boundary is approved.
+
 ## Done When
 
 - requirements are clear enough to plan

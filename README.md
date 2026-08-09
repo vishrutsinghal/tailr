@@ -59,11 +59,30 @@ python3 scripts/tailtrail.py install local --target "/absolute/path/to/your-proj
 
 ### Update an existing installation
 
-Add `--force` when intentionally refreshing the installed pack after pulling a newer TailTrail version:
+For an existing **GitHub Copilot** installation, use the updater. It reads the
+installed manifest, refreshes the managed TailTrail pack and Copilot
+instructions, and preserves locally edited managed files by default:
 
 ```powershell
-py -3 scripts\tailtrail.py install local --target "D:\path\to\your-project" --profile copilot --force
+# Preview first
+py -3 scripts\update-tailtrail.py --root "D:\path\to\your-project" --dry-run
+
+# Apply the safe, preserve-local-edits update
+py -3 scripts\update-tailtrail.py --root "D:\path\to\your-project"
 ```
+
+If you deliberately want the current TailTrail version to replace modified
+managed files, keep recoverable backups with:
+
+```powershell
+py -3 scripts\update-tailtrail.py --root "D:\path\to\your-project" --strategy backup-overwrite
+```
+
+`install local` without `--force` is a **first-install** command: it leaves
+existing managed files in place. `install local ... --force` can refresh a
+profile, but it may overwrite its managed files. Use it for Codex or Claude
+only after reviewing any local customizations; use the updater above for the
+safe Copilot refresh path.
 
 After installing or updating, open a **new chat** in your AI host so it reads the refreshed instructions.
 

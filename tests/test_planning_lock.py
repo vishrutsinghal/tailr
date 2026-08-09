@@ -78,6 +78,151 @@ class PlanningLockTests(unittest.TestCase):
             activated = lock.activate(root, "plan-4", True)
         self.assertEqual(activated["anchor"]["status"], "not-required")
 
+    def test_rejected_start_returns_complete_requirement_feedback_without_source_access(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix claim validation", "plan-feedback")
+            lock.save_start_report(root, "plan-feedback", {
+                "goal": "fix claim validation",
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"requirement_matrix": [{
+                    "display_id": "REQ-01", "kind": "change", "statement": "Reject zero claims",
+                    "acceptance_criteria": ["zero fails"], "preserve_rules": ["positive passes"],
+                    "likely_paths": ["src/claims.py"], "evidence_plan": ["focused test"],
+                }]},
+            })
+            template = lock.feedback_template(root, "plan-feedback")
+            feedback = json.dumps([{
+                "requirement_uid": template["requirements"][0]["requirement_uid"],
+                "decision": "reject", "comment": "Include the service caller in scope.",
+            }])
+            result = lock.record_feedback(root, "plan-feedback", feedback)
+            activity = ledger.projection(root, "plan-feedback")["activity"]
+        self.assertEqual(template["state"], "feedback-required")
+        self.assertIn("no project source", template["source_boundary"])
+        self.assertIn("# TailTrail Plan Feedback", lock.render_feedback_template(template))
+        self.assertIn("Reject zero claims", lock.render_feedback_template(template))
+        self.assertEqual(result["state"], "revision-required")
+        self.assertEqual(result["next_requirement_mode"], "ask-targeted-questions-or-offer-aidlc")
+        self.assertEqual(activity["proposal_rejected"], 1)
+
+    def test_second_rejection_requires_aidlc_before_another_material_proposal(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix claim validation", "plan-second-feedback")
+            lock.save_start_report(root, "plan-second-feedback", {
+                "goal": "fix claim validation", "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"likely_impacted_files": [{"path": "src/claims.py"}]},
+            })
+            template = lock.feedback_template(root, "plan-second-feedback")
+            feedback = json.dumps([{"requirement_uid": template["requirements"][0]["requirement_uid"], "decision": "reject", "comment": "Need caller coverage."}])
+            lock.record_feedback(root, "plan-second-feedback", feedback)
+            second = lock.record_feedback(root, "plan-second-feedback", feedback)
+        self.assertEqual(second["next_requirement_mode"], "aidlc-requirements-required")
+        self.assertIn("AIDLC", second["next"])
+
+    def test_zero_quantity_feedback_is_split_and_never_prepopulates_user_feedback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix the zero quantity validation defect and add focused validation", "plan-zero")
+            lock.save_start_report(root, "plan-zero", {
+                "goal": "fix the zero quantity validation defect and add focused validation",
+                "guided_delivery": {"mode": "guided-delivery"}, "navigator": {},
+            })
+            template = lock.feedback_template(root, "plan-zero")
+            rendered = lock.render_feedback_template(template)
+        self.assertEqual([row["display_id"] for row in template["requirements"]], ["REQ-01", "REQ-02", "REQ-03"])
+        self.assertTrue(all(row["decision"] == "pending" and row["comment"] == "" for row in template["requirements"]))
+        self.assertIn("Reject all", rendered)
+        self.assertIn("Use AIDLC now", rendered)
+
+    def test_reject_all_and_direct_aidlc_are_explicit_user_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix the zero quantity validation defect and add focused validation", "plan-options")
+            lock.save_start_report(root, "plan-options", {
+                "goal": "fix the zero quantity validation defect and add focused validation",
+                "guided_delivery": {"mode": "guided-delivery"}, "navigator": {},
+            })
+            rejected = lock.reject_all(root, "plan-options", "The requirement boundary is not specific enough.")
+            aidlc = lock.request_aidlc_requirements(root, "plan-options")
+        self.assertEqual(len(rejected["rejected_requirement_uids"]), 3)
+        self.assertEqual(aidlc["state"], "aidlc-requirements-gathering")
+        self.assertEqual(len(aidlc["questions"]), 4)
+        self.assertEqual(aidlc["aidlc_stage"]["stage"], "AIDLC Requirements")
+        self.assertEqual(aidlc["aidlc_stage"]["stage_evidence"]["stage_playbook"], "aidlc/stages/requirements.md")
+        self.assertEqual(aidlc["questions"][0]["options"][0]["id"], "A")
+        self.assertIn("recommended", aidlc["questions"][0])
+        rendered = lock.render_aidlc_requirements(aidlc)
+        self.assertIn("# TailTrail AIDLC Requirements", rendered)
+        self.assertIn("Q1:", rendered)
+        self.assertIn("### Q4", rendered)
+        self.assertIn("Validator and service/API path", rendered)
+
+    def test_aidlc_answers_activate_same_run_and_create_execution_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix the zero quantity validation defect and add focused validation", "plan-aidlc-handoff")
+            lock.save_start_report(root, "plan-aidlc-handoff", {
+                "goal": "fix the zero quantity validation defect and add focused validation",
+                "guided_delivery": {"mode": "guided-delivery", "selected": [{"name": "Requirement Completion Harness", "why": "map requirements"}], "stages": ["inspect approved scope", "implement", "validate"]},
+                "navigator": {"likely_impacted_files": [{"path": "src/validation.py"}]},
+            })
+            aidlc = lock.request_aidlc_requirements(root, "plan-aidlc-handoff")
+            answers = json.dumps([
+                {"question_id": "Q1", "choice": "B"},
+                {"question_id": "Q2", "choice": "A"},
+                {"question_id": "Q3", "choice": "B"},
+            ])
+            revision = lock.submit_aidlc_answers(root, "plan-aidlc-handoff", answers)
+            handoff = lock.approve_aidlc_requirements(root, "plan-aidlc-handoff", True)
+            activity = ledger.projection(root, "plan-aidlc-handoff")["activity"]
+        self.assertEqual(revision["state"], "aidlc-revision-ready")
+        self.assertIn("service/API path", revision["requirements"][0]["statement"])
+        self.assertEqual(handoff["state"], "execution-ready")
+        self.assertTrue(handoff["planning_lock"]["writes_allowed"])
+        self.assertIn("Requirement Completion Harness", lock.render_execution_handoff(handoff))
+        self.assertEqual(activity["aidlc_requirements_answered"], 1)
+        self.assertEqual(activity["aidlc_requirements_approved"], 1)
+
+    def test_aidlc_cycle_batches_safe_lifecycle_transitions_without_duplicate_gathering(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "plan-aidlc-cycle"
+            lock.create(root, "fix the zero quantity validation defect and add focused validation", run_id)
+            lock.save_start_report(root, run_id, {
+                "goal": "fix the zero quantity validation defect and add focused validation",
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"likely_impacted_files": [{"path": "src/validation.py"}]},
+            })
+            started = lock.aidlc_cycle(root, run_id)
+            resumed = lock.aidlc_cycle(root, run_id)
+            answers = json.dumps([
+                {"question_id": "Q1", "choice": "B"},
+                {"question_id": "Q2", "choice": "A"},
+                {"question_id": "Q3", "choice": "B"},
+            ])
+            revised = lock.aidlc_cycle(root, run_id, answers_json=answers)
+            activated = lock.aidlc_cycle(root, run_id, approved=True)
+            activity = ledger.projection(root, run_id)["activity"]
+        self.assertEqual(started["cycle_action"], "start-requirements-gathering")
+        self.assertEqual(resumed["cycle_action"], "resume-requirements-gathering")
+        self.assertEqual(revised["cycle_action"], "record-answers-and-render-revision")
+        self.assertEqual(revised["state"], "aidlc-revision-ready")
+        self.assertEqual(activated["cycle_action"], "activate-approved-boundary")
+        self.assertEqual(activated["state"], "execution-ready")
+        self.assertTrue(activated["planning_lock"]["writes_allowed"])
+        self.assertEqual(activity["aidlc_requirements_requested"], 1)
+        self.assertEqual(activity["aidlc_requirements_answered"], 1)
+        self.assertEqual(activity["aidlc_requirements_approved"], 1)
+
+    def test_aidlc_cycle_rejects_answers_and_approval_in_one_call(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "plan", "plan-aidlc-cycle-invalid")
+            with self.assertRaisesRegex(ValueError, "either --answers or --approved"):
+                lock.aidlc_cycle(root, "plan-aidlc-cycle-invalid", answers_json="[]", approved=True)
+
 
 if __name__ == "__main__":
     unittest.main()
