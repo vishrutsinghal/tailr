@@ -1,5 +1,126 @@
 # TailTrail Roadmap
 
+## Official AI-DLC integration design
+
+TailTrail currently provides a portable **AIDLC Lifecycle Lite**, not the full
+AWS AI-DLC Workflows engine. The detailed comparison and phased integration
+design is in [TailTrail and Official AI-DLC: Current State and Integration Design](tailtrail-aidlc-integration.md).
+The recommended direction is a pinned official-engine adapter for full
+lifecycle delivery, with official AI-DLC owning stage routing and TailTrail
+owning requirement traceability, computational evidence, drift, recovery, and
+closure. This avoids competing orchestrators and duplicate approval prompts.
+
+### Official-pack compatibility foundation â€” Phase A implemented
+
+TailTrail now provides a deliberately read-only compatibility check for a
+locally supplied, pinned AWS AI-DLC pack. `tailtrail aidlc official status`
+validates its manifest source, pinned revision, MIT-0 license record, host
+adapter, and SHA-256 file hashes, returning `not-installed`, `compatible`,
+`altered`, or `incompatible`. The equivalent `aidlc_official_status` MCP tool
+is also read-only. This phase neither downloads nor executes an external pack;
+bridge attachment and stage routing remain later, explicit phases.
+
+### Official AI-DLC mode and bridge identity â€” Phase B implemented
+
+TailTrail Start supports Lite, Standard, Full, and Off mode selection. No
+AIDLC wording selects Lite; `using AIDLC` selects Standard; hands-free starts
+Standard and may escalate only when Navigator detects programme-scale signals
+and Phase A compatibility passes; explicit Full wording or `--aidlc full`
+requires compatibility. Full writes an immutable local mapping from the
+TailTrail run ID to official source/revision, intent, session, and stage.
+Planning Lock approval writes a separate append-only bridge activation record.
+Phase B itself does not attach an engine; the verified official Requirements
+Analysis adapter and its first stage gate are implemented in Phase C. Phase I
+now adds the separate post-approval, receipt-driven runtime attachment while
+preserving the immutable Phase B identity.
+
+### Official AI-DLC evidence checkpoint adapter — Phase D implemented
+
+Full-mode runs can now persist a requirement-linked official design plan and
+decision, test-strategy bridge, receipt-driven evidence checkpoint, bounded
+Build & Test correction packet, and handoff reference. The adapter is local and
+deterministic: it consumes approved anchors and supplied receipts, without
+running a remote AI-DLC workflow, tests, CI, or deployment. See
+`tailtrail-aidlc-integration.md` for the lifecycle, commands, and remaining
+Completion Report perspective rendering work.
+
+### Official AI-DLC closure adapter — Phase E implemented
+
+Full-mode closure now joins the standard TailTrail Completion Report and
+acceptance flow with reference-only official handoff/operations links. User
+acceptance, waiting for CI, reopening, and linked trusted-CI acceptance keep
+their existing safety boundaries. Candidate-only learning and deterministic
+evaluation occur only after user or verified linked-CI acceptance.
+
+### Official AI-DLC host conformance — Phase F implemented
+
+TailTrail now generates versioned composed instruction surfaces for Codex,
+Copilot, and Claude from one compatibility matrix. The conformance suite fixes
+the precedence order—host safety, user request, official stage rules, then
+TailTrail assurance—and validates six critical control-flow scenarios. This is
+local instruction conformance, not a claim of identical runtime behavior across
+assistant hosts.
+
+### Official AI-DLC canonical state ownership — Phase G implemented
+
+TailTrail now projects one deterministic canonical state for each run from a
+versioned field-ownership registry. The run manifest owns run identity; the
+immutable approved anchor owns requirement UIDs and statements; saved receipts
+own validation outcomes; the latest Harness checkpoint owns requirement/drift
+state; and the official bridge owns official source, revision, intent, session,
+and activation-stage identity. `tailtrail aidlc official state show|validate`
+and the read-only `aidlc_official_state_show` MCP tool expose the projection.
+Unknown requirements, mismatched run IDs or fingerprints, duplicate UIDs,
+official identity/stage contradictions, and mismatched evidence receipts are
+blocking conflicts. Legacy checkpoint fingerprints are reported as warnings.
+Official checkpoints, Completion Report, closure, and Workflow Dashboard now
+consume this state; closure cannot proceed while a canonical conflict remains.
+The projector is read-only and never guesses, rewrites, or auto-reconciles the
+authoritative artifacts.
+
+### Official AI-DLC sensitive-data enforcement — Phase H implemented
+
+All local official AI-DLC bridge artifacts now pass through one fail-closed,
+dependency-free trust boundary before persistence. It validates bounded
+intent/session identifiers, repository-contained local references, HTTPS-only
+external references without credentials, context-specific field allowlists,
+and nested blocked-field/secret patterns. Bridge creation and activation,
+requirements gathering and revision, checkpoint intake and writes, official
+closure links, candidate-only positive learning, and deterministic closure
+evaluation use the same validator. Rejected errors identify only an issue code
+and field path; the unsafe value is never echoed. `tailtrail aidlc official
+sanitize validate` and the read-only `aidlc_official_sanitize_validate` MCP tool
+allow local inspection without returning artifact contents. Exact source and
+evidence remain authoritative and are never rewritten by the sanitizer.
+
+### Official AI-DLC runtime attachment - Phase I implemented
+
+Full mode can now attach an approved TailTrail run to the pinned official
+AI-DLC session through a declared host adapter and a versioned, receipt-driven
+runtime contract. TailTrail writes one immutable session attachment and imports
+only sanitized, contiguous, SHA-256 integrity-checked official transition
+receipts. Resume, redo, jump, and recovery are explicit receipt actions; prior
+history is never replaced. Pack alteration, stale stages, wrong run/session/
+revision/anchor identity, duplicate or out-of-order receipts, invalid motion,
+and missing TailTrail stage prerequisites fail closed. Official checkpoints now
+require a valid attachment. Lite and Standard remain local and independent.
+`tailtrail aidlc official runtime status` and the read-only
+`aidlc_official_session_status` MCP tool expose the restart-safe stage
+projection.
+
+### Real host runtime conformance - Phase J implemented locally
+
+TailTrail now ships a versioned six-scenario runtime contract for Codex,
+Copilot, and Claude; host-specific bundle preparation; sanitized, integrity-
+checked receipt intake; canonical run-state probes; immutable evaluations; and
+a report that separates instruction conformance from observed runtime
+conformance. Missing evidence remains `not-validated`, while failures, stale
+contracts, and incompatible adapters retain distinct states. The CLI exposes
+`adapters runtime prepare|record|report`, and MCP exposes read-only
+`host_conformance_report`. Local implementation and deterministic fixtures are
+complete; a real host earns `passed` only after all six current scenario
+receipts are actually supplied and validated.
+
 ## Start Context Carryover — implemented local guidance V1
 
 TailTrail Start is now a current-turn-only Planning Lock instruction across the
@@ -39,6 +160,55 @@ This roadmap keeps future work simple and staged. Each phase should be useful on
 ## Direction
 
 TailTrail should grow from portable guidance first, automation second. Plain Markdown features are preferred because they work across repositories and do not require runtime setup. Hooks, installers, adapters, and benchmark tooling should appear only after the manual workflow proves valuable.
+
+### Closure and learning automation follow-up
+
+The current Completion Report, requirement checkpoints, validation receipts,
+failure-aware learning, and selected harnesses are implemented. Closure
+contract validation, the **Closure Recorder**, and **Selected Harness
+Finalizer** are now delivered: supplied requirement-linked evidence is recorded
+without rerunning commands, selected deterministic lenses are assessed, and a
+Completion Report is saved. The failure-to-correction handoff is now also
+delivered: an incomplete finalization creates one bounded, requirement-linked
+  same-run correction packet and reuses its failure fingerprint instead of
+  looping blindly. **Guarded positive learning and calibrated evaluation are
+  now implemented:** only an explicitly accepted complete closure can create a
+  sanitized candidate-only learning artifact, and paired evaluation compares
+  saved baseline evidence with saved TailTrail closure evidence—never live model
+  output. The detailed
+phased design, examples, file scope, safety boundaries, and definition of done are in
+[TailTrail Closure, Learning, and Evidence Automation Plan](tailtrail-closure-learning-automation-plan.md).
+
+#### Phase 4 — Guarded positive learning and calibrated evaluation — implemented
+
+Phase 4 completes the closure loop without allowing a single successful run to
+silently become future-agent guidance.
+
+```mermaid
+flowchart LR
+    A["Saved complete Closure Report"] --> B{"Explicit acceptance\nuser or trusted CI?"}
+    B -->|"no"| C["eligible-awaiting-acceptance\nno learning write"]
+    B -->|"yes"| D["Sanitized candidate-only\nsuccess pattern"]
+    D --> E["Explicit learning review\nrequired before promotion"]
+    A --> F["Saved baseline optional"]
+    F --> G["Deterministic closure evaluation\nlocal artifact comparison"]
+```
+
+| Delivered control | Command | Guardrail |
+| --- | --- | --- |
+| Positive learning candidate | `tailtrail closure learn --root . --run-id <id> --accepted-by user\|trusted-ci` | Requires complete requirements, passing saved receipts, no unresolved drift/failure, and explicit acceptance. Stores no raw source, prompt, logs, repository name, or identity. |
+| Calibrated evaluation | `tailtrail closure evaluate --root . --run-id <id> --baseline baseline.json` | Compares saved local facts only; no model call, inferred baseline, or quality claim from one run. |
+| Closure visibility | `tailtrail harness completion-report --root . --run-id <id>` | Shows `not-eligible`, `eligible-awaiting-acceptance`, or `captured-candidate-only`. |
+
+The implementation is idempotent and recorded in the run ledger. The candidate
+is deliberately **not** auto-promoted to curated learning; current source,
+tests, policy, and explicit user instructions continue to override it.
+
+The normal closure UX is now `tailtrail closure close --root .`: report first,
+then a host-rendered `accept-user`, `wait-ci`, or `reopen` decision. The
+`accept-user` follow-up derives the labelled delivery-start baseline and creates
+candidate-only learning plus the paired local evaluation automatically. It asks
+for a run ID only when multiple approved closure runs make selection ambiguous.
 
 ## TailTrail V2 Roadmap
 

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/official-aidlc-bridge.schema.json",
+  "title": "TailTrail Official AI-DLC Bridge Identity",
+  "type": "object",
+  "required": ["schema_version", "type", "phase", "tailtrail_run_id", "mode", "state", "official_source", "official_revision", "official_intent_id", "official_session_id", "official_stage", "host_adapter", "compatibility_manifest", "compatibility_state", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-official-aidlc-bridge"},
+    "phase": {"const": "B"},
+    "tailtrail_run_id": {"type": "string"},
+    "mode": {"const": "full"},
+    "state": {"const": "planned-attachment"},
+    "official_source": {"type": "string"},
+    "official_revision": {"type": "string"},
+    "official_intent_id": {"type": "string"},
+    "official_session_id": {"type": "string"},
+    "official_stage": {"enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]},
+    "host_adapter": {"type": "object"},
+    "compatibility_manifest": {"type": "string"},
+    "compatibility_state": {"const": "compatible"},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

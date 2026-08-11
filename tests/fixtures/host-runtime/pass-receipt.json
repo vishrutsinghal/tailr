@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-receipt",
+  "receipt_id": "fixture-pass",
+  "host": "codex",
+  "host_version": "fixture-v1",
+  "adapter_version": "v1",
+  "scenario_version": "v1",
+  "bundle_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "scenario_id": "small-bug",
+  "run_id": "fixture-run",
+  "observed_transitions": [{"sequence": 1, "state": "planning-observed"}],
+  "observations": ["planning-lock-created", "complete-start-report", "no-write-before-approval"],
+  "artifact_references": [".tailtrail/runs/fixture-run/manifest.json"],
+  "declared_outcome": "pass",
+  "failure_codes": [],
+  "integrity": {"algorithm": "sha256", "digest": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "boundary": "Sanitized fixture; tests replace run identity and integrity before recording."
+}

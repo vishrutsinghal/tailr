@@ -1,0 +1,23 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-official-aidlc-pack",
+  "official": {
+    "source": "https://github.com/awslabs/aidlc-workflows",
+    "revision": "REPLACE_WITH_PINNED_TAG_OR_COMMIT",
+    "license": {
+      "spdx": "MIT-0",
+      "file": "LICENSE"
+    }
+  },
+  "host_adapter": {
+    "host": "codex",
+    "rules_path": "core-workflow.md"
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "files": [
+      {"path": "LICENSE", "sha256": "REPLACE_WITH_LOWERCASE_SHA256"},
+      {"path": "core-workflow.md", "sha256": "REPLACE_WITH_LOWERCASE_SHA256"}
+    ]
+  }
+}

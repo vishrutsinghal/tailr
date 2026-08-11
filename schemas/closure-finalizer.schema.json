@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/closure-finalizer.schema.json",
+  "title": "TailTrail Closure Finalizer",
+  "type": "object",
+  "required": ["schema_version", "type", "finalizer_id", "run_id", "closure_record_id", "selected_harnesses", "assessments", "higher_tier_evidence", "recovery", "context_continuity", "completion_report", "overall_status", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-closure-finalizer"},
+    "finalizer_id": {"type": "string", "pattern": "^finalizer-[a-f0-9]{16}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "closure_record_id": {"type": "string", "pattern": "^closure-[a-f0-9]{16}$"},
+    "selected_harnesses": {"type": "array", "items": {"type": "string"}},
+    "assessments": {"type": "object"},
+    "higher_tier_evidence": {"type": "object"},
+    "recovery": {"type": "object"},
+    "context_continuity": {"type": "object"},
+    "correction": {"type": ["object", "null"]},
+    "completion_report": {"type": "string"},
+    "overall_status": {"enum": ["complete", "evidence-incomplete"]},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

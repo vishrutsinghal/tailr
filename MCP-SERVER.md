@@ -25,6 +25,12 @@ Use `mcp tools` to inspect the available tool contract. Use `mcp doctor` before 
 - `profile_view`, `validation_receipt_show`, and `release_confidence_show`: inspect declared testing tiers, requirement-linked proof, and the latest receipt-based release-confidence view.
 - `git_readiness`, `recovery_boundary_show`, and `recovery_reconciliation_show`: inspect Phase 4 Mode A readiness, boundary state, and the latest no-write conflict classification.
 - `architecture_assessment_show` and `maintainability_assessment_show`: inspect the latest requirement-linked architecture or maintainability assessment.
+- `aidlc_official_status`, `aidlc_official_bridge_show`, `aidlc_official_state_show`, and `aidlc_official_sanitize_validate`: inspect pinned-pack compatibility, immutable bridge identity, canonical ownership, and the fail-closed reference boundary.
+- `aidlc_official_session_status`: projects the verified Phase I runtime attachment, current official stage, and append-only transition count. It is read-only and cannot attach a session, import a receipt, or execute the official pack.
+- `host_conformance_report`: reports Phase J instruction conformance and
+  receipt-backed runtime conformance separately for Codex, Copilot, and Claude.
+  Missing receipts remain `not-validated`; this read-only tool cannot prepare a
+  bundle, record evidence, control a host, or fabricate a pass.
 - `harness_control_check`: an approval-gated controlled tool. It requires `approved: true`, an approved Planning Lock for the same `run_id`, accepts a repository-relative control file rather than a raw shell command, and records local computational evidence only.
 - `source_patch_apply`: an approval-gated source-change tool. It requires `approved: true` and an approved Planning Lock for the same `run_id`; it accepts one repository-safe unified Git patch only.
 - `planning_lock_start`: creates an `awaiting-approval` Planning Lock after the user explicitly asks to start TailTrail. It writes TailTrail metadata only; it does not edit project source or run project commands.

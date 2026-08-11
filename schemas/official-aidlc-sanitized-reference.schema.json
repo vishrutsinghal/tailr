@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/official-aidlc-sanitized-reference.schema.json",
+  "title": "TailTrail Official AI-DLC Sanitized Reference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "reference_type", "value", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-official-aidlc-sanitized-reference"},
+    "reference_type": {"enum": ["identifier", "local-artifact", "external-https", "sha256", "summary"]},
+    "value": {"type": "string", "minLength": 1, "maxLength": 2048},
+    "label": {"type": "string", "maxLength": 80},
+    "evidence_label": {"enum": ["local-evidence", "provider-backed", "saved-receipt", "advisory"]},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }
+}

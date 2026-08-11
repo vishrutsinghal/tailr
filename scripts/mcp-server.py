@@ -40,6 +40,12 @@ DEFAULT_READ_ONLY_TOOLS = (
     "completion_report_show",
     "workflow_dashboard_show",
     "planning_lock_show",
+    "aidlc_official_status",
+    "aidlc_official_bridge_show",
+    "aidlc_official_state_show",
+    "aidlc_official_sanitize_validate",
+    "aidlc_official_session_status",
+    "host_conformance_report",
 )
 CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start")
 DENIED_TOOL_TERMS = (
@@ -185,11 +191,17 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "completion_report_show": {"name": "completion_report_show", "description": "Read a saved end-of-task TailTrail Completion Report. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
         "workflow_dashboard_show": {"name": "workflow_dashboard_show", "description": "Read the current local TailTrail requirement, checkpoint, drift, evidence, and recovery dashboard. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "planning_lock_show": {"name": "planning_lock_show", "description": "Read one TailTrail Planning Lock. Read-only; reports whether managed writes are still blocked or approved.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "aidlc_official_status": {"name": "aidlc_official_status", "description": "Read and validate a pinned official AWS AI-DLC pack manifest. Read-only; it never installs, attaches, or executes the pack.", "inputSchema": json_schema({"root": {"type": "string"}, "manifest": {"type": "string"}})},
+        "aidlc_official_bridge_show": {"name": "aidlc_official_bridge_show", "description": "Read a saved official AI-DLC bridge identity for one TailTrail run. Read-only; Phase B never attaches or executes the official engine.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "aidlc_official_state_show": {"name": "aidlc_official_state_show", "description": "Project canonical run state and report ownership conflicts. Read-only; it never reconciles or rewrites artifacts.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "aidlc_official_sanitize_validate": {"name": "aidlc_official_sanitize_validate", "description": "Validate one repository-local official AI-DLC artifact against the fail-closed sensitive-data boundary. Read-only; rejected values are never returned.", "inputSchema": json_schema({"root": {"type": "string"}, "input": {"type": "string"}, "context": {"type": "string", "enum": ["bridge", "activation", "requirements", "requirements-revision", "checkpoint", "closure", "learning", "evaluation", "runtime-session", "runtime-transition"]}}, ["input", "context"])},
+        "aidlc_official_session_status": {"name": "aidlc_official_session_status", "description": "Read the verified official AI-DLC runtime attachment and ordered transition projection. Read-only; it never attaches, imports receipts, or executes the pack.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "host_conformance_report": {"name": "host_conformance_report", "description": "Report instruction and real-host runtime conformance separately for Codex, Copilot, or Claude. Read-only; missing receipts remain not-validated.", "inputSchema": json_schema({"root": {"type": "string"}, "host": {"type": "string", "enum": ["codex", "copilot", "claude"]}})},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
         "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
         "planning_lock_start": {"name": "planning_lock_start", "description": "Create an awaiting-approval Planning Lock after the user explicitly asks to start TailTrail. Writes only TailTrail local metadata; it never edits project source or runs project commands.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
         "planning_lock_approve": {"name": "planning_lock_approve", "description": "Explicitly approve one existing Planning Lock run for managed execution. For a saved TailTrail Start report, it also activates that exact plan's canonical requirement anchor. It never edits project source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
-        "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically create a Planning Lock and return the full TailTrail Start Report. Use only after the user explicitly asks to start TailTrail. It writes TailTrail local metadata only; it never implements, edits project source, runs project commands, scanners, tests, Terraform, or Git mutations.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
+        "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically create a Planning Lock and return the full TailTrail Start Report. Use only after the user explicitly asks to start TailTrail. It writes TailTrail local metadata only; it never implements, edits project source, runs project commands, scanners, tests, Terraform, or Git mutations.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]}, "official_aidlc_manifest": {"type": "string"}, "official_intent_id": {"type": "string"}, "official_session_id": {"type": "string"}, "official_stage": {"type": "string", "enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
     }
 
 
@@ -535,6 +547,50 @@ def planning_lock_show(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "planning_lock_show", "result": parse_stdout(result, "json"), "execution": result}
 
 
+def aidlc_official_status(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("tailtrail_aidlc_official_detect", script("aidlc-official-detect.py"))
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load official AIDLC compatibility detector")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    result = module.status(root_from(args), args.get("manifest"))
+    return {"tool": "aidlc_official_status", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def aidlc_official_bridge_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("tailtrail_aidlc_official_bridge", script("aidlc-official-bridge.py"))
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load official AIDLC bridge")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {"tool": "aidlc_official_bridge_show", "result": module.show(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def aidlc_official_state_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("aidlc_official_state_mcp", script("official-aidlc-state.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return {"tool": "aidlc_official_state_show", "result": module.project(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def aidlc_official_sanitize_validate(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("aidlc_official_sanitize_mcp", script("official-aidlc-sanitize.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    root = root_from(args); path = safe_relative(root, args.get("input", ""))
+    return {"tool": "aidlc_official_sanitize_validate", "result": module.validate_artifact(root, read_json(path), str(args.get("context", ""))), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def aidlc_official_session_status(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("aidlc_official_runtime_mcp", script("official-aidlc-runtime.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return {"tool": "aidlc_official_session_status", "result": module.status(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def host_conformance_report(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("host_conformance_report_mcp", script("host-runtime-conformance.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return {"tool": "host_conformance_report", "result": module.report(root_from(args), args.get("host")), "execution": {"read_only": True, "exit_code": 0}}
+
+
 def planning_lock_start(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True:
         raise ValueError("planning_lock_start requires approved: true after the user explicitly requests TailTrail Start")
@@ -562,7 +618,7 @@ def planning_lock_approve(args: dict[str, Any]) -> dict[str, Any]:
     identifier = run_id(args)
     action = "activate" if (root / ".tailtrail" / "runs" / identifier / "planning" / "start-report-v1.json").is_file() else "approve"
     result = command_result(
-        [PYTHON, script("planning-lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved"],
+        [PYTHON, script("planning-lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved", "--format", "json"] if action == "activate" else [PYTHON, script("planning-lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved"],
         root,
     )
     result["read_only"] = False
@@ -579,7 +635,9 @@ def tailtrail_start(args: dict[str, Any]) -> dict[str, Any]:
     if not goal:
         raise ValueError("goal is required")
     root = root_from(args)
-    fmt = output_format(args)
+    # Start is a user-facing Planning Lock. Markdown must be the default so a
+    # host receives the complete report instead of a JSON object it may compress.
+    fmt = output_format(args) if args.get("format") in {"json", "markdown"} else "markdown"
     command = [PYTHON, script("task-start.py").as_posix(), goal, "--root", root.as_posix(), "--format", fmt]
     run = str(args.get("run_id", "")).strip()
     if run:
@@ -588,6 +646,11 @@ def tailtrail_start(args: dict[str, Any]) -> dict[str, Any]:
         command.extend(["--changed", item])
     for reference in as_string_list(args.get("reference_roots")):
         command.extend(["--reference-root", reference])
+    if args.get("aidlc") in {"lite", "standard", "medium", "full", "off"}:
+        command.extend(["--aidlc", str(args["aidlc"])])
+    for argument, flag in (("official_aidlc_manifest", "--official-aidlc-manifest"), ("official_intent_id", "--official-intent-id"), ("official_session_id", "--official-session-id"), ("official_stage", "--official-stage")):
+        if args.get(argument):
+            command.extend([flag, str(args[argument])])
     if args.get("verbose") is True:
         command.append("--verbose")
     result = command_result(command, root)
@@ -637,7 +700,7 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "completion_feedback_show": completion_feedback_show, "profile_view": profile_view,
     "validation_receipt_show": validation_receipt_show, "release_confidence_show": release_confidence_show, "git_readiness": git_readiness,
     "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
-    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start,
+    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start,
 }
 
 

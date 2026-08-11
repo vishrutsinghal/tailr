@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/official-aidlc-session.schema.json",
+  "title": "TailTrail Official AI-DLC Runtime Session Attachment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "runtime_adapter_version", "run_id", "bridge_artifact", "compatibility_manifest", "official_source", "official_revision", "official_intent_id", "official_session_id", "initial_stage", "host_adapter", "state", "approved_anchor_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-official-aidlc-runtime-session"},
+    "runtime_adapter_version": {"const": "v1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "bridge_artifact": {"type": "string", "minLength": 1},
+    "compatibility_manifest": {"type": "string", "minLength": 1},
+    "official_source": {"type": "string", "format": "uri"},
+    "official_revision": {"type": "string", "minLength": 1},
+    "official_intent_id": {"type": "string", "minLength": 1},
+    "official_session_id": {"type": "string", "minLength": 1},
+    "initial_stage": {"enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]},
+    "host_adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "rules_path"],
+      "properties": {"host": {"type": "string"}, "rules_path": {"type": "string"}}
+    },
+    "state": {"const": "attached"},
+    "approved_anchor_fingerprint": {"type": "string", "pattern": "^(sha256:)?[0-9a-f]{64}$"},
+    "boundary": {"type": "string"}
+  }
+}

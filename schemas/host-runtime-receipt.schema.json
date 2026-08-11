@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/host-runtime-receipt.schema.json",
+  "title": "TailTrail Host Runtime Conformance Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "receipt_id", "host", "host_version", "adapter_version", "scenario_version", "bundle_digest", "scenario_id", "run_id", "observed_transitions", "observations", "artifact_references", "declared_outcome", "failure_codes", "integrity", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-host-runtime-receipt"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "host": {"enum": ["codex", "copilot", "claude"]},
+    "host_version": {"type": "string", "minLength": 1},
+    "adapter_version": {"type": "string", "minLength": 1},
+    "scenario_version": {"type": "string", "minLength": 1},
+    "bundle_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scenario_id": {"enum": ["small-bug", "hands-free-feature", "rejected-requirement", "evidence-failure", "recovery", "ci-wait"]},
+    "run_id": {"type": "string", "minLength": 1},
+    "observed_transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sequence", "state"],
+        "properties": {"sequence": {"type": "integer", "minimum": 1}, "state": {"type": "string", "minLength": 1}}
+      }
+    },
+    "observations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "artifact_references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "declared_outcome": {"enum": ["pass", "fail"]},
+    "failure_codes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "digest"],
+      "properties": {"algorithm": {"const": "sha256"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "boundary": {"type": "string"}
+  }
+}

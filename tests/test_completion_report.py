@@ -62,6 +62,7 @@ class CompletionReportTests(unittest.TestCase):
             result = report.build(root, "run")
             shown = report.show(root, "run")
         self.assertEqual(result["overall_status"], "complete")
+        self.assertTrue(result["canonical_state"]["valid"])
         self.assertEqual(result["requirement_status"]["complete"], 1)
         self.assertEqual(result["requirement_status"]["total"], 1)
         self.assertEqual(result["changed_scope"]["status"], "approved")
@@ -71,8 +72,13 @@ class CompletionReportTests(unittest.TestCase):
         self.assertTrue(harnesses["Maintainability Harness"]["used"])
         self.assertEqual(harnesses["Maintainability Harness"]["status"], "pass")
         self.assertEqual(shown["overall_status"], "complete")
-        self.assertIn("## Harness usage", report.render(result))
-        self.assertIn("Requirement status: **1/1 complete**", report.render(result))
+        rendered = report.render(result)
+        self.assertIn("## Requirement delivery status", rendered)
+        self.assertIn("## TailTrail control status", rendered)
+        self.assertIn("| REQ-01 - reject zero claims | complete | 1 saved item(s) | resolved |", rendered)
+        self.assertIn("| Requirement Completion Harness | pass |", rendered)
+        self.assertIn("| Canonical run state |", rendered)
+        self.assertIn("| Actual model tokens | unavailable |", rendered)
 
     def test_missing_completion_gate_is_an_evidence_gap_not_a_pass(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -83,6 +89,65 @@ class CompletionReportTests(unittest.TestCase):
             result = report.build(root, "run")
         self.assertEqual(result["tests"]["status"], "unavailable")
         self.assertEqual(result["overall_status"], "evidence-incomplete")
+
+    def test_report_uses_only_run_linked_measured_token_usage(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root)
+            self.write_complete_evidence(root, uid)
+            planning = ledger.state_dir(root, "run") / "planning"
+            planning.mkdir()
+            (planning / "start-report-v1.json").write_text(json.dumps({"token_posture": {"used_tokens": 42}}), encoding="utf-8")
+            trail = root / ".tailtrail"
+            trail.mkdir(exist_ok=True)
+            (trail / "token-usage.jsonl").write_text("\n".join([
+                json.dumps({"mode": "measured", "task_id": "other", "tailtrail": {"total_tokens": 999}}),
+                json.dumps({"mode": "measured", "task_id": "run", "tailtrail": {"total_tokens": 123}}),
+            ]) + "\n", encoding="utf-8")
+            result = report.build(root, "run")
+        self.assertEqual(result["token_usage"]["planning_estimate_tokens"], 42)
+        self.assertEqual(result["token_usage"]["status"], "measured")
+        self.assertEqual(result["token_usage"]["actual_tailtrail_tokens"], 123)
+        self.assertIn("| Actual model tokens | measured | 123 tokens from 1 linked record(s) |", report.render(result))
+
+    def test_report_reads_token_estimate_from_saved_start_report_wrapper(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root)
+            self.write_complete_evidence(root, uid)
+            planning = ledger.state_dir(root, "run") / "planning"
+            planning.mkdir(exist_ok=True)
+            (planning / "start-report-v1.json").write_text(json.dumps({"report": {"token_posture": {"used_tokens": 42}}}), encoding="utf-8")
+            result = report.build(root, "run")
+        self.assertEqual(result["token_usage"]["planning_estimate_tokens"], 42)
+
+    def test_unresolved_drift_creates_same_run_learning_observation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root)
+            self.write_complete_evidence(root, uid)
+            checkpoint = ledger.state_dir(root, "run") / "checkpoints" / "checkpoint-1.json"
+            data = json.loads(checkpoint.read_text(encoding="utf-8"))
+            data["drift"] = [{"requirement_uid": uid, "classification": "new-drift"}]
+            checkpoint.write_text(json.dumps(data), encoding="utf-8")
+            result = report.build(root, "run")
+            observation = ledger.state_dir(root, "run") / "learning-observations" / "drift-v1.json"
+            saved = json.loads(observation.read_text(encoding="utf-8"))
+            self.assertEqual(result["drift_learning"]["status"], "recorded")
+            self.assertEqual(saved["run_id"], "run")
+            self.assertEqual(saved["promotion"], "same-run continuity only; explicit review is required before any cross-run learning promotion")
+            self.assertEqual(result["requirement_status"]["requirements"][0]["status"], "incomplete")
+            self.assertEqual(result["requirement_status"]["requirements"][0]["drift"][0]["classification"], "new-drift")
+            self.assertEqual(result["completion_learning"]["status"], "captured")
+            events = (root / ".tailtrail" / "learning-events.jsonl").read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(events), 1)
+            event = json.loads(events[0])
+            self.assertEqual(event["source_run_id"], "run")
+            self.assertNotIn("reject zero claims", events[0])
+            repeated = report.build(root, "run")
+            self.assertEqual(repeated["completion_learning"]["status"], "reused")
+            self.assertEqual(len((root / ".tailtrail" / "learning-events.jsonl").read_text(encoding="utf-8").splitlines()), 1)
+            self.assertIn("| REQ-01 - reject zero claims | incomplete | 1 saved item(s) | new-drift |", report.render(result))
 
 
 if __name__ == "__main__":

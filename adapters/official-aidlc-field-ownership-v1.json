@@ -1,0 +1,50 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-official-aidlc-field-ownership",
+  "registry_version": "v1",
+  "fields": [
+    {
+      "field": "run_id",
+      "owner": "manifest",
+      "owner_path": "manifest.json",
+      "projections": ["approved-anchor", "official-bridge", "official-activation", "official-runtime-session", "official-transition-receipt", "harness-checkpoint", "official-checkpoint", "closure-link", "positive-learning"]
+    },
+    {
+      "field": "requirements",
+      "owner": "approved-anchor",
+      "owner_path": "anchors/approved-v1.json",
+      "projections": ["harness-checkpoint", "official-checkpoint", "validation-receipt", "closure-report"]
+    },
+    {
+      "field": "official_identity",
+      "owner": "official-bridge",
+      "owner_path": "aidlc-official/bridge-v1.json",
+      "projections": ["official-activation", "official-runtime-session", "official-transition-receipt", "official-checkpoint", "closure-link"]
+    },
+    {
+      "field": "official_lifecycle_stage",
+      "owner": "official-runtime-transition-journal",
+      "owner_path": "aidlc-official/runtime/session-v1.json + transitions/transition-*.json",
+      "projections": ["official-checkpoint", "completion-report", "workflow-dashboard", "closure-link"]
+    },
+    {
+      "field": "requirement_status_and_drift",
+      "owner": "latest-harness-checkpoint",
+      "owner_path": "checkpoints/checkpoint-*.json",
+      "projections": ["completion-report", "workflow-dashboard", "closure"]
+    },
+    {
+      "field": "evidence_results",
+      "owner": "validation-receipts",
+      "owner_path": "validation-receipts/*.json",
+      "projections": ["harness-checkpoint", "completion-gate", "completion-report", "closure"]
+    },
+    {
+      "field": "acceptance",
+      "owner": "closure-link",
+      "owner_path": "aidlc-official/closure/closure-link-v1.json",
+      "projections": ["positive-learning", "evaluation"]
+    }
+  ],
+  "boundary": "Each field has one authoritative run-local artifact. Projections may reference but cannot override the owner. Conflicts are reported and never auto-reconciled."
+}

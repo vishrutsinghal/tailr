@@ -229,10 +229,10 @@
       "roadmap_ref": "Harness Engineering Phase 2",
       "owner": "tailtrail-core",
       "governance_class": "governance",
-      "commands": ["tailtrail harness plan", "tailtrail harness check", "tailtrail harness checkpoint", "tailtrail harness completion-review", "tailtrail harness completion-report", "tailtrail harness dashboard", "tailtrail harness feedback", "tailtrail harness impact-map", "tailtrail harness converge", "tailtrail harness template"],
-      "docs": ["README.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "tailtrail-automation-guide.md", "harness-engineering-workflow.md", "tailtrail-implementation-backlog.md", "schemas/harness-control.schema.json", "schemas/harness-result.schema.json", "schemas/harness-checkpoint.schema.json", "schemas/completion-report.schema.json", "schemas/workflow-dashboard.schema.json", "schemas/requirement-impact-map.schema.json", "schemas/harness-convergence.schema.json", "schemas/harness-template-selection.schema.json", "templates/harness-checkpoint.md", "templates/harness-feedback.md", "templates/harness-templates.example.json"],
-      "scripts": ["scripts/harness-controls.py", "scripts/harness-checkpoint.py", "scripts/completion-review.py", "scripts/completion-report.py", "scripts/workflow-dashboard.py", "scripts/harness-feedback.py", "scripts/requirement-impact-map.py", "scripts/harness-convergence.py", "scripts/harness-template.py"],
-      "tests": ["tests/test_harness_controls.py", "tests/test_harness_checkpoint.py", "tests/test_harness_feedback.py", "tests/test_completion_review.py", "tests/test_completion_report.py", "tests/test_workflow_dashboard.py", "tests/test_requirement_harness_v2_v4.py"],
+      "commands": ["tailtrail harness plan", "tailtrail harness check", "tailtrail harness checkpoint", "tailtrail harness completion-review", "tailtrail harness completion-report", "tailtrail completion-report", "tailtrail closure validate", "tailtrail closure record", "tailtrail closure finalize", "tailtrail closure correct", "tailtrail closure close", "tailtrail closure learn", "tailtrail closure evaluate", "tailtrail harness dashboard", "tailtrail harness feedback", "tailtrail harness impact-map", "tailtrail harness converge", "tailtrail harness template", "tailtrail failure"],
+      "docs": ["README.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "tailtrail-automation-guide.md", "harness-engineering-workflow.md", "tailtrail-implementation-backlog.md", "tailtrail-closure-learning-automation-plan.md", "schemas/harness-control.schema.json", "schemas/harness-result.schema.json", "schemas/harness-checkpoint.schema.json", "schemas/completion-report.schema.json", "schemas/execution-receipt.schema.json", "schemas/closure-record.schema.json", "schemas/closure-finalizer.schema.json", "schemas/closure-correction.schema.json", "schemas/closure-positive-learning.schema.json", "schemas/closure-evaluation.schema.json", "schemas/workflow-dashboard.schema.json", "schemas/requirement-impact-map.schema.json", "schemas/harness-convergence.schema.json", "schemas/harness-template-selection.schema.json", "templates/harness-checkpoint.md", "templates/harness-feedback.md", "templates/harness-templates.example.json"],
+      "scripts": ["scripts/harness-controls.py", "scripts/harness-checkpoint.py", "scripts/completion-review.py", "scripts/completion-report.py", "scripts/closure-contract.py", "scripts/closure-recorder.py", "scripts/closure-finalizer.py", "scripts/closure-correction.py", "scripts/closure-close.py", "scripts/closure-learning.py", "scripts/closure-evaluation.py", "scripts/workflow-dashboard.py", "scripts/harness-feedback.py", "scripts/requirement-impact-map.py", "scripts/harness-convergence.py", "scripts/harness-template.py", "scripts/execution-failure.py"],
+      "tests": ["tests/test_harness_controls.py", "tests/test_harness_checkpoint.py", "tests/test_harness_feedback.py", "tests/test_completion_review.py", "tests/test_completion_report.py", "tests/test_closure_contract.py", "tests/test_closure_recorder.py", "tests/test_closure_finalizer.py", "tests/test_closure_correction.py", "tests/test_closure_learning.py", "tests/test_workflow_dashboard.py", "tests/test_requirement_harness_v2_v4.py"],
       "mcp_tools": ["completion_report_show", "workflow_dashboard_show"],
       "requires_approval": true,
       "read_only": false,
@@ -363,7 +363,8 @@
       ],
       "scripts": [
         "scripts/aidlc-init.py",
-        "scripts/aidlc-check.py"
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-requirements.py"
       ],
       "tests": [
         "tests/test_navigator_core.py"
@@ -374,6 +375,155 @@
       "evidence_label": "local-evidence",
       "depends_on": [
         "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "official-aidlc-compatibility",
+      "title": "Official AI-DLC Compatibility Foundation",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Official AI-DLC integration Phase A",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail aidlc official status"
+      ],
+      "docs": [
+        "tailtrail-aidlc-integration.md",
+        "TAILTRAIL-COMMANDS.md",
+        "USER-GUIDE.md",
+        "MCP-SERVER.md"
+      ],
+      "scripts": [
+        "scripts/aidlc-official-detect.py"
+      ],
+      "tests": [
+        "tests/test_aidlc_official_detect.py",
+        "tests/test_mcp_server.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [
+        "aidlc_official_status"
+      ],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "aidlc",
+        "mcp",
+        "registry"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "official-aidlc-bridge",
+      "title": "Official AI-DLC Bridge, Requirements, Evidence, State, Sanitization, and Runtime Adapter",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Official AI-DLC integration Phases B-I",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail start --aidlc lite",
+        "tailtrail start --aidlc standard",
+        "tailtrail start --aidlc full",
+        "tailtrail start --aidlc off",
+        "tailtrail aidlc official bridge show",
+        "tailtrail aidlc official state show",
+        "tailtrail aidlc official state validate",
+        "tailtrail aidlc official sanitize validate",
+        "tailtrail aidlc official runtime attach",
+        "tailtrail aidlc official runtime status",
+        "tailtrail aidlc official runtime import-transition",
+        "tailtrail aidlc official runtime resume",
+        "tailtrail aidlc official runtime redo",
+        "tailtrail aidlc official runtime jump",
+        "tailtrail aidlc official runtime recovery"
+      ],
+      "docs": [
+        "tailtrail-aidlc-integration.md",
+        "TAILTRAIL-COMMANDS.md",
+        "USER-GUIDE.md",
+        "MCP-SERVER.md"
+      ],
+      "scripts": [
+        "scripts/aidlc-official-bridge.py",
+        "scripts/official-aidlc-requirements.py",
+        "scripts/official-aidlc-checkpoint.py",
+        "scripts/official-aidlc-state.py",
+        "scripts/official-aidlc-sanitize.py",
+        "scripts/official-aidlc-runtime.py"
+      ],
+      "tests": [
+        "tests/test_aidlc_official_bridge.py",
+        "tests/test_official_aidlc_state.py",
+        "tests/test_official_aidlc_sanitize.py",
+        "tests/test_official_aidlc_runtime.py",
+        "tests/test_mcp_server.py",
+        "tests/test_planning_lock.py"
+      ],
+      "mcp_tools": [
+        "aidlc_official_bridge_show",
+        "aidlc_official_state_show",
+        "aidlc_official_sanitize_validate",
+        "aidlc_official_session_status"
+      ],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "official-aidlc-compatibility",
+        "planning-lock",
+        "mcp",
+        "registry"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "host-runtime-conformance",
+      "title": "Real Host Runtime Conformance",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Official AI-DLC integration Phase J",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail adapters runtime prepare",
+        "tailtrail adapters runtime record",
+        "tailtrail adapters runtime report"
+      ],
+      "docs": [
+        "tailtrail-aidlc-integration.md",
+        "TAILTRAIL-COMMANDS.md",
+        "USER-GUIDE.md",
+        "MCP-SERVER.md",
+        "ASSISTANT-COMPATIBILITY.md",
+        "adapters/README.md"
+      ],
+      "scripts": [
+        "scripts/host-runtime-conformance.py"
+      ],
+      "tests": [
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_runtime_conformance.py",
+        "tests/test_mcp_server.py",
+        "tests/test_cli_dispatch.py",
+        "tests/test_install_profiles.py"
+      ],
+      "mcp_tools": [
+        "host_conformance_report"
+      ],
+      "requires_approval": false,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "official-aidlc-bridge",
+        "mcp",
+        "registry"
       ],
       "since_version": "v1",
       "deprecated_in_version": null
@@ -585,7 +735,8 @@
         "scripts/ast-map.py",
         "scripts/scanner-graph-overlay.py",
         "scripts/cache-summary.py",
-        "scripts/graph-learning.py"
+        "scripts/graph-learning.py",
+        "scripts/code_graph_inventory.py"
       ],
       "tests": [
         "tests/test_navigator_core.py"
@@ -1032,15 +1183,16 @@
     },
     {
       "id": "assistant-adapters",
-      "title": "Validated Assistant Adapters",
+      "title": "Validated and Composed Assistant Adapters",
       "status": "implemented",
       "surface": "core",
-      "roadmap_ref": "Phase 6",
+      "roadmap_ref": "Phase 6 + Official AI-DLC Phase F",
       "owner": "tailtrail-core",
       "governance_class": "dev-experience",
       "commands": [
         "tailtrail adapters check",
-        "tailtrail adapters sync"
+        "tailtrail adapters sync",
+        "tailtrail adapters conformance"
       ],
       "docs": [
         "ASSISTANT-COMPATIBILITY.md",
@@ -1049,9 +1201,12 @@
         "USER-GUIDE.md",
         "TAILTRAIL-COMMANDS.md"
       ],
-      "scripts": [],
+      "scripts": [
+        "scripts/host-adapter-conformance.py"
+      ],
       "tests": [
-        "tests/test_cli_dispatch.py"
+        "tests/test_cli_dispatch.py",
+        "tests/test_host_adapter_conformance.py"
       ],
       "mcp_tools": [],
       "requires_approval": false,

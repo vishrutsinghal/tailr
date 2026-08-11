@@ -14,6 +14,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,7 @@ def load_module(name: str, relative: str) -> Any:
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load {relative}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 

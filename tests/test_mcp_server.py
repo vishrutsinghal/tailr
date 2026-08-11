@@ -25,7 +25,7 @@ mcp = load_module()
 
 class McpServerTests(unittest.TestCase):
     def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
-        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
+        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report"}.issubset(set(mcp.READ_ONLY_TOOLS)))
         self.assertEqual(mcp.CONTROLLED_TOOLS, ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start"))
         self.assertEqual(set(mcp.HANDLERS), set((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         self.assertEqual(mcp.ensure_safe_tools(), [])
@@ -54,6 +54,12 @@ class McpServerTests(unittest.TestCase):
             self.assertEqual(tool["inputSchema"]["type"], "object")
             self.assertIn("additionalProperties", tool["inputSchema"])
 
+    def test_host_conformance_report_is_read_only_and_does_not_infer_runtime_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = mcp.call_tool("host_conformance_report", {"root": tmp, "host": "codex"})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["runtime_conformance"][0]["runtime_status"], "not-validated")
+
     def test_doctor_names_the_first_tool_order_mismatch(self):
         original = mcp.tool_definitions
 
@@ -71,7 +77,7 @@ class McpServerTests(unittest.TestCase):
 
         self.assertEqual(
             errors[0],
-            "tool registry order mismatch at index 24: expected `planning_lock_show`, got `harness_control_check`",
+            "tool registry order mismatch at index 24: expected `planning_lock_show`, got `aidlc_official_status`",
         )
 
     def test_unknown_tool_is_rejected(self):
@@ -117,6 +123,38 @@ class McpServerTests(unittest.TestCase):
             result = mcp.maintainability_assessment_show({"root": root.as_posix(), "run_id": "demo"})
         self.assertTrue(result["execution"]["read_only"])
         self.assertTrue(result["result"]["complete"])
+
+    def test_aidlc_official_status_is_read_only_when_no_pack_is_installed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = mcp.aidlc_official_status({"root": Path(tmp).as_posix()})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["state"], "not-installed")
+
+    def test_aidlc_official_state_show_is_read_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run = root / ".tailtrail" / "runs" / "demo"
+            run.mkdir(parents=True)
+            (run / "manifest.json").write_text(json.dumps({"schema_version": "1", "type": "tailtrail-run-manifest", "run_id": "demo", "goal": "inspect state"}), encoding="utf-8")
+            result = mcp.aidlc_official_state_show({"root": root.as_posix(), "run_id": "demo"})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertTrue(result["result"]["valid"])
+        self.assertEqual(result["result"]["status"], "incomplete")
+
+    def test_aidlc_official_sanitize_validate_does_not_return_artifact_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "evaluation.json"
+            path.write_text(json.dumps({
+                "schema_version": "1", "type": "tailtrail-closure-calibrated-evaluation",
+                "evaluation_id": "evaluation-1", "run_id": "run", "evidence_label": "saved-local-artifacts",
+                "mode": "run-observation", "baseline": None, "tailtrail_outcome": {}, "comparison": None,
+                "boundary": "Saved local evidence only.",
+            }), encoding="utf-8")
+            result = mcp.aidlc_official_sanitize_validate({"root": root.as_posix(), "input": "evaluation.json", "context": "evaluation"})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["status"], "passed")
+        self.assertNotIn("Saved local evidence only", json.dumps(result))
 
     def test_control_check_requires_explicit_approval(self):
         with self.assertRaises(ValueError):
@@ -194,6 +232,7 @@ class McpServerTests(unittest.TestCase):
                 mcp.command_result = original
         self.assertTrue(result["execution"]["local_metadata_only"])
         self.assertEqual(calls[0][2], "activate")
+        self.assertEqual(calls[0][-2:], ["--format", "json"])
 
     def test_atomic_tailtrail_start_requires_explicit_request_and_returns_one_report(self):
         with self.assertRaisesRegex(ValueError, "approved: true"):
@@ -204,7 +243,7 @@ class McpServerTests(unittest.TestCase):
 
         def fake_command_result(command, cwd):
             calls.append(command)
-            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{\"planning_lock\": {\"run_id\": \"run-1\"}}", "stderr": ""}
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "# TailTrail Start Plan\n\n## Planning Lock\n", "stderr": ""}
 
         try:
             mcp.command_result = fake_command_result
@@ -212,11 +251,12 @@ class McpServerTests(unittest.TestCase):
         finally:
             mcp.command_result = original
 
-        self.assertEqual(result["result"]["planning_lock"]["run_id"], "run-1")
+        self.assertTrue(result["result"].startswith("# TailTrail Start Plan"))
         self.assertTrue(result["execution"]["local_metadata_only"])
         self.assertTrue(result["execution"]["execution_blocked"])
         self.assertIn("task-start.py", calls[0][1])
         self.assertIn("--planning-run-id", calls[0])
+        self.assertEqual(calls[0][calls[0].index("--format") + 1], "markdown")
         self.assertNotIn("--no-planning-lock", calls[0])
 
     def test_navigator_plan_command_construction(self):

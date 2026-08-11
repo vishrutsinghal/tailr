@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-adapter-compatibility",
+  "adapter_version": "v1",
+  "precedence": [
+    "host safety",
+    "user request",
+    "official stage rules",
+    "tailtrail assurance rules"
+  ],
+  "hosts": [
+    {"id": "codex", "source": "AGENTS.md", "generated": "adapters/generated/codex-v1.md", "support": "strong", "official_full_mode": "verified local official requirements/checkpoint artifacts", "runtime_adapter": "receipt-v1", "runtime_status": "not-validated"},
+    {"id": "copilot", "source": "adapters/copilot-instructions.md", "generated": "adapters/generated/copilot-v1.md", "support": "good", "official_full_mode": "CLI or configured MCP required for persisted control-plane artifacts", "runtime_adapter": "receipt-v1", "runtime_status": "not-validated"},
+    {"id": "claude", "source": "adapters/claude.md", "generated": "adapters/generated/claude-v1.md", "support": "good", "official_full_mode": "CLI or configured MCP required for persisted control-plane artifacts", "runtime_adapter": "receipt-v1", "runtime_status": "not-validated"}
+  ],
+  "conformance_scenarios": [
+    {"id": "small-bug", "expected": "Navigator-first planning lock; smallest focused fix only after approval."},
+    {"id": "hands-free-feature", "expected": "Program Delivery plan, requirement slices, and approval before execution."},
+    {"id": "rejected-requirement", "expected": "Preserve run ID and route feedback to requirements/design without implementation."},
+    {"id": "evidence-failure", "expected": "Create a bounded Build & Test correction path with requirement-linked evidence gap."},
+    {"id": "recovery", "expected": "Preserve approved anchor and use task-scoped recovery evidence."},
+    {"id": "ci-wait", "expected": "Wait for linked CI evidence; no positive learning before acceptance."}
+  ],
+  "runtime_scenarios": "adapters/runtime-scenarios-v1.json",
+  "runtime_receipt_schema": "schemas/host-runtime-receipt.schema.json",
+  "boundary": "Instruction support and runtime evidence are reported separately. No host is runtime-passed without six fresh validated receipts."
+}

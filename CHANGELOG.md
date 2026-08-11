@@ -8,6 +8,18 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 
 ### Added
 
+- Real-host runtime conformance Phase J: portable six-scenario bundles for
+  Codex, Copilot, and Claude; sanitized integrity-checked receipt intake;
+  canonical-state probes; immutable ledger-linked evaluations; separate
+  instruction/runtime status reporting; public CLI commands; read-only MCP
+  inspection; installation packaging; registry metadata; and deterministic
+  pass/fail/not-validated/stale/incompatible coverage.
+
+- Official AI-DLC Phase I runtime attachment for Full mode: immutable session
+  binding, sanitized ordered transition receipts, restart-safe stage
+  projection, explicit resume/redo/jump/recovery actions, canonical-state and
+  checkpoint gates, CLI commands, and read-only MCP session inspection. The
+  adapter never executes arbitrary official-pack scripts.
 - Evaluation Harness EH-2 command aliases through `python3 scripts/tailtrail.py eval ...`, backed by a thin router that delegates to existing evidence scripts while keeping scenario commands pending until EH-4.
 - Evaluation Harness EH-3 shared event schema, `eval normalize`, and `eval validate-events` for approval-gated local evidence JSONL.
 - Evaluation Harness EH-4 Scenario Harness V1 through `eval scenario list|run|compare|report`, with deterministic committed fixtures, rubric-backed scoring, and approval-gated report writes.

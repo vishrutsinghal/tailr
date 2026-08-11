@@ -276,10 +276,22 @@ At deliberate closure, run:
 tailtrail harness completion-report --root . --run-id payment-retry
 ```
 
-It aggregates requirement completion, approved scope, Architecture/Behaviour
-posture, test tiers, drift, and recovery availability. It is explicit because a
-host may finish an edit before all required receipts or assessments exist. It is
-fail-closed: missing evidence is `unavailable` or `not-assessed`, never pass.
+It renders requirement delivery separately from TailTrail control status. The
+requirement table links each `REQ` to proof and recorded drift; the control table
+shows scope, selected harnesses, recovery, continuity/learning, and token
+posture. Actual model tokens appear only when linked host/provider telemetry
+identifies this exact run. It is explicit because a host may finish an edit
+before all required receipts or assessments exist. It is fail-closed: missing
+evidence is `unavailable` or `not-assessed`, never pass.
+
+Closure gaps are also consumed by the learning system in a bounded way. A
+requirement-incomplete state, unresolved drift, evidence gap, or unresolved
+execution failure produces a deduplicated `completion-learning-v1.json`
+observation for that run and a sanitized candidate event for the project
+learning store. The detailed diagnosis stays run-local; the project candidate
+contains only IDs, classifications, statuses, and artifact pointers. It cannot
+auto-promote, steer a later task by itself, or override current source, policy,
+or validation evidence.
 
 ## 9. Evaluation dataset
 

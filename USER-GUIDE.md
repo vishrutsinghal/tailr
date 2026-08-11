@@ -494,10 +494,108 @@ anchor -> plan -> approved check -> checkpoint -> review -> feedback -> receipt 
 ```
 
 At task closure, run `tailtrail harness completion-report --root . --run-id
-<run-id>`. It creates one readable Completion Report with requirement progress,
-approved-scope posture, architecture and behaviour evidence, test tiers, drift,
-and recovery availability. It is an aggregation view: unavailable evidence stays
+<run-id>`. It creates one readable Completion Report with a requirement delivery
+table (REQ status, proof, and requirement-linked drift) plus a TailTrail control
+table (scope, selected harnesses, recovery, continuity/learning, and token
+posture). Actual model tokens are shown only from host/provider telemetry linked
+to this exact run ID. It is an aggregation view: unavailable evidence stays
 unavailable, rather than becoming a green completion claim.
+
+An agent or host can validate its proposed closure evidence without writing
+anything:
+
+```bash
+tailtrail closure validate --root . --input closure-input.json
+```
+
+The contract requires exact repository-relative changed paths and
+requirement-linked receipts. It validates the evidence shape only; it never
+runs the listed commands, writes receipts, or creates a completion claim.
+
+After the same Planning Lock has been explicitly approved, turn that supplied
+evidence into local TailTrail artifacts with:
+
+```bash
+tailtrail closure record --root . --input closure-input.json
+```
+
+This records evidence only. It does not rerun the listed tests or commands,
+edit project files, commit, push, deploy, or declare delivery complete. It
+writes requirement-linked receipts, one checkpoint with file fingerprints, a
+Completion Review, a Requirement Completion Gate, and an idempotent closure
+record beneath `.tailtrail/runs/<run-id>/`.
+
+Then close the recorded run and render one Completion Report:
+
+```bash
+tailtrail closure finalize --root . --run-id <run-id>
+```
+
+Finalization runs only the Architecture Fitness, Behaviour, and Maintainability
+assessments selected in the saved Execution Handoff. It reads higher-tier
+receipts rather than rerunning their commands. A selected Behaviour Harness
+needs declared scenario evidence; otherwise the finalizer records an explicit
+evidence gap and the report remains incomplete.
+
+When finalization is incomplete, TailTrail automatically saves one bounded
+correction handoff for the same run. Inspect it with:
+
+```bash
+tailtrail closure correct --root . --run-id <run-id>
+```
+
+It selects one requirement, preserves all earlier evidence, creates a concise
+continuity packet, and prevents repeated identical failure signatures from
+opening another correction loop. It only recommends the next scoped action; it
+does not edit source, rerun tests, recover Git, or change the approved anchor.
+
+When a report finds a real closure gap, TailTrail also creates a run-local,
+sanitized completion-learning observation and a deduplicated candidate in the
+project learning store. This gives a later correction loop the exact gap to
+avoid while keeping cross-run learning proposal-first: it never captures raw
+source, prompt text, logs, or secrets, and it never auto-promotes a lesson.
+
+### Guarded success learning and closure evaluation
+
+Once a run is genuinely complete and a user or trusted CI process has accepted
+it, create a candidate-only learning record:
+
+```bash
+tailtrail closure learn --root . --run-id <run-id> --accepted-by user
+```
+
+This is deliberately not automatic: a passing run is one observation, not a
+universal rule. TailTrail refuses incomplete, drifted, failed, or unaccepted
+runs and stores no raw source, prompt, log, repository name, or user identity.
+
+To compare the saved outcome against a compact saved baseline, use:
+
+```bash
+tailtrail closure evaluate --root . --run-id <run-id> --baseline baseline.json
+```
+
+The result is deterministic local evidence only; it does not run a model or
+claim that TailTrail improved quality from a single run.
+
+For routine closure, users do not need to copy a run ID or baseline JSON when
+one approved closure run is unambiguous:
+
+```bash
+tailtrail closure close --root .
+```
+
+TailTrail finalizes the saved evidence and shows a report before it asks for a
+decision. On a complete report, select `accept-user` in the host and run:
+
+```bash
+tailtrail closure close --root . --decision accept-user
+```
+
+This derives a labelled delivery-start baseline from the immutable approved
+anchor, then writes the paired evaluation and candidate-only learning artifact.
+If there are multiple eligible runs, TailTrail asks for `--run-id` rather than
+guessing. `wait-ci` records no success learning until a future linked CI receipt
+exists.
 
 ### Delivery evaluation dataset
 
@@ -1579,9 +1677,26 @@ If you update adapter source files in `adapters/`, sync tool-facing files and va
 ```bash
 python3 scripts/tailtrail.py adapters sync
 python3 scripts/tailtrail.py adapters check
+python3 scripts/tailtrail.py adapters conformance
 python3 scripts/sync-adapters.py --write
 python3 scripts/sync-adapters.py --check
 ```
+
+To validate behavior in a real Codex, Copilot, or Claude host, prepare the
+versioned scenario bundle and record sanitized runtime receipts:
+
+```bash
+python3 scripts/tailtrail.py adapters runtime prepare --root . --host codex
+python3 scripts/tailtrail.py adapters runtime record --root . --host codex --receipt path/to/receipt.json
+python3 scripts/tailtrail.py adapters runtime report --root . --host codex
+```
+
+This is intentionally separate from instruction-file conformance. Generated
+adapter text proves only local composition. A runtime host remains
+`not-validated` until all six current scenarios have real, fresh,
+canonical-run-linked passing receipts. Receipt intake rejects secrets, raw
+prompts/source, outside-repository references, invalid digests, stale contracts,
+and evidence that is not linked to the selected run.
 
 ## 3. Set Up GitHub Copilot
 
@@ -2335,6 +2450,50 @@ templates/intent-overrides.json
 ```
 
 Overrides can replace the prompt, files to load, files to avoid, run order, validation, and notes for a flow. Fields that are not listed keep the TailTrail default.
+
+### Check an official AWS AI-DLC pack without running it
+
+TailTrail's local AIDLC Lifecycle Lite is separate from the external AWS AI-DLC
+Workflows project. If your team has independently placed a pinned official
+pack in the project, inspect its provenance without executing it:
+
+```bash
+python3 scripts/tailtrail.py aidlc official status --root .
+```
+
+The check reads `.tailtrail/official-aidlc/manifest.json` and verifies the
+official source, pinned version or commit, MIT-0 license record, host adapter,
+and SHA-256 file hashes. It only reports `not-installed`, `compatible`,
+`altered`, or `incompatible`; it never downloads, attaches, executes, or edits
+the pack. See `tailtrail-aidlc-integration.md` for the phased bridge design.
+
+Use `--aidlc lite` (the default) for TailTrail's local Lifecycle Lite,
+`--aidlc standard` for stronger local AIDLC requirement/design/evidence
+planning (`medium` is an alias), `--aidlc off` to suppress lifecycle routing,
+or `--aidlc full` only after the official-pack compatibility check reports
+`compatible`. Natural-language `using AIDLC` selects Standard; hands-free
+starts Standard and reports any eligible Full escalation. Full mode writes a
+mapping between the TailTrail run and official intent/session/stage identifiers,
+then uses the verified official Requirements Analysis rules instead of the
+local AIDLC questionnaire. After all official questions are answered, its one
+official stage approval freezes the TailTrail anchor and activates the same
+run. Rejected requirement feedback routes to official requirements; a stated
+design or architecture concern is recorded for the official design route.
+After approval, Full mode can attach the real host-issued session without
+executing arbitrary pack scripts:
+
+```bash
+python3 scripts/tailtrail.py aidlc official runtime attach --root . --run-id <run-id>
+python3 scripts/tailtrail.py aidlc official runtime status --root . --run-id <run-id>
+python3 scripts/tailtrail.py aidlc official runtime import-transition --root . --run-id <run-id> --receipt path/to/receipt.json
+```
+
+The declared host adapter executes the official lifecycle. TailTrail imports
+only sanitized, ordered, integrity-checked receipts tied to the same run,
+official session/revision, and approved-anchor fingerprint. `resume`, `redo`,
+`jump`, and `recovery` likewise require an explicit receipt. Lite and Standard
+do not depend on this runtime. See `TAILTRAIL-COMMANDS.md` for the full command
+set and `tailtrail-aidlc-integration.md` for stage prerequisites and boundaries.
 
 ## 9. Use AIDLC Stage Playbooks
 

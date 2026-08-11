@@ -12,9 +12,13 @@ def read(path:Path)->dict[str,Any]: return json.loads(path.read_text(encoding="u
 def fingerprint(path:Path)->str: return "sha256:"+hashlib.sha256(path.read_bytes()).hexdigest()
 def checkpoint(root:Path,run_id:str,changed:list[str],results_path:Path)->dict[str,Any]:
  directory=L.state_dir(root,run_id); anchor=read(directory/"anchors"/"approved-v1.json"); results=read(results_path).get("results",[])
- existing=sorted((directory/"checkpoints").glob("checkpoint-*.json")); number=len(existing)+1; failed=any(item.get("outcome") not in {"pass","skipped"} for item in results)
+ existing=sorted((directory/"checkpoints").glob("checkpoint-*.json")); number=len(existing)+1
  req=[]
- for row in anchor["requirements"]: req.append({"requirement_uid":row["requirement_uid"],"statement":row["statement"],"state":"implemented-not-validated" if failed else "validated","evidence":results})
+ for row in anchor["requirements"]:
+  uid=row["requirement_uid"]
+  evidence=[item for item in results if not item.get("requirement_uids") or uid in item.get("requirement_uids",[])]
+  failed=not evidence or any(item.get("outcome") not in {"pass","skipped"} for item in evidence)
+  req.append({"requirement_uid":uid,"statement":row["statement"],"state":"implemented-not-validated" if failed else "validated","evidence":evidence})
  prior=read(existing[-1]) if existing else None
  current_states={item["requirement_uid"]:item["state"] for item in req}; prior_states={item["requirement_uid"]:item["state"] for item in prior.get("requirements",[])} if prior else {}
  drift=[]

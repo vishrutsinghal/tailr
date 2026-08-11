@@ -226,6 +226,12 @@ class InstallProfileTests(unittest.TestCase):
         self.assertFalse(report.conflicts)
         self.assertEqual(manifest["surface"], "extended")
         self.assertIn("scripts/completion-report.py", manifest["files"])
+        self.assertIn("scripts/official-aidlc-runtime.py", manifest["files"])
+        self.assertIn("scripts/host-runtime-conformance.py", manifest["files"])
+        self.assertIn("schemas/official-aidlc-session.schema.json", manifest["files"])
+        self.assertIn("schemas/official-aidlc-transition-receipt.schema.json", manifest["files"])
+        self.assertIn("schemas/host-runtime-receipt.schema.json", manifest["files"])
+        self.assertIn("adapters/runtime-scenarios-v1.json", manifest["files"])
 
     def test_copilot_update_renders_start_prompt_for_project_and_pack(self):
         with tempfile.TemporaryDirectory() as tmp:

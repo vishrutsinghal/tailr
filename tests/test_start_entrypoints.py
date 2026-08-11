@@ -114,6 +114,20 @@ class StartEntrypointTests(unittest.TestCase):
                 self.assertIn("do not inspect", body.lower().replace("**", ""))
                 self.assertIn("AIDLC Requirements mode", body)
 
+    def test_activated_run_requires_the_saved_completion_handoff(self) -> None:
+        for relative_path in (
+            "AGENTS.md",
+            "adapters/copilot-instructions.md",
+            ".github/copilot-instructions.md",
+            ".github/prompts/tailtrail-start.prompt.md",
+            "skills/tailtrail-start/SKILL.md",
+        ):
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertIn("execution_handoff", body)
+                self.assertIn("closure.command", body)
+                self.assertIn("generic", body.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

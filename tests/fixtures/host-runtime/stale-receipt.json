@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-receipt",
+  "receipt_id": "fixture-stale",
+  "host": "claude",
+  "host_version": "fixture-v1",
+  "adapter_version": "v1",
+  "scenario_version": "v0",
+  "bundle_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "scenario_id": "ci-wait",
+  "run_id": "fixture-run",
+  "observed_transitions": [{"sequence": 1, "state": "ci-wait-observed"}],
+  "observations": ["awaiting-linked-ci", "no-positive-learning", "acceptance-not-inferred"],
+  "artifact_references": [".tailtrail/runs/fixture-run/manifest.json"],
+  "declared_outcome": "pass",
+  "failure_codes": [],
+  "integrity": {"algorithm": "sha256", "digest": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "boundary": "Sanitized deterministic stale-version fixture."
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/official-aidlc-transition-receipt.schema.json",
+  "title": "TailTrail Official AI-DLC Ordered Transition Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "receipt_id", "run_id", "official_session_id", "official_revision", "sequence", "action", "from_stage", "to_stage", "authority", "runtime_adapter_version", "approved_anchor_fingerprint", "reason_code", "requirement_uids", "evidence_references", "integrity", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "official-aidlc-transition-receipt"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "official_session_id": {"type": "string", "minLength": 1},
+    "official_revision": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "action": {"enum": ["advance", "resume", "redo", "jump", "recovery"]},
+    "from_stage": {"enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]},
+    "to_stage": {"enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]},
+    "authority": {"const": "official-ai-dlc-pack"},
+    "runtime_adapter_version": {"const": "v1"},
+    "approved_anchor_fingerprint": {"type": "string", "pattern": "^(sha256:)?[0-9a-f]{64}$"},
+    "reason_code": {"type": "string", "minLength": 1},
+    "requirement_uids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "evidence_references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "digest"],
+      "properties": {"algorithm": {"const": "sha256"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "boundary": {"type": "string"}
+  }
+}

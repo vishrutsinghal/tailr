@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/execution-receipt.schema.json",
+  "title": "TailTrail Execution Closure Input",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "changed_paths", "receipts"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-execution-closure-input"},
+    "run_id": {"type": "string", "minLength": 1},
+    "changed_paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "receipts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["requirement_uids", "tier", "command_label", "command", "outcome", "environment", "asserted_behavior"],
+        "properties": {
+          "requirement_uids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^req-[a-f0-9]{12}$"}},
+          "tier": {"enum": ["unit", "component", "integration", "contract", "e2e", "infrastructure", "release-smoke"]},
+          "command_label": {"type": "string", "minLength": 1},
+          "command": {"type": "string", "minLength": 1},
+          "outcome": {"enum": ["pass", "fail", "blocked", "timed-out", "unavailable"]},
+          "environment": {"type": "string", "minLength": 1},
+          "asserted_behavior": {"type": "string", "minLength": 1},
+          "artifact": {"type": "string"},
+          "evidence_label": {"enum": ["local-command", "ci-receipt", "host-telemetry"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "host_token_telemetry": {
+      "type": "object",
+      "properties": {
+        "artifact": {"type": "string"},
+        "task_id": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

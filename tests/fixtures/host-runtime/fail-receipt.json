@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-receipt",
+  "receipt_id": "fixture-fail",
+  "host": "copilot",
+  "host_version": "fixture-v1",
+  "adapter_version": "v1",
+  "scenario_version": "v1",
+  "bundle_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "scenario_id": "evidence-failure",
+  "run_id": "fixture-run",
+  "observed_transitions": [{"sequence": 1, "state": "evidence-gap-observed"}],
+  "observations": ["requirement-incomplete"],
+  "artifact_references": [".tailtrail/runs/fixture-run/manifest.json"],
+  "declared_outcome": "fail",
+  "failure_codes": ["correction-route-missing"],
+  "integrity": {"algorithm": "sha256", "digest": "0000000000000000000000000000000000000000000000000000000000000000"},
+  "boundary": "Sanitized deterministic failure fixture."
+}

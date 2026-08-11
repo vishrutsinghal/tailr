@@ -90,6 +90,28 @@ class CliDispatchTests(unittest.TestCase):
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if args and args[0] == "completion-report":', body)
         self.assertIn('return run_script("completion-report.py", args[1:])', body)
+        self.assertIn('if command == "completion-report":', body)
+        self.assertIn('return run_script("completion-report.py", args)', body)
+
+    def test_official_aidlc_status_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if action == "official":', body)
+        self.assertIn('return run_script("aidlc-official-detect.py", rest)', body)
+        self.assertIn('return run_script("aidlc-official-bridge.py", rest[1:])', body)
+        self.assertIn('return run_script("official-aidlc-state.py", rest[1:])', body)
+        self.assertIn('return run_script("official-aidlc-sanitize.py", rest[1:])', body)
+        self.assertIn('return run_script("official-aidlc-runtime.py", rest[1:])', body)
+
+    def test_host_runtime_conformance_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if action == "runtime":', body)
+        self.assertIn('return run_script("host-runtime-conformance.py", rest)', body)
+
+    def test_closure_commands_have_contract_and_recorder_dispatches(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if command == "closure":', body)
+        self.assertIn('"finalize": "closure-finalizer.py"', body)
+        self.assertIn('"correct": "closure-correction.py"', body)
 
     def test_first_run_has_a_public_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")

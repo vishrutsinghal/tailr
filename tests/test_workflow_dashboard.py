@@ -32,9 +32,11 @@ class WorkflowDashboardTests(unittest.TestCase):
             result = dashboard.dashboard(root, "run")
         self.assertEqual(result["active_requirement"]["requirement_uid"], uid)
         self.assertEqual(result["drift"]["status"], "unresolved")
+        self.assertTrue(result["canonical_state"]["valid"])
         harnesses = {item["name"]: item for item in result["harnesses"]}
         self.assertEqual(harnesses["Requirement Completion Harness"]["status"], "in-progress")
         self.assertEqual(harnesses["Maintainability Harness"]["status"], "not-selected")
         self.assertIn("## Harness usage", dashboard.markdown(result))
         self.assertIn("Workflow Dashboard", dashboard.markdown(result))
+        self.assertIn("Canonical state:", dashboard.markdown(result))
         self.assertIn("Harness usage", dashboard.html_page(result))

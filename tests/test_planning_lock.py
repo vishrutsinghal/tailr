@@ -61,10 +61,15 @@ class PlanningLockTests(unittest.TestCase):
             activated = lock.activate(root, "plan-3", True)
             artifact = root / activated["anchor"]["artifact"]
             approved = json.loads(artifact.read_text(encoding="utf-8"))
+            handoff_path = root / activated["execution_handoff_artifact"]
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
         self.assertEqual(activated["planning_lock"]["status"], "approved")
         self.assertEqual(activated["anchor"]["status"], "created")
         self.assertEqual(approved["requirements"][0]["statement"], "fix claim validation")
         self.assertEqual(approved["requirements"][0]["likely_paths"], ["src/claims.py"])
+        self.assertTrue(handoff["closure"]["required"])
+        self.assertEqual(handoff["closure"]["command"], "tailtrail completion-report --root . --run-id plan-3")
+        self.assertIn("generic changes-made", handoff["closure"]["response_rule"])
 
     def test_lean_activation_does_not_create_an_anchor(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -182,8 +187,51 @@ class PlanningLockTests(unittest.TestCase):
         self.assertEqual(handoff["state"], "execution-ready")
         self.assertTrue(handoff["planning_lock"]["writes_allowed"])
         self.assertIn("Requirement Completion Harness", lock.render_execution_handoff(handoff))
+        self.assertIn("## Mandatory closure", lock.render_execution_handoff(handoff))
+        self.assertIn("tailtrail completion-report --root . --run-id plan-aidlc-handoff", lock.render_execution_handoff(handoff))
         self.assertEqual(activity["aidlc_requirements_answered"], 1)
         self.assertEqual(activity["aidlc_requirements_approved"], 1)
+
+    def test_hands_free_plan_approval_accepts_saved_aidlc_recommendations_and_activates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "plan-hands-free"
+            goal = "hands-free: add order cancellation and refund end to end before shipment"
+            lock.create(root, goal, run_id)
+            lock.save_start_report(root, run_id, {
+                "goal": goal,
+                "guided_delivery": {"mode": "guided-delivery", "hands_free_program": True, "selected": [{"name": "Program Delivery Harness", "why": "end-to-end delivery"}]},
+                "navigator": {"likely_impacted_files": [{"path": "src/order_service/service.py"}]},
+            })
+            gathered = lock.request_aidlc_requirements(root, run_id)
+            activated = lock.activate(root, run_id, True)
+            handoff_path = root / activated["artifact"]
+            handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(gathered["questions"]), 12)
+        self.assertEqual(activated["state"], "execution-ready")
+        self.assertTrue(activated["planning_lock"]["writes_allowed"])
+        self.assertTrue(handoff["closure"]["required"])
+        self.assertEqual(handoff["closure"]["command"], "tailtrail completion-report --root . --run-id plan-hands-free")
+
+    def test_hands_free_activation_preserves_each_displayed_feature_requirement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "plan-granular-program"
+            goal = "hands-free: add cancellation, inventory release, refund, notification, audit, API tests, and rollout"
+            lock.create(root, goal, run_id)
+            lock.save_start_report(root, run_id, {
+                "goal": goal,
+                "guided_delivery": {"mode": "guided-delivery", "hands_free_program": {"feature_requirements": [
+                    {"display_id": "REQ-01", "statement": "Define cancellation eligibility."},
+                    {"display_id": "REQ-02", "statement": "Release inventory exactly once."},
+                    {"display_id": "REQ-03", "statement": "Issue one refund."},
+                ]}},
+                "navigator": {"likely_impacted_files": [{"path": "src/order_service/service.py"}]},
+            })
+            activated = lock.activate(root, run_id, True)
+            approved = json.loads((root / activated["anchor"]["artifact"]).read_text(encoding="utf-8"))
+        self.assertEqual([row["display_id"] for row in approved["requirements"]], ["REQ-01", "REQ-02", "REQ-03"])
+        self.assertEqual(approved["requirements"][1]["validation_contract"]["tiers"], ["integration"])
 
     def test_aidlc_cycle_batches_safe_lifecycle_transitions_without_duplicate_gathering(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

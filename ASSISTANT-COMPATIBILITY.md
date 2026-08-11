@@ -15,6 +15,35 @@ TailTrail is Codex-first. Other assistants are supported through portable instru
 
 ## Validated Adapter Contract
 
+## Versioned composed surfaces
+
+The Phase F compatibility matrix is
+[`adapters/host-compatibility-v1.json`](adapters/host-compatibility-v1.json).
+It generates composed instruction surfaces for Codex, GitHub Copilot, and
+Claude and fixes the precedence order: **host safety → user request → official
+AI-DLC stage rules → TailTrail assurance rules**. Run:
+
+```bash
+python3 scripts/tailtrail.py adapters conformance
+```
+
+This is local instruction conformance only. It does not claim that the hosts
+have identical tool access, context handling, or runtime behavior.
+
+Phase J adds a separate real-host evidence path:
+
+```bash
+python3 scripts/tailtrail.py adapters runtime prepare --root . --host codex
+python3 scripts/tailtrail.py adapters runtime record --root . --host codex --receipt path/to/receipt.json
+python3 scripts/tailtrail.py adapters runtime report --root .
+```
+
+The runtime report uses the same six scenarios but evaluates sanitized observed
+receipts against canonical TailTrail run state. Per host/version, all six
+current scenarios must pass before runtime status is `passed`. Missing evidence
+is `not-validated`; failed, stale, and incompatible evidence is never hidden by
+the instruction result.
+
 Every TailTrail assistant adapter must include the same minimum behavior:
 
 - Navigator-first workflow for non-trivial tasks.
@@ -55,5 +84,7 @@ Each prompt pack includes:
 
 ## Claim Boundary
 
-TailTrail can claim validated adapter coverage only for the instruction files and local checks in this repository. It should not claim identical behavior across assistants unless measured by assistant-specific evaluation runs.
-
+TailTrail can claim validated adapter coverage for instruction files and local
+checks in this repository. It can claim runtime conformance only for the exact
+host/version whose six current receipts were recorded and validated. It should
+never generalize that result to identical behavior across assistants.

@@ -16,6 +16,10 @@ If the local TailTrail MCP server is configured, call the single
 `tailtrail_start` tool with `approved: true` and the goal above.
 Otherwise run: `{{TAILTRAIL_START_COMMAND}}` and return its output.
 
+If the user includes `--verbose`, treat it as a TailTrail flag, not part of the
+goal: pass `verbose: true` to `tailtrail_start`, or append `--verbose` to the
+CLI command. The returned report must then include every verbose heading.
+
 **The complete and only normal assistant response must be the exact Start Report
 stdout (starting `# TailTrail Start Plan` and including its returned run ID). Copy the
 complete Start Report verbatim outside any collapsible terminal/tool-result panel.
@@ -61,6 +65,19 @@ implementation under the same activated run only.
 
 On Windows native shells, use `--answers-base64 <base64-utf8-json>` in place of
 `--answers` so native argument quoting cannot corrupt the JSON.
+
+After the user has approved this run and implementation has completed, run
+`tailtrail completion-report --root . --run-id <active-run-id>` after the selected
+review and validation steps. Return its complete stdout rather than a generic
+implementation summary. It reports requirement delivery and TailTrail controls
+separately; actual model tokens remain unavailable unless linked host/provider
+telemetry identifies this exact run ID.
+
+When plan approval returns an `execution_handoff`, retain its run ID and obey
+`closure.command`. Before any final response after a source edit, execute that
+command through the same resolved TailTrail CLI used for Start and return its
+stdout verbatim. A `Changes made`, `Validation`, or next-step narrative is never
+a substitute for the Completion Report.
 
 Until the Start plan or revised AIDLC boundary is explicitly approved, do not
 edit source, run project commands, scanners, tests, Terraform, or Git mutations.

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/official-aidlc-run-state.schema.json",
+  "title": "TailTrail Canonical Official AI-DLC Run State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "run_id", "status", "valid", "owners", "requirements", "official_identity", "official_runtime", "delivery", "artifacts", "issues", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-official-aidlc-run-state"},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["valid", "incomplete", "conflict"]},
+    "valid": {"type": "boolean"},
+    "owners": {"type": "object"},
+    "requirements": {"type": "array"},
+    "official_identity": {"type": ["object", "null"]},
+    "official_runtime": {"type": "object"},
+    "delivery": {"type": "object"},
+    "artifacts": {"type": "array"},
+    "issues": {"type": "array"},
+    "boundary": {"type": "string"}
+  }
+}

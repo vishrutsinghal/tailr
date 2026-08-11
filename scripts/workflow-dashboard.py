@@ -20,7 +20,15 @@ def ledger() -> Any:
     return module
 
 
+def canonical_state_module() -> Any:
+    spec = importlib.util.spec_from_file_location("workflow_dashboard_official_state", ROOT / "scripts" / "official-aidlc-state.py")
+    module = importlib.util.module_from_spec(spec); assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 L = ledger()
+STATE = canonical_state_module()
 
 
 def read(path: Path) -> dict[str, Any]: return json.loads(path.read_text(encoding="utf-8"))
@@ -30,6 +38,7 @@ def latest(folder: Path, pattern: str) -> dict[str, Any] | None:
 
 def dashboard(root: Path, run_id: str) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
+    canonical_state = STATE.project(root, run_id)
     anchor_path = directory / "anchors" / "approved-v1.json"
     if not anchor_path.is_file(): raise ValueError("an approved anchor is required for the workflow dashboard")
     anchor = read(anchor_path); checkpoint = latest(directory / "checkpoints", "checkpoint-*.json")
@@ -39,6 +48,7 @@ def dashboard(root: Path, run_id: str) -> dict[str, Any]:
     architecture = latest(directory / "architecture", "assessment-*.json")
     behaviour = latest(directory / "behavior", "assessment-*.json")
     maintainability = latest(directory / "maintainability", "assessment-*.json")
+    official_design = latest(directory / "aidlc-official" / "checkpoints", "design-plan-*.json")
     failure_records = [read(path) for path in sorted((directory / "execution-failures").glob("failure-*.json"))]
     open_failures = [item for item in failure_records if item.get("status") != "resolved"]
     actual = {item.get("requirement_uid"): item for item in (checkpoint or {}).get("requirements", [])}
@@ -65,18 +75,20 @@ def dashboard(root: Path, run_id: str) -> dict[str, Any]:
         harness("Maintainability Harness", maintainability, basis="recorded refactor/maintainability assessment"),
         harness("Evidence-Aware Testing", gate, required=True, basis="completion gate and validation receipts"),
     ]
-    return {"schema_version": "1", "type": "tailtrail-workflow-dashboard", "run_id": run_id, "goal": anchor.get("goal", ""), "requirements": rows, "harnesses": harnesses, "active_requirement": active, "checkpoint": (checkpoint or {}).get("checkpoint"), "completion_review": "pass" if (review or {}).get("complete") else ("fail" if review else "unavailable"), "evidence_gate": "pass" if (gate or {}).get("complete") else ("fail" if gate else "unavailable"), "drift": {"unresolved": unresolved, "status": "unresolved" if unresolved else ("none-unresolved" if checkpoint else "unavailable")}, "execution_failures": {"status": "none-recorded" if not failure_records else ("unresolved" if open_failures else "resolved"), "open": [{"failure_id": item.get("failure_id"), "requirement_uid": (item.get("requirement") or {}).get("requirement_uid"), "route": (item.get("correction_route") or {}).get("action")} for item in open_failures]}, "recovery": "available" if recovery else "not-configured", "completion": (completion or {}).get("overall_status", "not-generated"), "boundary": "Read-only summary of saved local run artifacts. It does not run checks, edit source, apply recovery, or create a completion claim."}
+    return {"schema_version": "1", "type": "tailtrail-workflow-dashboard", "run_id": run_id, "goal": anchor.get("goal", ""), "requirements": rows, "harnesses": harnesses, "official_perspectives": (official_design or {}).get("perspectives", []), "canonical_state": {"status": canonical_state["status"], "valid": canonical_state["valid"], "issues": canonical_state["issues"]}, "active_requirement": active, "checkpoint": (checkpoint or {}).get("checkpoint"), "completion_review": "pass" if (review or {}).get("complete") else ("fail" if review else "unavailable"), "evidence_gate": "pass" if (gate or {}).get("complete") else ("fail" if gate else "unavailable"), "drift": {"unresolved": unresolved, "status": "unresolved" if unresolved else ("none-unresolved" if checkpoint else "unavailable")}, "execution_failures": {"status": "none-recorded" if not failure_records else ("unresolved" if open_failures else "resolved"), "open": [{"failure_id": item.get("failure_id"), "requirement_uid": (item.get("requirement") or {}).get("requirement_uid"), "route": (item.get("correction_route") or {}).get("action")} for item in open_failures]}, "recovery": "available" if recovery else "not-configured", "completion": (completion or {}).get("overall_status", "not-generated"), "boundary": "Read-only summary of saved local run artifacts. It does not run checks, edit source, apply recovery, or create a completion claim."}
 
 
 def markdown(payload: dict[str, Any]) -> str:
     active = payload["active_requirement"]
-    lines = ["# TailTrail Workflow Dashboard", "", f"Run: `{payload['run_id']}`", f"Goal: {payload['goal'] or 'not recorded'}", "", f"Active requirement: **{active['display_id']} — {active['statement']}**" if active else "Active requirement: **none; all checkpoint requirements validated**", f"Checkpoint: **{payload['checkpoint'] or 'none'}**", f"Completion review: **{payload['completion_review']}**", f"Evidence gate: **{payload['evidence_gate']}**", f"Drift: **{payload['drift']['status']}**", f"Recovery: **{payload['recovery']}**", f"Completion report: **{payload['completion']}**", "", "| Requirement | State | Evidence |", "| --- | --- | ---: |", *[f"| {row['display_id']} — {row['statement']} | {row['state']} | {row['evidence_count']} |" for row in payload["requirements"]]]
+    lines = ["# TailTrail Workflow Dashboard", "", f"Run: `{payload['run_id']}`", f"Goal: {payload['goal'] or 'not recorded'}", "", f"Active requirement: **{active['display_id']} — {active['statement']}**" if active else "Active requirement: **none; all checkpoint requirements validated**", f"Canonical state: **{payload['canonical_state']['status']}**", f"Checkpoint: **{payload['checkpoint'] or 'none'}**", f"Completion review: **{payload['completion_review']}**", f"Evidence gate: **{payload['evidence_gate']}**", f"Drift: **{payload['drift']['status']}**", f"Recovery: **{payload['recovery']}**", f"Completion report: **{payload['completion']}**", "", "| Requirement | State | Evidence |", "| --- | --- | ---: |", *[f"| {row['display_id']} — {row['statement']} | {row['state']} | {row['evidence_count']} |" for row in payload["requirements"]]]
     harness_index = lines.index("| Requirement | State | Evidence |")
     lines[harness_index:harness_index] = [
         "## Harness usage", "", "| Harness | Used | Status | Selection / evidence basis |",
         "| --- | --- | --- | --- |",
         *[f"| {item['name']} | {'yes' if item['used'] else 'no'} | {item['status']} | {item['basis']} |" for item in payload["harnesses"]], "",
     ]
+    if payload["official_perspectives"]:
+        lines[harness_index:harness_index] = ["## Official AI-DLC perspectives", "", "| Perspective | Status | Reason |", "| --- | --- | --- |", *[f"| {item['perspective']} | {item['status']} | {item['reason']} |" for item in payload["official_perspectives"]], ""]
     return "\n".join(lines) + "\n"
 
 
@@ -90,6 +102,7 @@ def _legacy_html_page(payload: dict[str, Any]) -> str:
 def html_page(payload: dict[str, Any]) -> str:
     cards = [
         ("Active requirement", f"{payload['active_requirement']['display_id']} â€” {payload['active_requirement']['statement']}" if payload["active_requirement"] else "All checkpoint requirements validated"),
+        ("Canonical state", payload["canonical_state"]["status"]),
         ("Checkpoint", str(payload["checkpoint"] or "none")),
         ("Completion review", payload["completion_review"]),
         ("Evidence gate", payload["evidence_gate"]),

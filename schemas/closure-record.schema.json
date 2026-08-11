@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/closure-record.schema.json",
+  "title": "TailTrail Closure Record",
+  "type": "object",
+  "required": ["schema_version", "type", "record_id", "run_id", "changed_paths", "receipt_artifacts", "checkpoint", "completion_review", "completion_gate", "next_action", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-closure-record"},
+    "record_id": {"type": "string", "pattern": "^closure-[a-f0-9]{16}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "validated_input": {"type": "string"},
+    "changed_paths": {"type": "array", "items": {"type": "string"}},
+    "receipt_artifacts": {"type": "array", "items": {"type": "string"}},
+    "checkpoint": {"type": "string"},
+    "completion_review": {"type": "object"},
+    "completion_gate": {"type": "object"},
+    "selected_harnesses": {"type": "array", "items": {"type": "string"}},
+    "next_action": {"type": "string"},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

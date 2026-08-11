@@ -47,7 +47,7 @@ def gather(goal: str, requirements: list[dict[str, Any]], feedback: list[dict[st
     functional = [row for row in requirements if row.get("kind") != "preserve"]
     constraints = [row for row in requirements if row.get("kind") == "preserve"]
     statements = " ".join(str(row.get("statement", "")) for row in requirements).lower()
-    questions = _questions_for(statements, feedback)
+    questions = _questions_for(f"{goal.lower()} {statements}", feedback)
     return {
         "stage": "AIDLC Requirements",
         "stage_evidence": evidence,
@@ -72,6 +72,12 @@ def _question(identifier: str, question: str, options: list[str], recommended: s
 
 
 def _questions_for(statements: str, feedback: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if any(marker in statements for marker in ("hands-free", "hands free", "end-to-end", "end to end")):
+        questions = _full_delivery_questions(statements)
+        comments = "; ".join(dict.fromkeys(str(row.get("comment", "")).strip() for row in feedback if str(row.get("comment", "")).strip()))
+        if comments:
+            questions.append(_question("Q13", f"How should prior plan feedback change the delivery boundary: {comments}", ["Revise only disputed requirements and dependent proof", "Expand the programme boundary and rerun affected slices"], "Revise only disputed requirements and dependent proof", "Preserve validated work and change only the requirements or slices that the feedback materially affects."))
+        return questions
     if "zero quantit" in statements:
         questions = [
             _question(
@@ -106,6 +112,24 @@ def _questions_for(statements: str, feedback: list[dict[str, Any]]) -> list[dict
     if comments:
         questions.append(_question("Q4", f"How should this prior review concern change the requirement boundary: {comments}", ["Clarify the affected requirement", "Expand the requirement boundary and proof plan"], "Clarify first", "Preserve the smallest coherent scope unless the feedback demonstrates a missing dependency or contract."))
     return questions
+
+
+def _full_delivery_questions(statements: str) -> list[dict[str, Any]]:
+    """Return the full AIDLC decision set for explicit hands-free delivery."""
+    return [
+        _question("Q1", "What exact business condition permits the requested action?", ["Only the explicitly named precondition", "Named precondition plus documented equivalent states"], "Only the explicitly named precondition", "For cancellation, this keeps the rule at ‘before shipment’ and prevents a refund or stock release after fulfilment has begun."),
+        _question("Q2", "Which existing states and behaviors must be preserved?", ["All behavior outside the approved action boundary", "Only the current happy path"], "All behavior outside the approved action boundary", "Preservation is the baseline for requirement-completion and drift checks."),
+        _question("Q3", "How should state transition and side effects be coordinated?", ["One idempotent orchestration boundary", "Independent best-effort calls"], "One idempotent orchestration boundary", "Cancellation, stock release, refund, notification, and audit must share one recoverable outcome boundary; otherwise a retry can refund twice or notify a customer about an incomplete cancellation."),
+        _question("Q4", "What retry/idempotency contract is required?", ["A stable request/action key prevents duplicate effects", "Best-effort duplicate detection only"], "A stable request/action key prevents duplicate effects", "Money, stock, notifications, and audit events require deterministic duplicate protection."),
+        _question("Q5", "What happens when a downstream dependency fails after part of the action succeeds?", ["Record pending/reconciliation state with bounded retry", "Immediately roll back every completed side effect"], "Record pending/reconciliation state with bounded retry", "A payment or notification provider can fail after inventory changes; a durable pending state makes that mismatch visible and recoverable instead of hiding it behind a failed request."),
+        _question("Q6", "What API/contract behavior is required?", ["Preserve existing contract style and add explicit success, validation, conflict, not-found, and transient-failure responses", "Add only a success response"], "Preserve existing contract style and add explicit success, validation, conflict, not-found, and transient-failure responses", "Clients need a stable, testable contract for expected and recoverable outcomes."),
+        _question("Q7", "What authorization, ownership, and audit requirements apply?", ["Enforce existing ownership/authorization and emit an immutable audit record", "Rely on caller trust"], "Enforce existing ownership/authorization and emit an immutable audit record", "A user-facing state change must preserve trust, tenancy, and auditability."),
+        _question("Q8", "When should notifications be sent?", ["After required business effects succeed or a pending state is explicitly recorded", "Before downstream effects complete"], "After required business effects succeed or a pending state is explicitly recorded", "Customers should not receive a success notification for an incomplete operation."),
+        _question("Q9", "Which concurrency race must be resolved?", ["The action must serialize or conflict safely with competing lifecycle changes", "No explicit concurrency rule"], "The action must serialize or conflict safely with competing lifecycle changes", "Lifecycle races are a common source of double effects and invalid states."),
+        _question("Q10", "What observability and reconciliation evidence is required?", ["Structured outcome, failure, retry, and reconciliation signals", "Only application logs"], "Structured outcome, failure, retry, and reconciliation signals", "Release confidence requires evidence beyond an individual request log."),
+        _question("Q11", "What rollout and rollback boundary is required?", ["Feature-flagged or staged rollout with explicit monitoring and safe rollback criteria", "Immediate unrestricted rollout"], "Feature-flagged or staged rollout with explicit monitoring and safe rollback criteria", "Refund and inventory errors have financial and operational impact; staged release lets the team stop new cancellations while preserving evidence for already-started operations."),
+        _question("Q12", "What minimum proof closes the programme?", ["Focused unit plus integration, contract, behaviour, and rollout/recovery evidence where applicable", "Focused unit tests only"], "Focused unit plus integration, contract, behaviour, and rollout/recovery evidence where applicable", "Multi-file user-facing work is not complete when only an isolated function passes."),
+    ]
 
 
 def validate_answers(stage: dict[str, Any], answers: list[dict[str, Any]]) -> dict[str, dict[str, str]]:

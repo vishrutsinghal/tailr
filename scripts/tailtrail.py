@@ -57,6 +57,8 @@ COMMANDS = {
     "quality-loop": "Capture and review TailTrail workflow quality signals.",
     "outcome": "Capture and summarize local TailTrail adoption outcomes.",
     "harness": "Review local TailTrail workflow fit and metric confidence.",
+    "completion-report": "Create the required end-of-task TailTrail Completion Report for one approved run.",
+    "closure": "Validate, record, finalize, or route bounded correction for closure evidence.",
     "bootstrap": "Create or inspect a safe pre-task repo/runtime snapshot.",
     "mcp": "Run the opt-in read-only TailTrail MCP server tools.",
     "vulnerability": "Summarize, plan, or run approved vulnerability scans.",
@@ -580,14 +582,26 @@ def doctor() -> int:
 
 def aidlc(args: list[str]) -> int:
     if not args:
-        print("Usage: tailtrail aidlc init|check [args]")
+        print("Usage: tailtrail aidlc init|check|official [args]")
         return 2
     action, rest = args[0], args[1:]
     if action == "init":
         return run_script("aidlc-init.py", rest)
     if action == "check":
         return run_script("aidlc-check.py", rest)
-    print("Unknown aidlc action. Use: init or check")
+    if action == "official":
+        if rest[:1] == ["sanitize"]:
+            return run_script("official-aidlc-sanitize.py", rest[1:])
+        if rest[:1] == ["state"]:
+            return run_script("official-aidlc-state.py", rest[1:])
+        if rest[:1] == ["runtime"]:
+            return run_script("official-aidlc-runtime.py", rest[1:])
+        if rest[:1] == ["bridge"]:
+            return run_script("aidlc-official-bridge.py", rest[1:])
+        if rest[:1] == ["checkpoint"]:
+            return run_script("official-aidlc-checkpoint.py", rest[1:])
+        return run_script("aidlc-official-detect.py", rest)
+    print("Unknown aidlc action. Use: init, check, or official")
     return 2
 
 
@@ -842,6 +856,14 @@ def harness(args: list[str]) -> int:
     return run_script("harness-review.py", args)
 
 
+def closure(args: list[str]) -> int:
+    if not args or args[0] not in {"validate", "record", "finalize", "correct", "learn", "evaluate", "close"}:
+        print("Usage: tailtrail closure validate|record|finalize|correct|learn|evaluate|close --root . [--run-id <run-id>] [--input closure-input.json]")
+        return 2
+    scripts = {"validate": "closure-contract.py", "record": "closure-recorder.py", "finalize": "closure-finalizer.py", "correct": "closure-correction.py", "learn": "closure-learning.py", "evaluate": "closure-evaluation.py", "close": "closure-close.py"}
+    return run_script(scripts[args[0]], args[1:])
+
+
 def bootstrap(args: list[str]) -> int:
     if not args:
         print("Usage: tailtrail bootstrap snapshot|status|refresh [args]")
@@ -884,7 +906,11 @@ def adapters(args: list[str]) -> int:
         return run_script("sync-adapters.py", ["--check", *rest])
     if action == "sync":
         return run_script("sync-adapters.py", ["--write", *rest])
-    print("Usage: tailtrail adapters check|sync")
+    if action == "conformance":
+        return run_script("host-adapter-conformance.py", rest)
+    if action == "runtime":
+        return run_script("host-runtime-conformance.py", rest)
+    print("Usage: tailtrail adapters check|sync|conformance|runtime")
     return 2
 
 
@@ -970,6 +996,10 @@ def main() -> int:
         return run_script("outcome-telemetry.py", args)
     if command == "harness":
         return harness(args)
+    if command == "completion-report":
+        return run_script("completion-report.py", args)
+    if command == "closure":
+        return closure(args)
     if command == "bootstrap":
         return bootstrap(args)
     if command == "mcp":

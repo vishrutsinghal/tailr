@@ -1564,7 +1564,7 @@ def decide(
     )
     if needs_aidlc:
         selected.append(FeatureDecision("AIDLC", "capture lifecycle state for broad, risky, regulated, or multi-step work"))
-        workflow.append("aidlc")
+        workflow.insert(0, "aidlc_requirements")
         commands.append(f"{command_prefix} aidlc init {root_arg(root)} --depth standard")
         load.extend(["AIDLC.md", "active AIDLC stage playbook", "aidlc-docs/aidlc-state.md when present"])
     else:

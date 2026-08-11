@@ -29,6 +29,10 @@ into separate lock and report calls. Otherwise, run:
 python3 scripts/tailtrail.py start "<user goal>"
 ```
 
+When the user includes `--verbose`, pass `verbose: true` to the MCP tool (or
+append `--verbose` to the CLI invocation); do not leave the flag inside the
+goal text.
+
 **The complete and only normal assistant response must be the exact Start Report
 stdout (starting `# TailTrail Start Plan` and including its returned run ID). Copy the
 complete Start Report verbatim outside any collapsible terminal/tool-result panel.
@@ -79,3 +83,23 @@ under that same activated run and approved AIDLC anchor.
 
 On Windows native shells, use `--answers-base64 <base64-utf8-json>` in place of
 `--answers` so native argument quoting cannot corrupt the JSON.
+
+## Approved-run closure
+
+After implementation of an approved run and its selected review and validation
+steps, run:
+
+```text
+tailtrail completion-report --root . --run-id <active-run-id>
+```
+
+Return its full stdout instead of a generic implementation summary. The report
+shows requirement delivery and TailTrail controls separately. Never invent
+actual token use: it is measured only when host/provider telemetry is linked to
+the exact run ID.
+
+When approval returns an `execution_handoff`, persist its exact run ID and obey
+its `closure.command`. Before any final response after a source edit, execute
+that command through the same resolved TailTrail CLI used for Start and return
+its stdout verbatim. `Changes made`, `Validation`, and next-step narratives are
+not valid replacements for the closure response.

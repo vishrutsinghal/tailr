@@ -583,6 +583,8 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("| Feature | When | Used for this task |", rendered)
         self.assertIn("| Navigator | Planning now |", rendered)
         self.assertIn("Requirement Completion Harness", rendered)
+        self.assertIn("## Token posture", rendered)
+        self.assertIn("Estimated focused context:", rendered)
 
     def test_start_focused_validation_uses_only_the_interpreter_when_pack_path_contains_tailtrail(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
