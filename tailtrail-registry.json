@@ -22,6 +22,26 @@
       "deprecated_in_version": null
     },
     {
+      "id": "target-workspace-resolver",
+      "title": "Enterprise Target Workspace Resolver, Lock Identity, Input Roles, Host Adapters, and Policy V1-V5",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Enterprise target workspace resolution",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": ["tailtrail target resolve", "tailtrail target roles", "tailtrail target host-workspace", "tailtrail target policy"],
+      "docs": ["tailtrail-enterprise-target-workspace.md", "ROADMAP.md", "TAILTRAIL-COMMANDS.md", "schemas/input-role-registry.schema.json", "schemas/host-workspace-resolution.schema.json", "schemas/enterprise-target-policy.schema.json", "schemas/target-resolution-receipt.schema.json"],
+      "scripts": ["scripts/target_workspace.py", "scripts/host-workspace-adapter.py", "scripts/enterprise-target-policy.py"],
+      "tests": ["tests/test_target_workspace.py", "tests/test_host_workspace_adapter.py", "tests/test_enterprise_target_policy.py", "tests/test_navigator_core.py", "tests/test_planning_lock.py"],
+      "mcp_tools": ["enterprise_target_policy_inspect"],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": ["navigator", "planning-lock"],
+      "since_version": "tw-5",
+      "deprecated_in_version": null
+    },
+    {
       "id": "context-continuity-harness",
       "title": "Context Continuity Harness V1-V3",
       "status": "implemented",

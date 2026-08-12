@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/host-workspace-resolution.schema.json",
+  "title": "TailTrail Host Workspace Resolution",
+  "type": "object",
+  "required": ["schema_version", "type", "host", "status", "source", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-host-workspace-resolution"},
+    "host": {"enum": ["codex", "copilot", "claude"]},
+    "status": {"enum": ["verified", "not-provided", "inaccessible", "unmapped"]},
+    "source": {"const": "host-adapter"},
+    "root": {"type": "string"},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": true
+}

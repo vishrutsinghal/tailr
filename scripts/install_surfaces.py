@@ -44,8 +44,8 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/bootstrap-snapshot.py",
     "scripts/change-intent-anchor.py",
     "scripts/check-tailtrail.py",
-    "scripts/closure-contract.py",
     "scripts/closure-close.py",
+    "scripts/closure-contract.py",
     "scripts/closure-correction.py",
     "scripts/closure-evaluation.py",
     "scripts/closure-finalizer.py",
@@ -54,6 +54,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/completion-report.py",
     "scripts/completion-review.py",
     "scripts/delivery-orchestrator.py",
+    "scripts/enterprise-target-policy.py",
     "scripts/execution-failure.py",
     "scripts/expand-intent.py",
     "scripts/git-readiness.py",
@@ -62,6 +63,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/harness-controls.py",
     "scripts/harness-feedback.py",
     "scripts/higher-tier-testing.py",
+    "scripts/host-workspace-adapter.py",
     "scripts/install-copilot.py",
     "scripts/install-launcher.py",
     "scripts/install-local.py",
@@ -86,6 +88,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/sync-governance.py",
     "scripts/tailtrail-registry.py",
     "scripts/tailtrail.py",
+    "scripts/target_workspace.py",
     "scripts/task-recovery-boundary.py",
     "scripts/task-recovery.py",
     "scripts/task-start.py",
@@ -104,6 +107,7 @@ CORE_CONTEXT: tuple[str, ...] = (
 )
 
 CORE_TEMPLATES: tuple[str, ...] = (
+    "templates/enterprise-target-policy.example.json",
     "templates/intent-overrides.json",
 )
 

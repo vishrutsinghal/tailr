@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-enterprise-target-policy",
+  "allowed_target_roots": ["D:/work"],
+  "restricted_target_roots": [],
+  "require_identity_verification": true,
+  "require_declared_owner": false,
+  "aliases": {
+    "frontend": {
+      "root": "D:/work/frontend-service",
+      "access": "read-write",
+      "owners": ["frontend-team"]
+    },
+    "design-system": {
+      "root": "D:/work/design-system",
+      "access": "read-only",
+      "owners": ["design-system-team"]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/target-resolution-receipt.schema.json",
+  "title": "TailTrail Target Resolution Receipt",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "target", "policy", "input_role_counts", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-target-resolution-receipt"},
+    "run_id": {"type": "string"},
+    "target": {"type": "object"},
+    "policy": {"type": "object"},
+    "input_role_counts": {"type": "object"},
+    "host": {"type": ["object", "null"]},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

@@ -26,6 +26,22 @@ def ledger() -> Any:
 L = ledger()
 
 
+def target_workspace() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_target_workspace", ROOT / "scripts" / "target_workspace.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def enterprise_target_policy() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_enterprise_target_policy", ROOT / "scripts" / "enterprise-target-policy.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def lock_path(root: Path, run_id: str) -> Path:
     return L.state_dir(root, run_id) / "planning" / "lock-v1.json"
 
@@ -51,26 +67,31 @@ def suggested_run_id(root: Path, goal: str) -> str:
     return candidate
 
 
-def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None) -> dict[str, Any]:
+def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None, target_identity: dict[str, Any] | None = None, input_roles: dict[str, Any] | None = None, host_workspace: dict[str, Any] | None = None, enterprise_policy: dict[str, Any] | None = None) -> dict[str, Any]:
     root = root.resolve()
     selected_run_id = run_id or suggested_run_id(root, goal)
     if Path(selected_run_id).name != selected_run_id:
         raise ValueError("run_id must be a single local run identifier")
     L.init_run(root, selected_run_id, goal)
     payload = {
-        "schema_version": "1",
+        "schema_version": "2",
         "type": "tailtrail-planning-lock",
         "run_id": selected_run_id,
         "goal": goal,
         "status": "awaiting-approval",
         "writes_allowed": False,
         "reference_roots": [{"path": value, "access": "read-only"} for value in (reference_roots or [])],
+        "target_identity": target_identity or target_workspace().identity(root),
+        "input_roles": input_roles or target_workspace().input_roles(root, reference_roots=reference_roots),
+        "host_workspace": host_workspace,
+        "enterprise_policy": enterprise_policy or {"status": "not-configured", "blocking": False},
         "approval": None,
         "boundary": "Planning Lock permits read-only planning artifacts only. Source edits, Git mutations, project commands, scanners, and managed patch application require a separate approval for this run.",
     }
     path = lock_path(root, selected_run_id)
     L.atomic_json(path, payload)
-    L.append_event(root, selected_run_id, "planning_lock_created", {"artifact": path.relative_to(L.state_dir(root, selected_run_id)).as_posix(), "writes_allowed": False, "reference_roots": payload["reference_roots"]})
+    role_check = target_workspace().validate_input_roles(payload["input_roles"], root)
+    L.append_event(root, selected_run_id, "planning_lock_created", {"artifact": path.relative_to(L.state_dir(root, selected_run_id)).as_posix(), "writes_allowed": False, "reference_roots": payload["reference_roots"], "target_fingerprint": payload["target_identity"]["fingerprint"], "input_roles": {"read_only_inputs": role_check["read_only_inputs"]}})
     return {**payload, "artifact": path.relative_to(root).as_posix()}
 
 
@@ -749,6 +770,13 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         raise ValueError("planning activation requires --approved")
     root = root.resolve()
     current = show(root, run_id)
+    identity_check = target_workspace().verify_identity(current.get("target_identity", {}), root)
+    if identity_check["blocking"]:
+        raise ValueError(f"Target identity mismatch for run `{run_id}`: {identity_check['reason']}. Refresh or recreate the Planning Lock before implementation.")
+    role_check = target_workspace().validate_input_roles(current.get("input_roles", {}), root)
+    policy_check = enterprise_target_policy().verify_bound(current.get("enterprise_policy"), root)
+    if policy_check.get("blocking"):
+        raise ValueError(f"Enterprise target policy blocks activation for run `{run_id}`: {policy_check.get('reason', '; '.join(policy_check.get('issues', [])))}")
     saved_report = read(start_report_path(root, run_id)).get("report", {})
     if _is_full_official_run(root, run_id):
         revision = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
@@ -804,6 +832,9 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         "anchor": anchor_state,
         "handoff": "planning/execution-handoff-v1.json" if handoff else None,
         "official_aidlc_bridge_activation": bridge_activation.get("artifact") if bridge_activation else None,
+        "target_identity_status": identity_check["status"],
+        "input_role_status": role_check["status"],
+        "enterprise_policy_status": policy_check["status"],
     })
     return {
         "planning_lock": lock,
@@ -811,6 +842,9 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         "execution_handoff": handoff,
         "execution_handoff_artifact": handoff_artifact,
         "official_aidlc_bridge_activation": bridge_activation,
+        "target_identity": identity_check,
+        "input_roles": role_check,
+        "enterprise_policy": policy_check,
     }
 
 
@@ -818,6 +852,14 @@ def assert_write_allowed(root: Path, run_id: str) -> dict[str, Any]:
     payload = show(root, run_id)
     if payload.get("status") != "approved" or payload.get("writes_allowed") is not True:
         raise ValueError(f"Planning Lock for run `{run_id}` is `{payload.get('status')}`; explicit approval is required before managed source changes")
+    identity_check = target_workspace().verify_identity(payload.get("target_identity", {}), root.resolve())
+    if identity_check["blocking"]:
+        raise ValueError(f"Target identity mismatch for run `{run_id}`: {identity_check['reason']}. Managed source changes are blocked.")
+    payload["target_identity_check"] = identity_check
+    payload["input_roles_check"] = target_workspace().validate_input_roles(payload.get("input_roles", {}), root.resolve())
+    payload["enterprise_policy_check"] = enterprise_target_policy().verify_bound(payload.get("enterprise_policy"), root.resolve())
+    if payload["enterprise_policy_check"].get("blocking"):
+        raise ValueError(f"Enterprise target policy blocks managed source changes for run `{run_id}`: {payload['enterprise_policy_check'].get('reason', '; '.join(payload['enterprise_policy_check'].get('issues', [])))}")
     return payload
 
 
@@ -829,6 +871,10 @@ def main() -> int:
     start.add_argument("--goal", required=True)
     start.add_argument("--run-id")
     start.add_argument("--reference-root", action="append", default=[])
+    start.add_argument("--related-repo", action="append", default=[])
+    start.add_argument("--design-reference", action="append", default=[])
+    start.add_argument("--requirement-artifact", action="append", default=[])
+    start.add_argument("--evidence-artifact", action="append", default=[])
     approve_parser = sub.add_parser("approve", help="Explicitly allow managed writes for one planning run.")
     approve_parser.add_argument("--root", type=Path, default=Path.cwd())
     approve_parser.add_argument("--run-id", required=True)
@@ -875,7 +921,8 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "start":
-            payload = create(args.root, args.goal, args.run_id, args.reference_root)
+            roles = target_workspace().input_roles(args.root, reference_roots=args.reference_root, related_repos=args.related_repo, design_references=args.design_reference, requirement_artifacts=args.requirement_artifact, evidence_artifacts=args.evidence_artifact)
+            payload = create(args.root, args.goal, args.run_id, args.reference_root, input_roles=roles)
         elif args.command == "approve":
             payload = approve(args.root, args.run_id, args.approved)
         elif args.command == "activate":

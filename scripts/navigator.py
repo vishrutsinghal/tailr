@@ -26,8 +26,8 @@ PYTHON = sys.executable
 MAX_REVIEW_GRAPH_ARGUMENT_CHARS = 8_000
 MAX_REVIEW_GRAPH_CHANGED_PATHS = 50
 GOAL_DISCOVERY_SUFFIXES = {
-    ".cs", ".go", ".java", ".js", ".jsx", ".kt", ".py", ".rb",
-    ".rs", ".ts", ".tsx",
+    ".cs", ".css", ".go", ".html", ".java", ".js", ".jsx", ".kt",
+    ".py", ".rb", ".rs", ".scss", ".svelte", ".ts", ".tsx", ".vue",
 }
 GOAL_DISCOVERY_STOP_WORDS = {
     "add", "and", "bug", "code", "defect", "fix", "focused", "for",
@@ -36,6 +36,13 @@ GOAL_DISCOVERY_STOP_WORDS = {
 GOAL_DISCOVERY_EXCLUDED_PARTS = {
     ".git", ".tailtrail", ".venv", "__pycache__", "build", "dist",
     "node_modules", "tailtrail", "venv",
+}
+REPOSITORY_DISCOVERY_MANIFESTS = {
+    "package.json", "pyproject.toml", "pom.xml", "build.gradle", "build.gradle.kts",
+    "go.mod", "cargo.toml", "composer.json", "gemfile",
+}
+REPOSITORY_DISCOVERY_EXCLUDED_NAMES = {
+    "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "poetry.lock",
 }
 
 
@@ -201,6 +208,63 @@ def goal_discovered_paths(root: Path, goal: str, limit: int = 2) -> list[str]:
         if "validation" in goal.lower() and any(part in {"test", "tests"} for part in parts):
             score += 5
         if score >= 14:
+            ranked.append((score, relative.as_posix()))
+    return [path for _, path in sorted(ranked, key=lambda item: (-item[0], item[1]))[:limit]]
+
+
+def repository_discovered_paths(root: Path, goal: str, limit: int = 5) -> list[str]:
+    """Return actual, structure-based candidates when lexical discovery fails.
+
+    This is a path/manifest inventory only.  It deliberately does not use Git
+    changes, fabricate common filenames, or claim callers.  It gives broad UI
+    and feature requests a credible first read order while retaining an
+    explicit confirmation boundary before implementation.
+    """
+    try:
+        tracked = subprocess.run(["git", "ls-files"], cwd=root, text=True, capture_output=True, check=False)
+        candidates = [root / line.strip() for line in tracked.stdout.splitlines() if line.strip()] if tracked.returncode == 0 else []
+    except OSError:
+        candidates = []
+    if not candidates:
+        candidates = list(root.rglob("*"))[:10_000]
+
+    ui_requested = core.ui_change_requested(goal, [])
+    terms = goal_discovery_terms(goal)
+    ranked: list[tuple[int, str]] = []
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            continue
+        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
+            continue
+        name = relative.name.lower()
+        if name in REPOSITORY_DISCOVERY_EXCLUDED_NAMES:
+            continue
+        suffix = relative.suffix.lower()
+        manifest = name in REPOSITORY_DISCOVERY_MANIFESTS
+        if suffix not in GOAL_DISCOVERY_SUFFIXES and not manifest:
+            continue
+        parts = {part.lower() for part in relative.parts}
+        relative_text = relative.as_posix().lower()
+        score = 0
+        if manifest:
+            score += 20
+        if "src" in parts or "app" in parts:
+            score += 12
+        if any(part in {"test", "tests", "__tests__"} for part in parts):
+            score += 8
+        if ui_requested:
+            if suffix in {".jsx", ".tsx", ".vue", ".svelte", ".css", ".scss", ".html"}:
+                score += 22
+            if any(part in core.UI_PATH_PARTS for part in parts):
+                score += 16
+        for term in terms:
+            if term in relative_text:
+                score += 5
+        if score:
             ranked.append((score, relative.as_posix()))
     return [path for _, path in sorted(ranked, key=lambda item: (-item[0], item[1]))[:limit]]
 
@@ -1247,6 +1311,9 @@ def decide(
     else:
         changed = goal_discovered_paths(root, goal)
         target_origin = "goal-discovery" if changed else "none"
+        if not changed and "review" not in tasks:
+            changed = repository_discovered_paths(root, goal)
+            target_origin = "repository-discovery" if changed else "none"
         if not changed and detect_git_changes and "review" in tasks:
             changed = git_changed(root)
             target_origin = "git-changes" if changed else "none"
@@ -1763,11 +1830,15 @@ def decide(
                 "After implementation and focused validation, ask approval to review the selected scope before proposing fixes.",
             )
 
-    graph = run_review_graph(root, changed) if needs_graph and changed else None
+    # Structure discovery is intentionally a planning inventory, not a claim
+    # about callers.  Do not let the review graph append generic manifests or
+    # lockfiles until the user has confirmed the feature boundary.
+    graph = run_review_graph(root, changed) if needs_graph and changed and target_origin != "repository-discovery" else None
     impacted = []
     impact_reason = {
         "provided": "user-provided target",
         "goal-discovery": "goal-matched target",
+        "repository-discovery": "existing repository structure candidate; confirm feature boundary after approval",
         "git-changes": "detected Git change",
     }.get(target_origin, "target file")
     if graph and graph.get("changed"):

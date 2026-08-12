@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import target_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
 NAVIGATOR_PATH = ROOT / "scripts" / "navigator.py"
@@ -35,6 +37,20 @@ official_aidlc_bridge = importlib.util.module_from_spec(BRIDGE_SPEC)
 sys.modules["tailtrail_official_aidlc_bridge"] = official_aidlc_bridge
 BRIDGE_SPEC.loader.exec_module(official_aidlc_bridge)
 
+HOST_WORKSPACE_SPEC = importlib.util.spec_from_file_location("tailtrail_host_workspace_adapter", ROOT / "scripts" / "host-workspace-adapter.py")
+if HOST_WORKSPACE_SPEC is None or HOST_WORKSPACE_SPEC.loader is None:
+    raise SystemExit("Unable to load scripts/host-workspace-adapter.py")
+host_workspace_adapter = importlib.util.module_from_spec(HOST_WORKSPACE_SPEC)
+sys.modules["tailtrail_host_workspace_adapter"] = host_workspace_adapter
+HOST_WORKSPACE_SPEC.loader.exec_module(host_workspace_adapter)
+
+ENTERPRISE_POLICY_SPEC = importlib.util.spec_from_file_location("tailtrail_enterprise_target_policy", ROOT / "scripts" / "enterprise-target-policy.py")
+if ENTERPRISE_POLICY_SPEC is None or ENTERPRISE_POLICY_SPEC.loader is None:
+    raise SystemExit("Unable to load scripts/enterprise-target-policy.py")
+enterprise_target_policy = importlib.util.module_from_spec(ENTERPRISE_POLICY_SPEC)
+sys.modules["tailtrail_enterprise_target_policy"] = enterprise_target_policy
+ENTERPRISE_POLICY_SPEC.loader.exec_module(enterprise_target_policy)
+
 APPROX_CHARS_PER_TOKEN = 4
 LARGE_CONTEXT_FILES = (
     "ROADMAP.md",
@@ -58,6 +74,58 @@ EVALUATION_TRIGGER_WORDS = {
     "report",
     "scenario",
 }
+
+def target_root_from_goal(goal: str) -> str | None:
+    """Extract one explicit local target root from user wording.
+
+    URLs and relative document references are deliberately not roots.  A path
+    is accepted only when nearby wording says it is where the change belongs;
+    this prevents a reference repository or a document path from silently
+    becoming the editable project.
+    """
+    return target_workspace.prompt_candidate(goal)
+
+
+def resolve_target_root(goal: str, supplied_root: Path | None, host_workspace: Path | None = None, alias: str | None = None, aliases: dict[str, Path] | None = None) -> dict[str, Any]:
+    """Resolve the planning root before Navigator discovers any files."""
+    return target_workspace.resolve(goal, explicit_root=supplied_root, host_workspace=host_workspace, alias=alias, aliases=aliases)
+
+
+def target_boundary_report(goal: str, resolution: dict[str, Any], command_prefix: str) -> dict[str, Any]:
+    """Return a non-persisted report when the requested target cannot be read."""
+    return {
+        "goal": goal,
+        "root": None,
+        "command_prefix": command_prefix,
+        "target_root": resolution,
+        "target_boundary": True,
+        "next_step": "Open the target repository in this host or rerun Start with an accessible --root path.",
+    }
+
+
+def render_target_boundary_report(report: dict[str, Any]) -> str:
+    target = report["target_root"]
+    requested = str(target["requested"])
+    return "\n".join(
+        [
+            "# TailTrail Start Plan",
+            "",
+            f"**Goal:** {report['goal']}",
+            "",
+            "## Target repository boundary",
+            "",
+            f"- Requested target: `{requested}`",
+            f"- Status: **{target['status']}** — {target['reason']}.",
+            "- No Planning Lock was created and no repository files, Git state, tests, scanners, or project commands were used.",
+            "",
+            "## Next step",
+            "",
+            "- Open that repository in the current host, or rerun with an accessible path:",
+            f"  `{report['command_prefix']} start \"your goal\" --root \"{requested}\"`",
+            "- If it is a reference-only repository, provide an accessible editable target with `--root` and keep the reference read-only.",
+            "",
+        ]
+    )
 
 
 def delivery_run_signals(root: Path, run_id: str | None) -> dict[str, Any]:
@@ -733,15 +801,29 @@ def compact_start_report(report: dict[str, Any]) -> str:
                 "## Planning Lock",
                 "",
                 f"- Run ID: `{lock['run_id']}`",
+                f"- Target identity: `{lock.get('target_identity', {}).get('fingerprint', 'legacy lock')}`.",
                 "- Status: **awaiting approval** — no source files, tests, scanners, or Git changes were run.",
                 "",
             ]
         )
+        host = lock.get("host_workspace")
+        if isinstance(host, dict) and host.get("host"):
+            lines.append(f"- Host workspace: `{host.get('host')}` / `{host.get('status')}` ({host.get('mapping', 'not-mapped')}).")
+        policy = lock.get("enterprise_policy")
+        if isinstance(policy, dict):
+            lines.append(f"- Enterprise target policy: `{policy.get('status', 'not-configured')}`.")
     lines.extend(["## Scope", ""])
+    target = report.get("target_root")
+    if isinstance(target, dict) and target.get("requested"):
+        lines.append(f"- Target repository: `{target['requested']}` ({target.get('status', 'verified')}).")
     for item in impacted[:4]:
         lines.append(f"- `{item['path']}` — {item['reason']}")
     if not impacted:
         lines.append("- Scope unresolved: no reliable repository file matched this goal. Add `--changed path/to/file` or approve read-only discovery; unrelated Git changes were not used.")
+    roles = report.get("input_roles", {})
+    if isinstance(roles, dict):
+        read_only_count = max(0, len(roles.get("inputs", [])) - 1)
+        lines.extend(["", "## Input roles", "", f"- Target: `{roles.get('target_root', root.as_posix())}` — editable only after approval.", f"- Read-only inputs: {read_only_count}. References, design, requirements, and evidence cannot become implementation scope."])
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
     if hands_free_program:
@@ -848,10 +930,17 @@ def verbose_start_report(report: dict[str, Any]) -> str:
         lines.extend(
             [
                 f"- Run ID: `{lock['run_id']}`",
+                f"- Target identity: `{lock.get('target_identity', {}).get('fingerprint', 'legacy lock')}`.",
                 f"- State: **{lock['status']}**; managed writes allowed: **{str(lock['writes_allowed']).lower()}**.",
                 "- No source files, tests, scanners, or Git changes were run.",
             ]
         )
+        host = lock.get("host_workspace")
+        if isinstance(host, dict) and host.get("host"):
+            lines.append(f"- Host workspace: `{host.get('host')}` / `{host.get('status')}` ({host.get('mapping', 'not-mapped')}).")
+        policy = lock.get("enterprise_policy")
+        if isinstance(policy, dict):
+            lines.append(f"- Enterprise target policy: `{policy.get('status', 'not-configured')}`.")
     else:
         lines.append("- No persisted Planning Lock is attached to this rendered report.")
     lines.extend(["", "## Start Here", "", "- Review the scope, selected controls, and proof before approval.", "- Nothing in this report implements the task.", "", "## Goal", "", f"- {goal}", "", "## Navigator Decision", ""])
@@ -868,12 +957,21 @@ def verbose_start_report(report: dict[str, Any]) -> str:
             "| --- | --- |",
         ]
     )
+    target = report.get("target_root")
+    if isinstance(target, dict) and target.get("requested"):
+        lines.append(f"| Target repository | `{target['requested']}` ({target.get('status', 'verified')}) |")
     # Verbose is the escape hatch for compact Start output. Never repeat a
     # compact-mode truncation hint here: show every discovered file instead.
     for item in impacted:
         lines.append(f"| `{item.get('path')}` | {item.get('reason')} |")
     if not impacted:
         lines.append("| Scope unresolved | Add `--changed path/to/file` or approve read-only discovery. Unrelated Git changes were not used. |")
+    roles = report.get("input_roles", {})
+    if isinstance(roles, dict):
+        lines.extend(["", "## Input roles", "", "| Input | Role | Access | Status |", "| --- | --- | --- | --- |"])
+        for item in roles.get("inputs", []):
+            if isinstance(item, dict):
+                lines.append(f"| `{item.get('locator')}` | {item.get('role')} | {item.get('access')} | {item.get('status')} |")
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
     if hands_free_program:
@@ -935,6 +1033,8 @@ def verbose_start_report(report: dict[str, Any]) -> str:
 
 
 def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
+    if report.get("target_boundary"):
+        return render_target_boundary_report(report)
     plan = report["navigator"]
     lock = report.get("planning_lock")
     lock_lines = []
@@ -1293,11 +1393,21 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Start a TailTrail task with Navigator-first plan, metrics, setup posture, and learning quality.")
     parser.add_argument("goal", nargs="*", help="User goal or task description.")
-    parser.add_argument("--root", type=Path, default=Path.cwd(), help="Project root to inspect.")
+    parser.add_argument("--root", type=Path, default=None, help="Project root to inspect. Overrides a target repository explicitly named in the goal.")
+    parser.add_argument("--host", choices=("codex", "copilot", "claude"), help="Optional host supplying the active workspace identity.")
+    parser.add_argument("--host-workspace", help="Workspace path reported by the selected host. It overrides a prompt path but never an explicit --root.")
+    parser.add_argument("--host-platform", choices=("auto", "windows", "macos", "linux", "wsl", "container"), default="auto", help="Platform shape of --host-workspace for safe local mapping.")
+    parser.add_argument("--enterprise-policy", type=Path, help="Optional local enterprise target policy JSON. Enforced before repository discovery.")
+    parser.add_argument("--target-alias", help="Optional target alias from the supplied enterprise target policy.")
+    parser.add_argument("--actor", help="Optional declared actor label for a policy that requires target ownership. This is not authentication.")
     parser.add_argument("--changed", action="append", default=[], help="Changed or target file path. Repeat for multiple files.")
     parser.add_argument("--run-id", help="Optional exact TailTrail run ID. Enables evidence-driven correction and recovery routing for that run only.")
     parser.add_argument("--planning-run-id", help="Optional new Planning Lock run ID. Defaults to a generated run ID.")
     parser.add_argument("--reference-root", action="append", default=[], help="Read-only reference repository path for this plan. Repeat for multiple references.")
+    parser.add_argument("--related-repo", action="append", default=[], help="Read-only sibling/related repository path. Repeat as needed.")
+    parser.add_argument("--design-reference", action="append", default=[], help="Read-only local or external design reference. Repeat as needed.")
+    parser.add_argument("--requirement-artifact", action="append", default=[], help="Read-only local requirement/specification artifact. Repeat as needed.")
+    parser.add_argument("--evidence-artifact", action="append", default=[], help="Read-only local CI, scan, or validation artifact. Repeat as needed.")
     parser.add_argument("--aidlc", choices=("lite", "standard", "medium", "full", "off"), default=None, help="Optional AIDLC override. Without it: normal Start uses Lite, 'using AIDLC' uses Standard, hands-free uses Standard with eligible Full escalation, and full/official wording requires Full.")
     parser.add_argument("--official-aidlc-manifest", help="Optional in-root official AIDLC compatibility manifest used only with --aidlc full.")
     parser.add_argument("--official-intent-id", help="Optional official AIDLC intent identity to map to this TailTrail run in full mode.")
@@ -1313,26 +1423,63 @@ def main() -> int:
     if not goal:
         parser.error("goal is required")
     try:
-        report = build_report(goal, args.root.resolve(), args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest)
+        loaded_policy = enterprise_target_policy.load(args.enterprise_policy)
+        policy_aliases = enterprise_target_policy.aliases(loaded_policy)
+        if args.host_workspace and not args.host:
+            parser.error("--host-workspace requires --host codex, copilot, or claude")
+        host_resolution = host_workspace_adapter.resolve(args.host or "codex", args.host_workspace, host_platform=args.host_platform) if args.host else None
+        if args.root is None and isinstance(host_resolution, dict) and host_resolution.get("status") not in {"verified", "not-provided"}:
+            report = target_boundary_report(goal, host_resolution, args.command_prefix)
+            if args.format == "json":
+                print(json.dumps(report, indent=2, sort_keys=True, default=str))
+            else:
+                print(render_markdown(report, verbose=args.verbose), end="")
+            return 2
+        host_root = Path(str(host_resolution["root"])) if isinstance(host_resolution, dict) and host_resolution.get("status") == "verified" else None
+        target = resolve_target_root(goal, args.root, host_root, args.target_alias, policy_aliases)
+        if target["status"] != "verified":
+            report = target_boundary_report(goal, target, args.command_prefix)
+            if args.format == "json":
+                print(json.dumps(report, indent=2, sort_keys=True, default=str))
+            else:
+                print(render_markdown(report, verbose=args.verbose), end="")
+            return 2
+        root = target["root"]
+        applied_alias = args.target_alias if target.get("source") == "alias" else None
+        policy_result = enterprise_target_policy.evaluate(root, loaded_policy, actor=args.actor, selected_alias=applied_alias)
+        if policy_result["blocking"]:
+            report = target_boundary_report(goal, {"requested": root.as_posix(), "status": "blocked", "source": "enterprise-policy", "reason": "; ".join(policy_result["issues"])}, args.command_prefix)
+            if args.format == "json":
+                print(json.dumps(report, indent=2, sort_keys=True, default=str))
+            else:
+                print(render_markdown(report, verbose=args.verbose), end="")
+            return 2
+        report = build_report(goal, root, args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest)
+        report["target_root"] = {key: value for key, value in target.items() if key != "root"}
+        if isinstance(host_resolution, dict):
+            report["host_workspace"] = {key: value for key, value in host_resolution.items() if key != "root"}
+        report["enterprise_policy"] = policy_result
+        report["input_roles"] = target_workspace.input_roles(root, reference_roots=args.reference_root, related_repos=args.related_repo, design_references=args.design_reference, requirement_artifacts=args.requirement_artifact, evidence_artifacts=args.evidence_artifact)
         effective_aidlc_mode = report["aidlc_mode"]["mode"]
         if not args.no_planning_lock:
-            report["planning_lock"] = planning_lock.create(args.root.resolve(), goal, args.planning_run_id, args.reference_root)
+            report["planning_lock"] = planning_lock.create(root, goal, args.planning_run_id, args.reference_root, input_roles=report["input_roles"], host_workspace=host_resolution, enterprise_policy=policy_result)
+            report["target_resolution_receipt"] = enterprise_target_policy.receipt(root, report["planning_lock"]["run_id"], target_identity=report["planning_lock"]["target_identity"], input_roles=report["input_roles"], policy_result=policy_result, host_workspace=host_resolution)
             if effective_aidlc_mode == "full":
                 report["official_aidlc_bridge"] = official_aidlc_bridge.create(
-                    args.root.resolve(), report["planning_lock"]["run_id"], goal,
+                    root, report["planning_lock"]["run_id"], goal,
                     manifest=args.official_aidlc_manifest,
                     official_intent_id=args.official_intent_id,
                     official_session_id=args.official_session_id,
                     official_stage=args.official_stage,
                 )
-            report["planning_report"] = planning_lock.save_start_report(args.root.resolve(), report["planning_lock"]["run_id"], report)
+            report["planning_report"] = planning_lock.save_start_report(root, report["planning_lock"]["run_id"], report)
             selected = report.get("navigator", {}).get("selected_features", [])
             if effective_aidlc_mode == "standard":
-                report["aidlc_requirements"] = planning_lock.request_aidlc_requirements(args.root.resolve(), report["planning_lock"]["run_id"])
-                report["planning_report"] = planning_lock.enrich_start_report(args.root.resolve(), report["planning_lock"]["run_id"], report)
+                report["aidlc_requirements"] = planning_lock.request_aidlc_requirements(root, report["planning_lock"]["run_id"])
+                report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
             elif effective_aidlc_mode == "full":
-                report["aidlc_requirements"] = planning_lock.request_official_aidlc_requirements(args.root.resolve(), report["planning_lock"]["run_id"])
-                report["planning_report"] = planning_lock.enrich_start_report(args.root.resolve(), report["planning_lock"]["run_id"], report)
+                report["aidlc_requirements"] = planning_lock.request_official_aidlc_requirements(root, report["planning_lock"]["run_id"])
+                report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
     except ValueError as error:
         parser.error(str(error))
     if args.format == "json":

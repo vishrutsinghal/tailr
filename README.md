@@ -57,6 +57,16 @@ Use the same command with `python3` and forward-slash paths:
 python3 scripts/tailtrail.py install local --target "/absolute/path/to/your-project" --profile copilot
 ```
 
+Codex plugin on macOS:
+
+```bash
+python3 scripts/tailtrail.py install codex-plugin --target "/absolute/path/to/your-project"
+```
+
+This installs the project-local `AGENTS.md`, `.codex-plugin/plugin.json`, and
+TailTrail skills. Open the target project in Codex, then start a new chat so
+Codex loads the installed guidance.
+
 ### Update an existing installation
 
 For an existing **GitHub Copilot** installation, use the updater. It reads the
@@ -83,6 +93,22 @@ existing managed files in place. `install local ... --force` can refresh a
 profile, but it may overwrite its managed files. Use it for Codex or Claude
 only after reviewing any local customizations; use the updater above for the
 safe Copilot refresh path.
+
+For an existing **Codex plugin** installation on macOS/Linux, preview the
+refresh first, then apply it. The Codex plugin is refreshed through the
+installer rather than the Copilot-only updater:
+
+```bash
+# Preview the Codex plugin refresh
+python3 scripts/tailtrail.py install codex-plugin --target "/absolute/path/to/your-project" --dry-run
+
+# Refresh TailTrail's Codex-managed files
+python3 scripts/tailtrail.py install codex-plugin --target "/absolute/path/to/your-project" --force
+```
+
+`--force` replaces TailTrail-managed Codex files such as `AGENTS.md`, the
+plugin manifest, and installed skills. Back up or commit local edits to those
+files before applying it. It does not update your project source code.
 
 After installing or updating, open a **new chat** in your AI host so it reads the refreshed instructions.
 

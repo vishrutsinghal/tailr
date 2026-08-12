@@ -46,6 +46,7 @@ DEFAULT_READ_ONLY_TOOLS = (
     "aidlc_official_sanitize_validate",
     "aidlc_official_session_status",
     "host_conformance_report",
+    "enterprise_target_policy_inspect",
 )
 CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start")
 DENIED_TOOL_TERMS = (
@@ -197,6 +198,7 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "aidlc_official_sanitize_validate": {"name": "aidlc_official_sanitize_validate", "description": "Validate one repository-local official AI-DLC artifact against the fail-closed sensitive-data boundary. Read-only; rejected values are never returned.", "inputSchema": json_schema({"root": {"type": "string"}, "input": {"type": "string"}, "context": {"type": "string", "enum": ["bridge", "activation", "requirements", "requirements-revision", "checkpoint", "closure", "learning", "evaluation", "runtime-session", "runtime-transition"]}}, ["input", "context"])},
         "aidlc_official_session_status": {"name": "aidlc_official_session_status", "description": "Read the verified official AI-DLC runtime attachment and ordered transition projection. Read-only; it never attaches, imports receipts, or executes the pack.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "host_conformance_report": {"name": "host_conformance_report", "description": "Report instruction and real-host runtime conformance separately for Codex, Copilot, or Claude. Read-only; missing receipts remain not-validated.", "inputSchema": json_schema({"root": {"type": "string"}, "host": {"type": "string", "enum": ["codex", "copilot", "claude"]}})},
+        "enterprise_target_policy_inspect": {"name": "enterprise_target_policy_inspect", "description": "Evaluate a repository-local enterprise target policy against one selected root. Read-only; it never creates a Planning Lock, edits source, or writes an audit receipt.", "inputSchema": json_schema({"root": {"type": "string"}, "policy": {"type": "string"}, "actor": {"type": "string"}, "target_alias": {"type": "string"}}, ["policy"])},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
         "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
         "planning_lock_start": {"name": "planning_lock_start", "description": "Create an awaiting-approval Planning Lock after the user explicitly asks to start TailTrail. Writes only TailTrail local metadata; it never edits project source or runs project commands.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
@@ -688,6 +690,15 @@ def workflow_dashboard_show(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "workflow_dashboard_show", "result": module.dashboard(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
 
 
+def enterprise_target_policy_inspect(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("enterprise_target_policy_mcp", script("enterprise-target-policy.py")); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    root = root_from(args)
+    policy = module.load(safe_relative(root, args["policy"]))
+    result = module.evaluate(root, policy, actor=args.get("actor"), selected_alias=args.get("target_alias"))
+    return {"tool": "enterprise_target_policy_inspect", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "navigator_plan": navigator_plan,
     "start_report": start_report,
@@ -700,7 +711,7 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "completion_feedback_show": completion_feedback_show, "profile_view": profile_view,
     "validation_receipt_show": validation_receipt_show, "release_confidence_show": release_confidence_show, "git_readiness": git_readiness,
     "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
-    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start,
+    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "enterprise_target_policy_inspect": enterprise_target_policy_inspect, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start,
 }
 
 

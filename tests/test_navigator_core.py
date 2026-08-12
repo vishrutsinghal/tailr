@@ -100,6 +100,27 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertEqual(report["target_origin"], "none")
         self.assertEqual(report["likely_impacted_files"], [])
 
+    def test_feature_start_uses_existing_ui_structure_not_git_noise_when_lexical_match_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src" / "pages").mkdir(parents=True)
+            (root / "src" / "components").mkdir(parents=True)
+            (root / "tests").mkdir()
+            (root / "package.json").write_text('{"scripts":{"test":"vitest"}}', encoding="utf-8")
+            (root / "src" / "pages" / "AuditEventsPage.tsx").write_text("export const AuditEventsPage = () => null;", encoding="utf-8")
+            (root / "src" / "components" / "StatusBadge.tsx").write_text("export const StatusBadge = () => null;", encoding="utf-8")
+            (root / "tests" / "audit-events.test.tsx").write_text("test('audit events', () => {});", encoding="utf-8")
+            (root / "package-lock.json").write_text("irrelevant lock content", encoding="utf-8")
+            report = navigator.decide("create a new UI workspace for operators", root, [], "tailtrail", detect_git_changes=False)
+
+        paths = [item["path"] for item in report["likely_impacted_files"]]
+        self.assertEqual(report["target_origin"], "repository-discovery")
+        self.assertIn("src/pages/AuditEventsPage.tsx", paths)
+        self.assertIn("src/components/StatusBadge.tsx", paths)
+        self.assertIn("package.json", paths)
+        self.assertNotIn("package-lock.json", paths)
+        self.assertTrue(all("repository structure candidate" in item["reason"] for item in report["likely_impacted_files"]))
+
     def test_explicit_review_may_use_git_changes_when_goal_discovery_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -604,6 +625,30 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("must not auto-run JDT", report["code_intelligence"]["auto_run_rule"])
         self.assertEqual(report["guided_delivery"]["mode"], "lean")
         self.assertIn("Lean delivery", {item["name"] for item in report["guided_delivery"]["selected"]})
+
+    def test_start_detects_an_inaccessible_target_repo_in_the_goal_before_discovery(self) -> None:
+        goal = (
+            "User Story: generate audit events. Changes has to be made in this repo; "
+            "check this too /Users/vsingha7/Desktop/famas/dap-famas-aws-frontend-service"
+        )
+        resolution = task_start.resolve_target_root(goal, None)
+        report = task_start.target_boundary_report(goal, resolution, "tailtrail")
+        rendered = task_start.render_markdown(report)
+
+        self.assertEqual(resolution["status"], "inaccessible")
+        self.assertEqual(resolution["source"], "goal")
+        self.assertEqual(resolution["requested"], "/Users/vsingha7/Desktop/famas/dap-famas-aws-frontend-service")
+        self.assertIn("## Target repository boundary", rendered)
+        self.assertIn("No Planning Lock was created", rendered)
+        self.assertNotIn("## Scope", rendered)
+
+    def test_explicit_root_overrides_a_target_path_mentioned_in_the_goal(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            goal = "changes must be made in /missing/target-repo"
+            resolution = task_start.resolve_target_root(goal, Path(temp))
+
+        self.assertEqual(resolution["status"], "verified")
+        self.assertEqual(resolution["source"], "--root")
 
     def test_start_compact_report_lists_selected_tailtrail_features(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -124,6 +124,11 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn('if command == "ui":', body)
         self.assertIn('return run_script("ui-consistency.py", args)', body)
 
+    def test_target_workspace_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if command == "target":', body)
+        self.assertIn('return run_script("target_workspace.py", args)', body)
+
     def test_user_facing_docs_do_not_advertise_importable_module_paths(self) -> None:
         for doc in USER_FACING_DOCS:
             with self.subTest(doc=doc):

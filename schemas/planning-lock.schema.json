@@ -5,13 +5,17 @@
   "type": "object",
   "required": ["schema_version", "type", "run_id", "goal", "status", "writes_allowed", "reference_roots", "approval", "boundary"],
   "properties": {
-    "schema_version": {"const": "1"},
+    "schema_version": {"enum": ["1", "2"]},
     "type": {"const": "tailtrail-planning-lock"},
     "run_id": {"type": "string"},
     "goal": {"type": "string"},
     "status": {"enum": ["awaiting-approval", "approved"]},
     "writes_allowed": {"type": "boolean"},
     "reference_roots": {"type": "array"},
+    "target_identity": {"type": "object"},
+    "input_roles": {"$ref": "input-role-registry.schema.json"},
+    "host_workspace": {"type": ["object", "null"]},
+    "enterprise_policy": {"type": "object"},
     "approval": {"type": ["object", "null"]},
     "boundary": {"type": "string"}
   },

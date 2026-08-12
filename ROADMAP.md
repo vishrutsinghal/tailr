@@ -161,6 +161,28 @@ This roadmap keeps future work simple and staged. Each phase should be useful on
 
 TailTrail should grow from portable guidance first, automation second. Plain Markdown features are preferred because they work across repositories and do not require runtime setup. Hooks, installers, adapters, and benchmark tooling should appear only after the manual workflow proves valuable.
 
+### Enterprise target workspace resolution — TW-1 through TW-5 implemented
+
+The current Start flow safely refuses to plan against the current repository
+when a request names an inaccessible target path. **TW-1 now delivers the
+read-only Target Workspace Resolver** with stable outcomes, precedence across
+`--root`, supplied host workspace, ephemeral aliases, prompt candidates, and
+host CWD, plus the public `tailtrail target resolve` command. Start consumes
+the same resolver before discovery or Planning Lock creation. **TW-2 now binds
+each new Planning Lock to a local target identity** and fail-closes activation
+and managed writes if the root, sanitized repository identity, or eligible
+source inventory no longer matches; an ordinary Git HEAD change remains
+visible but non-blocking. **TW-3 now persists one editable target plus explicit
+read-only related-repo, reference-repo, design, requirement, and evidence
+roles in every new Planning Lock. **TW-4 now accepts a declared Codex,
+Copilot, or Claude workspace, classifies Windows/macOS/Linux/WSL/container/
+network-share path shapes, and persists a local adapter receipt. **TW-5 now
+adds opt-in local policy enforcement for roots, aliases, restricted paths, and
+declared owners, plus a policy fingerprint recheck at activation/write time and
+a sanitized run-local target-resolution receipt.**
+The full architecture, schemas, examples, flow diagrams, phases, and acceptance
+criteria are in [TailTrail Enterprise Target Workspace Design](tailtrail-enterprise-target-workspace.md).
+
 ### Closure and learning automation follow-up
 
 The current Completion Report, requirement checkpoints, validation receipts,

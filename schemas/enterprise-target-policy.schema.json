@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/enterprise-target-policy.schema.json",
+  "title": "TailTrail Enterprise Target Policy",
+  "type": "object",
+  "required": ["schema_version", "type", "allowed_target_roots", "restricted_target_roots", "aliases"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-enterprise-target-policy"},
+    "allowed_target_roots": {"type": "array", "items": {"type": "string"}},
+    "restricted_target_roots": {"type": "array", "items": {"type": "string"}},
+    "require_identity_verification": {"type": "boolean"},
+    "require_declared_owner": {"type": "boolean"},
+    "aliases": {"type": "object"}
+  },
+  "additionalProperties": false
+}

@@ -46,6 +46,7 @@ COMMANDS = {
     "report": "Generate a local TailTrail enterprise report.",
     "release-check": "Run public release readiness checks.",
     "setup-scan": "Classify TailTrail files in a cloned or existing repo.",
+    "target": "Resolve one editable target workspace before planning.",
     "reference": "Plan safe read-only cross-repo reference usage.",
     "graph": "Generate Code Review Graph Lite, scanner overlays, AST maps, or manage Code Graph Mapper cache.",
     "ci": "Summarize CI/build/test output.",
@@ -203,6 +204,7 @@ def print_help() -> None:
         "savings",
         "report",
         "setup-scan",
+        "target",
         "reference",
         "aidlc",
         "benchmark",
@@ -978,6 +980,8 @@ def main() -> int:
         return admin(args)
     if command == "setup-scan":
         return run_script("setup-scan.py", args)
+    if command == "target":
+        return run_script("target_workspace.py", args)
     if command == "reference":
         return run_script("cross-repo-reference.py", args)
     if command == "graph":

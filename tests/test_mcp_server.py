@@ -60,6 +60,19 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(result["execution"]["read_only"])
         self.assertEqual(result["result"]["runtime_conformance"][0]["runtime_status"], "not-validated")
 
+    def test_enterprise_target_policy_inspection_is_read_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            policy = root / "enterprise-policy.json"
+            policy.write_text(json.dumps({
+                "schema_version": "1", "type": "tailtrail-enterprise-target-policy",
+                "allowed_target_roots": [root.as_posix()], "restricted_target_roots": [],
+                "require_identity_verification": True, "require_declared_owner": False, "aliases": {},
+            }), encoding="utf-8")
+            result = mcp.enterprise_target_policy_inspect({"root": root.as_posix(), "policy": "enterprise-policy.json"})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["status"], "passed")
+
     def test_doctor_names_the_first_tool_order_mismatch(self):
         original = mcp.tool_definitions
 

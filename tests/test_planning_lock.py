@@ -49,6 +49,62 @@ class PlanningLockTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "--approved"):
                 lock.approve(root, "plan-2", False)
 
+    def test_new_lock_binds_target_identity_and_write_guard_blocks_inventory_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+            created = lock.create(root, "add a service", "plan-target")
+            lock.approve(root, "plan-target", True)
+            matched = lock.assert_write_allowed(root, "plan-target")
+            (root / "src" / "new_module.py").write_text("value = 2\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Target identity mismatch"):
+                lock.assert_write_allowed(root, "plan-target")
+        self.assertEqual(created["schema_version"], "2")
+        self.assertTrue(created["target_identity"]["fingerprint"].startswith("sha256:"))
+        self.assertEqual(matched["target_identity_check"]["status"], "matched")
+
+    def test_activation_blocks_target_identity_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+            lock.create(root, "add a service", "plan-target-activation")
+            lock.save_start_report(root, "plan-target-activation", {
+                "goal": "add a service",
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"likely_impacted_files": [{"path": "src/service.py"}]},
+            })
+            (root / "src" / "changed_after_plan.py").write_text("value = 2\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Target identity mismatch"):
+                lock.activate(root, "plan-target-activation", True)
+
+    def test_lock_persists_input_roles_and_write_guard_rechecks_target_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "target"
+            reference = Path(temp) / "reference"
+            root.mkdir()
+            reference.mkdir()
+            roles = lock.target_workspace().input_roles(root, reference_roots=[reference.as_posix()])
+            created = lock.create(root, "reuse reference validation", "plan-roles", input_roles=roles)
+            lock.approve(root, "plan-roles", True)
+            allowed = lock.assert_write_allowed(root, "plan-roles")
+        self.assertEqual(created["input_roles"]["inputs"][1]["role"], "reference-repo")
+        self.assertEqual(allowed["input_roles_check"]["read_only_inputs"], 1)
+
+    def test_legacy_lock_remains_readable_with_a_visible_nonblocking_status(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "legacy", "plan-legacy")
+            path = lock.lock_path(root, "plan-legacy")
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["schema_version"] = "1"
+            payload.pop("target_identity")
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            lock.approve(root, "plan-legacy", True)
+            allowed = lock.assert_write_allowed(root, "plan-legacy")
+        self.assertEqual(allowed["target_identity_check"]["status"], "legacy")
+
     def test_activation_creates_anchor_from_the_saved_start_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
