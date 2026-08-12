@@ -619,6 +619,17 @@ class NavigatorCoreTests(unittest.TestCase):
         ):
             self.assertIn(heading, rendered)
 
+    def test_verbose_start_lists_every_impacted_file_without_a_verbose_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            changed = [f"src/module_{index}.py" for index in range(9)]
+            report = task_start.build_report("add a multi-file service feature", root, changed, "tailtrail")
+            rendered = task_start.verbose_start_report(report)
+
+        for path in changed:
+            self.assertIn(f"`{path}`", rendered)
+        self.assertNotIn("more in verbose Navigator output", rendered)
+
     def test_task_start_selects_multi_file_delivery_controls_without_auto_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

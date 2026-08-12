@@ -1770,8 +1770,17 @@ def decide(
         impacted.extend({"path": path, "reason": impact_reason} for path in graph.get("changed", []))
         for path in graph.get("suggested_read_order", [])[1:6]:
             impacted.append({"path": path, "reason": "suggested by Code Review Graph Lite"})
+        # The nested graph process may intentionally bound its command-line
+        # input for Windows safety. Preserve every user-provided/discovered
+        # target in the plan itself so verbose output is genuinely complete.
+        graph_changed = {str(path) for path in graph.get("changed", [])}
+        impacted.extend(
+            {"path": path, "reason": impact_reason}
+            for path in changed
+            if path not in graph_changed
+        )
     else:
-        impacted.extend({"path": path, "reason": impact_reason} for path in changed[:8])
+        impacted.extend({"path": path, "reason": impact_reason} for path in changed)
 
     deduplicated_impacted = []
     seen_impacted_paths: set[str] = set()

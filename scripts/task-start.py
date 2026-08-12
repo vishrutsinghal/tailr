@@ -868,7 +868,9 @@ def verbose_start_report(report: dict[str, Any]) -> str:
             "| --- | --- |",
         ]
     )
-    for item in impacted[:8]:
+    # Verbose is the escape hatch for compact Start output. Never repeat a
+    # compact-mode truncation hint here: show every discovered file instead.
+    for item in impacted:
         lines.append(f"| `{item.get('path')}` | {item.get('reason')} |")
     if not impacted:
         lines.append("| No concrete path yet | Add `--changed path/to/file` to strengthen the plan. |")
