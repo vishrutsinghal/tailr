@@ -741,7 +741,7 @@ def compact_start_report(report: dict[str, Any]) -> str:
     for item in impacted[:4]:
         lines.append(f"- `{item['path']}` — {item['reason']}")
     if not impacted:
-        lines.append("- No concrete path found yet. Add `--changed path/to/file` to strengthen the plan.")
+        lines.append("- Scope unresolved: no reliable repository file matched this goal. Add `--changed path/to/file` or approve read-only discovery; unrelated Git changes were not used.")
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
     if hands_free_program:
@@ -873,7 +873,7 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     for item in impacted:
         lines.append(f"| `{item.get('path')}` | {item.get('reason')} |")
     if not impacted:
-        lines.append("| No concrete path yet | Add `--changed path/to/file` to strengthen the plan. |")
+        lines.append("| Scope unresolved | Add `--changed path/to/file` or approve read-only discovery. Unrelated Git changes were not used. |")
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
     if hands_free_program:

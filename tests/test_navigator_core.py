@@ -84,6 +84,38 @@ class NavigatorCoreTests(unittest.TestCase):
             self.assertEqual(len(paths), len(set(paths)))
             self.assertNotIn("Code Graph Mapper", {item["name"] for item in report["selected_features"]})
 
+    def test_non_review_start_does_not_adopt_unrelated_git_changes_when_goal_discovery_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            original_discovery = navigator.goal_discovered_paths
+            original_git_changed = navigator.git_changed
+            try:
+                navigator.goal_discovered_paths = lambda *_args: []
+                navigator.git_changed = lambda *_args: [".codex-plugin/plugin.json", "README.md"]
+                report = navigator.decide("implement audit events generator", root, [], "tailtrail")
+            finally:
+                navigator.goal_discovered_paths = original_discovery
+                navigator.git_changed = original_git_changed
+
+        self.assertEqual(report["target_origin"], "none")
+        self.assertEqual(report["likely_impacted_files"], [])
+
+    def test_explicit_review_may_use_git_changes_when_goal_discovery_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            original_discovery = navigator.goal_discovered_paths
+            original_git_changed = navigator.git_changed
+            try:
+                navigator.goal_discovered_paths = lambda *_args: []
+                navigator.git_changed = lambda *_args: ["src/service.py"]
+                report = navigator.decide("review my uncommitted changes", root, [], "tailtrail")
+            finally:
+                navigator.goal_discovered_paths = original_discovery
+                navigator.git_changed = original_git_changed
+
+        self.assertEqual(report["target_origin"], "git-changes")
+        self.assertEqual(report["likely_impacted_files"], [{"path": "src/service.py", "reason": "detected Git change"}])
+
     def test_task_start_renders_installed_pack_command_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

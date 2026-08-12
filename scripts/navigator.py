@@ -1236,16 +1236,20 @@ def decide(
         request = core.explicit_navigator_request(goal)
         if request:
             return explicit_navigator_report(request, root, changed_args, command_prefix)
+    # Only an explicit review/diff request may use the worktree as task scope.
+    # Feature and bug requests often arrive while unrelated work is uncommitted;
+    # silently adopting that work is misleading and can produce a completely
+    # wrong implementation plan.
+    tasks = core.task_types(goal)
     if changed_args:
         changed = changed_args
         target_origin = "provided"
     else:
         changed = goal_discovered_paths(root, goal)
         target_origin = "goal-discovery" if changed else "none"
-        if not changed and detect_git_changes:
+        if not changed and detect_git_changes and "review" in tasks:
             changed = git_changed(root)
             target_origin = "git-changes" if changed else "none"
-    tasks = core.task_types(goal)
     risks = core.risk_indicators(goal, changed)
     tiny = core.is_tiny(goal, risks, changed)
     state = existing_state(root)
