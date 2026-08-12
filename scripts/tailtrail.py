@@ -60,6 +60,7 @@ COMMANDS = {
     "completion-report": "Create the required end-of-task TailTrail Completion Report for one approved run.",
     "closure": "Validate, record, finalize, or route bounded correction for closure evidence.",
     "bootstrap": "Create or inspect a safe pre-task repo/runtime snapshot.",
+    "ui": "Discover existing local UI conventions for a consistent UI change.",
     "mcp": "Run the opt-in read-only TailTrail MCP server tools.",
     "vulnerability": "Summarize, plan, or run approved vulnerability scans.",
     "engine": "Run V2.7 evidence-based engine helpers.",
@@ -269,6 +270,7 @@ def print_help() -> None:
     print(f"  {command} bootstrap snapshot --root .")
     print(f"  {command} bootstrap snapshot --root . --write-result")
     print(f"  {command} bootstrap status --root .")
+    print(f"  {command} ui discover --root . --changed src/components/Example.tsx")
     print(f"  {command} bootstrap refresh --root .")
     print(f"  {command} harness aggregate-shared --root . --format markdown")
     print(f"  {command} harness aggregate-shared --roots ../repo-a --roots ../repo-b")
@@ -590,6 +592,8 @@ def aidlc(args: list[str]) -> int:
     if action == "check":
         return run_script("aidlc-check.py", rest)
     if action == "official":
+        if rest[:1] == ["install"]:
+            return run_script("aidlc-official-install.py", rest[1:])
         if rest[:1] == ["sanitize"]:
             return run_script("official-aidlc-sanitize.py", rest[1:])
         if rest[:1] == ["state"]:
@@ -1002,6 +1006,8 @@ def main() -> int:
         return closure(args)
     if command == "bootstrap":
         return bootstrap(args)
+    if command == "ui":
+        return run_script("ui-consistency.py", args)
     if command == "mcp":
         return mcp(args)
     if command == "vulnerability":

@@ -88,6 +88,34 @@ def delivery_run_signals(root: Path, run_id: str | None) -> dict[str, Any]:
 def hands_free_requirements(goal: str) -> list[dict[str, str]]:
     """Turn a broad hands-free goal into an approval-ready, local requirement boundary."""
     lowered = goal.lower()
+
+    # Choose the requested capability before interpreting preservation wording.
+    # A programme that says "preserve cancellation" must not become a
+    # cancellation programme merely because it also mentions inventory, refunds,
+    # notifications, or audit records.
+    amendment_cues = (
+        "order amendment", "order-amendment", "amend order", "amendment",
+        "change quantity", "change the quantity", "change delivery address",
+        "delivery address", "order revision", "expected revision",
+    )
+    if any(cue in lowered for cue in amendment_cues):
+        statements = [
+            "Define amendment eligibility by fulfilment stage and preserve existing create-order and cancellation behavior.",
+            "Maintain one authoritative order revision and reject stale concurrent amendment attempts.",
+            "Allow only the approved quantity transition for each fulfilment stage and release only excess reserved inventory.",
+            "Allow an authorized post-shipment delivery-address correction only with an audit reason while preserving product and quantity immutability.",
+            "Recalculate the amendment amount and issue an additional charge or partial refund exactly once through an idempotent amendment action.",
+            "Persist an immutable before/after amendment audit record with actor, reason, and revision identifiers.",
+            "Send one customer amendment notification only after all required durable effects succeed.",
+            "Update the API contract with explicit amendment success, validation, conflict, forbidden, and transient-failure behavior.",
+            "Add focused unit, integration, contract, and behaviour evidence for amendment, concurrency, side-effect ordering, and preserved flows.",
+        ]
+        if any(word in lowered for word in ("migration", "compatibility", "legacy")):
+            statements.append("Preserve compatible legacy order records and provide migration evidence for the revised order model.")
+        if any(word in lowered for word in ("rollout", "terraform", "release", "operations", "metrics", "ci")):
+            statements.append("Provide operational metrics, CI/reconciliation evidence, and staged rollout/rollback criteria without applying infrastructure in the local demo.")
+        return [{"display_id": f"REQ-{index:02d}", "statement": statement} for index, statement in enumerate(statements, start=1)]
+
     statements: list[str] = []
     if "cancel" in lowered:
         statements.append("Define the cancellation eligibility rule and preserve non-cancellable order behavior.")
@@ -153,7 +181,11 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
             selected = official_aidlc_bridge.preflight(root, "full", manifest)
         except ValueError:
             selected = official_aidlc_bridge.preflight(root, "standard", manifest)
-            selected["full_escalation"] = {"state": "eligible-awaiting-compatible-pack", "signals": signals, "reason": "Navigator found programme-scale signals, but Phase A compatibility is not ready; remain in Standard mode."}
+            selected["full_escalation"] = {
+                "state": "eligible-awaiting-compatible-pack",
+                "signals": signals,
+                "reason": "Navigator found programme-scale signals, but Phase A compatibility is not ready; remain in Standard mode. Full mode requires a verified pack and a new Full-mode Planning Lock; this Standard run cannot be silently upgraded.",
+            }
         else:
             selected["selection"] = "navigator-hands-free-escalation"
             selected["full_escalation"] = {"state": "selected", "signals": signals, "reason": "Navigator found programme-scale signals and a compatible pinned official pack."}
@@ -194,6 +226,7 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
     tiny = plan.get("recommended_workflow") == ["lean"] and not hands_free
     broad = hands_free or len(changed) > 1 or any(word in lowered for word in ("feature", "implement", "workflow", "service", "endpoint", "api", "migration"))
     user_facing = any(word in lowered for word in ("user", "journey", "screen", "page", "ui", "endpoint", "api", "workflow"))
+    ui_change = navigator.core.ui_change_requested(goal, changed)
     run = delivery_run_signals(root, run_id)
     selected: list[dict[str, str]] = []
     later: list[dict[str, str]] = []
@@ -217,11 +250,15 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
             add("Architecture Fitness Harness", "multi-file or service/API scope can miss callers or change the wrong layer")
         if user_facing:
             add("Behaviour Harness", "the task names a user-facing/API/workflow outcome that needs flow evidence")
+        if ui_change:
+            add("UI Consistency Guardrail", "UI work must reuse the repository's existing components, tokens, layout, responsive, and accessibility conventions")
         if "refactor" in tasks:
             add("Maintainability Harness", "confirm the change did not add duplicate logic or unnecessary abstraction")
         if hands_free:
             add("Program Delivery Harness", "explicit hands-free/end-to-end request needs feature ordering and resume state")
         stages = ["approve requirements and scope", "map impacted paths", "implement the approved smallest change", "run selected computational checks", "issue one completion report"]
+        if ui_change:
+            stages.insert(2, "inspect the existing UI system and nearest comparable screen; reuse its established patterns")
         if hands_free:
             stages = ["propose feature requirements and dependency order", "approve the program anchor and first active slice", "map and implement one approved slice at a time", "run selected computational checks at each checkpoint", "reconcile against the full approved program anchor"]
 
@@ -242,6 +279,8 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
         defer("Program Delivery Harness", "the user explicitly asks for hands-free or end-to-end multi-feature delivery")
     if not user_facing:
         defer("Behaviour Harness", "the approved requirement includes a user-facing, API, or journey contract")
+    if ui_change:
+        defer("Visual Regression Evidence", "the repository already has a project-owned visual test, or the approved task explicitly requires browser/screenshot proof; TailTrail will not add a visual-test dependency by default")
     if not broad:
         defer("Architecture Fitness Harness", "the approved scope expands beyond a narrow one-file change or adds callers/layers")
     if not risks:
@@ -263,6 +302,14 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
             "first_active_slice": "Requirement gathering and program-anchor proposal only; no source implementation is active yet.",
             "approval_gate": "Approve the proposed feature requirements, dependency order, and first active slice before implementation begins.",
         }
+        if ui_change:
+            requirements = hands_free_program["feature_requirements"]
+            requirements.append(
+                {
+                    "display_id": f"REQ-{len(requirements) + 1:02d}",
+                    "statement": "Preserve the established UI system by reusing existing components, tokens, layout, responsive behavior, and accessibility patterns; do not introduce a parallel visual system.",
+                }
+            )
 
     return {
         "mode": "lean" if tiny else "guided-delivery",
@@ -574,12 +621,13 @@ def build_report(
     changed: list[str],
     command_prefix: str,
     run_id: str | None = None,
-    aidlc_mode: str = "lite",
+    aidlc_mode: str = "",
     official_manifest: str | None = None,
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
     plan = navigator.decide(goal, root, changed, command_prefix)
     delivery = guided_delivery(plan, goal, changed, root, run_id)
+    ui_change = navigator.core.ui_change_requested(goal, changed)
     mode = aidlc_mode_selection(goal, aidlc_mode, root, plan, official_manifest)
     if mode["mode"] == "off":
         delivery["selected"] = [item for item in delivery["selected"] if item.get("name") != "AIDLC"]
@@ -591,6 +639,11 @@ def build_report(
         "command_prefix": command_prefix,
         "navigator": plan,
         "guided_delivery": delivery,
+        "ui_consistency": {
+            "selected": ui_change,
+            "command": f"{command_prefix} ui discover --root {json.dumps(root.as_posix())}" + "".join(f" --changed {path}" for path in changed[:5]),
+            "boundary": "Reuse existing components, styles, tokens, layout, responsive behavior, and accessibility patterns. Do not introduce a UI library, font, global token set, or unrelated redesign without explicit approval.",
+        },
         "aidlc_mode": mode,
         "aidlc_mode_features": aidlc_mode_features(mode["mode"]),
         "next_actions": next_actions(plan),
@@ -704,6 +757,8 @@ def compact_start_report(report: dict[str, Any]) -> str:
         )
     else:
         lines.append("- Implement the approved goal with the smallest maintainable change.")
+        if report.get("ui_consistency", {}).get("selected"):
+            lines.append("- Preserve the established UI system: reuse existing components, tokens, layout, responsive behavior, and accessibility patterns.")
     aidlc = report.get("aidlc_requirements")
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
@@ -742,7 +797,12 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.append(f"- First active slice: {hands_free_program['first_active_slice']}")
         lines.append(f"- Program approval gate: {hands_free_program['approval_gate']}")
     else:
-        lines.append("- Inspect the validator, its focused test, and the likely caller.")
+        if report.get("ui_consistency", {}).get("selected"):
+            lines.append("- Inspect the existing UI system and nearest comparable screen before changing the requested UI.")
+            lines.append(f"- UI discovery: `{report['ui_consistency']['command']}`")
+            lines.append(f"- Preserve: {report['ui_consistency']['boundary']}")
+        else:
+            lines.append("- Inspect the target, its focused test, and the likely caller.")
         lines.append("- Make the smallest change within the listed scope.")
         lines.append("- Run focused proof, then review the changed scope.")
     validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
@@ -820,6 +880,8 @@ def verbose_start_report(report: dict[str, Any]) -> str:
         lines.extend(["- Reject zero quantities.", "- Preserve valid positive quantities.", "- Keep order-service behavior unchanged outside this validation boundary."])
     else:
         lines.append("- Implement the approved goal with the smallest maintainable change.")
+        if report.get("ui_consistency", {}).get("selected"):
+            lines.append("- Preserve the established UI system: reuse existing components, tokens, layout, responsive behavior, and accessibility patterns.")
     aidlc = report.get("aidlc_requirements")
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
@@ -859,6 +921,8 @@ def verbose_start_report(report: dict[str, Any]) -> str:
         lines.append("- Program dependency order: " + " -> ".join(hands_free_program["dependency_order"]))
         lines.append(f"- First active slice: {hands_free_program['first_active_slice']}")
         lines.append(f"- Program approval gate: {hands_free_program['approval_gate']}")
+    if report.get("ui_consistency", {}).get("selected"):
+        lines.extend(["- UI discovery before implementation: `" + str(report["ui_consistency"]["command"]) + "`", "- UI preservation boundary: " + str(report["ui_consistency"]["boundary"])])
     lines.extend([f"- Boundary: {delivery['execution_boundary']}", "", "## Validation", ""])
     validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
     lines.append(f"- Focused proof: `{validation}`" if validation else "- Focused proof: select the repository-native test for the approved changed behavior.")

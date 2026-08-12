@@ -18,6 +18,16 @@ ROOT = Path(__file__).resolve().parents[1]
 OFFICIAL_STAGE = "requirements"
 
 
+def _stage_goal(goal: str) -> str:
+    """Make the external-stage summary safe without changing the Planning Lock.
+
+    The Planning Lock retains the original user request verbatim.  The official
+    requirements artifact is a bounded, sanitizer-validated summary, so line
+    breaks are collapsed rather than rejected or silently truncated.
+    """
+    return " ".join(str(goal).split())
+
+
 def _sanitizer() -> Any:
     spec = importlib.util.spec_from_file_location("official_aidlc_requirements_sanitizer", ROOT / "scripts" / "official-aidlc-sanitize.py")
     module = importlib.util.module_from_spec(spec)
@@ -105,7 +115,8 @@ def _question_markdown(goal: str, questions: list[dict[str, Any]], contract: dic
 
 def gather(root: Path, bridge: dict[str, Any], goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]]) -> dict[str, Any]:
     contract = stage_contract(root, bridge)
-    questions = _questions(goal, requirements, feedback)
+    stage_goal = _stage_goal(goal)
+    questions = _questions(stage_goal, requirements, feedback)
     payload = {
         "stage": "Official AI-DLC Requirements Analysis",
         "authority": "official-ai-dlc-pack",
@@ -113,10 +124,10 @@ def gather(root: Path, bridge: dict[str, Any], goal: str, requirements: list[dic
         "official_references": contract,
         "official_intent_id": bridge["official_intent_id"],
         "official_session_id": bridge["official_session_id"],
-        "goal": goal,
+        "goal": stage_goal,
         "requirements": requirements,
         "questions": questions,
-        "question_markdown": _question_markdown(goal, questions, contract),
+        "question_markdown": _question_markdown(stage_goal, questions, contract),
         "stage_gate": "The official Requirements Analysis questions and requirement boundary must be explicitly approved before TailTrail freezes its anchor.",
     }
     _sanitizer().validate_artifact(root.resolve(), payload, "requirements")

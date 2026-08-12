@@ -207,6 +207,21 @@ FLOWS: dict[str, IntentFlow] = {
         validation=["python3 scripts/aidlc-check.py --root ."],
         notes=["Keep lifecycle docs compact. Use comprehensive depth only for high-risk or multi-team work."],
     ),
+    "aidlc_full": IntentFlow(
+        name="aidlc_full",
+        title="TailTrail Official AI-DLC (Full Mode)",
+        prompt=(
+            "Use Full AI-DLC mode with the pinned official AWS AI-DLC pack. First verify `tailtrail aidlc official "
+            "status --root .` is compatible. For a task, create a new TailTrail Start Planning Lock using "
+            "`--aidlc full`; official requirements lead the lifecycle and TailTrail preserves the approved anchor, "
+            "evidence, drift controls, and completion record. Do not silently downgrade to Standard mode."
+        ),
+        load=[".tailtrail/official-aidlc/manifest.json", "AIDLC.md", "tailtrail-policy.md when present", "GUARDRAILS.md evidence/uncertainty/approval/validation/exactness sections", "official AI-DLC Requirements Analysis rule after pack compatibility passes"],
+        avoid=["unverified pack files", "arbitrary pack-script execution", "all lifecycle artifacts before an active task exists"],
+        run_order=["verify pinned official-pack compatibility", "start a new Full-mode Planning Lock with the user goal", "run official requirements stage", "approve the resulting anchor", "attach/record official lifecycle receipts and TailTrail evidence"],
+        validation=["python3 scripts/tailtrail.py aidlc official status --root .", "python3 scripts/tailtrail.py start \"<goal>\" --aidlc full --verbose"],
+        notes=["This phrase selects Full-mode readiness only; it cannot create a Planning Lock without a task goal.", "Full mode is blocked rather than downgraded when the official pack is missing or altered."],
+    ),
     "aidlc_review": IntentFlow(
         name="aidlc_review",
         title="TailTrail AIDLC Then Review",
@@ -358,6 +373,7 @@ ALIASES: list[tuple[str, str]] = [
     ("review", r"\b(tailtrail review|use review|review this|review diff|code review)\b"),
     ("handoff", r"\b(handoff|hand off|transfer package|closeout)\b"),
     ("token", r"\b(token|save tokens|route context|token router|token autopilot|slice context)\b"),
+    ("aidlc_full", r"\b(full\s+(official\s+)?aidlc|use\s+aidlc\s+full|aidlc\s+full\s+mode)\b"),
     ("aidlc", r"\b(aidlc|lifecycle|standard depth|comprehensive depth|minimal depth)\b"),
     ("implementation", r"\b(use tailtrail|tailtrail|implement|fix this|small change|refactor)\b"),
 ]

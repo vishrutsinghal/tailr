@@ -27,6 +27,7 @@ The resolver is `scripts/expand-intent.py`. It converts phrases such as `use AID
 | `dependency_review` | `use dependency review`, `package review` | Review dependency additions, upgrades, replacements, and package risk. |
 | `dependency` | `use dependency gate`, `check dependency`, `can we add this package` | Apply the dependency gate before adding or recommending a package. |
 | `aidlc` | `use aidlc`, `run aidlc`, `aidlc standard` | Use lifecycle structure for broad, risky, ambiguous, or long-running work. |
+| `aidlc_full` | `use full AIDLC mode`, `full AIDLC`, `use AIDLC full` | Verify the pinned official pack, then require a new Start command with `--aidlc full`; never silently downgrade to Standard. |
 | `aidlc_review` | `use aidlc and review`, `run aidlc then review`, `full flow` | Plan/manage the work with AIDLC, implement, then review the final diff. |
 | `review_aidlc` | `review then aidlc`, `stabilize then document` | Review existing changes first, then update lifecycle docs to match the intended path. |
 | `aidlc_handoff` | `use aidlc and handoff`, `run aidlc then handoff` | Manage work with AIDLC, then create a transfer package. |

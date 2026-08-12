@@ -855,6 +855,13 @@ linked to requirement IDs and exact evidence receipts, while missing or blocked
 integration/E2E proof remains a visible completion gap. Mode B recovery and the
 threshold-triggered Recovery Diagnostician are implemented local V1 controls.
 
+Navigator UI Consistency Guardrail V1 is implemented as a lightweight companion
+to Behaviour Harness: UI/frontend/screen/page/component/style signals select a
+preservation boundary, then the read-only `tailtrail ui discover` command maps
+existing shared components, comparable screens, styles/tokens, packages, and
+any project-owned visual-test setup. It requires reuse of the established UI
+system and does not add a UI library or claim screenshot equivalence.
+
 Higher-tier testing and release confidence V1 is implemented through
 repository-declared integration, contract, E2E, infrastructure, and
 release-smoke adapter commands. Every outcome is recorded as tier-labelled,

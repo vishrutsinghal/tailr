@@ -135,6 +135,7 @@ first slice to execute.
 | Canonical requirements + Completion Harness | Any non-tiny code task | Goal, then approved anchor | Requirement boundary, checkpoint/review path | Source edits, test execution, approval |
 | Impact Map + Architecture Fitness | Multiple changed paths, or feature/service/API/migration wording | Changed paths and approved architecture contract | Caller/test/path mapping and structural assessment | Assumed callers or correction writes |
 | Behaviour Harness | UI/API/endpoint/workflow/journey wording | Approved scenario plus matching receipt | Behaviour evidence assessment | Invented integration/E2E proof |
+| UI Consistency Guardrail | UI/frontend/screen/page/component/layout wording, or a frontend/style changed path | Existing local component, screen, style/token, and package evidence | Preservation boundary plus reusable-pattern inventory | Adding a UI library, visual regression suite, or claiming pixel-level proof |
 | Maintainability Harness | Navigator classifies a refactor | Approved requirement and changed scope | Complexity/scope assessment | Style-only blocking |
 | Program Delivery | Prompt includes `hands-free` or `end-to-end` | Broad goal and feature/phase plan | Program sequence and resume state | Unapproved long-running work |
 | Context Continuity + correction | Explicit `--run-id` has feedback or drift | Feedback/checkpoint artifacts | Compact packet and one bounded correction route | Guessed run ID or endless retry |
@@ -221,6 +222,29 @@ Proof: passing integration receipt asserting the retry schedule behavior.
 
 You declare the scenario and supply real local/CI proof. Without it, the result
 is incomplete; TailTrail never invents integration or E2E evidence.
+
+## UI Consistency Guardrail
+
+Navigator selects this alongside Behaviour Harness whenever the task concerns a
+UI, frontend, page, screen, component, layout, typography, theme, responsive
+behavior, accessibility, or a supplied frontend/style path. Before implementation
+it performs only read-only discovery:
+
+```text
+tailtrail ui discover --root . --changed src/pages/Checkout.tsx
+```
+
+The result identifies reusable shared components, comparable screens, style and
+token files, frontend package evidence, and any already-installed Storybook,
+Playwright, or Cypress evidence. The approved boundary is to reuse the existing
+layout/grid, spacing, typography, colors/theme, controls, responsive patterns,
+and accessibility states; it explicitly forbids a new UI library, global visual
+system, font, or unrelated redesign unless separately approved.
+
+This is not screenshot comparison. If the repository already has a project-owned
+visual test, TailTrail can select that as evidence after approval. Otherwise the
+Completion Report records code-level UI consistency evidence only and does not
+claim pixel-level equivalence.
 
 ## 4. Maintainability Harness
 

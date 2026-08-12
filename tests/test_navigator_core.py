@@ -659,6 +659,28 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("First active slice", rendered)
         self.assertNotIn("Inspect the validator", rendered)
 
+    def test_hands_free_amendment_requirements_preserve_cancellation_without_becoming_cancellation_work(self) -> None:
+        goal = (
+            "hands-free: add an order-amendment capability. Before fulfilment a customer may change quantity and delivery address; "
+            "after allocation quantity may only decrease and release excess inventory; after shipment only an authorized address correction is allowed. "
+            "Use idempotent payment delta, audit, notification, API, tests, migration, CI, and rollout evidence. Preserve create-order and cancellation behavior."
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            report = task_start.build_report(goal, Path(temp), [], "tailtrail")
+
+        requirements = report["guided_delivery"]["hands_free_program"]["feature_requirements"]
+        statements = [item["statement"] for item in requirements]
+        joined = " ".join(statements).lower()
+        self.assertIn("amendment eligibility", joined)
+        self.assertIn("authoritative order revision", joined)
+        self.assertIn("stale concurrent amendment", joined)
+        self.assertIn("excess reserved inventory", joined)
+        self.assertIn("partial refund", joined)
+        self.assertIn("create-order and cancellation behavior", joined)
+        self.assertNotIn("eligible cancellation succeeds", joined)
+        self.assertGreaterEqual(len(requirements), 10)
+        self.assertIn("new Full-mode Planning Lock", report["aidlc_mode"]["full_escalation"]["reason"])
+
     def test_task_start_uses_only_explicit_run_evidence_for_correction_and_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

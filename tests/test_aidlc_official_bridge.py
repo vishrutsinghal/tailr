@@ -133,6 +133,29 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
         self.assertIn("aidlc-official/requirements/approval-v1.json", activated["official_stage_approval"])
         self.assertIn("anchors/approved-v1.json", activated["anchor"])
 
+    def test_full_hands_free_start_accepts_a_multiline_goal_in_the_official_stage(self):
+        goal = """hands-free: add an order-amendment capability end to end.
+
+Before fulfilment starts, a customer may change quantity and delivery address.
+After shipment starts, product and quantity changes are forbidden, but an
+operations user may correct a delivery address with an audit reason.
+
+Include payment reconciliation, API contract, tests, CI evidence, migration
+compatibility, and rollout/rollback planning. Preserve cancellation behavior."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            compatible_pack(root)
+            result = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), goal, "--root", root.as_posix(), "--format", "json"],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            report = json.loads(result.stdout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["aidlc_mode"]["mode"], "full")
+        self.assertEqual(report["goal"], goal)
+        self.assertNotIn("\n", report["aidlc_requirements"]["aidlc_stage"]["goal"])
+        self.assertIn("order-amendment capability", report["aidlc_requirements"]["aidlc_stage"]["goal"])
+
     def test_full_mode_rejection_routes_to_official_design_not_local_questions(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

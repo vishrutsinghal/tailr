@@ -162,6 +162,26 @@
       "deprecated_in_version": null
     },
     {
+      "id": "ui-consistency-guardrail",
+      "title": "UI Consistency Guardrail",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Navigator UI Consistency Guardrail",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": ["tailtrail ui discover"],
+      "docs": ["tailtrail-automation-guide.md", "TAILTRAIL-COMMANDS.md"],
+      "scripts": ["scripts/ui-consistency.py"],
+      "tests": ["tests/test_ui_consistency.py"],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": ["navigator", "bootstrap-snapshot"],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
       "id": "architecture-fitness-harness",
       "title": "Architecture Fitness Harness",
       "status": "implemented",
@@ -397,10 +417,12 @@
         "MCP-SERVER.md"
       ],
       "scripts": [
-        "scripts/aidlc-official-detect.py"
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-install.py"
       ],
       "tests": [
         "tests/test_aidlc_official_detect.py",
+        "tests/test_aidlc_official_install.py",
         "tests/test_mcp_server.py",
         "tests/test_cli_dispatch.py"
       ],

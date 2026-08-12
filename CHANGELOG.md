@@ -8,6 +8,14 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 
 ### Added
 
+- Hands-free Start requirement extraction now recognizes order-amendment work
+  before preservation references. Prompts that say to preserve cancellation no
+  longer drift into cancellation requirements; amendment eligibility, revision,
+  concurrency, inventory/payment delta, audit, notification, contract,
+  migration, and rollout evidence are represented explicitly. Full AIDLC
+  escalation now states that a verified pack and a new Full-mode Planning Lock
+  are required rather than implying an in-place Standard-to-Full upgrade.
+
 - Real-host runtime conformance Phase J: portable six-scenario bundles for
   Codex, Copilot, and Claude; sanitized integrity-checked receipt intake;
   canonical-state probes; immutable ledger-linked evaluations; separate

@@ -2455,7 +2455,15 @@ Overrides can replace the prompt, files to load, files to avoid, run order, vali
 
 TailTrail's local AIDLC Lifecycle Lite is separate from the external AWS AI-DLC
 Workflows project. If your team has independently placed a pinned official
-pack in the project, inspect its provenance without executing it:
+pack in the project, install the pinned AWS release first. The installer uses a
+published release rather than a branch, writes a local integrity manifest, and
+does not execute arbitrary pack content:
+
+```powershell
+py -3 scripts\tailtrail.py aidlc official install --root "D:\path\to\your-project" --host codex
+```
+
+Then inspect its provenance without executing it:
 
 ```bash
 python3 scripts/tailtrail.py aidlc official status --root .

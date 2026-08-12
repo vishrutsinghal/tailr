@@ -91,6 +91,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/task-start.py",
     "scripts/testing-profile.py",
     "scripts/token_budget_coach.py",
+    "scripts/ui-consistency.py",
     "scripts/validation-receipt.py",
 )
 

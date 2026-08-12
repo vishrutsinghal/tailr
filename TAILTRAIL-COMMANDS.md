@@ -54,6 +54,7 @@ Use these when a user is new to TailTrail, onboarding a team, or checking whethe
 | I want to know which surface is installed. | `python3 scripts/tailtrail.py install status --target /path/to/project` | `Show TailTrail install status for this project, including installed surface and what Extended upgrade would add.` | Reads the install manifest and reports Core vs Extended. |
 | I want to record whether TailTrail helped. | `python3 scripts/tailtrail.py outcome capture ... --approved` | `Use TailTrail outcome capture for this completed task. Record acceptance, validation result, review result, time-saved band, and learning quality only after I approve.` | Records one compact approved adoption outcome. |
 | I want Navigator to start from safe repo facts. | `python3 scripts/tailtrail.py bootstrap snapshot --root . --write-result` | `Use TailTrail Bootstrap Snapshot for this repo. Capture safe repo/runtime facts before Navigator planning, without reading source bodies or executing project code.` | Creates `.tailtrail/bootstrap-snapshot.json` for local pre-task planning. |
+| I am changing a UI screen and must preserve the current product look. | `python3 scripts/tailtrail.py ui discover --root . --changed src/pages/Example.tsx` | `Use TailTrail for this UI change. Preserve existing repository UI conventions and plan first.` | Read-only discovery of reusable components, comparable screens, styles/tokens, frontend packages, and any existing visual-test setup. UI wording or frontend/style paths automatically select the UI Consistency Guardrail in Start. |
 | I want to know whether TailTrail itself behaved well. | `python3 scripts/tailtrail.py harness review --root .` | `Use TailTrail Harness Review locally. Check workflow fit, context fit, validation fit, metric confidence, learning fit, scanner/security fit, and code precision fit. Do not share or commit metadata.` | Reviews local TailTrail harness behavior without model calls or git sharing. |
 | I want an MCP-capable assistant to call TailTrail directly. | `python3 scripts/tailtrail.py mcp tools` then `python3 scripts/tailtrail.py mcp serve` | `Use TailTrail MCP. Inspect local TailTrail artifacts first; use a controlled check only with explicit approval.` | Exposes Navigator, run/evidence/recovery inspection, and one approval-gated repository-control runner. |
 | I cloned a repo that already has TailTrail files. | `python3 scripts/tailtrail.py setup-scan --root .` | `Use TailTrail setup scan for this repo. Classify shared TailTrail files, local runtime state, overrides, and safe next setup steps.` | Classifies shared project context versus local user state. |
@@ -1327,7 +1328,22 @@ python3 scripts/tailtrail.py aidlc check --root . --strict-answers
 
 Use AIDLC for broad, risky, ambiguous, regulated, multi-team, or long-running work. Do not use it for tiny clear edits unless the user asks.
 
-### Official AWS AI-DLC pack compatibility (read-only)
+### Official AWS AI-DLC pack installation and compatibility
+
+Install the pinned official AWS AI-DLC release into the current project before
+using `--aidlc full`. This is separate from TailTrail's local Lite and Standard
+modes. The installer downloads the published AWS release, preserves its MIT-0
+license, records SHA-256 hashes for every installed rule, and does not execute
+any pack script.
+
+```powershell
+py -3 scripts\tailtrail.py aidlc official install --root "D:\path\to\your-project" --host copilot
+py -3 scripts\tailtrail.py aidlc official status --root "D:\path\to\your-project"
+```
+
+On macOS/Linux, use `python3 scripts/tailtrail.py` in the same commands. The
+pack is saved locally at `.tailtrail/official-aidlc/`; it is project-local and
+should not be manually edited after installation.
 
 ```bash
 python3 scripts/tailtrail.py aidlc official status --root .

@@ -227,6 +227,7 @@ class InstallProfileTests(unittest.TestCase):
         self.assertEqual(manifest["surface"], "extended")
         self.assertIn("scripts/completion-report.py", manifest["files"])
         self.assertIn("scripts/official-aidlc-runtime.py", manifest["files"])
+        self.assertIn("scripts/aidlc-official-install.py", manifest["files"])
         self.assertIn("scripts/host-runtime-conformance.py", manifest["files"])
         self.assertIn("schemas/official-aidlc-session.schema.json", manifest["files"])
         self.assertIn("schemas/official-aidlc-transition-receipt.schema.json", manifest["files"])

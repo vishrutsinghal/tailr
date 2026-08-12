@@ -96,6 +96,7 @@ class CliDispatchTests(unittest.TestCase):
     def test_official_aidlc_status_has_a_public_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if action == "official":', body)
+        self.assertIn('return run_script("aidlc-official-install.py", rest[1:])', body)
         self.assertIn('return run_script("aidlc-official-detect.py", rest)', body)
         self.assertIn('return run_script("aidlc-official-bridge.py", rest[1:])', body)
         self.assertIn('return run_script("official-aidlc-state.py", rest[1:])', body)
@@ -117,6 +118,11 @@ class CliDispatchTests(unittest.TestCase):
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if command == "first-run":', body)
         self.assertIn('return run_script("first-run.py", args)', body)
+
+    def test_ui_discovery_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if command == "ui":', body)
+        self.assertIn('return run_script("ui-consistency.py", args)', body)
 
     def test_user_facing_docs_do_not_advertise_importable_module_paths(self) -> None:
         for doc in USER_FACING_DOCS:

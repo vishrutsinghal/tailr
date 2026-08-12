@@ -149,6 +149,18 @@ TASK_KEYWORDS = {
 
 TINY_KEYWORDS = ("typo", "comment", "rename", "readme", "docs only", "documentation only")
 
+# UI changes need a small extra boundary: the requested screen should fit the
+# repository's established design system instead of introducing a parallel one.
+# This is deliberately lexical and path-based; it routes planning and does not
+# claim visual equivalence or run a browser during a Planning Lock.
+UI_GOAL_TERMS = (
+    "ui", "user interface", "frontend", "front end", "screen", "page",
+    "component", "layout", "modal", "dialog", "form", "dashboard",
+    "button", "typography", "font", "theme", "responsive", "accessibility",
+)
+UI_PATH_SUFFIXES = (".css", ".scss", ".sass", ".less", ".jsx", ".tsx", ".vue", ".svelte")
+UI_PATH_PARTS = {"components", "component", "ui", "views", "pages", "screens", "styles", "theme", "frontend", "client"}
+
 NAVIGATOR_PREFIX = re.compile(
     r"^\s*(?:(?:using|use)\s+)?(?:tailtrail\s+)?navigator\b\s*[:,.-]?\s*",
     re.IGNORECASE,
@@ -429,6 +441,26 @@ def task_types(goal: str) -> list[str]:
         if word in lowered and task not in found:
             found.append(task)
     return found or ["implementation"]
+
+
+def ui_change_requested(goal: str, changed: list[str]) -> bool:
+    """Identify a UI change without mistaking an API's word "component" for one.
+
+    A direct UI term is sufficient.  A supplied frontend/style path is also
+    sufficient because it is concrete user scope, not a guess from the whole
+    repository.  This function only selects a preservation guardrail; source
+    discovery remains an approved read-only delivery step.
+    """
+    lowered = goal.lower()
+    if any(term in lowered for term in UI_GOAL_TERMS):
+        return True
+    for raw_path in changed:
+        path = Path(raw_path.replace("\\", "/"))
+        if path.suffix.lower() in UI_PATH_SUFFIXES:
+            return True
+        if any(part.lower() in UI_PATH_PARTS for part in path.parts):
+            return True
+    return False
 
 
 def risk_indicators(goal: str, changed: list[str]) -> list[str]:
