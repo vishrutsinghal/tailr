@@ -47,13 +47,15 @@ def gather(goal: str, requirements: list[dict[str, Any]], feedback: list[dict[st
     functional = [row for row in requirements if row.get("kind") != "preserve"]
     constraints = [row for row in requirements if row.get("kind") == "preserve"]
     statements = " ".join(str(row.get("statement", "")) for row in requirements).lower()
-    questions = _questions_for(f"{goal.lower()} {statements}", feedback)
+    prompt_context = f"{goal.lower()} {statements}"
+    questions = _questions_for(prompt_context, feedback)
     return {
         "stage": "AIDLC Requirements",
         "stage_evidence": evidence,
         "goal": goal,
         "functional_requirements": functional,
         "constraints": constraints,
+        "known_facts": _known_facts(prompt_context),
         "assumptions": ["Current Planning Lock scope is a proposal, not approved implementation scope."],
         "non_goals": ["Do not inspect source, run tests, edit files, or implement code before the revised requirement boundary is approved."],
         "questions": questions,
@@ -103,14 +105,94 @@ def _questions_for(statements: str, feedback: list[dict[str, Any]]) -> list[dict
             ),
         ]
     else:
-        questions = [
-            _question("Q1", "What exact observable outcome defines completion?", ["Specified behavior only", "Specified behavior plus caller/integration behavior"], "Specified behavior plus caller/integration behavior when a caller is affected", "Requirements need a testable outcome and an explicit boundary."),
-            _question("Q2", "What existing behavior must be preserved?", ["Only the named happy path", "All behavior outside the approved change boundary"], "All behavior outside the approved change boundary", "Preservation rules prevent accidental scope expansion."),
-            _question("Q3", "What is the minimum acceptable proof?", ["Focused unit test", "Focused unit test plus integration/contract evidence"], "Focused unit test; add higher-tier proof only if a caller or contract is affected", "Evidence should match the requirement without adding unnecessary test cost."),
-        ]
+        questions = _task_shaped_questions(statements)
     comments = "; ".join(dict.fromkeys(str(row.get("comment", "")).strip() for row in feedback if str(row.get("comment", "")).strip()))
     if comments:
-        questions.append(_question("Q4", f"How should this prior review concern change the requirement boundary: {comments}", ["Clarify the affected requirement", "Expand the requirement boundary and proof plan"], "Clarify first", "Preserve the smallest coherent scope unless the feedback demonstrates a missing dependency or contract."))
+        next_id = f"Q{len(questions) + 1}"
+        questions.append(_question(next_id, f"How should this prior review concern change the requirement boundary: {comments}", ["Clarify the affected requirement", "Expand the requirement boundary and proof plan"], "Clarify first", "Preserve the smallest coherent scope unless the feedback demonstrates a missing dependency or contract."))
+    return questions
+
+
+def _known_facts(statements: str) -> list[str]:
+    """List material facts already supplied, so AIDLC does not ask them again."""
+    facts: list[str] = []
+    checks = (
+        (("react", "frontend", "ui", "page/tool", "form"), "A frontend/UI change is requested."),
+        (("existing", "reuse", "do not add new dependenc"), "Existing project components and dependencies must be reused where possible."),
+        (("figma", "reference", "spec doc"), "A read-only design or specification reference was supplied."),
+        (("event header", "mandatory block", "audit event"), "The requested feature includes event-header and mandatory audit-block inputs."),
+        (("uuid", "message id"), "Message ID generation is part of the requested behavior."),
+        (("sender id", "required field", "mandatory field"), "Required-field validation is explicitly requested."),
+        (("api", "contract"), "An API or contract impact is in scope."),
+        (("test", "acceptance criteria"), "Validation evidence is required before completion."),
+    )
+    for terms, fact in checks:
+        if any(term in statements for term in terms) and fact not in facts:
+            facts.append(fact)
+    return facts
+
+
+def _task_shaped_questions(statements: str) -> list[dict[str, Any]]:
+    """Ask decisions that remain open for the request's detected work shape.
+
+    This is deliberately deterministic and prompt-only: the Requirements stage
+    has not inspected source yet, so it must not invent repository facts.
+    """
+    ui_terms = ("frontend", "react", " ui", "page", "form", "component", "figma", "layout")
+    api_terms = ("api", "endpoint", "contract", "backend")
+    questions: list[dict[str, Any]] = []
+
+    if any(term in statements for term in ui_terms):
+        questions.extend([
+            _question(
+                "Q1",
+                "What must the generated pipeline audit-event hierarchy do after the user completes the form?",
+                ["Render an in-page preview only", "Render a preview and expose the existing project save/export action", "Submit the hierarchy through an existing API contract"],
+                "Render a preview and reuse an existing save/export action when the target project already provides one.",
+                "The request defines how users enter common values, but not the final delivery action. This decision determines whether the feature is presentation-only, reuses an existing capability, or needs an API contract.",
+            ),
+            _question(
+                "Q2",
+                "How should common Event Header and mandatory-block values behave at Step and Task level?",
+                ["Always inherit and remain read-only", "Inherit by default but allow an explicit per-event override", "Require each Step and Task to enter values independently"],
+                "Inherit by default but allow an explicit per-event override when the domain permits exceptions.",
+                "Automatic propagation is stated, but the override rule is not. Making it explicit prevents a hierarchy that either duplicates data unnecessarily or cannot represent a valid exception.",
+            ),
+            _question(
+                "Q3",
+                "When should the generated Message ID and Event Time be created?",
+                ["Once when the form opens", "When a hierarchy is generated, with an explicit regenerate action", "Only when the hierarchy is submitted"],
+                "Generate when the hierarchy is generated and provide an explicit regenerate action if the UI supports it.",
+                "UUID and time values need a stable lifecycle; regenerating them on every render would make the preview unreliable and break repeatable validation.",
+            ),
+            _question(
+                "Q4",
+                "What validation experience is required before generation?",
+                ["Inline field errors only", "Inline errors plus a form-level summary and focus to the first invalid field", "Allow generation and show errors only in generated output"],
+                "Inline errors plus a form-level summary and focus to the first invalid field.",
+                "Mandatory inputs such as Sender ID need clear, accessible feedback before hierarchy generation; output-only errors make correction slow and can produce invalid audit data.",
+            ),
+        ])
+        if not any(term in statements for term in api_terms):
+            questions.append(_question(
+                "Q5",
+                "Should this first frontend delivery remain local to the UI, or is persistence/API integration required now?",
+                ["Local preview/generation only", "Reuse an already-existing API", "Define a new API contract as part of this change"],
+                "Reuse an already-existing API if one exists; otherwise keep the first delivery local unless the product requirement requires persistence.",
+                "The request names a frontend target but does not state persistence behavior. This prevents an accidental backend expansion while leaving a deliberate contract change possible.",
+            ))
+    elif any(term in statements for term in api_terms):
+        questions = [
+            _question("Q1", "Which existing contract must the new behavior extend or preserve?", ["An existing endpoint/contract", "A new versioned contract", "Internal service behavior only"], "Extend the existing contract when it supports the requested behavior.", "The contract boundary determines compatibility, callers, and the minimum evidence needed."),
+            _question("Q2", "Which success, validation, conflict, and failure outcomes must clients observe?", ["Reuse existing error conventions", "Define explicit new response cases"], "Reuse existing project error conventions and add only the cases the new behavior needs.", "API completion must be observable and testable without silently changing client behavior."),
+            _question("Q3", "What proof is required for the caller path?", ["Focused service tests", "Service plus contract/integration evidence"], "Service plus contract/integration evidence when a client-facing contract changes.", "A passing internal unit test alone does not prove clients receive the intended contract."),
+        ]
+    else:
+        questions = [
+            _question("Q1", "Which user-visible or caller-visible result remains unspecified in this request?", ["No additional result; implement only the stated behavior", "Clarify the missing output or state transition"], "No additional result when the stated acceptance criteria are complete.", "This asks for a real unresolved behavior instead of asking the user to restate the whole outcome."),
+            _question("Q2", "Which named integration, data boundary, or side effect needs an explicit compatibility decision?", ["None beyond the stated scope", "Identify the affected boundary and preservation rule"], "Identify one only when the request names an integration, persistence change, or external effect.", "It keeps the requirement boundary narrow while making material compatibility decisions visible."),
+            _question("Q3", "What focused evidence proves the stated acceptance criteria at the affected boundary?", ["Focused local tests", "Focused tests plus integration/contract evidence"], "Use the smallest evidence tier that covers the named boundary.", "The proof decision should follow the requested behavior and affected boundary, rather than use a generic test preference."),
+        ]
     return questions
 
 
