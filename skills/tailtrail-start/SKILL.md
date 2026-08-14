@@ -23,10 +23,12 @@ tailtrail start "<user goal>"
 
 When the local TailTrail MCP server is available, call the single
 `tailtrail_start` tool with `approved: true` and the user goal. Do not split it
-into separate lock and report calls. Otherwise, run:
+into separate lock and report calls. Otherwise, resolve the launcher in this
+order: `tailtrail/scripts/tailtrail.py` (installed pack), then
+`scripts/tailtrail.py` (source checkout), then run:
 
 ```text
-python3 scripts/tailtrail.py start "<user goal>"
+python3 tailtrail/scripts/tailtrail.py start "<user goal>"
 ```
 
 When the user includes `--verbose`, pass `verbose: true` to the MCP tool (or

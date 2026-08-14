@@ -23,11 +23,22 @@ When the review follows a TailTrail Navigator or AIDLC plan, include a requireme
 - ask concise clarification questions when fulfillment cannot be judged from the diff and available requirements
 - do not treat code health as sufficient if the requested behavior was not actually delivered
 
+When an approved TailTrail run exists, retain its exact run ID and review the
+saved approved requirement boundary, changed scope, checkpoints, and evidence
+for that run. Do not create a new TailTrail Start run, infer a new task from a
+pasted failure, or widen the review to unrelated Git changes.
+
 Use the command surface when available:
 
+Resolve the launcher in this order: `tailtrail/scripts/tailtrail.py` for an
+installed pack, then `scripts/tailtrail.py` for a source checkout.
+
 ```bash
-python3 scripts/tailtrail.py review
-python3 scripts/tailtrail.py review --scope branch --base main
+# Installed pack example
+python3 tailtrail/scripts/tailtrail.py review
+python3 tailtrail/scripts/tailtrail.py review --scope branch --base main
+
+# Source checkout example
 python3 scripts/tailtrail.py review --scope path --dir services/payment
 python3 scripts/tailtrail.py test plan --changed path/to/file
 ```
