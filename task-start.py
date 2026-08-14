@@ -6,6 +6,7 @@ import argparse
 import importlib.util
 import json
 import math
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -218,35 +219,20 @@ def hands_free_requirements(goal: str) -> list[dict[str, str]]:
 
 
 def _aidlc_intent(lowered: str) -> str:
-    """Return the intended AIDLC mode from any natural-language wording.
+    """Classify explicit AIDLC mode without treating task wording as a mode.
 
-    Uses word-presence rather than exact phrase matching so the user can write
-    anything reasonable — "use standard AIDLC", "AIDLC standard", "apply the
-    standard AIDLC mode", "with AIDLC", "implement using AIDLC", etc. — and
-    still get the correct mode.
-
-    Returns: "opt-out" | "full" | "standard" | "requested" | "none"
+    A task may reasonably say "full hierarchy" or "complete feature". Those
+    words select Full AIDLC only when adjacent to the AIDLC name.
     """
-    has_aidlc = "aidlc" in lowered or "ai-dlc" in lowered
-    if not has_aidlc:
+    normalized = lowered.replace("ai-dlc", "aidlc")
+    if "aidlc" not in normalized:
         return "none"
-
-    # Opt-out wins over everything except an explicit flag.
-    opt_out_words = ("without", "no", "skip", "disable", "do not use", "don't use", "off")
-    if any(w in lowered for w in opt_out_words):
+    if re.search(r"\b(without|skip|disable|no)\s+aidlc\b|\baidlc\s+(off|disabled)\b", normalized):
         return "opt-out"
-
-    # Full / official requires an explicit signal word alongside aidlc.
-    full_words = ("full", "official", "complete", "enterprise")
-    if any(w in lowered for w in full_words):
+    if re.search(r"\b(full|official|enterprise)\s+aidlc\b|\baidlc\s+(full|official|enterprise)\b", normalized):
         return "full"
-
-    # Standard — any of these words alongside aidlc → standard mode.
-    standard_words = ("standard", "normal", "default mode", "medium", "regular")
-    if any(w in lowered for w in standard_words):
+    if re.search(r"\b(standard|medium|normal|regular)\s+aidlc\b|\baidlc\s+(standard|medium|normal|regular)\b", normalized):
         return "standard"
-
-    # AIDLC mentioned without a qualifier → standard (stronger than lite).
     return "requested"
 
 

@@ -44,6 +44,25 @@ REPOSITORY_DISCOVERY_MANIFESTS = {
 REPOSITORY_DISCOVERY_EXCLUDED_NAMES = {
     "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "poetry.lock",
 }
+_TAILTRAIL_MANAGED_PATH_PREFIXES = (
+    "tailtrail/",
+    "skills/tailtrail",
+    "skills/tailtrail-review",
+    "skills/tailtrail-start",
+    ".codex-plugin/",
+    ".github/copilot-instructions.md",
+    ".github/prompts/tailtrail-",
+    ".cursor/rules/tailtrail",
+    ".openai/chatgpt-instructions.md",
+    ".claude/commands/tailtrail",
+    "AGENTS.md",
+    "AIDLC.md",
+    "GUARDRAILS.md",
+    "DEPENDENCY-GATE.md",
+    "TAILTRAIL-COMMANDS.md",
+    "TOKEN-AUTOPILOT.md",
+    "TOKEN-SLICER.md",
+)
 
 
 def load_registry_module() -> Any | None:
@@ -270,9 +289,12 @@ def repository_discovered_paths(root: Path, goal: str, limit: int = 5) -> list[s
 
 
 def is_actionable_changed_path(root: Path, path: str) -> bool:
-    """Ignore generated files and managed packs that are not project changes."""
+    """Ignore generated files and TailTrail-managed files, not project changes."""
     relative = Path(path)
     if "__pycache__" in relative.parts:
+        return False
+    posix = relative.as_posix()
+    if any(posix == prefix.rstrip("/") or posix.startswith(prefix) for prefix in _TAILTRAIL_MANAGED_PATH_PREFIXES):
         return False
     if relative.parts and (root / relative.parts[0] / ".tailtrail-install.json").is_file():
         return False

@@ -6,6 +6,7 @@ import argparse
 import importlib.util
 import json
 import math
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -209,6 +210,25 @@ def hands_free_requirements(goal: str) -> list[dict[str, str]]:
     return [{"display_id": f"REQ-{index:02d}", "statement": statement} for index, statement in enumerate(statements, start=1)]
 
 
+def _aidlc_intent(lowered: str) -> str:
+    """Classify explicit natural-language AIDLC mode without relying on word order.
+
+    This intentionally recognizes only a mode qualifier next to AIDLC. Generic
+    words such as ``complete`` or ``no`` elsewhere in a product request must
+    not silently change the lifecycle mode.
+    """
+    normalized = lowered.replace("ai-dlc", "aidlc")
+    if "aidlc" not in normalized:
+        return "none"
+    if re.search(r"\b(without|skip|disable|no)\s+aidlc\b|\baidlc\s+(off|disabled)\b", normalized):
+        return "opt-out"
+    if re.search(r"\b(full|official|enterprise)\s+aidlc\b|\baidlc\s+(full|official|enterprise)\b", normalized):
+        return "full"
+    if re.search(r"\b(standard|medium|normal|regular)\s+aidlc\b|\baidlc\s+(standard|medium|normal|regular)\b", normalized):
+        return "standard"
+    return "requested"
+
+
 def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None) -> dict[str, Any]:
     """Choose the smallest lifecycle mode from explicit wording and task evidence.
 
@@ -225,18 +245,23 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
         selected["selection"] = "explicit-flag"
         selected["full_escalation"] = {"state": "not-evaluated", "reason": "An explicit mode flag takes precedence."}
         return selected
-    if any(phrase in lowered for phrase in ("without aidlc", "without ai-dlc", "do not use aidlc", "no aidlc")):
+    intent = _aidlc_intent(lowered)
+    if intent == "opt-out":
         selected = official_aidlc_bridge.preflight(root, "off", manifest)
         selected["selection"] = "explicit-natural-language-opt-out"
         selected["full_escalation"] = {"state": "not-evaluated", "reason": "The request explicitly opted out of AIDLC."}
         return selected
-    if any(phrase in lowered for phrase in ("full aidlc", "official aidlc", "full ai-dlc", "official ai-dlc")):
+    if intent == "full":
         selected = official_aidlc_bridge.preflight(root, "full", manifest)
         selected["selection"] = "explicit-natural-language-full"
         selected["full_escalation"] = {"state": "selected", "reason": "The request explicitly asked for Full official AIDLC."}
         return selected
-    requested_aidlc = any(phrase in lowered for phrase in ("using aidlc", "use aidlc", "with aidlc", "using ai-dlc", "use ai-dlc"))
-    if not hands_free and not requested_aidlc:
+    if intent == "standard":
+        selected = official_aidlc_bridge.preflight(root, "standard", manifest)
+        selected["selection"] = "explicit-natural-language-standard"
+        selected["full_escalation"] = {"state": "not-eligible", "reason": "The request explicitly asked for Standard AIDLC mode."}
+        return selected
+    if intent == "none" and not hands_free:
         selected = official_aidlc_bridge.preflight(root, "lite", manifest)
         selected["selection"] = "default"
         selected["full_escalation"] = {"state": "not-eligible", "reason": "The request is not hands-free and did not explicitly request stronger AIDLC routing."}
@@ -729,9 +754,14 @@ def build_report(
 
 def normalize_command_prefix(root: Path, command_prefix: str) -> str:
     """Render commands relative to the target project, not the agent's cwd."""
-    if "tailtrail.py" not in command_prefix:
+    normalized = command_prefix.replace("\\", "/")
+    if "tailtrail.py" not in normalized:
         return command_prefix
-    if "tailtrail/scripts/tailtrail.py" in command_prefix.replace("\\", "/"):
+    if "tailtrail/scripts/tailtrail.py" in normalized:
+        return command_prefix
+    if "scripts/tailtrail.py" in normalized:
+        if (root / "tailtrail" / "scripts" / "tailtrail.py").is_file():
+            return command_prefix.replace("scripts/tailtrail.py", "tailtrail/scripts/tailtrail.py").replace("scripts\\tailtrail.py", "tailtrail\\scripts\\tailtrail.py")
         return command_prefix
     runner = command_prefix.split("tailtrail.py", 1)[0].strip()
     if not runner:

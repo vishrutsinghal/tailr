@@ -88,6 +88,17 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
         self.assertIn("Local AIDLC Requirements stage", json.loads(requested.stdout)["aidlc_mode_features"]["included"][3])
         self.assertIn("Arbitrary official-pack script execution", json.loads(escalated.stdout)["aidlc_mode_features"]["not_included"][0])
 
+    def test_standard_aidlc_word_order_and_medium_synonym_select_standard(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            goals = ["using standard AIDLC: add a page", "AIDLC standard: add a page", "use medium AIDLC: add a page"]
+            reports = [
+                subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), goal, "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
+                for goal in goals
+            ]
+        self.assertTrue(all(report.returncode == 0 for report in reports))
+        self.assertTrue(all(json.loads(report.stdout)["aidlc_mode"]["mode"] == "standard" for report in reports))
+
     def test_full_requires_a_compatible_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(ValueError, "compatible pinned official pack"):

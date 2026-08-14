@@ -52,6 +52,9 @@ class NavigatorCoreTests(unittest.TestCase):
             (root / "tailtrail").mkdir()
             (root / "tailtrail" / ".tailtrail-install.json").write_text("{}", encoding="utf-8")
             self.assertFalse(navigator.is_actionable_changed_path(root, "tailtrail/scripts/navigator.py"))
+            self.assertFalse(navigator.is_actionable_changed_path(root, ".codex-plugin/plugin.json"))
+            self.assertFalse(navigator.is_actionable_changed_path(root, ".github/prompts/tailtrail-start.prompt.md"))
+            self.assertFalse(navigator.is_actionable_changed_path(root, "AGENTS.md"))
             self.assertFalse(navigator.is_actionable_changed_path(root, "src/__pycache__/service.pyc"))
             self.assertTrue(navigator.is_actionable_changed_path(root, "src/order_service/service.py"))
 
@@ -153,6 +156,14 @@ class NavigatorCoreTests(unittest.TestCase):
             prefix = "python3 tailtrail/scripts/tailtrail.py"
             report = task_start.build_report("fix validation", root, [], prefix)
             self.assertEqual(report["command_prefix"], prefix)
+
+    def test_task_start_keeps_source_checkout_command_without_duplicate_scripts_segment(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "tailtrail.py").write_text("", encoding="utf-8")
+            report = task_start.build_report("fix validation", root, [], "python3 scripts/tailtrail.py")
+            self.assertEqual(report["command_prefix"], "python3 scripts/tailtrail.py")
 
     def test_review_graph_paths_are_bounded_for_windows_safe_subprocesses(self) -> None:
         changed = [f"generated/{index:04d}-{'x' * 300}.py" for index in range(100)]
