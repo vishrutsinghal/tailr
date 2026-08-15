@@ -36,7 +36,7 @@ def latest(folder: Path, pattern: str) -> dict[str, Any] | None:
     files = sorted(folder.glob(pattern)); return read(files[-1]) if files else None
 
 
-def dashboard(root: Path, run_id: str) -> dict[str, Any]:
+def _base_dashboard(root: Path, run_id: str) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
     canonical_state = STATE.project(root, run_id)
     anchor_path = directory / "anchors" / "approved-v1.json"
@@ -78,11 +78,42 @@ def dashboard(root: Path, run_id: str) -> dict[str, Any]:
     return {"schema_version": "1", "type": "tailtrail-workflow-dashboard", "run_id": run_id, "goal": anchor.get("goal", ""), "requirements": rows, "harnesses": harnesses, "official_perspectives": (official_design or {}).get("perspectives", []), "canonical_state": {"status": canonical_state["status"], "valid": canonical_state["valid"], "issues": canonical_state["issues"]}, "active_requirement": active, "checkpoint": (checkpoint or {}).get("checkpoint"), "completion_review": "pass" if (review or {}).get("complete") else ("fail" if review else "unavailable"), "evidence_gate": "pass" if (gate or {}).get("complete") else ("fail" if gate else "unavailable"), "drift": {"unresolved": unresolved, "status": "unresolved" if unresolved else ("none-unresolved" if checkpoint else "unavailable")}, "execution_failures": {"status": "none-recorded" if not failure_records else ("unresolved" if open_failures else "resolved"), "open": [{"failure_id": item.get("failure_id"), "requirement_uid": (item.get("requirement") or {}).get("requirement_uid"), "route": (item.get("correction_route") or {}).get("action")} for item in open_failures]}, "recovery": "available" if recovery else "not-configured", "completion": (completion or {}).get("overall_status", "not-generated"), "boundary": "Read-only summary of saved local run artifacts. It does not run checks, edit source, apply recovery, or create a completion claim."}
 
 
+def dashboard(root: Path, run_id: str) -> dict[str, Any]:
+    """Add concise immutable planning history to the existing dashboard."""
+    root = root.resolve()
+    payload = _base_dashboard(root, run_id)
+    directory = L.state_dir(root, run_id)
+    state_path = directory / "planning" / "plan-revision-state-v1.json"
+    state = read(state_path) if state_path.is_file() else {"active_revision": 1, "pending_revision": None}
+    active_report = root / str(state.get("active_report", ""))
+    report = read(active_report).get("report", {}) if active_report.is_file() else {}
+    aidlc = report.get("aidlc_mode", {}) if isinstance(report, dict) else {}
+    discussion_path = directory / "planning" / "discussion-receipts.jsonl"
+    payload["planning"] = {
+        "active_revision": state.get("active_revision", 1),
+        "pending_revision": state.get("pending_revision"),
+        "revision_history_count": len(list((directory / "planning" / "revisions").glob("revision-v*.json"))),
+        "discussion_count": len([line for line in discussion_path.read_text(encoding="utf-8").splitlines() if line.strip()]) if discussion_path.is_file() else 0,
+        "authority_route_count": len(list((directory / "planning" / "authority-routes").glob("route-*.json"))),
+        "aidlc_mode": aidlc.get("mode", "lite") if isinstance(aidlc, dict) else "lite",
+        "aidlc_state": aidlc.get("state", "not-selected") if isinstance(aidlc, dict) else "not-selected",
+    }
+    return payload
+
+
 def markdown(payload: dict[str, Any]) -> str:
     active = payload["active_requirement"]
     lines = ["# TailTrail Workflow Dashboard", "", f"Run: `{payload['run_id']}`", f"Goal: {payload['goal'] or 'not recorded'}", "", f"Active requirement: **{active['display_id']} — {active['statement']}**" if active else "Active requirement: **none; all checkpoint requirements validated**", f"Canonical state: **{payload['canonical_state']['status']}**", f"Checkpoint: **{payload['checkpoint'] or 'none'}**", f"Completion review: **{payload['completion_review']}**", f"Evidence gate: **{payload['evidence_gate']}**", f"Drift: **{payload['drift']['status']}**", f"Recovery: **{payload['recovery']}**", f"Completion report: **{payload['completion']}**", "", "| Requirement | State | Evidence |", "| --- | --- | ---: |", *[f"| {row['display_id']} — {row['statement']} | {row['state']} | {row['evidence_count']} |" for row in payload["requirements"]]]
     harness_index = lines.index("| Requirement | State | Evidence |")
+    planning = payload.get("planning", {})
     lines[harness_index:harness_index] = [
+        "## Interactive plan history", "",
+        f"- Active revision: `{planning.get('active_revision', 1)}`",
+        f"- Pending revision: `{planning.get('pending_revision') or 'none'}`",
+        f"- Saved revisions: `{planning.get('revision_history_count', 0)}`",
+        f"- Saved discussions: `{planning.get('discussion_count', 0)}`",
+        f"- AIDLC / Intent Bridge authority routes: `{planning.get('authority_route_count', 0)}`", "",
+        f"- AIDLC mode: `{planning.get('aidlc_mode', 'lite')}` ({planning.get('aidlc_state', 'not-selected')})", "",
         "## Harness usage", "", "| Harness | Used | Status | Selection / evidence basis |",
         "| --- | --- | --- | --- |",
         *[f"| {item['name']} | {'yes' if item['used'] else 'no'} | {item['status']} | {item['basis']} |" for item in payload["harnesses"]], "",

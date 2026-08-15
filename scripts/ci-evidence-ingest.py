@@ -11,7 +11,9 @@ L=ledger()
 def ingest(root:Path,run_id:str,input_path:Path)->dict[str,Any]:
  raw=json.loads(input_path.read_text(encoding="utf-8"));items=raw.get("results",raw) if isinstance(raw,dict) else raw;provenance=raw.get("provenance",{}) if isinstance(raw,dict) else {}
  if not isinstance(items,list):raise ValueError("CI input needs a results list")
- known={r["requirement_uid"] for r in json.loads((L.state_dir(root,run_id)/"anchors"/"approved-v1.json").read_text(encoding="utf-8"))["requirements"]};receipts=[];directory=L.state_dir(root,run_id)/"validation-receipts"
+ anchors=sorted((L.state_dir(root,run_id)/"anchors").glob("approved-v*.json"))
+ if not anchors:raise ValueError("an approved anchor is required before ingesting CI evidence")
+ known={r["requirement_uid"] for r in json.loads(anchors[-1].read_text(encoding="utf-8"))["requirements"]};receipts=[];directory=L.state_dir(root,run_id)/"validation-receipts"
  for item in items:
   required={"requirement_uid","tier","outcome","command","environment","asserted_behavior"}
   if not isinstance(item,dict) or required-set(item):raise ValueError("every CI result needs requirement_uid, tier, outcome, command, environment, asserted_behavior")

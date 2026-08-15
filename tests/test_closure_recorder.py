@@ -25,6 +25,7 @@ ledger = load("closure_recorder_ledger_test", "scripts/run-ledger.py")
 anchor = load("closure_recorder_anchor_test", "scripts/change-intent-anchor.py")
 lock = load("closure_recorder_lock_test", "scripts/planning-lock.py")
 recorder = load("closure_recorder_test", "scripts/closure-recorder.py")
+evidence = load("closure_recorder_evidence_test", "scripts/execution-evidence.py")
 
 
 class ClosureRecorderTests(unittest.TestCase):
@@ -87,6 +88,17 @@ class ClosureRecorderTests(unittest.TestCase):
         self.assertTrue(second["reused"])
         self.assertEqual(first["record_id"], second["record_id"])
         self.assertEqual(activity["closure_recorded"], 1)
+
+    def test_records_from_saved_execution_evidence_without_manual_input_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root)
+            event = {"kind": "command-result", "requirement_uids": uids, "changed_paths": ["src/service.py", "tests/test_service.py"], "tier": "unit", "command_label": "cancellation tests", "command": "python -m unittest tests.test_service -v", "outcome": "pass", "environment": "local", "asserted_behavior": "cancellation behavior is covered"}
+            evidence.append(root, "run", event, True)
+            result = recorder.record(root, run_id="run")
+
+        self.assertEqual(result["validated_input"], "execution/evidence-stream.jsonl")
+        self.assertTrue(result["completion_gate"]["complete"])
 
     def test_failed_requirement_evidence_keeps_the_closure_gate_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

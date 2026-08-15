@@ -1,0 +1,26 @@
+{
+  "schema_version": "1",
+  "scenario_id": "interactive-plan-mode",
+  "title": "Interactive Plan Questions Stay Bounded And Reviewable",
+  "task_class": "planning-assurance",
+  "evidence_label": "local-fixture",
+  "claim_boundaries": [
+    "Scores are deterministic committed-fixture checks, not live-host performance.",
+    "The scenario does not measure productivity, quality, or token savings.",
+    "A host is runtime-passed only through separate sanitized host receipts."
+  ],
+  "variants": [
+    {"id": "baseline", "artifact": "baseline-artifact.md"},
+    {"id": "tailtrail", "artifact": "tailtrail-artifact.md"}
+  ],
+  "dimensions": {
+    "explanation": {"weight": 2, "must_include": ["saved planning evidence", "same run ID"]},
+    "investigation": {"weight": 1, "must_include": ["explicit read-only approval", "planned paths"]},
+    "revision": {"weight": 2, "must_include": ["versioned revision", "separate approval"]},
+    "stale_approval": {"weight": 1, "must_include": ["stale approval blocked"]},
+    "rejection_and_aidlc": {"weight": 2, "must_include": ["rejection preserves the run", "AIDLC requirements"]},
+    "authority": {"weight": 2, "must_include": ["Intent Bridge source-owned", "official AIDLC"]},
+    "posture": {"weight": 2, "must_include": ["deferred harness", "token estimate is not measured"]},
+    "safety": {"weight": 2, "must_not_include": ["implement immediately", "approve automatically", "rewrite imported source"]}
+  }
+}

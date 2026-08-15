@@ -16,12 +16,36 @@ Use TailTrail for generated code, code review, implementation plans, dependency 
 - **Graph cache freshness:** a Start plan may mark the reusable Code Graph Mapper cache stale when its metadata-only repository inventory detects added, removed, renamed, or changed relevant files. Do not refresh it during Planning Lock. Once the plan is approved, run the selected `tailtrail graph refresh --root <project-root>` command before relying on cached graph guidance; omit `--changed` when TailTrail discovered scope automatically. The user never needs to list newly added or untracked files.
 - **Closure response (strict):** after implementation of an approved active run and its selected review/validation steps, run `tailtrail completion-report --root . --run-id <active-run-id>` and return its complete stdout. Do not replace it with a generic “what I changed” summary or invent test, token, drift, or learning claims. The report separates requirement delivery from TailTrail controls and shows actual model tokens only when host/provider telemetry is explicitly linked to that run ID.
 - **Activated-run handoff (strict):** when `planning_lock_approve` or `tailtrail planning activate` returns `execution_handoff`, retain its exact run ID and obey `closure.command`. Before any final response after a source edit, execute that command through the same resolved TailTrail CLI used for Start and return its stdout verbatim. A `Changes made`, `Validation`, or next-steps narrative is never an alternative closure response.
+- **Execution evidence (strict):** for an approved active run, record only host-visible facts as they occur: changed paths as `source-edit`, actual command outcomes as `command-result`, deterministic Harness artifacts as `harness-result`, and linked CI outcomes as `ci-receipt`. Use `tailtrail execution-evidence record` or MCP `execution_evidence_record` with the same run ID and approved requirement IDs. Never create evidence from a chat summary. Before the final Completion Report, run `tailtrail closure finalize --root . --run-id <active-run-id>` so selected Harnesses consume the saved stream.
 - After code changes, recommend post-change review against both code health and requirement fulfillment.
 - Require scanner approval before running Sonar, vulnerability, audit, build, broad test, or other heavy local commands.
 - Treat learnings as advisory; current source, tests, CI, scanners, policy, guardrails, and explicit user direction always win.
 - Keep token-saving claims estimated unless measured telemetry is provided.
 - Label evidence clearly when using graph or scanner metadata: heuristic, local-ast, provider-backed, measured/validated.
 - Follow `tailtrail-policy.md` when present and never use local policy to weaken TailTrail safety rules.
+
+## Interactive Plan Mode
+
+For an awaiting-approval run, users may ask why a file, requirement, selected
+TailTrail feature, AIDLC mode, validation path, drift posture, token estimate,
+or approval boundary was chosen. Keep the **same run ID**, answer from saved
+planning evidence only, and do not inspect source or start implementation.
+
+- Use `tailtrail planning explain` or `discuss` for an evidence-labelled answer.
+- Use `planning investigate` only after explicit read-only approval and only on
+  saved planned paths.
+- Use `planning revise` only for a material update; it creates a versioned
+  proposal which requires separate approval.
+- Use `planning decision-show` for the compact lock/discussion/revision/AIDLC or
+  Intent Bridge authority summary.
+- If the user asks to switch an awaiting Lite run to Standard AIDLC, create the
+  versioned `planning aidlc-standard` proposal, require approval of that exact
+  revision, then begin Standard AIDLC requirements under the same run. This is
+  not implementation approval; requirements still require their own approval.
+- For any other feature choice, use the single `planning feature-controls-show`
+  catalog and its versioned proposal/approval flow; do not invent per-feature
+  switches or disable locked safeguards.
+- Never treat a why-question or plan-update request as implementation approval.
 
 ## Core Rules
 

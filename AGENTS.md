@@ -70,6 +70,51 @@ When a user answers an active AIDLC Requirements report, record every offered-ch
 
 When `tailtrail planning activate`, `planning_lock_approve`, or AIDLC activation returns an `execution_handoff`, retain that run's exact ID and obey its `closure.command`. Before any final response after a source edit, execute the command through the same resolved TailTrail CLI used for Start and return its stdout verbatim. A generic `Changes made`, `Validation`, or next-step narrative is never a valid TailTrail closure response. If closure evidence is missing, return the real `evidence-incomplete` Completion Report rather than inventing success.
 
+For an approved active run, record only factual host-visible execution events as they occur: changed paths as `source-edit`, actual command outcomes as `command-result`, deterministic Harness artifacts as `harness-result`, and CI receipts as `ci-receipt`. Use `tailtrail execution-evidence record` or MCP `execution_evidence_record` with the exact run ID and requirement IDs. Never derive an event from a conversational claim. At closure, run `tailtrail closure finalize --root . --run-id <run-id>` before the Completion Report so selected Harnesses consume the saved evidence stream.
+
 When an approved TailTrail plan selects a stale Code Graph Mapper cache because its metadata-only repository inventory changed, run the selected `tailtrail graph refresh --root <project-root>` command before relying on cached guidance. Do not refresh during Planning Lock. If Navigator discovered scope automatically, omit `--changed`; the mapper inventories relevant source, test, manifest, config, and IaC files, including untracked additions.
 
+### Interactive Plan Mode host boundary
+
+While a Planning Lock is awaiting approval, a user may ask why TailTrail chose
+a file, requirement, feature, AIDLC mode, validation, drift posture, token
+estimate, or approval boundary. Answer only from saved planning evidence using
+`tailtrail planning explain` / `discuss`; keep the same run ID and do not start
+implementation. A user may request a bounded saved-plan investigation only
+through the approval-gated `planning investigate` flow, and may request a
+material plan update only through `planning revise`. Use
+`tailtrail planning decision-show --run-id <id>` to summarize saved discussion,
+revision, and authority-routing state. AIDLC and Intent Bridge requirements
+remain with their designated authority; never create a parallel local rewrite.
+If the user explicitly asks to switch an awaiting Lite run to Standard AIDLC,
+create only the versioned `planning aidlc-standard` proposal, require approval
+of that exact revision, then begin Standard AIDLC requirements under the same
+run. This mode approval never approves implementation; a separate AIDLC
+requirements approval still applies. Refuse mode switches after activation,
+from non-Lite modes, or for Intent Bridge source-owned requirements.
+For any other optional TailTrail feature choice, use the single Expert Plan
+Customization catalog (`planning feature-controls-show`) and its versioned
+proposal/approval flow. Do not invent feature-specific approval paths; locked
+core safeguards remain non-configurable.
+
 Use named flows and review lenses when requested: `delivery flow`, `risk flow`, `release flow`, `architecture review`, `security review`, `QA review`, `maintainability review`, and `dependency review`. Capture durable project facts in `.tailtrail/learnings.md` only when they will help future agents avoid repeated discovery or repeated mistakes.
+
+<!-- tailtrail-official-aidlc:codex:start -->
+## Official AI-DLC Full-mode bridge (TailTrail managed)
+
+This project has a pinned, integrity-verified official AI-DLC pack.
+Apply its workflow only for an explicit TailTrail `--aidlc full` run with
+an approved Full-mode bridge. Do not load it for TailTrail Lite, Standard,
+or Off runs.
+
+- Source: `https://github.com/awslabs/aidlc-workflows`
+- Revision: `v1.0.1`
+- Exact core rule: `.aidlc/aidlc-rules/aws-aidlc-rules/core-workflow.md`
+- Rule details root: `.aidlc/aidlc-rules/aws-aidlc-rule-details`
+
+For an active Full run, read the exact core rule before the relevant
+official stage. Its detailed-rule paths resolve from the projected root
+above. Host safety and the user request still take precedence; TailTrail
+retains its approved-anchor, evidence, drift, recovery, and closure
+controls. TailTrail stores only sanitized references to official artifacts.
+<!-- tailtrail-official-aidlc:codex:end -->

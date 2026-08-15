@@ -1,0 +1,23 @@
+{
+  "schema_version": "1",
+  "scenario_id": "spec-kit-closure",
+  "title": "Spec Kit Requirement Closure",
+  "task_class": "multi-file-feature",
+  "evidence_label": "local-evidence",
+  "claim_boundaries": [
+    "This scenario scores committed sanitized artifacts only.",
+    "It does not prove live-agent quality, CI execution, or deployment safety."
+  ],
+  "variants": [
+    {"id": "baseline", "artifact": "baseline-artifact.md"},
+    {"id": "tailtrail", "artifact": "tailtrail-artifact.md"}
+  ],
+  "dimensions": {
+    "requirements": {"weight": 2, "must_include": ["requirement mapping", "approved anchor"]},
+    "evidence": {"weight": 2, "must_include": ["requirement-linked evidence", "ci receipt"]},
+    "drift": {"weight": 2, "must_include": ["source lock", "amendment"]},
+    "recovery": {"weight": 1, "must_include": ["recovery plan"]},
+    "closure": {"weight": 2, "must_include": ["convergence", "advisory release"]},
+    "claims": {"weight": 1, "must_not_include": ["guaranteed quality", "automatic deployment"]}
+  }
+}

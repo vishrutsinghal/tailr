@@ -273,7 +273,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "requirement_uid": uid,
             "display_id": requirement.get("display_id", uid),
             "statement": requirement.get("statement", ""),
-            "status": "complete" if validated else ("incomplete" if checkpoint else "unavailable"),
+            "status": "complete" if validated else ("incomplete" if checkpoint else "not-evidenced"),
             "evidence": observed.get("evidence", []),
             "findings": findings_by_requirement.get(uid, []),
             "drift": drift_by_requirement.get(uid, []),
@@ -333,7 +333,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         },
         "harnesses": harnesses,
         "changed_scope": {
-            "status": "approved" if checkpoint and not scope_findings else ("changed-beyond-approved" if scope_findings else "unavailable"),
+            "status": "approved" if checkpoint and not scope_findings else ("changed-beyond-approved" if scope_findings else "not-assessed"),
             "changed_paths": (checkpoint or {}).get("changed_paths", []),
             "findings": scope_findings,
         },
@@ -348,13 +348,13 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "findings": (behavior or {}).get("findings", []),
         },
         "tests": {
-            "status": status(gate.get("complete") if gate else None),
+            "status": "pass" if gate and gate.get("complete") else ("fail" if gate else "not-evidenced"),
             "passed_tiers": passed_tiers,
             "failed_or_unavailable_receipts": failed_receipts,
             "findings": (gate or {}).get("findings", []),
         },
         "drift": {
-            "status": "none-unresolved" if checkpoint and not unresolved_drift else ("unresolved" if unresolved_drift else "unavailable"),
+            "status": "none-unresolved" if checkpoint and not unresolved_drift else ("unresolved" if unresolved_drift else "not-assessed"),
             "findings": unresolved_drift,
         },
         "recovery_checkpoint": {
@@ -458,9 +458,9 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "detail": f"{failures['count']} saved failure record(s)",
         },
         {
-            "control": "Learning",
-            "status": payload["completion_learning"]["status"],
-            "detail": payload["completion_learning"]["artifact"] or payload["completion_learning"]["boundary"],
+            "control": "Gap learning",
+            "status": "gap-recorded" if payload["completion_learning"]["status"] in {"captured", "reused"} else payload["completion_learning"]["status"],
+            "detail": ("incomplete-delivery observation only; " + payload["completion_learning"]["artifact"]) if payload["completion_learning"]["artifact"] else payload["completion_learning"]["boundary"],
         },
         {
             "control": "Guarded positive learning",
@@ -496,7 +496,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
 def render(payload: dict[str, Any]) -> str:
     requirements = payload["requirement_status"]
     tests = payload["tests"]
-    tiers = " + ".join(tests["passed_tiers"]) or "none recorded"
+    tiers = " + ".join(tests["passed_tiers"]) or "no passing test receipt recorded"
     lines = [
         "# TailTrail Completion Report",
         "",
@@ -513,7 +513,7 @@ def render(payload: dict[str, Any]) -> str:
     ]
     for requirement in requirements["requirements"]:
         proof = f"{len(requirement['evidence'])} saved item(s)"
-        drift = ", ".join(sorted({str(item.get("classification")) for item in requirement["drift"] if item.get("classification")})) or "none recorded"
+        drift = ", ".join(sorted({str(item.get("classification")) for item in requirement["drift"] if item.get("classification")})) or ("not assessed" if payload["drift"]["status"] == "not-assessed" else "none recorded")
         lines.append(f"| {table_cell(requirement['display_id'])} - {table_cell(requirement['statement'])} | {table_cell(requirement['status'])} | {table_cell(proof)} | {table_cell(drift)} |")
     lines.extend([
         "",

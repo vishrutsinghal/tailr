@@ -1,0 +1,32 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-spec-kit-bridge-policy",
+  "compatibility": {
+    "source": "github/spec-kit",
+    "artifact_mode": "read-only-import",
+    "supported_specify_cli": ["artifact-only-unversioned"],
+    "pinned_versions_required_for_execution": true
+  },
+  "source": {
+    "allowed_roots": [".specify", "specs"],
+    "allowed_artifact_paths": [".specify/memory/constitution.md", "specs/*/spec.md", "specs/*/plan.md", "specs/*/tasks.md", "specs/*/research.md", "specs/*/contracts/**"],
+    "allowed_extensions": [".md", ".json", ".yaml", ".yml"],
+    "max_artifact_bytes": 1048576,
+    "max_total_import_bytes": 5242880
+  },
+  "privacy": {
+    "store_raw_artifacts": false,
+    "store_raw_prompts": false,
+    "store_raw_logs": false,
+    "deny_reference_patterns": ["(?i)password", "(?i)secret", "(?i)token", "(?i)private[_-]?key", "(?i)authorization"]
+  },
+  "approval": {
+    "require_source_lock": true,
+    "require_material_amendment_approval": true,
+    "allow_automatic_spec_kit_execution": false
+  },
+  "retention": {
+    "keep_versioned_source_snapshots": true,
+    "max_snapshots_per_feature": 50
+  }
+}

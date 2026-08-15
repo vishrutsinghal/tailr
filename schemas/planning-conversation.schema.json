@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/planning-conversation.schema.json",
+  "title": "TailTrail Interactive Plan Conversation Receipt",
+  "type": "object",
+  "required": ["schema_version", "type", "conversation_id", "run_id", "plan_revision", "classification", "references", "evidence_labels", "material_change", "source_changed", "sanitized_summary", "created_at", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-plan-conversation"},
+    "conversation_id": {"type": "string", "pattern": "^plan-q-[0-9]{3,}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "plan_revision": {"type": "integer", "minimum": 1},
+    "classification": {"enum": ["explain-scope", "explain-impact", "explain-requirement", "explain-authority", "explain-assumption", "explain-feature", "explain-aidlc", "explain-testing", "explain-drift", "explain-token", "explain-risk", "explain-approval", "technical-alternative", "requirement-clarification", "revision-request"]},
+    "references": {"type": "array", "items": {"type": "object", "required": ["kind", "value"], "properties": {"kind": {"enum": ["requirement", "path"]}, "value": {"type": "string", "minLength": 1}}, "additionalProperties": false}},
+    "evidence_labels": {"type": "array", "items": {"enum": ["planning-lock", "start-report", "graph-cache", "imported-intent", "decision-record", "heuristic"]}},
+    "material_change": {"type": "boolean"},
+    "source_changed": {"const": false},
+    "sanitized_summary": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "boundary": {"const": "Planning discussion records metadata only; it does not persist raw chat or inspect project source, run tools, or change the approved plan."},
+    "explanation": {
+      "type": "object",
+      "required": ["status", "direct", "evidence", "alternative", "risk", "impact_on_plan", "next_choice"],
+      "properties": {
+        "status": {"enum": ["answered", "unknown"]},
+        "direct": {"type": "string", "minLength": 1},
+        "evidence": {"type": "array", "items": {"type": "object", "required": ["label", "detail"], "properties": {"label": {"type": "string"}, "detail": {"type": "string"}}, "additionalProperties": false}},
+        "alternative": {"type": "string", "minLength": 1},
+        "risk": {"type": "string", "minLength": 1},
+        "impact_on_plan": {"type": "string", "minLength": 1},
+        "next_choice": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

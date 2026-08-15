@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "type": "tailtrail-host-adapter-compatibility",
-  "adapter_version": "v1",
+  "adapter_version": "v2",
   "precedence": [
     "host safety",
     "user request",

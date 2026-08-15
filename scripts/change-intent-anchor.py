@@ -62,6 +62,8 @@ def normalize_draft(run_id: str, source: dict[str, Any], version: int) -> dict[s
         statement = str(raw.get("statement", "")).strip()
         if not statement: raise ValueError(f"requirement {index} needs a statement")
         row = {"requirement_uid": raw.get("requirement_uid") or uid(run_id, statement), "display_id": raw.get("display_id") or f"REQ-{index:02d}", "kind": raw.get("kind", "change"), "statement": statement, "acceptance_criteria": raw.get("acceptance_criteria", []), "preserve_rules": raw.get("preserve_rules", []), "likely_paths": raw.get("likely_paths", []), "evidence_plan": raw.get("evidence_plan", []), "validation_contract": raw.get("validation_contract", {"state": "required", "tiers": ["unit"]}), "architecture_contract": raw.get("architecture_contract", {"required_paths": [], "protected_paths": [], "forbidden_imports": []}), "behavior_contract": raw.get("behavior_contract", {"scenarios": []}), "status": "proposed"}
+        if isinstance(raw.get("source_reference"), dict):
+            row["source_reference"] = raw["source_reference"]
         issues = validate_requirement(row)
         if issues: raise ValueError(f"requirement {index}: " + "; ".join(issues))
         if row["requirement_uid"] in seen: raise ValueError(f"duplicate requirement_uid `{row['requirement_uid']}`")

@@ -31,6 +31,13 @@ Use `mcp tools` to inspect the available tool contract. Use `mcp doctor` before 
   receipt-backed runtime conformance separately for Codex, Copilot, and Claude.
   Missing receipts remain `not-validated`; this read-only tool cannot prepare a
   bundle, record evidence, control a host, or fabricate a pass.
+- `execution_evidence_show`: reads the append-only requirement-linked execution
+  evidence stream for one run. It is read-only and does not reinterpret chat
+  text as proof.
+- `execution_evidence_record`: the controlled evidence-ingestion tool. It
+  requires `approved: true` and an approved Planning Lock for the exact run,
+  then validates and records one host-supplied source-edit, command-result,
+  Harness-result, drift, or CI event. It never runs the command it records.
 - `harness_control_check`: an approval-gated controlled tool. It requires `approved: true`, an approved Planning Lock for the same `run_id`, accepts a repository-relative control file rather than a raw shell command, and records local computational evidence only.
 - `source_patch_apply`: an approval-gated source-change tool. It requires `approved: true` and an approved Planning Lock for the same `run_id`; it accepts one repository-safe unified Git patch only.
 - `planning_lock_start`: creates an `awaiting-approval` Planning Lock after the user explicitly asks to start TailTrail. It writes TailTrail metadata only; it does not edit project source or run project commands.
@@ -86,7 +93,11 @@ For a managed pack inside a project:
 4. The assistant calls read-only support tools only when useful.
 5. The assistant implements code or runs controlled checks only after the matching lock is approved.
 6. The assistant runs guardrail or review checks when appropriate.
-7. The user reviews final output.
+7. As host-visible edits, commands, Harnesses, or CI outcomes occur, the
+   assistant records only those factual events with `execution_evidence_record`.
+8. The assistant runs `tailtrail closure finalize --root . --run-id <run-id>`;
+   the finalizer derives selected-Harness evidence from the saved stream.
+9. The user reviews the real Completion Report.
 
 For evidence or demo prompts, the assistant can call `eval_scenario_list`, then `eval_scenario_report` for the selected scenario. Scenario reports are deterministic local fixture evidence, not live model/API performance claims.
 

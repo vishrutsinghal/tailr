@@ -38,8 +38,13 @@ DEFAULT_READ_ONLY_TOOLS = (
     "context_continuity_render",
     "context_continuity_advisory_show",
     "completion_report_show",
+    "execution_evidence_show",
     "workflow_dashboard_show",
     "planning_lock_show",
+    "planning_decision_show",
+    "planning_investigation_show",
+    "planning_revision_show",
+    "planning_authority_show",
     "aidlc_official_status",
     "aidlc_official_bridge_show",
     "aidlc_official_state_show",
@@ -47,8 +52,11 @@ DEFAULT_READ_ONLY_TOOLS = (
     "aidlc_official_session_status",
     "host_conformance_report",
     "enterprise_target_policy_inspect",
+    "spec_kit_detect",
+    "spec_kit_mapping_show",
+    "spec_kit_convergence_show",
 )
-CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start")
+CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest")
 DENIED_TOOL_TERMS = (
     "apply",
     "build",
@@ -190,8 +198,13 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "context_continuity_render": {"name": "context_continuity_render", "description": "Preview a deterministic Context Continuity V1/V2 packet without writing state, editing source, running tests, or calling a model. An optional repository-relative policy can add template guidance only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "requirement_uid": {"type": "string"}, "trigger": {"type": "string"}, "policy": {"type": "string"}}, ["run_id"])},
         "context_continuity_advisory_show": {"name": "context_continuity_advisory_show", "description": "Read a saved Context Continuity V3 advisory validation record. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
         "completion_report_show": {"name": "completion_report_show", "description": "Read a saved end-of-task TailTrail Completion Report. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "execution_evidence_show": {"name": "execution_evidence_show", "description": "Read the saved run-local execution evidence stream. Read-only; it never runs commands or turns chat text into proof.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "workflow_dashboard_show": {"name": "workflow_dashboard_show", "description": "Read the current local TailTrail requirement, checkpoint, drift, evidence, and recovery dashboard. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "planning_lock_show": {"name": "planning_lock_show", "description": "Read one TailTrail Planning Lock. Read-only; reports whether managed writes are still blocked or approved.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "planning_decision_show": {"name": "planning_decision_show", "description": "Read a compact Interactive Plan decision summary: current lock, discussion count, revision state, and AIDLC/Intent Bridge routes. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "planning_investigation_show": {"name": "planning_investigation_show", "description": "Read a saved sanitized bounded planning investigation receipt. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "planning_revision_show": {"name": "planning_revision_show", "description": "Read the current or named proposed Interactive Plan revision. Read-only; it never activates the plan.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 2}}, ["run_id"])},
+        "planning_authority_show": {"name": "planning_authority_show", "description": "Read the latest AIDLC or Intent Bridge revision authority route. Read-only; it never changes requirements or source.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
         "aidlc_official_status": {"name": "aidlc_official_status", "description": "Read and validate a pinned official AWS AI-DLC pack manifest. Read-only; it never installs, attaches, or executes the pack.", "inputSchema": json_schema({"root": {"type": "string"}, "manifest": {"type": "string"}})},
         "aidlc_official_bridge_show": {"name": "aidlc_official_bridge_show", "description": "Read a saved official AI-DLC bridge identity for one TailTrail run. Read-only; Phase B never attaches or executes the official engine.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "aidlc_official_state_show": {"name": "aidlc_official_state_show", "description": "Project canonical run state and report ownership conflicts. Read-only; it never reconciles or rewrites artifacts.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
@@ -199,11 +212,25 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "aidlc_official_session_status": {"name": "aidlc_official_session_status", "description": "Read the verified official AI-DLC runtime attachment and ordered transition projection. Read-only; it never attaches, imports receipts, or executes the pack.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "host_conformance_report": {"name": "host_conformance_report", "description": "Report instruction and real-host runtime conformance separately for Codex, Copilot, or Claude. Read-only; missing receipts remain not-validated.", "inputSchema": json_schema({"root": {"type": "string"}, "host": {"type": "string", "enum": ["codex", "copilot", "claude"]}})},
         "enterprise_target_policy_inspect": {"name": "enterprise_target_policy_inspect", "description": "Evaluate a repository-local enterprise target policy against one selected root. Read-only; it never creates a Planning Lock, edits source, or writes an audit receipt.", "inputSchema": json_schema({"root": {"type": "string"}, "policy": {"type": "string"}, "actor": {"type": "string"}, "target_alias": {"type": "string"}}, ["policy"])},
+        "spec_kit_detect": {"name": "spec_kit_detect", "description": "Inspect a local Spec Kit feature. Read-only; it never imports or changes Spec Kit artifacts.", "inputSchema": json_schema({"root": {"type": "string"}, "feature": {"type": "string"}}, ["feature"])},
+        "spec_kit_mapping_show": {"name": "spec_kit_mapping_show", "description": "Read the active Spec Kit requirement mapping and slices for a TailTrail run.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "spec_kit_convergence_show": {"name": "spec_kit_convergence_show", "description": "Read the latest saved Spec Kit convergence report. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
         "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
         "planning_lock_start": {"name": "planning_lock_start", "description": "Create an awaiting-approval Planning Lock after the user explicitly asks to start TailTrail. Writes only TailTrail local metadata; it never edits project source or runs project commands.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
+        "planning_investigate": {"name": "planning_investigate", "description": "Perform an explicitly approved, path-bounded, read-only source investigation for an awaiting Planning Lock. It writes only a sanitized TailTrail receipt and never edits source, runs tests, scanners, builds, package managers, Git, or plan revisions.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "paths": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "paths", "approved"])},
+        "planning_revision_propose": {"name": "planning_revision_propose", "description": "Persist one explicitly approved, versioned material plan delta for an awaiting Planning Lock. It writes only TailTrail planning metadata; it never edits source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "changes": {"type": "array", "minItems": 1, "items": {"type": "object"}}, "approved": {"type": "boolean"}}, ["run_id", "changes", "approved"])},
+        "planning_revision_approve": {"name": "planning_revision_approve", "description": "Approve exactly one proposed plan revision, freeze its report into the same run's immutable anchor, and activate it. Requires explicit approval; it never edits project source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 2}, "approved": {"type": "boolean"}}, ["run_id", "revision", "approved"])},
+        "planning_aidlc_standard_propose": {"name": "planning_aidlc_standard_propose", "description": "Propose a versioned Lite-to-Standard AIDLC mode switch for an awaiting TailTrail run. Requires explicit approval and writes only local planning metadata; it does not begin questions, inspect source, or permit implementation.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "planning_aidlc_standard_approve": {"name": "planning_aidlc_standard_approve", "description": "Approve exactly one Lite-to-Standard mode-switch proposal and begin Standard AIDLC requirements under the same run. It does not approve implementation or run project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 2}, "approved": {"type": "boolean"}}, ["run_id", "revision", "approved"])},
         "planning_lock_approve": {"name": "planning_lock_approve", "description": "Explicitly approve one existing Planning Lock run for managed execution. For a saved TailTrail Start report, it also activates that exact plan's canonical requirement anchor. It never edits project source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically create a Planning Lock and return the full TailTrail Start Report. Use only after the user explicitly asks to start TailTrail. It writes TailTrail local metadata only; it never implements, edits project source, runs project commands, scanners, tests, Terraform, or Git mutations.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]}, "official_aidlc_manifest": {"type": "string"}, "official_intent_id": {"type": "string"}, "official_session_id": {"type": "string"}, "official_stage": {"type": "string", "enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
+        "execution_evidence_record": {"name": "execution_evidence_record", "description": "Record one factual, requirement-linked host execution event after explicit approval and an approved matching Planning Lock. The event is schema-validated and stored locally; this tool never executes, reinterprets, or invents command, test, CI, or Harness evidence.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "event": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "event", "approved"])},
+        "spec_kit_import": {"name": "spec_kit_import", "description": "Import one selected local Spec Kit feature as normalized TailTrail metadata only. Requires explicit approval.", "inputSchema": json_schema({"root": {"type": "string"}, "feature": {"type": "string"}, "mode": {"type": "string", "enum": ["review", "planning"]}, "approved": {"type": "boolean"}}, ["feature", "approved"])},
+        "spec_kit_amendment_propose": {"name": "spec_kit_amendment_propose", "description": "Write a versioned local amendment proposal from an imported Spec Kit source change. Requires explicit approval.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "spec_kit_anchor_approve": {"name": "spec_kit_anchor_approve", "description": "Approve one material Spec Kit amendment and create amended TailTrail-only anchor state. Requires explicit approval.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "spec_kit_convergence_record": {"name": "spec_kit_convergence_record", "description": "Record a local Spec Kit convergence report after explicit approval. It does not edit Spec Kit files or run tests.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "spec_kit_ci_ingest": {"name": "spec_kit_ci_ingest", "description": "Ingest a supplied local CI receipt into a selected Spec Kit run. Requires explicit approval; it makes no CI network call.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "input": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "input", "approved"])},
     }
 
 
@@ -452,6 +479,14 @@ def completion_feedback_show(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "completion_feedback_show", "result": {"review": run_artifact(root, identifier, "reviews", "review-*.json"), "feedback": run_artifact(root, identifier, "feedback", "feedback-*.json")}, "execution": {"read_only": True, "exit_code": 0}}
 
 
+def execution_evidence_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("execution_evidence_mcp", script("execution-evidence.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {"tool": "execution_evidence_show", "result": module.show(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
 def safe_relative(root: Path, value: Any) -> Path:
     path = Path(str(value))
     if path.is_absolute() or ".." in path.parts: raise ValueError("path must be repository-relative")
@@ -547,6 +582,111 @@ def planning_lock_show(args: dict[str, Any]) -> dict[str, Any]:
     root = root_from(args); identifier = run_id(args)
     result = command_result([PYTHON, script("planning-lock.py").as_posix(), "show", "--root", root.as_posix(), "--run-id", identifier], root)
     return {"tool": "planning_lock_show", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def planning_decision_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("planning_decision_mcp", script("planning-discussion.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {"tool": "planning_decision_show", "result": module.decision_show(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def planning_investigation_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("planning_investigation_mcp", script("planning-investigation.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {"tool": "planning_investigation_show", "result": module.show(root_from(args), run_id(args), args.get("sequence")), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def planning_investigate(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("planning_investigate requires approved: true")
+    root = root_from(args)
+    paths = as_string_list(args.get("paths"))
+    if not paths:
+        raise ValueError("planning_investigate requires at least one planned path")
+    command = [PYTHON, script("planning-investigation.py").as_posix(), "investigate", "--root", root.as_posix(), "--run-id", run_id(args), "--approved-read-only"]
+    for path in paths:
+        command.extend(["--path", path])
+    result = command_result(command, root)
+    result["read_only"] = False
+    result["requires_approval"] = True
+    result["local_metadata_only"] = True
+    return {"tool": "planning_investigate", "result": parse_stdout(result, "json"), "execution": result}
+
+
+def planning_revision_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("planning_revision_mcp", script("planning-revision.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {"tool": "planning_revision_show", "result": module.show(root_from(args), run_id(args), args.get("revision")), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def planning_authority_show(args: dict[str, Any]) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("planning_authority_mcp", script("planning-revision.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return {"tool": "planning_authority_show", "result": module.authority_show(root_from(args), run_id(args), args.get("sequence")), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def planning_revision_propose(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("planning_revision_propose requires approved: true")
+    changes = args.get("changes")
+    if not isinstance(changes, list) or not changes:
+        raise ValueError("planning_revision_propose requires a non-empty changes list")
+    root = root_from(args)
+    command = [
+        PYTHON, script("planning-revision.py").as_posix(), "propose", "--root", root.as_posix(), "--run-id", run_id(args),
+        "--changes", json.dumps(changes, separators=(",", ":")), "--approved-proposal",
+    ]
+    result = command_result(command, root)
+    result["read_only"] = False; result["requires_approval"] = True; result["local_metadata_only"] = True
+    return {"tool": "planning_revision_propose", "result": result["stdout"], "execution": result}
+
+
+def planning_revision_approve(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("planning_revision_approve requires approved: true")
+    revision = args.get("revision")
+    if not isinstance(revision, int) or revision < 2:
+        raise ValueError("planning_revision_approve requires a revision number of 2 or higher")
+    root = root_from(args)
+    result = command_result([
+        PYTHON, script("planning-revision.py").as_posix(), "approve", "--root", root.as_posix(), "--run-id", run_id(args),
+        "--revision", str(revision), "--approved",
+    ], root)
+    result["read_only"] = False; result["requires_approval"] = True; result["local_metadata_only"] = True
+    return {"tool": "planning_revision_approve", "result": result["stdout"], "execution": result}
+
+
+def planning_aidlc_standard_propose(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("planning_aidlc_standard_propose requires approved: true")
+    root = root_from(args)
+    result = command_result([
+        PYTHON, script("planning-revision.py").as_posix(), "aidlc-standard", "--root", root.as_posix(), "--run-id", run_id(args), "--approved-proposal",
+    ], root)
+    result["read_only"] = False; result["requires_approval"] = True; result["local_metadata_only"] = True
+    return {"tool": "planning_aidlc_standard_propose", "result": result["stdout"], "execution": result}
+
+
+def planning_aidlc_standard_approve(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("planning_aidlc_standard_approve requires approved: true")
+    revision = args.get("revision")
+    if not isinstance(revision, int) or revision < 2:
+        raise ValueError("planning_aidlc_standard_approve requires a revision number of 2 or higher")
+    root = root_from(args)
+    result = command_result([
+        PYTHON, script("planning-revision.py").as_posix(), "aidlc-standard-approve", "--root", root.as_posix(), "--run-id", run_id(args), "--revision", str(revision), "--approved",
+    ], root)
+    result["read_only"] = False; result["requires_approval"] = True; result["local_metadata_only"] = True
+    return {"tool": "planning_aidlc_standard_approve", "result": result["stdout"], "execution": result}
 
 
 def aidlc_official_status(args: dict[str, Any]) -> dict[str, Any]:
@@ -663,6 +803,26 @@ def tailtrail_start(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "tailtrail_start", "result": parse_stdout(result, fmt), "execution": result}
 
 
+def execution_evidence_record(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("execution_evidence_record requires approved: true")
+    event = args.get("event")
+    if not isinstance(event, dict):
+        raise ValueError("execution_evidence_record requires an event object")
+    root = root_from(args)
+    identifier = run_id(args)
+    require_approved_planning_lock(root, identifier, "execution_evidence_record")
+    spec = importlib.util.spec_from_file_location("execution_evidence_mcp", script("execution-evidence.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    result = module.append(root, identifier, event, True)
+    return {
+        "tool": "execution_evidence_record", "result": result,
+        "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "exit_code": 0},
+    }
+
+
 def context_continuity_render(args: dict[str, Any]) -> dict[str, Any]:
     spec = importlib.util.spec_from_file_location("context_continuity_mcp", script("context-continuity.py")); assert spec and spec.loader
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
@@ -699,6 +859,61 @@ def enterprise_target_policy_inspect(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "enterprise_target_policy_inspect", "result": result, "execution": {"read_only": True, "exit_code": 0}}
 
 
+def spec_module(name: str, label: str) -> Any:
+    spec = importlib.util.spec_from_file_location(label, script(name)); assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module); return module
+
+
+def spec_kit_detect(args: dict[str, Any]) -> dict[str, Any]:
+    feature = str(args.get("feature", "")).strip()
+    if not feature: raise ValueError("feature is required")
+    module = spec_module("spec-kit-detect.py", "spec_kit_detect_mcp")
+    return {"tool": "spec_kit_detect", "result": module.detect(root_from(args), feature), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def spec_kit_mapping_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); module = spec_module("spec-kit-slices.py", "spec_kit_slices_mcp")
+    paths = module.paths(root, identifier)
+    return {"tool": "spec_kit_mapping_show", "result": {"slices": module.show(root, identifier), "mapping": read_json(paths["mapping"]), "source_lock": read_json(paths["source_lock"])}, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def spec_kit_convergence_show(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); identifier = run_id(args); directory = root / ".tailtrail" / "runs" / identifier / "spec-kit"
+    matches = sorted(directory.glob("convergence-v*.json"))
+    if not matches: raise ValueError("no saved Spec Kit convergence report exists")
+    return {"tool": "spec_kit_convergence_show", "result": read_json(matches[-1]), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def spec_kit_control(args: dict[str, Any], tool: str, command: list[str]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError(f"{tool} requires approved: true")
+    root = root_from(args); result = command_result([PYTHON, *[script(item).as_posix() if item.endswith(".py") else item for item in command]], root)
+    result["read_only"] = False; result["requires_approval"] = True; result["local_metadata_only"] = True
+    return {"tool": tool, "result": parse_stdout(result, "json"), "execution": result}
+
+
+def spec_kit_import(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); feature = str(args.get("feature", "")).strip()
+    if not feature: raise ValueError("feature is required")
+    return spec_kit_control(args, "spec_kit_import", ["spec-kit-import.py", "--root", root.as_posix(), "--feature", feature, "--mode", str(args.get("mode", "review"))])
+
+
+def spec_kit_amendment_propose(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); return spec_kit_control(args, "spec_kit_amendment_propose", ["spec-kit-amendment.py", "propose", "--root", root.as_posix(), "--run-id", run_id(args)])
+
+
+def spec_kit_anchor_approve(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); return spec_kit_control(args, "spec_kit_anchor_approve", ["spec-kit-amendment.py", "approve", "--root", root.as_posix(), "--run-id", run_id(args), "--approved"])
+
+
+def spec_kit_convergence_record(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); return spec_kit_control(args, "spec_kit_convergence_record", ["spec-kit-converge.py", "--root", root.as_posix(), "--run-id", run_id(args)])
+
+
+def spec_kit_ci_ingest(args: dict[str, Any]) -> dict[str, Any]:
+    root = root_from(args); input_path = safe_relative(root, str(args.get("input", "")))
+    return spec_kit_control(args, "spec_kit_ci_ingest", ["ci-evidence-ingest.py", "--root", root.as_posix(), "--run-id", run_id(args), "--input", input_path.as_posix()])
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "navigator_plan": navigator_plan,
     "start_report": start_report,
@@ -711,7 +926,8 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "completion_feedback_show": completion_feedback_show, "profile_view": profile_view,
     "validation_receipt_show": validation_receipt_show, "release_confidence_show": release_confidence_show, "git_readiness": git_readiness,
     "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
-    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "enterprise_target_policy_inspect": enterprise_target_policy_inspect, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start,
+    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "execution_evidence_show": execution_evidence_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "planning_decision_show": planning_decision_show, "planning_investigation_show": planning_investigation_show, "planning_revision_show": planning_revision_show, "planning_authority_show": planning_authority_show, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "enterprise_target_policy_inspect": enterprise_target_policy_inspect, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_investigate": planning_investigate, "planning_revision_propose": planning_revision_propose, "planning_revision_approve": planning_revision_approve, "planning_aidlc_standard_propose": planning_aidlc_standard_propose, "planning_aidlc_standard_approve": planning_aidlc_standard_approve, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start, "execution_evidence_record": execution_evidence_record,
+    "spec_kit_detect": spec_kit_detect, "spec_kit_mapping_show": spec_kit_mapping_show, "spec_kit_convergence_show": spec_kit_convergence_show, "spec_kit_import": spec_kit_import, "spec_kit_amendment_propose": spec_kit_amendment_propose, "spec_kit_anchor_approve": spec_kit_anchor_approve, "spec_kit_convergence_record": spec_kit_convergence_record, "spec_kit_ci_ingest": spec_kit_ci_ingest,
 }
 
 

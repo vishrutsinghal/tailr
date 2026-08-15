@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail AIDLC Mode Switch",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "revision", "base_revision", "state", "from_mode", "to_mode", "approval_required", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-aidlc-mode-switch"},
+    "run_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 2},
+    "base_revision": {"type": "integer", "minimum": 1},
+    "state": {"const": "awaiting-approval"},
+    "from_mode": {"const": "lite"},
+    "to_mode": {"const": "standard"},
+    "approval_required": {"const": true},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": true
+}

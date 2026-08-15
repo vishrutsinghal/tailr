@@ -15,8 +15,8 @@ PRECEDENCE = ["host safety", "user request", "official stage rules", "tailtrail 
 def load(root: Path) -> dict:
     path = root / "adapters" / "host-compatibility-v1.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("type") != "tailtrail-host-adapter-compatibility" or payload.get("adapter_version") != "v1":
-        raise ValueError("host compatibility matrix must be a v1 TailTrail adapter matrix")
+    if payload.get("type") != "tailtrail-host-adapter-compatibility" or payload.get("adapter_version") != "v2":
+        raise ValueError("host compatibility matrix must be a v2 TailTrail adapter matrix")
     if payload.get("precedence") != PRECEDENCE:
         raise ValueError("host compatibility precedence is not the required safety order")
     if {item.get("id") for item in payload.get("conformance_scenarios", [])} != REQUIRED_SCENARIOS:
@@ -26,6 +26,7 @@ def load(root: Path) -> dict:
 
 def render(host: dict, matrix: dict) -> str:
     scenarios = "\n".join(f"- **{item['id']}:** {item['expected']}" for item in matrix["conformance_scenarios"])
+    scenarios += "\n\n## Interactive Plan boundary\n\n- Preserve the current run ID for questions and plan-update requests.\n- Explain saved evidence first; source investigation and plan revision require their separate approvals.\n- Do not start implementation after a why-question or a revision request.\n- Route AIDLC and Intent Bridge wording changes to their designated authority."
     return f"""# TailTrail Composed Host Surface — {host['id'].title()}\n\n**Adapter version:** `{matrix['adapter_version']}`\n**Host source:** `{host['source']}`\n\n## Precedence\n\n1. Host safety\n2. User request\n3. Official AI-DLC stage rules for a verified Full-mode run\n4. TailTrail assurance rules\n\nA lower layer cannot weaken a higher layer. Official rules select lifecycle\nstages; TailTrail preserves the approved anchor, evidence, drift, recovery, and\nclosure boundaries.\n\n## Host contract\n\n- `tailtrail start` is planning-only and requires approval before implementation.\n- A rejected requirement preserves its run and routes to requirements/design.\n- Completion uses saved requirement-linked evidence; do not invent command or CI results.\n- `wait-ci` does not create learning. Linked CI acceptance may create a\n  candidate-only learning artifact and deterministic evaluation.\n- {host['official_full_mode']}.\n\n## Conformance scenarios\n\n{scenarios}\n\n## Boundary\n\nThis generated surface validates local instruction composition only. It does not\nguarantee runtime behavior by the host or replace host safety policy.\n"""
 
 
@@ -45,6 +46,8 @@ def check(root: Path, matrix: dict) -> list[str]:
         source = root / host["source"]
         generated = root / host["generated"]
         if not source.is_file(): errors.append(f"{host['id']}: source missing: {host['source']}")
+        elif "Interactive Plan Mode" not in source.read_text(encoding="utf-8"):
+            errors.append(f"{host['id']}: source does not preserve the Interactive Plan Mode host boundary")
         if not generated.is_file():
             errors.append(f"{host['id']}: generated surface missing: {host['generated']}")
         elif generated.read_text(encoding="utf-8") != render(host, matrix):

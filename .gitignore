@@ -1,0 +1,3 @@
+# Local, pinned vendor projection used only by explicit TailTrail Full AIDLC runs.
+.tailtrail/official-aidlc/
+.aidlc/aidlc-rules/

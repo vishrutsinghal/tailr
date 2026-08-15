@@ -1,5 +1,108 @@
 # TailTrail Roadmap
 
+## Execution Evidence Bridge — planned
+
+The planned [Execution Evidence Bridge](tailtrail-execution-evidence-bridge.md)
+closes the host-to-closure gap: factual edit, command, requirement, Harness,
+and CI receipts become sanitized run-local evidence before the Completion Report
+is finalized. It preserves fail-closed reporting and distinguishes incomplete
+gap learning from accepted positive learning.
+
+## Intent Bridge — implemented
+
+**Intent Bridge** lets TailTrail work from an existing structured requirement
+source without taking ownership of that source. It is for teams that already
+maintain feature requirements, design decisions, task breakdowns, and contracts
+outside the codebase.
+
+The delivered bridge is source-owned and approval-first: it detects compatible
+artifacts read-only, imports normalized references and fingerprints, maps each
+external requirement to a TailTrail requirement and proof plan, freezes that
+mapping in the approved anchor, and delivers the work in bounded slices. Later
+source changes become visible amendments rather than silently changing an
+active task. Closure joins requirement-linked evidence, drift, recovery,
+convergence, governance, CI receipts, and advisory release confidence.
+
+Use it only when a structured requirement source already exists:
+
+```text
+tailtrail intent-bridge detect --root .
+tailtrail intent-bridge import --root . --feature 014-order-amendment --mode planning
+tailtrail start "Use Intent Bridge feature 014-order-amendment to plan order amendments" --intent-feature 014-order-amendment
+```
+
+It never rewrites the external requirement source, runs external lifecycle
+tools automatically, contacts CI, deploys, or treats missing evidence as proof.
+Its reusable CI closure gate runs only after a calling workflow restores the
+sanitized TailTrail run state and linked CI receipt into its workspace.
+
+## Interactive Plan Mode — IP-0 through IP-5 implemented; IP-1A planned
+
+**Status:** IP-0 through IP-5 are implemented. IP-1A remains planned.
+
+IP-2 is also implemented: an explicit `planning investigate` control reads only
+already planned paths, records sanitized structural evidence, and checks an
+existing graph cache for freshness without rebuilding it. It cannot run project
+commands, tests, scanners, builds, Git, or source mutations.
+
+IP-3 is implemented: an explicitly approved material plan delta is versioned
+under the existing run, shown before approval, and must be approved by its exact
+revision number. A pending revision blocks ordinary v1 approval/activation.
+Approval selects a versioned Start-report snapshot and derives the existing
+immutable anchor from that reviewed revision; it never edits project source.
+
+IP-4 is implemented: a material revision request checks the saved requirement
+authority before TailTrail changes any local planning state. AIDLC-bound runs
+receive an authority-route receipt and resume the existing AIDLC Requirements
+stage (or the verified official Requirements stage for Full mode), carrying a
+sanitized revision context. Full-mode architecture/design requests are labelled
+for the configured official Design stage instead of being guessed locally.
+Intent Bridge requirements remain source-owned: TailTrail records a source
+amendment route and requires an updated, explicitly imported source snapshot.
+`tailtrail planning authority-show --run-id <id>` and the read-only
+`planning_authority_show` MCP tool expose the route. No source, tests, Git, or
+parallel requirement rewrite occurs on this path.
+
+IP-5 is implemented: Codex, Copilot, and Claude host instructions now share an
+Interactive Plan boundary and are checked by the versioned composed-host
+conformance surface. MCP provides `planning_decision_show`, a read-only summary
+of Planning Lock state, discussion count, revision state, and authority routes.
+The workflow dashboard exposes the same planning history after activation.
+`interactive-plan-mode` is a deterministic saved-artifact evaluation scenario
+for explanation, investigation, revision, stale approval, rejection/AIDLC,
+Intent Bridge authority, deferred Harness, and token-estimate boundaries. It is
+fixture evidence only; real-host conformance remains separately receipt-based.
+
+IP-5 also supports a reviewed Lite-to-Standard AIDLC switch while a run is
+still awaiting approval. It is a versioned same-run planning revision: proposal
+approval begins Standard AIDLC requirements, while a separate requirement
+approval remains the only route to implementation. The switch refuses active,
+non-Lite, and Intent Bridge source-owned runs.
+
+**Expert Plan Customization** is implemented on the same Interactive Plan Mode
+control plane. Navigator remains the default recommender; experienced users can
+view a single catalog and make an explicitly approved versioned change to
+optional controls (`selected`, `armed`, or `disabled`). Core planning and
+evidence safeguards remain locked. The catalog also exposes Lite-to-Standard
+AIDLC through the existing separate requirements-approval boundary.
+
+Interactive Plan Mode now records a sanitized, deterministic routing receipt
+and an evidence-labelled answer for a question about an awaiting-approval Start
+plan without creating a new run. It reads only saved lock/report evidence and
+returns `unknown` when that evidence cannot support an answer; it does not
+inspect source or revise the plan. Later phases will let users question,
+challenge, clarify, and revise an
+awaiting-approval Start plan without rejecting it or creating a new run. It
+will expose the rationale for file scope, selected/deferred Harnesses, AIDLC
+mode, drift posture, validation tier, risk, token estimate, requirement
+authority, and approval consequences. It will use saved planning/graph/intent
+evidence for explanations, offer an explicitly approved bounded read-only
+investigation only when that evidence is insufficient, and create a versioned
+plan delta only for material changes. Every revision will require its own
+approval before implementation. The full state model, artifact contracts,
+host/MCP design, guardrails, phased file scope, and acceptance criteria are in
+[TailTrail Interactive Plan Mode](tailtrail-interactive-plan-mode.md).
+
 ## Official AI-DLC integration design
 
 TailTrail currently provides a portable **AIDLC Lifecycle Lite**, not the full

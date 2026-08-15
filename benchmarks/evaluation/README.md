@@ -20,6 +20,8 @@ Implemented scenarios:
 - `ci-failure`: CI/log triage and handoff.
 - `security-triage`: safeguard-preserving security triage.
 - `buildweek-validation`: Build Week demo proof as deterministic fixture evidence.
+- `interactive-plan-mode`: planning-question, revision, authority-routing, and
+  approval-boundary fixture evidence.
 
 Each scenario directory contains:
 

@@ -28,10 +28,179 @@ python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR" --verbose
 python3 scripts/tailtrail.py planning show --root . --run-id <run-id>
 python3 scripts/tailtrail.py planning activate --root . --run-id <run-id> --approved
+python3 scripts/tailtrail.py planning discuss --root . --run-id <run-id> --question "Why was service.py selected?"
+python3 scripts/tailtrail.py planning explain --root . --run-id <run-id> --question "Why was service.py selected?"
+python3 scripts/tailtrail.py planning discussion-show --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning decision-show --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning investigate --root . --run-id <run-id> --path src/service.py --approved-read-only
+python3 scripts/tailtrail.py planning investigation-show --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning revise --root . --run-id <run-id> --changes '[{"kind":"scope-remove","requirement_uid":"REQ-03","path":"src/api.py","reason":"Internal service support only."}]' --approved-proposal
+python3 scripts/tailtrail.py planning revision-show --root . --run-id <run-id> --revision 2
+python3 scripts/tailtrail.py planning revision-approve --root . --run-id <run-id> --revision 2 --approved
+python3 scripts/tailtrail.py planning aidlc-standard --root . --run-id <run-id> --approved-proposal
+python3 scripts/tailtrail.py planning aidlc-standard-approve --root . --run-id <run-id> --revision 2 --approved
+python3 scripts/tailtrail.py planning feature-controls-show --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning feature-controls-propose --root . --run-id <run-id> --changes '[{"feature":"Behaviour Harness","value":"selected","reason":"Customer journey proof is needed."}]' --approved-proposal
+python3 scripts/tailtrail.py planning feature-controls-approve --root . --run-id <run-id> --revision 2 --approved
+python3 scripts/tailtrail.py planning authority-show --root . --run-id <run-id>
 python3 scripts/tailtrail.py governance check
+python3 scripts/tailtrail.py spec-kit policy check --root .
+python3 scripts/tailtrail.py spec-kit detect --root .
 ```
 
 Use these when a user is new to TailTrail, onboarding a team, or checking whether a project has a source checkout or installed pack.
+
+## Interactive Plan Mode (IP-0)
+
+While a Start run is awaiting approval, `planning discuss` and `planning
+explain` answer from the saved Planning Lock and immutable Start Report, then
+record a compact sanitized receipt under the existing run. Answers contain a
+direct response, evidence label, alternative, risk, plan impact, and next
+choice. They do not inspect project source, rerun a graph, run tests/scanners,
+change the plan, or persist raw chat. `discussion-show` returns saved metadata.
+`planning explain` renders Markdown by default; use `--format json` for a host
+adapter or a saved-artifact integration.
+
+An awaiting Lite AIDLC run may move to **Standard AIDLC** without discarding
+its run ID or original plan. Ask the host to “switch to Standard AIDLC”, then
+review the versioned mode-switch proposal. Approving it begins the Standard
+AIDLC Requirements stage only; answering and approving those requirements is a
+separate gate before implementation. The switch refuses active, non-Lite, and
+Intent Bridge source-owned runs.
+
+IP-1 can explain saved file/requirement decisions, selected controls, AIDLC
+mode, validation, drift posture, token estimate, risk, and approval boundaries.
+It returns `unknown` rather than inventing a fresh code fact. A rejection routes
+to the existing feedback flow; an AIDLC request routes to AIDLC Requirements;
+pasted errors and unrelated chat stay outside Interactive Plan Mode. Approved
+runs are rejected because the approved anchor and normal execution controls
+apply.
+
+`planning investigate` is the deeper, explicitly approved path. Every `--path`
+must already be a saved planned impact path; it refuses absolute, parent, binary,
+credential-like, missing, and unplanned paths. It reads at most 12 UTF-8 files
+of 512 KiB each, records hashes/line counts/symbol names only, and checks an
+existing Code Graph Mapper cache for freshness without refreshing or rebuilding
+it. The resulting receipt records no raw source, raw question, commands, test
+result, source mutation, or plan change.
+
+## Interactive Plan Revision (IP-3)
+
+`planning revise` is the only pre-approval path that changes a saved plan. It
+accepts a bounded JSON list of material changes (`scope-add`, `scope-remove`,
+`requirement-add`, `requirement-remove`, `requirement-update`, or
+`proof-update`) and requires a stable requirement ID/display ID plus a short
+reason. It creates `revision-vN.json` and a pending revision pointer under the
+same run; the original `start-report-v1.json` is never overwritten.
+
+While a revision is pending, ordinary `planning approve` and `planning activate`
+refuse to run. Review the delta, then use `revision-approve` for that exact
+version. This writes a versioned report snapshot, freezes its requirements into
+the existing immutable anchor workflow, and activates the same run. A stale v1
+approval cannot activate v2.
+
+## AIDLC and Intent Bridge authority routing (IP-4)
+
+`planning revise` deliberately does **not** create a competing TailTrail plan
+revision when the approved requirement authority is AIDLC or Intent Bridge.
+Instead it records a sanitized authority-route receipt under the same run:
+
+- TailTrail Lite/Standard AIDLC-bound work starts or resumes the existing AIDLC
+  Requirements stage, carrying only the bounded material-change reasons.
+- Full AIDLC work routes requirement refinement to the verified official
+  Requirements stage. A material architecture/design request is explicitly
+  labelled `official-aidlc-design`, to be completed by the configured official
+  host stage before another requirement boundary can be approved.
+- Intent Bridge wording stays source-owned. TailTrail records an amendment
+  request and requires an updated, explicitly imported source snapshot rather
+  than rewriting imported requirements or the immutable Start report.
+
+Use `planning authority-show` (or the read-only MCP
+`planning_authority_show`) to inspect the authority, route, request context,
+next action, and no-source-change boundary. The normal AIDLC or Intent Bridge
+approval/amendment flow then remains the only path back to an approved anchor.
+
+## Interactive Plan hosts and evaluation (IP-5)
+
+The Codex, Copilot, and Claude instruction surfaces now share the same
+Interactive Plan boundary: a question or plan-update request keeps the current
+run ID and never implies source inspection, implementation, or approval.
+`planning decision-show` (and read-only MCP `planning_decision_show`) gives a
+compact view of the lock, saved discussion count, active/pending revision, and
+AIDLC/Intent Bridge authority routes.
+
+```bash
+python3 scripts/tailtrail.py adapters conformance
+python3 scripts/tailtrail.py adapters runtime prepare --root . --host codex
+python3 scripts/tailtrail.py adapters runtime report --root . --host codex
+python3 scripts/tailtrail.py eval scenario report --scenario interactive-plan-mode
+```
+
+Instruction conformance and real-host runtime conformance remain distinct.
+Generated host instructions are checked locally; a host becomes runtime-passed
+only after fresh sanitized receipts cover every portable runtime scenario.
+
+## Optional Spec Kit bridge policy (SK-0)
+
+SK-0 establishes the local security and ownership contract. SK-1 adds safe,
+read-only workspace discovery. SK-2 adds an explicit, versioned import into
+TailTrail state. None of these phases executes or modifies a Spec Kit project.
+
+```bash
+python3 scripts/tailtrail.py spec-kit policy check --root .
+python3 scripts/tailtrail.py spec-kit policy init --root .
+python3 scripts/tailtrail.py spec-kit policy contracts
+python3 scripts/tailtrail.py spec-kit detect --root .
+python3 scripts/tailtrail.py spec-kit status --root .
+python3 scripts/tailtrail.py spec-kit inspect --root . --feature 014-order-amendment
+python3 scripts/tailtrail.py spec-kit import --root . --feature 014-order-amendment --mode review
+python3 scripts/tailtrail.py start "Use Intent Bridge feature 014-order-amendment to plan order amendments" --intent-feature 014-order-amendment
+python3 scripts/tailtrail.py spec-kit bridge --root . --feature 014-order-amendment
+python3 scripts/tailtrail.py spec-kit slices show --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit slices assert-active --root . --run-id <run-id> --requirement-uid <uid>
+python3 scripts/tailtrail.py spec-kit evidence plan --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit evidence record --root . --run-id <run-id> --checkpoint .tailtrail/runs/<run-id>/checkpoints/checkpoint-1.json --architecture <assessment.json>
+python3 scripts/tailtrail.py spec-kit amendment check --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit amendment propose --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit amendment approve --root . --run-id <run-id> --approved
+python3 scripts/tailtrail.py spec-kit amendment recovery --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit converge --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit ci-ingest --root . --run-id <run-id> --input ci-receipts.json --approved
+python3 scripts/tailtrail.py spec-kit ci-gate --root . --run-id <run-id> --format json
+python3 scripts/tailtrail.py spec-kit observe --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit release --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit governance --root . --run-id <run-id>
+python3 scripts/tailtrail.py spec-kit evaluate --root . --run-id <run-id> --baseline baseline.json
+```
+
+`policy check` uses the committed safe template when a project policy is absent.
+`policy init` copies that template to `.tailtrail/spec-kit-policy.json` without
+overwriting an existing file. The policy requires source locks, versioned
+snapshots, material-amendment approval, read-only artifact handling, and no raw
+prompt, log, or artifact retention.
+
+`detect`, `status`, and `inspect` examine only the approved `.specify/` and
+`specs/` artifact paths. They do not run `specify`, create `.tailtrail/`, create
+a Planning Lock, import source, or write any workspace file. An absent Spec Kit
+workspace returns `not-detected`; an unsafe or incomplete selected feature is
+reported as `incompatible` with paths and fingerprints only.
+
+`import` is explicit and writes only normalized, immutable TailTrail evidence
+under `.tailtrail/spec-kit/sources/<feature>/`. It never copies source Markdown
+or runs `specify`. An identical fingerprint returns `already-imported`; a source
+change creates the next `vN` snapshot without replacing earlier evidence.
+
+For SK-3, name a previously imported feature in `tailtrail start` with
+`--intent-feature <feature>` (or the exact phrase `Intent Bridge feature <feature>`
+in the goal). Navigator uses its imported requirement IDs and wording as the
+planning boundary, carries source references into the approved anchor, and does
+not create a parallel TailTrail or AIDLC requirement questionnaire. If the source
+changed since the import, planning/activation stop for a future amendment review.
+
+After approval, SK-4 automatically writes the source lock, requirement mapping,
+task-slice mapping, and amendment-state records beneath the active run. Only the
+first bounded slice is active; use `slices assert-active` before executing a
+requirement and `slices advance --approved` after its verified completion.
 
 ## Which Command Should I Use?
 
@@ -129,6 +298,18 @@ python3 scripts/tailtrail.py mcp serve
 Use this only for MCP-capable assistants. `mcp tools` lists the inspection-first tool contract, `mcp doctor` validates schemas and safety boundaries, and `mcp serve` starts the stdio server for an MCP client. The server exposes existing Navigator/review/evaluation tools plus `ledger_state`, `anchor_show`, `harness_checkpoint_show`, `completion_feedback_show`, `profile_view`, `validation_receipt_show`, `git_readiness`, and `recovery_boundary_show`. `harness_control_check` is the sole controlled tool and requires explicit `approved: true`.
 
 MCP support improves tool access and consistency. It does not automatically complete development, edit source, commit, push, apply recovery, upload telemetry, or bypass user approval. Non-MCP assistants should keep using `start`, `guide`, `guard check`, `eval scenario`, and the Markdown instruction files.
+
+### Run-local execution evidence through MCP
+
+MCP hosts can record one factual, requirement-linked event at a time with the
+approval-gated `execution_evidence_record` tool and inspect the saved stream
+with `execution_evidence_show`. The record tool requires the exact approved run
+ID, `approved: true`, and an event accepted by the same schema as
+`tailtrail execution-evidence record`. It records host-visible facts only; it
+does not run the named command or turn a conversational claim into evidence.
+After evidence is saved, use `tailtrail closure finalize --root . --run-id
+<run-id>` to feed selected Harnesses through the normal fail-closed closure
+path.
 
 ## Setup Scan
 
@@ -347,6 +528,7 @@ After the Planning Lock is approved, persist the same validated evidence with:
 
 ```bash
 tailtrail closure record --root . --input closure-input.json
+tailtrail closure record --root . --run-id <run-id>
 ```
 
 The recorder is deliberately not an executor. It never runs the commands named
@@ -1343,6 +1525,11 @@ any pack script.
 ```powershell
 py -3 scripts\tailtrail.py aidlc official install --root "D:\path\to\your-project" --host copilot
 py -3 scripts\tailtrail.py aidlc official status --root "D:\path\to\your-project"
+
+# Codex only: project the verified pack into the official rule locations and
+# add a conditional Full-mode bridge to the existing AGENTS.md.
+py -3 scripts\tailtrail.py aidlc official host install --root "D:\path\to\your-project" --host codex
+py -3 scripts\tailtrail.py aidlc official host status --root "D:\path\to\your-project" --host codex
 ```
 
 On macOS/Linux, use `python3 scripts/tailtrail.py` in the same commands. The

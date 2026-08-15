@@ -54,7 +54,7 @@ def create_run(root: Path, run_id: str, scenario: str) -> None:
         ledger.atomic_json(directory / "aidlc-official" / "closure" / "closure-link-v1.json", {"schema_version": "1", "type": "tailtrail-official-aidlc-closure-link", "run_id": run_id, "acceptance_state": "awaiting-ci"})
 
 
-def make_receipt(root: Path, host: str, scenario: str, run_id: str, *, outcome: str = "pass", adapter: str = "v1", scenario_version: str = "v1", bundle_digest: str | None = None, observations: list[str] | None = None, receipt_id: str | None = None) -> Path:
+def make_receipt(root: Path, host: str, scenario: str, run_id: str, *, outcome: str = "pass", adapter: str = "v2", scenario_version: str = "v1", bundle_digest: str | None = None, observations: list[str] | None = None, receipt_id: str | None = None) -> Path:
     bundle = runtime.bundle_payload(host)
     payload = {
         "schema_version": "1", "type": "tailtrail-host-runtime-receipt", "receipt_id": receipt_id or f"{host}-{scenario}",

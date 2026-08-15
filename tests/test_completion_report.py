@@ -87,8 +87,24 @@ class CompletionReportTests(unittest.TestCase):
             self.write_complete_evidence(root, uid)
             (ledger.state_dir(root, "run") / "completion-gates" / "gate-1.json").unlink()
             result = report.build(root, "run")
-        self.assertEqual(result["tests"]["status"], "unavailable")
+        self.assertEqual(result["tests"]["status"], "not-evidenced")
         self.assertEqual(result["overall_status"], "evidence-incomplete")
+
+    def test_no_execution_evidence_is_labelled_not_assessed_not_success(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.setup_run(root)
+            result = report.build(root, "run")
+            rendered = report.render(result)
+
+        self.assertEqual(result["requirement_status"]["requirements"][0]["status"], "not-evidenced")
+        self.assertEqual(result["changed_scope"]["status"], "not-assessed")
+        self.assertEqual(result["drift"]["status"], "not-assessed")
+        self.assertEqual(result["tests"]["status"], "not-evidenced")
+        self.assertIn("not assessed", rendered)
+        controls = {item["control"]: item for item in result["tailtrail_status"]}
+        self.assertEqual(controls["Gap learning"]["status"], "gap-recorded")
+        self.assertIn("incomplete-delivery observation only", controls["Gap learning"]["detail"])
 
     def test_report_uses_only_run_linked_measured_token_usage(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

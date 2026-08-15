@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/spec-kit-import.schema.json",
+  "title": "TailTrail Spec Kit Import",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "source_uid", "source_revision", "requirements", "privacy_boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-spec-kit-import"},
+    "source_uid": {"type": "string"},
+    "source_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "requirements": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["external_id", "statement", "source_path", "source_locator"], "properties": {"external_id": {"type": "string"}, "statement": {"type": "string", "minLength": 1}, "source_path": {"type": "string"}, "source_locator": {"type": "string"}}}},
+    "privacy_boundary": {"const": "normalized-references-only"}
+  }
+}

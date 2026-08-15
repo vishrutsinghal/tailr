@@ -39,4 +39,6 @@ class WorkflowDashboardTests(unittest.TestCase):
         self.assertIn("## Harness usage", dashboard.markdown(result))
         self.assertIn("Workflow Dashboard", dashboard.markdown(result))
         self.assertIn("Canonical state:", dashboard.markdown(result))
+        self.assertIn("Interactive plan history", dashboard.markdown(result))
+        self.assertEqual(result["planning"]["active_revision"], 1)
         self.assertIn("Harness usage", dashboard.html_page(result))

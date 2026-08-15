@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/spec-kit-source.schema.json",
+  "title": "TailTrail Spec Kit Source",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "source_uid", "feature_id", "source_revision", "artifacts"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-spec-kit-source"},
+    "source_uid": {"type": "string", "minLength": 1},
+    "feature_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"},
+    "source_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "artifacts": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "kind"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "kind": {"enum": ["constitution", "spec", "plan", "tasks", "research", "contract"]}}}}
+  }
+}

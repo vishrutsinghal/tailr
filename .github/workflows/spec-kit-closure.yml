@@ -1,0 +1,26 @@
+name: Spec Kit closure gate
+
+on:
+  workflow_call:
+    inputs:
+      run_id:
+        description: TailTrail run ID represented by the supplied workspace artifact
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Existing TailTrail run ID whose saved state is present in this workspace
+        required: true
+        type: string
+
+jobs:
+  closure-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate saved Spec Kit closure evidence
+        run: python3 scripts/tailtrail.py spec-kit ci-gate --root . --run-id "${{ inputs.run_id }}" --format json

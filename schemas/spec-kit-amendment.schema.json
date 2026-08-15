@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/spec-kit-amendment.schema.json",
+  "title": "TailTrail Spec Kit Amendment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "run_id", "previous_source_revision", "current_source_revision", "state", "changes"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-spec-kit-amendment"},
+    "run_id": {"type": "string"},
+    "amendment_version": {"type": "integer", "minimum": 1},
+    "previous_source_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "current_source_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "state": {"enum": ["non-material", "approval-required", "approved", "rejected"]},
+    "changes": {"type": "array", "items": {"type": "object"}},
+    "affected_requirement_uids": {"type": "array", "items": {"type": "string"}},
+    "approved_anchor": {"type": "string"},
+    "correction": {"type": "string"},
+    "rule": {"type": "string"}
+  }
+}

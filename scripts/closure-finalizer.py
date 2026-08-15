@@ -160,7 +160,10 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
             raise ValueError("closure input run_id must match --run-id")
         closure = RECORDER.record(root, resolved_input)
     else:
-        closure = latest_record(root, run_id)
+        try:
+            closure = latest_record(root, run_id)
+        except ValueError:
+            closure = RECORDER.record(root, run_id=run_id)
     LOCK.assert_write_allowed(root, run_id)
     selected = selected_harnesses(root, run_id)
     key = {

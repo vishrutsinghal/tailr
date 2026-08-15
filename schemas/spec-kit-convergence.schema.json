@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/spec-kit-convergence.schema.json",
+  "title": "TailTrail Spec Kit Convergence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "run_id", "source_revision", "requirements", "closure_state"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-spec-kit-convergence"},
+    "run_id": {"type": "string"},
+    "source_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "requirements": {"type": "array", "items": {"type": "object", "required": ["requirement_uid", "state"], "properties": {"requirement_uid": {"type": "string"}, "state": {"enum": ["complete", "deferred", "superseded", "incomplete", "source-amended", "needs-decision"]}}}},
+    "closure_state": {"enum": ["ready", "gaps", "awaiting-approval", "blocked"]}
+  }
+}

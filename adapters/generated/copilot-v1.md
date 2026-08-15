@@ -1,6 +1,6 @@
 # TailTrail Composed Host Surface — Copilot
 
-**Adapter version:** `v1`
+**Adapter version:** `v2`
 **Host source:** `adapters/copilot-instructions.md`
 
 ## Precedence
@@ -31,6 +31,13 @@ closure boundaries.
 - **evidence-failure:** Create a bounded Build & Test correction path with requirement-linked evidence gap.
 - **recovery:** Preserve approved anchor and use task-scoped recovery evidence.
 - **ci-wait:** Wait for linked CI evidence; no positive learning before acceptance.
+
+## Interactive Plan boundary
+
+- Preserve the current run ID for questions and plan-update requests.
+- Explain saved evidence first; source investigation and plan revision require their separate approvals.
+- Do not start implementation after a why-question or a revision request.
+- Route AIDLC and Intent Bridge wording changes to their designated authority.
 
 ## Boundary
 

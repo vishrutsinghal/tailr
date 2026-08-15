@@ -24,6 +24,7 @@ ledger = load("closure_finalizer_ledger_test", "scripts/run-ledger.py")
 anchor = load("closure_finalizer_anchor_test", "scripts/change-intent-anchor.py")
 lock = load("closure_finalizer_lock_test", "scripts/planning-lock.py")
 recorder = load("closure_finalizer_recorder_test", "scripts/closure-recorder.py")
+evidence = load("closure_finalizer_evidence_test", "scripts/execution-evidence.py")
 finalizer = load("closure_finalizer_test", "scripts/closure-finalizer.py")
 
 
@@ -92,6 +93,26 @@ class ClosureFinalizerTests(unittest.TestCase):
         self.assertTrue(second["reused"])
         self.assertEqual(first["finalizer_id"], second["finalizer_id"])
         self.assertEqual(activity["closure_finalized"], 1)
+
+    def test_finalizer_bridges_saved_evidence_when_no_manual_record_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid, input_path = self.setup_run(root)
+            records = ledger.state_dir(root, "run") / "closure-records"
+            for path in records.glob("*"):
+                path.unlink()
+            payload = json.loads(input_path.read_text(encoding="utf-8"))
+            receipt = payload["receipts"][0]
+            evidence.append(root, "run", {"kind": "command-result", "requirement_uids": [uid], "changed_paths": payload["changed_paths"], **receipt}, True)
+            result = finalizer.finalize(root, "run")
+            recreated = [
+                json.loads(path.read_text(encoding="utf-8"))
+                for path in records.glob("closure-*.json")
+                if json.loads(path.read_text(encoding="utf-8")).get("type") == "tailtrail-closure-record"
+            ]
+
+        self.assertEqual(result["overall_status"], "complete")
+        self.assertEqual(len(recreated), 1)
 
     def test_selected_behavior_without_a_declared_scenario_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

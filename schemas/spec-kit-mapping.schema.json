@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/spec-kit-mapping.schema.json",
+  "title": "TailTrail Spec Kit Requirement Mapping",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "run_id", "source_revision", "mappings"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-spec-kit-requirement-mapping"},
+    "run_id": {"type": "string", "minLength": 1},
+    "source_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "mappings": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["external_requirement_key", "requirement_uid", "status"], "properties": {"external_requirement_key": {"type": "string"}, "requirement_uid": {"type": "string", "pattern": "^REQ-[0-9]+$"}, "status": {"enum": ["proposed", "approved", "complete", "revoked", "deferred"]}}}}
+  }
+}

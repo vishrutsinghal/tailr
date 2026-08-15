@@ -102,7 +102,7 @@ def mcp_projection(registry: dict[str, Any]) -> list[dict[str, Any]]:
         for tool in tools:
             if not isinstance(tool, str) or not tool:
                 continue
-            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start"}
+            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve"}
             projection.append(
                 {
                     "tool": tool,

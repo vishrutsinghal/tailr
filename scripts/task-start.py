@@ -38,6 +38,13 @@ official_aidlc_bridge = importlib.util.module_from_spec(BRIDGE_SPEC)
 sys.modules["tailtrail_official_aidlc_bridge"] = official_aidlc_bridge
 BRIDGE_SPEC.loader.exec_module(official_aidlc_bridge)
 
+SPEC_KIT_BRIDGE_SPEC = importlib.util.spec_from_file_location("tailtrail_spec_kit_bridge", ROOT / "scripts" / "spec-kit-bridge.py")
+if SPEC_KIT_BRIDGE_SPEC is None or SPEC_KIT_BRIDGE_SPEC.loader is None:
+    raise SystemExit("Unable to load scripts/spec-kit-bridge.py")
+spec_kit_bridge = importlib.util.module_from_spec(SPEC_KIT_BRIDGE_SPEC)
+sys.modules["tailtrail_spec_kit_bridge"] = spec_kit_bridge
+SPEC_KIT_BRIDGE_SPEC.loader.exec_module(spec_kit_bridge)
+
 HOST_WORKSPACE_SPEC = importlib.util.spec_from_file_location("tailtrail_host_workspace_adapter", ROOT / "scripts" / "host-workspace-adapter.py")
 if HOST_WORKSPACE_SPEC is None or HOST_WORKSPACE_SPEC.loader is None:
     raise SystemExit("Unable to load scripts/host-workspace-adapter.py")
@@ -716,10 +723,23 @@ def build_report(
     run_id: str | None = None,
     aidlc_mode: str = "",
     official_manifest: str | None = None,
+    spec_kit_feature: str | None = None,
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
     plan = navigator.decide(goal, root, changed, command_prefix)
     delivery = guided_delivery(plan, goal, changed, root, run_id)
+    spec_kit_source = spec_kit_bridge.load(root, spec_kit_feature) if spec_kit_feature else None
+    if spec_kit_source:
+        paths = [str(item.get("path")) for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
+        plan["requirement_matrix"] = spec_kit_bridge.requirement_matrix(spec_kit_source, paths)
+        plan["selected_features"] = [
+            {"name": "Intent Bridge", "why": f"use imported `{spec_kit_feature}` requirements without regeneration or source writes"},
+            *plan.get("selected_features", []),
+        ]
+        delivery["selected"] = [
+            {"name": "Intent Bridge", "why": f"preserve {len(spec_kit_source['requirements'])} imported requirements and source revision through approval"},
+            *delivery["selected"],
+        ]
     ui_change = navigator.core.ui_change_requested(goal, changed)
     mode = aidlc_mode_selection(goal, aidlc_mode, root, plan, official_manifest)
     if mode["mode"] == "off":
@@ -739,6 +759,7 @@ def build_report(
         },
         "aidlc_mode": mode,
         "aidlc_mode_features": aidlc_mode_features(mode["mode"]),
+        "spec_kit_source": spec_kit_source,
         "next_actions": next_actions(plan),
         "token_posture": token_posture(root, plan),
         "learning_quality": learning_quality(root, plan),
@@ -856,7 +877,12 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.extend(["", "## Input roles", "", f"- Target: `{roles.get('target_root', root.as_posix())}` — editable only after approval.", f"- Read-only inputs: {read_only_count}. References, design, requirements, and evidence cannot become implementation scope."])
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
-    if hands_free_program:
+    spec_kit_source = report.get("spec_kit_source")
+    if isinstance(spec_kit_source, dict):
+        for item in spec_kit_source.get("requirements", []):
+            lines.append(f"- **{item['external_id']}:** {item['statement']}")
+        lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
+    elif hands_free_program:
         for item in hands_free_program["feature_requirements"]:
             lines.append(f"- **{item['display_id']}:** {item['statement']}")
     elif "zero" in lowered_goal and "quantity" in lowered_goal:
@@ -1004,7 +1030,12 @@ def verbose_start_report(report: dict[str, Any]) -> str:
                 lines.append(f"| `{item.get('locator')}` | {item.get('role')} | {item.get('access')} | {item.get('status')} |")
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
-    if hands_free_program:
+    spec_kit_source = report.get("spec_kit_source")
+    if isinstance(spec_kit_source, dict):
+        for item in spec_kit_source.get("requirements", []):
+            lines.append(f"- **{item['external_id']}:** {item['statement']}")
+        lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
+    elif hands_free_program:
         lines.extend(f"- **{item['display_id']}:** {item['statement']}" for item in hands_free_program["feature_requirements"])
     elif "zero" in lowered_goal and "quantity" in lowered_goal:
         lines.extend(["- Reject zero quantities.", "- Preserve valid positive quantities.", "- Keep order-service behavior unchanged outside this validation boundary."])
@@ -1158,6 +1189,10 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         f"- Impacted files: `{len(plan.get('likely_impacted_files', []))}`",
         f"- Selected features: `{', '.join(item['name'] for item in selected[:5]) if selected else 'none'}`",
     ]
+
+    spec_kit_source = report.get("spec_kit_source")
+    if isinstance(spec_kit_source, dict):
+        lines.extend(["", "## Intent Bridge requirement source", "", f"- Feature: `{spec_kit_source['feature_id']}`", f"- Source revision: `{spec_kit_source['source_revision']}`", f"- Imported snapshot: `{spec_kit_source['import']}`", f"- Imported requirements: `{len(spec_kit_source['requirements'])}`; stories: `{len(spec_kit_source['stories'])}`; tasks: `{len(spec_kit_source['tasks'])}`.", f"- Boundary: {spec_kit_source['boundary']}"])
 
     if hands_free_program:
         lines.extend(
@@ -1443,6 +1478,7 @@ def main() -> int:
     parser.add_argument("--official-intent-id", help="Optional official AIDLC intent identity to map to this TailTrail run in full mode.")
     parser.add_argument("--official-session-id", help="Optional official AIDLC host session identity to map to this TailTrail run in full mode.")
     parser.add_argument("--official-stage", choices=("requirements", "design", "implementation", "build-and-test", "handoff", "operations"), default="requirements", help="Initial official AIDLC stage identity for full mode.")
+    parser.add_argument("--intent-feature", "--spec-kit-feature", dest="spec_kit_feature", help="Explicitly use one already-imported Intent Bridge feature as the authoritative requirement source for this Planning Lock.")
     parser.add_argument("--no-planning-lock", action="store_true", help="Advanced compatibility escape hatch; does not create the local planning artifact.")
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
@@ -1484,7 +1520,11 @@ def main() -> int:
             else:
                 print(render_markdown(report, verbose=args.verbose), end="")
             return 2
-        report = build_report(goal, root, args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest)
+        requested_spec_kit_feature = args.spec_kit_feature or spec_kit_bridge.feature_from_goal(goal)
+        intent_requested = "intent bridge" in goal.lower() or "spec kit" in goal.lower()
+        if intent_requested and not requested_spec_kit_feature:
+            parser.error("Select an imported Intent Bridge feature with --intent-feature <feature>; TailTrail will not guess or auto-import a requirement source.")
+        report = build_report(goal, root, args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest, requested_spec_kit_feature)
         report["target_root"] = {key: value for key, value in target.items() if key != "root"}
         if isinstance(host_resolution, dict):
             report["host_workspace"] = {key: value for key, value in host_resolution.items() if key != "root"}
@@ -1504,8 +1544,11 @@ def main() -> int:
                 )
             report["planning_report"] = planning_lock.save_start_report(root, report["planning_lock"]["run_id"], report)
             selected = report.get("navigator", {}).get("selected_features", [])
-            if effective_aidlc_mode == "standard":
+            if effective_aidlc_mode == "standard" and not report.get("spec_kit_source"):
                 report["aidlc_requirements"] = planning_lock.request_aidlc_requirements(root, report["planning_lock"]["run_id"])
+                report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
+            elif effective_aidlc_mode == "standard" and report.get("spec_kit_source"):
+                report["aidlc_requirements"] = {"state": "not-run", "reason": "Imported Intent Bridge requirements are the authoritative boundary; TailTrail must not generate a parallel requirement questionnaire."}
                 report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
             elif effective_aidlc_mode == "full":
                 report["aidlc_requirements"] = planning_lock.request_official_aidlc_requirements(root, report["planning_lock"]["run_id"])

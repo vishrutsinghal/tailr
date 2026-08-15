@@ -22,6 +22,26 @@
       "deprecated_in_version": null
     },
     {
+      "id": "interactive-plan-mode-ip0",
+      "title": "Interactive Plan Mode IP-0/IP-5: Explanation, Expert Plan Customization, Revision Approval, AIDLC Mode Switch, Authority Routing, and Host UX",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Interactive Plan Mode",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": ["tailtrail planning discuss", "tailtrail planning explain", "tailtrail planning discussion-show", "tailtrail planning decision-show", "tailtrail planning investigate", "tailtrail planning investigation-show", "tailtrail planning revise", "tailtrail planning revision-show", "tailtrail planning revision-approve", "tailtrail planning aidlc-standard", "tailtrail planning aidlc-standard-approve", "tailtrail planning feature-controls-show", "tailtrail planning feature-controls-propose", "tailtrail planning feature-controls-approve", "tailtrail planning authority-show"],
+      "docs": ["tailtrail-interactive-plan-mode.md", "ROADMAP.md", "TAILTRAIL-COMMANDS.md", "schemas/planning-conversation.schema.json", "schemas/planning-investigation.schema.json", "schemas/planning-revision.schema.json", "schemas/planning-aidlc-mode-switch.schema.json", "schemas/planning-authority-route.schema.json"],
+      "scripts": ["scripts/planning-discussion.py", "scripts/planning-investigation.py", "scripts/planning-revision.py", "scripts/planning-feature-controls.py", "scripts/execution-evidence.py"],
+      "tests": ["tests/test_planning_discussion.py", "tests/test_planning_investigation.py", "tests/test_planning_revision.py", "tests/test_planning_feature_controls.py", "tests/test_execution_evidence.py", "tests/test_mcp_server.py"],
+      "mcp_tools": ["planning_decision_show", "planning_investigation_show", "planning_investigate", "planning_revision_show", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_authority_show"],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["planning-lock", "canonical-local-state"],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
       "id": "target-workspace-resolver",
       "title": "Enterprise Target Workspace Resolver, Lock Identity, Input Roles, Host Adapters, and Policy V1-V5",
       "status": "implemented",
@@ -438,10 +458,12 @@
       ],
       "scripts": [
         "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
         "scripts/aidlc-official-install.py"
       ],
       "tests": [
         "tests/test_aidlc_official_detect.py",
+        "tests/test_aidlc_official_host.py",
         "tests/test_aidlc_official_install.py",
         "tests/test_mcp_server.py",
         "tests/test_cli_dispatch.py"
@@ -1064,7 +1086,7 @@
       "tests": [
         "tests/test_mcp_server.py"
       ],
-      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "planning_lock_show", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "workflow_dashboard_show", "harness_control_check"],
+      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "planning_lock_show", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "execution_evidence_show", "execution_evidence_record", "workflow_dashboard_show", "harness_control_check"],
       "requires_approval": true,
       "read_only": false,
       "evidence_label": "local-evidence",
@@ -1414,6 +1436,362 @@
         "token-harness"
       ],
       "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-bridge-contract",
+      "title": "Spec Kit Bridge Product Contract And Security Boundary",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-0",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge policy check",
+        "tailtrail intent-bridge policy init",
+        "tailtrail intent-bridge policy contracts"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/spec-kit-source.schema.json",
+        "schemas/spec-kit-import.schema.json",
+        "schemas/spec-kit-mapping.schema.json",
+        "schemas/spec-kit-amendment.schema.json",
+        "schemas/spec-kit-convergence.schema.json",
+        "templates/spec-kit-bridge-policy.example.json"
+      ],
+      "scripts": [
+        "scripts/spec-kit-policy.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_policy.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "governance",
+        "canonical-local-state"
+      ],
+      "since_version": "sk-0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-read-only-detection",
+      "title": "Spec Kit Read-Only Workspace Detection And Compatibility",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-1",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge detect",
+        "tailtrail intent-bridge status",
+        "tailtrail intent-bridge inspect"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-detect.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_detect.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-bridge-contract"
+      ],
+      "since_version": "sk-1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-canonical-import",
+      "title": "Spec Kit Canonical Import And Versioned Source Snapshots",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-2",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge import"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/spec-kit-source.schema.json",
+        "schemas/spec-kit-import.schema.json"
+      ],
+      "scripts": [
+        "scripts/spec-kit-import.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_import.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-bridge-contract",
+        "spec-kit-read-only-detection"
+      ],
+      "since_version": "sk-2",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-navigator-integration",
+      "title": "Spec Kit Navigator And Requirement-Gathering Integration",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-3",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail start --intent-feature",
+        "tailtrail intent-bridge bridge"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-bridge.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_navigator_bridge.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-canonical-import"
+      ],
+      "since_version": "sk-3",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-anchor-task-slice-bridge",
+      "title": "Spec Kit Approved Anchor And Task-Slice Bridge",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-4",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge slices show",
+        "tailtrail intent-bridge slices assert-active",
+        "tailtrail intent-bridge slices advance"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-slices.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_slices.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-navigator-integration"
+      ],
+      "since_version": "sk-4",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-harness-evidence-integration",
+      "title": "Spec Kit Harness And Evidence Integration",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-5",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge evidence plan",
+        "tailtrail intent-bridge evidence record"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-evidence.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_evidence.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-anchor-task-slice-bridge"
+      ],
+      "since_version": "sk-5",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-amendment-drift-recovery",
+      "title": "Spec Kit Amendment, Drift, Correction, And Recovery",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-6",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge amendment check",
+        "tailtrail intent-bridge amendment propose",
+        "tailtrail intent-bridge amendment approve",
+        "tailtrail intent-bridge amendment recovery"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-amendment.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_amendment.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-harness-evidence-integration"
+      ],
+      "since_version": "sk-6",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-closure-convergence",
+      "title": "Spec Kit Closure Convergence",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-7",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge converge"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-converge.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_converge.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-amendment-drift-recovery"
+      ],
+      "since_version": "sk-7",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-mcp-host-ci-integration",
+      "title": "Spec Kit MCP, Host, And CI Integration",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-8",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail mcp serve",
+        "tailtrail intent-bridge ci-ingest"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-integration.py"
+      ],
+      "tests": [
+        "tests/test_mcp_server.py",
+        "tests/test_spec_kit_converge.py"
+      ],
+      "mcp_tools": [
+        "spec_kit_detect",
+        "spec_kit_mapping_show",
+        "spec_kit_convergence_show",
+        "spec_kit_import",
+        "spec_kit_amendment_propose",
+        "spec_kit_anchor_approve",
+        "spec_kit_convergence_record",
+        "spec_kit_ci_ingest"
+      ],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-closure-convergence"
+      ],
+      "since_version": "sk-8",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "spec-kit-evaluation-governance-release",
+      "title": "Spec Kit Evaluation, Observability, Governance, And Release",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "TailTrail and GitHub Spec Kit: Enterprise Integration Plan / SK-9",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail intent-bridge observe",
+        "tailtrail intent-bridge release",
+        "tailtrail intent-bridge governance",
+        "tailtrail intent-bridge evaluate",
+        "tailtrail intent-bridge ci-gate"
+      ],
+      "docs": [
+        "tailtrail-spec-kit-integration.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/spec-kit-observability.py",
+        "scripts/spec-kit-ci-gate.py"
+      ],
+      "tests": [
+        "tests/test_spec_kit_observability.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "spec-kit-mcp-host-ci-integration"
+      ],
+      "since_version": "sk-9",
       "deprecated_in_version": null
     },
     {

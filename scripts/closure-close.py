@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import sys
@@ -90,8 +91,26 @@ def baseline(root: Path, run_id: str) -> Path:
     if path.is_file(): return path
     anchor = json.loads((directory / "anchors" / "approved-v1.json").read_text(encoding="utf-8")); total = len(anchor.get("requirements", []))
     if total < 1: raise ValueError("approved anchor has no requirements; cannot derive a baseline")
-    L.atomic_json(path, {"type": "tailtrail-closure-baseline", "baseline_kind": "approved-anchor-delivery-start", "requirements_complete": 0, "requirements_total": total, "unresolved_drift": 0, "tests_pass": False, "boundary": "Derived from the immutable approved anchor as a delivery-start snapshot. It measures delivery progression, not agent or quality performance."})
+    L.atomic_json(path, {"type": "tailtrail-closure-baseline", "baseline_kind": "approved-anchor-delivery-start", "requirements_complete": 0, "requirements_total": total, "unresolved_drift": 0, "tests_pass": False, "boundary": "Derived automatically from the immutable pre-implementation approved anchor as a delivery-start snapshot. It measures delivery progression, not agent or quality performance."})
     return path
+
+
+def record_decision(root: Path, run_id: str, state: str, completion_report: str, *, decision: str | None = None, baseline_path: Path | None = None, ci_receipt: str | None = None) -> dict[str, Any]:
+    """Persist a sanitized acceptance-state transition without promoting learning."""
+    directory = L.state_dir(root, run_id)
+    key = {"run_id": run_id, "state": state, "decision": decision, "completion_report": completion_report, "ci_receipt": ci_receipt}
+    decision_id = "decision-" + hashlib.sha256(json.dumps(key, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+    path = directory / "closure-decisions" / f"{decision_id}.json"
+    payload = {
+        "schema_version": "1", "type": "tailtrail-closure-acceptance", "decision_id": decision_id,
+        "run_id": run_id, "state": state, "decision": decision, "completion_report": completion_report,
+        "baseline": baseline_path.relative_to(root).as_posix() if baseline_path else None,
+        "ci_receipt": ci_receipt,
+        "boundary": "Acceptance state only. It does not change source, execute validation, promote learning, or infer missing evidence.",
+    }
+    if not path.is_file():
+        L.atomic_json(path, payload)
+    return {"artifact": path.relative_to(root).as_posix(), **payload}
 
 
 def trusted_ci(root: Path, run_id: str, receipt: Path | None) -> str:
@@ -121,19 +140,24 @@ def close(root: Path, run_id: str | None = None, decision: str | None = None, in
     report_artifact = report.get("run_artifact") or finalized.get("completion_report")
     official = official_closure_link(root, selected, str(report_artifact), "evidence-incomplete" if report["overall_status"] != "complete" else "awaiting-acceptance")
     if report["overall_status"] != "complete":
-        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "evidence-incomplete", "completion_report": report_artifact, "official_aidlc": official, "correction": finalized.get("correction"), "next_action": "Review the gap and use bounded correction or approved replan. No acceptance or positive learning was recorded."}
+        recorded = record_decision(root, selected, "evidence-incomplete", str(report_artifact))
+        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "evidence-incomplete", "completion_report": report_artifact, "official_aidlc": official, "acceptance_record": recorded, "correction": finalized.get("correction"), "next_action": "Review the gap and use bounded correction or approved replan. No acceptance or positive learning was recorded."}
     baseline_path = baseline(root, selected)
     if decision is None:
-        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "awaiting-acceptance", "completion_report": report_artifact, "official_aidlc": official, "baseline": baseline_path.relative_to(root).as_posix(), "acceptance_prompt": {"question": "TailTrail closure is complete. Accept this delivery?", "options": ["accept-user", "wait-ci", "reopen"]}, "boundary": "No learning or evaluation is written until a decision is supplied."}
+        recorded = record_decision(root, selected, "awaiting-acceptance", str(report_artifact), baseline_path=baseline_path)
+        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "awaiting-acceptance", "completion_report": report_artifact, "official_aidlc": official, "acceptance_record": recorded, "baseline": baseline_path.relative_to(root).as_posix(), "acceptance_prompt": {"question": "TailTrail closure is complete. Accept this delivery?", "options": ["accept-user", "wait-ci", "reopen"]}, "boundary": "No learning or evaluation is written until a decision is supplied."}
     if decision == "wait-ci":
-        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "awaiting-ci", "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "awaiting-ci"), "baseline": baseline_path.relative_to(root).as_posix(), "next_action": "Link a trusted CI receipt before CI acceptance. No positive learning was recorded."}
+        recorded = record_decision(root, selected, "awaiting-ci", str(report_artifact), decision=decision, baseline_path=baseline_path)
+        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "awaiting-ci", "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "awaiting-ci"), "acceptance_record": recorded, "baseline": baseline_path.relative_to(root).as_posix(), "next_action": "Link a trusted CI receipt before CI acceptance. No positive learning was recorded."}
     if decision == "reopen":
-        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "reopened", "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "reopened"), "next_action": "Use bounded correction or approved replan; prior evidence remains preserved."}
+        recorded = record_decision(root, selected, "reopened", str(report_artifact), decision=decision, baseline_path=baseline_path)
+        return {"type": "tailtrail-closure-close", "run_id": selected, "state": "reopened", "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "reopened"), "acceptance_record": recorded, "next_action": "Use bounded correction or approved replan; prior evidence remains preserved."}
     if decision not in {"accept-user", "accept-ci"}: raise ValueError("decision must be accept-user, wait-ci, accept-ci, or reopen")
     accepted_by = "trusted-ci" if decision == "accept-ci" else "user"
     ci_reference = trusted_ci(root, selected, ci_receipt) if decision == "accept-ci" else None
     learned = LEARNING.capture(root, selected, accepted_by); evaluated = EVALUATION.evaluate(root, selected, baseline_path)
-    return {"type": "tailtrail-closure-close", "run_id": selected, "state": "accepted", "accepted_by": accepted_by, "ci_receipt": ci_reference, "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "accepted-ci" if decision == "accept-ci" else "accepted-user"), "baseline": baseline_path.relative_to(root).as_posix(), "positive_learning": learned, "evaluation": evaluated, "boundary": "Acceptance created candidate-only learning and deterministic evaluation; it did not promote guidance or claim quality improvement."}
+    recorded = record_decision(root, selected, "accepted", str(report_artifact), decision=decision, baseline_path=baseline_path, ci_receipt=ci_reference)
+    return {"type": "tailtrail-closure-close", "run_id": selected, "state": "accepted", "accepted_by": accepted_by, "ci_receipt": ci_reference, "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "accepted-ci" if decision == "accept-ci" else "accepted-user"), "acceptance_record": recorded, "baseline": baseline_path.relative_to(root).as_posix(), "positive_learning": learned, "evaluation": evaluated, "boundary": "Acceptance created candidate-only learning and deterministic evaluation; it did not promote guidance or claim quality improvement."}
 
 
 def main() -> int:

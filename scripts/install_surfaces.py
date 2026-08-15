@@ -39,6 +39,7 @@ CORE_DIRS: tuple[str, ...] = (
 )
 
 CORE_SCRIPTS: tuple[str, ...] = (
+    "scripts/aidlc-official-host.py",
     "scripts/architecture-fitness.py",
     "scripts/behavior-harness.py",
     "scripts/bootstrap-snapshot.py",
@@ -84,6 +85,17 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/requirement-recovery-manifest.py",
     "scripts/route-context.py",
     "scripts/run-ledger.py",
+    "scripts/spec-kit-amendment.py",
+    "scripts/spec-kit-bridge.py",
+    "scripts/spec-kit-ci-gate.py",
+    "scripts/spec-kit-converge.py",
+    "scripts/spec-kit-detect.py",
+    "scripts/spec-kit-evidence.py",
+    "scripts/spec-kit-import.py",
+    "scripts/spec-kit-integration.py",
+    "scripts/spec-kit-observability.py",
+    "scripts/spec-kit-policy.py",
+    "scripts/spec-kit-slices.py",
     "scripts/sync-adapters.py",
     "scripts/sync-governance.py",
     "scripts/tailtrail-registry.py",

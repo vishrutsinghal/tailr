@@ -114,6 +114,24 @@ After installing or updating, open a **new chat** in your AI host so it reads th
 
 > GitHub Copilot reads the generated instructions from your project root, for example `.github/copilot-instructions.md`. The local `tailtrail/` folder is the installed runtime pack. Keep it local unless you intentionally want to share the pack with the repository.
 
+### Optional: Full official AI-DLC workflow for Codex
+
+TailTrail Lite and Standard modes are self-contained. Full mode is optional and
+uses a **pinned, integrity-checked** AWS AI-DLC release. Install the pack, then
+project it into the official Codex rule layout without replacing your existing
+TailTrail guidance:
+
+```powershell
+py -3 scripts\tailtrail.py aidlc official install --root "D:\path\to\your-project" --host codex
+py -3 scripts\tailtrail.py aidlc official host install --root "D:\path\to\your-project" --host codex
+py -3 scripts\tailtrail.py aidlc official host status --root "D:\path\to\your-project" --host codex
+```
+
+The projection is conditional: Codex loads the exact official workflow only
+for an explicit approved `--aidlc full` run. It does not make ordinary
+TailTrail Start requests heavier. Runtime conformance remains
+`not-validated` until real host receipts are recorded.
+
 ## Verify the installation
 
 From the project that received the installed pack:
@@ -172,6 +190,30 @@ At the end, the report brings together requirement status, changed scope, eviden
 | Safe recovery | Uses bounded checkpoints and Git readiness to protect unrelated work. |
 | MCP tools | Makes TailTrail decisions and receipts inspectable across supported hosts. |
 
+## Intent Bridge for existing requirements
+
+Use **Intent Bridge** when your team already has structured feature
+requirements, design decisions, tasks, or contracts and you want TailTrail to
+deliver against them without creating a competing set of documents. TailTrail
+keeps the original source authoritative; it stores only normalized references,
+fingerprints, mappings, evidence, and approval history locally.
+
+```powershell
+# Inspect compatible requirement artifacts without writing files
+py -3 scripts\tailtrail.py intent-bridge detect --root "D:\path\to\your-project"
+
+# Import one explicitly selected feature into local TailTrail state
+py -3 scripts\tailtrail.py intent-bridge import --root "D:\path\to\your-project" --feature 014-order-amendment --mode planning
+
+# Use that approved source in a normal Planning Lock
+py -3 scripts\tailtrail.py start "Use Intent Bridge feature 014-order-amendment to plan order amendments" --intent-feature 014-order-amendment
+```
+
+After approval, TailTrail maps the imported requirements to code scope and
+proof, works one approved slice at a time, and detects any later source change
+as an amendment. It does not rewrite the original requirements, call external
+systems, or claim CI/release success without a saved receipt.
+
 ## Useful commands
 
 From this source checkout:
@@ -198,6 +240,7 @@ Use `python3 scripts/tailtrail.py ...` on macOS/Linux. See the [command referenc
 - [Evidence-aware testing](testing-confidence.md)
 - [TailTrail MCP](tailtrail-mcp.md) and [MCP implementation guide](tailtrail-mcp-learning-guide.md)
 - [AIDLC](AIDLC.md) for broad, risky, or lifecycle-heavy work
+- Intent Bridge: use `tailtrail intent-bridge detect` when a project already has a structured requirement source
 - [Roadmap](ROADMAP.md) and [implementation backlog](tailtrail-implementation-backlog.md)
 
 ## Development and validation

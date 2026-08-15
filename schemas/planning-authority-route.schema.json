@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/planning-authority-route.schema.json",
+  "title": "TailTrail Planning Authority Route",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "route_id", "authority", "route", "state", "revision_context", "boundary", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-planning-authority-route"},
+    "run_id": {"type": "string", "minLength": 1},
+    "route_id": {"type": "string", "pattern": "^route-[0-9]{3}$"},
+    "authority": {"enum": ["aidlc-requirements", "official-ai-dlc-pack", "intent-bridge-source"]},
+    "route": {"enum": ["aidlc-requirements", "official-aidlc-requirements", "official-aidlc-design", "intent-bridge-amendment"]},
+    "state": {"enum": ["authority-refinement-required", "source-amendment-required"]},
+    "revision_context": {"type": "array", "items": {"type": "object"}},
+    "boundary": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "minLength": 1},
+    "next": {"type": "string", "minLength": 1},
+    "refinement_artifact": {"type": "string"},
+    "feature_id": {"type": "string"},
+    "saved_source_revision": {"type": "string"},
+    "current_source_revision": {"type": "string"},
+    "source_changed": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

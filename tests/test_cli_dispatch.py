@@ -93,10 +93,20 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn('if command == "completion-report":', body)
         self.assertIn('return run_script("completion-report.py", args)', body)
 
+    def test_interactive_plan_mode_has_a_public_planning_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if args and args[0] in {"discuss", "explain", "discussion-show", "decision-show"}:', body)
+        self.assertIn('return run_script("planning-discussion.py", args)', body)
+        self.assertIn('if args and args[0] in {"investigate", "investigation-show"}:', body)
+        self.assertIn('return run_script("planning-investigation.py", investigation_args)', body)
+        self.assertIn('"feature-controls-show", "feature-controls-propose", "feature-controls-approve"', body)
+        self.assertIn('return run_script("planning-revision.py", revision_args)', body)
+
     def test_official_aidlc_status_has_a_public_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if action == "official":', body)
         self.assertIn('return run_script("aidlc-official-install.py", rest[1:])', body)
+        self.assertIn('return run_script("aidlc-official-host.py", rest[1:])', body)
         self.assertIn('return run_script("aidlc-official-detect.py", rest)', body)
         self.assertIn('return run_script("aidlc-official-bridge.py", rest[1:])', body)
         self.assertIn('return run_script("official-aidlc-state.py", rest[1:])', body)
@@ -128,6 +138,55 @@ class CliDispatchTests(unittest.TestCase):
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if command == "target":', body)
         self.assertIn('return run_script("target_workspace.py", args)', body)
+
+    def test_spec_kit_policy_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if command in {"intent-bridge", "spec-kit"}:', body)
+        self.assertIn('return run_script("spec-kit-policy.py", args[1:])', body)
+
+    def test_spec_kit_detection_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-detect.py", args)', body)
+
+    def test_spec_kit_import_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-import.py", args[1:])', body)
+
+    def test_spec_kit_navigator_bridge_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-bridge.py", args[1:])', body)
+
+    def test_spec_kit_slice_bridge_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-slices.py", args[1:])', body)
+
+    def test_spec_kit_evidence_bridge_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-evidence.py", args[1:])', body)
+
+    def test_spec_kit_amendment_bridge_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-amendment.py", args[1:])', body)
+
+    def test_spec_kit_convergence_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-converge.py", args[1:])', body)
+
+    def test_spec_kit_ci_receipt_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-integration.py", args[1:])', body)
+
+    def test_spec_kit_ci_gate_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-ci-gate.py", args[1:])', body)
+
+    def test_intent_bridge_alias_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if command in {"intent-bridge", "spec-kit"}:', body)
+
+    def test_spec_kit_observability_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('run_script("spec-kit-observability.py"', body)
 
     def test_user_facing_docs_do_not_advertise_importable_module_paths(self) -> None:
         for doc in USER_FACING_DOCS:

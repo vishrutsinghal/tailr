@@ -22,7 +22,9 @@ LEDGER = ledger()
 
 
 def assess(root: Path, run_id: str, receipts_path: Path) -> dict[str, Any]:
-    anchor = json.loads((LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json").read_text(encoding="utf-8"))
+    anchors = sorted((LEDGER.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+    if not anchors: raise ValueError("an approved anchor is required")
+    anchor = json.loads(anchors[-1].read_text(encoding="utf-8"))
     raw = json.loads(receipts_path.read_text(encoding="utf-8")); receipts = raw.get("receipts", raw)
     rows: list[dict[str, Any]] = []; findings: list[dict[str, Any]] = []
     for requirement in anchor["requirements"]:

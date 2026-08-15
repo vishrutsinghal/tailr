@@ -33,6 +33,7 @@ LOCK = load("closure_recorder_lock", "planning-lock.py")
 CHECKPOINT = load("closure_recorder_checkpoint", "harness-checkpoint.py")
 REVIEW = load("closure_recorder_review", "completion-review.py")
 GATE = load("closure_recorder_gate", "requirement-completion.py")
+EVIDENCE = load("closure_recorder_evidence", "execution-evidence.py")
 
 
 def canonical(payload: dict[str, Any]) -> str:
@@ -74,8 +75,18 @@ def artifact_pointer(root: Path, path: Path) -> str:
         return path.name
 
 
-def record(root: Path, input_path: Path) -> dict[str, Any]:
-    source = json.loads(input_path.read_text(encoding="utf-8"))
+def collected_input(root: Path, run_id: str) -> dict[str, Any]:
+    """Build the existing closure contract only from saved factual evidence."""
+    saved = EVIDENCE.show(root, run_id)["events"]
+    receipts = [{key: item[key] for key in ("requirement_uids", "tier", "command_label", "command", "outcome", "environment", "asserted_behavior", "artifact", "evidence_label") if key in item} for item in saved if item.get("kind") in {"command-result", "ci-receipt"}]
+    paths = sorted({path for item in saved for path in item.get("changed_paths", [])})
+    return {"schema_version": "1", "type": "tailtrail-execution-closure-input", "run_id": run_id, "changed_paths": paths, "receipts": receipts}
+
+
+def record(root: Path, input_path: Path | None = None, run_id: str | None = None) -> dict[str, Any]:
+    if input_path is None and not run_id:
+        raise ValueError("closure record needs --input or --run-id for saved execution evidence")
+    source = json.loads(input_path.read_text(encoding="utf-8")) if input_path else collected_input(root, str(run_id))
     validated = CONTRACT.validate_input(root, source)
     run_id = validated["run_id"]
     LOCK.assert_write_allowed(root, run_id)
@@ -110,7 +121,7 @@ def record(root: Path, input_path: Path) -> dict[str, Any]:
     next_action = ("Run the selected harness assessments: " + ", ".join(outstanding) + "; then run tailtrail completion-report." if outstanding else "Run tailtrail completion-report for this run.")
     payload = {
         "schema_version": "1", "type": "tailtrail-closure-record", "record_id": record_id, "run_id": run_id,
-        "validated_input": artifact_pointer(root, input_path), "changed_paths": validated["changed_paths"],
+        "validated_input": artifact_pointer(root, input_path) if input_path else "execution/evidence-stream.jsonl", "changed_paths": validated["changed_paths"],
         "receipt_artifacts": receipt_artifacts, "checkpoint": checkpoint["path"], "completion_review": review,
         "completion_gate": gate, "selected_harnesses": selected, "next_action": next_action,
         "boundary": "Recorded supplied validated evidence only. No listed command was executed by TailTrail.",
@@ -123,10 +134,13 @@ def record(root: Path, input_path: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--input", type=Path)
+    parser.add_argument("--run-id")
     args = parser.parse_args()
     try:
-        print(json.dumps(record(args.root.resolve(), args.input.resolve()), indent=2, sort_keys=True))
+        if args.input is None and not args.run_id:
+            raise ValueError("closure record needs --input or --run-id")
+        print(json.dumps(record(args.root.resolve(), args.input.resolve() if args.input else None, args.run_id), indent=2, sort_keys=True))
         return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         print(f"Closure recorder error: {error}")

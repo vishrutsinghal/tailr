@@ -20,13 +20,24 @@ def load_module():
     return module
 
 
+def load_script(name: str, relative: str):
+    spec = importlib.util.spec_from_file_location(name, ROOT / relative)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 mcp = load_module()
+lock = load_script("mcp_execution_lock_test", "scripts/planning-lock.py")
+anchor = load_script("mcp_execution_anchor_test", "scripts/change-intent-anchor.py")
 
 
 class McpServerTests(unittest.TestCase):
     def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
-        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report"}.issubset(set(mcp.READ_ONLY_TOOLS)))
-        self.assertEqual(mcp.CONTROLLED_TOOLS, ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start"))
+        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "planning_decision_show", "planning_investigation_show", "planning_revision_show", "planning_authority_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report", "execution_evidence_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
+        self.assertTrue({"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest"}.issubset(set(mcp.CONTROLLED_TOOLS)))
         self.assertEqual(set(mcp.HANDLERS), set((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         self.assertEqual(mcp.ensure_safe_tools(), [])
 
@@ -44,6 +55,19 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(projected["planning_lock_approve"]["requires_approval"])
         self.assertFalse(projected["tailtrail_start"]["read_only"])
         self.assertTrue(projected["tailtrail_start"]["requires_approval"])
+        self.assertTrue(projected["planning_investigation_show"]["read_only"])
+        self.assertFalse(projected["planning_investigate"]["read_only"])
+        self.assertTrue(projected["planning_investigate"]["requires_approval"])
+        self.assertTrue(projected["planning_revision_show"]["read_only"])
+        self.assertFalse(projected["planning_revision_propose"]["read_only"])
+        self.assertTrue(projected["planning_revision_approve"]["requires_approval"])
+        self.assertFalse(projected["planning_aidlc_standard_propose"]["read_only"])
+        self.assertTrue(projected["planning_aidlc_standard_approve"]["requires_approval"])
+        self.assertTrue(projected["planning_decision_show"]["read_only"])
+        self.assertTrue(projected["planning_authority_show"]["read_only"])
+        self.assertTrue(projected["execution_evidence_show"]["read_only"])
+        self.assertFalse(projected["execution_evidence_record"]["read_only"])
+        self.assertTrue(projected["execution_evidence_record"]["requires_approval"])
 
     def test_tool_schemas_are_json_objects(self):
         tools = mcp.tool_list()
@@ -90,7 +114,7 @@ class McpServerTests(unittest.TestCase):
 
         self.assertEqual(
             errors[0],
-            "tool registry order mismatch at index 24: expected `planning_lock_show`, got `aidlc_official_status`",
+            "tool registry order mismatch at index 25: expected `planning_lock_show`, got `planning_decision_show`",
         )
 
     def test_unknown_tool_is_rejected(self):
@@ -100,6 +124,71 @@ class McpServerTests(unittest.TestCase):
         response = mcp.handle(request)
         self.assertIn("error", response)
         self.assertIn("Unknown or disallowed", response["error"]["message"])
+
+    def test_execution_evidence_mcp_requires_explicit_approval(self):
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.execution_evidence_record({"run_id": "demo", "event": {}, "approved": False})
+
+    def test_execution_evidence_show_is_read_only_when_no_events_exist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = mcp.execution_evidence_show({"root": tmp, "run_id": "demo"})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["count"], 0)
+
+    def test_execution_evidence_mcp_records_only_a_valid_approved_run_fact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lock.create(root, "validate order", "evidence-run")
+            proposal = root / "proposal.json"
+            proposal.write_text(json.dumps({"requirements": [{
+                "statement": "Reject an invalid order.", "acceptance_criteria": ["invalid orders reject"],
+                "preserve_rules": ["valid orders remain accepted"], "likely_paths": ["src/orders.py"],
+                "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"]},
+                "architecture_contract": {"required_paths": [], "protected_paths": [], "forbidden_imports": []},
+                "behavior_contract": {"scenarios": []},
+            }]}), encoding="utf-8")
+            anchor.draft(root, "evidence-run", proposal)
+            requirement_uid = anchor.approve(root, "evidence-run")["requirements"][0]["requirement_uid"]
+            lock.approve(root, "evidence-run", True)
+            recorded = mcp.execution_evidence_record({
+                "root": root.as_posix(), "run_id": "evidence-run", "approved": True,
+                "event": {"kind": "command-result", "requirement_uids": [requirement_uid],
+                          "changed_paths": ["src/orders.py"], "tier": "unit", "command_label": "order validation",
+                          "command": "python -m unittest tests.test_orders", "outcome": "pass",
+                          "environment": "local", "asserted_behavior": "Invalid orders reject."},
+            })
+            shown = mcp.execution_evidence_show({"root": root.as_posix(), "run_id": "evidence-run"})
+
+        self.assertFalse(recorded["execution"]["read_only"])
+        self.assertEqual(recorded["result"]["kind"], "command-result")
+        self.assertEqual(shown["result"]["count"], 1)
+
+    def test_spec_kit_mcp_controls_are_approval_gated(self):
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.spec_kit_import({"root": ROOT.as_posix(), "feature": "001-orders", "approved": False})
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.spec_kit_convergence_record({"root": ROOT.as_posix(), "run_id": "run", "approved": False})
+
+    def test_planning_investigation_mcp_requires_explicit_approval(self):
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.planning_investigate({
+                "root": ROOT.as_posix(),
+                "run_id": "planning-run",
+                "paths": ["src/service.py"],
+                "approved": False,
+            })
+
+    def test_planning_revision_mcp_requires_explicit_approval(self):
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.planning_revision_propose({
+                "root": ROOT.as_posix(), "run_id": "planning-run", "changes": [{"kind": "scope-remove"}], "approved": False,
+            })
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.planning_revision_approve({"root": ROOT.as_posix(), "run_id": "planning-run", "revision": 2, "approved": False})
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.planning_aidlc_standard_propose({"root": ROOT.as_posix(), "run_id": "planning-run", "approved": False})
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.planning_aidlc_standard_approve({"root": ROOT.as_posix(), "run_id": "planning-run", "revision": 2, "approved": False})
 
     def test_stdio_tools_list(self):
         request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}) + "\n"

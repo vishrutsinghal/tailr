@@ -24,7 +24,7 @@ COMMANDS = {
     "hello": "Confirm TailTrail is installed and reachable.",
     "version": "Show source/pack location.",
     "start": "Start a task with Navigator-first plan, metrics, setup posture, and learning quality.",
-    "planning": "Create, inspect, approve, or enforce a Planning Lock for one run.",
+    "planning": "Create, inspect, discuss, revise, approve, or enforce a Planning Lock for one run.",
     "do": "Alias for start; run Navigator-first planning for a free-form task.",
     "run": "Alias for start; run Navigator-first planning for a free-form task.",
     "next": "Recommend one deterministic next action after a Start report.",
@@ -48,6 +48,7 @@ COMMANDS = {
     "setup-scan": "Classify TailTrail files in a cloned or existing repo.",
     "target": "Resolve one editable target workspace before planning.",
     "reference": "Plan safe read-only cross-repo reference usage.",
+    "intent-bridge": "Inspect, import, and prove delivery against an existing structured requirement source.",
     "graph": "Generate Code Review Graph Lite, scanner overlays, AST maps, or manage Code Graph Mapper cache.",
     "ci": "Summarize CI/build/test output.",
     "sonar": "Summarize Sonar/static-analysis output.",
@@ -596,6 +597,8 @@ def aidlc(args: list[str]) -> int:
     if action == "official":
         if rest[:1] == ["install"]:
             return run_script("aidlc-official-install.py", rest[1:])
+        if rest[:1] == ["host"]:
+            return run_script("aidlc-official-host.py", rest[1:])
         if rest[:1] == ["sanitize"]:
             return run_script("official-aidlc-sanitize.py", rest[1:])
         if rest[:1] == ["state"]:
@@ -895,6 +898,36 @@ def registry(args: list[str]) -> int:
     return run_script("tailtrail-registry.py", args)
 
 
+def spec_kit(args: list[str]) -> int:
+    if not args or args[0] in {"--help", "-h"}:
+        print("Usage: tailtrail intent-bridge detect|status|inspect|import|bridge|slices|evidence|amendment|converge|ci-ingest|ci-gate|observe|release|governance|evaluate|policy [args]")
+        return 0 if args else 2
+    if args[0] == "policy":
+        return run_script("spec-kit-policy.py", args[1:])
+    if args[0] in {"detect", "status", "inspect"}:
+        return run_script("spec-kit-detect.py", args)
+    if args[0] == "import":
+        return run_script("spec-kit-import.py", args[1:])
+    if args[0] == "bridge":
+        return run_script("spec-kit-bridge.py", args[1:])
+    if args[0] == "slices":
+        return run_script("spec-kit-slices.py", args[1:])
+    if args[0] == "evidence":
+        return run_script("spec-kit-evidence.py", args[1:])
+    if args[0] == "amendment":
+        return run_script("spec-kit-amendment.py", args[1:])
+    if args[0] == "converge":
+        return run_script("spec-kit-converge.py", args[1:])
+    if args[0] == "ci-ingest":
+        return run_script("spec-kit-integration.py", args[1:])
+    if args[0] == "ci-gate":
+        return run_script("spec-kit-ci-gate.py", args[1:])
+    if args[0] in {"observe", "release", "governance", "evaluate"}:
+        return run_script("spec-kit-observability.py", ["report" if args[0] == "observe" else args[0], *args[1:]])
+    print("Use: tailtrail intent-bridge detect|status|inspect|import|bridge|slices|evidence|amendment|converge|ci-ingest|ci-gate|observe|release|governance|evaluate|policy")
+    return 2
+
+
 def token(args: list[str]) -> int:
     if args and args[0] == "route":
         return run_script("token-harness.py", args)
@@ -937,6 +970,24 @@ def main() -> int:
     if command in {"start", "do", "run"}:
         return start(args)
     if command == "planning":
+        if args and args[0] in {"discuss", "explain", "discussion-show", "decision-show"}:
+            return run_script("planning-discussion.py", args)
+        if args and args[0] in {"investigate", "investigation-show"}:
+            investigation_args = ["investigate", *args[1:]] if args[0] == "investigate" else ["show", *args[1:]]
+            return run_script("planning-investigation.py", investigation_args)
+        if args and args[0] in {"revise", "revision-show", "revision-approve", "authority-show", "aidlc-standard", "aidlc-standard-approve", "feature-controls-show", "feature-controls-propose", "feature-controls-approve"}:
+            revision_args = (
+                ["propose", *args[1:]] if args[0] == "revise"
+                else ["show", *args[1:]] if args[0] == "revision-show"
+                else ["authority-show", *args[1:]] if args[0] == "authority-show"
+                else ["aidlc-standard", *args[1:]] if args[0] == "aidlc-standard"
+                else ["aidlc-standard-approve", *args[1:]] if args[0] == "aidlc-standard-approve"
+                else ["approve", *args[1:]]
+            )
+            if args[0].startswith("feature-controls-"):
+                control_args = ["show", *args[1:]] if args[0] == "feature-controls-show" else ["propose", *args[1:]] if args[0] == "feature-controls-propose" else ["approve", *args[1:]]
+                return run_script("planning-feature-controls.py", control_args)
+            return run_script("planning-revision.py", revision_args)
         return run_script("planning-lock.py", args)
     if command == "next":
         return run_script("task-next.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
@@ -948,6 +999,8 @@ def main() -> int:
         return run_script("run-ledger.py", args)
     if command == "failure":
         return run_script("execution-failure.py", args)
+    if command == "execution-evidence":
+        return run_script("execution-evidence.py", args)
     if command == "anchor":
         return run_script("change-intent-anchor.py", args)
     if command in {"intent", "expand"}:
@@ -984,6 +1037,8 @@ def main() -> int:
         return run_script("target_workspace.py", args)
     if command == "reference":
         return run_script("cross-repo-reference.py", args)
+    if command in {"intent-bridge", "spec-kit"}:
+        return spec_kit(args)
     if command == "graph":
         return graph(args)
     if command == "ci":

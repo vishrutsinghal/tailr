@@ -42,3 +42,16 @@ Use TailTrail Token Autopilot rules. Skip routing for tiny tasks; route broad/no
 Use TailTrail Handoff. Capture task, files, validation, skipped work, remaining risk, and next approval.
 ```
 
+## Discuss An Awaiting Plan
+
+```text
+Use TailTrail Interactive Plan Mode for the active run. Explain the selected
+files, requirements, TailTrail features, AIDLC mode, validation, drift, token
+estimate, or approval boundary from saved planning evidence only. Keep the same
+run ID. Do not inspect source, change the plan, or implement work unless I
+explicitly approve the separate investigation or revision flow.
+```
+
+To deepen an awaiting Lite plan without restarting it, say: `Switch this run to
+Standard AIDLC.` TailTrail must show a versioned mode-switch proposal first;
+approval begins Standard AIDLC requirements, not implementation.

@@ -17,6 +17,29 @@ Use TailTrail as the project workflow for local development.
 - Label evidence clearly when using graph or scanner metadata: heuristic, local-ast, provider-backed, measured/validated.
 - Follow `tailtrail-policy.md` when present and never use local policy to weaken TailTrail safety rules.
 
+## Interactive Plan Mode
+
+For an awaiting-approval run, users may ask why a file, requirement, selected
+TailTrail feature, AIDLC mode, validation path, drift posture, token estimate,
+or approval boundary was chosen. Keep the **same run ID**, answer from saved
+planning evidence only, and do not inspect source or start implementation.
+
+- Use `tailtrail planning explain` or `discuss` for an evidence-labelled answer.
+- Use `planning investigate` only after explicit read-only approval and only on
+  saved planned paths.
+- Use `planning revise` only for a material update; it creates a versioned
+  proposal which requires separate approval.
+- Use `planning decision-show` for the compact lock/discussion/revision/AIDLC or
+  Intent Bridge authority summary.
+- If the user asks to switch an awaiting Lite run to Standard AIDLC, create the
+  versioned `planning aidlc-standard` proposal, require approval of that exact
+  revision, then begin Standard AIDLC requirements under the same run. This is
+  not implementation approval; requirements still require their own approval.
+- For any other feature choice, use the single `planning feature-controls-show`
+  catalog and its versioned proposal/approval flow; do not invent per-feature
+  switches or disable locked safeguards.
+- Never treat a why-question or plan-update request as implementation approval.
+
 ## Core Behavior
 
 <!-- tailtrail-governance:start -->

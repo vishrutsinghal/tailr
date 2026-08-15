@@ -1,0 +1,1 @@
+{"type":"tailtrail-execution-evidence-fixture","case":"partial-evidence","changed_paths":["src/page.tsx"],"receipts":[{"requirement_uid":"req-01","outcome":"passed","tier":"unit"}]}

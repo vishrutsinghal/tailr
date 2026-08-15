@@ -30,7 +30,7 @@ class EvaluationHarnessScenarioTests(unittest.TestCase):
         scenario_ids = {item["scenario_id"] for item in payload["scenarios"]}
         self.assertEqual(
             scenario_ids,
-            {"validation-bug", "dependency-decision", "review-only", "ci-failure", "security-triage", "buildweek-validation", "higher-tier-release-confidence"},
+            {"validation-bug", "dependency-decision", "review-only", "ci-failure", "security-triage", "buildweek-validation", "higher-tier-release-confidence", "spec-kit-closure", "interactive-plan-mode"},
         )
 
     def test_scenario_run_scores_deterministically(self) -> None:
@@ -120,7 +120,7 @@ class EvaluationHarnessScenarioTests(unittest.TestCase):
         self.assertFalse(output_exists)
 
     def test_all_scenarios_pass_expected_thresholds(self) -> None:
-        scenarios = ["validation-bug", "dependency-decision", "review-only", "ci-failure", "security-triage", "buildweek-validation"]
+        scenarios = ["validation-bug", "dependency-decision", "review-only", "ci-failure", "security-triage", "buildweek-validation", "spec-kit-closure", "interactive-plan-mode"]
         for scenario in scenarios:
             with self.subTest(scenario=scenario):
                 result = self.run_tailtrail("eval", "scenario", "run", "--scenario", scenario, "--format", "json")

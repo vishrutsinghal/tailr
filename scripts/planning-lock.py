@@ -42,6 +42,30 @@ def enterprise_target_policy() -> Any:
     return module
 
 
+def spec_kit_bridge() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_spec_kit_bridge", ROOT / "scripts" / "spec-kit-bridge.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def spec_kit_slices() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_spec_kit_slices", ROOT / "scripts" / "spec-kit-slices.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def spec_kit_evidence() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_spec_kit_evidence", ROOT / "scripts" / "spec-kit-evidence.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def lock_path(root: Path, run_id: str) -> Path:
     return L.state_dir(root, run_id) / "planning" / "lock-v1.json"
 
@@ -49,6 +73,86 @@ def lock_path(root: Path, run_id: str) -> Path:
 def start_report_path(root: Path, run_id: str) -> Path:
     """Return the immutable planning report that a later approval activates."""
     return L.state_dir(root, run_id) / "planning" / "start-report-v1.json"
+
+
+def revision_state_path(root: Path, run_id: str) -> Path:
+    """Return the active/pending revision pointer without replacing v1 evidence."""
+    return L.state_dir(root, run_id) / "planning" / "plan-revision-state-v1.json"
+
+
+def revision_state(root: Path, run_id: str) -> dict[str, Any]:
+    """Read revision state while keeping pre-IP-3 Planning Locks compatible."""
+    root = root.resolve()
+    path = revision_state_path(root, run_id)
+    if path.is_file():
+        payload = read(path)
+        if payload.get("type") != "tailtrail-plan-revision-state" or payload.get("run_id") != run_id:
+            raise ValueError(f"plan revision state for run `{run_id}` is invalid")
+        return payload
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-plan-revision-state",
+        "run_id": run_id,
+        "active_revision": 1,
+        "active_report": start_report_path(root, run_id).relative_to(root).as_posix(),
+        "pending_revision": None,
+        "pending_artifact": None,
+    }
+
+
+def active_start_report_path(root: Path, run_id: str) -> Path:
+    """Return the reviewed report selected by the current approved revision."""
+    root = root.resolve()
+    state = revision_state(root, run_id)
+    value = Path(str(state.get("active_report", "")))
+    if value.is_absolute() or ".." in value.parts:
+        raise ValueError(f"plan revision state for run `{run_id}` has an unsafe active report path")
+    path = (root / value).resolve()
+    try:
+        path.relative_to(L.state_dir(root, run_id).resolve())
+    except ValueError as error:
+        raise ValueError(f"plan revision state for run `{run_id}` has an out-of-run active report path") from error
+    if not path.is_file():
+        raise ValueError(f"active Start report for run `{run_id}` does not exist")
+    return path
+
+
+def active_start_report(root: Path, run_id: str) -> dict[str, Any]:
+    return read(active_start_report_path(root, run_id))
+
+
+def assert_no_pending_revision(root: Path, run_id: str) -> None:
+    state = revision_state(root.resolve(), run_id)
+    if state.get("pending_revision") is not None:
+        raise ValueError(
+            f"plan revision v{state['pending_revision']} is awaiting approval for run `{run_id}`; "
+            "approve or supersede that exact revision before activation"
+        )
+
+
+def discussion_receipts_path(root: Path, run_id: str) -> Path:
+    """Return the sanitized Interactive Plan Mode receipt log for one run."""
+    return L.state_dir(root, run_id) / "planning" / "plan-conversations.jsonl"
+
+
+def discussion_state_path(root: Path, run_id: str) -> Path:
+    """Return the derived, non-authoritative discussion state for one run."""
+    return L.state_dir(root, run_id) / "planning" / "discussion-state-v1.json"
+
+
+def assert_discussion_allowed(root: Path, run_id: str) -> dict[str, Any]:
+    """Keep planning discussion bounded to a pre-implementation run.
+
+    The canonical lock remains awaiting approval. Discussion state is a
+    separate projection so existing approval and activation paths stay stable.
+    """
+    payload = show(root.resolve(), run_id)
+    if payload["status"] != "awaiting-approval":
+        raise ValueError(
+            "Interactive Plan Mode is available only while the Planning Lock is awaiting approval; "
+            f"run `{run_id}` is `{payload['status']}`"
+        )
+    return payload
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -121,6 +225,17 @@ def save_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[s
         "report": report,
     }
     L.atomic_json(path, payload)
+    state_path = revision_state_path(root, run_id)
+    if not state_path.exists():
+        L.atomic_json(state_path, {
+            "schema_version": "1",
+            "type": "tailtrail-plan-revision-state",
+            "run_id": run_id,
+            "active_revision": 1,
+            "active_report": path.relative_to(root).as_posix(),
+            "pending_revision": None,
+            "pending_artifact": None,
+        })
     L.append_event(root, run_id, "start_report_saved", {"artifact": path.relative_to(root).as_posix()})
     return {"artifact": path.relative_to(root).as_posix(), "run_id": run_id}
 
@@ -131,6 +246,9 @@ def enrich_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict
     current = show(root, run_id)
     if current["status"] != "awaiting-approval":
         raise ValueError("Start report can be enriched only before approval")
+    state = revision_state(root, run_id)
+    if state.get("active_revision") != 1 or state.get("pending_revision") is not None:
+        raise ValueError("Start report cannot be enriched after a plan revision has been proposed")
     path = start_report_path(root, run_id)
     if not path.is_file():
         raise ValueError(f"Start report for run `{run_id}` does not exist")
@@ -142,6 +260,7 @@ def approve(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     if approved is not True:
         raise ValueError("planning approval requires --approved")
     root = root.resolve()
+    assert_no_pending_revision(root, run_id)
     path = lock_path(root, run_id)
     payload = show(root, run_id)
     if payload["status"] == "approved":
@@ -159,10 +278,7 @@ def approve(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
 
 def _proposal_from_start_report(root: Path, run_id: str) -> dict[str, Any] | None:
     """Turn the saved Navigator proposal into the smallest durable anchor."""
-    path = start_report_path(root, run_id)
-    if not path.is_file():
-        raise ValueError(f"Start report for run `{run_id}` does not exist; run `tailtrail start` again")
-    saved = read(path)
+    saved = active_start_report(root, run_id)
     report = saved.get("report", {})
     delivery = report.get("guided_delivery", {}) if isinstance(report, dict) else {}
     if delivery.get("mode") == "lean":
@@ -170,7 +286,7 @@ def _proposal_from_start_report(root: Path, run_id: str) -> dict[str, Any] | Non
     plan = report.get("navigator", {}) if isinstance(report, dict) else {}
     matrix = plan.get("requirement_matrix", []) if isinstance(plan, dict) else []
     program = delivery.get("hands_free_program", {}) if isinstance(delivery, dict) else {}
-    if isinstance(program, dict) and isinstance(program.get("feature_requirements"), list):
+    if isinstance(program, dict) and isinstance(program.get("feature_requirements"), list) and not plan.get("revision_requirement_matrix"):
         paths = [item.get("path") for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
         matrix = _hands_free_requirement_matrix(program["feature_requirements"], paths)
     if not isinstance(matrix, list) or not matrix:
@@ -282,7 +398,7 @@ def _official_aidlc_state_module() -> Any:
 
 
 def _saved_start_report(root: Path, run_id: str) -> dict[str, Any]:
-    return read(start_report_path(root, run_id)).get("report", {})
+    return active_start_report(root, run_id).get("report", {})
 
 
 def _is_full_official_run(root: Path, run_id: str) -> bool:
@@ -403,7 +519,7 @@ def record_feedback(root: Path, run_id: str, feedback_json: str) -> dict[str, An
         **result,
         "next": "Ask targeted questions or offer AIDLC Requirements mode before revising rejected requirements." if result["next_requirement_mode"] == "ask-targeted-questions-or-offer-aidlc" else ("Use AIDLC Requirements mode before another material proposal." if result["next_requirement_mode"] == "aidlc-requirements-required" else "The complete proposal may be approved with the existing run ID."),
     }
-    saved = read(start_report_path(root, run_id)).get("report", {})
+    saved = active_start_report(root, run_id).get("report", {})
     hands_free = bool((saved.get("guided_delivery", {}) if isinstance(saved, dict) else {}).get("hands_free_program"))
     if _is_full_official_run(root, run_id) and result["rejected_requirement_uids"]:
         comments = " ".join(str(row.get("comment", "")) for row in result.get("feedback", [])).lower()
@@ -432,17 +548,19 @@ def reject_all(root: Path, run_id: str, reason: str) -> dict[str, Any]:
     return record_feedback(root, run_id, json.dumps(feedback))
 
 
-def request_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
+def request_aidlc_requirements(root: Path, run_id: str, revision_context: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Start minimal AIDLC requirement gathering from saved planning evidence only."""
     root = root.resolve()
     if _is_full_official_run(root, run_id):
-        return request_official_aidlc_requirements(root, run_id)
+        return request_official_aidlc_requirements(root, run_id, revision_context)
     template = feedback_template(root, run_id)
     proposal = _proposal_from_start_report(root, run_id)
     if proposal is None:
         proposal = {"goal": str(show(root, run_id).get("goal", "")).strip(), "requirements": _goal_requirements(str(show(root, run_id).get("goal", "")).strip(), [])}
     events = L.read_events(L.state_dir(root, run_id) / "events.jsonl")
     feedback = [row for event in events if event.get("event_type") == "proposal_rejected" for row in event.get("payload", {}).get("feedback", [])]
+    context = revision_context or []
+    feedback.extend({"comment": str(row.get("reason", "")).strip()} for row in context if str(row.get("reason", "")).strip())
     stage = _aidlc_requirements_module().gather(proposal["goal"], proposal["requirements"], feedback)
     artifact = L.state_dir(root, run_id) / "planning" / "aidlc-requirements-v1.json"
     document = {
@@ -454,17 +572,18 @@ def request_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
         "source_boundary": template["source_boundary"],
         "requirements": proposal["requirements"],
         "prior_feedback": feedback,
+        "revision_context": context,
         "aidlc_stage": stage,
         "questions": stage["questions"],
         "approval_gate": stage["stage_gate"],
     }
     L.atomic_json(artifact, document)
-    payload = {"rejection_number": template["rejection_number"], "reason": "user-selected-aidlc-requirements", "artifact": artifact.relative_to(root).as_posix()}
+    payload = {"rejection_number": template["rejection_number"], "reason": "user-selected-aidlc-requirements", "artifact": artifact.relative_to(root).as_posix(), "revision_context_count": len(context)}
     L.append_event(root, run_id, "aidlc_requirements_requested", payload)
-    return {"run_id": run_id, "state": "aidlc-requirements-gathering", "artifact": artifact.relative_to(root).as_posix(), "source_boundary": template["source_boundary"], "requirements": proposal["requirements"], "questions": stage["questions"], "aidlc_stage": stage, "prior_feedback": feedback, "approval_gate": document["approval_gate"]}
+    return {"run_id": run_id, "state": "aidlc-requirements-gathering", "artifact": artifact.relative_to(root).as_posix(), "source_boundary": template["source_boundary"], "requirements": proposal["requirements"], "questions": stage["questions"], "aidlc_stage": stage, "prior_feedback": feedback, "revision_context": context, "approval_gate": document["approval_gate"]}
 
 
-def request_official_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
+def request_official_aidlc_requirements(root: Path, run_id: str, revision_context: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Run the verified official Requirements Analysis stage for a Full run.
 
     This deliberately does not call ``aidlc-requirements.py``.  The only
@@ -480,6 +599,8 @@ def request_official_aidlc_requirements(root: Path, run_id: str) -> dict[str, An
         proposal = {"goal": str(show(root, run_id).get("goal", "")).strip(), "requirements": _goal_requirements(str(show(root, run_id).get("goal", "")).strip(), [])}
     events = L.read_events(L.state_dir(root, run_id) / "events.jsonl")
     feedback = [row for event in events if event.get("event_type") == "proposal_rejected" for row in event.get("payload", {}).get("feedback", [])]
+    context = revision_context or []
+    feedback.extend({"comment": str(row.get("reason", "")).strip()} for row in context if str(row.get("reason", "")).strip())
     stage = _official_aidlc_requirements_module().gather(root, _official_bridge(root, run_id), proposal["goal"], proposal["requirements"], feedback)
     artifact = L.state_dir(root, run_id) / "planning" / "official-aidlc-requirements-v1.json"
     questions_path = L.state_dir(root, run_id) / "aidlc-official" / "requirements" / "questions-v1.md"
@@ -488,7 +609,7 @@ def request_official_aidlc_requirements(root: Path, run_id: str) -> dict[str, An
     document = {
         "schema_version": "1", "type": "tailtrail-official-aidlc-requirements", "run_id": run_id,
         "goal": proposal["goal"], "stage": "requirements-gathering", "source_boundary": template["source_boundary"],
-        "requirements": proposal["requirements"], "prior_feedback": feedback, "official_stage": stage,
+        "requirements": proposal["requirements"], "prior_feedback": feedback, "revision_context": context, "official_stage": stage,
         "questions": stage["questions"], "approval_gate": stage["stage_gate"],
         "official_questions": questions_path.relative_to(root).as_posix(),
     }
@@ -499,7 +620,7 @@ def request_official_aidlc_requirements(root: Path, run_id: str) -> dict[str, An
 
 def _official_requirements_payload(root: Path, run_id: str, document: dict[str, Any], artifact: Path) -> dict[str, Any]:
     stage = document["official_stage"]
-    return {"run_id": run_id, "state": "official-aidlc-requirements-gathering", "authority": "official-ai-dlc-pack", "artifact": artifact.relative_to(root).as_posix(), "official_questions": document["official_questions"], "source_boundary": document["source_boundary"], "requirements": document["requirements"], "questions": document["questions"], "aidlc_stage": stage, "prior_feedback": document.get("prior_feedback", []), "approval_gate": document["approval_gate"]}
+    return {"run_id": run_id, "state": "official-aidlc-requirements-gathering", "authority": "official-ai-dlc-pack", "artifact": artifact.relative_to(root).as_posix(), "official_questions": document["official_questions"], "source_boundary": document["source_boundary"], "requirements": document["requirements"], "questions": document["questions"], "aidlc_stage": stage, "prior_feedback": document.get("prior_feedback", []), "revision_context": document.get("revision_context", []), "approval_gate": document["approval_gate"]}
 
 
 def _official_aidlc_artifact(root: Path, run_id: str, name: str) -> Path:
@@ -598,6 +719,7 @@ def show_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
         "questions": document["questions"],
         "aidlc_stage": document["aidlc_stage"],
         "prior_feedback": document.get("prior_feedback", []),
+        "revision_context": document.get("revision_context", []),
         "approval_gate": document["approval_gate"],
     }
 
@@ -637,7 +759,7 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
     anchor.draft(root, run_id, revision_path)
     anchor.approve(root, run_id)
     lock = approve(root, run_id, True)
-    saved = read(start_report_path(root, run_id)).get("report", {})
+    saved = active_start_report(root, run_id).get("report", {})
     anchor_artifact = (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix()
     handoff = execution_handoff(root, run_id, saved, anchor_artifact)
     handoff["execution_boundary"] = "Implementation may begin only within the activated AIDLC-approved anchor. TailTrail remains responsible for scope, evidence, drift, recovery, and completion controls."
@@ -769,6 +891,7 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     if approved is not True:
         raise ValueError("planning activation requires --approved")
     root = root.resolve()
+    assert_no_pending_revision(root, run_id)
     current = show(root, run_id)
     identity_check = target_workspace().verify_identity(current.get("target_identity", {}), root)
     if identity_check["blocking"]:
@@ -777,7 +900,12 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     policy_check = enterprise_target_policy().verify_bound(current.get("enterprise_policy"), root)
     if policy_check.get("blocking"):
         raise ValueError(f"Enterprise target policy blocks activation for run `{run_id}`: {policy_check.get('reason', '; '.join(policy_check.get('issues', [])))}")
-    saved_report = read(start_report_path(root, run_id)).get("report", {})
+    saved_report = active_start_report(root, run_id).get("report", {})
+    source = saved_report.get("spec_kit_source") if isinstance(saved_report, dict) else None
+    if isinstance(source, dict):
+        current_source = spec_kit_bridge().load(root, str(source.get("feature_id", "")))
+        if current_source.get("source_revision") != source.get("source_revision") or current_source.get("import") != source.get("import"):
+            raise ValueError("Intent Bridge source/import identity changed after this plan; create an amendment review before activation")
     if _is_full_official_run(root, run_id):
         revision = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
         if not revision.is_file():
@@ -815,12 +943,23 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
             module.draft(root, run_id, proposal_path)
             created = module.approve(root, run_id)
             anchor_result = {"status": "created", "artifact": Path(created["path"]).relative_to(root).as_posix(), "requirements": [row["requirement_uid"] for row in created["requirements"]]}
+    spec_kit_slice_result: dict[str, Any] | None = None
+    spec_kit_evidence_result: dict[str, Any] | None = None
+    if anchor_result and isinstance(source, dict):
+        spec_kit_slice_result = spec_kit_slices().initialize(root, run_id)
+        spec_kit_evidence_result = spec_kit_evidence().plan(root, run_id)
     lock = current if current["status"] == "approved" else approve(root, run_id, True)
     anchor_state = anchor_result or {"status": "not-required", "reason": "lean Start runs do not create canonical requirement state"}
     handoff: dict[str, Any] | None = None
     handoff_artifact: str | None = None
     if anchor_result and anchor_result.get("artifact"):
         handoff = execution_handoff(root, run_id, saved_report, str(anchor_result["artifact"]))
+        if spec_kit_slice_result:
+            handoff["spec_kit_slice"] = {
+                "active_slice": spec_kit_slice_result["active_slice"],
+                "guard_command": f"tailtrail spec-kit slices assert-active --root . --run-id {run_id} --requirement-uid <approved-requirement-uid>",
+                "boundary": "Only the active Spec Kit slice may execute; advance after verified completion with explicit approval.",
+            }
         handoff_path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
         L.atomic_json(handoff_path, handoff)
         handoff_artifact = handoff_path.relative_to(root).as_posix()
@@ -842,6 +981,8 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         "execution_handoff": handoff,
         "execution_handoff_artifact": handoff_artifact,
         "official_aidlc_bridge_activation": bridge_activation,
+        "spec_kit_slices": spec_kit_slice_result,
+        "spec_kit_evidence": spec_kit_evidence_result,
         "target_identity": identity_check,
         "input_roles": role_check,
         "enterprise_policy": policy_check,

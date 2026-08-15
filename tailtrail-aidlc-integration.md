@@ -1568,6 +1568,28 @@ record, ledger, report, CLI, MCP, installation, registry, and deterministic test
 paths are implemented. Recording real-host receipts is deliberately an
 external conformance activity and cannot be fabricated by this repository.
 
+### First real Codex pack projection
+
+The first host projection is now implemented through
+`scripts/aidlc-official-host.py`. After `aidlc official install` verifies a
+pinned pack, this command can safely project the exact official core workflow
+and its detail tree to the upstream-recognised `.aidlc/aidlc-rules/` layout for
+Codex. It adds a small managed block to the existing `AGENTS.md` rather than
+overwriting project guidance. The block is conditional: it directs Codex to
+load the official core only for an explicit, approved TailTrail Full-mode run.
+
+```text
+tailtrail aidlc official install --root . --host codex
+tailtrail aidlc official host install --root . --host codex
+tailtrail aidlc official host status --root . --host codex
+```
+
+The command refuses to overwrite a pre-existing official rule projection or an
+incomplete managed block. It verifies that the projected core still matches the
+pinned source pack. This establishes a real, inspectable host setup; it does
+not make a runtime-pass claim. The six real host scenarios still need fresh
+sanitized receipts before Codex moves from `not-validated` to `passed`.
+
 ### Delivery order and release gate
 
 ```mermaid
