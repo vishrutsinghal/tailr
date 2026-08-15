@@ -1,0 +1,29 @@
+TailTrail Completion Report
+Run: start-20260815092229-6e19f1
+Overall: evidence-incomplete
+Requirement delivery: 0/1 complete
+Overall evidence: tests unavailable (none recorded); drift unavailable
+Requirement delivery status
+Requirement	Status	Proof	Drift
+REQ-01 - Implement a Validate & Review page for Pipeline Audit Events Generator with a populated session summary, validation status, export options, and an all-events JSON preview	unavailable	0 saved item(s)	none recorded
+
+
+TailTrail control status
+Control	Status	Evidence / boundary
+Planning Lock and approved anchor	approved	immutable approved requirement boundary
+Official AI-DLC evidence checkpoint	not-triggered	not triggered for this run
+Canonical run state	valid	0 ownership or projection issue(s)
+Changed scope	unavailable	0 saved changed path(s)
+Requirement Completion Harness	required-evidence-missing	approved anchor + checkpoint + completion review + evidence gate
+Architecture Fitness Harness	required-evidence-missing	approved architecture contract or recorded architecture assessment
+Behaviour Harness	not-selected	recorded approved-scenario assessment
+Maintainability Harness	not-selected	recorded refactor/maintainability assessment
+Evidence-Aware Testing	required-evidence-missing	completion gate and validation receipts
+Drift control	unavailable	0 unresolved finding(s)
+Context Continuity Harness	not-triggered	no unresolved drift required a correction-memory packet
+Safe Git Recovery	not-needed	no recovery boundary was needed or recorded
+Execution failure handling	none-recorded	0 saved failure record(s)
+Learning	captured	learning-observations/completion-learning-v1.json
+Guarded positive learning	not-eligible	Positive learning requires complete requirements, passing saved receipts, no unresolved drift/failure, and explicit acceptance.
+Token estimate	estimated	22008 focused tokens
+Actual model tokens	unavailable	host/provider telemetry was not linked to this run ID
