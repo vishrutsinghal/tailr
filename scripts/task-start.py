@@ -5,13 +5,13 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import math
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
 import target_workspace
+import start_posture
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -425,30 +425,15 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
 
 
 def approx_tokens(chars: int) -> int:
-    if chars <= 0:
-        return 0
-    return math.ceil(chars / APPROX_CHARS_PER_TOKEN)
+    return start_posture.approx_tokens(chars, APPROX_CHARS_PER_TOKEN)
 
 
 def file_chars(path: Path) -> int:
-    try:
-        return len(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError):
-        return 0
+    return start_posture.file_chars(path)
 
 
 def existing_file_tokens(root: Path, paths: list[str]) -> tuple[int, list[dict[str, Any]]]:
-    total = 0
-    files: list[dict[str, Any]] = []
-    for item in paths:
-        path = root / item
-        if not path.is_file():
-            continue
-        chars = file_chars(path)
-        tokens = approx_tokens(chars)
-        total += tokens
-        files.append({"path": item, "chars": chars, "approx_tokens": tokens})
-    return total, files
+    return start_posture.existing_file_tokens(root, paths, APPROX_CHARS_PER_TOKEN)
 
 
 def avoided_context_from_plan(root: Path, plan: dict[str, Any]) -> list[str]:
@@ -466,24 +451,7 @@ def likely_used_files(plan: dict[str, Any]) -> list[str]:
 
 
 def token_posture(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
-    used_paths = likely_used_files(plan)
-    avoided_paths = avoided_context_from_plan(root, plan)
-    used_tokens, used_files = existing_file_tokens(root, used_paths)
-    avoided_tokens, avoided_files = existing_file_tokens(root, avoided_paths)
-    baseline = used_tokens + avoided_tokens
-    saved = avoided_tokens
-    reduction = round((saved / baseline) * 100, 2) if baseline else 0.0
-    return {
-        "mode": "local_estimate",
-        "evidence": "Approximate file character count only. Do not claim exact model/API token savings.",
-        "used_tokens": used_tokens,
-        "avoided_tokens": avoided_tokens,
-        "baseline_tokens": baseline,
-        "estimated_saved_tokens": saved,
-        "estimated_reduction_percent": reduction,
-        "used_files": used_files,
-        "avoided_files": avoided_files,
-    }
+    return start_posture.token_posture(root, plan, LARGE_CONTEXT_FILES, APPROX_CHARS_PER_TOKEN)
 
 
 def learning_quality(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
@@ -539,94 +507,23 @@ def learning_quality(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
 
 
 def setup_posture(root: Path, command_prefix: str) -> dict[str, Any]:
-    source_checkout = (ROOT / ".codex-plugin").exists()
-    installed_manifest = root / ".tailtrail-install.json"
-    nested_manifests = sorted(root.glob("*/.tailtrail-install.json"))
-    installed = installed_manifest.is_file() or bool(nested_manifests)
-    if installed:
-        update_command = f"{command_prefix} update --root {json.dumps(root.as_posix())} --dry-run"
-    else:
-        update_command = f"{command_prefix} install local --inspect"
-    return {
-        "source_checkout": source_checkout,
-        "installed_pack_detected": installed,
-        "recommended_check": f"{command_prefix} doctor",
-        "recommended_update_check": update_command,
-        "note": "Run update checks as dry-run first. Preserve local edits unless the user approves backup-overwrite.",
-    }
+    return start_posture.setup_posture(root, command_prefix, ROOT)
 
 
 def review_posture(plan: dict[str, Any], command_prefix: str) -> dict[str, Any]:
-    review_plan = plan.get("review_plan") if isinstance(plan.get("review_plan"), dict) else {}
-    selected = plan.get("selected_features", [])
-    selected_names = {item.get("name") for item in selected if isinstance(item, dict)}
-    review_selected = bool({"Review Lens", "Navigator-Led Review", "QA / CI-Sonar Lens", "Security Review"} & selected_names)
-    scope = str(review_plan.get("default") or "uncommitted changes")
-    return {
-        "selected": review_selected,
-        "scope": scope,
-        "command": f"{command_prefix} review",
-        "prompt": "After implementation and focused validation, run TailTrail review on the changed scope. Show severity, file, function, line, impact, fix, validation, confidence, and safe-fix status. Do not apply fixes without approval.",
-        "rule": "Review checks code health and requirement fulfillment against the approved plan or user request.",
-    }
+    return start_posture.review_posture(plan, command_prefix)
 
 
 def harness_posture(root: Path, command_prefix: str) -> dict[str, Any]:
-    shared_path = root / "tailtrail-meta" / "harness-summary.jsonl"
-    return {
-        "command": f"{command_prefix} harness quick --root {json.dumps(root.as_posix())}",
-        "confidence_command": f"{command_prefix} harness confidence --root {json.dumps(root.as_posix())}",
-        "shared_dry_run_command": f"{command_prefix} harness shared-summary --root {json.dumps(root.as_posix())} --dry-run",
-        "shared_status_command": f"{command_prefix} harness shared-status --root {json.dumps(root.as_posix())}",
-        "shared_metadata_exists": shared_path.is_file(),
-        "rule": "Meta-Harness is post-task advisory. It reviews TailTrail behavior and can dry-run sanitized shared metadata; it does not upload, commit, or change rules automatically.",
-    }
+    return start_posture.harness_posture(root, command_prefix)
 
 
 def bootstrap_posture(plan: dict[str, Any], command_prefix: str) -> dict[str, Any]:
-    snapshot = plan.get("bootstrap_snapshot") if isinstance(plan.get("bootstrap_snapshot"), dict) else None
-    if not snapshot:
-        return {
-            "selected": False,
-            "status": "skipped",
-            "command": f"{command_prefix} bootstrap status --root .",
-            "rule": "Bootstrap Snapshot is skipped for tiny or low-signal prompts.",
-        }
-    return {
-        "selected": True,
-        "status": snapshot.get("status", "unknown"),
-        "command": snapshot.get("command") or f"{command_prefix} bootstrap status --root .",
-        "rule": "Bootstrap Snapshot captures safe repo/runtime facts before broad Navigator planning; it does not read source bodies or execute project code.",
-    }
+    return start_posture.bootstrap_posture(plan, command_prefix)
 
 
 def evaluation_posture(goal: str, plan: dict[str, Any], command_prefix: str) -> dict[str, Any]:
-    lowered_goal = goal.lower()
-    task_types = {str(item).lower() for item in plan.get("task_types", [])}
-    triggered_terms = sorted(word for word in EVALUATION_TRIGGER_WORDS if word in lowered_goal)
-    selected_by_goal = bool(triggered_terms)
-    selected_by_task = bool({"review", "qa", "ci", "security"} & task_types) and any(word in lowered_goal for word in {"proof", "metrics", "evidence", "report"})
-    selected = selected_by_goal or selected_by_task
-    scenario = "validation-bug"
-    if "dependency" in lowered_goal:
-        scenario = "dependency-decision"
-    elif "review" in lowered_goal:
-        scenario = "review-only"
-    elif "ci" in lowered_goal or "sonar" in lowered_goal:
-        scenario = "ci-failure"
-    elif "security" in lowered_goal or "vulnerability" in lowered_goal:
-        scenario = "security-triage"
-    return {
-        "selected": selected,
-        "reason": "triggered by " + ", ".join(triggered_terms) if triggered_terms else "not selected for this task",
-        "scenario": scenario,
-        "list_command": f"{command_prefix} eval scenario list",
-        "run_command": f"{command_prefix} eval scenario run --scenario {scenario}",
-        "report_command": f"{command_prefix} eval scenario report --scenario {scenario}",
-        "write_report_command": f"{command_prefix} eval scenario report --scenario {scenario} --write-result --approved",
-        "normalize_command": f"{command_prefix} eval normalize --source benchmark --input benchmarks/evaluation/results/{scenario}-scenario-report.json --dry-run",
-        "rule": "Evaluation Harness reads committed fixtures and compact evidence only. It does not run live agents, tests, CI, scanners, package managers, model/API calls, or hidden telemetry.",
-    }
+    return start_posture.evaluation_posture(goal, plan, command_prefix, EVALUATION_TRIGGER_WORDS)
 
 
 def code_intelligence_policy(command_prefix: str) -> dict[str, Any]:
@@ -761,13 +658,13 @@ def build_report(
         "aidlc_mode_features": aidlc_mode_features(mode["mode"]),
         "spec_kit_source": spec_kit_source,
         "next_actions": next_actions(plan),
-        "token_posture": token_posture(root, plan),
+        "token_posture": start_posture.token_posture(root, plan, LARGE_CONTEXT_FILES, APPROX_CHARS_PER_TOKEN),
         "learning_quality": learning_quality(root, plan),
-        "setup_posture": setup_posture(root, command_prefix),
-        "review_posture": review_posture(plan, command_prefix),
-        "harness_posture": harness_posture(root, command_prefix),
-        "bootstrap_posture": bootstrap_posture(plan, command_prefix),
-        "evaluation_posture": evaluation_posture(goal, plan, command_prefix),
+        "setup_posture": start_posture.setup_posture(root, command_prefix, ROOT),
+        "review_posture": start_posture.review_posture(plan, command_prefix),
+        "harness_posture": start_posture.harness_posture(root, command_prefix),
+        "bootstrap_posture": start_posture.bootstrap_posture(plan, command_prefix),
+        "evaluation_posture": start_posture.evaluation_posture(goal, plan, command_prefix, EVALUATION_TRIGGER_WORDS),
         "code_intelligence": code_intelligence_policy(command_prefix),
         "next_step": "Review the guided delivery plan, then approve or edit before implementation.",
     }
@@ -944,8 +841,11 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.append("- Make the smallest change within the listed scope.")
         lines.append("- Run focused proof, then review the changed scope.")
     validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
+    lines.extend(["", "## Focused validation", ""])
     if validation:
-        lines.extend(["", "## Focused validation", "", f"- `{validation}`"])
+        lines.append(f"- `{validation}`")
+    else:
+        lines.append("- Not yet resolved from planning evidence. After approval, discover the nearest focused test before implementation; do not claim a validation command until the local convention is verified.")
     token = report["token_posture"]
     lines.extend(
         [

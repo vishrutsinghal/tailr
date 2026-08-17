@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "id": "dependency-gate",
+  "title": "Add a dependency with an approved decision",
+  "category": "dependency-discipline",
+  "boundary": "Sanitized artifact checks; no package manager or model is run.",
+  "checks": [
+    {"id": "baseline-misses-gate", "artifact": "baseline", "must_not_contain_any": ["dependency decision"], "points": 1},
+    {"id": "tailtrail-records-gate", "artifact": "tailtrail", "contains_all": ["dependency decision", "existing standard library"], "points": 2}
+  ]
+}

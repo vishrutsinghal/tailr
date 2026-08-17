@@ -1,0 +1,15 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-dependency-decision",
+  "decision_id": "DD-001",
+  "status": "approved",
+  "package": "example-package",
+  "version": "1.2.3",
+  "manifest_paths": ["requirements.txt"],
+  "problem": "State the concrete capability gap.",
+  "alternatives": ["Existing platform capability", "Small direct implementation"],
+  "rationale": "Explain why this dependency materially reduces risk or complexity.",
+  "owner": "Owning team or role",
+  "validation": ["python3 -m unittest discover -s tests -p test_example.py -v"],
+  "rollback": "Remove the package and restore the prior implementation if validation or rollout fails."
+}

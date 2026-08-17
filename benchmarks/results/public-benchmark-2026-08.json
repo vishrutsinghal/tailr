@@ -1,0 +1,16 @@
+{
+  "type": "tailtrail-public-benchmark-report",
+  "schema_version": "1",
+  "portfolio_version": "public-fixtures-v1",
+  "evidence_label": "fixture-scored",
+  "model_calls": "not-run",
+  "boundary": "Committed, sanitized deterministic fixture artifacts only. This result is not evidence of live-model performance.",
+  "scenario_count": 5,
+  "scenarios": [
+    {"id": "dependency-gate", "category": "dependency-discipline", "baseline_score": "1/1", "tailtrail_score": "2/2"},
+    {"id": "validation-zero-quantity", "category": "validation-and-callers", "baseline_score": "1/1", "tailtrail_score": "4/4"},
+    {"id": "api-endpoint", "category": "api-contract", "baseline_score": "1/1", "tailtrail_score": "4/4"},
+    {"id": "service-refactor", "category": "maintainability", "baseline_score": "1/1", "tailtrail_score": "3/3"},
+    {"id": "sonar-complexity", "category": "static-analysis", "baseline_score": "1/1", "tailtrail_score": "3/3"}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "id": "api-endpoint",
+  "title": "Add a safe order-status endpoint",
+  "category": "api-contract",
+  "boundary": "Sanitized artifact checks; no server, contract runner, or model is run.",
+  "checks": [
+    {"id": "baseline-misses-contract", "artifact": "baseline", "must_not_contain_any": ["contract test"], "points": 1},
+    {"id": "tailtrail-connects-layers", "artifact": "tailtrail", "contains_all": ["api contract", "service caller", "contract test", "not found"], "points": 4}
+  ]
+}

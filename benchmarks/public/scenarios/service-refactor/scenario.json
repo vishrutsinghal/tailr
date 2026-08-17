@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "id": "service-refactor",
+  "title": "Refactor a dense service without scope creep",
+  "category": "maintainability",
+  "boundary": "Sanitized artifact checks; no source transformation or model is run.",
+  "checks": [
+    {"id": "baseline-overreaches", "artifact": "baseline", "contains_all": ["new framework"], "points": 1},
+    {"id": "tailtrail-preserves-contract", "artifact": "tailtrail", "contains_all": ["preserve public contract", "existing helper", "focused regression test"], "points": 3}
+  ]
+}

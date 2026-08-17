@@ -36,3 +36,20 @@ Each efficacy scenario contains:
 - optional `token-usage.jsonl`: measured token telemetry sample.
 
 Use efficacy results as reproducible local evidence only. Exact token claims require measured usage telemetry and apply only to the records in the report.
+
+## Public Evidence Portfolio
+
+`benchmarks/public/` contains five published, sanitized fixture comparisons:
+dependency decisions, validation/caller proof, API contracts, bounded refactoring,
+and safe complexity reduction. Run them with:
+
+```bash
+python3 scripts/tailtrail.py benchmark run-public
+python3 scripts/tailtrail.py benchmark public run --format json
+```
+
+They are explicitly labeled `fixture-scored`: deterministic checks over saved
+artifacts, not live-model evidence. Real model runs are never launched by
+TailTrail. A contributor may explicitly record a sanitized receipt and artifact
+hashes using `benchmark capture-model-run ... --approved`; incomplete telemetry
+remains `model-run-unmeasured`, never measured.

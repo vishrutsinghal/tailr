@@ -18,8 +18,10 @@ WRAPPER_PAIRS = {
 }
 
 USER_FACING_DOCS = (
+    "INSTALL.md",
     "README.md",
     "QUICKSTART.md",
+    "CHEATSHEET.md",
     "TAILTRAIL-COMMANDS.md",
     "USER-GUIDE.md",
     "USEFUL-PROMPTS.md",
@@ -92,6 +94,13 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn('return run_script("completion-report.py", args[1:])', body)
         self.assertIn('if command == "completion-report":', body)
         self.assertIn('return run_script("completion-report.py", args)', body)
+
+    def test_public_benchmark_has_explicit_cli_dispatches(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if args and args[0] == "run-public":', body)
+        self.assertIn('return run_script("public-benchmark.py", ["run", *args[1:]])', body)
+        self.assertIn('if args and args[0] == "capture-model-run":', body)
+        self.assertIn('return run_script("public-benchmark.py", ["capture", *args[1:]])', body)
 
     def test_interactive_plan_mode_has_a_public_planning_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")

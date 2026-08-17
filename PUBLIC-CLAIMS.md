@@ -60,6 +60,22 @@ Use explicit labels in public reports and demos:
 - **Observed**: derived from local approved outcome, quality-loop, or benchmark artifacts.
 - **Advisory**: recommendation only; current source, policy, validation, and reviewer judgment still win.
 
+## Public evidence portfolio
+
+The committed public portfolio currently contains five **fixture-scored**,
+sanitized comparisons under `benchmarks/public/`. They cover dependency
+decisions, validation/caller proof, API contracts, bounded refactoring, and
+complexity remediation. They are reproducible deterministic evidence only and
+must not be presented as live-model performance.
+
+Their committed result is `benchmarks/results/public-benchmark-2026-08.json`.
+
+No real model-run result is committed by default. When a contributor supplies
+an explicitly approved, sanitized model-run receipt with complete provider
+telemetry, TailTrail records it as `benchmark-measured`; otherwise it records
+`model-run-unmeasured`. Any public numeric claim must cite the exact committed
+result and its label.
+
 ## Release Check Behavior
 
 `scripts/release-check.py` scans public-facing docs for risky phrases. It allows cautious or negative statements such as "TailTrail does not replace CI" but should fail on unsupported promotional claims.

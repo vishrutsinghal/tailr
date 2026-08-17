@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "id": "sonar-complexity",
+  "title": "Reduce cognitive complexity without removing safeguards",
+  "category": "static-analysis",
+  "boundary": "Sanitized artifact checks; no scanner or model is run.",
+  "checks": [
+    {"id": "baseline-removes-safeguard", "artifact": "baseline", "contains_all": ["removed authorization"], "points": 1},
+    {"id": "tailtrail-keeps-safeguard", "artifact": "tailtrail", "contains_all": ["authorization preserved", "complexity reduced", "focused validation"], "points": 3}
+  ]
+}

@@ -611,6 +611,12 @@ read-only smoke check and one short first action. Run it again at any time:
 python3 scripts/first-run.py --target /path/to/project --profile codex-plugin
 ```
 
+Or let TailTrail detect the installed profile automatically:
+
+```bash
+python3 scripts/tailtrail.py install verify --target /path/to/project
+```
+
 The check verifies the expected installed guidance/skill files and TailTrail's
 local `hello` command. It does not edit the target, run its tests, or invoke an
 agent. Codex users should start with `Using TailTrail Navigator, plan "<task>"
@@ -1065,6 +1071,24 @@ python3 scripts/tailtrail.py guard check --pr-body pr-body.md
 Use before committing or before sharing PR text when you want deterministic checks for the highest-value TailTrail guardrails. Advisory mode is the default and exits successfully. `--enforce` blocks high-severity findings. `--fail-on dependency-gate,local-state` blocks only the named classes a repo has chosen to enforce.
 
 The first implementation checks dependency manifest additions without Dependency Gate evidence, suspicious safeguard removals, validation claims without evidence in supplied commit/PR text, and staged local TailTrail runtime state. It is not a full code review, policy service, SAST scanner, dependency scanner, or test runner.
+
+### Structured dependency decisions
+
+```bash
+python3 scripts/tailtrail.py dependency validate --root .
+python3 scripts/tailtrail.py dependency check --root . --diff changes.patch
+python3 hooks/guard-advisory-hook.py --root .
+```
+
+For each dependency addition, add an approved JSON record under
+`tailtrail-meta/dependency-decisions/`, using
+`templates/dependency-decision.example.json` and its schema as the contract.
+The record captures the package and version, affected manifest paths, problem,
+alternatives, rationale, owner, validation, and rollback. The CI command fails
+when an added dependency has no matching approved record. The hook is purely
+advisory and always exits successfully; it never edits, stages, installs,
+commits, or pushes. Add `--write-state` only when you explicitly want its
+receipt under `.tailtrail/`.
 
 ### Guardrail Precision Baseline
 
@@ -1644,13 +1668,17 @@ python3 scripts/tailtrail.py benchmark
 python3 scripts/tailtrail.py benchmark --format json
 python3 scripts/tailtrail.py benchmark efficacy
 python3 scripts/tailtrail.py benchmark efficacy --format json
+python3 scripts/tailtrail.py benchmark run-public
+python3 scripts/tailtrail.py benchmark public run --format json
+python3 scripts/tailtrail.py benchmark capture-model-run --scenario validation-zero-quantity --receipt receipt.json --baseline baseline.md --tailtrail tailtrail.md --approved
+python3 scripts/tailtrail.py benchmark model-runs
 python3 scripts/tailtrail.py efficacy run --portfolio
 python3 scripts/tailtrail.py efficacy run --portfolio --strict --format json
 python3 scripts/tailtrail.py efficacy run --scenario bug-fix-focused-tests
 python3 scripts/tailtrail.py analyze benchmarks/results/latest.json
 ```
 
-Use benchmark commands to gather local evidence. Use `benchmark efficacy` for committed baseline-vs-TailTrail artifact comparisons. Use `efficacy run --portfolio` for the BL-1.5 measured evidence portfolio across bug fix, review, security, CI/Sonar, dependency, feature, token-heavy artifact, and learning-governance scenarios. Portfolio output reports scenario-class coverage, artifact score, token evidence labels, and whether public claim thresholds are met. Use analyzer commands to interpret misses, discrepancies, proposed file changes, and recommended prompt improvements.
+Use benchmark commands to gather local evidence. `benchmark run-public` runs five committed, sanitized fixture comparisons without a model or network call. `capture-model-run` is opt-in and stores only supplied provider/model metadata, complete token totals when available, and SHA-256 artifact identities; it refuses raw prompts, responses, source, paths, or secrets. Use `benchmark efficacy` for committed baseline-vs-TailTrail artifact comparisons. Use `efficacy run --portfolio` for the BL-1.5 measured evidence portfolio across bug fix, review, security, CI/Sonar, dependency, feature, token-heavy artifact, and learning-governance scenarios. Portfolio output reports scenario-class coverage, artifact score, token evidence labels, and whether public claim thresholds are met.
 
 ## Engine Helpers
 

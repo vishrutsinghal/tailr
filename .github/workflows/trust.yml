@@ -1,0 +1,51 @@
+name: Trust foundation
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  contract-and-installer:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile scripts and contract tests
+        run: python -m compileall -q scripts tests
+      - name: Run dependency-free unit and contract tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Validate feature registry
+        run: python scripts/tailtrail-registry.py validate --strict
+      - name: Verify adapter guidance contracts
+        run: python scripts/tailtrail.py adapters check
+      - name: Build change diff for enforcement
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE_SHA" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git diff --unified=3 "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/tailtrail-guard.diff"
+          elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --unified=3 HEAD^ HEAD > "$RUNNER_TEMP/tailtrail-guard.diff"
+          else
+            git show --format= --unified=3 HEAD > "$RUNNER_TEMP/tailtrail-guard.diff"
+          fi
+      - name: Enforce selected Guard CLI classes against the change diff
+        run: python scripts/tailtrail.py guard check --diff "$RUNNER_TEMP/tailtrail-guard.diff" --fail-on safeguard-removal,local-state,validation-claim
+      - name: Validate dependency decisions against the change diff
+        run: python scripts/tailtrail.py dependency check --diff "$RUNNER_TEMP/tailtrail-guard.diff"
+      - name: Fresh-clone installer smoke test
+        run: python scripts/smoke-test.py

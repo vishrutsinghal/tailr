@@ -6,6 +6,41 @@
 
 ---
 
+## Delivered releases
+
+### Release 1 — Trust foundation — implemented
+
+- GitHub Actions validates Python 3.11–3.13, contracts, registry, adapters, and a fresh-clone installer smoke path.
+- Installation now includes profile-aware verification and a local `hello` smoke check.
+- Generated Python/platform cache files are ignored and removed from tracked source.
+
+### Release 2 — Product enforcement — implemented
+
+- CI builds an explicit base-to-head diff and runs the Guard CLI against that actual change set.
+- New dependency additions are gated by a structured, reviewable decision record in `tailtrail-meta/dependency-decisions/`.
+- `tailtrail dependency validate|check` validates record structure and matches approved decisions to dependency-manifest additions.
+- `hooks/guard-advisory-hook.py` provides non-blocking local feedback; it never edits, stages, installs, commits, or pushes.
+- Focused tests cover missing, approved, rejected/deferred, malformed decisions, CI wiring, and hook non-blocking behavior.
+
+### Release 3 — Simplify the experience — implemented
+
+- README now presents one outcome-first path: install, start, review, approve, and read the Completion Report.
+- `INSTALL.md` is the canonical source for supported platforms, host profiles, updates, verification, install surfaces, and optional Full AI-DLC setup.
+- Added concise Codex, Copilot, and Claude quickstarts under `docs/hosts/`.
+- Reworked `QUICKSTART.md` and `CHEATSHEET.md` around daily user choices; the detailed User Guide now routes setup questions to `INSTALL.md`.
+- Core install surfaces ship the quickstart docs and host guides, while Extended retains the broader documentation and tools.
+- Documentation and installer-surface contracts are covered by focused regression tests.
+
+### Release 4 — Maintainability — implemented
+
+- Added characterization tests for local discovery selection, Start posture data, and compact/verbose report contracts before refactoring.
+- Extracted deterministic filesystem/Git/graph discovery into `scripts/navigator_discovery.py`; Navigator retains compatibility wrappers for existing callers.
+- Extracted side-effect-free token, setup, review, harness, bootstrap, and evaluation posture builders into `scripts/start_posture.py`.
+- The existing Navigator decision boundary and Start renderer remain public and unchanged; installed packs now ship both extracted modules.
+- Registry ownership and installer-surface checks cover the new modules.
+
+---
+
 ## Summary Table
 
 | Aspect | Score | Priority |
@@ -149,7 +184,11 @@ jobs:
 
 ### Current state
 
-TailTrail is 100% advisory. A model can read `GUARDRAILS.md` and immediately do everything it says not to do. Nothing blocks it. There is no pre-commit hook, no CI gate, no PR check that enforces any of the rules.
+TailTrail now has a CI enforcement foundation: the Guard CLI evaluates the real
+change diff for selected guardrail classes, and dependency-manifest additions
+require an approved structured decision record. A local advisory hook provides
+the same feedback without blocking a developer. Broader source-semantic,
+policy-as-code, and local blocking controls remain future work.
 
 ### Root causes
 
@@ -811,6 +850,24 @@ So users know if docs match their installed version.
 4. `tailtrail benchmark run-public` command
 
 ---
+
+## Release 5 — Evidence implementation
+
+Release 5 now has an honest two-layer evidence boundary:
+
+- `benchmarks/public/` contains five committed, sanitized `fixture-scored`
+  scenarios for dependency decisions, validation/caller proof, API contracts,
+  bounded refactoring, and static-analysis remediation.
+- `tailtrail benchmark run-public` evaluates only saved artifacts. It makes no
+  model or network call and is not live-model performance evidence.
+- `tailtrail benchmark capture-model-run ... --approved` records an opt-in,
+  provenance-only real-run record. It requires consent and rejects raw prompt,
+  response, source, repository/path, and secret fields. The saved record keeps
+  SHA-256 artifact identities, provider/model metadata, and supplied telemetry
+  only.
+- Complete supplied before/after token totals are labelled
+  `benchmark-measured`; otherwise the result is `model-run-unmeasured`. No
+  real model-run result or numeric efficacy claim is committed by default.
 
 ## Success Metrics
 

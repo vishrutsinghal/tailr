@@ -21,7 +21,7 @@ def load(name: str, relative: str):
     return module
 
 
-failures = load("test_execution_failure", "scripts/execution-failure.py")
+failures = load("execution_failure_test_helper", "scripts/execution-failure.py")
 ledger = failures.LEDGER
 planning = failures.PLANNING
 anchor = failures.ANCHOR

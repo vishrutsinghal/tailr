@@ -1,142 +1,79 @@
 # TailTrail Quickstart
 
-Use this page when you want the shortest path from a real task to the right TailTrail workflow.
+Use this page after [installing TailTrail](INSTALL.md). For a full command
+catalog, use [TAILTRAIL-COMMANDS.md](TAILTRAIL-COMMANDS.md).
 
-## Install (Optional)
+## One command to begin
 
-No install is required for the portable workflow. The docs keep `python3 scripts/tailtrail.py ...` as the always-available fallback.
+In an AI host with TailTrail installed, say:
 
-If you want a `tailtrail` command on `PATH` from this checkout:
-
-```bash
-pipx install .          # provides `tailtrail` on PATH
-pip install --user .    # alternative, same result
+```text
+tailtrail start "describe the change you need"
 ```
 
-After install, `tailtrail do "goal"` and `tailtrail start "goal"` delegate to the same source-tree dispatcher as `python3 scripts/tailtrail.py do "goal"` and `python3 scripts/tailtrail.py start "goal"`.
+For Copilot, `/tailtrail-start "describe the change you need"` is also a
+convenient entry point.
 
-## Choose a surface (optional)
+TailTrail creates a Planning Lock. It plans only; no source, tests, scanners,
+or Git changes run until you approve.
 
-Managed TailTrail packs support two file-breadth surfaces:
+## What happens next
 
-- `--surface core` -> minimal first-run pack: `start`, Navigator, guardrails, governance, adapters, and quick docs.
-- `--surface extended` -> everything, and the default: reporting, learning, benchmarks, meta-harness, quality, security, AIDLC, hooks, and token tools.
-
-Examples:
-
-```bash
-python3 scripts/tailtrail.py install codex --target /path/to/project --dry-run
-python3 scripts/tailtrail.py install codex --target /path/to/project
-python3 scripts/tailtrail.py install codex-plugin --target /path/to/project
-python3 scripts/tailtrail.py install copilot --target /path/to/project --surface core
-python3 scripts/tailtrail.py install claude --target /path/to/project
-python3 scripts/tailtrail.py install local --target /path/to/project --profile copilot --surface core
-python3 scripts/tailtrail.py install status --target /path/to/project
-python3 scripts/tailtrail.py install upgrade-to-extended --target /path/to/project
-```
-
-Use Core for low-friction onboarding or demos where the user only needs the first-run workflow. Use Extended when the repo needs learning, reporting, scanner intelligence, AIDLC, benchmarks, hooks, or meta-harness features. Existing installs stay Extended unless you explicitly choose Core.
-
-## Start Here
-
-For almost every non-trivial task, begin with:
-
-```bash
-python3 scripts/tailtrail.py do "describe your task"
-python3 scripts/tailtrail.py start "describe your task"
-```
+1. Read the requirements, scope, selected TailTrail features, and focused
+   validation shown in the plan.
+2. Ask questions or revise the plan if something is unclear.
+3. Approve the same run when it is right.
+4. TailTrail scopes implementation and returns one Completion Report with
+   requirement status, evidence, drift, recovery posture, and token posture.
 
 Example:
 
-```bash
-python3 scripts/tailtrail.py do "fix Sonar cognitive complexity in PaymentValidator"
+```text
+tailtrail start "fix the zero quantity validation defect and add focused validation"
 ```
 
-If you already know the likely file:
-
-```bash
-python3 scripts/tailtrail.py do "fix Sonar cognitive complexity" --changed src/main/java/com/acme/PaymentValidator.java
+```text
+Approve this plan. Implement the smallest maintainable change and run the focused validation.
 ```
 
-`do` is the daily alias for `start`. Free-form input such as `python3 scripts/tailtrail.py "fix Sonar cognitive complexity"` also routes to `start`. `start` runs Navigator first and returns a plan before implementation. Review the plan, edit it if needed, then approve the work. TailTrail does not implement, run scanners, capture learnings, or change files just because `start` was run.
+## When to use options
 
-The default Start report is compact. It shows the recommended path, files to inspect first, key commands, post-change Review, Meta-Harness checks, token/evidence posture, and approval prompts. Use `--verbose` when you want the full Navigator plan:
+| Need | Use |
+| --- | --- |
+| A normal feature or bug fix | `tailtrail start "goal"` |
+| More planning detail | `tailtrail start "goal" --verbose` |
+| You know a likely file | `tailtrail start "goal" --changed path/to/file` |
+| A large delivery split into slices | `tailtrail start "hands-free: goal" --verbose` |
+| A full official lifecycle | `tailtrail start "goal" --aidlc full` |
+| Only a lightweight recommendation | `tailtrail guide "goal"` |
 
-```bash
-python3 scripts/tailtrail.py start "fix Sonar cognitive complexity" --changed src/main/java/com/acme/PaymentValidator.java --verbose
-```
+## If you use the source checkout directly
 
-## Choose By Task
-
-| I need to... | Use this first |
-|---|---|
-| Start a coding task | `python3 scripts/tailtrail.py do "goal"` or `python3 scripts/tailtrail.py start "goal"` |
-| Show the full Start plan | `python3 scripts/tailtrail.py start "goal" --verbose` |
-| Get only the plan | `python3 scripts/tailtrail.py guide "goal"` |
-| Review a changed file | `python3 scripts/tailtrail.py graph --changed path/to/file` |
-| Check local guardrails before commit | `python3 scripts/tailtrail.py guard check` |
-| Enforce high-severity guardrails | `python3 scripts/tailtrail.py guard check --enforce` |
-| Summarize CI/build/test logs | `python3 scripts/tailtrail.py ci summarize --file ci.log` |
-| Summarize Sonar/static-analysis output | `python3 scripts/tailtrail.py sonar summarize --file sonar.log` |
-| Summarize vulnerability/audit output | `python3 scripts/tailtrail.py vulnerability summarize --file audit.log` |
-| Connect scanner output to impact | `python3 scripts/tailtrail.py graph overlay --sonar sonar.log --changed path/to/file` |
-| Find likely local quality checks | `python3 scripts/tailtrail.py quality scan --root .` |
-| Run one approved local check | `python3 scripts/tailtrail.py quality run --approved --command "exact command"` |
-| Check a cloned repo for TailTrail files | `python3 scripts/tailtrail.py setup-scan --root .` |
-| Use TailTrail from an MCP-capable assistant | `python3 scripts/tailtrail.py mcp tools` |
-
-## Common Workflows
-
-Bug fix:
+Use the same commands through the portable CLI:
 
 ```bash
-python3 scripts/tailtrail.py start "fix null handling in claim mapper" --changed src/claims/mapper.py
-python3 scripts/tailtrail.py guard check
+python3 scripts/tailtrail.py start "fix the zero quantity validation defect"
+python3 scripts/tailtrail.py start "fix the zero quantity validation defect" --verbose
 ```
 
-Sonar issue:
+On Windows, replace `python3` with `py -3` and forward slashes with backslashes
+where appropriate.
 
-```bash
-python3 scripts/tailtrail.py sonar summarize --file sonar.log
-python3 scripts/tailtrail.py graph overlay --sonar sonar.log --changed src/service/foo.py
-python3 scripts/tailtrail.py start "fix Sonar issue" --changed src/service/foo.py
-```
-
-Vulnerability issue:
-
-```bash
-python3 scripts/tailtrail.py vulnerability summarize --file audit.log
-python3 scripts/tailtrail.py graph overlay --vulnerability audit.log --changed package.json
-python3 scripts/tailtrail.py start "plan vulnerability remediation" --changed package.json
-```
-
-Before commit:
+## Before you commit
 
 ```bash
 python3 scripts/tailtrail.py guard check
-python3 scripts/tailtrail.py guard check --enforce
-python3 scripts/tailtrail.py guard check --fail-on dependency-gate,local-state
+python3 scripts/tailtrail.py dependency validate --root .
 ```
 
-Turn on enforcement only when a repo is ready for it. See `GUARDRAILS.md` for the optional `--fail-on` classes and the minimal pre-commit configuration.
-
-MCP-capable assistant:
+Use the advisory local hook for a combined summary:
 
 ```bash
-python3 scripts/tailtrail.py mcp doctor
-python3 scripts/tailtrail.py mcp tools
-python3 scripts/tailtrail.py mcp serve
+python3 hooks/guard-advisory-hook.py --root .
 ```
 
-MCP is optional and read-only. It exposes Navigator, Start report, guardrail check, graph map, and install status tools to MCP hosts. It does not implement code, run scanners, fix files, upload telemetry, or replace user approval.
+## Next page
 
-## What To Read Next
-
-- Use `CHEATSHEET.md` for a one-page command map.
-- Use `USER-GUIDE.md` for full installation and feature usage.
-- Use `TAILTRAIL-COMMANDS.md` for the complete command catalog.
-- Use `ROADMAP.md` only when planning TailTrail product development.
-
-## Boundaries
-
-TailTrail helps with local, evidence-aware AI coding workflows. It does not replace source inspection, tests, CI, scanners, code review, security review, legal review, or release approval.
+- [CHEATSHEET.md](CHEATSHEET.md) — I have a specific problem; what command fits?
+- [USEFUL-PROMPTS.md](USEFUL-PROMPTS.md) — copyable prompts for common tasks.
+- [INSTALL.md](INSTALL.md) — installation, host profile, updates, and verification.

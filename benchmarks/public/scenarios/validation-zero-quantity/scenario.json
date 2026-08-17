@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "id": "validation-zero-quantity",
+  "title": "Reject zero quantity while preserving positive orders",
+  "category": "validation-and-callers",
+  "boundary": "Sanitized artifact checks; no test runner or model is run.",
+  "checks": [
+    {"id": "baseline-misses-preservation", "artifact": "baseline", "must_not_contain_any": ["positive quantity"], "points": 1},
+    {"id": "tailtrail-proves-boundary", "artifact": "tailtrail", "contains_all": ["reject zero quantity", "positive quantity", "focused unit test", "service caller"], "points": 4}
+  ]
+}

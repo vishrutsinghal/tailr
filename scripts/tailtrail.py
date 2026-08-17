@@ -67,13 +67,14 @@ COMMANDS = {
     "vulnerability": "Summarize, plan, or run approved vulnerability scans.",
     "engine": "Run V2.7 evidence-based engine helpers.",
     "aidlc": "Run AIDLC init/check helpers.",
-    "benchmark": "Run benchmark-tailtrail.py or efficacy benchmarks.",
+    "benchmark": "Run local benchmarks, public fixture evidence, or sanitized model-run capture.",
     "efficacy": "Run BL-1 measured-efficacy runner with strict measured/estimate labels.",
     "analyze": "Run analyze-benchmark.py.",
     "eval": "Audit and later run the Evaluation Harness umbrella.",
     "doctor": "Run source or installed-pack validation checks.",
     "guard": "Run local guardrail checks against a diff or staged changes.",
     "guardrail": "Run guardrail checks and precision baselines.",
+    "dependency": "Validate structured Dependency Gate decisions against a diff.",
     "governance": "Check or sync repeated governance text.",
     "registry": "Inspect and validate the TailTrail feature registry.",
     "policy": "Initialize or validate local TailTrail policy files.",
@@ -215,6 +216,7 @@ def print_help() -> None:
         "doctor",
         "guard",
         "guardrail",
+        "dependency",
         "governance",
         "registry",
         "policy",
@@ -331,6 +333,7 @@ def print_help() -> None:
     print(f"  {command} guardrail precision")
     print(f"  {command} guardrail precision --strict --format json")
     print(f"  {command} guardrail precision --rule dependency-gate")
+    print(f"  {command} dependency check --diff changes.patch")
     if release_check_allowed():
         print(f"  {command} release-check")
     if admin_mode_enabled():
@@ -616,7 +619,7 @@ def aidlc(args: list[str]) -> int:
 
 def install(args: list[str]) -> int:
     if not args:
-        print("Usage: tailtrail install codex|codex-plugin|copilot|claude|local|launcher|upgrade-to-extended|status [args]")
+        print("Usage: tailtrail install codex|codex-plugin|copilot|claude|local|launcher|verify|upgrade-to-extended|status [args]")
         return 2
     action, rest = args[0], args[1:]
     if action == "copilot":
@@ -631,11 +634,13 @@ def install(args: list[str]) -> int:
         return run_script("install-local.py", rest)
     if action == "launcher":
         return run_script("install-launcher.py", rest)
+    if action == "verify":
+        return run_script("first-run.py", rest)
     if action == "upgrade-to-extended":
         return run_script("install-copilot.py", ["--surface", "extended", "--upgrade", *rest])
     if action == "status":
         return run_script("install-copilot.py", ["--status", *rest])
-    print("Unknown install action. Use: codex, codex-plugin, copilot, claude, local, launcher, upgrade-to-extended, or status")
+    print("Unknown install action. Use: codex, codex-plugin, copilot, claude, local, launcher, verify, upgrade-to-extended, or status")
     return 2
 
 
@@ -759,6 +764,13 @@ def guardrail(args: list[str]) -> int:
     return 2
 
 
+def dependency(args: list[str]) -> int:
+    if not args:
+        print("Usage: tailtrail dependency validate|check [args]")
+        return 2
+    return run_script("dependency-decision.py", args)
+
+
 def admin(args: list[str]) -> int:
     if not admin_mode_enabled():
         print("admin commands are not available in this TailTrail distribution.")
@@ -774,6 +786,16 @@ def admin(args: list[str]) -> int:
 
 
 def benchmark(args: list[str]) -> int:
+    if args and args[0] == "run-public":
+        return run_script("public-benchmark.py", ["run", *args[1:]])
+    if args and args[0] == "capture-model-run":
+        return run_script("public-benchmark.py", ["capture", *args[1:]])
+    if args and args[0] == "report-public":
+        return run_script("public-benchmark.py", ["report", *args[1:]])
+    if args and args[0] == "model-runs":
+        return run_script("public-benchmark.py", ["model-runs", *args[1:]])
+    if args and args[0] == "public":
+        return run_script("public-benchmark.py", args[1:])
     if args and args[0] == "efficacy":
         return run_script("efficacy-benchmark.py", args[1:])
     return run_script("benchmark-tailtrail.py", args)
@@ -1089,6 +1111,8 @@ def main() -> int:
         return guard(args)
     if command == "guardrail":
         return guardrail(args)
+    if command == "dependency":
+        return dependency(args)
     if command == "governance":
         if not args:
             print("Usage: tailtrail governance check|sync")

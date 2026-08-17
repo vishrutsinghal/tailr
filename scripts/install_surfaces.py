@@ -19,10 +19,12 @@ CORE_FILES: tuple[str, ...] = (
     ".github/copilot-instructions.md",
     ".openai/chatgpt-instructions.md",
     "AGENTS.md",
+    "CHEATSHEET.md",
     "CLAUDE.md",
     "GEMINI.md",
     "GOVERNANCE.md",
     "GUARDRAILS.md",
+    "INSTALL.md",
     "QUICKSTART.md",
     "README.md",
     "ROADMAP.md",
@@ -36,6 +38,7 @@ CORE_FILES: tuple[str, ...] = (
 
 CORE_DIRS: tuple[str, ...] = (
     "adapters",
+    "docs",
 )
 
 CORE_SCRIPTS: tuple[str, ...] = (
@@ -55,6 +58,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/completion-report.py",
     "scripts/completion-review.py",
     "scripts/delivery-orchestrator.py",
+    "scripts/dependency-decision.py",
     "scripts/enterprise-target-policy.py",
     "scripts/execution-failure.py",
     "scripts/expand-intent.py",
@@ -72,12 +76,14 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/maintainability-harness.py",
     "scripts/navigator.py",
     "scripts/navigator_core.py",
+    "scripts/navigator_discovery.py",
     "scripts/navigator_render.py",
     "scripts/planning-lock.py",
     "scripts/policy-check.py",
     "scripts/program-checkpoint.py",
     "scripts/program-plan.py",
     "scripts/prompt_profile.py",
+    "scripts/public-benchmark.py",
     "scripts/recovery-diagnostician.py",
     "scripts/recovery-reconcile.py",
     "scripts/release-confidence.py",
@@ -96,6 +102,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/spec-kit-observability.py",
     "scripts/spec-kit-policy.py",
     "scripts/spec-kit-slices.py",
+    "scripts/start_posture.py",
     "scripts/sync-adapters.py",
     "scripts/sync-governance.py",
     "scripts/tailtrail-registry.py",
@@ -119,6 +126,7 @@ CORE_CONTEXT: tuple[str, ...] = (
 )
 
 CORE_TEMPLATES: tuple[str, ...] = (
+    "templates/dependency-decision.example.json",
     "templates/enterprise-target-policy.example.json",
     "templates/intent-overrides.json",
 )

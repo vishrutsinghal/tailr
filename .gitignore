@@ -1,3 +1,12 @@
 # Local, pinned vendor projection used only by explicit TailTrail Full AIDLC runs.
+.tailtrail/
 .tailtrail/official-aidlc/
 .aidlc/aidlc-rules/
+
+# Python bytecode and platform metadata are generated locally and must not be committed.
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+Thumbs.db
+__MACOSX/

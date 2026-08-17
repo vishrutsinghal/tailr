@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import io
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP_NAMES = {".DS_Store", ".git", ".idea", ".tailtrail", "__pycache__", "aidlc-rules"}
+SKIP_NAMES = {".DS_Store", ".git", ".idea", ".tailtrail", ".video-tools", "__MACOSX", "__pycache__", "aidlc-rules"}
 
 
 def ignore(directory: str, names: list[str]) -> set[str]:
@@ -26,6 +28,25 @@ def run(root: Path, args: list[str]) -> tuple[int, str, str]:
 def run_external(root: Path, args: list[str]) -> tuple[int, str, str]:
     result = subprocess.run(args, cwd=root, text=True, capture_output=True, check=False)
     return result.returncode, result.stdout, result.stderr
+
+
+def fresh_clone(source: Path, destination: Path) -> str:
+    """Create a clone-like tracked snapshot without copying local runtime state."""
+    archive = subprocess.run(["git", "archive", "--format=tar", "HEAD"], cwd=source, capture_output=True, check=False)
+    if archive.returncode == 0:
+        destination.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(fileobj=io.BytesIO(archive.stdout), mode="r:") as bundle:
+            members = [
+                member
+                for member in bundle.getmembers()
+                if "__MACOSX" not in Path(member.name).parts and Path(member.name).name not in {".DS_Store"}
+            ]
+            if any(Path(member.name).is_absolute() or ".." in Path(member.name).parts for member in members):
+                raise RuntimeError("git archive produced an unsafe member path")
+            bundle.extractall(destination, members=members)
+        return "git-archive"
+    shutil.copytree(source, destination, ignore=ignore)
+    return "copytree-fallback"
 
 
 def smoke(root: Path) -> list[str]:
@@ -68,7 +89,7 @@ def main() -> int:
 
     temp_root = Path(tempfile.mkdtemp(prefix="tailtrail-smoke-"))
     clone = temp_root / "tailtrail"
-    shutil.copytree(source, clone, ignore=ignore)
+    snapshot_method = fresh_clone(source, clone)
     failures = smoke(clone)
 
     if failures:
@@ -80,6 +101,7 @@ def main() -> int:
         return 1
 
     print("TailTrail smoke test passed.")
+    print(f"Snapshot method: {snapshot_method}")
     print(f"Fresh clone path: {clone}")
     if args.keep_temp:
         print("Temporary directory kept for inspection.")

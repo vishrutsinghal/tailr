@@ -1,37 +1,25 @@
 # TailTrail User Guide
 
-This guide shows how to install, use, and maintain TailTrail across Codex, Claude, Cursor, GitHub Copilot, ChatGPT, and Gemini.
+This is the detailed product and advanced-workflow guide for TailTrail across
+Codex, Claude, Cursor, GitHub Copilot, ChatGPT, and Gemini.
 
-For the shortest path, start with `QUICKSTART.md`. For a one-page command map, use `CHEATSHEET.md`. For copyable end-user prompts, use `USEFUL-PROMPTS.md`.
+For first use, do not start here: use [README.md](README.md), then the single
+[INSTALL.md](INSTALL.md) guide. Use [QUICKSTART.md](QUICKSTART.md) for the
+daily flow, [CHEATSHEET.md](CHEATSHEET.md) for a one-page command map, and
+[USEFUL-PROMPTS.md](USEFUL-PROMPTS.md) for copyable prompts. Installation and
+update instructions are canonical in `INSTALL.md`; this document explains the
+advanced behavior after that setup is complete.
 
 ## 1. Get TailTrail
 
-Clone the repository:
+Clone the TailTrail repository, then follow [INSTALL.md](INSTALL.md). It is the
+only page that defines supported host profiles, operating-system commands,
+Core/Extended surfaces, updating, and installation verification.
 
-```bash
-git clone <tailtrail-repository-url>
-cd TailTrail
-```
-
-Validate the package:
-
-```bash
-python3 scripts/sync-adapters.py --check
-python3 scripts/install-local.py --inspect
-python3 scripts/tailtrail.py help
-python3 scripts/tailtrail.py hello
-python3 scripts/tailtrail.py doctor
-python3 scripts/benchmark-tailtrail.py
-python3 scripts/benchmark-tailtrail.py --format json > benchmarks/results/latest.json
-python3 scripts/analyze-benchmark.py benchmarks/results/latest.json
-python3 scripts/review-graph.py --changed path/to/file
-```
-
-TailTrail uses only local Markdown and Python scripts. No package install is required for the portable workflow. For Codex project guidance, run `python3 scripts/tailtrail.py install codex --target /path/to/project --dry-run`, review the plan, then rerun without `--dry-run`. This writes `AGENTS.md` only and preserves an existing file unless `--force` is supplied.
-
-Optional local packaging is available when you want `tailtrail` on `PATH`: run `pipx install .` from the TailTrail checkout, or use `pip install --user .` as an alternative. This installs only a small console-entry shim; the canonical fallback remains `python3 scripts/tailtrail.py ...`, and the source tree still owns the Markdown, adapters, benchmarks, hooks, and scripts.
-
-Managed project installs also support an optional surface selector. `--surface extended` is the default and installs the full TailTrail pack, matching existing behavior. `--surface core` installs a smaller first-run pack with `hello`, `start`, Navigator, guardrail checks, governance checks, adapters, and quick docs. Use Core for onboarding or lightweight repo setup; use Extended when the repo needs learning, reporting, benchmarks, meta-harness, quality/security scanning helpers, AIDLC, hooks, or token telemetry. Upgrade Core in place with `python3 scripts/tailtrail.py install upgrade-to-extended --target /path/to/project`; the upgrade is additive and does not delete files.
+TailTrail uses local Markdown and Python scripts; a package install is optional.
+If you want `tailtrail` on `PATH`, run `pipx install .` from the TailTrail
+checkout (or `pip install --user .`). The portable fallback remains
+`python3 scripts/tailtrail.py ...`.
 
 ## Unified Command Surface
 

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import navigator_core as core
+import navigator_discovery as discovery
 import navigator_render
 import prompt_profile
 import token_budget_coach
@@ -23,48 +24,10 @@ ROOT = Path(__file__).resolve().parents[1]
 # Reuse the interpreter that launched TailTrail. This keeps nested helper calls
 # working for Windows `py -3` installs as well as Unix `python3` installs.
 PYTHON = sys.executable
-MAX_REVIEW_GRAPH_ARGUMENT_CHARS = 8_000
-MAX_REVIEW_GRAPH_CHANGED_PATHS = 50
-GOAL_DISCOVERY_SUFFIXES = {
-    ".cs", ".css", ".go", ".html", ".java", ".js", ".jsx", ".kt",
-    ".py", ".rb", ".rs", ".scss", ".svelte", ".ts", ".tsx", ".vue",
-}
-GOAL_DISCOVERY_STOP_WORDS = {
-    "add", "and", "bug", "code", "defect", "fix", "focused", "for",
-    "the", "this", "validation", "with",
-}
-GOAL_DISCOVERY_EXCLUDED_PARTS = {
-    ".git", ".tailtrail", ".venv", "__pycache__", "build", "dist",
-    "node_modules", "tailtrail", "venv",
-}
-REPOSITORY_DISCOVERY_MANIFESTS = {
-    "package.json", "pyproject.toml", "pom.xml", "build.gradle", "build.gradle.kts",
-    "go.mod", "cargo.toml", "composer.json", "gemfile",
-}
-REPOSITORY_DISCOVERY_EXCLUDED_NAMES = {
-    "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "poetry.lock",
-}
-_TAILTRAIL_MANAGED_PATH_PREFIXES = (
-    "tailtrail/",
-    "skills/tailtrail",
-    "skills/tailtrail-review",
-    "skills/tailtrail-start",
-    ".codex-plugin/",
-    ".github/copilot-instructions.md",
-    ".github/prompts/tailtrail-",
-    ".cursor/rules/tailtrail",
-    ".openai/chatgpt-instructions.md",
-    ".claude/commands/tailtrail",
-    "AGENTS.md",
-    "AIDLC.md",
-    "GUARDRAILS.md",
-    "DEPENDENCY-GATE.md",
-    "TAILTRAIL-COMMANDS.md",
-    "TOKEN-AUTOPILOT.md",
-    "TOKEN-SLICER.md",
-)
-
-
+# Compatibility exports for callers that used the former in-module discovery
+# constants. New code should use ``navigator_discovery`` directly.
+MAX_REVIEW_GRAPH_ARGUMENT_CHARS = discovery.MAX_REVIEW_GRAPH_ARGUMENT_CHARS
+MAX_REVIEW_GRAPH_CHANGED_PATHS = discovery.MAX_REVIEW_GRAPH_CHANGED_PATHS
 def load_registry_module() -> Any | None:
     path = ROOT / "scripts" / "tailtrail-registry.py"
     spec = importlib.util.spec_from_file_location("tailtrail_registry_for_navigator", path)
@@ -160,158 +123,27 @@ EVALUATION_TRIGGER_WORDS = {
 
 
 def git_changed(root: Path) -> list[str]:
-    result = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=root, text=True, capture_output=True, check=False)
-    if result.returncode != 0:
-        return []
-    files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    untracked = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"], cwd=root, text=True, capture_output=True, check=False)
-    if untracked.returncode == 0:
-        files.extend(line.strip() for line in untracked.stdout.splitlines() if line.strip())
-    return sorted(dict.fromkeys(path for path in files if is_actionable_changed_path(root, path)))
+    return discovery.git_changed(root)
 
 
 def goal_discovery_terms(goal: str) -> list[str]:
-    """Return concrete domain terms useful for a small local code search."""
-    terms = []
-    for term in re.findall(r"[a-zA-Z][a-zA-Z0-9_]{2,}", goal.lower()):
-        if term not in GOAL_DISCOVERY_STOP_WORDS and term not in terms:
-            terms.append(term)
-    return terms[:6]
+    return discovery.goal_discovery_terms(goal)
 
 
 def goal_discovered_paths(root: Path, goal: str, limit: int = 2) -> list[str]:
-    """Find likely source/test targets when Start has no --changed path.
-
-    This is intentionally local and lexical. It gives Navigator a useful first
-    file for common bug-fix requests without treating unrelated Git/install
-    changes as the task scope.
-    """
-    terms = goal_discovery_terms(goal)
-    if not terms:
-        return []
-    try:
-        tracked = subprocess.run(
-            ["git", "ls-files"], cwd=root, text=True, capture_output=True, check=False
-        )
-        candidates = [root / line.strip() for line in tracked.stdout.splitlines() if line.strip()] if tracked.returncode == 0 else []
-    except OSError:
-        candidates = []
-    if not candidates:
-        candidates = list(root.rglob("*"))[:10_000]
-
-    ranked: list[tuple[int, str]] = []
-    for path in candidates:
-        if not path.is_file() or path.suffix.lower() not in GOAL_DISCOVERY_SUFFIXES:
-            continue
-        try:
-            relative = path.relative_to(root)
-        except ValueError:
-            continue
-        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
-            continue
-        try:
-            body = path.read_text(encoding="utf-8", errors="ignore")[:131_072].lower()
-        except OSError:
-            continue
-        relative_text = relative.as_posix().lower()
-        parts = {part.lower() for part in relative.parts}
-        score = 12 if "src" in parts else 0
-        score += 9 if any(part in {"test", "tests"} for part in parts) else 0
-        for term in terms:
-            if term in relative_text:
-                score += 10
-            if term in body:
-                score += 4
-        if "validation" in goal.lower() and "validation" in relative_text:
-            score += 8
-        if "validation" in goal.lower() and any(part in {"test", "tests"} for part in parts):
-            score += 5
-        if score >= 14:
-            ranked.append((score, relative.as_posix()))
-    return [path for _, path in sorted(ranked, key=lambda item: (-item[0], item[1]))[:limit]]
+    return discovery.goal_discovered_paths(root, goal, limit)
 
 
 def repository_discovered_paths(root: Path, goal: str, limit: int = 5) -> list[str]:
-    """Return actual, structure-based candidates when lexical discovery fails.
-
-    This is a path/manifest inventory only.  It deliberately does not use Git
-    changes, fabricate common filenames, or claim callers.  It gives broad UI
-    and feature requests a credible first read order while retaining an
-    explicit confirmation boundary before implementation.
-    """
-    try:
-        tracked = subprocess.run(["git", "ls-files"], cwd=root, text=True, capture_output=True, check=False)
-        candidates = [root / line.strip() for line in tracked.stdout.splitlines() if line.strip()] if tracked.returncode == 0 else []
-    except OSError:
-        candidates = []
-    if not candidates:
-        candidates = list(root.rglob("*"))[:10_000]
-
-    ui_requested = core.ui_change_requested(goal, [])
-    terms = goal_discovery_terms(goal)
-    ranked: list[tuple[int, str]] = []
-    for path in candidates:
-        if not path.is_file():
-            continue
-        try:
-            relative = path.relative_to(root)
-        except ValueError:
-            continue
-        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
-            continue
-        name = relative.name.lower()
-        if name in REPOSITORY_DISCOVERY_EXCLUDED_NAMES:
-            continue
-        suffix = relative.suffix.lower()
-        manifest = name in REPOSITORY_DISCOVERY_MANIFESTS
-        if suffix not in GOAL_DISCOVERY_SUFFIXES and not manifest:
-            continue
-        parts = {part.lower() for part in relative.parts}
-        relative_text = relative.as_posix().lower()
-        score = 0
-        if manifest:
-            score += 20
-        if "src" in parts or "app" in parts:
-            score += 12
-        if any(part in {"test", "tests", "__tests__"} for part in parts):
-            score += 8
-        if ui_requested:
-            if suffix in {".jsx", ".tsx", ".vue", ".svelte", ".css", ".scss", ".html"}:
-                score += 22
-            if any(part in core.UI_PATH_PARTS for part in parts):
-                score += 16
-        for term in terms:
-            if term in relative_text:
-                score += 5
-        if score:
-            ranked.append((score, relative.as_posix()))
-    return [path for _, path in sorted(ranked, key=lambda item: (-item[0], item[1]))[:limit]]
+    return discovery.repository_discovered_paths(root, goal, limit)
 
 
 def is_actionable_changed_path(root: Path, path: str) -> bool:
-    """Ignore generated files and TailTrail-managed files, not project changes."""
-    relative = Path(path)
-    if "__pycache__" in relative.parts:
-        return False
-    posix = relative.as_posix()
-    if any(posix == prefix.rstrip("/") or posix.startswith(prefix) for prefix in _TAILTRAIL_MANAGED_PATH_PREFIXES):
-        return False
-    if relative.parts and (root / relative.parts[0] / ".tailtrail-install.json").is_file():
-        return False
-    return True
+    return discovery.is_actionable_changed_path(root, path)
 
 
 def bounded_review_graph_paths(changed: list[str]) -> list[str]:
-    """Keep nested review-graph calls below Windows command-line limits."""
-    selected: list[str] = []
-    argument_chars = 0
-    for path in changed:
-        next_chars = len("--changed") + 1 + len(path) + 1
-        if len(selected) >= MAX_REVIEW_GRAPH_CHANGED_PATHS or argument_chars + next_chars > MAX_REVIEW_GRAPH_ARGUMENT_CHARS:
-            break
-        selected.append(path)
-        argument_chars += next_chars
-    return selected
+    return discovery.bounded_review_graph_paths(changed)
 
 
 def existing_state(root: Path) -> dict[str, bool]:
@@ -327,49 +159,11 @@ def existing_state(root: Path) -> dict[str, bool]:
 
 
 def run_review_graph(root: Path, changed: list[str]) -> dict[str, Any] | None:
-    graph_paths = bounded_review_graph_paths(changed)
-    if not graph_paths:
-        return None
-    command = [PYTHON, (ROOT / "scripts" / "review-graph.py").as_posix(), "--root", root.as_posix(), "--format", "json"]
-    for item in graph_paths:
-        command.extend(["--changed", item])
-    result = subprocess.run(command, cwd=root, text=True, capture_output=True, check=False)
-    if result.returncode != 0:
-        return None
-    try:
-        return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None
+    return discovery.run_review_graph(root, changed)
 
 
 def run_graph_learning(root: Path, changed: list[str], tasks: list[str], risks: list[str]) -> dict[str, Any] | None:
-    index_exists = (root / ".tailtrail" / "learning-index.md").exists() or (root / ".tailtrail" / "graph-learning-index.json").exists()
-    if not index_exists:
-        return None
-    tags = sorted(set(tasks + [risk.replace("/", "-").replace(" ", "-") for risk in risks]))
-    command = [
-        PYTHON,
-        (ROOT / "scripts" / "graph-learning.py").as_posix(),
-        "search",
-        "--root",
-        root.as_posix(),
-        "--format",
-        "json",
-        "--limit",
-        "3",
-    ]
-    for item in changed[:5]:
-        command.extend(["--changed", item])
-    if tags:
-        command.extend(["--tags", ",".join(tags)])
-    result = subprocess.run(command, cwd=root, text=True, capture_output=True, check=False)
-    if result.returncode != 0:
-        return None
-    try:
-        value = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None
-    return value if isinstance(value, dict) else None
+    return discovery.run_graph_learning(root, changed, tasks, risks)
 
 
 def graph_learning_index_exists(root: Path, state: dict[str, bool]) -> bool:

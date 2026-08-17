@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Dependency Decision",
+  "type": "object",
+  "required": ["schema_version", "type", "decision_id", "status", "package", "version", "manifest_paths", "problem", "alternatives", "rationale", "owner", "validation", "rollback"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-dependency-decision"},
+    "status": {"enum": ["approved", "deferred", "rejected"]},
+    "package": {"type": "string"},
+    "version": {"type": "string"},
+    "manifest_paths": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "alternatives": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "validation": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

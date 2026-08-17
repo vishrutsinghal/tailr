@@ -25,6 +25,19 @@ def expected(profile: str, pack_dir: str) -> list[str]:
     return mapping.get(profile, [])
 
 
+def detect_profile(target: Path, pack_dir: str) -> str:
+    """Choose the installed surface from local markers without guessing a host."""
+    if (target / ".github" / "copilot-instructions.md").is_file() or (target / pack_dir / ".tailtrail-install.json").is_file():
+        return "copilot"
+    if (target / ".codex-plugin" / "plugin.json").is_file() or (target / "skills" / "tailtrail" / "SKILL.md").is_file():
+        return "codex-plugin"
+    if (target / ".claude" / "commands" / "tailtrail-start.md").is_file() or (target / "CLAUDE.md").is_file():
+        return "claude"
+    if (target / "AGENTS.md").is_file():
+        return "codex"
+    return "generic"
+
+
 def first_action(profile: str) -> dict[str, str]:
     if profile in {"codex", "codex-plugin"}:
         return {"surface": "Codex chat", "command": "Using TailTrail Navigator, plan \"<your task>\" before implementation.", "why": "Codex reads the installed AGENTS guidance and TailTrail skills from the project."}
@@ -32,9 +45,20 @@ def first_action(profile: str) -> dict[str, str]:
 
 
 def check(target: Path, profile: str, pack_dir: str) -> dict[str, Any]:
-    required = expected(profile, pack_dir)
+    resolved_profile = detect_profile(target, pack_dir) if profile == "auto" else profile
+    required = expected(resolved_profile, pack_dir)
     missing = [item for item in required if not (target / item).is_file()]
-    return {"type": "tailtrail-first-run", "target": target.as_posix(), "profile": profile, "required": required, "missing": missing, "installation": "passed" if not missing else "incomplete", "first_action": first_action(profile), "boundary": "The smoke check verifies expected installed files and TailTrail's local hello command. It does not edit the target, run project tests, or invoke an agent."}
+    return {
+        "type": "tailtrail-first-run",
+        "target": target.as_posix(),
+        "profile": resolved_profile,
+        "profile_selection": "auto-detected" if profile == "auto" else "explicit",
+        "required": required,
+        "missing": missing,
+        "installation": "passed" if not missing else "incomplete",
+        "first_action": first_action(resolved_profile),
+        "boundary": "The smoke check verifies expected installed files and TailTrail's local hello command. It does not edit the target, run project tests, or invoke an agent.",
+    }
 
 
 def smoke() -> dict[str, Any]:
@@ -53,7 +77,7 @@ def render(payload: dict[str, Any]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, default=Path.cwd())
-    parser.add_argument("--profile", default="generic")
+    parser.add_argument("--profile", default="auto", choices=("auto", "generic", "codex", "codex-plugin", "copilot", "claude", "aidlc", "full"))
     parser.add_argument("--pack-dir", default="tailtrail")
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     args = parser.parse_args(argv)

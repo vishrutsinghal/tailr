@@ -47,6 +47,8 @@ LOCAL_INSTALL_GITIGNORE = [
     "DEPENDENCY-GATE.md",
     "GUARDRAILS.md",
     "GOVERNANCE.md",
+    "INSTALL.md",
+    "CHEATSHEET.md",
     "TOKEN-AUTOPILOT.md",
     "TOKEN-SLICER.md",
     "TAILTRAIL-COMMANDS.md",
@@ -258,11 +260,13 @@ def aidlc_steps(target: Path, depth: str, force: bool) -> list[Step]:
 
 def hooks_steps(target: Path, pack_dir: str) -> list[Step]:
     hook = target / pack_dir / "hooks" / "tailtrail-lifecycle-hook.py"
+    guard_advisory = target / pack_dir / "hooks" / "guard-advisory-hook.py"
     return [
         Step("info", note="Hooks are opt-in. Wire these commands only in hook-capable hosts."),
         Step("info", note=f"Startup: python3 {relative(hook, target)} --startup --no-state"),
         Step("info", note=f"Prompt: python3 {relative(hook, target)} \"use AIDLC and review\" --no-state"),
         Step("info", note=f"CI/Sonar: python3 {relative(hook, target)} \"use CI Sonar\" --no-state"),
+        Step("info", note=f"Guard advisory: python3 {relative(guard_advisory, target)} --root ."),
     ]
 
 

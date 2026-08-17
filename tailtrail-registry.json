@@ -2,6 +2,45 @@
   "schema_version": "1",
   "features": [
     {
+      "id": "public-evidence-portfolio",
+      "title": "Release 5 Public Benchmark Fixtures And Sanitized Model-Run Capture",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Improvement Plan Release 5 — Evidence",
+      "owner": "tailtrail-core",
+      "governance_class": "telemetry",
+      "commands": [
+        "tailtrail benchmark run-public",
+        "tailtrail benchmark public list|run|report",
+        "tailtrail benchmark capture-model-run --approved"
+      ],
+      "docs": [
+        "benchmarks/README.md",
+        "benchmarks/public/README.md",
+        "benchmarks/results/public-benchmark-2026-08.json",
+        "PUBLIC-CLAIMS.md",
+        "IMPROVEMENT-PLAN.md",
+        "TAILTRAIL-COMMANDS.md"
+      ],
+      "scripts": [
+        "scripts/public-benchmark.py"
+      ],
+      "tests": [
+        "tests/test_public_benchmark.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "evaluation-harness",
+        "token-harness"
+      ],
+      "since_version": "release-5",
+      "deprecated_in_version": null
+    },
+    {
       "id": "planning-lock",
       "title": "Planning Lock",
       "status": "implemented",
@@ -349,13 +388,16 @@
       "scripts": [
         "scripts/navigator.py",
         "scripts/navigator_core.py",
+        "scripts/navigator_discovery.py",
         "scripts/navigator_render.py",
+        "scripts/start_posture.py",
         "scripts/task-start.py",
         "scripts/task-next.py",
         "scripts/expand-intent.py"
       ],
       "tests": [
-        "tests/test_navigator_core.py"
+        "tests/test_navigator_core.py",
+        "tests/test_release4_maintainability.py"
       ],
       "mcp_tools": [
         "navigator_plan",
@@ -603,19 +645,26 @@
       "commands": [
         "tailtrail guard check",
         "tailtrail guardrail precision",
+        "tailtrail dependency validate",
+        "tailtrail dependency check",
         "tailtrail governance check"
       ],
       "docs": [
         "GUARDRAILS.md",
         "GOVERNANCE.md",
+        "DEPENDENCY-GATE.md",
+        "schemas/dependency-decision.schema.json",
+        "templates/dependency-decision.example.json",
         "context/guardrail-layers.md"
       ],
       "scripts": [
         "scripts/guardrail-check.py",
         "scripts/guardrail-precision.py",
+        "scripts/dependency-decision.py",
         "scripts/sync-governance.py"
       ],
       "tests": [
+        "tests/test_dependency_decision.py",
         "tests/test_guardrail_precision.py",
         "tests/test_governance_sync.py"
       ],
