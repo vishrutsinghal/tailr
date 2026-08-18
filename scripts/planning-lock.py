@@ -406,10 +406,15 @@ def _is_full_official_run(root: Path, run_id: str) -> bool:
     return isinstance(report, dict) and (report.get("aidlc_mode", {}) or {}).get("mode") == "full"
 
 
+def _is_official_aidlc_run(root: Path, run_id: str) -> bool:
+    report = _saved_start_report(root, run_id)
+    return isinstance(report, dict) and (report.get("aidlc_mode", {}) or {}).get("mode") in {"standard", "full"}
+
+
 def _official_bridge(root: Path, run_id: str) -> dict[str, Any]:
     path = L.state_dir(root, run_id) / "aidlc-official" / "bridge-v1.json"
     if not path.is_file():
-        raise ValueError("Full official AIDLC run has no verified bridge artifact")
+        raise ValueError("Official AIDLC Standard or Full run has no verified bridge artifact")
     return read(path)
 
 
@@ -521,7 +526,7 @@ def record_feedback(root: Path, run_id: str, feedback_json: str) -> dict[str, An
     }
     saved = active_start_report(root, run_id).get("report", {})
     hands_free = bool((saved.get("guided_delivery", {}) if isinstance(saved, dict) else {}).get("hands_free_program"))
-    if _is_full_official_run(root, run_id) and result["rejected_requirement_uids"]:
+    if _is_official_aidlc_run(root, run_id) and result["rejected_requirement_uids"]:
         comments = " ".join(str(row.get("comment", "")) for row in result.get("feedback", [])).lower()
         route = "official-design" if any(word in comments for word in ("design", "architecture", "architectural", "boundary")) else "official-requirements"
         route_path = L.state_dir(root, run_id) / "aidlc-official" / "revisions" / "route-v1.json"
@@ -551,7 +556,7 @@ def reject_all(root: Path, run_id: str, reason: str) -> dict[str, Any]:
 def request_aidlc_requirements(root: Path, run_id: str, revision_context: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Start minimal AIDLC requirement gathering from saved planning evidence only."""
     root = root.resolve()
-    if _is_full_official_run(root, run_id):
+    if _is_official_aidlc_run(root, run_id):
         return request_official_aidlc_requirements(root, run_id, revision_context)
     template = feedback_template(root, run_id)
     proposal = _proposal_from_start_report(root, run_id)
@@ -591,8 +596,8 @@ def request_official_aidlc_requirements(root: Path, run_id: str, revision_contex
     references, and later the explicit official decisions.
     """
     root = root.resolve()
-    if not _is_full_official_run(root, run_id):
-        raise ValueError("official requirements are available only for a Full AIDLC run")
+    if not _is_official_aidlc_run(root, run_id):
+        raise ValueError("official requirements are available only for Standard or Full AIDLC runs")
     template = feedback_template(root, run_id)
     proposal = _proposal_from_start_report(root, run_id)
     if proposal is None:
@@ -601,32 +606,48 @@ def request_official_aidlc_requirements(root: Path, run_id: str, revision_contex
     feedback = [row for event in events if event.get("event_type") == "proposal_rejected" for row in event.get("payload", {}).get("feedback", [])]
     context = revision_context or []
     feedback.extend({"comment": str(row.get("reason", "")).strip()} for row in context if str(row.get("reason", "")).strip())
-    stage = _official_aidlc_requirements_module().gather(root, _official_bridge(root, run_id), proposal["goal"], proposal["requirements"], feedback)
+    stage = _official_aidlc_requirements_module().stage_request(root, _official_bridge(root, run_id), proposal["goal"], proposal["requirements"], feedback)
     artifact = L.state_dir(root, run_id) / "planning" / "official-aidlc-requirements-v1.json"
-    questions_path = L.state_dir(root, run_id) / "aidlc-official" / "requirements" / "questions-v1.md"
-    questions_path.parent.mkdir(parents=True, exist_ok=True)
-    questions_path.write_text(stage.pop("question_markdown"), encoding="utf-8")
     document = {
         "schema_version": "1", "type": "tailtrail-official-aidlc-requirements", "run_id": run_id,
         "goal": proposal["goal"], "stage": "requirements-gathering", "source_boundary": template["source_boundary"],
         "requirements": proposal["requirements"], "prior_feedback": feedback, "revision_context": context, "official_stage": stage,
-        "questions": stage["questions"], "approval_gate": stage["stage_gate"],
-        "official_questions": questions_path.relative_to(root).as_posix(),
+        "questions": [], "approval_gate": stage["stage_gate"],
+        "official_questions": None,
     }
     L.atomic_json(artifact, document)
-    L.append_event(root, run_id, "official_aidlc_requirements_requested", {"artifact": artifact.relative_to(root).as_posix(), "questions": document["official_questions"], "official_references": stage["official_references"]})
+    L.append_event(root, run_id, "official_aidlc_requirements_requested", {"artifact": artifact.relative_to(root).as_posix(), "official_references": stage["official_references"], "host_action_required": True})
     return _official_requirements_payload(root, run_id, document, artifact)
 
 
 def _official_requirements_payload(root: Path, run_id: str, document: dict[str, Any], artifact: Path) -> dict[str, Any]:
     stage = document["official_stage"]
-    return {"run_id": run_id, "state": "official-aidlc-requirements-gathering", "authority": "official-ai-dlc-pack", "artifact": artifact.relative_to(root).as_posix(), "official_questions": document["official_questions"], "source_boundary": document["source_boundary"], "requirements": document["requirements"], "questions": document["questions"], "aidlc_stage": stage, "prior_feedback": document.get("prior_feedback", []), "revision_context": document.get("revision_context", []), "approval_gate": document["approval_gate"]}
+    pending = not document.get("questions")
+    return {"run_id": run_id, "state": "official-aidlc-host-generation-required" if pending else "official-aidlc-requirements-gathering", "authority": "official-ai-dlc-pack", "artifact": artifact.relative_to(root).as_posix(), "official_questions": document["official_questions"], "source_boundary": document["source_boundary"], "requirements": document["requirements"], "questions": document["questions"], "aidlc_stage": stage, "prior_feedback": document.get("prior_feedback", []), "revision_context": document.get("revision_context", []), "approval_gate": document["approval_gate"], "host_action": stage.get("host_action") if pending else None}
+
+
+def record_official_aidlc_questions(root: Path, run_id: str, questions_json: str) -> dict[str, Any]:
+    """Persist questions generated by a host that loaded the pinned official rules."""
+    root = root.resolve()
+    if not _is_official_aidlc_run(root, run_id):
+        raise ValueError("official host questions require Standard or Full AIDLC")
+    artifact = _official_aidlc_artifact(root, run_id, "official-aidlc-requirements-v1.json")
+    document = read(artifact)
+    questions = _official_aidlc_requirements_module().validate_host_questions(json.loads(questions_json))
+    document["questions"] = questions
+    document["official_questions"] = (L.state_dir(root, run_id) / "aidlc-official" / "requirements" / "questions-v1.json").relative_to(root).as_posix()
+    questions_path = root / document["official_questions"]
+    questions_path.parent.mkdir(parents=True, exist_ok=True)
+    L.atomic_json(questions_path, {"type": "official-ai-dlc-host-questions", "run_id": run_id, "official_references": document["official_stage"]["official_references"], "questions": questions})
+    L.atomic_json(artifact, document)
+    L.append_event(root, run_id, "official_aidlc_host_questions_recorded", {"artifact": document["official_questions"], "question_ids": [item["id"] for item in questions]})
+    return _official_requirements_payload(root, run_id, document, artifact)
 
 
 def _official_aidlc_artifact(root: Path, run_id: str, name: str) -> Path:
     path = L.state_dir(root, run_id) / "planning" / name
     if not path.is_file():
-        raise ValueError(f"Official AIDLC Requirements artifact for run `{run_id}` does not exist; select or start Full AIDLC mode first")
+        raise ValueError(f"Official AIDLC Requirements artifact for run `{run_id}` does not exist; select or start Standard or Full AIDLC mode first")
     return path
 
 
@@ -635,7 +656,10 @@ def submit_official_aidlc_answers(root: Path, run_id: str, answers_json: str) ->
     if show(root, run_id)["status"] != "awaiting-approval":
         raise ValueError(f"official AIDLC answers are available only while run `{run_id}` is awaiting approval")
     document = read(_official_aidlc_artifact(root, run_id, "official-aidlc-requirements-v1.json"))
-    revision = _official_aidlc_requirements_module().revise(document["official_stage"], json.loads(answers_json))
+    if not document.get("questions"):
+        raise ValueError("The configured host must first record official Requirements Analysis questions with `official-aidlc-questions`; TailTrail will not substitute a local questionnaire.")
+    stage = {**document["official_stage"], "requirements": document["requirements"], "questions": document["questions"]}
+    revision = _official_aidlc_requirements_module().revise(stage, json.loads(answers_json))
     revision_path = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
     payload = {"schema_version": "1", "type": "tailtrail-official-aidlc-revised-requirements", "run_id": run_id, "source_boundary": document["source_boundary"], "official_references": document["official_stage"]["official_references"], **revision}
     L.atomic_json(revision_path, payload)
@@ -688,7 +712,7 @@ def _aidlc_artifact(root: Path, run_id: str, name: str) -> Path:
 def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str, Any]:
     """Validate AIDLC answers and persist a revised, still-unapproved boundary."""
     root = root.resolve()
-    if _is_full_official_run(root, run_id):
+    if _is_official_aidlc_run(root, run_id):
         return submit_official_aidlc_answers(root, run_id, answers_json)
     current = show(root, run_id)
     if current["status"] != "awaiting-approval":
@@ -707,7 +731,7 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
 def show_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
     """Resume an existing AIDLC requirements brief without creating another event."""
     root = root.resolve()
-    if _is_full_official_run(root, run_id):
+    if _is_official_aidlc_run(root, run_id):
         return show_official_aidlc_requirements(root, run_id)
     document = read(_aidlc_artifact(root, run_id, "aidlc-requirements-v1.json"))
     return {
@@ -736,7 +760,7 @@ def aidlc_cycle(root: Path, run_id: str, answers_json: str | None = None, approv
         return {"cycle_action": "activate-approved-boundary", **approve_aidlc_requirements(root, run_id, True)}
     if answers_json is not None:
         return {"cycle_action": "record-answers-and-render-revision", **submit_aidlc_answers(root, run_id, answers_json)}
-    artifact_name = "official-aidlc-requirements-v1.json" if _is_full_official_run(root.resolve(), run_id) else "aidlc-requirements-v1.json"
+    artifact_name = "official-aidlc-requirements-v1.json" if _is_official_aidlc_run(root.resolve(), run_id) else "aidlc-requirements-v1.json"
     artifact = L.state_dir(root.resolve(), run_id) / "planning" / artifact_name
     if artifact.exists():
         return {"cycle_action": "resume-requirements-gathering", **show_aidlc_requirements(root, run_id)}
@@ -748,7 +772,7 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
     if approved is not True:
         raise ValueError("AIDLC requirements approval requires --approved")
     root = root.resolve()
-    if _is_full_official_run(root, run_id):
+    if _is_official_aidlc_run(root, run_id):
         return approve_official_aidlc_requirements(root, run_id, approved)
     current = show(root, run_id)
     if current["status"] != "awaiting-approval":
@@ -791,6 +815,9 @@ def render_aidlc_requirements(payload: dict[str, Any]) -> str:
         lines[3] = "**Stage:** official Requirements Analysis; planning only, with no source inspection or implementation."
         lines.extend(["", "## Official rule references", ""])
         lines.extend(f"- `{path}`" for path in payload["aidlc_stage"]["official_references"].values())
+    if official and not payload["questions"]:
+        lines.extend(["", "## Official host action required", "", "- Read the listed pinned official rules, including Requirements Analysis and the question-format guide.", "- Generate the questions from that official stage; each needs meaningful options including Other, a TailTrail advisory recommendation, and reasoning for that recommendation.", "- Record the generated artifact with `tailtrail planning official-aidlc-questions --root . --run-id <run-id> --questions-base64 <base64-utf8-json>` (or `--questions '<json>'` where quoting is safe).", "- The recommendation is TailTrail advisory guidance; the user may select any official option or Other with detail.", "- No source inspection, implementation, tests, scanners, or Git actions are permitted while gathering requirements.", ""])
+        return "\n".join(lines)
     lines.extend(["", "## Questions to resolve", ""])
     for row in payload["questions"]:
         lines.extend([f"### {row['id']}", "", row["question"]])
@@ -906,7 +933,7 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         current_source = spec_kit_bridge().load(root, str(source.get("feature_id", "")))
         if current_source.get("source_revision") != source.get("source_revision") or current_source.get("import") != source.get("import"):
             raise ValueError("Intent Bridge source/import identity changed after this plan; create an amendment review before activation")
-    if _is_full_official_run(root, run_id):
+    if _is_official_aidlc_run(root, run_id):
         revision = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
         if not revision.is_file():
             raise ValueError("Full AIDLC requires answers and explicit official Requirements Analysis approval before TailTrail can freeze the anchor")
@@ -1048,6 +1075,12 @@ def main() -> int:
     aidlc_approve_parser.add_argument("--root", type=Path, default=Path.cwd())
     aidlc_approve_parser.add_argument("--run-id", required=True)
     aidlc_approve_parser.add_argument("--approved", action="store_true")
+    official_questions_parser = sub.add_parser("official-aidlc-questions", help="Record questions generated by the host from the pinned official AI-DLC rules.")
+    official_questions_parser.add_argument("--root", type=Path, default=Path.cwd())
+    official_questions_parser.add_argument("--run-id", required=True)
+    official_question_source = official_questions_parser.add_mutually_exclusive_group(required=True)
+    official_question_source.add_argument("--questions", help="JSON list of official host-generated questions, options, recommendations, and reasoning.")
+    official_question_source.add_argument("--questions-base64", help="UTF-8 question JSON encoded as Base64; use on Windows hosts where native argument quoting strips JSON quotes.")
     aidlc_cycle_parser = sub.add_parser("aidlc-cycle", help="Run one safe AIDLC Requirements control-plane transition for an existing run.")
     aidlc_cycle_parser.add_argument("--root", type=Path, default=Path.cwd())
     aidlc_cycle_parser.add_argument("--run-id", required=True)
@@ -1080,6 +1113,14 @@ def main() -> int:
             payload = submit_aidlc_answers(args.root, args.run_id, args.answers)
         elif args.command == "aidlc-approve":
             payload = approve_aidlc_requirements(args.root, args.run_id, args.approved)
+        elif args.command == "official-aidlc-questions":
+            questions_json = args.questions
+            if args.questions_base64 is not None:
+                try:
+                    questions_json = base64.b64decode(args.questions_base64, validate=True).decode("utf-8")
+                except (ValueError, UnicodeDecodeError) as error:
+                    raise ValueError(f"--questions-base64 must be valid Base64-encoded UTF-8 JSON: {error}") from error
+            payload = record_official_aidlc_questions(args.root, args.run_id, questions_json)
         elif args.command == "aidlc-cycle":
             answers_json = args.answers
             if args.answers_base64 is not None:
@@ -1100,6 +1141,8 @@ def main() -> int:
             print(render_aidlc_revision(payload))
         elif args.command == "aidlc-approve":
             print(render_execution_handoff(payload))
+        elif args.command == "official-aidlc-questions":
+            print(render_aidlc_requirements(payload))
         elif args.command == "aidlc-cycle" and payload["cycle_action"] in {"start-requirements-gathering", "resume-requirements-gathering"}:
             print(render_aidlc_requirements(payload))
         elif args.command == "aidlc-cycle" and payload["cycle_action"] == "record-answers-and-render-revision":

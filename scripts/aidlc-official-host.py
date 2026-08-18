@@ -60,23 +60,27 @@ def _block(manifest: dict[str, Any]) -> str:
     official = manifest["official"]
     return "\n".join((
         START,
-        "## Official AI-DLC Full-mode bridge (TailTrail managed)",
+        "## Official AI-DLC Standard/Full bridge (TailTrail managed)",
         "",
         "This project has a pinned, integrity-verified official AI-DLC pack.",
-        "Apply its workflow only for an explicit TailTrail `--aidlc full` run with",
-        "an approved Full-mode bridge. Do not load it for TailTrail Lite, Standard,",
-        "or Off runs.",
+        "Apply its Requirements Analysis workflow only for an explicit TailTrail",
+        "`--aidlc standard` or `--aidlc full` run with an official bridge. Full",
+        "continues through the official lifecycle; Standard ends after requirements.",
+        "Do not load it for TailTrail Lite or Off runs.",
         "",
         f"- Source: `{official['source']}`",
         f"- Revision: `{official['revision']}`",
         f"- Exact core rule: `{PROJECTED_CORE.as_posix()}`",
         f"- Rule details root: `{PROJECTED_DETAILS.as_posix()}`",
         "",
-        "For an active Full run, read the exact core rule before the relevant",
-        "official stage. Its detailed-rule paths resolve from the projected root",
-        "above. Host safety and the user request still take precedence; TailTrail",
-        "retains its approved-anchor, evidence, drift, recovery, and closure",
-        "controls. TailTrail stores only sanitized references to official artifacts.",
+        "For an active Standard or Full run, read the exact core rule and active",
+        "stage rules before generating questions. The host generates official",
+        "questions and meaningful options required by the official stage. TailTrail",
+        "adds an advisory recommendation and reasoning to each host question, then",
+        "validates and records the sanitized artifact. The user may choose any option",
+        "or Other with detail. Host safety and the",
+        "user request still take precedence; TailTrail retains its approved-anchor,",
+        "evidence, drift, recovery, and closure controls.",
         END,
     )) + "\n"
 
@@ -156,7 +160,7 @@ def status(root: Path, host: str = "codex") -> dict[str, Any]:
         "projected_core_matches_pinned_pack": projection_matches,
         "projected_rule_details": PROJECTED_DETAILS.as_posix(),
         "projected_rule_details_present": details_present,
-        "boundary": "The official workflow is conditionally loaded only for explicit approved Full-mode runs. This projection does not fabricate a host session or lifecycle receipt.",
+        "boundary": "The official workflow is conditionally loaded only for explicit approved Standard or Full runs. This projection does not fabricate a host session or lifecycle receipt.",
     }
 
 

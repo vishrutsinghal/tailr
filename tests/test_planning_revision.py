@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.test_aidlc_official_bridge import compatible_pack
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,7 +92,7 @@ class PlanningRevisionTests(unittest.TestCase):
 
     def test_lite_run_can_switch_to_standard_then_gather_requirements_without_activation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp); self.plan(root, "standard-switch")
+            root = Path(temp); compatible_pack(root); self.plan(root, "standard-switch")
             original = lock.start_report_path(root, "standard-switch").read_text(encoding="utf-8")
             proposed = revision.propose_aidlc_standard(root, "standard-switch", True)
             with self.assertRaisesRegex(ValueError, "revision v2 is awaiting approval"):
@@ -103,11 +105,11 @@ class PlanningRevisionTests(unittest.TestCase):
             original_after = lock.start_report_path(root, "standard-switch").read_text(encoding="utf-8")
 
         self.assertEqual(proposed["type"], "tailtrail-aidlc-mode-switch")
-        self.assertEqual(switched["state"], "aidlc-requirements-gathering")
+        self.assertEqual(switched["state"], "official-aidlc-host-generation-required")
         self.assertEqual(lock_status, "awaiting-approval")
         self.assertEqual(state["active_revision"], 2)
         self.assertEqual(report["aidlc_mode"]["mode"], "standard")
-        self.assertEqual(report["aidlc_mode"]["state"], "requirements-gathering")
+        self.assertEqual(report["aidlc_mode"]["state"], "official-host-requirements-pending")
         self.assertIn("aidlc_stage", report["aidlc_requirements"])
         self.assertEqual(original, original_after)
         self.assertEqual(events["planning_aidlc_mode_switch_proposed"], 1)
@@ -206,7 +208,7 @@ class PlanningRevisionTests(unittest.TestCase):
 
     def test_public_cli_switches_lite_to_standard_without_activating_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp); self.plan(root, "cli-standard")
+            root = Path(temp); compatible_pack(root); self.plan(root, "cli-standard")
             proposed = subprocess.run([
                 sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "planning", "aidlc-standard", "--root", root.as_posix(),
                 "--run-id", "cli-standard", "--approved-proposal",
@@ -219,7 +221,7 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(proposed.returncode, 0, proposed.stderr + proposed.stdout)
         self.assertIn("# TailTrail AIDLC Mode Switch", proposed.stdout)
         self.assertEqual(approved.returncode, 0, approved.stderr + approved.stdout)
-        self.assertIn("# TailTrail AIDLC Requirements", approved.stdout)
+        self.assertIn("# TailTrail Official AI-DLC Requirements", approved.stdout)
 
 
 if __name__ == "__main__":

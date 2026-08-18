@@ -29,6 +29,16 @@ Never synthesize a substitute plan or task list. Do not write `Steps`, `in-progr
 stdout is unavailable, state only that the command report could not be copied; do not
 reconstruct a plan from the goal.**
 
+**Official AIDLC exception:** if the saved Start report has
+`aidlc_requirements.state = official-aidlc-host-generation-required`, do not stop
+at a local substitute. Read the pinned official Requirements Analysis and
+question-format rules referenced by the report, generate the official questions
+and options, attach a TailTrail advisory recommendation and reasoning to each,
+record them with `tailtrail planning official-aidlc-questions`, and return the
+complete `TailTrail Official AI-DLC Requirements` report for the same run. Do
+not inspect project source, implement work, or claim the recommendations are
+official-pack text; the user may choose any option or Other with detail.
+
 Before sending the report, verify it includes every required heading: `Planning Lock`,
 `Scope`, `Requirements`, `Selected TailTrail features`, `Plan`, `Focused validation`,
 and `Approval`. The selected-features table is mandatory. Do not shorten, rename, or

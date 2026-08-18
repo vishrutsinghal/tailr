@@ -239,10 +239,8 @@ def _aidlc_intent(lowered: str) -> str:
 def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None) -> dict[str, Any]:
     """Choose the smallest lifecycle mode from explicit wording and task evidence.
 
-    A user-provided flag wins. Natural-language "using AIDLC" selects the
-    stronger local Standard path. Hands-free starts Standard and may escalate to
-    Full only when Navigator has strong programme signals and Phase A confirms
-    the local official pack. No external engine is executed here.
+    A user-provided flag wins. Standard and Full are official-pack-backed when
+    available; an unavailable pack falls back transparently to TailTrail Lite.
     """
     lowered = goal.lower()
     hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
@@ -307,9 +305,9 @@ def aidlc_mode_features(mode: str) -> dict[str, list[str]]:
     if mode == "lite":
         return {"included": [*common, "Local AIDLC Lifecycle Lite only when Navigator selects it"], "not_included": ["Mandatory AIDLC requirements workshop", "Official pack verification or bridge identity"]}
     if mode == "standard":
-        return {"included": [*common, "Local AIDLC Requirements stage: assumptions, non-goals, questions, recommendations, and answer revision", "Canonical approved anchor and requirement-linked execution handoff", "Hands-free programme requirements, dependency order, slices, and checkpoints when requested"], "not_included": ["External official engine execution or session attachment"]}
+        return {"included": [*common, "Verified official AI-DLC Requirements Analysis rules loaded by the host", "Host-generated official questions with options, TailTrail recommendations, and reasoning", "Canonical approved anchor and requirement-linked execution handoff"], "not_included": ["Full official lifecycle stages after requirements"]}
     if mode == "full":
-        return {"included": [*common, "Phase A pinned-pack compatibility verification", "Immutable official source/revision/intent/session/stage bridge identity", "Verified official Requirements Analysis questions and explicit requirements-stage approval", "TailTrail anchor frozen from approved official requirement references and decisions", "After approval: receipt-driven official runtime attachment with ordered resume, redo, jump, and recovery history"], "not_included": ["Arbitrary official-pack script execution; the declared host adapter executes work and supplies validated receipts"]}
+        return {"included": [*common, "Phase A pinned-pack compatibility verification", "Full official AI-DLC lifecycle rules loaded by the host", "Host-generated official questions with options, TailTrail recommendations, and reasoning", "TailTrail anchor frozen from approved official requirement references and decisions", "After approval: receipt-driven official runtime attachment with ordered resume, redo, jump, and recovery history"], "not_included": ["TailTrail-generated substitute questions or silent local fallback"]}
     return {"included": [*common, "AIDLC lifecycle routing disabled for this run"], "not_included": ["Local AIDLC Requirements stage", "Official pack verification and bridge identity"]}
 
 
@@ -797,16 +795,19 @@ def compact_start_report(report: dict[str, Any]) -> str:
     aidlc = report.get("aidlc_requirements")
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
-        lines.extend(["", "## AIDLC requirements and recommendations", "", "- Assumption: " + "; ".join(stage.get("assumptions", [])), "- Non-goal: " + "; ".join(stage.get("non_goals", [])), ""])
-        for question in aidlc.get("questions", []):
-            lines.extend([f"### {question.get('id', 'Question')} — {question.get('question', '')}", f"- **Recommended:** {question.get('recommended', '')}", f"- **Reasoning:** {question.get('reasoning', '')}", ""])
+        if aidlc.get("state") == "official-aidlc-host-generation-required":
+            lines.extend(["", "## Official AIDLC requirements", "", "- The verified official Requirements Analysis stage is ready for the configured host.", "- The host must load the recorded official rules and generate questions, options, TailTrail advisory recommendations, and reasoning before implementation can be approved.", "- TailTrail validates and persists that official stage artifact under this same run ID; it will not fabricate a local substitute questionnaire.", ""])
+        else:
+            lines.extend(["", "## AIDLC requirements and recommendations", "", "- Assumption: " + "; ".join(stage.get("assumptions", [])), "- Non-goal: " + "; ".join(stage.get("non_goals", [])), ""])
+            for question in aidlc.get("questions", []):
+                lines.extend([f"### {question.get('id', 'Question')} — {question.get('question', '')}", f"- **Recommended:** {question.get('recommended', '')}", f"- **Reasoning:** {question.get('reasoning', '')}", ""])
     aidlc_mode = report.get("aidlc_mode", {})
     if isinstance(aidlc_mode, dict):
         lines.extend(["", "## AIDLC mode", "", f"- Selected mode: `{aidlc_mode.get('mode')}`", f"- Selection: `{aidlc_mode.get('selection')}`", f"- State: `{aidlc_mode.get('state')}`", f"- Boundary: {aidlc_mode.get('boundary')}"])
         escalation = aidlc_mode.get("full_escalation", {})
         if isinstance(escalation, dict): lines.append(f"- Full escalation: `{escalation.get('state')}` — {escalation.get('reason')}")
-        if aidlc_mode.get("mode") == "full":
-            lines.append("- Official stage: verified official Requirements Analysis rules govern these questions; TailTrail imports approved decisions and freezes its anchor only after official-stage approval.")
+        if aidlc_mode.get("mode") in {"standard", "full"}:
+            lines.append("- Official stage: verified official Requirements Analysis rules govern these questions; the host generates them and TailTrail validates/imports approved decisions before freezing the anchor.")
     mode_features = report.get("aidlc_mode_features", {})
     if isinstance(mode_features, dict):
         lines.extend(["", "## AIDLC mode features", "", "| Included | Not included in this mode |", "| --- | --- |"])
@@ -859,7 +860,10 @@ def compact_start_report(report: dict[str, Any]) -> str:
         ]
     )
     lines.extend(["", "## Approval", ""])
-    lines.append("- Approve this AIDLC-backed plan to accept its recommendations and begin implementation, or reject it for deeper AIDLC refinement." if isinstance(aidlc, dict) else "- Approve this plan to begin implementation, or name any file/scope change before approval.")
+    if isinstance(aidlc, dict) and aidlc.get("state") == "official-aidlc-host-generation-required":
+        lines.append("- The official Requirements Analysis questions must be generated, answered, and explicitly approved before TailTrail can freeze the anchor or begin implementation.")
+    else:
+        lines.append("- Approve this AIDLC-backed plan to accept its recommendations and begin implementation, or reject it for deeper AIDLC refinement." if isinstance(aidlc, dict) else "- Approve this plan to begin implementation, or name any file/scope change before approval.")
     if delivery.get("hands_free_program"):
         lines.append("- This is a hands-free request; approve the proposed program slices before implementation begins.")
     lines.extend(["", "_Run with `--verbose` for advanced harness, token, code-intelligence, recovery, and product-metrics detail._", ""])
@@ -946,14 +950,17 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     aidlc = report.get("aidlc_requirements")
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
-        lines.extend(["", "## AIDLC requirements and recommendations", "", "### Assumptions", ""])
-        lines.extend(f"- {item}" for item in stage.get("assumptions", []))
-        lines.extend(["", "### Non-goals", ""])
-        lines.extend(f"- {item}" for item in stage.get("non_goals", []))
-        lines.extend(["", "### Questions", ""])
-        for question in aidlc.get("questions", []):
-            lines.extend([f"#### {question.get('id', 'Question')} — {question.get('question', '')}", f"- **Recommended:** {question.get('recommended', '')}", f"- **Reasoning:** {question.get('reasoning', '')}", ""])
-        lines.extend(["", f"- Stage gate: {stage.get('stage_gate', '')}"])
+        if aidlc.get("state") == "official-aidlc-host-generation-required":
+            lines.extend(["", "## Official AIDLC requirements", "", "- The verified official Requirements Analysis stage is ready for the configured host.", "- The host must load the recorded official rules and generate questions, options, TailTrail advisory recommendations, and reasoning before implementation can be approved.", "- TailTrail validates and persists that official stage artifact under this same run ID; it will not fabricate a local substitute questionnaire.", "", f"- Stage gate: {stage.get('stage_gate', '')}"])
+        else:
+            lines.extend(["", "## AIDLC requirements and recommendations", "", "### Assumptions", ""])
+            lines.extend(f"- {item}" for item in stage.get("assumptions", []))
+            lines.extend(["", "### Non-goals", ""])
+            lines.extend(f"- {item}" for item in stage.get("non_goals", []))
+            lines.extend(["", "### Questions", ""])
+            for question in aidlc.get("questions", []):
+                lines.extend([f"#### {question.get('id', 'Question')} — {question.get('question', '')}", f"- **Recommended:** {question.get('recommended', '')}", f"- **Reasoning:** {question.get('reasoning', '')}", ""])
+            lines.extend(["", f"- Stage gate: {stage.get('stage_gate', '')}"])
     aidlc_mode = report.get("aidlc_mode", {})
     if isinstance(aidlc_mode, dict):
         lines.extend(["", "## AIDLC mode", "", f"- Selected mode: `{aidlc_mode.get('mode')}`", f"- Selection: `{aidlc_mode.get('selection')}`", f"- State: `{aidlc_mode.get('state')}`", f"- Boundary: {aidlc_mode.get('boundary')}"])
@@ -989,7 +996,10 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     lines.append(f"- Focused proof: `{validation}`" if validation else "- Focused proof: select the repository-native test for the approved changed behavior.")
     lines.append("- Tests and validation run only after approval.")
     lines.extend(["", "## Token estimate", "", f"- Estimated focused context: approximately `{token['used_tokens']}` tokens.", f"- Estimated baseline context: approximately `{token['baseline_tokens']}` tokens.", f"- Estimated avoided context: approximately `{token['avoided_tokens']}` tokens (`{token['estimated_reduction_percent']}%` reduction).", "- Evidence: local file-size estimate only; exact model/API usage requires linked provider telemetry.", "", "## Evidence posture", "", "- Code intelligence: local-only `lite`, `v1`, and `v2`; provider-backed V3 is not default.", "- Evidence: local estimate only; no exact token-savings claim.", "", "## Approval", ""])
-    lines.append("- Approve this plan to begin implementation, or name any file/scope change before approval.")
+    if isinstance(aidlc, dict) and aidlc.get("state") == "official-aidlc-host-generation-required":
+        lines.append("- The official Requirements Analysis questions must be generated, answered, and explicitly approved before TailTrail can freeze the anchor or begin implementation.")
+    else:
+        lines.append("- Approve this plan to begin implementation, or name any file/scope change before approval.")
     return "\n".join(lines) + "\n"
 
 
@@ -1434,18 +1444,19 @@ def main() -> int:
         if not args.no_planning_lock:
             report["planning_lock"] = planning_lock.create(root, goal, args.planning_run_id, args.reference_root, input_roles=report["input_roles"], host_workspace=host_resolution, enterprise_policy=policy_result)
             report["target_resolution_receipt"] = enterprise_target_policy.receipt(root, report["planning_lock"]["run_id"], target_identity=report["planning_lock"]["target_identity"], input_roles=report["input_roles"], policy_result=policy_result, host_workspace=host_resolution)
-            if effective_aidlc_mode == "full":
+            if effective_aidlc_mode in {"standard", "full"}:
                 report["official_aidlc_bridge"] = official_aidlc_bridge.create(
                     root, report["planning_lock"]["run_id"], goal,
                     manifest=args.official_aidlc_manifest,
                     official_intent_id=args.official_intent_id,
                     official_session_id=args.official_session_id,
                     official_stage=args.official_stage,
+                    mode=effective_aidlc_mode,
                 )
             report["planning_report"] = planning_lock.save_start_report(root, report["planning_lock"]["run_id"], report)
             selected = report.get("navigator", {}).get("selected_features", [])
             if effective_aidlc_mode == "standard" and not report.get("spec_kit_source"):
-                report["aidlc_requirements"] = planning_lock.request_aidlc_requirements(root, report["planning_lock"]["run_id"])
+                report["aidlc_requirements"] = planning_lock.request_official_aidlc_requirements(root, report["planning_lock"]["run_id"])
                 report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
             elif effective_aidlc_mode == "standard" and report.get("spec_kit_source"):
                 report["aidlc_requirements"] = {"state": "not-run", "reason": "Imported Intent Bridge requirements are the authoritative boundary; TailTrail must not generate a parallel requirement questionnaire."}

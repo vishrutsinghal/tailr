@@ -45,7 +45,7 @@ the complete response**. Do not preface it with narration, summarize it, add a
 todo/status update, omit the banner, or suggest `doctor` after it. If the command
 fails, return its actual error output verbatim instead.
 
-`tailtrail start` is a Planning Lock command. It always returns planning only, even when the same prompt says implement, set up, create, replicate, or do similar. When this host can execute project commands, run `tailtrail start "<goal>"` and return its complete Start Report with run ID; when the local TailTrail MCP server is configured, call the single `tailtrail_start` tool with `approved: true`, rather than splitting lock creation from plan rendering. After a successful Start tool or CLI invocation, the only assistant response is the exact Start Report stdout (starting `# TailTrail Start Plan` and including its run ID); copy the complete Start Report verbatim outside any collapsible terminal/tool-result panel, then stop. Before sending, verify it contains `Planning Lock`, `Scope`, `Requirements`, `Selected TailTrail features`, `Plan`, `Focused validation`, and `Approval`; the selected-features table is mandatory and may not be shortened, renamed, or replaced with `Next step`. If any section is missing, paste CLI stdout again rather than sending a partial summary. Never synthesize a substitute plan or task list, and never add `Steps`, `in-progress`, `Next I'll`, a request to proceed, implementation, test, documentation, branch, or PR work. If stdout cannot be copied, say only that the command report could not be copied; do not reconstruct it from the goal. If neither capability exists, say clearly that the plan is not persisted and provide the exact command. Do not edit files, run project commands/scanners/Terraform, or mutate Git after planning until the user separately approves the exact Planning Lock run ID.
+`tailtrail start` is a Planning Lock command. It always returns planning only, even when the same prompt says implement, set up, create, replicate, or do similar. When this host can execute project commands, run `tailtrail start "<goal>"` and return its complete Start Report with run ID; when the local TailTrail MCP server is configured, call the single `tailtrail_start` tool with `approved: true`, rather than splitting lock creation from plan rendering. After a successful Start tool or CLI invocation, the normal assistant response is the exact Start Report stdout (starting `# TailTrail Start Plan` and including its run ID); copy the complete Start Report verbatim outside any collapsible terminal/tool-result panel, then stop. Before sending, verify it contains `Planning Lock`, `Scope`, `Requirements`, `Selected TailTrail features`, `Plan`, `Focused validation`, and `Approval`; the selected-features table is mandatory and may not be shortened, renamed, or replaced with `Next step`. **Official AIDLC exception:** when the saved report has `aidlc_requirements.state = official-aidlc-host-generation-required`, the host must first read the pinned official Requirements Analysis and question-format rules, create the official questions/options, add TailTrail advisory recommendation and reasoning to each question, record them with `tailtrail planning official-aidlc-questions`, then return the complete `TailTrail Official AI-DLC Requirements` report for the same run. It must not generate a local substitute questionnaire, inspect project source, or implement work. Never synthesize a substitute plan or task list, and never add `Steps`, `in-progress`, a request to proceed, implementation, test, documentation, branch, or PR work. If stdout cannot be copied, say only that the command report could not be copied; do not reconstruct it from the goal. If neither capability exists, say clearly that the plan is not persisted and provide the exact command. Do not edit files, run project commands/scanners/Terraform, or mutate Git after planning until the user separately approves the exact Planning Lock run ID.
 
 For an explicit `tailtrail start ... --verbose` request, return the complete CLI verbose report verbatim. Before sending, verify it contains `Planning Lock`, `Start Here`, `Navigator Decision`, `Selected TailTrail features`, `Deferred TailTrail features`, `Guided delivery`, `Validation`, `Evidence posture`, and `Approval`. `Summary`, `Selected files`, and `Next step` are never substitutes for those sections; paste the CLI stdout again if any required verbose section is absent.
 
@@ -100,21 +100,25 @@ core safeguards remain non-configurable.
 Use named flows and review lenses when requested: `delivery flow`, `risk flow`, `release flow`, `architecture review`, `security review`, `QA review`, `maintainability review`, and `dependency review`. Capture durable project facts in `.tailtrail/learnings.md` only when they will help future agents avoid repeated discovery or repeated mistakes.
 
 <!-- tailtrail-official-aidlc:codex:start -->
-## Official AI-DLC Full-mode bridge (TailTrail managed)
+## Official AI-DLC Standard/Full bridge (TailTrail managed)
 
 This project has a pinned, integrity-verified official AI-DLC pack.
-Apply its workflow only for an explicit TailTrail `--aidlc full` run with
-an approved Full-mode bridge. Do not load it for TailTrail Lite, Standard,
-or Off runs.
+Apply its Requirements Analysis workflow for an explicit TailTrail
+`--aidlc standard` or `--aidlc full` run with an official bridge. Full mode
+continues through the complete official lifecycle; Standard ends after the
+official requirements boundary. Do not load it for TailTrail Lite or Off runs.
 
 - Source: `https://github.com/awslabs/aidlc-workflows`
 - Revision: `v1.0.1`
 - Exact core rule: `.aidlc/aidlc-rules/aws-aidlc-rules/core-workflow.md`
 - Rule details root: `.aidlc/aidlc-rules/aws-aidlc-rule-details`
 
-For an active Full run, read the exact core rule before the relevant
-official stage. Its detailed-rule paths resolve from the projected root
+For an active Standard or Full run, read the exact core rule plus the active
+official stage rules before generating questions. The host—not TailTrail's
+local template engine—must generate the official questions, meaningful options,
+recommendation, and recommendation reasoning. Record the resulting sanitized
+question artifact with `tailtrail planning official-aidlc-questions` before
+asking for answers. Its detailed-rule paths resolve from the projected root
 above. Host safety and the user request still take precedence; TailTrail
-retains its approved-anchor, evidence, drift, recovery, and closure
-controls. TailTrail stores only sanitized references to official artifacts.
+retains approved-anchor, evidence, drift, recovery, and closure controls.
 <!-- tailtrail-official-aidlc:codex:end -->

@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.test_aidlc_official_bridge import compatible_pack
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -57,13 +59,13 @@ class ExpertPlanCustomizationTests(unittest.TestCase):
 
     def test_aidlc_standard_uses_the_generic_control_but_keeps_execution_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp); self.plan(root, "standard")
+            root = Path(temp); compatible_pack(root); self.plan(root, "standard")
             controls.propose(root, "standard", [{"feature": "AIDLC", "value": "standard", "reason": "Need structured clarification."}], True)
             result = controls.approve(root, "standard", 2, True)
             report = lock.active_start_report(root, "standard")["report"]
             status = lock.show(root, "standard")["status"]
 
-        self.assertEqual(result["state"], "aidlc-requirements-gathering")
+        self.assertEqual(result["state"], "official-aidlc-host-generation-required")
         self.assertEqual(status, "awaiting-approval")
         self.assertEqual(report["aidlc_mode"]["mode"], "standard")
         self.assertIn("aidlc_stage", report["aidlc_requirements"])

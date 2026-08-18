@@ -21,10 +21,11 @@ CHANGE_KINDS = {"scope-add", "scope-remove", "requirement-add", "requirement-rem
 STANDARD_MODE_FEATURES = {
     "included": [
         "Navigator planning and Planning Lock",
-        "Local AIDLC Requirements stage: assumptions, non-goals, questions, recommendations, and answer revision",
+        "Verified official AI-DLC Requirements Analysis, executed by the configured host",
+        "TailTrail advisory recommendation and reasoning attached to each official host-generated question",
         "Canonical approved anchor and requirement-linked execution handoff",
     ],
-    "not_included": ["External official engine execution or session attachment"],
+    "not_included": ["The remaining Full official lifecycle stages after Requirements Analysis"],
 }
 
 
@@ -40,6 +41,7 @@ LOCK = module("planning_revision_lock", "planning-lock.py")
 LEDGER = module("planning_revision_ledger", "run-ledger.py")
 ANCHOR = module("planning_revision_anchor", "change-intent-anchor.py")
 INTENT_BRIDGE = module("planning_revision_intent_bridge", "spec-kit-bridge.py")
+OFFICIAL_BRIDGE = module("planning_revision_official_bridge", "aidlc-official-bridge.py")
 
 
 def utc_now() -> str:
@@ -473,7 +475,7 @@ def approve(root: Path, run_id: str, revision: int, approved: bool) -> dict[str,
 
 
 def approve_aidlc_standard(root: Path, run_id: str, revision: int, approved: bool) -> dict[str, Any]:
-    """Accept the lifecycle revision and begin Standard AIDLC requirements in-place."""
+    """Accept the lifecycle revision and begin official Standard requirements in-place."""
     if approved is not True:
         raise ValueError("AIDLC Standard mode approval requires --approved")
     root = root.resolve()
@@ -488,17 +490,32 @@ def approve_aidlc_standard(root: Path, run_id: str, revision: int, approved: boo
         raise ValueError("AIDLC Standard mode proposal no longer matches the active reviewed plan")
     report = copy.deepcopy(proposed["proposed_report"])
     report["aidlc_mode"]["selection"] = "interactive-plan-approved-mode-switch"
-    report["aidlc_mode"]["state"] = "requirements-gathering"
+    preflight = OFFICIAL_BRIDGE.preflight(root, "standard")
+    if preflight["mode"] != "standard":
+        report["aidlc_mode"] = {
+            "mode": "lite",
+            "requested_mode": "standard",
+            "selection": "interactive-plan-approved-mode-switch",
+            "state": preflight["state"],
+            "boundary": preflight["boundary"],
+        }
+    else:
+        report["aidlc_mode"]["state"] = "official-host-requirements-pending"
+        report["official_aidlc_bridge"] = OFFICIAL_BRIDGE.create(root, run_id, str(report.get("goal", "")), mode="standard")
     report_path = revision_report_path(root, run_id, revision)
     snapshot = {"schema_version": "1", "type": "tailtrail-start-report", "run_id": run_id, "revision": revision, "goal": report.get("goal", ""), "report": report}
     with LEDGER.RunLock(LEDGER.state_dir(root, run_id) / ".lock"):
         LEDGER.atomic_json(report_path, snapshot)
         LEDGER.atomic_json(LOCK.revision_state_path(root, run_id), {**state, "active_revision": revision, "active_report": report_path.relative_to(root).as_posix(), "pending_revision": None, "pending_artifact": None})
-    requirements = LOCK.request_aidlc_requirements(root, run_id)
+    if preflight["mode"] != "standard":
+        LEDGER.atomic_json(report_path, {**snapshot, "report": report})
+        LEDGER.append_event(root, run_id, "planning_aidlc_mode_switch_fell_back", {"revision": revision, "from_mode": "lite", "requested_mode": "standard", "reason": preflight["boundary"]})
+        return {"run_id": run_id, "revision": revision, "state": "tailtrail-lite-fallback", "revision_artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(), "aidlc_mode": report["aidlc_mode"], "boundary": preflight["boundary"]}
+    requirements = LOCK.request_official_aidlc_requirements(root, run_id)
     report["aidlc_requirements"] = requirements
     LEDGER.atomic_json(report_path, {**snapshot, "report": report})
     LEDGER.append_event(root, run_id, "planning_aidlc_mode_switch_approved", {"revision": revision, "from_mode": "lite", "to_mode": "standard", "artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(), "requirements": requirements["artifact"]})
-    return {"run_id": run_id, "revision": revision, "state": "aidlc-requirements-gathering", "revision_artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(), "aidlc_requirements": requirements, "boundary": "The run remains awaiting approval. Answer and approve the Standard AIDLC requirements boundary before implementation."}
+    return {"run_id": run_id, "revision": revision, "state": requirements["state"], "revision_artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(), "aidlc_requirements": requirements, "boundary": "The run remains awaiting approval. The host must record its official Requirements Analysis questions; answers and explicit approval still block implementation."}
 
 
 def render(payload: dict[str, Any]) -> str:

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Official AI-DLC Requirements-stage adapter for a verified Full-mode run.
+"""Official AI-DLC Requirements-stage adapter for a verified Standard or Full run.
 
 The official pack is rule content consumed by the host agent. This adapter
 materializes the required stage contract and imports only requirement IDs,
 decisions, and references into TailTrail. It never falls back to the local
-``aidlc-requirements.py`` implementation for Full mode.
+``aidlc-requirements.py`` implementation for Standard or Full mode.
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def stage_contract(root: Path, bridge: dict[str, Any]) -> dict[str, str]:
     }
     missing = [name for name, path in candidates.items() if not path.is_file()]
     if missing:
-        raise ValueError("verified official pack is missing Full-mode requirements rules: " + ", ".join(missing))
+        raise ValueError("verified official pack is missing Standard/Full requirements rules: " + ", ".join(missing))
     required_markers = {
         "core_workflow": "Requirements Analysis",
         "requirements_analysis": "Generate Clarifying Questions",
@@ -87,6 +87,10 @@ def _question(identifier: str, question: str, options: list[str], recommended: s
 
 
 def _questions(goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    raise RuntimeError(
+        "Deprecated local question templates cannot be used for Standard or Full official AIDLC. "
+        "The configured host must generate the official stage artifact."
+    )
     text = f"{goal} " + " ".join(str(row.get("statement", "")) for row in requirements)
     questions = [
         _question("OQ1", "What observable functional outcome must the delivered capability provide?", ["Only the stated outcome", "The stated outcome plus explicitly named caller/API behavior"], "The stated outcome plus explicitly named caller/API behavior when one is in scope", "Official requirements analysis requires testable functional behavior and clear system boundaries."),
@@ -103,6 +107,61 @@ def _questions(goal: str, requirements: list[dict[str, Any]], feedback: list[dic
     return questions
 
 
+def stage_request(root: Path, bridge: dict[str, Any], goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]]) -> dict[str, Any]:
+    """Describe an official Requirements Analysis stage for the host to execute.
+
+    The official pack is a rule pack.  It does not contain a Python question
+    generator, so TailTrail must not pretend that its own templates are official
+    questions.  The configured host reads the pinned rules and submits a
+    validated question artifact through TailTrail's control plane.
+    """
+    contract = stage_contract(root, bridge)
+    return {
+        "stage": "Official AI-DLC Requirements Analysis",
+        "authority": "official-ai-dlc-pack",
+        "official_stage": OFFICIAL_STAGE,
+        "official_references": contract,
+        "official_intent_id": bridge["official_intent_id"],
+        "official_session_id": bridge["official_session_id"],
+        "goal": _stage_goal(goal),
+        "requirements": requirements,
+        "prior_feedback": feedback,
+        "host_action": "Read the listed official rules, then generate requirement questions, meaningful mutually exclusive options including Other, a TailTrail recommendation, and reasoning for every recommendation.",
+        "stage_gate": "The host-generated official Requirements Analysis questions, answers, and revised requirement boundary must be explicitly approved before TailTrail freezes its anchor.",
+    }
+
+
+def validate_host_questions(questions: Any) -> list[dict[str, Any]]:
+    if not isinstance(questions, list) or not questions:
+        raise ValueError("official host questions must be a non-empty JSON list")
+    validated: list[dict[str, Any]] = []
+    ids: set[str] = set()
+    for item in questions:
+        if not isinstance(item, dict):
+            raise ValueError("each official host question must be an object")
+        identifier = str(item.get("id", "")).strip()
+        question = str(item.get("question", "")).strip()
+        options = item.get("options")
+        recommended = str(item.get("recommended", "")).strip()
+        reasoning = str(item.get("reasoning", "")).strip()
+        if not identifier or identifier in ids or not question or not recommended or not reasoning:
+            raise ValueError("official host questions require unique id, question, recommended, and reasoning")
+        if not isinstance(options, list) or len(options) < 3:
+            raise ValueError(f"{identifier} requires at least two meaningful options plus Other")
+        normalized: list[dict[str, str]] = []
+        for option in options:
+            if not isinstance(option, dict) or not str(option.get("id", "")).strip() or not str(option.get("text", "")).strip():
+                raise ValueError(f"{identifier} options require id and text")
+            normalized.append({"id": str(option["id"]).strip(), "text": str(option["text"]).strip()})
+        if normalized[-1]["id"].lower() not in {"other", "x"} or "other" not in normalized[-1]["text"].lower():
+            raise ValueError(f"{identifier} must end with an Other option as required by the official question format")
+        if recommended not in {option["text"] for option in normalized}:
+            raise ValueError(f"{identifier} recommended value must exactly match one option text")
+        ids.add(identifier)
+        validated.append({"id": identifier, "question": question, "options": normalized, "recommended": recommended, "reasoning": reasoning, "recommendation_origin": "tailtrail-advisory"})
+    return validated
+
+
 def _question_markdown(goal: str, questions: list[dict[str, Any]], contract: dict[str, str]) -> str:
     lines = ["# Official AI-DLC Requirements Clarification Questions", "", "This file is governed by the verified official AI-DLC requirements and question-format rules.", "", f"## Requested outcome", "", goal, "", "## Governing rule references", ""]
     lines.extend(f"- `{path}`" for path in contract.values())
@@ -114,24 +173,10 @@ def _question_markdown(goal: str, questions: list[dict[str, Any]], contract: dic
 
 
 def gather(root: Path, bridge: dict[str, Any], goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]]) -> dict[str, Any]:
-    contract = stage_contract(root, bridge)
-    stage_goal = _stage_goal(goal)
-    questions = _questions(stage_goal, requirements, feedback)
-    payload = {
-        "stage": "Official AI-DLC Requirements Analysis",
-        "authority": "official-ai-dlc-pack",
-        "official_stage": OFFICIAL_STAGE,
-        "official_references": contract,
-        "official_intent_id": bridge["official_intent_id"],
-        "official_session_id": bridge["official_session_id"],
-        "goal": stage_goal,
-        "requirements": requirements,
-        "questions": questions,
-        "question_markdown": _question_markdown(stage_goal, questions, contract),
-        "stage_gate": "The official Requirements Analysis questions and requirement boundary must be explicitly approved before TailTrail freezes its anchor.",
-    }
-    _sanitizer().validate_artifact(root.resolve(), payload, "requirements")
-    return payload
+    raise RuntimeError(
+        "Official AI-DLC questions must be generated by the configured host after it loads the pinned official rules. "
+        "Use stage_request() and record the host artifact through TailTrail instead."
+    )
 
 
 def validate_answers(stage: dict[str, Any], answers: list[dict[str, Any]]) -> dict[str, dict[str, str]]:

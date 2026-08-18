@@ -61,7 +61,7 @@ AIDLC lifecycle docs live in `aidlc-docs/`. TailTrailâ€™s run controls rema
 
 A rejected TailTrail plan requests approve/reject feedback per requirement. A first material rejection can enter **AIDLC Requirements mode**; repeated material rejection requires it before another material proposal.
 
-A hands-free or end-to-end request runs the local AIDLC requirements adapter during planning. It can ask delivery questions on idempotency, failure handling, contract behavior, authorization, concurrency, observability, rollout, and proof.
+A hands-free or end-to-end request selects Standard AIDLC requirements during planning. When the pinned pack is compatible, the configured host uses the official Requirements Analysis rules; otherwise TailTrail records a transparent Lite fallback. The stage can ask delivery questions on idempotency, failure handling, contract behavior, authorization, concurrency, observability, rollout, and proof.
 
 ```mermaid
 sequenceDiagram
@@ -607,7 +607,7 @@ ownership, data semantics, side-effect/recovery behaviour, contract, or proof.
 - Ask **one to three** targeted questions in the normal deepening path.
 - Provide meaningful choices, a recommended option, and concise reasoning.
 - Do not silently convert a recommendation into an approved decision.
-- Escalate to local AIDLC Requirements after repeated material rejection.
+- Escalate to Standard official AIDLC Requirements after repeated material rejection when the pack is available; otherwise keep TailTrail Lite explicit.
 - Escalate to full official AI-DLC only for explicit full mode or clearly
   lifecycle-heavy, hands-free, regulated, or programme-scale work.
 
@@ -905,8 +905,8 @@ command alias for Standard.
 | Mode | Behavior | Safety boundary |
 | --- | --- | --- |
 | `lite` | Uses the existing TailTrail AIDLC Lifecycle Lite selection rules. | No external pack is required or invoked. |
-| `standard` | Uses local AIDLC requirements, acceptance criteria, dependencies, design/evidence planning, and approval-aware delivery. | No external pack is required or invoked. |
-| `full` | Requires a Phase A-compatible pinned official pack and writes a planning-only bridge identity. | Explicit opt-in only. It does **not** execute or attach the official engine in Phase B. |
+| `standard` | Requires a Phase A-compatible pinned official pack. The configured host reads the official Requirements Analysis rules and generates its questions/options; TailTrail adds advisory recommendations/reasoning, validates the artifact, and freezes the normal anchor after approval. | If the pack is unavailable, TailTrail transparently remains Lite and never labels a local questionnaire as official. Standard stops after the official requirements boundary. |
+| `full` | Requires the same verified official Requirements Analysis stage, then continues through the pinned official lifecycle using the existing receipt-driven runtime attachment. | Explicit opt-in only. If the pack is unavailable, TailTrail transparently remains Lite and never claims the official lifecycle ran. |
 | `off` | Suppresses AIDLC lifecycle routing for this Start run. | Other TailTrail planning and harness controls remain available. |
 
 ### Feature boundary by mode
@@ -919,8 +919,8 @@ below names the additional controls that the **AIDLC mode itself** contributes.
 | Mode | Included mode controls | Explicitly not included yet |
 | --- | --- | --- |
 | Lite | Navigator/Planning Lock baseline; local Lifecycle Lite only when Navigator selects it. | A mandatory AIDLC requirements workshop; official pack verification; bridge identity. |
-| Standard | Lite baseline; local AIDLC Requirements stage with assumptions, non-goals, questions, recommendations, answer revision; canonical approved anchor and requirement-linked handoff; hands-free programme requirements/slices/checkpoints when requested. | External official engine execution, official host session attachment, and official stage traversal. |
-| Full | Common TailTrail controls; Phase A pack compatibility; immutable source/revision/intent/session bridge; append-only activation; Phase I receipt-driven runtime attachment and stage traversal. | Arbitrary official-pack script execution by TailTrail and unverified host-runtime claims. |
+| Standard | Lite baseline; verified official Requirements Analysis rule references; host-generated questions/options; TailTrail advisory recommendation/reasoning; validated answers, canonical approved anchor, and requirement-linked handoff. | The remaining official lifecycle stages, arbitrary pack-script execution, and unverified host-runtime claims. |
+| Full | Standard controls plus immutable source/revision/intent/session bridge, append-only activation, and Phase I receipt-driven runtime attachment and stage traversal. | Arbitrary official-pack script execution by TailTrail and unverified host-runtime claims. |
 | Off | Common TailTrail controls, with AIDLC routing suppressed. | Local AIDLC requirement stage, official verification, and bridge identity. |
 
 Every Start report now renders this mode-feature matrix beside its selected
@@ -933,7 +933,7 @@ from “included because of the chosen AIDLC depth.”
 | --- | --- | --- |
 | No AIDLC wording | Lite | Default route keeps ordinary tasks lightweight. |
 | `using AIDLC`, `use AIDLC`, or `with AIDLC` | Standard | The user asked for stronger lifecycle support without asking for the external engine. |
-| `hands-free` or `end-to-end` | Standard | Programme planning, requirement breakdown, slices, checkpoints, and local AIDLC requirement gathering are selected. |
+| `hands-free` or `end-to-end` | Standard | Programme planning, requirement breakdown, slices, checkpoints, and official Requirements Analysis are selected when the compatible pack is available; otherwise the report records the Lite fallback. |
 | `full AIDLC` or `official AIDLC` | Full | Explicit Full request; Phase A compatibility is mandatory. |
 | `do not use AIDLC` | Off | Explicit opt-out wins. |
 
@@ -1140,7 +1140,7 @@ host-dependent and must be evaluated separately.
 | Host instruction collision | Generate one composed host adapter, then validate real behavior with a separate sanitized receipt contract | Instruction composition implemented in Phase F; Phase J runtime intake/reporting implemented locally; actual hosts remain evidence-dependent |
 | Duplicate/conflicting state | Define one source of truth per field and validate every runtime projection | Implemented locally in Phases G and I |
 | Sensitive lifecycle content leaks | Sanitize bridge/session/transition records and store references rather than raw artifacts | Implemented locally in Phases H and I |
-| Full lifecycle overloads simple work | Lifecycle Lite remains default; Standard remains local; Full runtime is explicit | Implemented in mode selection and Phase I isolation tests |
+| Full lifecycle overloads simple work | Lifecycle Lite remains default; Standard stops after official requirements; Full runtime is explicit | Implemented in mode selection and Phase I isolation tests |
 
 Phases G-J now enforce local state ownership, sanitization, official-session
 attachment, and receipt-backed host-runtime evaluation. The implementation is
@@ -1377,7 +1377,7 @@ interface from the pinned compatible pack.
    duplicate, invalid-integrity, and invalid-stage receipts are rejected.
    Redo/recovery receipts add an explicit recovery-routing ledger event while
    preserving all earlier receipts.
-8. Leave Lite and Standard modes independent of external-engine availability.
+8. Keep Lite independent of the official pack; use transparent Lite fallback when Standard/Full pack compatibility is unavailable.
 
 Implemented files:
 
@@ -1613,7 +1613,7 @@ from `not-validated` without six real passing receipts.
 
 Phases A-J now provide the local compatibility, mode, requirement, checkpoint,
 closure, state-ownership, sanitization, official-runtime, instruction, and
-real-host receipt foundation. TailTrail Lifecycle Lite and Standard mode remain
-the portable fallback for projects that do not install or attach the official
-AI-DLC engine. Full mode and runtime-conformance claims remain bounded by the
-specific official pack and host receipts actually validated.
+real-host receipt foundation. TailTrail Lifecycle Lite remains the portable
+fallback for projects that do not install the official AI-DLC pack. Standard
+and Full mode claims remain bounded by the specific verified official pack and
+host receipts actually validated.

@@ -63,10 +63,21 @@ def preflight(root: Path, mode: str, manifest: str | None = None) -> dict[str, A
     if mode == "lite":
         return {"mode": "lite", "state": "local-lite", "boundary": "Use TailTrail's local AIDLC Lifecycle Lite only when the selected task requires it."}
     if mode == "standard":
-        return {"mode": "standard", "state": "local-standard", "boundary": "Use TailTrail's stronger local AIDLC requirements, acceptance, dependency, design, and evidence planning without attaching the official engine."}
+        compatibility = detector().status(root.resolve(), manifest)
+        if compatibility["state"] != "compatible":
+            return {
+                "mode": "lite", "requested_mode": "standard", "state": "official-pack-unavailable-fallback",
+                "boundary": "Official AIDLC Standard is unavailable because no compatible pinned pack is installed. TailTrail Lite remains available; no local AIDLC questionnaire will be presented as official.",
+                "compatibility": compatibility,
+            }
+        return {"mode": "standard", "state": "official-standard-ready", "boundary": "Use the verified official AI-DLC Requirements Analysis rules through the configured host. TailTrail validates the resulting stage artifact and retains its anchor, evidence, drift, recovery, and closure controls.", "compatibility": compatibility}
     compatibility = detector().status(root.resolve(), manifest)
     if compatibility["state"] != "compatible":
-        raise ValueError("--aidlc full requires a compatible pinned official pack; run `tailtrail aidlc official status --root .` first")
+        return {
+            "mode": "lite", "requested_mode": "full", "state": "official-pack-unavailable-fallback",
+            "boundary": "Full official AIDLC is unavailable because no compatible pinned pack is installed. TailTrail Lite remains available; it does not claim to run the official lifecycle.",
+            "compatibility": compatibility,
+        }
     return {
         "mode": "full",
         "state": "official-bridge-ready",
@@ -84,10 +95,13 @@ def create(
     official_intent_id: str | None = None,
     official_session_id: str | None = None,
     official_stage: str = "requirements",
+    mode: str = "full",
 ) -> dict[str, Any]:
     """Persist one immutable, planning-only bridge identity for a compatible pack."""
     root = root.resolve()
     run_id = _safe_run_id(run_id)
+    if mode not in {"standard", "full"}:
+        raise ValueError("official bridge mode must be standard or full")
     if official_stage not in VALID_STAGES:
         raise ValueError("official_stage must be requirements, design, implementation, build-and-test, handoff, or operations")
     compatibility = detector().status(root, manifest)
@@ -104,7 +118,7 @@ def create(
         "type": "tailtrail-official-aidlc-bridge",
         "phase": "B",
         "tailtrail_run_id": run_id,
-        "mode": "full",
+        "mode": mode,
         "state": "planned-attachment",
         "official_source": official.get("source"),
         "official_revision": official.get("revision"),
@@ -114,7 +128,7 @@ def create(
         "host_adapter": adapter,
         "compatibility_manifest": compatibility.get("manifest"),
         "compatibility_state": compatibility.get("state"),
-        "boundary": "Identity and provenance only. No official workflow process, stage, or agent has been executed or attached by TailTrail.",
+        "boundary": "Identity and provenance only. The host must load the verified official rules and create the stage artifact; TailTrail never substitutes local questions for official AIDLC.",
     }
     sanitizer().validate_artifact(root, payload, "bridge")
     L.atomic_json(path, payload)
@@ -174,6 +188,7 @@ def main() -> int:
     create_parser.add_argument("--official-intent-id")
     create_parser.add_argument("--official-session-id")
     create_parser.add_argument("--official-stage", default="requirements", choices=sorted(VALID_STAGES))
+    create_parser.add_argument("--mode", choices=("standard", "full"), default="full")
     show_parser = sub.add_parser("show")
     show_parser.add_argument("--root", type=Path, default=Path.cwd())
     show_parser.add_argument("--run-id", required=True)
@@ -183,7 +198,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.action == "create":
-            payload = create(args.root, args.run_id, args.goal, manifest=args.manifest, official_intent_id=args.official_intent_id, official_session_id=args.official_session_id, official_stage=args.official_stage)
+            payload = create(args.root, args.run_id, args.goal, manifest=args.manifest, official_intent_id=args.official_intent_id, official_session_id=args.official_session_id, official_stage=args.official_stage, mode=args.mode)
         elif args.action == "show":
             payload = show(args.root, args.run_id)
         else:

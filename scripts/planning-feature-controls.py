@@ -24,6 +24,7 @@ def module(name: str, filename: str) -> Any:
 
 LOCK = module("expert_controls_lock", "planning-lock.py")
 LEDGER = module("expert_controls_ledger", "run-ledger.py")
+OFFICIAL_BRIDGE = module("expert_controls_official_bridge", "aidlc-official-bridge.py")
 
 
 def now() -> str: return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -120,7 +121,16 @@ def approve(root: Path, run_id: str, revision: int, approved: bool) -> dict[str,
         LEDGER.atomic_json(output, snapshot); LEDGER.atomic_json(LOCK.revision_state_path(root, run_id), {**state, "active_revision": revision, "active_report": output.relative_to(root).as_posix(), "pending_revision": None, "pending_artifact": None})
     standard = any(item["feature"].lower() == "aidlc" and item["value"] == "standard" for item in proposed["changes"])
     if standard:
-        requirements = LOCK.request_aidlc_requirements(root, run_id); report["aidlc_requirements"] = requirements; LEDGER.atomic_json(output, {**snapshot, "report": report}); result = {"state": "aidlc-requirements-gathering", "aidlc_requirements": requirements}
+        preflight = OFFICIAL_BRIDGE.preflight(root, "standard")
+        if preflight["mode"] != "standard":
+            report["aidlc_mode"] = {"mode": "lite", "requested_mode": "standard", "selection": "expert-plan-customization-approved", "state": preflight["state"], "boundary": preflight["boundary"]}
+            LEDGER.atomic_json(output, {**snapshot, "report": report})
+            result = {"state": "tailtrail-lite-fallback", "aidlc_mode": report["aidlc_mode"]}
+        else:
+            report["aidlc_mode"]["state"] = "official-host-requirements-pending"
+            report["official_aidlc_bridge"] = OFFICIAL_BRIDGE.create(root, run_id, str(report.get("goal", "")), mode="standard")
+            LEDGER.atomic_json(output, {**snapshot, "report": report})
+            requirements = LOCK.request_official_aidlc_requirements(root, run_id); report["aidlc_requirements"] = requirements; LEDGER.atomic_json(output, {**snapshot, "report": report}); result = {"state": requirements["state"], "aidlc_requirements": requirements}
     else: result = {"state": "execution-ready", **LOCK.activate(root, run_id, True)}
     LEDGER.append_event(root, run_id, "planning_feature_controls_approved", {"revision": revision, "artifact": proposed["artifact"] if "artifact" in proposed else output.relative_to(root).as_posix(), "features": [item["feature"] for item in proposed["changes"]]})
     return {"run_id": run_id, "revision": revision, "changes": proposed["changes"], "active_report": output.relative_to(root).as_posix(), **result}
@@ -143,7 +153,7 @@ def main() -> int:
         elif args.command == "propose": print(render(propose(args.root, args.run_id, json.loads(args.changes), args.approved_proposal)))
         else:
             result = approve(args.root, args.run_id, args.revision, args.approved)
-            print(LOCK.render_aidlc_requirements(result["aidlc_requirements"]) if result["state"] == "aidlc-requirements-gathering" else LOCK.render_execution_handoff(result.get("execution_handoff", result)))
+            print(LOCK.render_aidlc_requirements(result["aidlc_requirements"]) if result["state"] in {"aidlc-requirements-gathering", "official-aidlc-host-generation-required", "official-aidlc-requirements-gathering"} else (json.dumps(result, indent=2, sort_keys=True) if result["state"] == "tailtrail-lite-fallback" else LOCK.render_execution_handoff(result.get("execution_handoff", result))))
         return 0
     except (OSError, ValueError, json.JSONDecodeError) as error: print(f"Expert Plan Customization error: {error}"); return 2
 
