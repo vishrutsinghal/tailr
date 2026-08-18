@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "id": "preserve-validation",
-  "title": "Preserve validation and authorization safeguards",
+  "title": "Simplify a handler without removing authorization or validation",
   "category": "validation-and-callers",
   "boundary": "Sanitized artifact checks; no scanner or model is run.",
   "checks": [

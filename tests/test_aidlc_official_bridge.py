@@ -114,6 +114,17 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
         self.assertTrue(all(report.returncode == 0 for report in reports))
         self.assertTrue(all(json.loads(report.stdout)["aidlc_mode"]["mode"] == "standard" for report in reports))
 
+    def test_standard_phrase_variants_use_the_official_standard_route_when_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); compatible_pack(root)
+            for goal in ("use standard AIDLC: add a page", "AIDLC standard: add a page", "use medium AIDLC: add a page", "using AIDLC: add a page"):
+                with self.subTest(goal=goal):
+                    result = subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), goal, "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    report = json.loads(result.stdout)
+                    self.assertEqual(report["aidlc_mode"]["mode"], "standard")
+                    self.assertEqual(report["aidlc_mode"]["state"], "official-standard-ready")
+
     def test_full_without_a_compatible_pack_falls_back_transparently_to_lite(self):
         with tempfile.TemporaryDirectory() as tmp:
             fallback = bridge.preflight(Path(tmp), "full")

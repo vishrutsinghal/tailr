@@ -60,12 +60,15 @@ class TrustFoundationContractTests(unittest.TestCase):
         self.assertEqual(result["installation"], "incomplete")
         self.assertEqual(result["required"], ["AGENTS.md"])
 
-    def test_aidlc_mode_contract_distinguishes_default_standard_and_full(self) -> None:
+    def test_aidlc_mode_contract_uses_transparent_lite_fallback_without_an_official_pack(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             plan = {"risk_indicators": []}
             self.assertEqual(task_start.aidlc_mode_selection("fix a typo", None, root, plan, None)["mode"], "lite")
-            self.assertEqual(task_start.aidlc_mode_selection("use AIDLC to plan a payment change", None, root, plan, None)["mode"], "standard")
+            standard = task_start.aidlc_mode_selection("use AIDLC to plan a payment change", None, root, plan, None)
+            self.assertEqual(standard["mode"], "lite")
+            self.assertEqual(standard["requested_mode"], "standard")
+            self.assertEqual(standard["state"], "official-pack-unavailable-fallback")
             self.assertEqual(task_start._aidlc_intent("use full AIDLC for this task".lower()), "full")
 
     def test_changed_scope_contract_excludes_tailtrail_state_but_keeps_project_source(self) -> None:

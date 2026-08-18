@@ -28,7 +28,7 @@ class PublicBenchmarkTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(report["evidence_label"], "fixture-scored")
         self.assertEqual(report["model_calls"], "not-run")
-        self.assertEqual(report["scenario_count"], 5)
+        self.assertEqual(report["scenario_count"], 6)
         self.assertTrue(all(item["tailtrail"]["score"] == item["tailtrail"]["total"] for item in report["scenarios"]))
 
         committed = json.loads((ROOT / "benchmarks" / "results" / "public-benchmark-2026-08.json").read_text(encoding="utf-8"))

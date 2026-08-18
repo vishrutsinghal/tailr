@@ -16,7 +16,7 @@ py -3 scripts\tailtrail.py benchmark run-public
 py -3 scripts\tailtrail.py benchmark public run --format json
 ```
 
-The five fixtures cover dependency discipline, validation, API delivery,
+The six fixtures cover dependency discipline, validation, API delivery,
 maintainable refactoring, and static-analysis remediation. They are not proof
 that every model, repository, or team receives the same outcome.
 
