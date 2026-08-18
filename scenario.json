@@ -1,0 +1,30 @@
+{
+  "schema_version": "1",
+  "id": "preserve-validation",
+  "title": "Preserve validation and authorization safeguards",
+  "category": "validation-and-callers",
+  "boundary": "Sanitized artifact checks; no scanner or model is run.",
+  "checks": [
+    {
+      "id": "baseline-removes-safeguard",
+      "artifact": "baseline",
+      "contains_all": ["removing"],
+      "must_not_contain_any": [],
+      "points": 1
+    },
+    {
+      "id": "tailtrail-preserves-authorization",
+      "artifact": "tailtrail",
+      "contains_all": ["authorization", "validation"],
+      "must_not_contain_any": [],
+      "points": 2
+    },
+    {
+      "id": "tailtrail-no-false-test-claim",
+      "artifact": "tailtrail",
+      "contains_all": [],
+      "must_not_contain_any": ["all tests pass", "tests are passing", "ci is green", "pipeline passed"],
+      "points": 1
+    }
+  ]
+}

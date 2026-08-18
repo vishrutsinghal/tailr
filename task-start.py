@@ -5,13 +5,13 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import math
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
 import target_workspace
+import start_posture
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,13 +38,12 @@ official_aidlc_bridge = importlib.util.module_from_spec(BRIDGE_SPEC)
 sys.modules["tailtrail_official_aidlc_bridge"] = official_aidlc_bridge
 BRIDGE_SPEC.loader.exec_module(official_aidlc_bridge)
 
-AIDLC_REQ_SPEC = importlib.util.spec_from_file_location("tailtrail_aidlc_requirements", ROOT / "scripts" / "aidlc-requirements.py")
-if AIDLC_REQ_SPEC is None or AIDLC_REQ_SPEC.loader is None:
-    aidlc_requirements = None  # type: ignore[assignment]
-else:
-    aidlc_requirements = importlib.util.module_from_spec(AIDLC_REQ_SPEC)
-    sys.modules["tailtrail_aidlc_requirements"] = aidlc_requirements
-    AIDLC_REQ_SPEC.loader.exec_module(aidlc_requirements)
+SPEC_KIT_BRIDGE_SPEC = importlib.util.spec_from_file_location("tailtrail_spec_kit_bridge", ROOT / "scripts" / "spec-kit-bridge.py")
+if SPEC_KIT_BRIDGE_SPEC is None or SPEC_KIT_BRIDGE_SPEC.loader is None:
+    raise SystemExit("Unable to load scripts/spec-kit-bridge.py")
+spec_kit_bridge = importlib.util.module_from_spec(SPEC_KIT_BRIDGE_SPEC)
+sys.modules["tailtrail_spec_kit_bridge"] = spec_kit_bridge
+SPEC_KIT_BRIDGE_SPEC.loader.exec_module(spec_kit_bridge)
 
 HOST_WORKSPACE_SPEC = importlib.util.spec_from_file_location("tailtrail_host_workspace_adapter", ROOT / "scripts" / "host-workspace-adapter.py")
 if HOST_WORKSPACE_SPEC is None or HOST_WORKSPACE_SPEC.loader is None:
@@ -219,19 +218,42 @@ def hands_free_requirements(goal: str) -> list[dict[str, str]]:
 
 
 def _aidlc_intent(lowered: str) -> str:
-    """Classify explicit AIDLC mode without treating task wording as a mode.
+    """Classify explicit natural-language AIDLC mode without relying on word order.
 
-    A task may reasonably say "full hierarchy" or "complete feature". Those
-    words select Full AIDLC only when adjacent to the AIDLC name.
+    Uses regex word-boundary matching so generic words like 'complete' or 'no'
+    in a product description do not silently change the lifecycle mode.
+    Opt-out requires an exclusion phrase directly referencing AIDLC.
+    Full/standard require the qualifier word adjacent to AIDLC.
+    Any bare AIDLC mention without a qualifier returns 'requested'.
     """
     normalized = lowered.replace("ai-dlc", "aidlc")
     if "aidlc" not in normalized:
         return "none"
-    if re.search(r"\b(without|skip|disable|no)\s+aidlc\b|\baidlc\s+(off|disabled)\b", normalized):
+    # Opt-out: explicit exclusion phrase referencing aidlc
+    if re.search(
+        r"\b(without|skip|disable|no)\s+aidlc\b"
+        r"|\baidlc\s+(off|disabled)\b"
+        r"|\bdo\s+not\s+use\s+aidlc\b"
+        r"|\bdon[''']?t\s+use\s+aidlc\b",
+        normalized,
+    ):
         return "opt-out"
-    if re.search(r"\b(full|official|enterprise)\s+aidlc\b|\baidlc\s+(full|official|enterprise)\b", normalized):
+    # Full / official — qualifier adjacent to aidlc (either order)
+    if re.search(
+        r"\b(full|official|enterprise|complete)\s+aidlc\b"
+        r"|\baidlc\s+(full|official|enterprise|complete)\b",
+        normalized,
+    ):
         return "full"
-    if re.search(r"\b(standard|medium|normal|regular)\s+aidlc\b|\baidlc\s+(standard|medium|normal|regular)\b", normalized):
+    # Standard — qualifier adjacent to aidlc (either order) or qualifier anywhere
+    # alongside aidlc (handles "aidlc with standard settings", "aidlc medium mode")
+    if re.search(
+        r"\b(standard|medium|normal|regular)\s+aidlc\b"
+        r"|\baidlc\s+(standard|medium|normal|regular)\b"
+        r"|\baidlc\b.{0,40}\b(standard|medium|normal|regular)\b"
+        r"|\b(standard|medium|normal|regular)\b.{0,40}\baidlc\b",
+        normalized,
+    ):
         return "standard"
     return "requested"
 
@@ -239,51 +261,40 @@ def _aidlc_intent(lowered: str) -> str:
 def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None) -> dict[str, Any]:
     """Choose the smallest lifecycle mode from explicit wording and task evidence.
 
-    An explicit --aidlc flag wins. Otherwise natural-language intent is detected
-    via word presence anywhere in the goal, so word order and filler words do
-    not matter. "use standard AIDLC", "AIDLC standard", "apply the standard
-    AIDLC mode", "with AIDLC", etc. all route correctly.
+    A user-provided flag wins. Natural-language "using AIDLC" selects the
+    stronger local Standard path. Hands-free starts Standard and may escalate to
+    Full only when Navigator has strong programme signals and Phase A confirms
+    the local official pack. No external engine is executed here.
     """
     lowered = goal.lower()
     hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
-
-    # Explicit CLI flag always wins.
     if requested:
         normalized = "standard" if requested == "medium" else requested
         selected = official_aidlc_bridge.preflight(root, normalized, manifest)
         selected["selection"] = "explicit-flag"
         selected["full_escalation"] = {"state": "not-evaluated", "reason": "An explicit mode flag takes precedence."}
         return selected
-
     intent = _aidlc_intent(lowered)
-
     if intent == "opt-out":
         selected = official_aidlc_bridge.preflight(root, "off", manifest)
         selected["selection"] = "explicit-natural-language-opt-out"
         selected["full_escalation"] = {"state": "not-evaluated", "reason": "The request explicitly opted out of AIDLC."}
         return selected
-
     if intent == "full":
         selected = official_aidlc_bridge.preflight(root, "full", manifest)
         selected["selection"] = "explicit-natural-language-full"
-        selected["full_escalation"] = {"state": "selected", "reason": "The request explicitly asked for Full/Official AIDLC."}
+        selected["full_escalation"] = {"state": "selected", "reason": "The request explicitly asked for Full official AIDLC."}
         return selected
-
     if intent == "standard":
         selected = official_aidlc_bridge.preflight(root, "standard", manifest)
         selected["selection"] = "explicit-natural-language-standard"
         selected["full_escalation"] = {"state": "not-eligible", "reason": "The request explicitly asked for Standard AIDLC mode."}
         return selected
-
-    # AIDLC mentioned without a qualifier, or hands-free — route to standard
-    # and optionally escalate to full when programme signals are strong.
     if intent == "none" and not hands_free:
         selected = official_aidlc_bridge.preflight(root, "lite", manifest)
         selected["selection"] = "default"
-        selected["full_escalation"] = {"state": "not-eligible", "reason": "The request did not mention AIDLC and is not hands-free."}
+        selected["full_escalation"] = {"state": "not-eligible", "reason": "The request is not hands-free and did not explicitly request stronger AIDLC routing."}
         return selected
-
-    # At this point: AIDLC was requested (with no qualifier) OR it is hands-free.
     signal_words = ("regulated", "compliance", "multi-team", "production", "release", "rollout", "migration", "infrastructure", "terraform", "security", "operations", "programme", "program")
     signals = [word for word in signal_words if word in lowered]
     risks = [str(item).lower() for item in plan.get("risk_indicators", [])]
@@ -295,7 +306,7 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
             selected["full_escalation"] = {
                 "state": "eligible-awaiting-compatible-pack",
                 "signals": signals,
-                "reason": "Navigator found programme-scale signals, but Phase A compatibility is not ready; remain in Standard mode.",
+                "reason": "Navigator found programme-scale signals, but Phase A compatibility is not ready; remain in Standard mode. Full mode requires a verified pack and a new Full-mode Planning Lock; this Standard run cannot be silently upgraded.",
             }
         else:
             selected["selection"] = "navigator-hands-free-escalation"
@@ -303,7 +314,7 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
             return selected
     else:
         selected = official_aidlc_bridge.preflight(root, "standard", manifest)
-        selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Standard mode covers the requested AIDLC depth."}
+        selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Standard mode covers the requested AIDLC depth without a Full official lifecycle transition."}
     selected["selection"] = "hands-free-default" if hands_free else "explicit-natural-language-aidlc"
     return selected
 
@@ -436,30 +447,15 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
 
 
 def approx_tokens(chars: int) -> int:
-    if chars <= 0:
-        return 0
-    return math.ceil(chars / APPROX_CHARS_PER_TOKEN)
+    return start_posture.approx_tokens(chars, APPROX_CHARS_PER_TOKEN)
 
 
 def file_chars(path: Path) -> int:
-    try:
-        return len(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError):
-        return 0
+    return start_posture.file_chars(path)
 
 
 def existing_file_tokens(root: Path, paths: list[str]) -> tuple[int, list[dict[str, Any]]]:
-    total = 0
-    files: list[dict[str, Any]] = []
-    for item in paths:
-        path = root / item
-        if not path.is_file():
-            continue
-        chars = file_chars(path)
-        tokens = approx_tokens(chars)
-        total += tokens
-        files.append({"path": item, "chars": chars, "approx_tokens": tokens})
-    return total, files
+    return start_posture.existing_file_tokens(root, paths, APPROX_CHARS_PER_TOKEN)
 
 
 def avoided_context_from_plan(root: Path, plan: dict[str, Any]) -> list[str]:
@@ -477,24 +473,7 @@ def likely_used_files(plan: dict[str, Any]) -> list[str]:
 
 
 def token_posture(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
-    used_paths = likely_used_files(plan)
-    avoided_paths = avoided_context_from_plan(root, plan)
-    used_tokens, used_files = existing_file_tokens(root, used_paths)
-    avoided_tokens, avoided_files = existing_file_tokens(root, avoided_paths)
-    baseline = used_tokens + avoided_tokens
-    saved = avoided_tokens
-    reduction = round((saved / baseline) * 100, 2) if baseline else 0.0
-    return {
-        "mode": "local_estimate",
-        "evidence": "Approximate file character count only. Do not claim exact model/API token savings.",
-        "used_tokens": used_tokens,
-        "avoided_tokens": avoided_tokens,
-        "baseline_tokens": baseline,
-        "estimated_saved_tokens": saved,
-        "estimated_reduction_percent": reduction,
-        "used_files": used_files,
-        "avoided_files": avoided_files,
-    }
+    return start_posture.token_posture(root, plan, LARGE_CONTEXT_FILES, APPROX_CHARS_PER_TOKEN)
 
 
 def learning_quality(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
@@ -550,94 +529,23 @@ def learning_quality(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
 
 
 def setup_posture(root: Path, command_prefix: str) -> dict[str, Any]:
-    source_checkout = (ROOT / ".codex-plugin").exists()
-    installed_manifest = root / ".tailtrail-install.json"
-    nested_manifests = sorted(root.glob("*/.tailtrail-install.json"))
-    installed = installed_manifest.is_file() or bool(nested_manifests)
-    if installed:
-        update_command = f"{command_prefix} update --root {json.dumps(root.as_posix())} --dry-run"
-    else:
-        update_command = f"{command_prefix} install local --inspect"
-    return {
-        "source_checkout": source_checkout,
-        "installed_pack_detected": installed,
-        "recommended_check": f"{command_prefix} doctor",
-        "recommended_update_check": update_command,
-        "note": "Run update checks as dry-run first. Preserve local edits unless the user approves backup-overwrite.",
-    }
+    return start_posture.setup_posture(root, command_prefix, ROOT)
 
 
 def review_posture(plan: dict[str, Any], command_prefix: str) -> dict[str, Any]:
-    review_plan = plan.get("review_plan") if isinstance(plan.get("review_plan"), dict) else {}
-    selected = plan.get("selected_features", [])
-    selected_names = {item.get("name") for item in selected if isinstance(item, dict)}
-    review_selected = bool({"Review Lens", "Navigator-Led Review", "QA / CI-Sonar Lens", "Security Review"} & selected_names)
-    scope = str(review_plan.get("default") or "uncommitted changes")
-    return {
-        "selected": review_selected,
-        "scope": scope,
-        "command": f"{command_prefix} review",
-        "prompt": "After implementation and focused validation, run TailTrail review on the changed scope. Show severity, file, function, line, impact, fix, validation, confidence, and safe-fix status. Do not apply fixes without approval.",
-        "rule": "Review checks code health and requirement fulfillment against the approved plan or user request.",
-    }
+    return start_posture.review_posture(plan, command_prefix)
 
 
 def harness_posture(root: Path, command_prefix: str) -> dict[str, Any]:
-    shared_path = root / "tailtrail-meta" / "harness-summary.jsonl"
-    return {
-        "command": f"{command_prefix} harness quick --root {json.dumps(root.as_posix())}",
-        "confidence_command": f"{command_prefix} harness confidence --root {json.dumps(root.as_posix())}",
-        "shared_dry_run_command": f"{command_prefix} harness shared-summary --root {json.dumps(root.as_posix())} --dry-run",
-        "shared_status_command": f"{command_prefix} harness shared-status --root {json.dumps(root.as_posix())}",
-        "shared_metadata_exists": shared_path.is_file(),
-        "rule": "Meta-Harness is post-task advisory. It reviews TailTrail behavior and can dry-run sanitized shared metadata; it does not upload, commit, or change rules automatically.",
-    }
+    return start_posture.harness_posture(root, command_prefix)
 
 
 def bootstrap_posture(plan: dict[str, Any], command_prefix: str) -> dict[str, Any]:
-    snapshot = plan.get("bootstrap_snapshot") if isinstance(plan.get("bootstrap_snapshot"), dict) else None
-    if not snapshot:
-        return {
-            "selected": False,
-            "status": "skipped",
-            "command": f"{command_prefix} bootstrap status --root .",
-            "rule": "Bootstrap Snapshot is skipped for tiny or low-signal prompts.",
-        }
-    return {
-        "selected": True,
-        "status": snapshot.get("status", "unknown"),
-        "command": snapshot.get("command") or f"{command_prefix} bootstrap status --root .",
-        "rule": "Bootstrap Snapshot captures safe repo/runtime facts before broad Navigator planning; it does not read source bodies or execute project code.",
-    }
+    return start_posture.bootstrap_posture(plan, command_prefix)
 
 
 def evaluation_posture(goal: str, plan: dict[str, Any], command_prefix: str) -> dict[str, Any]:
-    lowered_goal = goal.lower()
-    task_types = {str(item).lower() for item in plan.get("task_types", [])}
-    triggered_terms = sorted(word for word in EVALUATION_TRIGGER_WORDS if word in lowered_goal)
-    selected_by_goal = bool(triggered_terms)
-    selected_by_task = bool({"review", "qa", "ci", "security"} & task_types) and any(word in lowered_goal for word in {"proof", "metrics", "evidence", "report"})
-    selected = selected_by_goal or selected_by_task
-    scenario = "validation-bug"
-    if "dependency" in lowered_goal:
-        scenario = "dependency-decision"
-    elif "review" in lowered_goal:
-        scenario = "review-only"
-    elif "ci" in lowered_goal or "sonar" in lowered_goal:
-        scenario = "ci-failure"
-    elif "security" in lowered_goal or "vulnerability" in lowered_goal:
-        scenario = "security-triage"
-    return {
-        "selected": selected,
-        "reason": "triggered by " + ", ".join(triggered_terms) if triggered_terms else "not selected for this task",
-        "scenario": scenario,
-        "list_command": f"{command_prefix} eval scenario list",
-        "run_command": f"{command_prefix} eval scenario run --scenario {scenario}",
-        "report_command": f"{command_prefix} eval scenario report --scenario {scenario}",
-        "write_report_command": f"{command_prefix} eval scenario report --scenario {scenario} --write-result --approved",
-        "normalize_command": f"{command_prefix} eval normalize --source benchmark --input benchmarks/evaluation/results/{scenario}-scenario-report.json --dry-run",
-        "rule": "Evaluation Harness reads committed fixtures and compact evidence only. It does not run live agents, tests, CI, scanners, package managers, model/API calls, or hidden telemetry.",
-    }
+    return start_posture.evaluation_posture(goal, plan, command_prefix, EVALUATION_TRIGGER_WORDS)
 
 
 def code_intelligence_policy(command_prefix: str) -> dict[str, Any]:
@@ -726,48 +634,6 @@ def next_actions(plan: dict[str, Any]) -> list[dict[str, str]]:
     return actions
 
 
-def _aidlc_should_generate(mode: dict[str, Any], goal: str) -> bool:
-    """Return True when the user explicitly asked for AIDLC and questions must appear now."""
-    if mode.get("mode") not in ("standard", "full"):
-        return False
-    lowered = goal.lower()
-    triggers = (
-        "using standard aidlc", "using aidlc", "use aidlc", "with aidlc",
-        "full aidlc", "official aidlc", "using ai-dlc", "use ai-dlc",
-        "standard aidlc", "aidlc standard",
-    )
-    return any(t in lowered for t in triggers)
-
-
-def gather_aidlc_requirements(goal: str, plan: dict[str, Any]) -> dict[str, Any] | None:
-    """Immediately generate AIDLC requirements questions for the current goal.
-
-    Called only when the user explicitly requested AIDLC in the prompt and the
-    mode is standard or full. Returns None when the module is unavailable.
-    """
-    if aidlc_requirements is None:
-        return None
-    # Build a minimal requirements list from the navigator plan
-    impacted = plan.get("likely_impacted_files", [])
-    likely_paths = [str(item.get("path", "")) for item in impacted if isinstance(item, dict)]
-    requirements = [
-        {
-            "display_id": "REQ-01",
-            "kind": "change",
-            "statement": goal,
-            "acceptance_criteria": ["The user-approved behavior is observable on the intended path."],
-            "preserve_rules": ["Do not change behavior outside the approved scope."],
-            "likely_paths": likely_paths[:6],
-            "evidence_plan": ["Run the focused validation selected by the approved Navigator plan."],
-        }
-    ]
-    try:
-        stage = aidlc_requirements.gather(goal, requirements, [])
-        return {"aidlc_stage": stage, "questions": stage.get("questions", [])}
-    except Exception:
-        return None
-
-
 def build_report(
     goal: str,
     root: Path,
@@ -776,21 +642,29 @@ def build_report(
     run_id: str | None = None,
     aidlc_mode: str = "",
     official_manifest: str | None = None,
+    spec_kit_feature: str | None = None,
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
     plan = navigator.decide(goal, root, changed, command_prefix)
     delivery = guided_delivery(plan, goal, changed, root, run_id)
+    spec_kit_source = spec_kit_bridge.load(root, spec_kit_feature) if spec_kit_feature else None
+    if spec_kit_source:
+        paths = [str(item.get("path")) for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
+        plan["requirement_matrix"] = spec_kit_bridge.requirement_matrix(spec_kit_source, paths)
+        plan["selected_features"] = [
+            {"name": "Intent Bridge", "why": f"use imported `{spec_kit_feature}` requirements without regeneration or source writes"},
+            *plan.get("selected_features", []),
+        ]
+        delivery["selected"] = [
+            {"name": "Intent Bridge", "why": f"preserve {len(spec_kit_source['requirements'])} imported requirements and source revision through approval"},
+            *delivery["selected"],
+        ]
     ui_change = navigator.core.ui_change_requested(goal, changed)
     mode = aidlc_mode_selection(goal, aidlc_mode, root, plan, official_manifest)
     if mode["mode"] == "off":
         delivery["selected"] = [item for item in delivery["selected"] if item.get("name") != "AIDLC"]
         plan["selected_features"] = [item for item in plan.get("selected_features", []) if item.get("name") != "AIDLC"]
         delivery["activated_later"].append({"name": "AIDLC", "when": "disabled explicitly with --aidlc off for this Start run"})
-
-    # Generate AIDLC questions immediately when the user explicitly requested
-    # AIDLC in the prompt — no separate aidlc-cycle step needed.
-    aidlc_req = gather_aidlc_requirements(goal, plan) if _aidlc_should_generate(mode, goal) else None
-
     return {
         "goal": goal,
         "root": root.as_posix(),
@@ -804,15 +678,15 @@ def build_report(
         },
         "aidlc_mode": mode,
         "aidlc_mode_features": aidlc_mode_features(mode["mode"]),
-        "aidlc_requirements": aidlc_req,
+        "spec_kit_source": spec_kit_source,
         "next_actions": next_actions(plan),
-        "token_posture": token_posture(root, plan),
+        "token_posture": start_posture.token_posture(root, plan, LARGE_CONTEXT_FILES, APPROX_CHARS_PER_TOKEN),
         "learning_quality": learning_quality(root, plan),
-        "setup_posture": setup_posture(root, command_prefix),
-        "review_posture": review_posture(plan, command_prefix),
-        "harness_posture": harness_posture(root, command_prefix),
-        "bootstrap_posture": bootstrap_posture(plan, command_prefix),
-        "evaluation_posture": evaluation_posture(goal, plan, command_prefix),
+        "setup_posture": start_posture.setup_posture(root, command_prefix, ROOT),
+        "review_posture": start_posture.review_posture(plan, command_prefix),
+        "harness_posture": start_posture.harness_posture(root, command_prefix),
+        "bootstrap_posture": start_posture.bootstrap_posture(plan, command_prefix),
+        "evaluation_posture": start_posture.evaluation_posture(goal, plan, command_prefix, EVALUATION_TRIGGER_WORDS),
         "code_intelligence": code_intelligence_policy(command_prefix),
         "next_step": "Review the guided delivery plan, then approve or edit before implementation.",
     }
@@ -820,9 +694,14 @@ def build_report(
 
 def normalize_command_prefix(root: Path, command_prefix: str) -> str:
     """Render commands relative to the target project, not the agent's cwd."""
-    if "tailtrail.py" not in command_prefix:
+    normalized = command_prefix.replace("\\", "/")
+    if "tailtrail.py" not in normalized:
         return command_prefix
-    if "tailtrail/scripts/tailtrail.py" in command_prefix.replace("\\", "/"):
+    if "tailtrail/scripts/tailtrail.py" in normalized:
+        return command_prefix
+    if "scripts/tailtrail.py" in normalized:
+        if (root / "tailtrail" / "scripts" / "tailtrail.py").is_file():
+            return command_prefix.replace("scripts/tailtrail.py", "tailtrail/scripts/tailtrail.py").replace("scripts\\tailtrail.py", "tailtrail\\scripts\\tailtrail.py")
         return command_prefix
     runner = command_prefix.split("tailtrail.py", 1)[0].strip()
     if not runner:
@@ -917,7 +796,12 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.extend(["", "## Input roles", "", f"- Target: `{roles.get('target_root', root.as_posix())}` — editable only after approval.", f"- Read-only inputs: {read_only_count}. References, design, requirements, and evidence cannot become implementation scope."])
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
-    if hands_free_program:
+    spec_kit_source = report.get("spec_kit_source")
+    if isinstance(spec_kit_source, dict):
+        for item in spec_kit_source.get("requirements", []):
+            lines.append(f"- **{item['external_id']}:** {item['statement']}")
+        lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
+    elif hands_free_program:
         for item in hands_free_program["feature_requirements"]:
             lines.append(f"- **{item['display_id']}:** {item['statement']}")
     elif "zero" in lowered_goal and "quantity" in lowered_goal:
@@ -935,43 +819,9 @@ def compact_start_report(report: dict[str, Any]) -> str:
     aidlc = report.get("aidlc_requirements")
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
-        lines.extend([
-            "",
-            "## AIDLC Requirements Questions",
-            "",
-            "> These questions are generated from your goal. Answer each one before approving implementation.",
-            "",
-        ])
-        known_facts = stage.get("known_facts", [])
-        if known_facts:
-            lines.append("**Known facts already supplied (not re-asked):**")
-            for fact in known_facts:
-                lines.append(f"- {fact}")
-            lines.append("")
-        assumptions = stage.get("assumptions", [])
-        non_goals = stage.get("non_goals", [])
-        if assumptions:
-            lines.append(f"- Assumption: {'; '.join(assumptions)}")
-        if non_goals:
-            lines.append(f"- Non-goal: {'; '.join(non_goals)}")
-        if assumptions or non_goals:
-            lines.append("")
-        questions = aidlc.get("questions", [])
-        for question in questions:
-            qid = question.get("id", "Q?")
-            lines.append(f"### {qid} — {question.get('question', '')}")
-            for opt in question.get("options", []):
-                lines.append(f"- **{opt['id']}:** {opt['text']}")
-            lines.append(f"- ⭐ **Recommended:** {question.get('recommended', '')}")
-            lines.append(f"- _Reasoning: {question.get('reasoning', '')}_")
-            lines.append("")
-        reply_format = ", ".join(q.get("id", "Q") + ": A/B/C" for q in questions)
-        lines.extend([
-            f"**Reply format:** `{reply_format}`",
-            "",
-            "_Or use `Other` with a description for any question. Answer all questions before approving implementation._",
-            "",
-        ])
+        lines.extend(["", "## AIDLC requirements and recommendations", "", "- Assumption: " + "; ".join(stage.get("assumptions", [])), "- Non-goal: " + "; ".join(stage.get("non_goals", [])), ""])
+        for question in aidlc.get("questions", []):
+            lines.extend([f"### {question.get('id', 'Question')} — {question.get('question', '')}", f"- **Recommended:** {question.get('recommended', '')}", f"- **Reasoning:** {question.get('reasoning', '')}", ""])
     aidlc_mode = report.get("aidlc_mode", {})
     if isinstance(aidlc_mode, dict):
         lines.extend(["", "## AIDLC mode", "", f"- Selected mode: `{aidlc_mode.get('mode')}`", f"- Selection: `{aidlc_mode.get('selection')}`", f"- State: `{aidlc_mode.get('state')}`", f"- Boundary: {aidlc_mode.get('boundary')}"])
@@ -1013,8 +863,11 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.append("- Make the smallest change within the listed scope.")
         lines.append("- Run focused proof, then review the changed scope.")
     validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
+    lines.extend(["", "## Focused validation", ""])
     if validation:
-        lines.extend(["", "## Focused validation", "", f"- `{validation}`"])
+        lines.append(f"- `{validation}`")
+    else:
+        lines.append("- Not yet resolved from planning evidence. After approval, discover the nearest focused test before implementation; do not claim a validation command until the local convention is verified.")
     token = report["token_posture"]
     lines.extend(
         [
@@ -1028,29 +881,7 @@ def compact_start_report(report: dict[str, Any]) -> str:
         ]
     )
     lines.extend(["", "## Approval", ""])
-    aidlc_selected = any("AIDLC" in str(item.get("name", "")) for item in selected)
-    if isinstance(aidlc, dict) and aidlc.get("questions"):
-        q_ids = ", ".join(q.get("id", "Q") + ": <A/B/C/Other>" for q in aidlc.get("questions", [])[:5])
-        lines.extend([
-            "**Answer the AIDLC questions above before approving.**",
-            "",
-            f"Reply with `{q_ids}` to record your answers.",
-            "After answers are recorded, TailTrail will revise the requirement boundary and present it for final approval.",
-        ])
-    elif isinstance(aidlc, dict):
-        lines.append("- Approve this AIDLC-backed plan to accept its recommendations and begin implementation, or reject it for deeper AIDLC refinement.")
-    else:
-        lines.append("- Approve this plan to begin implementation, or name any file/scope change before approval.")
-        if aidlc_selected and lock:
-            run_id = lock.get("run_id", "REPLACE_WITH_RUN_ID")
-            lines.extend([
-                "",
-                "**AIDLC requirements questions are not yet generated.** To get domain-specific questions for this task, run:",
-                f"```",
-                f"tailtrail planning aidlc-cycle --run-id {run_id}",
-                f"```",
-                "This will produce targeted questions based on the goal and requirement details. Answer them before implementation.",
-            ])
+    lines.append("- Approve this AIDLC-backed plan to accept its recommendations and begin implementation, or reject it for deeper AIDLC refinement." if isinstance(aidlc, dict) else "- Approve this plan to begin implementation, or name any file/scope change before approval.")
     if delivery.get("hands_free_program"):
         lines.append("- This is a hands-free request; approve the proposed program slices before implementation begins.")
     lines.extend(["", "_Run with `--verbose` for advanced harness, token, code-intelligence, recovery, and product-metrics detail._", ""])
@@ -1121,7 +952,12 @@ def verbose_start_report(report: dict[str, Any]) -> str:
                 lines.append(f"| `{item.get('locator')}` | {item.get('role')} | {item.get('access')} | {item.get('status')} |")
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
-    if hands_free_program:
+    spec_kit_source = report.get("spec_kit_source")
+    if isinstance(spec_kit_source, dict):
+        for item in spec_kit_source.get("requirements", []):
+            lines.append(f"- **{item['external_id']}:** {item['statement']}")
+        lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
+    elif hands_free_program:
         lines.extend(f"- **{item['display_id']}:** {item['statement']}" for item in hands_free_program["feature_requirements"])
     elif "zero" in lowered_goal and "quantity" in lowered_goal:
         lines.extend(["- Reject zero quantities.", "- Preserve valid positive quantities.", "- Keep order-service behavior unchanged outside this validation boundary."])
@@ -1276,6 +1112,10 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         f"- Selected features: `{', '.join(item['name'] for item in selected[:5]) if selected else 'none'}`",
     ]
 
+    spec_kit_source = report.get("spec_kit_source")
+    if isinstance(spec_kit_source, dict):
+        lines.extend(["", "## Intent Bridge requirement source", "", f"- Feature: `{spec_kit_source['feature_id']}`", f"- Source revision: `{spec_kit_source['source_revision']}`", f"- Imported snapshot: `{spec_kit_source['import']}`", f"- Imported requirements: `{len(spec_kit_source['requirements'])}`; stories: `{len(spec_kit_source['stories'])}`; tasks: `{len(spec_kit_source['tasks'])}`.", f"- Boundary: {spec_kit_source['boundary']}"])
+
     if hands_free_program:
         lines.extend(
             [
@@ -1302,11 +1142,11 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     impacted = plan.get("likely_impacted_files", [])
     if impacted:
         lines.extend(["", "## Files To Inspect First", ""])
-        for item in impacted:
+        for item in impacted[:6]:
             if isinstance(item, dict):
                 lines.append(f"- `{item.get('path')}`: {item.get('reason')}")
         if len(impacted) > 6:
-            lines.append(f"- _(all {len(impacted)} files shown above; use `--verbose` for graph cache and read-order details)_")
+            lines.append(f"- ...and `{len(impacted) - 6}` more in verbose Navigator output.")
 
     commands = plan.get("suggested_commands", [])
     lines.extend(["", "## Validation", ""])
@@ -1560,6 +1400,7 @@ def main() -> int:
     parser.add_argument("--official-intent-id", help="Optional official AIDLC intent identity to map to this TailTrail run in full mode.")
     parser.add_argument("--official-session-id", help="Optional official AIDLC host session identity to map to this TailTrail run in full mode.")
     parser.add_argument("--official-stage", choices=("requirements", "design", "implementation", "build-and-test", "handoff", "operations"), default="requirements", help="Initial official AIDLC stage identity for full mode.")
+    parser.add_argument("--intent-feature", "--spec-kit-feature", dest="spec_kit_feature", help="Explicitly use one already-imported Intent Bridge feature as the authoritative requirement source for this Planning Lock.")
     parser.add_argument("--no-planning-lock", action="store_true", help="Advanced compatibility escape hatch; does not create the local planning artifact.")
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
@@ -1601,7 +1442,11 @@ def main() -> int:
             else:
                 print(render_markdown(report, verbose=args.verbose), end="")
             return 2
-        report = build_report(goal, root, args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest)
+        requested_spec_kit_feature = args.spec_kit_feature or spec_kit_bridge.feature_from_goal(goal)
+        intent_requested = "intent bridge" in goal.lower() or "spec kit" in goal.lower()
+        if intent_requested and not requested_spec_kit_feature:
+            parser.error("Select an imported Intent Bridge feature with --intent-feature <feature>; TailTrail will not guess or auto-import a requirement source.")
+        report = build_report(goal, root, args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest, requested_spec_kit_feature)
         report["target_root"] = {key: value for key, value in target.items() if key != "root"}
         if isinstance(host_resolution, dict):
             report["host_workspace"] = {key: value for key, value in host_resolution.items() if key != "root"}
@@ -1621,8 +1466,11 @@ def main() -> int:
                 )
             report["planning_report"] = planning_lock.save_start_report(root, report["planning_lock"]["run_id"], report)
             selected = report.get("navigator", {}).get("selected_features", [])
-            if effective_aidlc_mode == "standard":
+            if effective_aidlc_mode == "standard" and not report.get("spec_kit_source"):
                 report["aidlc_requirements"] = planning_lock.request_aidlc_requirements(root, report["planning_lock"]["run_id"])
+                report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
+            elif effective_aidlc_mode == "standard" and report.get("spec_kit_source"):
+                report["aidlc_requirements"] = {"state": "not-run", "reason": "Imported Intent Bridge requirements are the authoritative boundary; TailTrail must not generate a parallel requirement questionnaire."}
                 report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
             elif effective_aidlc_mode == "full":
                 report["aidlc_requirements"] = planning_lock.request_official_aidlc_requirements(root, report["planning_lock"]["run_id"])
