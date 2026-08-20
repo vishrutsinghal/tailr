@@ -66,6 +66,22 @@ def spec_kit_evidence() -> Any:
     return module
 
 
+def workflow_start_integration() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_workflow_start_integration", ROOT / "scripts" / "workflow_runtime" / "start_integration.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def requirement_discovery() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_requirement_discovery", ROOT / "scripts" / "requirement_discovery.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def lock_path(root: Path, run_id: str) -> Path:
     return L.state_dir(root, run_id) / "planning" / "lock-v1.json"
 
@@ -336,20 +352,7 @@ def _hands_free_requirement_matrix(features: list[dict[str, Any]], paths: list[s
 
 def _goal_requirements(goal: str, paths: list[str]) -> list[dict[str, Any]]:
     """Create a reviewable minimum requirement boundary when Navigator has none."""
-    lowered = goal.lower()
-    common = {
-        "acceptance_criteria": ["The user-approved behavior is observable on the intended path."],
-        "preserve_rules": ["Do not change behavior outside the approved scope."],
-        "likely_paths": paths,
-        "evidence_plan": ["Run the focused validation selected by the approved Navigator plan."],
-    }
-    if "zero quantity" in lowered and "validation" in lowered:
-        return [
-            {"display_id": "REQ-01", "kind": "change", "statement": "Reject zero quantities in the existing validation boundary.", **common},
-            {"display_id": "REQ-02", "kind": "preserve", "statement": "Preserve valid positive-quantity behavior outside the new rejection case.", **common},
-            {"display_id": "REQ-03", "kind": "change", "statement": "Add focused unit-test evidence for the zero-quantity rule and preserved positive behavior.", **common},
-        ]
-    return [{"display_id": "REQ-01", "kind": "change", "statement": goal, **common}]
+    return requirement_discovery().matrix(goal, paths)
 
 
 def _anchor_module() -> Any:
@@ -425,7 +428,7 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
     anchor_path = root / anchor_artifact if anchor_artifact else None
     approved_anchor = read(anchor_path) if anchor_path and anchor_path.is_file() else {}
     bridge = saved_report.get("official_aidlc_bridge") if isinstance(saved_report, dict) else None
-    return {
+    handoff = {
         "run_id": run_id,
         "state": "execution-ready",
         "anchor": anchor_artifact,
@@ -456,6 +459,7 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
             "selected_harnesses": [row.get("name") for row in delivery.get("selected", []) if isinstance(row, dict) and row.get("name")],
         },
     }
+    return handoff
 
 
 def _rejection_count(root: Path, run_id: str) -> int:
@@ -580,6 +584,7 @@ def request_aidlc_requirements(root: Path, run_id: str, revision_context: list[d
         "revision_context": context,
         "aidlc_stage": stage,
         "questions": stage["questions"],
+        "question_revision": 1,
         "approval_gate": stage["stage_gate"],
     }
     L.atomic_json(artifact, document)
@@ -612,7 +617,7 @@ def request_official_aidlc_requirements(root: Path, run_id: str, revision_contex
         "schema_version": "1", "type": "tailtrail-official-aidlc-requirements", "run_id": run_id,
         "goal": proposal["goal"], "stage": "requirements-gathering", "source_boundary": template["source_boundary"],
         "requirements": proposal["requirements"], "prior_feedback": feedback, "revision_context": context, "official_stage": stage,
-        "questions": [], "approval_gate": stage["stage_gate"],
+        "questions": [], "question_revision": 1, "approval_gate": stage["stage_gate"],
         "official_questions": None,
     }
     L.atomic_json(artifact, document)
@@ -661,7 +666,7 @@ def submit_official_aidlc_answers(root: Path, run_id: str, answers_json: str) ->
     stage = {**document["official_stage"], "requirements": document["requirements"], "questions": document["questions"]}
     revision = _official_aidlc_requirements_module().revise(stage, json.loads(answers_json))
     revision_path = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
-    payload = {"schema_version": "1", "type": "tailtrail-official-aidlc-revised-requirements", "run_id": run_id, "source_boundary": document["source_boundary"], "official_references": document["official_stage"]["official_references"], **revision}
+    payload = {"schema_version": "1", "type": "tailtrail-official-aidlc-revised-requirements", "run_id": run_id, "source_boundary": document["source_boundary"], "question_revision": document.get("question_revision", 1), "official_references": document["official_stage"]["official_references"], **revision}
     L.atomic_json(revision_path, payload)
     L.append_event(root, run_id, "official_aidlc_requirements_answered", {"artifact": revision_path.relative_to(root).as_posix(), "question_ids": sorted(revision["official_decisions"]), "status": "official-revision-ready"})
     return {"run_id": run_id, "state": "official-aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **revision}
@@ -682,6 +687,9 @@ def approve_official_aidlc_requirements(root: Path, run_id: str, approved: bool)
         raise ValueError(f"official AIDLC requirements cannot activate run `{run_id}` from its current state")
     revision_path = _official_aidlc_artifact(root, run_id, "official-aidlc-revised-requirements-v1.json")
     revision = read(revision_path)
+    questions = read(_official_aidlc_artifact(root, run_id, "official-aidlc-requirements-v1.json"))
+    if revision.get("question_revision", 1) != questions.get("question_revision", 1):
+        raise ValueError("official AIDLC answers are stale because a question revision was approved; answer the current question set again")
     gate_path = L.state_dir(root, run_id) / "aidlc-official" / "requirements" / "approval-v1.json"
     gate = {"schema_version": "1", "type": "tailtrail-official-aidlc-stage-approval", "run_id": run_id, "stage": "requirements", "authority": "official-ai-dlc-pack", "approved": True, "official_references": revision["official_references"], "official_decisions": revision["official_decisions"], "boundary": "This explicit official Requirements Analysis approval is the only approval that freezes the TailTrail anchor for this run."}
     L.atomic_json(gate_path, gate)
@@ -691,14 +699,16 @@ def approve_official_aidlc_requirements(root: Path, run_id: str, approved: bool)
     lock = approve(root, run_id, True)
     saved = _saved_start_report(root, run_id)
     anchor_artifact = (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix()
+    workflow_runtime = workflow_start_integration().activate(root, run_id, saved, anchor_artifact)
     handoff = execution_handoff(root, run_id, saved, anchor_artifact)
+    handoff["workflow_runtime"] = workflow_runtime
     handoff["execution_boundary"] = "Implementation may begin only within the anchor frozen after official AIDLC Requirements Analysis approval."
     handoff_path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
     L.atomic_json(handoff_path, handoff)
     bridge_activation = _official_aidlc_bridge_module().activate(root, run_id)
     canonical_state = _official_aidlc_state_module().assert_consistent(root, run_id)
     L.append_event(root, run_id, "official_aidlc_requirements_approved", {"revision": revision_path.relative_to(root).as_posix(), "official_approval": gate_path.relative_to(root).as_posix(), "anchor": anchor_artifact, "handoff": handoff_path.relative_to(root).as_posix()})
-    L.append_event(root, run_id, "planning_activated", {"anchor": {"status": "created-from-official-aidlc", "artifact": anchor_artifact}, "official_aidlc_bridge_activation": bridge_activation["artifact"]})
+    L.append_event(root, run_id, "planning_activated", {"anchor": {"status": "created-from-official-aidlc", "artifact": anchor_artifact}, "official_aidlc_bridge_activation": bridge_activation["artifact"], "workflow_runtime": workflow_runtime.get("state")})
     return {"planning_lock": lock, **handoff, "official_stage_approval": gate_path.relative_to(root).as_posix(), "official_aidlc_bridge_activation": bridge_activation, "canonical_state": {"status": canonical_state["status"], "valid": canonical_state["valid"], "issues": canonical_state["issues"]}, "artifact": handoff_path.relative_to(root).as_posix()}
 
 
@@ -722,7 +732,7 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
     engine = _aidlc_requirements_module()
     revision = engine.revise(stage_document, answers)
     revision_path = L.state_dir(root, run_id) / "planning" / "aidlc-revised-requirements-v1.json"
-    payload = {"schema_version": "1", "type": "tailtrail-aidlc-revised-requirements", "run_id": run_id, "source_boundary": stage_document["source_boundary"], **revision}
+    payload = {"schema_version": "1", "type": "tailtrail-aidlc-revised-requirements", "run_id": run_id, "source_boundary": stage_document["source_boundary"], "question_revision": stage_document.get("question_revision", 1), **revision}
     L.atomic_json(revision_path, payload)
     L.append_event(root, run_id, "aidlc_requirements_answered", {"artifact": revision_path.relative_to(root).as_posix(), "question_ids": sorted(revision["aidlc_answers"]), "status": "revision-ready"})
     return {"run_id": run_id, "state": "aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **revision}
@@ -779,18 +789,23 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
         raise ValueError(f"AIDLC requirements cannot activate run `{run_id}` from status `{current['status']}`")
     revision_path = _aidlc_artifact(root, run_id, "aidlc-revised-requirements-v1.json")
     revision = read(revision_path)
+    questions = read(_aidlc_artifact(root, run_id, "aidlc-requirements-v1.json"))
+    if revision.get("question_revision", 1) != questions.get("question_revision", 1):
+        raise ValueError("AIDLC answers are stale because a question revision was approved; answer the current question set again")
     anchor = _anchor_module()
     anchor.draft(root, run_id, revision_path)
     anchor.approve(root, run_id)
     lock = approve(root, run_id, True)
     saved = active_start_report(root, run_id).get("report", {})
     anchor_artifact = (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix()
+    workflow_runtime = workflow_start_integration().activate(root, run_id, saved, anchor_artifact)
     handoff = execution_handoff(root, run_id, saved, anchor_artifact)
+    handoff["workflow_runtime"] = workflow_runtime
     handoff["execution_boundary"] = "Implementation may begin only within the activated AIDLC-approved anchor. TailTrail remains responsible for scope, evidence, drift, recovery, and completion controls."
     handoff_path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
     L.atomic_json(handoff_path, handoff)
     L.append_event(root, run_id, "aidlc_requirements_approved", {"revision": revision_path.relative_to(root).as_posix(), "anchor": handoff["anchor"], "handoff": handoff_path.relative_to(root).as_posix()})
-    L.append_event(root, run_id, "planning_activated", {"anchor": {"status": "created-from-aidlc", "artifact": handoff["anchor"]}})
+    L.append_event(root, run_id, "planning_activated", {"anchor": {"status": "created-from-aidlc", "artifact": handoff["anchor"]}, "workflow_runtime": workflow_runtime.get("state")})
     return {"planning_lock": lock, **handoff, "artifact": handoff_path.relative_to(root).as_posix()}
 
 
@@ -861,6 +876,14 @@ def render_execution_handoff(payload: dict[str, Any]) -> str:
     lines.extend(["", "## Selected TailTrail controls", ""])
     for row in payload.get("selected_features", []):
         lines.append(f"- **{row.get('name')}:** {row.get('why')}")
+    runtime = payload.get("workflow_runtime")
+    if isinstance(runtime, dict):
+        lines.extend(["", "## Workflow runtime", ""])
+        if runtime.get("state") == "compiled":
+            lines.append(f"- Workflow: `{runtime.get('workflow_id')}`; compiler template: `{runtime.get('compiler', {}).get('template_id')}`.")
+            lines.append("- State: compiled and non-executing. A later runtime adapter must still request its own action authority.")
+        else:
+            lines.append(f"- State: `{runtime.get('state')}` — {runtime.get('reason', 'no runtime action was taken')}.")
     lines.extend(["", "## Execution boundary", "", f"- {payload['execution_boundary']}", "- Next: inspect only the approved paths, implement the smallest compliant change, and run the selected evidence.", ""])
     closure = payload.get("closure", {})
     if closure.get("required"):
@@ -977,10 +1000,12 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         spec_kit_evidence_result = spec_kit_evidence().plan(root, run_id)
     lock = current if current["status"] == "approved" else approve(root, run_id, True)
     anchor_state = anchor_result or {"status": "not-required", "reason": "lean Start runs do not create canonical requirement state"}
+    workflow_runtime = workflow_start_integration().activate(root, run_id, saved_report, str(anchor_result["artifact"]) if anchor_result and anchor_result.get("artifact") else None)
     handoff: dict[str, Any] | None = None
     handoff_artifact: str | None = None
     if anchor_result and anchor_result.get("artifact"):
         handoff = execution_handoff(root, run_id, saved_report, str(anchor_result["artifact"]))
+        handoff["workflow_runtime"] = workflow_runtime
         if spec_kit_slice_result:
             handoff["spec_kit_slice"] = {
                 "active_slice": spec_kit_slice_result["active_slice"],
@@ -1001,6 +1026,7 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         "target_identity_status": identity_check["status"],
         "input_role_status": role_check["status"],
         "enterprise_policy_status": policy_check["status"],
+        "workflow_runtime": workflow_runtime.get("state"),
     })
     return {
         "planning_lock": lock,
@@ -1013,6 +1039,7 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         "target_identity": identity_check,
         "input_roles": role_check,
         "enterprise_policy": policy_check,
+        "workflow_runtime": workflow_runtime,
     }
 
 

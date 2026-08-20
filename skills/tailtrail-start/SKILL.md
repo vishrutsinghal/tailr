@@ -5,6 +5,18 @@ description: Use when the user explicitly asks to start TailTrail planning, incl
 
 # TailTrail Start
 
+## AIDLC question discussion
+
+For an awaiting-approval AIDLC run, when the user asks to explain, simplify, or
+rephrase a numbered question such as `Q5`, run `tailtrail planning
+aidlc-question clarify --run-id <id> --question-id Q5`. Explain only from the
+saved artifact; do not change the question, plan, anchor, answers, or source.
+If the user challenges the question, options, or reasoning as incorrect, create
+an `aidlc-question challenge`, have the active AIDLC authority generate the
+replacement, record it, show it, and require explicit `aidlc-question approve`.
+For Standard and Full, replacements must use the pinned official AIDLC
+Requirements rules rather than a TailTrail-generated substitute.
+
 Treat an explicit TailTrail Start request as a planning-only command, not as
 permission to implement. When commands are available, run:
 

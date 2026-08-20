@@ -913,6 +913,13 @@ def mcp(args: list[str]) -> int:
     return 2
 
 
+def workflow(args: list[str]) -> int:
+    if not args or args[0] not in {"bind", "show", "validate", "capabilities", "task", "storage", "state", "compile", "approvals", "evidence", "vertical", "adapters", "execute", "freshness", "retry", "resume", "correction"}:
+        print("Usage: tailtrail workflow bind|show|validate|capabilities|task|storage|state|compile|approvals|evidence|vertical|adapters|execute|freshness|retry|resume|correction --root . [--run-id <run-id>] [--workflow-id <workflow-id>]")
+        return 2
+    return run_script("workflow-runtime.py", args)
+
+
 def registry(args: list[str]) -> int:
     if not args:
         print("Usage: tailtrail registry list|show|surfaces|validate [args]")
@@ -992,6 +999,8 @@ def main() -> int:
     if command in {"start", "do", "run"}:
         return start(args)
     if command == "planning":
+        if args and args[0] == "aidlc-question":
+            return run_script("planning-aidlc-question.py", args[1:])
         if args and args[0] in {"discuss", "explain", "discussion-show", "decision-show"}:
             return run_script("planning-discussion.py", args)
         if args and args[0] in {"investigate", "investigation-show"}:
@@ -1091,6 +1100,8 @@ def main() -> int:
         return run_script("ui-consistency.py", args)
     if command == "mcp":
         return mcp(args)
+    if command == "workflow":
+        return workflow(args)
     if command == "vulnerability":
         return vulnerability(args)
     if command == "engine":

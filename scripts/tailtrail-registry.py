@@ -17,6 +17,7 @@ REGISTRY_PATH = ROOT / "tailtrail-registry.json"
 SCHEMA_PATH = ROOT / "tailtrail-registry.schema.json"
 
 REQUIRED_REGISTRY_KEYS = {"schema_version", "features"}
+EXPLICIT_PUBLIC_COMMANDS = {"workflow"}
 REQUIRED_FEATURE_KEYS = {
     "id",
     "title",
@@ -102,7 +103,7 @@ def mcp_projection(registry: dict[str, Any]) -> list[dict[str, Any]]:
         for tool in tools:
             if not isinstance(tool, str) or not tool:
                 continue
-            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve"}
+            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve"}
             projection.append(
                 {
                     "tool": tool,
@@ -145,7 +146,8 @@ def discover_tailtrail_commands(root: Path = ROOT) -> set[str]:
     path = root / "scripts" / "tailtrail.py"
     if not path.is_file():
         return set()
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
     commands: set[str] = set()
     for node in tree.body:
         if not isinstance(node, ast.Assign):
@@ -158,6 +160,12 @@ def discover_tailtrail_commands(root: Path = ROOT) -> set[str]:
             for key in node.value.keys:
                 if isinstance(key, ast.Constant) and isinstance(key.value, str):
                     commands.add(key.value)
+    # A narrow control-plane command can intentionally stay out of the general
+    # help catalogue. Keep such registry-governed commands explicit: parsing
+    # every main() alias would incorrectly require non-product aliases to have
+    # feature entries.
+    if "def workflow(" in source and 'command == "workflow"' in source:
+        commands.update(EXPLICIT_PUBLIC_COMMANDS)
     return commands
 
 

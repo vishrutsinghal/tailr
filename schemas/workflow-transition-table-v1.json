@@ -1,0 +1,5 @@
+{
+  "schema_version":"1","type":"tailtrail-workflow-transition-table",
+  "workflow":{"draft":["awaiting_approval","cancelled","superseded"],"awaiting_approval":["ready","blocked","cancelled","superseded"],"ready":["running","paused","blocked","cancelled","superseded"],"running":["paused","blocked","failed","cancelled","superseded","completed"],"paused":["ready","blocked","cancelled","superseded"],"blocked":["ready","failed","cancelled","superseded"],"failed":["ready","cancelled","superseded"],"cancelled":[],"superseded":[],"completed":[]},
+  "stage":{"pending":["ready","blocked","skipped","cancelled"],"ready":["awaiting_approval","running","blocked","skipped","stale","cancelled"],"awaiting_approval":["ready","running","blocked","skipped","cancelled"],"running":["passed","failed","blocked","stale","cancelled"],"passed":["stale"],"failed":["ready","blocked","cancelled"],"blocked":["ready","skipped","cancelled"],"stale":["ready","cancelled"],"skipped":[],"cancelled":[]}
+}

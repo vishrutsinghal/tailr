@@ -148,6 +148,12 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn('if command == "target":', body)
         self.assertIn('return run_script("target_workspace.py", args)', body)
 
+    def test_durable_workflow_runtime_has_a_public_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if command == "workflow":', body)
+        self.assertIn('return workflow(args)', body)
+        self.assertIn('{"bind", "show", "validate", "capabilities", "task", "storage", "state", "compile", "approvals", "evidence", "vertical", "adapters", "execute", "freshness", "retry", "resume", "correction"}', body)
+
     def test_spec_kit_policy_has_a_public_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if command in {"intent-bridge", "spec-kit"}:', body)

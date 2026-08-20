@@ -86,6 +86,17 @@ material plan update only through `planning revise`. Use
 `tailtrail planning decision-show --run-id <id>` to summarize saved discussion,
 revision, and authority-routing state. AIDLC and Intent Bridge requirements
 remain with their designated authority; never create a parallel local rewrite.
+When a user asks to explain, simplify, or rephrase a numbered AIDLC question
+(for example, `Q5`), use `tailtrail planning aidlc-question clarify --run-id
+<id> --question-id Q5`, then explain from that saved artifact only. This is a
+clarity path: it does not change the question, answers, plan, anchor, or
+implementation boundary. When the user says the question, options, or reasoning
+is wrong, first create a sanitized `aidlc-question challenge` with a reason
+code. The active AIDLC authority must generate the replacement question: for
+Standard/Full it must follow the pinned official AIDLC Requirements rules.
+Record the candidate, show it to the user, and use `aidlc-question approve`
+only after explicit question-level approval. That approval reopens the current
+requirements answer set under the same run; it never approves implementation.
 If the user explicitly asks to switch an awaiting Lite run to Standard AIDLC,
 create only the versioned `planning aidlc-standard` proposal, require approval
 of that exact revision, then begin Standard AIDLC requirements under the same

@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"TailTrail DWR-0 Action Contract","type":"object",
+  "required":["schema_version","type","action_id","stage_id","action_class","operation_ref","idempotency_key","requires_approval","status"],
+  "properties":{"schema_version":{"const":"1"},"type":{"const":"tailtrail-workflow-action"},"action_id":{"type":"string","pattern":"^wfa-"},"stage_id":{"type":"string"},"action_class":{"enum":["read_local","write_tailtrail_state","write_project","execute_project","scan_local","external_provider","publish"]},"operation_ref":{"type":"string"},"idempotency_key":{"type":"string","minLength":1},"requires_approval":{"type":"boolean"},"status":{"enum":["proposed","approved","running","passed","failed","blocked","cancelled"]}},"additionalProperties":false
+}

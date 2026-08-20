@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"TailTrail DWR-0 Completion Contract","type":"object",
+  "required":["schema_version","type","workflow_id","requirement_status","harness_status","unresolved_drift","evidence_status","overall_status","completion_report_ref"],
+  "properties":{"schema_version":{"const":"1"},"type":{"const":"tailtrail-workflow-completion-contract"},"workflow_id":{"type":"string","pattern":"^ttw-"},"requirement_status":{"enum":["complete","incomplete","unavailable"]},"harness_status":{"enum":["pass","fail","not-selected","unavailable"]},"unresolved_drift":{"type":"integer","minimum":0},"evidence_status":{"enum":["complete","incomplete","unavailable"]},"overall_status":{"enum":["complete","evidence-incomplete","failed","blocked"]},"completion_report_ref":{"type":["string","null"]}},"additionalProperties":false
+}

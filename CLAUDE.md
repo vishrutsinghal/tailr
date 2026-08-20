@@ -9,6 +9,7 @@ Use TailTrail as the project workflow for local development.
 - **Exact Start trigger:** treat `tailtrail start,`, `tailtrail start:`, and `tailtrail start -` as the same command. A `hands-free` or `end-to-end` request means comprehensive requirement and phase planning first, never immediate execution. Return the run ID, selected Program Delivery Harness, proposed feature order, active first slice, and explicit approval gate.
 - **Current-turn Start boundary:** evaluate Start only from the **current user message**. A prior chat mention, pasted **error output**, log, stack trace, or follow-up debugging request is not a Start invocation and must not create a **new Planning Lock**. Reuse an awaiting-approval run ID when requesting approval; continue an approved in-scope run without another Start approval. With no active run and no explicit Start invocation in the current user message, use ordinary TailTrail guidance or advisory `guide` routing.
 - **Start response boundary:** after a successful TailTrail Start tool or CLI invocation, copy its complete Start Report verbatim into the normal assistant response, outside any collapsible terminal/tool-result panel, and stop. Do not summarize it, describe it as generated, add a todo/status update, or append an implementation plan, steps, analysis, or guidance.
+- **Official AIDLC exception:** when a Standard or Full report records `official-aidlc-host-generation-required`, read the pinned official Requirements Analysis and question-format rules, generate official questions/options, attach TailTrail advisory recommendation and reasoning, record the sanitized questions for the same run, and return its Official AI-DLC Requirements report. Do not use a local substitute questionnaire, inspect source, or implement work.
 - **Closure response:** after implementation of an approved active run and its selected review/validation steps, run `tailtrail completion-report --root . --run-id <active-run-id>` and return its complete stdout. Do not replace it with a generic “what I changed” summary or invent test, token, drift, or learning claims. The report separates requirement delivery from TailTrail controls and shows actual model tokens only when host/provider telemetry is explicitly linked to that run ID.
 - **Execution evidence:** for an approved active run, record only host-visible facts as they occur: changed paths as `source-edit`, actual command outcomes as `command-result`, deterministic Harness artifacts as `harness-result`, and linked CI outcomes as `ci-receipt`. Use `tailtrail execution-evidence record` or MCP `execution_evidence_record` with the same run ID and approved requirement IDs. Never create evidence from a chat summary. Before the final Completion Report, run `tailtrail closure finalize --root . --run-id <active-run-id>` so selected Harnesses consume the saved stream.
 - After code changes, recommend post-change review against both code health and requirement fulfillment.
@@ -32,6 +33,14 @@ planning evidence only, and do not inspect source or start implementation.
   proposal which requires separate approval.
 - Use `planning decision-show` for the compact lock/discussion/revision/AIDLC or
   Intent Bridge authority summary.
+- For a numbered AIDLC question such as `Q5`, use `tailtrail planning
+  aidlc-question clarify --run-id <id> --question-id Q5` before explaining or
+  plainly rephrasing it. This is read-only and does not change the plan. If the
+  user challenges correctness, create a sanitized `aidlc-question challenge`,
+  have the active AIDLC authority generate a complete replacement, record it,
+  show it, and require explicit `aidlc-question approve`. Standard/Full
+  replacements must follow the pinned official AIDLC Requirements rules; never
+  present a local substitute as official.
 - If the user asks to switch an awaiting Lite run to Standard AIDLC, create the
   versioned `planning aidlc-standard` proposal, require approval of that exact
   revision, then begin Standard AIDLC requirements under the same run. This is

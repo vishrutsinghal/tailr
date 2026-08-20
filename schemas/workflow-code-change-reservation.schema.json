@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail DWR-C Code-Change Reservation", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "scope_ref", "scope_fingerprint", "target_identity_fingerprint", "state", "boundary"],
+  "properties": {"schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-code-change-reservation"}, "workflow_id": {"pattern": "^ttw-[a-z0-9][a-z0-9-]{3,80}$"}, "tailtrail_run_id": {"type": "string"}, "scope_ref": {"type": "string", "pattern": "^\\.tailtrail/"}, "scope_fingerprint": {"type": "string", "pattern": "^sha256:"}, "target_identity_fingerprint": {"type": "string", "pattern": "^sha256:"}, "state": {"enum": ["active", "released"]}, "release_reason": {"enum": ["workflow-cancelled", "workflow-completed"]}, "boundary": {"type": "string"}}, "additionalProperties": false
+}

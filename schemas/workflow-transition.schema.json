@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"TailTrail DWR-0 Transition Contract","type":"object",
+  "required":["schema_version","type","scope","subject_id","from_state","to_state","reason_code","legal"],
+  "properties":{"schema_version":{"const":"1"},"type":{"const":"tailtrail-workflow-transition"},"scope":{"enum":["workflow","stage"]},"subject_id":{"type":"string","minLength":1},"from_state":{"type":"string","minLength":1},"to_state":{"type":"string","minLength":1},"reason_code":{"type":"string","minLength":1},"legal":{"type":"boolean"}},"additionalProperties":false
+}

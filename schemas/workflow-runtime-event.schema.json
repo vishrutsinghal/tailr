@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","title":"TailTrail DWR-0 Sanitized Runtime Event","type":"object",
+  "required":["schema_version","type","event_id","workflow_id","sequence","event_type","stage_id","reason_code","artifact_refs","summary"],
+  "properties":{"schema_version":{"const":"1"},"type":{"const":"tailtrail-workflow-runtime-event"},"event_id":{"type":"string","pattern":"^wfrt-"},"workflow_id":{"type":"string","pattern":"^ttw-"},"sequence":{"type":"integer","minimum":1},"event_type":{"type":"string","minLength":1},"stage_id":{"type":["string","null"]},"reason_code":{"type":"string"},"artifact_refs":{"type":"array","uniqueItems":true,"items":{"type":"string"}},"summary":{"type":"string","maxLength":500}},"additionalProperties":false
+}

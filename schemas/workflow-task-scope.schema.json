@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail DWR-C Task Scope", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "ownership_ref", "approved_anchor_ref", "target_identity_fingerprint", "requirements", "state", "boundary", "scope_fingerprint"],
+  "properties": {"schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-task-scope"}, "workflow_id": {"pattern": "^ttw-[a-z0-9][a-z0-9-]{3,80}$"}, "tailtrail_run_id": {"type": "string"}, "ownership_ref": {"type": "string", "pattern": "^\\.tailtrail/"}, "approved_anchor_ref": {"type": "string", "pattern": "^\\.tailtrail/"}, "target_identity_fingerprint": {"type": "string", "pattern": "^sha256:"}, "requirements": {"type": "array", "minItems": 1}, "state": {"const": "captured"}, "boundary": {"type": "string"}, "scope_fingerprint": {"type": "string", "pattern": "^sha256:"}}, "additionalProperties": false
+}

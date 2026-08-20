@@ -1,10 +1,15 @@
 # TailTrail Durable Workflow Runtime — Revised Design
 
-Status: revised design proposal for review; not implemented.
-Revision basis: review findings from August 18, 2026.
-Changes from original: DWR-minus phase added, `clarify` stage defined, module size contract added,
-invalidation rule made explicit, approval fatigue mitigations strengthened, `--no-workflow` escape
-hatch added, phase exit criteria added. All other sections kept from the original.
+Status: phased implementation in progress. DWR-A, DWR-B, DWR-C, DWR-minus,
+DWR-0, DWR-1, DWR-1.5, DWR-2, DWR-3, DWR-4, and Deferred Phases 0–3 are implemented.
+Deferred Phases 4 through 11 remain required for the complete local runtime;
+Deferred Phase 12 remains evidence-gated and optional.
+Revision basis: implemented runtime evidence and documentation reconciliation
+through August 20, 2026.
+Changes from original: canonical ownership, capability declaration, task scope,
+append-only storage, local state, deterministic compilation, controlled Start,
+evidence/closure, and one small-change vertical are implemented. The remaining
+runtime contract is tracked in the Deferred Implementation master plan below.
 
 ---
 
@@ -21,10 +26,9 @@ hatch added, phase exit criteria added. All other sections kept from the origina
 | Each phase | Added "Phase exit criteria" | Phases had deliverables but no measurable done condition |
 | Risks table | Added approval fatigue concrete mitigations | Original mitigation was advice, not mechanism |
 
-Everything else — the problem statement, product principle, scope, state machine, event model,
-data storage, retry rules, security controls, MCP integration, token harness integration,
-learning integration, evaluation harness, meta-harness, test strategy, and end-state vision —
-is kept from the original unchanged.
+The problem statement and product boundaries remain. Runtime descriptions,
+commands, storage names, template inventory, phase statuses, and completion
+gates are reconciled with the implemented source and Feature Registry.
 
 ---
 
@@ -141,6 +145,39 @@ The runtime coordinates existing features; it does not absorb their responsibili
 
 ---
 
+## Canonical State And Ownership Boundary *(implementation prerequisite)*
+
+The Durable Workflow Runtime is an execution **projection** over TailTrail's existing
+task state. It is not a second task system and must never decide that a requirement is
+complete, approved, recoverable, or accepted independently of the canonical artifacts.
+
+| Concern | Canonical owner | Runtime role |
+|---|---|---|
+| task identity and user goal | Planning Lock / active TailTrail run | bind the workflow to the same run ID |
+| approved intent and requirement IDs | immutable approved anchor and requirement matrix | reference the approved revision; never copy-and-edit it |
+| AIDLC Standard / Full lifecycle decisions | official AIDLC bridge artifacts | record sanitized stage references and wait for their approval state |
+| changed scope, checkpoints, drift, and recovery | requirement/harness and recovery artifacts | attach evidence references and sequence the next allowed stage |
+| test, review, and CI receipts | existing evidence and closure recorders | index receipts; do not rewrite their result |
+| final completion and acceptance | Completion Report and closure lifecycle | show the result and prevent premature workflow completion |
+
+Every persisted workflow therefore carries these mandatory references:
+
+```json
+{
+  "workflow_id": "ttw-20260818-001",
+  "tailtrail_run_id": "start-20260818-...",
+  "planning_lock_ref": ".tailtrail/runs/start-20260818-.../planning/lock-v1.json",
+  "approved_anchor_ref": ".tailtrail/runs/start-20260818-.../approved.md",
+  "requirement_matrix_ref": ".tailtrail/runs/start-20260818-.../requirement-matrix.json"
+}
+```
+
+If any required reference is absent, stale, or belongs to another target workspace, the
+runtime must enter `blocked` with a structured reason. It must not create a substitute
+anchor, infer approval, or start a second code-changing lifecycle.
+
+---
+
 ## Architecture
 
 ```text
@@ -153,7 +190,10 @@ Navigator classification and proposed plan
 User approval or edited plan
    |
    v
-Workflow Compiler
+Approved TailTrail anchor (canonical)
+   |
+   v
+Workflow Compiler (projection over canonical run)
    |-- validates Feature Registry IDs
    |-- resolves policy and guardrail gates
    |-- expands a workflow template
@@ -288,7 +328,23 @@ return to running; a follow-up creates a linked workflow.
 
 ---
 
-## Default Workflow Templates
+## Workflow Template Inventory
+
+The deterministic compiler and Deferred Phase 5 executor implement six frozen
+templates. Every stage resolves to an existing typed adapter or an explicit
+runtime approval gate.
+
+| Template ID | Current status | Implemented terminal stage | Expansion boundary |
+| --- | --- | --- | --- |
+| `small-change` | implemented; DWR-4 proven vertical | `fulfilment` | completion is composed through the canonical closure bridge |
+| `delivery` | compiled and executable | `handoff` | factual adapter evidence remains host/capability-owned |
+| `risk-sensitive` | compiled and executable | `handoff` | classified risks require matching approved authority before implementation |
+| `review-only` | compiled and executable | `optional-fix-proposal` | no source-writing stage; a fix is a separate approved workflow |
+| `repository-discovery` | compiled and executable | `architecture-summary` | read-only; project changes require a follow-up workflow |
+| `ci-scanner-remediation` | compiled and executable | `fulfilment` | saved CI/scanner intake through focused recheck and fulfilment |
+
+The diagrams below describe the implemented graphs. The frozen compiler plan
+and replayed journal are authoritative for a particular workflow.
 
 ### Small Change
 
@@ -308,9 +364,11 @@ bootstrap -> discover -> clarify -> plan -> implement
 
 **`clarify` stage definition** *(revised — was undefined in the original)*
 
-The `clarify` stage maps to the AIDLC Requirements stage.
+The `clarify` stage maps to the registered `aidlc` capability. Its authority
+depends on the approved AIDLC mode; the runtime stores only sanitized
+references to the authority-owned artifacts.
 
-- Capability ID: `aidlc-requirements`
+- Capability ID: `aidlc`
 - Approval class: `read_local` (no source edits; reads goal and Navigator plan only)
 - Input schema: Navigator plan, goal statement, known facts from the discovery stage
 - Output schema: approved requirement boundary, AIDLC questions and answers, assumptions,
@@ -321,13 +379,20 @@ The `clarify` stage maps to the AIDLC Requirements stage.
   acceptance criterion already stated in the goal — requires an explicit skip reason code
 - Failure behavior: `blocked`; the workflow pauses for requirement clarification
 
+| AIDLC mode | Clarification authority represented by the stage |
+| --- | --- |
+| Off | no AIDLC stage; already-approved canonical requirements remain authoritative |
+| Lite | TailTrail's local deterministic requirement brief |
+| Standard | pinned official AI-DLC Requirements stage and its approved artifact references |
+| Full | pinned official AI-DLC lifecycle stage references; TailTrail remains the assurance/control layer |
+
 This stage is optional for the Small Change template and required for Delivery, Risk-Sensitive,
 and any template where the acceptance criteria are not stated in the initial goal.
 
 ### Risk-Sensitive
 
 ```text
-bootstrap -> discover -> aidlc -> threat-or-risk-plan -> implement
+bootstrap -> discover -> clarify -> threat-or-risk-plan -> implement
           -> tests -> security -> quality -> review -> fulfilment
           -> approval -> handoff -> complete
 ```
@@ -344,7 +409,7 @@ bootstrap -> scope-diff -> graph-impact -> review
 
 No implementation occurs unless the user approves a fix-loop workflow.
 
-### CI Or Scanner Remediation
+### CI Or Scanner Remediation *(deferred; not compiled today)*
 
 ```text
 bootstrap -> ingest-findings -> graph-overlay -> root-cause
@@ -381,8 +446,8 @@ The Workflow Compiler receives the Navigator plan and performs these determinist
 
 **Plan invalidation triggers** *(revised — original was vague)*
 
-A new revision is created and previous approval is invalidated when exactly one of these
-three conditions is true:
+A new revision is created and previous approval is invalidated when one or more of these
+three conditions occurs:
 
 1. The user explicitly changes the stage list or stage order.
 2. A policy or guardrail file changes in a way that affects an unstarted guarded stage.
@@ -422,39 +487,38 @@ Required when a stage introduces a guarded action not covered by the initial app
 
 ### Session Approval *(new)*
 
-To reduce approval fatigue without removing the approval record, a user may grant a session
-approval for one or more action classes for the duration of the current session:
+The Phase 3 authority layer records bounded session-source approval for
+compiler-declared read-only or TailTrail-state stages:
 
 ```text
-tailtrail workflow approve --session --action-class read_local write_tailtrail_state
+tailtrail workflow approvals session --root . --workflow-id <workflow-id> \
+  --session-id <host-session> --action-class read_local --approved
 ```
 
-- Session approval records are written to `approvals.jsonl` like any other approval.
-- They expire when the session ends, the workflow is paused, or the plan is revised.
+- Session-source approval records are written to `stage-approvals-v1.json` and
+  bound to the workflow, canonical run, target, scope, policy hash, stage graph,
+  and compiler revision/fingerprint.
 - They never cover `write_project`, `execute_project`, `scan_local`, `external_provider`,
   or `publish` actions.
 - A session approval cannot be used to pre-approve a stage whose action class is unknown
   at compile time.
+- Session end and workflow pause explicitly expire matching records. Target
+  identity/HEAD changes and material plan revisions make them ineffective;
+  material compiler revision also writes expiry metadata.
 
 ### Policy Pre-Approval *(new)*
 
-A `tailtrail-policy.md` or `.tailtrail/policy-overrides.json` may pre-approve specific
+A local `.tailtrail/workflow-compiler-policy-v1.json` may pre-approve specific
 well-understood, low-risk stages without a runtime interactive prompt:
 
 ```json
 {
-  "pre_approved_stages": [
-    {
-      "stage_id": "bootstrap",
-      "action_class": "read_local",
-      "rationale": "Bootstrap is always read-only and idempotent."
-    },
-    {
-      "stage_id": "discover",
-      "action_class": "read_local",
-      "rationale": "Graph read approved for this repository."
-    }
-  ]
+  "schema_version": "1",
+  "type": "tailtrail-workflow-compiler-policy",
+  "required_capabilities": [],
+  "forbidden_capabilities": [],
+  "stage_prerequisites": {},
+  "pre_approved_stages": ["bootstrap", "discover"]
 }
 ```
 
@@ -473,7 +537,7 @@ An approval record contains:
 - scope and expiry condition
 - timestamp
 - decision: approved, rejected, or edited
-- approval source: interactive, session, or policy-reference
+- approval source: interactive, session, or policy
 
 No raw user message is required.
 
@@ -486,17 +550,24 @@ Recommended local structure:
 ```text
 .tailtrail/
   workflows/
-    index.json
-    ttw-2026-0818-001/
-      workflow.json
-      plan.json
-      events.jsonl
-      approvals.jsonl
-      evidence.json
-      completion-receipt.json
+    ttw-<stable-run-derived-id>/
+      ownership-v1.json
+      capability-plan-v1.json       # present after DWR-B declaration
+      scope-v1.json                 # present after DWR-C capture
+      journal-v1.jsonl
+      projection-v1.json
+      compiler-plan-v1.json         # present after compilation
+      stage-approvals-v1.json       # present when an approval is recorded
+      evidence-v1.json              # present after evidence collection
+      completion-receipt-v1.json    # present only after closure recording
+  workflow-active-code-change-v1.json  # optional repository-wide reservation
 ```
 
-These files are local runtime state and should not be committed by default.
+`journal-v1.jsonl` is the append-only hash-chained record.
+`projection-v1.json` is the separately atomic read model. `workflow storage
+replay` rebuilds the projection in memory and never silently repairs the
+journal. These files are local runtime state and should not be committed by
+default.
 
 Shareable project context remains in the existing reviewed locations, such as committed
 code-map artifacts or sanitized `tailtrail-meta` summaries. Workflow records must not
@@ -508,12 +579,16 @@ silently become shared metadata.
 {
   "schema_version": "1",
   "workflow_id": "ttw-2026-0818-001",
+  "tailtrail_run_id": "start-20260818-...",
   "workflow_revision": 1,
   "template_id": "delivery",
   "status": "awaiting_approval",
   "created_at": "2026-08-18T10:00:00Z",
   "updated_at": "2026-08-18T10:00:00Z",
   "repository_ref": "sha256:REDACTED",
+  "planning_lock_ref": ".tailtrail/runs/start-20260818-.../planning/lock-v1.json",
+  "approved_anchor_ref": ".tailtrail/runs/start-20260818-.../approved.md",
+  "requirement_matrix_ref": ".tailtrail/runs/start-20260818-.../requirement-matrix.json",
   "task_class": ["feature"],
   "plan_hash": "sha256:REDACTED",
   "policy_hash": "sha256:REDACTED",
@@ -579,7 +654,23 @@ validated from events.
 
 ## Resume And Freshness
 
-`tailtrail resume` should:
+The DWR-3 compatibility continuation command remains:
+
+```text
+tailtrail workflow evidence resume --root . --workflow-id <workflow-id>
+```
+
+Deferred Phase 6 adds automatic operational freshness and the canonical
+read-only continuation command:
+
+```text
+tailtrail workflow freshness apply --root . --workflow-id <workflow-id>
+tailtrail workflow resume --root . --workflow-id <workflow-id>
+```
+
+It uses the explicit workflow identity, verifies saved binding/compiler/evidence
+references, preserves unaffected passed stages, and returns the shortest saved
+continuation. The implemented behavior is to:
 
 1. locate the latest resumable workflow for the repository
 2. verify schema and event integrity
@@ -639,12 +730,12 @@ Primary user commands:
 
 ```text
 tailtrail start "<task>"
-tailtrail start "<task>" --no-workflow      # escape hatch — returns existing compact report
-tailtrail status
+tailtrail start "<task>" --no-workflow
 tailtrail next
-tailtrail resume
-tailtrail pause
-tailtrail cancel
+tailtrail workflow state status --root . --workflow-id <workflow-id>
+tailtrail workflow evidence resume --root . --workflow-id <workflow-id>
+tailtrail workflow state pause --root . --workflow-id <workflow-id>
+tailtrail workflow state cancel --root . --workflow-id <workflow-id> --confirmed
 ```
 
 **`--no-workflow` flag** *(new — see Migration section)*
@@ -653,22 +744,25 @@ When `--no-workflow` is passed, `start` behaves exactly as it did before the Dur
 Runtime was introduced: it returns a Navigator compact plan and Planning Lock without creating
 or mutating any workflow state. Remove this flag only after DWR-4 is complete and validated.
 
-Detailed workflow commands:
+Implemented workflow command families:
 
 ```text
-tailtrail workflow list
-tailtrail workflow show [WORKFLOW_ID]
-tailtrail workflow plan [WORKFLOW_ID]
-tailtrail workflow approve [WORKFLOW_ID] --revision N
-tailtrail workflow approve [WORKFLOW_ID] --session --action-class CLASS [CLASS...]
-tailtrail workflow reject [WORKFLOW_ID] --reason-code CODE
-tailtrail workflow resume [WORKFLOW_ID]
-tailtrail workflow retry [WORKFLOW_ID] --stage STAGE_ID
-tailtrail workflow skip [WORKFLOW_ID] --stage STAGE_ID --reason-code CODE
-tailtrail workflow events [WORKFLOW_ID]
-tailtrail workflow receipt [WORKFLOW_ID]
-tailtrail workflow doctor [WORKFLOW_ID]
+tailtrail workflow bind|show|validate
+tailtrail workflow capabilities propose|show|validate
+tailtrail workflow capabilities preapprove|preapproval-show|preapproval-validate
+tailtrail workflow task scope-init|scope-show|freshness|acquire|lock-show|diagnose
+tailtrail workflow storage init|capture|status|replay|validate
+tailtrail workflow state create|list|show|status|pause|resume|cancel|replay|doctor
+tailtrail workflow compile plan|show|validate
+tailtrail workflow approvals show|session|validate
+tailtrail workflow evidence collect|show|refresh|resume|correction|close|validate
+tailtrail workflow vertical status|finalize
 ```
+
+Exact arguments are maintained in `TAILTRAIL-COMMANDS.md` and checked against
+the public dispatcher by `tests/test_workflow_documentation.py`. Retry, skip,
+reject, receipt, generic event, and broad executor commands shown in earlier
+design drafts are not implemented command paths.
 
 `start` remains the obvious entry point. Users should not need to learn the detailed commands
 for normal work.
@@ -745,37 +839,37 @@ underscore-named modules so unit tests do not require subprocesses.
 
 ## Implementation Phases
 
-### DWR-minus: Storage Proof *(new — implement before DWR-0)*
+### DWR-minus: Storage Proof *(implemented)*
 
 **Purpose:** prove the storage model and file structure in isolation before the engine is built.
 No orchestration, no compiler, no transitions, no approval manager.
 
 Deliverables:
 
-- workflow ID generation (format: `ttw-YYYYMMDD-NNN`)
-- `workflow.json` writer with schema validation
-- append-only `events.jsonl` writer
-- event replay that projects the same state as the live workflow
-- `tailtrail workflow show` reading from the file and displaying it
-- `tailtrail workflow events` reading the journal
+- stable workflow ID derived from the approved TailTrail run
+- `ownership-v1.json` canonical binding
+- append-only, hash-chained `journal-v1.jsonl`
+- separately atomic `projection-v1.json`
+- event replay through `tailtrail workflow storage replay`
+- read-only status and validation through `workflow storage status|validate`
 
 Acceptance:
 
-- the storage format is validated by the JSON schemas from DWR-0
-- replay of any saved `events.jsonl` produces the same status as the live workflow
+- storage events and projections validate against their implemented schemas
+- replay of a valid `journal-v1.jsonl` produces the same state as the saved projection
 - an interrupted write (simulated by truncating the file) does not corrupt the last valid state
-- `workflow show` on a file with a sequence gap in `events.jsonl` reports a detected gap,
+- storage validation on a sequence gap in `journal-v1.jsonl` reports the gap,
   not a wrong status
 
 Phase exit criteria:
 
-> DWR-minus is complete when: replay test passes for all event types, the interrupted-write
-> recovery test passes, and `tailtrail workflow show` reads a hand-crafted valid workflow file
-> without error.
+> **Passed.** Replay, sequence/hash validation, interrupted journal handling,
+> cross-run binding, and last-valid-projection behavior are covered by
+> `tests/test_workflow_storage.py`.
 
 ---
 
-### DWR-0: Contract And Inventory
+### DWR-0: Contract And Inventory *(implemented by Deferred Phase 1)*
 
 Deliverables:
 
@@ -796,13 +890,14 @@ Acceptance:
 
 Phase exit criteria:
 
-> DWR-0 is complete when: all schemas validate their own example fixtures, every stage in all
-> six templates has a defined capability ID in the Feature Registry, and the module size
-> constraint passes a line-count check.
+> **Passed through Deferred Phase 1.** The runtime now has closed, versioned
+> workflow/stage/action/transition/approval/evidence/context/completion/event
+> contracts, real fixtures for every AIDLC mode, registry-backed template-stage
+> validation, and an enforced 300-line runtime-module limit.
 
 ---
 
-### DWR-1: Local State Engine
+### DWR-1: Local State Engine *(implemented)*
 
 Deliverables:
 
@@ -810,6 +905,21 @@ Deliverables:
 - transition engine with legal/illegal validation
 - workflow create, list, show, status, pause, cancel, and events commands
 - lock and doctor behavior
+
+Implemented surface:
+
+- `tailtrail workflow state create` binds only an already approved canonical
+  TailTrail run, initializes DWR-minus storage when needed, and appends the
+  immutable `workflow-created` event. It creates no second requirement record
+  and invokes no declared capability.
+- `list`, `show`/`status`, `replay`, and `doctor` are read-only views. Status
+  joins canonical run references, current requirement, lifecycle state, safe
+  evidence references, optional capability/scope state, reservation state, and
+  fail-closed blocked/stale reasons.
+- `pause`, `resume`, and confirmed `cancel` append lifecycle events through
+  DWR-minus. Cancellation may release only a reservation owned by the same
+  workflow; it never deletes the artifact, reverses a project edit, retries a
+  command, or begins recovery.
 
 Acceptance:
 
@@ -819,13 +929,13 @@ Acceptance:
 
 Phase exit criteria:
 
-> DWR-1 is complete when: every legal and illegal transition has a passing test, the event
-> replay test passes, and `tailtrail workflow doctor` diagnoses and reports a stale lock
-> without deleting it.
+> DWR-1 is complete: tests cover legal and illegal pause/resume/cancel
+> transitions, journal replay, stale-scope doctor output, and confirmed release
+> of only the owning workflow reservation. Doctor never deletes or repairs it.
 
 ---
 
-### DWR-1.5: Workflow Compiler *(new — split from DWR-2)*
+### DWR-1.5: Workflow Compiler *(implemented — split from DWR-2)*
 
 **Purpose:** build and validate the Workflow Compiler independently before connecting it to
 `start`. This is the highest-risk component. If the compiler is wrong, every downstream
@@ -839,6 +949,23 @@ Deliverables:
 - plan hash and revision generation
 - compiler test suite with deterministic fixtures (no live Navigator calls)
 
+Implemented surface:
+
+- `tailtrail workflow compile plan` consumes only a valid DWR-A ownership
+  binding and valid DWR-B declarative capability plan. It writes a frozen,
+  non-executable `compiler-plan-v1.json` beside that workflow.
+- The compiler records all twelve deterministic decisions: input validation,
+  registry resolution, conflict rejection, smallest-template selection,
+  optional local policy additions, prerequisite resolution, duplicate merge,
+  approval classification, reference attachment, stable hash, approval
+  question, and an explicit no-execution boundary.
+- `show` and `validate` are read-only. A compiler policy may add registered
+  required capabilities, forbid capabilities, or add prerequisites; it cannot
+  contain command text or grant an executor.
+- Same compiled stages produce the same hash even when the saved goal text
+  changes. A policy/template/stage change creates the next revision. The
+  compiler does not yet attach to `tailtrail start`; that belongs to DWR-2.
+
 Acceptance:
 
 - each of the 12 steps has at least one passing unit test
@@ -850,13 +977,13 @@ Acceptance:
 
 Phase exit criteria:
 
-> DWR-1.5 is complete when: compiler unit tests pass for all 12 steps, the cycle-detection
-> test passes, and the hash stability test passes (same stages = same hash regardless of
-> description change).
+> DWR-1.5 is complete: focused tests cover all 12 trace steps, deterministic
+> duplicate merging, cycle and conflict rejection, policy-driven revision,
+> description-independent hash stability, and public CLI compile/validate.
 
 ---
 
-### DWR-2: Navigator And Approval Integration
+### DWR-2: Navigator And Approval Integration *(implemented)*
 
 Deliverables:
 
@@ -869,6 +996,22 @@ Deliverables:
 - concise status and `next` output
 - `--no-workflow` flag on `start`
 
+Implemented surface:
+
+- `tailtrail start` now places a compact DWR draft inside the existing saved
+  Start proposal. Before approval it records only a suggested workflow ID and
+  Navigator registry feature IDs; it creates no `.tailtrail/workflows` data.
+- Activation of that exact run and immutable anchor creates the DWR-A binding,
+  DWR-B capability declaration, DWR-1 state/journal, and DWR-1.5 compiled
+  graph. The graph remains `not-executing`; DWR-2 does not dispatch a stage.
+- `--no-workflow` is a compatibility escape hatch. It leaves the Start Report
+  on its existing compact path and activation deliberately creates no workflow
+  artifacts.
+- `tailtrail workflow approvals session --action-class read_local|write_tailtrail_state
+  --approved` writes a hash-bound session approval record. Optional local
+  compiler policy `pre_approved_stages` writes the same record with source
+  `policy`; neither form authorizes project actions.
+
 Acceptance:
 
 - `guide` remains read-only and never creates workflow state
@@ -876,42 +1019,68 @@ Acceptance:
 - edited plans invalidate previous approval only on the three defined triggers
 - Navigator output does not become noisier than the current compact mode
 - session approval writes an approval event with `approval_source: session`
-- policy pre-approval writes an approval event with `approval_source: policy-reference`
+- policy pre-approval writes an approval event with `approval_source: policy`
 
 Phase exit criteria:
 
-> DWR-2 is complete when: the `guide` read-only test passes, the `start` approval gate test
-> passes, the plan-revision invalidation test covers all three triggers and no others, and
-> `tailtrail start "task" --no-workflow` returns a compact plan identical to the pre-DWR output.
+> DWR-2 is complete: focused tests prove guide remains read-only; a Start run
+> has only an in-report draft before approval; activation creates the binding,
+> declaration, state, and compiler plan without execution; policy/session
+> approvals are hash-bound; and `--no-workflow` creates no DWR artifacts.
 
 ---
 
-### DWR-3: Evidence, Resume, And Freshness
+### DWR-3: Evidence, Resume, Correction, And Closure Bridge — Implemented
 
-Deliverables:
+DWR-3 composes existing TailTrail evidence; it does not create a second test,
+review, recovery, or closure system. `tailtrail workflow evidence collect`
+captures only local artifact references and SHA-256 hashes for execution
+evidence, selected Harness assessments, drift/checkpoint data, correction and
+recovery artifacts, CI receipts, and the canonical Completion Report. It first
+captures the DWR-C task scope because this is the first approved execution
+checkpoint—not during planning.
 
-- evidence manager
-- stage-specific freshness hashes
-- resume and stale-stage recomputation
-- bounded retry controller
-- completion receipt
+`tailtrail workflow evidence refresh --change-type <type>` applies a bounded,
+deterministic invalidation matrix. The eight supported categorical changes are
+`source-edit`, `manifest-change`, `policy-change`, `graph-stale`,
+`doc-only-edit`, `branch-change`, `dependency-add`, and `security-finding`.
+Only the affected stage and its downstream stages become `stale`; unrelated
+passed stages remain passed. Documentation-only edits deliberately stale no
+stage. The record is task-scoped: unrelated repository dirtiness is not an
+input.
 
-Acceptance:
+`tailtrail workflow evidence resume` renders the shortest safe continuation:
+the first stale stage, otherwise the first pending stage. It is advisory only.
+Neither it nor `evidence correction` executes a stage, source edit, test,
+scanner, Git action, recovery action, or command retry. Correction simply
+attaches the existing requirement-scoped `closure correct` packet and marks its
+implementation path stale. A repeated or ambiguous failure therefore stays in
+the existing bounded correction/replan flow rather than becoming an autonomous
+retry loop.
 
-- unaffected passed stages remain passed after a change
-- relevant stages become stale when source, policy, graph, or manifests change
-- code-changing actions never retry automatically
+The canonical closure finalizer now calls the bridge for an already activated
+workflow. It writes a schema-bound completion receipt whose state is
+`completed` only when the existing Completion Report is complete. An incomplete
+report remains `evidence-incomplete`; it can be explicitly recorded as
+`evidence-incomplete-accepted` only through `workflow evidence close
+--accept-evidence-incomplete --approved`, and is never represented as success.
+Legacy/non-DWR runs do not gain workflow state during closure.
 
-Phase exit criteria:
+Delivered files:
 
-> DWR-3 is complete when: the freshness invalidation matrix test covers at least 8 change
-> types (source edit, manifest change, policy change, graph stale, doc-only edit, branch
-> change, dependency add, security finding), resume successfully preserves unaffected stages
-> and marks affected ones stale, and the completion receipt passes schema validation.
+- `scripts/workflow_runtime/evidence.py`
+- `schemas/workflow-evidence.schema.json`
+- `schemas/workflow-completion-receipt.schema.json`
+- `tests/test_workflow_evidence.py`
+
+Phase exit criteria: **passed.** The focused matrix covers all eight change
+types, proves source-edit stales `implement` while preserving `bootstrap`,
+proves documentation-only changes stale nothing, validates fail-closed receipt
+states, and checks both schemas are closed.
 
 ---
 
-### DWR-4: Core Capability Adapters
+### DWR-4.5: Core Capability Adapters — Deferred
 
 Deliverables:
 
@@ -930,7 +1099,7 @@ Acceptance:
 
 Phase exit criteria:
 
-> DWR-4 is complete when: the `small change -> focused test -> review -> fulfilment ->
+> The later DWR-4.5 expansion begins only after the `small change -> focused test -> review -> fulfilment ->
 > completion receipt` vertical path passes an Evaluation Harness deterministic scenario,
 > and `tailtrail start "task" --no-workflow` is confirmed still working before removing the flag.
 
@@ -1175,9 +1344,287 @@ Do not claim productivity, quality, or token improvement from workflow completio
 
 ---
 
+## Implementation Sequence And Phase Gates *(revised integration plan)*
+
+The runtime must be introduced as a thin coordination layer around the current TailTrail
+run model. The order below is intentional: it removes ambiguity before durable state or
+execution controls are added.
+
+### DWR-A: Canonical ownership contract
+
+**Status: implemented (DWR-A only).** The delivered surface is
+`tailtrail workflow bind|show|validate`, backed by
+`scripts/workflow_runtime/ownership.py` and
+`schemas/workflow-ownership.schema.json`. It writes one local binding under
+`.tailtrail/workflows/<workflow-id>/ownership-v1.json`, references the existing
+Planning Lock and approved anchor, and derives the requirement matrix through
+the anchor's `#/requirements` JSON pointer. It cannot run stages, create a
+parallel anchor, resume work, or mark work complete.
+
+**Goal:** establish that a workflow is always attached to one existing TailTrail run.
+
+- Define the required `workflow_id -> tailtrail_run_id` binding and artifact-reference schema.
+- Document artifact ownership for Planning Lock, approved anchor, requirement matrix,
+  AIDLC artifacts, drift records, recovery records, execution receipts, and closure.
+- Reject creation, resume, or completion when the target workspace identity or a canonical
+  reference is absent or mismatched.
+- Add fixtures for a normal run, an AIDLC Standard run, an AIDLC Full run, and a stale/mixed
+  workspace reference.
+
+**Exit gate:** a workflow cannot be created, approved, resumed, or completed without a
+valid canonical TailTrail run binding. No state is duplicated as editable workflow data.
+
+**DWR-A validation evidence:** focused ownership tests cover approved binding,
+unapproved/anchorless rejection, and fingerprint tamper detection. The future
+create/approve/resume/complete runtime commands are not implemented until their
+respective lifecycle phases; DWR-A exposes binding validation so those commands
+can later fail closed against the same contract.
+
+### DWR-B: Declarative capability and approval bridge
+
+**Status: implemented (DWR-B declarative bridge).** The delivered surface is
+`tailtrail workflow capabilities propose|show|validate|preapprove|preapproval-show|preapproval-validate`,
+backed by `scripts/workflow_runtime/capabilities.py`. A capability plan is
+stored beside its DWR-A binding as `capability-plan-v1.json`; it contains only
+registered TailTrail feature IDs, derived typed inputs (approved requirement
+UIDs, anchor reference, and target fingerprint), declared evidence outputs,
+and `execution_authority: not-implemented`. It has no command-text field and
+does not dispatch a command.
+
+The bridge references the still-approved Planning Lock and, when present, the
+existing official AI-DLC Requirements approval. It therefore creates no second
+implementation approval. A time-bound `preapproval-v1.json` can cover only
+declared `read-only` or `tailtrail-state` stages. Its scope is bound to the
+workflow/run, capability-plan fingerprint, target fingerprint, selected stage
+IDs, and expiry; it cannot authorize managed execution.
+
+**DWR-B validation evidence:** focused tests prove a registered capability
+declaration, public CLI round trip, canonical approval binding, scope-bound
+pre-approval, rejection of unknown capability IDs, and rejection of tampered
+command text. A valid plan remains explicitly non-executable: source edits,
+tests, scanners, Git, provider actions, publishing, and arbitrary shell work
+continue through their existing TailTrail controls only.
+
+**Goal:** ensure the runtime sequences only registered TailTrail capabilities and cannot
+bypass current approvals.
+
+- Define stage capability IDs, typed inputs, declared evidence outputs, and action classes.
+- Prohibit arbitrary shell command text in workflow records; commands remain resolved by the
+  existing capability/CLI adapter under policy.
+- Map Planning Lock approval, AIDLC Standard/Full approval, and existing stage gates to
+  runtime states without creating a second implementation approval.
+- Limit session and policy pre-approval to read-only or TailTrail-state actions; bind their
+  scope to target workspace, run ID, plan hash, and expiry.
+
+**Exit gate:** a forged workflow approval cannot start source editing, tests, scans, Git,
+provider, or publish work; conformance tests show the canonical gate remains authoritative.
+
+### DWR-C: Task-scoped identity, locking, and freshness
+
+**Status: implemented (DWR-C coordination boundary).** The delivered surface is
+`tailtrail workflow task scope-init|scope-show|freshness|acquire|lock-show|diagnose`,
+backed by `scripts/workflow_runtime/task_scope.py`. It creates one
+`scope-v1.json` per workflow from the approved requirement matrix. Each
+requirement receives a fingerprinted record of its approved paths, a
+requirement-level context anchor, and an anchor evidence reference. Only the
+declared paths are content-fingerprinted; no raw source is persisted.
+
+`acquire` creates the single repository-level
+`.tailtrail/workflow-active-code-change-v1.json` reservation only while the
+DWR-A binding, DWR-B plan, and DWR-C scope are valid and fresh. Another
+workflow cannot replace it. `freshness`, `lock-show`, and `diagnose` are
+read-only. A diagnosis explains whether the reservation is held elsewhere or
+the approved scoped state changed; it never deletes a reservation, retries a
+command, or starts recovery.
+
+**DWR-C validation evidence:** focused tests prove that a change to an
+unrelated already-known source file does not make the workflow stale, a change
+to an approved scoped file does, one workflow blocks another from reserving
+code-changing work, and the public CLI captures scope without executing a
+stage. DWR-C does not add pause, cancellation, release, replay, or recovery;
+those lifecycle actions remain for later DWR phases.
+
+**Goal:** preserve unrelated local work and prevent a workflow from acting on the wrong task.
+
+- Reuse the existing target-workspace identity and active-run lock semantics.
+- Permit one active code-changing workflow per target repository while allowing read-only
+  status and discovery operations.
+- Store scope fingerprints by approved requirement ID, paths, symbols/context anchors, and
+  evidence references; do not use repository dirtiness alone as an invalidation signal.
+- Define a strict stale-lock diagnosis path that never deletes a lock or retries project
+  changes silently.
+
+**Exit gate:** a second task with unrelated uncommitted work remains intact when the active
+workflow pauses, becomes stale, or enters recovery.
+
+### DWR-minus: Storage proof
+
+**Status: implemented (DWR-minus storage proof).** The delivered surface is
+`tailtrail workflow storage init|capture|status|replay|validate`, backed by
+`scripts/workflow_runtime/storage.py`. It creates a workflow-local
+`journal-v1.jsonl` and atomically replaces `projection-v1.json` only after a
+hash-chained journal event has been flushed and synced. Journal events contain
+only safe `.tailtrail` artifact references and SHA-256 hashes. They never store
+source, prompts, command text, or raw outputs.
+
+Replay builds the projection deterministically from the journal and compares it
+with the saved projection. It detects invalid JSON/trailing interrupted writes,
+sequence gaps or duplicates, incorrect event IDs/hashes, and cross-workflow or
+cross-run events. `status` continues to expose the last valid atomic projection
+when later journal data is invalid; replay and validation are read-only and do
+not repair, truncate, delete, or rewrite storage.
+
+**DWR-minus validation evidence:** focused tests prove initialization and
+snapshot replay, interrupted journal detection with last-projection preservation,
+cross-run/sequence tamper rejection, references-and-hashes-only storage, and
+the public CLI round trip. It intentionally does not add projection repair,
+event compaction, or lifecycle execution; those belong to later phases.
+
+**Goal:** prove append-only workflow journaling after the ownership and schema contracts are
+known, but before stage execution exists.
+
+- Implement atomic workflow projection writes and append-only journal writes.
+- Replay events to the same projected state; detect sequence gaps and interrupted writes.
+- Persist references and hashes only, subject to existing sanitization and size limits.
+
+**Exit gate:** corruption, duplicate sequence, cross-run binding, and interrupted-write tests
+fail closed while the last valid projection remains readable.
+
+### DWR-0: Runtime contract and inventory *(implemented through Deferred Phase 1)*
+
+**Goal:** publish the schemas, reason codes, transition table, feature mappings, privacy
+boundary, and module-size rule.
+
+- Reconcile the existing DWR-0 deliverables with the DWR-A/B contracts above.
+- Make every stage an adapter to an existing TailTrail capability, not a parallel taxonomy.
+- Add schema fixtures for AIDLC Off, Lite, Standard, and Full mode references.
+
+**Exit gate:** every template stage resolves to a registered capability and every persisted
+field has one authoritative owner.
+
+### DWR-1: Local state engine and read-only product surface *(implemented)*
+
+**Goal:** add lifecycle visibility without changing how `tailtrail start` behaves.
+
+- Implement create, list, show, status, pause, cancel, event replay, and doctor operations.
+- Make `workflow state show` report canonical run, current requirement, current stage, evidence
+references, and blocked/stale reason without exposing sensitive source or raw prompts.
+- Keep the standard Start Report unchanged at this phase.
+
+**Implemented contract:** `workflow state create` derives lifecycle identity
+from the approved DWR-A binding and DWR-minus journal. `workflow state
+list|show|status|replay|doctor` only reads canonical artifacts. `pause`,
+`resume`, and `cancel --confirmed` are event-only controls; cancellation may
+release the matching metadata reservation but cannot roll back files or invoke
+an executor. A missing optional DWR-B plan or DWR-C scope is reported as
+`not-declared`/`not-captured`, not a false blocker. A corrupt journal,
+ownership mismatch, or stale captured scope remains blocked.
+
+### DWR-1.5: Deterministic compiler *(implemented)*
+
+**Goal:** compile an approved Navigator route into the smallest valid stage graph.
+
+- Validate selected features, policy/guardrail requirements, prerequisites, duplicate-stage
+merges, approval classes, and plan hash stability.
+- Compile from Navigator selections only; do not independently reclassify the task.
+- Treat a changed stage list, affected policy/guardrail change, or changed target identity as
+revision triggers. One or more simultaneous triggers still invalidate the prior approval.
+
+**Exit gate:** deterministic fixtures prove graph selection, conflict rejection, cycle
+rejection, and no-op annotation behavior.
+
+**Implemented contract:** compilation is an explicit, non-executing operation
+over the canonical DWR-A/DWR-B artifacts. `workflow compile plan` selects one
+of the small-change, delivery, risk-sensitive, review-only, or repository
+discovery graphs; confirms every capability is implemented and non-conflicting;
+normalizes and topologically orders the stage graph; and freezes a hash-bound
+revision. `workflow compile show|validate` never repair, approve, or execute
+the graph. DWR-2 now uses this frozen result through the controlled Start bridge.
+
+### DWR-2: Controlled Start integration *(implemented)*
+
+**Goal:** attach the runtime to normal Start without breaking host adapters.
+
+- Create an in-memory workflow draft from the current Planning Lock; persist it only after
+canonical plan approval.
+- Render compact workflow status as an addition to—not a replacement for—the Start Report.
+- Preserve `--no-workflow` as a compatibility escape hatch until one real vertical path has
+passed evaluation.
+
+**Implemented contract:** Start keeps its exact Planning Lock and report
+sections. For normal anchored Start runs it adds a compact workflow draft to
+the saved report only; no durable workflow directory exists before approval.
+Activation under the same run creates the DWR-A/DWR-B/DWR-1/DWR-1.5 artifacts
+and includes their compact status in the execution handoff. `--no-workflow`
+omits that addition and prevents runtime activation. `workflow approvals`
+records only explicit session or bounded policy references for non-executing
+stage classes. Codex, Copilot, and Claude continue to consume the normal Start
+Report; the runtime does not replace or abbreviate it.
+
+### DWR-3: Evidence, resume, correction, and closure bridge
+
+**Implemented outcome:** DWR-3 now sequences the existing focused-test,
+architecture, behaviour, maintainability, drift, correction, recovery, CI, and
+completion artifacts as hash-bound stage evidence. Its categorical freshness
+matrix recomputes only affected stage paths and preserves unrelated passed
+stages. `workflow evidence resume` emits the shortest valid continuation, and
+an existing failed correction can only be attached as a bounded packet—never
+re-executed automatically. The closure bridge agrees with the canonical
+Completion Report: only a complete report produces `completed`; an explicit
+evidence-incomplete receipt stays visibly incomplete.
+
+### DWR-4: One Proven Vertical Path — Implemented
+
+**Goal:** prove value before integrating broad delivery, scanners, CI continuation, or an
+enterprise runtime adapter.
+
+```text
+approved small change
+  -> focused validation
+  -> review
+  -> requirement-completion assessment
+  -> canonical completion report
+```
+
+The delivered `tailtrail workflow vertical` adapter supports only the compiled
+`small-change` template. `vertical status` checks for already saved factual
+`source-edit` evidence and a passing `unit`/`focused` receipt. `vertical
+finalize` then composes the existing Closure Recorder, Completion Review,
+Requirement Completion gate, selected finalizer assessments, canonical
+Completion Report, and DWR-3 completion receipt. It does **not** run the source
+edit, test, review, or fulfilment stage; those remain host-visible facts with
+their existing evidence boundary.
+
+If required evidence is absent, it returns `evidence-incomplete` without
+creating a closure record, retrying a command, or changing project work. It
+rejects delivery, risk, review-only, and discovery templates rather than
+quietly broadening the first proven path. An incomplete final result remains in
+the existing bounded correction/replan flow.
+
+Evaluation Harness now includes the deterministic
+`dwr-small-change-vertical` scenario with baseline and TailTrail saved
+artifacts. It scores approved scope, factual focused evidence, review and
+fulfilment, canonical closure, and no-retry safety. It is fixture proof of the
+composition contract only—not live-model performance, production correctness,
+or token savings.
+
+**Exit gate: passed.** Focused tests prove a complete path, a missing-evidence
+fail-closed path, and non-small-template rejection. The deterministic scenario
+passes with `tailtrail` as the winner. `tailtrail start --no-workflow` remains
+covered by the DWR-2 compatibility tests and has not been retired.
+
+### DWR-5+: Deferred expansion
+
+Token, learning, Meta-Harness, MCP continuation, CI continuation, scanner-heavy flows,
+cross-repository delivery, and any enterprise/distributed adapter remain adapters added only
+after DWR-4 evidence. They must reuse the canonical binding and declarative capability
+contract above.
+
+---
+
 ## Recommended First Release
 
-Implement DWR-minus, DWR-0, DWR-1, DWR-1.5, DWR-2, and DWR-3 first. This provides:
+Implement DWR-A, DWR-B, DWR-C, DWR-minus, DWR-0, DWR-1, DWR-1.5, DWR-2, and DWR-3 first. This provides:
 
 - proven storage model (DWR-minus)
 - durable contract and schemas (DWR-0)
@@ -1186,14 +1633,1363 @@ Implement DWR-minus, DWR-0, DWR-1, DWR-1.5, DWR-2, and DWR-3 first. This provide
 - approval flow and `--no-workflow` escape hatch (DWR-2)
 - evidence, resume, freshness (DWR-3)
 
-Then connect one complete vertical path in DWR-4:
+The DWR-4 vertical path is now connected:
 
 ```text
+
 small change -> focused test -> review -> requirement fulfilment -> completion receipt
 ```
 
-Validate that path through Evaluation Harness before connecting risk, scanner,
-cross-repository, and CI workflows. Remove `--no-workflow` only after this path is validated.
+The deterministic Evaluation Harness scenario validates that path before later
+risk, scanner, cross-repository, and CI workflow adapters. `--no-workflow`
+remains available; its retirement needs broader real-run evidence.
+
+---
+
+## Deferred Implementation — Master Completion Plan
+
+### Purpose And Status
+
+This section is the canonical backlog for everything in this document that is
+not delivered by DWR-A, DWR-B, DWR-C, DWR-minus, DWR-1, DWR-1.5, DWR-2,
+DWR-3, or the narrow DWR-4 small-change vertical. It replaces vague phrases
+such as "later adapter" with dependency-ordered implementation phases,
+artifacts, tests, and exit gates.
+
+Completing DWR-4 does **not** mean the full Durable Workflow Runtime is
+complete. It proves only this composition path:
+
+```text
+approved small change
+  -> host-recorded source edit
+  -> host-recorded focused validation
+  -> existing review and requirement-completion controls
+  -> canonical Completion Report
+  -> DWR-3 completion receipt
+```
+
+The runtime is complete only after every phase and every item in the final
+coverage matrix below is implemented, registered, documented, and validated.
+
+### Canonical Phase Status
+
+| Phase | Status | Registry feature |
+| --- | --- | --- |
+| DWR-A — canonical ownership | implemented | `durable-workflow-ownership-dwr-a` |
+| DWR-B — capability bridge | implemented | `durable-workflow-capability-bridge-dwr-b` |
+| DWR-C — task scope and reservation | implemented | `durable-workflow-task-scope-dwr-c` |
+| DWR-minus — storage proof | implemented | `durable-workflow-storage-dwr-minus` |
+| DWR-0 — complete runtime contract | implemented; Deferred Phase 1 | `durable-workflow-contract-dwr-0` |
+| DWR-1 — local state engine | implemented | `durable-workflow-state-engine-dwr-1` |
+| DWR-1.5 — deterministic compiler | implemented | `durable-workflow-compiler-dwr-1-5` |
+| DWR-2 — controlled Start integration | implemented | `durable-workflow-start-integration-dwr-2` |
+| DWR-3 — evidence and closure bridge | implemented | `durable-workflow-evidence-closure-dwr-3` |
+| DWR-4 — small-change vertical | implemented | `durable-workflow-proven-vertical-dwr-4` |
+| Deferred Phase 0 — documentation reconciliation | implemented | `durable-workflow-documentation-phase-0` |
+| Deferred Phase 1 — complete DWR-0 contract | implemented | `durable-workflow-contract-dwr-0` |
+| Deferred Phase 2 — complete state machine | implemented | `durable-workflow-deferred-phase-2` |
+| Deferred Phase 3 — approval enforcement | implemented | `durable-workflow-deferred-phase-3` |
+| Deferred Phase 4 — capability adapters | implemented | `durable-workflow-deferred-phase-4` |
+| Deferred Phase 5 — full template execution | implemented | `durable-workflow-deferred-phase-5` |
+| Deferred Phase 6 — freshness/correction/recovery | implemented | `durable-workflow-deferred-phase-6` |
+| Deferred Phase 7 — token/learning/evaluation adapters | planned | `durable-workflow-deferred-phase-7` |
+| Deferred Phase 8 — MCP and host conformance | planned | `durable-workflow-deferred-phase-8` |
+| Deferred Phase 9 — CI continuation | planned | `durable-workflow-deferred-phase-9` |
+| Deferred Phase 10 — negative assurance | planned | `durable-workflow-deferred-phase-10` |
+| Deferred Phase 11 — real-run release proof | planned | `durable-workflow-deferred-phase-11` |
+| Deferred Phase 12 — enterprise adapter | optional/evidence-gated | `durable-workflow-deferred-phase-12` |
+
+### Non-Negotiable Boundaries For All Deferred Phases
+
+- The Planning Lock, approved anchor, requirement matrix, existing evidence
+  recorders, recovery artifacts, and Completion Report remain canonical.
+- The runtime may reference canonical artifacts but may not create a parallel
+  approval, requirement, test, drift, recovery, or completion truth.
+- Arbitrary command text must never become trusted because it appears in a
+  workflow file or event. Commands resolve from approved repository policy,
+  registered adapters, or exact host receipts.
+- Source-changing, destructive, publish, deployment, dependency, scanner, and
+  external-provider actions remain explicitly authority-gated.
+- No code-changing or publish action retries automatically.
+- Session or policy pre-approval may cover only read-only and TailTrail-state
+  operations.
+- Workflow state remains local by default and stores references, hashes,
+  categorical facts, and sanitized summaries—not raw prompts, source bodies,
+  logs, secrets, user identity, customer data, or credentials.
+- Missing, stale, ambiguous, or malformed evidence fails closed.
+- Estimated token evidence must never be labelled measured. Measured claims
+  require linked host/provider telemetry.
+- The Python standard library and current project dependencies remain the
+  default. Any new dependency must pass `DEPENDENCY-GATE.md`.
+- Every phase must preserve `tailtrail start --no-workflow` until the explicit
+  retirement gate in Deferred Phase 11 is satisfied.
+
+### Deferred Phase 0 — Documentation And Contract Reconciliation *(implemented)*
+
+**Goal:** make this document and the public product surface describe one
+runtime before more behavior is added.
+
+Requirements:
+
+1. Replace the stale document-level `not implemented` status with a phase-aware
+   status showing implemented and deferred phases.
+2. Remove the duplicated Test Strategy section.
+3. Reconcile legacy DWR-minus examples (`workflow.json`, `events.jsonl`, and
+   `workflow events`) with the implemented `journal-v1.jsonl`,
+   `projection-v1.json`, and `workflow storage` commands.
+4. Reconcile all command examples with `TAILTRAIL-COMMANDS.md` and actual CLI
+   dispatch.
+5. Reconcile template names, stage names, and counts. The design names six
+   templates, while the compiler currently implements five and omits the
+   CI/scanner-remediation template.
+6. Reconcile `aidlc-requirements` versus the registered AIDLC capability IDs
+   and document how Off, Lite, Standard, and Full references are represented.
+7. Mark DWR-0 explicitly incomplete until Deferred Phase 1 passes.
+8. Add a phase/status table to this document and `ROADMAP.md`.
+9. Ensure the Feature Registry has one entry per runtime phase with accurate
+   commands, scripts, schemas, tests, dependencies, evidence labels, and
+   approval posture.
+10. Add a documentation drift test that compares documented commands and phase
+    statuses to CLI and registry data.
+
+Implemented files:
+
+- `DURABLE-WORKFLOW-RUNTIME-REVISED.md`
+- `ROADMAP.md`
+- `TAILTRAIL-COMMANDS.md`
+- `ARCHITECTURE.md`
+- `tailtrail-registry.json`
+- `tests/test_workflow_documentation.py`
+
+Exit gate:
+
+> **Passed.** Public/design documentation now uses the implemented storage
+> names and command families, distinguishes five compiled templates from the
+> deferred sixth template, records AIDLC mode authority, and exposes one
+> phase-status table backed by Feature Registry entries. Strict registry and
+> `tests/test_workflow_documentation.py` checks enforce the reconciled
+> contract.
+
+Implemented files:
+
+- `DURABLE-WORKFLOW-RUNTIME-REVISED.md`
+- `ROADMAP.md`
+- `TAILTRAIL-COMMANDS.md`
+- `ARCHITECTURE.md`
+- `tailtrail-registry.json`
+- `tests/test_workflow_documentation.py`
+
+### Deferred Phase 1 — DWR-0 Runtime Contract, Schemas, And Module Boundary *(implemented)*
+
+**Goal:** finish the typed contract that every later adapter and transition
+must obey.
+
+Requirements:
+
+1. Define a canonical workflow-instance schema.
+2. Define a canonical stage-instance schema containing:
+   - stable stage ID;
+   - registered capability IDs;
+   - prerequisites;
+   - input and output schema references;
+   - required evidence types;
+   - approval class;
+   - action classes;
+   - retry policy;
+   - freshness inputs;
+   - completion rule;
+   - skip rule and reason code;
+   - failure behavior.
+3. Define a canonical action schema for `read_local`,
+   `write_tailtrail_state`, `write_project`, `execute_project`, `scan_local`,
+   `external_provider`, and `publish`.
+4. Define workflow and stage transition schemas and a machine-readable legal
+   transition table.
+5. Define structured reason codes for approval, block, failure, skip, stale,
+   retry, replan, recovery, cancellation, supersession, and completion.
+6. Define typed approval, evidence, context-budget, completion, and sanitized
+   workflow-event contracts.
+7. Add fixtures covering AIDLC Off, Lite, Standard, and Full references without
+   copying official or sensitive artifacts.
+8. Validate real example artifacts against the schemas; checking only
+   `additionalProperties: false` is insufficient.
+9. Add schema-version compatibility and unknown-version rejection.
+10. Add privacy-field allowlists, safe relative-path validation, event/artifact
+    size limits, and categorical-summary boundaries.
+11. Enforce the documented 300-line maximum for every file in
+    `scripts/workflow_runtime/`. Split modules by responsibility where needed;
+    `evidence.py` currently exceeds this limit.
+12. Map every stage in every supported template to one implemented Feature
+    Registry capability—no parallel feature taxonomy.
+
+Likely files:
+
+- `scripts/workflow_runtime/contracts.py`
+- `scripts/workflow_runtime/reason_codes.py`
+- `scripts/workflow_runtime/evidence.py` split into focused modules
+- `schemas/workflow-instance.schema.json`
+- `schemas/workflow-stage.schema.json`
+- `schemas/workflow-action.schema.json`
+- `schemas/workflow-transition.schema.json`
+- `schemas/workflow-approval-record.schema.json`
+- `schemas/workflow-runtime-event.schema.json`
+- `schemas/workflow-context-receipt.schema.json`
+- `tests/fixtures/workflow_runtime/`
+- `tests/test_workflow_contracts.py`
+- `tests/test_workflow_module_boundaries.py`
+
+Exit gate:
+
+> **Passed.** Real persisted workflow artifacts and contract fixtures validate
+> through the standard-library DWR-0 validator. Unknown versions/types/fields,
+> unsafe paths, disallowed privacy fields, illegal transitions, and oversized
+> artifacts fail closed. Every compiled template stage resolves to one
+> implemented Feature Registry capability, and every module in
+> `scripts/workflow_runtime/` is at most 300 lines.
+
+Implemented files:
+
+- `scripts/workflow_runtime/contracts.py`
+- `scripts/workflow_runtime/reason_codes.py`
+- `scripts/workflow_runtime/evidence_completion.py`
+- `scripts/install-copilot.py` Extended-pack runtime inventory
+- `schemas/workflow-{instance,stage,action,transition,approval-record,evidence-record,context-receipt,completion-contract,runtime-event}.schema.json`
+- `schemas/workflow-transition-table-v1.json`
+- `tests/fixtures/workflow_runtime/aidlc-{off,lite,standard,full}.json`
+- `tests/test_workflow_contracts.py`
+- `tests/test_workflow_module_boundaries.py`
+
+### Deferred Phase 2 — Complete Workflow And Stage State Machine *(implemented)*
+
+**Goal:** replace advisory stage inference with a deterministic, replayable
+stage lifecycle.
+
+Requirements:
+
+1. Implement all workflow states: `draft`, `awaiting_approval`, `ready`,
+   `running`, `paused`, `blocked`, `failed`, `cancelled`, `superseded`, and
+   `completed`.
+2. Implement all stage states: `pending`, `ready`, `awaiting_approval`,
+   `running`, `passed`, `failed`, `blocked`, `skipped`, `stale`, and
+   `cancelled`.
+3. Implement every legal transition and reject every illegal transition with a
+   structured reason code.
+4. Add append-only events for workflow/stage ready, start, pass, fail, block,
+   skip, stale, cancel, supersede, and complete transitions.
+5. Project complete workflow and stage state deterministically from the event
+   journal.
+6. Prevent a completed workflow from returning to running.
+7. Create a linked follow-up workflow for new work after completion.
+8. Make pause/resume preserve current requirement, stage, evidence,
+   reservation, approvals, and freshness state.
+9. Make cancellation end workflow metadata only; it must not imply source
+   rollback or command cancellation that did not occur.
+10. Implement supersession with parent/successor references and no silent
+    deletion of the old record.
+11. Add `workflow state events` or an equivalent read-only journal surface.
+12. Make doctor distinguish corruption, stale evidence, missing authority,
+    external dependency, and terminal states without repairing them.
+
+Likely files:
+
+- `scripts/workflow_runtime/transitions.py`
+- `scripts/workflow_runtime/state.py`
+- `scripts/workflow_runtime/storage.py`
+- `scripts/workflow-runtime.py`
+- workflow and event schemas from Deferred Phase 1
+- `tests/test_workflow_transitions.py`
+- `tests/test_workflow_stage_replay.py`
+
+Exit gate:
+
+> **Passed.** Exhaustive transition-table tests cover every legal and illegal
+> workflow/stage edge. Journal replay reproduces the saved projection exactly;
+> completed workflows cannot reopen; pause/resume preserve requirement, stage,
+> evidence, scope, reservation, and artifact references; cancellation and
+> supersession are metadata-only and preserve unrelated artifacts.
+
+#### Implemented design
+
+`scripts/workflow_runtime/transitions.py` is the only transition authority. It
+checks the frozen tables in `reason_codes.py`, validates a registered reason
+code, checks stage prerequisites, and asks storage to append one sanitized
+event. It neither calls a capability nor grants execution authority.
+`projection.py` is a pure reducer: the same binding and ordered event list
+always produce the same workflow and stage projection.
+
+```mermaid
+flowchart LR
+    C["Approved run and workflow creation"] --> D["draft"]
+    D --> A["awaiting_approval"]
+    A --> R["ready"]
+    R --> X["running"]
+    X --> P["paused"]
+    P --> R
+    X --> B["blocked"]
+    B --> R
+    X --> F["failed"]
+    F --> R
+    X --> O["completed"]
+    D --> K["cancelled / superseded"]
+    A --> K
+    R --> K
+    X --> K
+    O --> N["new approved follow-up workflow"]
+```
+
+Compiled stages are registered once from the frozen compiler graph. A stage
+cannot enter `ready`, `awaiting_approval`, or `running` until every prerequisite
+is `passed` or explicitly `skipped`. A completed, cancelled, or superseded
+workflow rejects every stage transition. When a registered graph exists, the
+workflow cannot become `completed` while any stage is outside `passed` or
+explicitly `skipped`.
+
+```mermaid
+flowchart LR
+    P["pending"] --> R["ready"]
+    R --> A["awaiting_approval"]
+    A --> X["running"]
+    R --> X
+    X --> S["passed"]
+    X --> F["failed / blocked / stale"]
+    F --> R
+    S --> T["stale"]
+    T --> R
+    P --> K["skipped / blocked / cancelled"]
+```
+
+Illegal transitions fail with a structured diagnostic such as:
+
+```text
+transition-rejected reason_code=illegal-workflow-transition
+scope=workflow subject_id=ttw-example from_state=completed to_state=running
+```
+
+Follow-up work never reopens a completed record. It requires another approved
+TailTrail run, creates a new workflow ID, and appends reciprocal parent and
+successor references. Supersession follows the same preservation rule: the old
+journal remains intact and no workflow directory is deleted.
+
+Pause and resume append only a workflow-state event. Requirement references,
+stage projections, artifact hashes, evidence references, approval artifacts,
+scope freshness, and the code-change reservation remain unchanged. Cancellation
+marks unfinished stages and workflow metadata cancelled, then releases only
+the reservation owned by that workflow. It never claims source rollback or
+host-command cancellation.
+
+`workflow state doctor` is read-only and categorizes `corruption`,
+`stale-evidence`, `missing-authority`, `external-dependency`, and
+`terminal-state`. It reports but never truncates a journal, clears a lock,
+retries a command, or invokes recovery.
+
+Implemented command surface:
+
+```text
+tailtrail workflow state transition --workflow-id <id> --to <state> --reason-code <code>
+tailtrail workflow state stage --workflow-id <id> --stage-id <stage> --to <state> --reason-code <code>
+tailtrail workflow state events --workflow-id <id>
+tailtrail workflow state follow-up --parent-workflow-id <id> --run-id <approved-run>
+tailtrail workflow state supersede --workflow-id <old> --successor-workflow-id <new>
+```
+
+Implemented files:
+
+- `scripts/workflow_runtime/transitions.py`
+- `scripts/workflow_runtime/projection.py`
+- `scripts/workflow_runtime/state.py`
+- `scripts/workflow_runtime/storage.py`
+- `scripts/workflow-runtime.py`
+- `schemas/workflow-storage-event.schema.json`
+- `schemas/workflow-projection.schema.json`
+- `tests/test_workflow_transitions.py`
+- `tests/test_workflow_stage_replay.py`
+
+### Deferred Phase 3 — Complete Approval And Policy Enforcement *(implemented)*
+
+**Goal:** make every guarded stage transition depend on canonical, scoped,
+auditable authority.
+
+Requirements:
+
+1. Implement full initial-plan approval binding to run ID, target identity,
+   compiler plan revision, stage graph, and approved scope.
+2. Implement stage approval for dependency, broad test/build, scanner,
+   security-sensitive, external-provider, fix-application, publish, deploy,
+   merge, and other guarded actions.
+3. Expand approval records with approval ID, workflow revision, stage IDs,
+   action classes, bounded operation reference, scope, expiry, decision,
+   source, policy reference, and rationale.
+4. Implement explicit approved, rejected, and edited decisions.
+5. Expire session approvals when the host session ends, the workflow pauses,
+   the target identity changes, or a material plan revision occurs.
+6. Invalidate affected policy approvals when their policy/guardrail hash
+   changes.
+7. Limit policy and session pre-approval to `read_local` and
+   `write_tailtrail_state`; reject project execution, scan, provider, and
+   publish classes.
+8. Record explicit skip approvals and categorical reason codes. Silent skips
+   are forbidden.
+9. Enforce the three plan invalidation triggers and prove non-trigger metadata
+   edits do not invalidate approval.
+10. Reject forged IDs, stale hashes, cross-run approvals, cross-target
+    approvals, expired approvals, and approval reuse against a new revision.
+11. Ensure runtime approval never substitutes for Planning Lock, AIDLC,
+    dependency, recovery, or closure acceptance.
+
+Likely files:
+
+- `scripts/workflow_runtime/approvals.py`
+- `scripts/workflow_runtime/start_integration.py`
+- `scripts/workflow_runtime/compiler.py`
+- `scripts/workflow_runtime/transitions.py`
+- `scripts/workflow_runtime/state.py`
+- `scripts/workflow-runtime.py`
+- `schemas/workflow-approval-record.schema.json`
+- `schemas/workflow-stage-approvals.schema.json`
+- `tests/test_workflow_approvals.py`
+- `tests/test_workflow_start_integration.py`
+- `tests/test_workflow_contracts.py`
+
+Exit gate:
+
+> Forged, expired, stale, cross-run, cross-target, and over-broad approvals are
+> rejected; pause/revision expiry works; valid low-risk session/policy approvals
+> reduce prompts without granting project action authority.
+
+#### Implemented authority model
+
+Phase 3 now uses `scripts/workflow_runtime/approvals.py` as the single runtime
+approval authority. Start activation records an initial-plan decision bound to
+the exact TailTrail run, Planning Lock target fingerprint, approved-anchor
+fingerprint, compiler revision and fingerprint, ordered stage graph, approved
+scope, requirement IDs, and policy/guardrail fingerprint. That record proves
+which plan was approved, but is deliberately rejected if supplied as authority
+to start a guarded stage.
+
+The immutable approved anchor is the stable approval scope. Capturing the
+derived DWR-C file-level scope does not revoke an otherwise valid approval;
+however, every guarded authority check consumes DWR-C freshness when that
+scope exists and blocks if an approved operational path is stale.
+
+Every later decision is an append-only record in
+`.tailtrail/workflows/<workflow-id>/stage-approvals-v1.json` with:
+
+- a content-derived `wfauth-*` approval ID;
+- explicit `approved`, `rejected`, or `edited` decision;
+- compiler revision, stage graph, target, anchor, scope, and requirement IDs;
+- stage IDs, canonical action classes, guarded-operation kind, and bounded
+  repository-relative operation reference;
+- source, rationale, optional session/expiry, policy reference and hash;
+- a separate authority boundary stating that runtime approval cannot replace
+  Planning Lock, AIDLC, Dependency Gate, recovery, closure acceptance, or host
+  safety approval.
+
+Guarded `ready/awaiting_approval -> running` transitions now require the exact
+effective approval ID. The ID must cover the stage and its compiler-declared
+action class. An `initial-plan`, rejected, edited, expired, stale, cross-run,
+cross-target, wrong-stage, wrong-action, or forged record fails closed.
+`skipped` requires a dedicated `skip` approval plus one categorical reason:
+`not-applicable`, `superseded-by-approved-stage`, `duplicate-proof`,
+`policy-exempt`, or `user-declined`; there is no silent skip path.
+
+```mermaid
+flowchart LR
+    A["Approved Planning Lock + anchor"] --> B["Compiler revision + stage graph"]
+    B --> C["Initial-plan binding record"]
+    C --> D{"Guarded stage requested?"}
+    D -->|"No"| E["Metadata transition"]
+    D -->|"Yes"| F["Validate exact approval ID"]
+    F --> G{"Run, target, graph, scope, policy, expiry, action all match?"}
+    G -->|"No"| H["Blocked: missing/stale authority"]
+    G -->|"Yes"| I["Record stage transition only"]
+```
+
+Session and policy pre-approval are restricted to `read_local` and
+`write_tailtrail_state`. The API rejects `write_project`, `execute_project`,
+`scan_local`, `external_provider`, and `publish` for those sources. Interactive
+stage decisions support dependency, broad test/build, scanner,
+security-sensitive, provider, fix-application, publish, deploy, merge, skip,
+and other guarded operation classes. A dependency operation additionally
+requires a separate approved `tailtrail-dependency-decision` artifact; the
+runtime record cannot manufacture or replace it.
+
+Session authority expires explicitly at host-session end, automatically when
+the workflow pauses, and when a material compiler revision is written. Target
+identity/HEAD changes, stage graph/order changes, and policy/guardrail changes
+make prior authority ineffective. Changes to a run description, token budget,
+or other non-guarded metadata do not alter the compiler revision or invalidate
+approval.
+
+#### Public commands
+
+```text
+tailtrail workflow approvals show --root . --workflow-id <id>
+tailtrail workflow approvals validate --root . --workflow-id <id>
+tailtrail workflow approvals session --root . --workflow-id <id> \
+  --session-id <host-session> --action-class read_local --approved
+tailtrail workflow approvals session-end --root . --workflow-id <id> \
+  --session-id <host-session>
+tailtrail workflow approvals decide --root . --workflow-id <id> \
+  --stage-id <stage> --action-class execute_project \
+  --operation-kind broad-test-build --operation-ref <safe-artifact-ref> \
+  --decision approved --rationale <bounded-reason>
+tailtrail workflow approvals skip --root . --workflow-id <id> \
+  --stage-id <stage> --operation-ref <safe-artifact-ref> \
+  --reason-code not-applicable --rationale <bounded-reason> --approved
+tailtrail workflow state stage --root . --workflow-id <id> \
+  --stage-id <stage> --to running --reason-code approval-granted \
+  --approval-id <wfauth-id>
+```
+
+These commands record and validate control-plane authority only. Capability
+execution remains owned by the adapters introduced in later phases.
+
+#### Files and validation proof
+
+- `scripts/workflow_runtime/approvals.py` owns records, hashing, expiry,
+  effective-authority checks, and stage authorization.
+- `start_integration.py` records the initial binding and safe policy decisions;
+  `compiler.py` expires session authority on material revision.
+- `transitions.py` and `state.py` enforce approval IDs, skip authority, and
+  pause expiry without executing project work.
+- `workflow-approval-record.schema.json` and
+  `workflow-stage-approvals.schema.json` define the closed artifacts.
+- `tests/test_workflow_approvals.py` covers initial/stage separation,
+  rejected/edited/expired decisions, forged IDs, cross-run reuse, policy drift,
+  explicit skips, low-risk limits, pause/revision expiry, and non-trigger
+  metadata edits. Start, contract, transition, replay, and installer regression
+  suites preserve the earlier DWR behavior.
+
+### Deferred Phase 4 — Core Capability Adapter Contracts *(implemented)*
+
+**Goal:** make existing TailTrail capabilities callable as typed workflow
+stages without copying their business logic.
+
+Implement these adapters:
+
+1. **Bootstrap adapter**
+   - reads approved target identity and repository readiness;
+   - returns policy, manifest, language, host, and canonical-state references;
+   - performs no project command.
+2. **Graph discovery adapter**
+   - reads or refreshes the approved graph through the existing mapper;
+   - records graph version, inventory fingerprint, freshness, likely callers,
+     tests, and read order;
+   - never treats heuristic graph evidence as proof.
+3. **Clarification/AIDLC adapter**
+   - represents Lite, Standard, and Full authority correctly;
+   - records approved requirement references and lifecycle stage status;
+   - never creates a parallel TailTrail questionnaire for Standard/Full.
+4. **Planning adapter**
+   - consumes approved requirements and impact mapping;
+   - emits typed implementation slices and evidence requirements;
+   - cannot approve or execute a slice.
+5. **Implementation-boundary adapter**
+   - provides exact requirement IDs, allowed paths, preserve rules, current
+     evidence gaps, and authority to the host agent;
+   - accepts only factual source-edit receipts after host-visible changes;
+   - prevents duplicate source-action dispatch through idempotency keys.
+6. **Focused-testing adapter**
+   - resolves commands only from repository-native approved configuration;
+   - records exact command, outcome, tier, environment, asserted behavior, and
+     artifact reference;
+   - distinguishes failed, blocked, skipped, timeout, and unavailable results.
+7. **Review adapter**
+   - invokes the existing TailTrail Review contract;
+   - returns requirement-linked findings, severity, scope, architecture,
+     behavior, maintainability, and preservation evidence;
+   - does not apply fixes without a separate guarded transition.
+8. **Requirement-fulfilment adapter**
+   - consumes approved anchor, checkpoints, receipts, and review;
+   - returns complete/incomplete per requirement and one bounded next action;
+   - cannot weaken required proof tiers.
+9. **Security and quality adapters**
+   - route dependency, secret, vulnerability, quality, and scanner controls;
+   - require applicable approval and policy;
+   - retain exact external/local evidence boundaries.
+10. **Handoff adapter**
+    - emits sanitized implementation, validation, remaining-risk, rollout,
+      rollback, and operations references;
+    - cannot publish or deploy.
+
+Shared adapter requirements:
+
+- use Feature Registry IDs and typed inputs/outputs;
+- declare action class, authority, idempotency, retry, timeout, freshness,
+  evidence, skip, and failure rules;
+- never persist raw command output or source bodies;
+- reject unregistered capabilities and arbitrary command construction;
+- wrappers remain small import-and-call shims.
+
+Likely files:
+
+- `scripts/workflow_runtime/adapters/`
+- existing TailTrail capability scripts reused by those adapters
+- `schemas/workflow-adapter-input.schema.json`
+- `schemas/workflow-adapter-output.schema.json`
+- `tests/test_workflow_adapters.py`
+
+Exit gate:
+
+> Every core adapter returns a schema-valid typed result, maps to one registered
+> capability, preserves the existing feature's authority boundary, and passes
+> idempotency, missing-evidence, invalid-output, and no-arbitrary-command tests.
+
+#### Implemented adapter architecture
+
+Phase 4 adds one closed catalog in
+`scripts/workflow_runtime/adapter_catalog.py` and one shared exchange engine in
+`scripts/workflow_runtime/adapters.py`. The catalog is the only place that maps
+a runtime adapter ID to an implemented Feature Registry capability, action
+class, authority owner, required output fields, retry limit, timeout,
+freshness rule, skip rule, and failure rule. The exchange engine prepares
+typed inputs and records typed factual outputs; it does not copy or invoke the
+feature's business logic.
+
+| Adapter | Registered capability | Action class | Authority preserved |
+| --- | --- | --- | --- |
+| `bootstrap` | `canonical-local-state` | `read_local` | approved run, target, and canonical state |
+| `graph-discovery` | `code-graph-mapper` | `write_tailtrail_state` | existing mapper and graph freshness |
+| `clarification-aidlc` | `aidlc` | `write_tailtrail_state` | Lite or pinned official Standard/Full authority |
+| `planning` | `navigator` | `write_tailtrail_state` | approved requirements and impact mapping |
+| `implementation-boundary` | `requirement-completion-harness` | `write_project` | host agent inside exact approved scope |
+| `focused-testing` | `evidence-aware-testing` | `execute_project` | repository-approved test configuration |
+| `review` | `review` | `read_local` | TailTrail Review findings only |
+| `requirement-fulfilment` | `requirement-completion-harness` | `write_tailtrail_state` | anchor, receipts, review, and proof tiers |
+| `security` | `security-vulnerability` | `scan_local` | security policy and explicit scanner authority |
+| `quality` | `quality-signals` | `scan_local` | quality policy and explicit scanner authority |
+| `handoff` | `program-delivery-orchestrator` | `write_tailtrail_state` | sanitized delivery/operations handoff |
+
+The compiler now freezes `adapter_id` and `adapter_action_class` beside the
+legacy declarative capability classification. Approval enforcement therefore
+uses the real operation boundary: implementation requires `write_project`,
+testing requires `execute_project`, and a scanner requires `scan_local`. A
+metadata-only approval cannot start one of those adapter exchanges.
+
+```mermaid
+flowchart LR
+    A["Frozen compiler stage"] --> B["Resolve registered adapter contract"]
+    B --> C["Validate ownership, anchor, scope, freshness"]
+    C --> D{"Stage/action guarded?"}
+    D -->|"Yes"| E["Validate exact wfauth ID and action class"]
+    D -->|"No"| F["Create typed input"]
+    E --> F
+    F --> G["Existing capability or host performs work"]
+    G --> H["Host writes sanitized factual result JSON"]
+    H --> I["Validate adapter-specific required fields"]
+    I --> J["Record typed output and categorical outcome"]
+```
+
+#### Input, output, and idempotency contract
+
+`workflow-adapter-input.schema.json` closes the prepared handoff around the
+workflow and compiler revision, plan fingerprint, stage and adapter IDs,
+registered capability, canonical action class, approval ID, approved
+requirement IDs, anchor and scope references, freshness, evidence needs,
+timeout, and retry posture. It contains no shell command, source body, or raw
+prompt. Preparing the same frozen stage returns `already-prepared`; its
+`wfidem-*` key is derived from workflow, revision, plan, stage, capability,
+requirements, and scope. A changed frozen identity cannot reuse the old input.
+
+`workflow-adapter-output.schema.json` records the same dispatch identity plus
+one categorical outcome: `pass`, `fail`, `blocked`, `skipped`, `timeout`, or
+`unavailable`. Adapter-specific validation requires every evidence field in
+the catalog. Duplicate recording for the same idempotency key returns
+`duplicate-suppressed`; a different dispatch cannot overwrite the result.
+
+The implementation-boundary adapter never edits source. It hands the host
+exact requirement IDs, allowed-path/preserve information from the approved
+matrix, current scope, evidence requirements, and approved action boundary;
+after a host-visible edit it accepts only factual source-edit references and
+changed paths. This prevents duplicate source-action dispatch without
+pretending that metadata itself changed code.
+
+The focused-testing adapter never runs an arbitrary command. The existing
+testing capability and host resolve a command from approved repository-native
+configuration. The result records the exact command that actually ran, tier,
+environment, asserted behavior, outcome, and artifact reference. Raw
+stdout/stderr is not retained in the adapter artifact.
+
+#### Authority and evidence boundaries
+
+- Standard and Full AIDLC results must name `official-aidlc-pack` as their
+  authority source; a parallel TailTrail questionnaire is rejected.
+- Graph output may record local, provider-backed, or heuristic posture, but
+  `proof` is rejected because graph relationships remain advisory.
+- Review findings cannot apply fixes; a fix requires a separate guarded
+  implementation transition.
+- Requirement fulfilment cannot remove or lower the evidence tiers frozen in
+  the approved stage.
+- Security and quality results require scanner-class approval and preserve
+  whether evidence was local or external.
+- Handoff contains references and remaining risks only; it has no publish,
+  deploy, merge, or rollout execution authority.
+- Closed schemas and DWR privacy validation reject raw prompts, source bodies,
+  raw logs, credentials, unsafe references, unknown fields, and oversized
+  artifacts.
+
+#### Public commands
+
+```text
+tailtrail workflow adapters list
+tailtrail workflow adapters contract --adapter-id <adapter>
+tailtrail workflow adapters prepare --root . --workflow-id <id> \
+  --stage-id <stage> --adapter-id <adapter> [--approval-id <wfauth-id>]
+tailtrail workflow adapters record --root . --workflow-id <id> \
+  --stage-id <stage> --adapter-id <adapter> --result-ref <safe-json-ref>
+tailtrail workflow adapters show --root . --workflow-id <id> --stage-id <stage>
+tailtrail workflow adapters validate --root . --workflow-id <id> --stage-id <stage>
+```
+
+`list`, `contract`, `show`, and `validate` are read-only. `prepare` writes only
+the typed TailTrail handoff after canonical and approval checks. `record`
+writes only a validated factual result supplied by the existing capability or
+host. Deferred Phase 5 composes those boundaries into deterministic stage
+advancement; the adapter commands themselves still do not execute capabilities.
+
+#### Files and validation proof
+
+- `adapter_catalog.py` owns the eleven closed mappings and stage resolution;
+  `adapters.py` owns preparation, result validation, recording, status, and
+  integrity checks.
+- `compiler.py` freezes adapter identity/action class; `approvals.py` includes
+  that boundary in stage-graph fingerprints and authority decisions.
+- The two adapter schemas are installed with the Extended pack and registered
+  by DWR contract validation.
+- `tests/test_workflow_adapters.py` covers every typed result, official AIDLC
+  authority, graph evidence labels, exact action approval, privacy/schema
+  rejection, idempotent preparation, duplicate suppression, capability
+  mismatch, missing evidence, and non-executing command boundaries.
+- Compiler, approval, contract, Start, installer, registry, module-boundary,
+  and documentation tests protect earlier DWR behavior and public surfaces.
+
+### Deferred Phase 5 — Full Template Execution And Deterministic Fixtures *(implemented)*
+
+**Goal:** expand beyond the proven small-change composition path.
+
+Requirements by template:
+
+1. **Small Change**
+   - connect bootstrap, discovery, implementation boundary, focused test,
+     review, fulfilment, and completion through real stage transitions;
+   - retain current DWR-4 fixture and add a sanitized real local run.
+2. **Delivery**
+   - bootstrap → discover → clarify → plan → implement → focused test → review
+     → fulfilment → handoff → completion;
+   - require AIDLC clarification when acceptance criteria are insufficient;
+   - permit skip only with an explicit approved reason code.
+3. **Risk-Sensitive**
+   - include AIDLC, threat/risk plan, implementation, tiered tests, security,
+     quality, review, fulfilment, approval, handoff, and completion;
+   - block dependency, migration, privacy, auth, secret, or infrastructure work
+     until corresponding policy/authority exists.
+4. **Review Only**
+   - scope diff → graph impact → review → requirement fulfilment → optional-fix
+     proposal;
+   - rejected fixes end without source change.
+5. **CI Or Scanner Remediation**
+   - ingest finding → graph overlay → root cause → fix plan → approval →
+     implementation boundary → focused validation → finding recheck → review →
+     completion;
+   - distinguish saved CI/scanner receipts from a live provider action.
+6. **Repository Discovery**
+   - graph freshness → bounded discovery → architecture summary → completion;
+   - remain read-only and require a follow-up workflow for project changes.
+
+Cross-template requirements:
+
+- compiler graphs exactly match documented templates;
+- prerequisites are acyclic and deterministic;
+- selected policy stages are inserted predictably;
+- every skip, block, failure, correction, recovery, and completion is
+  requirement-linked;
+- template-specific handoff and closure evidence are defined;
+- replay/resume yields the shortest valid continuation without repeating passed
+  unaffected stages.
+
+Likely files:
+
+- `scripts/workflow_runtime/templates.py`
+- `scripts/workflow_runtime/compiler.py`
+- `scripts/workflow_runtime/executor.py`
+- adapter modules from Deferred Phase 4
+- `tests/fixtures/workflow_runtime/templates/`
+- `tests/test_workflow_templates.py`
+- `tests/test_workflow_template_execution.py`
+
+Exit gate:
+
+> All six templates pass deterministic end-to-end fixtures; required guarded
+> stages cannot run without valid authority; rejected/blocked paths terminate
+> safely; replay produces the same result; no template invents evidence.
+
+#### Implemented runtime design
+
+Phase 5 does not copy Navigator, AIDLC, graph, testing, review, security,
+quality, fulfilment, or handoff logic into the runtime. `templates.py` defines
+the exact DAGs, `compiler.py` freezes every stage's capability, typed adapter,
+action class, prerequisites, evidence requirement, and approval posture, and
+`executor.py` advances that graph. The existing capability or host performs the
+real work and returns a sanitized typed result through the Phase 4 adapter.
+
+```mermaid
+flowchart LR
+    A["Frozen compiler plan"] --> B["Read shortest prerequisite-ready stage"]
+    B --> C{"Scoped authority required?"}
+    C -->|"Missing"| D["awaiting_approval; no dispatch"]
+    C -->|"Valid or not required"| E["Prepare typed adapter input"]
+    E --> F["Existing capability or host performs work"]
+    F --> G["Record factual typed result"]
+    G --> H{"Result and boundary valid?"}
+    H -->|"Pass"| I["Mark stage passed"]
+    H -->|"Fail or blocked"| J["Stop categorically"]
+    I --> K{"All stages passed or approved-skipped?"}
+    K -->|"No"| B
+    K -->|"Yes"| L["Complete; release reservation; save receipt"]
+```
+
+| Template | Deterministic path | Specific control |
+| --- | --- | --- |
+| Small Change | bootstrap → discover → implement → focused-test → review → fulfilment | bounded local proof and smallest complete path |
+| Delivery | bootstrap → discover → clarify → plan → implement → focused-test → review → fulfilment → handoff | approved AIDLC boundary and delivery handoff |
+| Risk-Sensitive | bootstrap → discover → clarify → risk-plan → implement → tests → security → quality → review → fulfilment → release-approval → handoff | matching risk authority plus explicit release gate |
+| Review-Only | scope-diff → graph-impact → review → fulfilment → optional-fix-proposal | no implementation adapter; rejection remains source-read-only |
+| CI/Scanner Remediation | ingest-finding → graph-overlay → root-cause → fix-plan → fix-approval → implement → focused-validation → finding-recheck → review → fulfilment | saved CI/scanner intake; no inferred live provider action |
+| Repository Discovery | bootstrap → graph-freshness → bounded-discovery → architecture-summary | read-only; project writes need a new approved workflow |
+
+Risk classification reads immutable approved requirement statements for
+dependency, migration, privacy, authentication/authorization, secret, and
+infrastructure signals. Before `risk-sensitive:implement`, `risk-plan` must
+classify every detected risk and reference an approved, schema-valid
+`tailtrail-workflow-risk-authority` covering the same classes. Missing,
+rejected, malformed, or partial authority blocks both stage and workflow.
+
+`workflow execute status` replays and validates the journal, derives the same
+next stage, and writes nothing. `start` initializes operational scope when
+execution begins, checks exact `wfauth-*` authority, and prepares one idempotent
+adapter handoff. The host/capability records a factual typed result. `finish`
+maps that result to the canonical state machine. `skip` requires a separate
+current approval whose operation kind is `skip`; ordinary approval cannot
+substitute. Passed/skipped stages never dispatch again, so replay returns the
+shortest unaffected continuation.
+
+```text
+tailtrail workflow execute status --root . --workflow-id <id>
+tailtrail workflow execute start --root . --workflow-id <id> [--stage-id <stage>] [--approval-id <wfauth-id>]
+tailtrail workflow adapters record --root . --workflow-id <id> --stage-id <stage> --adapter-id <adapter> --result-ref <safe-json-ref>
+tailtrail workflow execute finish --root . --workflow-id <id> --stage-id <stage>
+tailtrail workflow execute skip --root . --workflow-id <id> --stage-id <stage> --approval-id <skip-wfauth-id>
+```
+
+#### Implemented files and proof
+
+- `scripts/workflow_runtime/templates.py`: six exact DAGs, selection, and stable
+  topological ordering.
+- `scripts/workflow_runtime/compiler.py`: implicit template capabilities,
+  approval gates, typed execution authority, and frozen hashes.
+- `scripts/workflow_runtime/executor.py`: read-only status, start/finish/skip,
+  risk/CI boundaries, completion validation, reservation release, and events.
+- `scripts/workflow_runtime/adapter_catalog.py`: mappings for every stage.
+- `schemas/workflow-template-execution.schema.json` and
+  `schemas/workflow-risk-authority.schema.json`: closed persisted contracts.
+- `tests/fixtures/workflow_runtime/templates/`: six fixtures; Small Change is
+  the sanitized local composition fixture.
+- `tests/test_workflow_templates.py`: exact selection/order, acyclicity,
+  adapter coverage, policy precedence, and read-only discovery.
+- `tests/test_workflow_template_execution.py`: six complete workflows, stable
+  replay, missing authority, saved-CI boundary, rejected-fix containment,
+  categorical failure, and approved skip.
+
+The persisted
+`.tailtrail/workflows/<workflow-id>/template-execution-v1.json` contains the
+frozen plan fingerprint, requirement UIDs, stage statuses and typed artifact
+references, next stage, and terminal posture. It contains no raw source, raw
+logs, model claims, or invented evidence.
+
+### Deferred Phase 6 — Automatic Freshness, Bounded Retry, Correction, And Recovery
+
+**Status:** implemented end to end.
+
+**Goal:** turn DWR-3's explicit evidence bridge into a complete safe feedback
+loop.
+
+Requirements:
+
+1. Automatically classify freshness changes from approved inputs:
+   - scoped source edit;
+   - manifest/configuration change;
+   - policy/guardrail hash change;
+   - graph inventory/cache staleness;
+   - documentation-only edit;
+   - repository/branch/HEAD identity change;
+   - dependency addition/change;
+   - security finding.
+2. Preserve unrelated passed stages and completed requirements.
+3. Recompute only affected stages and downstream dependants.
+4. Record why each stage became stale and which evidence hash changed.
+5. Implement retry eligibility by action class:
+   - bounded deterministic read/TailTrail-state retry only;
+   - explicit maximum attempts and backoff category;
+   - no automatic retry for source writes, broad project execution, scanners,
+     external providers, publish, deploy, merge, or destructive actions.
+6. Prevent duplicate source-action dispatch with stable operation IDs and saved
+   attempt receipts.
+7. Route fresh actionable failure to one bounded correction packet.
+8. Route repeated/ambiguous/regressed failure to Recovery/Replan while
+   preserving anchor, actual state, drift, evidence, attempts, and unaffected
+   completed requirements.
+9. Integrate Task Recovery Boundary and conflict classification without
+   silently overwriting unrelated work.
+10. Resume from the first stale/failed dependency-ready stage.
+11. Add correction/recovery exhaustion and needs-decision states.
+12. Ensure accepted evidence-incomplete closure never becomes success or a
+    retry trigger.
+
+Likely files:
+
+- `scripts/workflow_runtime/freshness.py`
+- `scripts/workflow_runtime/retry.py`
+- `scripts/workflow_runtime/resume.py`
+- `scripts/workflow_runtime/correction.py`
+- existing Context Continuity, correction, and recovery modules
+- `tests/test_workflow_freshness.py`
+- `tests/test_workflow_retry.py`
+- `tests/test_workflow_recovery.py`
+
+Exit gate:
+
+> Automatic eight-type freshness tests pass; unaffected work remains passed;
+> eligible deterministic retries are bounded and idempotent; code-changing and
+> publish actions never retry automatically; repeated failure routes to
+> preserved-state Recovery/Replan.
+
+#### Implemented design
+
+Phase 6 extends the frozen compiler graph; it does not create another
+orchestrator or requirement authority.
+
+```mermaid
+flowchart LR
+    A["Approved frozen workflow"] --> B["Versioned operational checkpoint"]
+    B --> C["Automatic eight-type freshness comparison"]
+    C -->|"fresh or docs-only"| D["Dispatch next dependency-ready stage"]
+    C -->|"affected input changed"| E["Mark affected passed stages stale"]
+    E --> F["Preserve unrelated passed stages and requirement IDs"]
+    F --> G["Bounded correction packet"]
+    G -->|"eligible deterministic local action"| H["One typed retry handoff"]
+    G -->|"write, scan, provider, publish, repeated, or ambiguous"| I["Recovery/Replan with preserved evidence"]
+    H --> J["Saved operation and attempt receipt"]
+    I --> K["Resume from first dependency-ready incomplete stage"]
+    J --> K
+```
+
+Implemented responsibilities:
+
+- `freshness.py` captures versioned local checkpoints and compares scoped
+  source/docs, manifests, dependencies, policy/guardrails, graph evidence,
+  security evidence, and branch/HEAD identity. It records changed hashes and
+  invalidates only affected graph stages and their dependants.
+- `retry.py` creates stable `wfop-*` operation IDs, immutable initial/retry
+  attempt rows, maximum attempts, and typed host handoffs. Only deterministic
+  `read_local` and safe `write_tailtrail_state` actions can qualify; TailTrail
+  never runs the action itself.
+- `correction.py` creates one requirement-linked bounded correction packet for
+  fresh actionable failure. Repeated, ambiguous, regressed, new-drift,
+  conflict, or exhausted cycles route to preserved-state Recovery/Replan or
+  `needs-decision`.
+- `resume.py` replays the graph and journal, preserves passed work, and selects
+  the first incomplete dependency-ready stage with an explicit approval,
+  retry, correction, or replan action.
+- `executor.py` captures the baseline, checks freshness before dispatch,
+  records attempts, checkpoints every passing stage/retry, and routes failures
+  without claiming success.
+- `task_scope.py` recognizes a later versioned checkpoint after a legitimate
+  in-scope edit while immutable approved path ownership remains authoritative.
+
+Persisted artifacts:
+
+```text
+.tailtrail/workflows/<workflow-id>/operational-checkpoint-v1.json
+.tailtrail/workflows/<workflow-id>/freshness/checkpoint-<revision>.json
+.tailtrail/workflows/<workflow-id>/freshness/assessment-<n>.json
+.tailtrail/workflows/<workflow-id>/retry-attempts-v1.json
+.tailtrail/workflows/<workflow-id>/corrections/packet-<n>.json
+```
+
+All persisted types have closed schemas and contain hashes, IDs, safe local
+references, classifications, and factual outcomes—not raw source, prompts,
+logs, secrets, credentials, or identity.
+
+Source writes, project execution, scanners, providers, publish, deploy, merge,
+and destructive actions never retry automatically. Existing Task Recovery
+Boundary and reconciliation artifacts are referenced, never overwritten or
+silently applied. An accepted `evidence-incomplete` closure becomes
+`needs-decision`; it cannot become success or a retry trigger.
+
+```text
+tailtrail workflow freshness show|capture|assess|apply ...
+tailtrail workflow retry show|decide|prepare|record ...
+tailtrail workflow resume --root . --workflow-id <workflow-id>
+tailtrail workflow correction show|route ...
+```
+
+`tests/test_workflow_freshness_recovery.py` covers all eight automatic change
+types, documentation-only preservation, dependency-scoped invalidation,
+versioned checkpoints, stable operation IDs, bounded low-risk retry, prohibited
+project-write retry, repeated-failure escalation, preserved requirement IDs,
+and read-only status/resume behavior. Existing execution, replay, approval,
+evidence, contract, CLI, installer, registry, and documentation suites remain
+the regression boundary.
+
+### Deferred Phase 7 — Token, Learning, Evaluation, And Meta-Harness Adapters
+
+**Goal:** attach existing improvement systems to workflow stages without
+making them lifecycle authorities.
+
+Requirements:
+
+1. Attach per-stage context budget, selected context references, exactness
+   class, reduction status, and retrieval pointers.
+2. Record estimated token posture separately from measured host/provider usage.
+3. Link measured telemetry by run/workflow/stage ID and reject unlinked claims.
+4. Make resume consume compact summaries and retrieval references instead of
+   replaying full history.
+5. Create learning suggestions only after canonical completion and acceptance.
+6. Keep incomplete-delivery learning separate from positive learning.
+7. Keep learning candidate-only until existing governance promotes it.
+8. Emit normalized Evaluation Harness events for template choice, stage
+   outcomes, stale recomputation, correction cycles, approval counts,
+   requirement completion, and closure.
+9. Emit sanitized Meta-Harness signals for workflow fit, repeated failures,
+   false intervention, missing evidence, approval burden, and adapter quality.
+10. Never include raw prompts, source bodies, logs, secrets, customer data,
+    repository identity, or user identity in shared learning/evaluation data.
+11. Ensure current source, policy, tests, CI, scanners, and user instructions
+    always override learned suggestions.
+
+Likely files:
+
+- `scripts/workflow_runtime/context.py`
+- `scripts/workflow_runtime/outcomes.py`
+- existing Token Harness, Learning, Evaluation, and Meta-Harness modules
+- normalized workflow-event schema
+- `tests/test_workflow_context.py`
+- `tests/test_workflow_learning.py`
+- `tests/test_workflow_evaluation.py`
+- `tests/test_workflow_meta_harness.py`
+
+Exit gate:
+
+> No measured token label appears without linked telemetry; no learning
+> candidate appears before accepted completion; normalized evaluation and
+> Meta-Harness outputs contain no raw prompt/source/log or identifying data.
+
+### Deferred Phase 8 — MCP Workflow Surface And Host Conformance
+
+**Goal:** expose one runtime contract consistently to Codex, Copilot, Claude,
+and other MCP-capable hosts.
+
+Read-only MCP tools:
+
+- workflow list/show/status;
+- current requirement and stage;
+- compiler plan and approval posture;
+- freshness and stale reasons;
+- evidence and completion receipt;
+- resume recommendation;
+- doctor and event replay.
+
+Controlled MCP tools:
+
+- create/activate from an approved canonical run;
+- grant/reject a scoped stage approval;
+- pause/resume/cancel/supersede;
+- record a host stage result;
+- request a bounded correction/replan;
+- finalize canonical closure.
+
+Requirements:
+
+1. Controlled tools require explicit approval where their action class demands
+   it and always revalidate run, target, plan, policy, scope, and freshness.
+2. MCP cannot forge Planning Lock, AIDLC, dependency, recovery, or closure
+   authority.
+3. Read-only tools never create workflow state.
+4. Tool schemas reject unknown fields and unsafe paths.
+5. Codex, Copilot, and Claude adapters render the same lifecycle outcome and
+   preserve host-specific safety precedence.
+6. Installed packs include the complete runtime surface and upgrade cleanly.
+7. Host conformance receipts cover Start, approval, execution handoff,
+   evidence, failure, correction, resume, and closure.
+
+Likely files:
+
+- `scripts/mcp-server.py`
+- `scripts/workflow_runtime/mcp_bridge.py`
+- Codex, Copilot, and Claude adapter assets
+- installer manifests and pack inventories
+- `tests/test_workflow_mcp.py`
+- `tests/test_workflow_host_conformance.py`
+
+Exit gate:
+
+> All read-only and controlled MCP tools pass forged-approval, stale-plan,
+> cross-run, cross-target, path, and unknown-field tests; all three hosts show
+> the same canonical workflow status and closure boundary.
+
+### Deferred Phase 9 — Policy-Backed CI Continuation
+
+**Goal:** allow CI to advance only explicitly approved non-interactive
+validation and reporting stages.
+
+Requirements:
+
+1. Ingest linked CI receipts with workflow, run, requirement, stage, revision,
+   commit, environment, command label, outcome, artifact, and provenance.
+2. Verify CI receipt freshness against target/plan/scope identity.
+3. Permit CI continuation only for policy-approved non-interactive validation,
+   evidence-ingestion, reporting, or closure-readiness stages.
+4. Prohibit CI source fixes, dependency changes, infrastructure changes,
+   scanner activation, external-provider use, publish, deployment, merge, and
+   recovery unless a separate explicit policy and approval contract exists.
+5. Handle duplicate, delayed, out-of-order, failed, cancelled, and stale CI
+   receipts deterministically.
+6. Record no credential, raw log, or provider secret.
+7. Fail closed when provenance or commit/run binding is missing.
+
+Likely files:
+
+- `scripts/workflow_runtime/ci.py`
+- existing CI evidence and host-runtime conformance modules
+- CI receipt/provenance schemas
+- `tests/test_workflow_ci_continuation.py`
+
+Exit gate:
+
+> CI can advance an approved validation/reporting stage from a valid linked
+> receipt and cannot perform or authorize project writes, scans, providers,
+> publication, deployment, merge, or recovery.
+
+### Deferred Phase 10 — Security, Privacy, Governance, And Negative Assurance
+
+**Goal:** prove the runtime remains safe when artifacts, approvals, adapters,
+or hosts are malicious, stale, malformed, or ambiguous.
+
+Required negative coverage:
+
+1. forged approval ID;
+2. modified plan after approval;
+3. non-trigger annotation that must not invalidate approval;
+4. cross-run and cross-target artifact substitution;
+5. event sequence gap, duplicate sequence, invalid hash, and interrupted write;
+6. completed-to-running transition;
+7. path traversal and absolute/out-of-root path;
+8. secret-like, credential, identity, raw prompt, source body, and oversized
+   event content;
+9. arbitrary command reconstructed from an untrusted event;
+10. automatic retry of a code-changing, scanner, provider, or publish action;
+11. external provider without explicit opt-in;
+12. session approval used for project write or execution;
+13. stale policy, graph, scope, CI, or completion evidence;
+14. unknown schema version, capability, action class, stage, reason code, or
+    template;
+15. another workflow's reservation, evidence, approval, or completion receipt;
+16. cancellation or recovery falsely claiming a source rollback;
+17. incomplete/failed evidence represented as pass;
+18. measured token claim without telemetry;
+19. learning/evaluation artifact containing disallowed raw data;
+20. runtime output breaking the Start Report or host stop rule.
+
+Governance requirements:
+
+- registry ownership and duplicate-script checks;
+- adapter synchronization and installed-pack manifest verification;
+- schema and command documentation drift checks;
+- explicit retention and manual cleanup policy;
+- no background deletion or upload;
+- categorical audit records for blocked/denied actions;
+- dependency gate for any added package.
+
+Likely files:
+
+- runtime schemas and validators
+- `scripts/check-tailtrail.py`
+- `scripts/tailtrail-registry.py`
+- `scripts/sync-adapters.py`
+- `tests/test_workflow_security.py`
+- `tests/test_workflow_privacy.py`
+- `tests/test_workflow_negative.py`
+
+Exit gate:
+
+> Every negative case fails closed without project/external mutation, registry
+> and adapter drift checks pass, retained local data follows the documented
+> policy, and no runtime artifact crosses the privacy boundary.
+
+### Deferred Phase 11 — Evaluation, Real-Run Proof, Migration, And Release Gate
+
+**Goal:** prove the full runtime helps real delivery before making it the only
+path or removing compatibility controls.
+
+Deterministic scenarios required:
+
+1. small bug with focused unit proof;
+2. Delivery task using AIDLC clarification and handoff;
+3. Risk-Sensitive auth/privacy/dependency or migration task;
+4. review-only task with optional fix rejected;
+5. CI failure with graph overlay and recheck;
+6. vulnerability finding with scan/fix approval;
+7. dependency request rejected by policy;
+8. repository discovery/read-only architecture summary;
+9. interrupted workflow resumed after source change;
+10. stale graph refresh;
+11. policy change during pause;
+12. repeated correction routed to Recovery/Replan;
+13. recovery conflict preserving unrelated work;
+14. cross-repository reference workflow;
+15. incomplete closure and explicit accepted-incomplete audit path.
+
+Real-run proof required:
+
+- at least one sanitized real local project per supported template;
+- complete Start-to-closure host receipts;
+- requirement completion and preservation evidence;
+- approval prompt count and false-approval observations;
+- stale-stage recomputation and resume accuracy;
+- duplicate-execution and false-intervention count;
+- correction/recovery safety;
+- review effort and unresolved drift;
+- estimated versus measured token evidence coverage;
+- no unsupported productivity, quality, time, or token-savings claim.
+
+Migration and compatibility requirements:
+
+1. Existing commands and `.tailtrail` artifacts remain authoritative.
+2. No old workflow history is migrated automatically.
+3. New runtime reads old artifacts only through explicit compatible adapters.
+4. Codex, Copilot, and Claude installed guidance handles runtime output.
+5. Release notes continue to document `--no-workflow` while it exists.
+6. Retention is configurable and count-based with explicit/manual cleanup; no
+   background deletion.
+7. Compatibility aliases are introduced only after the canonical runtime is
+   stable and map to one stage without bypassing authority.
+
+`--no-workflow` retirement requires all of these:
+
+1. every deterministic scenario above passes;
+2. all supported host conformance suites pass;
+3. at least one complete real task cycle succeeds for each supported template;
+4. no material unresolved false-approval, duplicate-execution, privacy, or
+   recovery-safety issue remains;
+5. installed skills/instructions and release notes are updated;
+6. the user-facing Start report remains concise and compatible;
+7. a documented rollback path restores compatibility if rollout fails.
+
+Exit gate:
+
+> Deterministic and sanitized real-run evidence satisfies the release policy;
+> all hosts and templates converge on the same canonical completion; measured
+> claims remain calibrated; compatibility removal is separately approved.
+
+### Deferred Phase 12 — Optional Enterprise And Distributed Runtime Adapter
+
+**Goal:** add distributed continuation only when local runtime evidence proves
+it is necessary.
+
+Entry criteria:
+
+- teams demonstrate long-running or cross-repository continuation needs that
+  the local JSON runtime cannot satisfy;
+- operational ownership, threat model, tenancy, retention, backup, disaster
+  recovery, audit, availability, and cost controls are approved;
+- local mode remains supported and default.
+
+Possible deliverables:
+
+- pluggable state-store interface;
+- durable distributed workflow adapter;
+- event transport adapter;
+- parent/child workflow identities across repositories;
+- centralized read-only observability projection;
+- concurrency leases and fencing tokens;
+- tenant isolation and authorization;
+- retention, backup, restore, and disaster-recovery controls;
+- migration and rollback between local and enterprise adapters.
+
+Explicit exclusions without a separate approved design:
+
+- autonomous free-form agent communication;
+- mandatory model API;
+- hidden background execution;
+- raw workflow/source/log upload;
+- automatic code or publish retries;
+- mandatory Redis, graph/vector database, queues, containers, or Kubernetes.
+
+Exit gate:
+
+> Distributed execution preserves the same canonical ownership, approval,
+> evidence, privacy, retry, recovery, and closure contracts as local mode;
+> isolation, failover, replay, migration, rollback, and cost tests pass.
+
+### Final Coverage Matrix — Nothing May Be Omitted
+
+| Document promise | Required implementation phase | Completion proof |
+| --- | --- | --- |
+| Correct public status and non-contradictory documentation | Phase 0 | documentation drift test |
+| Versioned workflow/stage/action/event/approval schemas | Phase 1 | real fixture schema validation |
+| Seven action classes and structured reason codes | Phase 1 | allowlist and unknown-value tests |
+| Privacy allowlist, path safety, size limits | Phases 1 and 10 | negative security/privacy suite |
+| Module size maximum | Phase 1 | automated line-count gate |
+| Full workflow and stage state machine | Phase 2 | exhaustive transition matrix |
+| Append-only replayable stage events | Phase 2 | replay/equivalence tests |
+| Cancel, supersede, terminal completion, linked follow-up | Phase 2 | lifecycle integration tests |
+| Initial, stage, session, and policy approvals | Phase 3 | authority and expiry tests |
+| Three invalidation triggers and no others | Phase 3 | plan revision matrix |
+| Bootstrap and graph adapters | Phase 4 | typed adapter fixtures |
+| AIDLC clarification and planning adapters | Phase 4 | Lite/Standard/Full authority tests |
+| Implementation boundary and idempotency | Phase 4 | duplicate-dispatch negative test |
+| Focused test, review, fulfilment, security, quality, handoff adapters | Phase 4 | adapter contract suite |
+| Small Change template | Phase 5 | deterministic plus real sanitized run |
+| Delivery template | Phase 5 | AIDLC/handoff scenario |
+| Risk-Sensitive template | Phase 5 | guarded risk scenario |
+| Review-Only template | Phase 5 | rejected-fix scenario |
+| CI/Scanner Remediation template | Phase 5 | ingest/recheck scenario |
+| Repository Discovery template | Phase 5 | read-only scenario |
+| Automatic eight-type freshness detection | Phase 6 | freshness matrix |
+| Bounded eligible retry and prohibited write retry | Phase 6 | retry/action-class matrix |
+| Correction, continuity, recovery, and safe resume | Phase 6 | repeated-failure/recovery scenarios |
+| Per-stage Token Harness context and receipts | Phase 7 | estimated/measured boundary tests |
+| Governed learning after accepted completion | Phase 7 | lifecycle eligibility tests |
+| Evaluation and Meta-Harness workflow signals | Phase 7 | normalized sanitized event tests |
+| MCP read and controlled lifecycle tools | Phase 8 | forged/stale/cross-run tests |
+| Codex, Copilot, and Claude convergence | Phase 8 | host conformance receipts |
+| Policy-backed CI continuation | Phase 9 | no-write CI continuation suite |
+| Comprehensive negative assurance | Phase 10 | security/privacy/governance suite |
+| Deterministic scenario portfolio | Phase 11 | scenario threshold reports |
+| Real sanitized project proof and calibrated metrics | Phase 11 | accepted release evidence |
+| Compatibility, retention, rollout, and rollback | Phase 11 | migration/release checklist |
+| Optional enterprise/distributed runtime | Phase 12 | evidence-gated enterprise conformance |
+
+### Final Definition Of Done
+
+The Durable Workflow Runtime is fully implemented only when:
+
+1. Deferred Phases 0 through 11 are complete; Phase 12 is either implemented
+   after its entry criteria or remains explicitly out of the local product.
+2. Every row in the Final Coverage Matrix has a linked implementation artifact
+   and passing proof.
+3. All six templates pass deterministic fixtures and sanitized real runs.
+4. All action, approval, evidence, retry, freshness, recovery, privacy, and
+   closure negative tests fail closed.
+5. Codex, Copilot, Claude, CLI, MCP, and approved CI continuation produce the
+   same canonical state and Completion Report outcome.
+6. No workflow can approve itself, invent evidence, retry a project write,
+   bypass policy, weaken proof, expose disallowed content, or report incomplete
+   work as complete.
+7. The registry, docs, schemas, installed packs, host guidance, and actual CLI
+   surface agree.
+8. Any quality, productivity, time, or token claim is supported by appropriately
+   labelled deterministic, sanitized real-run, or measured telemetry evidence.
 
 ---
 

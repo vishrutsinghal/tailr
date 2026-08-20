@@ -88,6 +88,69 @@ sequenceDiagram
   Harness-->>Nav: future approved product improvements
 ```
 
+## Durable Workflow Runtime boundary
+
+The Durable Workflow Runtime is a local deterministic projection over an
+approved TailTrail run. It does not replace Navigator, AIDLC, requirements,
+Harness evidence, recovery, or closure ownership.
+
+```mermaid
+flowchart LR
+  P["Planning Lock and approved anchor"] --> B["DWR ownership binding"]
+  B --> C["Registered capability declaration"]
+  C --> G["Frozen compiler graph"]
+  G --> J["Append-only workflow and stage events"]
+  J --> S["Deterministic lifecycle projection"]
+  S --> E["Saved evidence references"]
+  E --> R["Canonical Completion Report"]
+```
+
+The implemented foundation covers DWR-A, DWR-B, DWR-C, DWR-minus, DWR-0, DWR-1,
+DWR-1.5, DWR-2, DWR-3, the narrow DWR-4 small-change vertical, and Deferred
+Phases 0-6. Deferred Phase 2 adds the complete deterministic workflow and stage
+state machine, linked follow-ups, non-destructive supersession, terminal-state
+enforcement, and categorized read-only diagnosis. Runtime
+state is stored under `.tailtrail/workflows/<workflow-id>/` using
+`ownership-v1.json`, `journal-v1.jsonl`, `projection-v1.json`, and optional
+capability, scope, compiler, approval, evidence, and completion artifacts.
+
+Deferred Phase 3 makes guarded stage transitions depend on exact scoped
+`wfauth-*` records. Initial-plan approval remains separate from stage authority;
+session/policy approvals are low-risk only; pause, expiry, target/HEAD, compiler
+revision, scope, and policy/guardrail drift fail closed. Runtime authority never
+replaces Planning Lock, AIDLC, Dependency Gate, recovery, closure acceptance,
+or host safety approval.
+
+The compiler exposes six templates: `small-change`, `delivery`,
+`risk-sensitive`, `review-only`, `ci-scanner-remediation`, and
+`repository-discovery`. Deferred Phase 5 attaches those frozen graphs to a
+typed lifecycle executor. Existing capabilities or the host still perform
+source edits, tests, scans, and handoff work and must return factual typed
+receipts; the executor owns ordering, authority checks, stage outcomes, replay,
+and completion. `tailtrail workflow ...` is the canonical CLI family; exact
+commands are listed in `TAILTRAIL-COMMANDS.md` and guarded by a
+documentation-drift test.
+
+Deferred Phase 4 adds closed typed adapters for bootstrap, graph discovery,
+AIDLC clarification, planning, implementation boundaries, focused testing,
+review, requirement fulfilment, security, quality, and handoff. Compiler stages
+freeze adapter ID and canonical action class; inputs are approval/scope/
+freshness-bound and idempotent, while outputs are sanitized factual receipts.
+Adapters run no arbitrary command and do not duplicate feature business logic.
+
+Deferred Phase 6 adds versioned operational checkpoints, automatic eight-type
+freshness classification, dependency-scoped staleness, stable operation IDs,
+bounded low-risk retry handoffs, requirement-linked correction packets,
+preserved-state Recovery/Replan, and shortest-safe resume. Project writes,
+scanners, providers, publication, deployment, merge, destructive actions, and
+accepted evidence-incomplete closure never become automatic retry paths.
+
+Deferred Phases 0-6 reconcile the public architecture, close the runtime
+contracts, make lifecycle replay authoritative, and enforce scoped approval
+authority. The remaining
+dependency-ordered work and exit gates are maintained in
+`DURABLE-WORKFLOW-RUNTIME-REVISED.md`.
+
 ## Future Growth Path
 
 TailTrail should grow in layers, not as a pile of unrelated commands.

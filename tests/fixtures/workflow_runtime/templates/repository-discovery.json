@@ -1,0 +1,1 @@
+{"schema_version":"1","type":"tailtrail-workflow-template-fixture","template_id":"repository-discovery","feature_ids":["code-graph-mapper"],"expected_stage_ids":["bootstrap","graph-freshness","bounded-discovery","architecture-summary"],"provenance":"deterministic","boundary":"Read-only repository understanding; project writes require a separately approved follow-up workflow."}

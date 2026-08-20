@@ -69,10 +69,10 @@
       "owner": "tailtrail-core",
       "governance_class": "governance",
       "commands": ["tailtrail planning discuss", "tailtrail planning explain", "tailtrail planning discussion-show", "tailtrail planning decision-show", "tailtrail planning investigate", "tailtrail planning investigation-show", "tailtrail planning revise", "tailtrail planning revision-show", "tailtrail planning revision-approve", "tailtrail planning aidlc-standard", "tailtrail planning aidlc-standard-approve", "tailtrail planning feature-controls-show", "tailtrail planning feature-controls-propose", "tailtrail planning feature-controls-approve", "tailtrail planning authority-show"],
-      "docs": ["tailtrail-interactive-plan-mode.md", "ROADMAP.md", "TAILTRAIL-COMMANDS.md", "schemas/planning-conversation.schema.json", "schemas/planning-investigation.schema.json", "schemas/planning-revision.schema.json", "schemas/planning-aidlc-mode-switch.schema.json", "schemas/planning-authority-route.schema.json"],
-      "scripts": ["scripts/planning-discussion.py", "scripts/planning-investigation.py", "scripts/planning-revision.py", "scripts/planning-feature-controls.py", "scripts/execution-evidence.py"],
-      "tests": ["tests/test_planning_discussion.py", "tests/test_planning_investigation.py", "tests/test_planning_revision.py", "tests/test_planning_feature_controls.py", "tests/test_execution_evidence.py", "tests/test_mcp_server.py"],
-      "mcp_tools": ["planning_decision_show", "planning_investigation_show", "planning_investigate", "planning_revision_show", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_authority_show"],
+      "docs": ["tailtrail-interactive-plan-mode.md", "tailtrail-aidlc-integration.md", "ROADMAP.md", "TAILTRAIL-COMMANDS.md", "schemas/planning-conversation.schema.json", "schemas/planning-investigation.schema.json", "schemas/planning-revision.schema.json", "schemas/planning-aidlc-mode-switch.schema.json", "schemas/planning-authority-route.schema.json"],
+      "scripts": ["scripts/planning-discussion.py", "scripts/planning-aidlc-question.py", "scripts/planning-investigation.py", "scripts/planning-revision.py", "scripts/planning-feature-controls.py", "scripts/execution-evidence.py"],
+      "tests": ["tests/test_planning_discussion.py", "tests/test_planning_aidlc_question.py", "tests/test_planning_investigation.py", "tests/test_planning_revision.py", "tests/test_planning_feature_controls.py", "tests/test_execution_evidence.py", "tests/test_mcp_server.py"],
+      "mcp_tools": ["planning_decision_show", "planning_investigation_show", "planning_investigate", "planning_revision_show", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_aidlc_question_show", "planning_aidlc_question_clarify", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "planning_authority_show"],
       "requires_approval": true,
       "read_only": false,
       "evidence_label": "local-evidence",
@@ -390,6 +390,7 @@
         "scripts/navigator_core.py",
         "scripts/navigator_discovery.py",
         "scripts/navigator_render.py",
+        "scripts/requirement_discovery.py",
         "scripts/start_posture.py",
         "scripts/task-start.py",
         "scripts/task-next.py",
@@ -397,6 +398,7 @@
       ],
       "tests": [
         "tests/test_navigator_core.py",
+        "tests/test_requirement_discovery.py",
         "tests/test_release4_maintainability.py"
       ],
       "mcp_tools": [
@@ -1841,6 +1843,705 @@
         "spec-kit-mcp-host-ci-integration"
       ],
       "since_version": "sk-9",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-ownership-dwr-a",
+      "title": "Durable Workflow Runtime DWR-A: Canonical Ownership Contract",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-A",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow bind",
+        "tailtrail workflow show",
+        "tailtrail workflow validate"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-ownership.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow-runtime.py",
+        "scripts/workflow_runtime/ownership.py"
+      ],
+      "tests": [
+        "tests/test_workflow_ownership.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "planning-lock",
+        "canonical-local-state",
+        "target-workspace-resolver"
+      ],
+      "since_version": "dwr-a",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-capability-bridge-dwr-b",
+      "title": "Durable Workflow Runtime DWR-B: Declarative Capability And Approval Bridge",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-B",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow capabilities propose",
+        "tailtrail workflow capabilities show",
+        "tailtrail workflow capabilities validate",
+        "tailtrail workflow capabilities preapprove",
+        "tailtrail workflow capabilities preapproval-show",
+        "tailtrail workflow capabilities preapproval-validate"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-capability-plan.schema.json",
+        "schemas/workflow-preapproval.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/capabilities.py"
+      ],
+      "tests": [
+        "tests/test_workflow_ownership.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-ownership-dwr-a",
+        "planning-lock",
+        "canonical-local-state"
+      ],
+      "since_version": "dwr-b",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-task-scope-dwr-c",
+      "title": "Durable Workflow Runtime DWR-C: Task-Scoped Identity, Reservation Locking, And Freshness",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-C",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow task scope-init",
+        "tailtrail workflow task scope-show",
+        "tailtrail workflow task freshness",
+        "tailtrail workflow task acquire",
+        "tailtrail workflow task lock-show",
+        "tailtrail workflow task diagnose"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-task-scope.schema.json",
+        "schemas/workflow-code-change-reservation.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/task_scope.py"
+      ],
+      "tests": [
+        "tests/test_workflow_ownership.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-ownership-dwr-a",
+        "durable-workflow-capability-bridge-dwr-b",
+        "target-workspace-resolver"
+      ],
+      "since_version": "dwr-c",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-storage-dwr-minus",
+      "title": "Durable Workflow Runtime DWR-minus: Append-Only Storage Proof",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-minus",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow storage init",
+        "tailtrail workflow storage capture",
+        "tailtrail workflow storage status",
+        "tailtrail workflow storage replay",
+        "tailtrail workflow storage validate"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-storage-event.schema.json",
+        "schemas/workflow-projection.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/storage.py"
+      ],
+      "tests": [
+        "tests/test_workflow_storage.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-ownership-dwr-a"
+      ],
+      "since_version": "dwr-minus",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-state-engine-dwr-1",
+      "title": "Durable Workflow Runtime DWR-1: Local State Engine",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-1",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow state create",
+        "tailtrail workflow state list",
+        "tailtrail workflow state show",
+        "tailtrail workflow state status",
+        "tailtrail workflow state pause",
+        "tailtrail workflow state resume",
+        "tailtrail workflow state cancel",
+        "tailtrail workflow state replay",
+        "tailtrail workflow state doctor"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-storage-event.schema.json",
+        "schemas/workflow-projection.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/state.py"
+      ],
+      "tests": [
+        "tests/test_workflow_state.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-ownership-dwr-a",
+        "durable-workflow-storage-dwr-minus",
+        "durable-workflow-task-scope-dwr-c"
+      ],
+      "since_version": "dwr-1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-compiler-dwr-1-5",
+      "title": "Durable Workflow Runtime DWR-1.5: Deterministic Compiler",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-1.5",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow compile plan",
+        "tailtrail workflow compile show",
+        "tailtrail workflow compile validate"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-compiler-plan.schema.json",
+        "schemas/workflow-compiler-policy.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/compiler.py",
+        "scripts/workflow_runtime/templates.py"
+      ],
+      "tests": [
+        "tests/test_workflow_compiler.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-ownership-dwr-a",
+        "durable-workflow-capability-bridge-dwr-b",
+        "durable-workflow-state-engine-dwr-1"
+      ],
+      "since_version": "dwr-1.5",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-start-integration-dwr-2",
+      "title": "Durable Workflow Runtime DWR-2: Controlled Start Integration",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-2",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail start --no-workflow",
+        "tailtrail workflow approvals show",
+        "tailtrail workflow approvals session",
+        "tailtrail workflow approvals validate"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-compiler-policy.schema.json",
+        "schemas/workflow-stage-approvals.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/start_integration.py"
+      ],
+      "tests": [
+        "tests/test_workflow_start_integration.py",
+        "tests/test_start_entrypoints.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-state-engine-dwr-1",
+        "durable-workflow-compiler-dwr-1-5",
+        "planning-lock"
+      ],
+      "since_version": "dwr-2",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-evidence-closure-dwr-3",
+      "title": "Durable Workflow Runtime DWR-3: Evidence, Resume, Correction, and Closure Bridge",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-3",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow evidence collect",
+        "tailtrail workflow evidence show",
+        "tailtrail workflow evidence refresh",
+        "tailtrail workflow evidence resume",
+        "tailtrail workflow evidence correction",
+        "tailtrail workflow evidence close",
+        "tailtrail workflow evidence validate"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-evidence.schema.json",
+        "schemas/workflow-completion-receipt.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/evidence.py"
+      ],
+      "tests": [
+        "tests/test_workflow_evidence.py",
+        "tests/test_closure_finalizer.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-start-integration-dwr-2",
+        "evidence-aware-testing"
+      ],
+      "since_version": "dwr-3",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-proven-vertical-dwr-4",
+      "title": "Durable Workflow Runtime DWR-4: Proven Small-Change Vertical",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / DWR-4",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow vertical status",
+        "tailtrail workflow vertical finalize",
+        "tailtrail eval scenario run --scenario dwr-small-change-vertical"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "TAILTRAIL-COMMANDS.md",
+        "benchmarks/evaluation/scenarios/dwr-small-change-vertical/scenario.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/vertical.py"
+      ],
+      "tests": [
+        "tests/test_workflow_vertical.py",
+        "tests/test_workflow_evidence.py",
+        "tests/test_closure_finalizer.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-evidence-closure-dwr-3",
+        "requirement-completion-harness",
+        "evidence-aware-testing"
+      ],
+      "since_version": "dwr-4",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-documentation-phase-0",
+      "title": "Durable Workflow Runtime Deferred Phase 0: Documentation And Contract Reconciliation",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 0",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "TAILTRAIL-COMMANDS.md",
+        "ARCHITECTURE.md"
+      ],
+      "scripts": [],
+      "tests": [
+        "tests/test_workflow_documentation.py",
+        "tests/test_tailtrail_registry.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-proven-vertical-dwr-4",
+        "registry"
+      ],
+      "since_version": "dwr-deferred-0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-contract-dwr-0",
+      "title": "Durable Workflow Runtime DWR-0: Complete Runtime Contract And Inventory",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 1",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "ARCHITECTURE.md",
+        "schemas/workflow-instance.schema.json",
+        "schemas/workflow-stage.schema.json",
+        "schemas/workflow-action.schema.json",
+        "schemas/workflow-transition.schema.json",
+        "schemas/workflow-transition-table-v1.json",
+        "schemas/workflow-approval-record.schema.json",
+        "schemas/workflow-evidence-record.schema.json",
+        "schemas/workflow-context-receipt.schema.json",
+        "schemas/workflow-completion-contract.schema.json",
+        "schemas/workflow-runtime-event.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/contracts.py",
+        "scripts/workflow_runtime/reason_codes.py",
+        "scripts/workflow_runtime/evidence_completion.py"
+      ],
+      "tests": [
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_module_boundaries.py",
+        "tests/test_workflow_compiler.py",
+        "tests/test_workflow_storage.py",
+        "tests/test_workflow_evidence.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "durable-workflow-documentation-phase-0",
+        "durable-workflow-storage-dwr-minus"
+      ],
+      "since_version": "dwr-0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-2",
+      "title": "Durable Workflow Runtime Deferred Phase 2: Complete Workflow And Stage State Machine",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 2",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail workflow state transition",
+        "tailtrail workflow state stage",
+        "tailtrail workflow state events",
+        "tailtrail workflow state follow-up",
+        "tailtrail workflow state supersede"
+      ],
+      "docs": [
+        "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
+        "ROADMAP.md",
+        "ARCHITECTURE.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/workflow-storage-event.schema.json",
+        "schemas/workflow-projection.schema.json"
+      ],
+      "scripts": [
+        "scripts/workflow_runtime/transitions.py",
+        "scripts/workflow_runtime/projection.py"
+      ],
+      "tests": [
+        "tests/test_workflow_transitions.py",
+        "tests/test_workflow_stage_replay.py",
+        "tests/test_workflow_state.py",
+        "tests/test_workflow_storage.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["durable-workflow-contract-dwr-0"],
+      "since_version": "dwr-deferred-2",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-3",
+      "title": "Durable Workflow Runtime Deferred Phase 3: Complete Approval And Policy Enforcement",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 3",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": ["tailtrail workflow approvals show", "tailtrail workflow approvals validate", "tailtrail workflow approvals session", "tailtrail workflow approvals session-end", "tailtrail workflow approvals decide", "tailtrail workflow approvals skip", "tailtrail workflow state stage --approval-id"],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md", "ROADMAP.md", "ARCHITECTURE.md", "TAILTRAIL-COMMANDS.md", "schemas/workflow-approval-record.schema.json", "schemas/workflow-stage-approvals.schema.json"],
+      "scripts": ["scripts/workflow_runtime/approvals.py"],
+      "tests": ["tests/test_workflow_approvals.py", "tests/test_workflow_start_integration.py", "tests/test_workflow_contracts.py", "tests/test_workflow_transitions.py", "tests/test_workflow_documentation.py"],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["durable-workflow-deferred-phase-2"],
+      "since_version": "dwr-deferred-3",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-4",
+      "title": "Durable Workflow Runtime Deferred Phase 4: Core Capability Adapters",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 4",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail workflow adapters list",
+        "tailtrail workflow adapters contract",
+        "tailtrail workflow adapters prepare",
+        "tailtrail workflow adapters record",
+        "tailtrail workflow adapters show",
+        "tailtrail workflow adapters validate"
+      ],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md", "ROADMAP.md", "ARCHITECTURE.md", "TAILTRAIL-COMMANDS.md", "schemas/workflow-adapter-input.schema.json", "schemas/workflow-adapter-output.schema.json"],
+      "scripts": ["scripts/workflow_runtime/adapter_catalog.py", "scripts/workflow_runtime/adapters.py"],
+      "tests": ["tests/test_workflow_adapters.py", "tests/test_workflow_compiler.py", "tests/test_workflow_approvals.py", "tests/test_workflow_contracts.py", "tests/test_workflow_documentation.py"],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["durable-workflow-deferred-phase-3"],
+      "since_version": "dwr-deferred-4",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-5",
+      "title": "Durable Workflow Runtime Deferred Phase 5: Full Template Execution",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 5",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail workflow execute status",
+        "tailtrail workflow execute start",
+        "tailtrail workflow execute finish",
+        "tailtrail workflow execute skip"
+      ],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md", "ROADMAP.md", "ARCHITECTURE.md", "TAILTRAIL-COMMANDS.md", "schemas/workflow-template-execution.schema.json", "schemas/workflow-risk-authority.schema.json"],
+      "scripts": ["scripts/workflow_runtime/executor.py"],
+      "tests": ["tests/test_workflow_templates.py", "tests/test_workflow_template_execution.py"],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["durable-workflow-deferred-phase-4"],
+      "since_version": "dwr-deferred-5",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-6",
+      "title": "Durable Workflow Runtime Deferred Phase 6: Freshness, Correction, And Recovery",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 6",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": ["tailtrail workflow freshness show", "tailtrail workflow freshness capture", "tailtrail workflow freshness assess", "tailtrail workflow freshness apply", "tailtrail workflow retry show", "tailtrail workflow retry decide", "tailtrail workflow retry prepare", "tailtrail workflow retry record", "tailtrail workflow resume", "tailtrail workflow correction show", "tailtrail workflow correction route"],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md", "ARCHITECTURE.md", "TAILTRAIL-COMMANDS.md", "ROADMAP.md"],
+      "scripts": ["scripts/workflow_runtime/freshness.py", "scripts/workflow_runtime/retry.py", "scripts/workflow_runtime/resume.py", "scripts/workflow_runtime/correction.py"],
+      "tests": ["tests/test_workflow_freshness_recovery.py"],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["durable-workflow-deferred-phase-5"],
+      "since_version": "dwr-deferred-6",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-7",
+      "title": "Durable Workflow Runtime Deferred Phase 7: Token, Learning, Evaluation, And Meta-Harness Adapters",
+      "status": "planned",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 7",
+      "owner": "tailtrail-core",
+      "governance_class": "telemetry",
+      "commands": [],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md"],
+      "scripts": [],
+      "tests": [],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "none",
+      "depends_on": ["durable-workflow-deferred-phase-6"],
+      "since_version": "planned-dwr-deferred-7",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-8",
+      "title": "Durable Workflow Runtime Deferred Phase 8: MCP And Host Conformance",
+      "status": "planned",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 8",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md"],
+      "scripts": [],
+      "tests": [],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "none",
+      "depends_on": ["durable-workflow-deferred-phase-7"],
+      "since_version": "planned-dwr-deferred-8",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-9",
+      "title": "Durable Workflow Runtime Deferred Phase 9: Policy-Backed CI Continuation",
+      "status": "planned",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 9",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md"],
+      "scripts": [],
+      "tests": [],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "none",
+      "depends_on": ["durable-workflow-deferred-phase-8"],
+      "since_version": "planned-dwr-deferred-9",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-10",
+      "title": "Durable Workflow Runtime Deferred Phase 10: Security, Privacy, Governance, And Negative Assurance",
+      "status": "planned",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 10",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md"],
+      "scripts": [],
+      "tests": [],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": true,
+      "evidence_label": "none",
+      "depends_on": ["durable-workflow-deferred-phase-9"],
+      "since_version": "planned-dwr-deferred-10",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-11",
+      "title": "Durable Workflow Runtime Deferred Phase 11: Evaluation, Real-Run Proof, Migration, And Release Gate",
+      "status": "planned",
+      "surface": "core",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 11",
+      "owner": "tailtrail-core",
+      "governance_class": "benchmark",
+      "commands": [],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md"],
+      "scripts": [],
+      "tests": [],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "none",
+      "depends_on": ["durable-workflow-deferred-phase-10"],
+      "since_version": "planned-dwr-deferred-11",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "durable-workflow-deferred-phase-12",
+      "title": "Durable Workflow Runtime Deferred Phase 12: Optional Enterprise And Distributed Adapter",
+      "status": "planned",
+      "surface": "extended",
+      "roadmap_ref": "Durable Workflow Runtime / Deferred Phase 12",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [],
+      "docs": ["DURABLE-WORKFLOW-RUNTIME-REVISED.md"],
+      "scripts": [],
+      "tests": [],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "none",
+      "depends_on": ["durable-workflow-deferred-phase-11"],
+      "since_version": "planned-dwr-deferred-12",
       "deprecated_in_version": null
     },
     {

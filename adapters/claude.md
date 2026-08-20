@@ -33,6 +33,14 @@ planning evidence only, and do not inspect source or start implementation.
   proposal which requires separate approval.
 - Use `planning decision-show` for the compact lock/discussion/revision/AIDLC or
   Intent Bridge authority summary.
+- For a numbered AIDLC question such as `Q5`, use `tailtrail planning
+  aidlc-question clarify --run-id <id> --question-id Q5` before explaining or
+  plainly rephrasing it. This is read-only and does not change the plan. If the
+  user challenges correctness, create a sanitized `aidlc-question challenge`,
+  have the active AIDLC authority generate a complete replacement, record it,
+  show it, and require explicit `aidlc-question approve`. Standard/Full
+  replacements must follow the pinned official AIDLC Requirements rules; never
+  present a local substitute as official.
 - If the user asks to switch an awaiting Lite run to Standard AIDLC, create the
   versioned `planning aidlc-standard` proposal, require approval of that exact
   revision, then begin Standard AIDLC requirements under the same run. This is

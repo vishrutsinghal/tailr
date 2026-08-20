@@ -8,6 +8,27 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 
 ### Added
 
+- Durable Workflow Runtime Deferred Phase 5 full template execution: six exact
+  deterministic graphs; shortest-continuation status; typed start, finish, and
+  skip controls; scoped stage, risk, saved-CI/scanner, and release boundaries;
+  stable replay and terminal receipts; and six end-to-end fixtures covering
+  completion, rejected-fix containment, read-only discovery, blocked provider
+  input, failure, and explicit skip.
+
+- Durable Workflow Runtime Deferred Phase 4 capability adapters: a closed
+  eleven-adapter Feature Registry catalog; compiler-bound canonical action
+  classes; approval-, scope-, and freshness-bound idempotent inputs; typed
+  factual outputs; official AIDLC and graph-proof boundaries; public adapter
+  CLI commands; installed schemas/modules; and negative contract tests for
+  duplicate dispatch, missing evidence, raw output, arbitrary command
+  construction, and authority mismatch.
+
+- Durable Workflow Runtime Deferred Phase 3 approval enforcement: immutable
+  run/target/graph/scope-bound decision records, guarded stage and explicit
+  skip approval IDs, low-risk session/policy limits, pause/session/revision and
+  policy/target invalidation, separate Dependency Gate authority, public CLI
+  controls, installed-pack coverage, and adversarial approval tests.
+
 - Hands-free Start requirement extraction now recognizes order-amendment work
   before preservation references. Prompts that say to preserve cancellation no
   longer drift into cancellation requirements; amendment eligibility, revision,

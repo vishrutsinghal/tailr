@@ -188,6 +188,16 @@ each requirement ID to observed implementation state and control evidence;
 completion review names omissions; the evidence gate refuses to turn missing,
 blocked, or unavailable proof into a pass.
 
+Start now applies one shared deterministic requirement-discovery contract to
+ordinary, verbose, explicit-Navigator, and hands-free plans. Explicit bullets,
+sentences, semicolon clauses, and action lists become separate `REQ-01`,
+`REQ-02`, and later rows. Object lists such as “actor, reason, and revision”
+remain together. The displayed matrix is the same matrix frozen into the
+approved anchor, so execution, evidence, drift, correction, and closure can all
+operate requirement by requirement. The splitter never invents an unstated
+feature; ambiguous product decisions still route to Interactive Plan Mode or
+the selected AIDLC authority.
+
 You must approve the proposed requirement boundary and run/record the relevant
 repository-owned checks. TailTrail does not silently execute commands because
 commands and environments are project-owned.

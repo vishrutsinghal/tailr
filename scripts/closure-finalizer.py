@@ -19,6 +19,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
 
 
 def load(name: str, script: str) -> Any:
@@ -38,6 +40,7 @@ BEHAVIOUR = load("closure_finalizer_behaviour", "behavior-harness.py")
 MAINTAINABILITY = load("closure_finalizer_maintainability", "maintainability-harness.py")
 REPORT = load("closure_finalizer_report", "completion-report.py")
 CORRECTION = load("closure_finalizer_correction", "closure-correction.py")
+WORKFLOW_EVIDENCE = load("closure_finalizer_workflow_evidence", "workflow_runtime/evidence.py")
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -200,6 +203,9 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "overall_status": report["overall_status"],
         "boundary": "Finalized deterministic local control evidence only. No receipt command, deployment, recovery action, or external environment was executed.",
     }
+    # Attach the existing canonical report to an already activated DWR run.
+    # It never creates a workflow for a legacy/non-DWR run or changes closure status.
+    payload["workflow_closure"] = WORKFLOW_EVIDENCE.sync_closure(root, run_id, report)
     L.atomic_json(saved, payload)
     L.append_event(root, run_id, "closure_finalized", {
         "artifact": saved.relative_to(directory).as_posix(), "closure_record_id": closure["record_id"],

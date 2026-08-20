@@ -38,9 +38,10 @@ DISCUSSION_CLASSES = {
     "requirement-clarification",
     "revision-request",
 }
-ROUTE_CLASSES = {"rejection", "aidlc-escalation", "aidlc-standard-switch", "feature-customization", "pasted-error-or-log", "ordinary-chat"}
+ROUTE_CLASSES = {"rejection", "aidlc-escalation", "aidlc-standard-switch", "aidlc-question-clarification", "aidlc-question-challenge", "feature-customization", "pasted-error-or-log", "ordinary-chat"}
 PATH_PATTERN = re.compile(r"(?<![\w.-])(?:[\w.-]+/)+[\w.-]+")
 REQUIREMENT_PATTERN = re.compile(r"\b(?:REQ|FR)-\d{1,4}\b", re.IGNORECASE)
+AIDLC_QUESTION_PATTERN = re.compile(r"\b(?:O?Q)-?\d{1,3}\b|\bquestion\s+\d{1,3}\b", re.IGNORECASE)
 ERROR_PATTERN = re.compile(
     r"(?:traceback \(most recent call last\)|\b(?:exception|error|failed|failure)\s*[:\[]|\bat\s+[^\n]+\([^\n]+:\d+|file \"[^\"]+\", line \d+)",
     re.IGNORECASE,
@@ -70,6 +71,11 @@ def classify(message: str) -> str:
         return "ordinary-chat"
     if ERROR_PATTERN.search(message) or ("\n" in message and "stack" in normalized):
         return "pasted-error-or-log"
+    if AIDLC_QUESTION_PATTERN.search(message):
+        if any(term in normalized for term in ("wrong", "incorrect", "reject", "missing option", "bad reasoning", "change question")):
+            return "aidlc-question-challenge"
+        if any(term in normalized for term in ("understand", "explain", "rephrase", "simpl", "reasoning", "question", "why")):
+            return "aidlc-question-clarification"
     if re.match(r"^(?:reject|decline|do not approve)\b", normalized):
         return "rejection"
     if (
@@ -128,6 +134,18 @@ def references(message: str) -> list[dict[str, str]]:
         if item not in values:
             values.append(item)
     return values
+
+
+def aidlc_question_id(message: str) -> str | None:
+    """Normalize `Q5`, `OQ5`, and `question 5` without storing chat text."""
+    match = AIDLC_QUESTION_PATTERN.search(message)
+    if not match:
+        return None
+    value = match.group(0).upper().replace("-", " ").strip()
+    numeric = re.search(r"\d{1,3}", value)
+    if not numeric:
+        return None
+    return ("OQ" if value.startswith("OQ") else "Q") + numeric.group(0)
 
 
 def summary(kind: str) -> str:
@@ -455,9 +473,12 @@ def discuss(root: Path, run_id: str, question: str) -> dict[str, Any]:
         "boundary": BOUNDARY,
     }
     if kind not in DISCUSSION_CLASSES:
+        question_id = aidlc_question_id(question) or "<QID>"
         routes = {
             "rejection": "tailtrail planning feedback-template",
             "aidlc-escalation": "tailtrail planning aidlc-requirements",
+            "aidlc-question-clarification": f"tailtrail planning aidlc-question clarify --run-id {run_id} --question-id {question_id}",
+            "aidlc-question-challenge": f"tailtrail planning aidlc-question challenge --run-id {run_id} --question-id {question_id} --reason-code <code>",
             "aidlc-standard-switch": "tailtrail planning aidlc-standard --run-id <active-run-id> --approved-proposal",
             "feature-customization": "tailtrail planning feature-controls-show --run-id <active-run-id> (then propose one structured control change)",
             "pasted-error-or-log": "ordinary failure or debugging handling; no Planning Lock discussion receipt was created",

@@ -26,6 +26,60 @@ python3 scripts/tailtrail.py run "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR" --verbose
+python3 scripts/tailtrail.py start "fix Sonar issue and prepare PR" --no-workflow
+python3 scripts/tailtrail.py workflow bind --root . --run-id <approved-run-id>
+python3 scripts/tailtrail.py workflow show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow capabilities propose --root . --workflow-id <workflow-id> --capability code-graph-mapper --capability requirement-completion-harness
+python3 scripts/tailtrail.py workflow capabilities show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow capabilities validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow capabilities preapprove --root . --workflow-id <workflow-id> --stage-id <stage-id> --expires-at 2026-12-31T23:59:59+00:00
+python3 scripts/tailtrail.py workflow capabilities preapproval-show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow capabilities preapproval-validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow task scope-init --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow task scope-show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow task freshness --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow task acquire --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow task lock-show --root .
+python3 scripts/tailtrail.py workflow task diagnose --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow storage init --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow storage capture --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow storage status --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow storage replay --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow storage validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state create --root . --run-id <approved-run-id> --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state list --root .
+python3 scripts/tailtrail.py workflow state show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state status --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state pause --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state resume --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state cancel --root . --workflow-id <workflow-id> --confirmed
+python3 scripts/tailtrail.py workflow state replay --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state events --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state doctor --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state transition --root . --workflow-id <workflow-id> --to running --reason-code workflow-started
+python3 scripts/tailtrail.py workflow state stage --root . --workflow-id <workflow-id> --stage-id bootstrap --to ready --reason-code stage-ready
+python3 scripts/tailtrail.py workflow state stage --root . --workflow-id <workflow-id> --stage-id bootstrap --to running --reason-code approval-granted --approval-id <wfauth-id>
+python3 scripts/tailtrail.py workflow state follow-up --root . --parent-workflow-id <completed-workflow-id> --run-id <new-approved-run-id> --workflow-id <new-workflow-id>
+python3 scripts/tailtrail.py workflow state supersede --root . --workflow-id <old-workflow-id> --successor-workflow-id <new-workflow-id>
+python3 scripts/tailtrail.py workflow compile plan --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow compile show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow compile validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow approvals show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow approvals session --root . --workflow-id <workflow-id> --session-id <host-session> --action-class read_local --approved
+python3 scripts/tailtrail.py workflow approvals session-end --root . --workflow-id <workflow-id> --session-id <host-session>
+python3 scripts/tailtrail.py workflow approvals decide --root . --workflow-id <workflow-id> --stage-id <stage> --action-class execute_project --operation-kind broad-test-build --operation-ref <safe-artifact-ref> --decision approved --rationale "approved bounded build"
+python3 scripts/tailtrail.py workflow approvals skip --root . --workflow-id <workflow-id> --stage-id <stage> --operation-ref <safe-artifact-ref> --reason-code not-applicable --rationale "stage does not apply" --approved
+python3 scripts/tailtrail.py workflow approvals validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow evidence collect --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow evidence show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow evidence refresh --root . --workflow-id <workflow-id> --change-type source-edit
+python3 scripts/tailtrail.py workflow evidence resume --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow evidence correction --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow evidence close --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow evidence validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow vertical status --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow vertical finalize --root . --workflow-id <workflow-id>
 python3 scripts/tailtrail.py planning show --root . --run-id <run-id>
 python3 scripts/tailtrail.py planning activate --root . --run-id <run-id> --approved
 python3 scripts/tailtrail.py planning discuss --root . --run-id <run-id> --question "Why was service.py selected?"
@@ -43,6 +97,11 @@ python3 scripts/tailtrail.py planning feature-controls-show --root . --run-id <r
 python3 scripts/tailtrail.py planning feature-controls-propose --root . --run-id <run-id> --changes '[{"feature":"Behaviour Harness","value":"selected","reason":"Customer journey proof is needed."}]' --approved-proposal
 python3 scripts/tailtrail.py planning feature-controls-approve --root . --run-id <run-id> --revision 2 --approved
 python3 scripts/tailtrail.py planning authority-show --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning aidlc-question show --root . --run-id <run-id> --question-id Q5
+python3 scripts/tailtrail.py planning aidlc-question clarify --root . --run-id <run-id> --question-id Q5
+python3 scripts/tailtrail.py planning aidlc-question challenge --root . --run-id <run-id> --question-id Q5 --reason-code unclear-reasoning
+python3 scripts/tailtrail.py planning aidlc-question record --root . --run-id <run-id> --question '<replacement-question-json>'
+python3 scripts/tailtrail.py planning aidlc-question approve --root . --run-id <run-id> --approved
 python3 scripts/tailtrail.py governance check
 python3 scripts/tailtrail.py spec-kit policy check --root .
 python3 scripts/tailtrail.py spec-kit detect --root .
@@ -60,6 +119,18 @@ choice. They do not inspect project source, rerun a graph, run tests/scanners,
 change the plan, or persist raw chat. `discussion-show` returns saved metadata.
 `planning explain` renders Markdown by default; use `--format json` for a host
 adapter or a saved-artifact integration.
+
+### AIDLC Question Clarification And Correction
+
+Use `planning aidlc-question clarify` when the user needs an explanation or a
+plain-language rephrase of a numbered question such as `Q5`. It reads the saved
+question, options, recommendation, and reasoning only; no requirement, answer,
+plan, anchor, or source change occurs. For a correctness challenge, use
+`challenge` with a categorical reason code. The active AIDLC authority then
+generates a full replacement, which TailTrail records and the user explicitly
+approves with `aidlc-question approve`. This reopens the current answer set for
+the same run. Standard and Full replacements must be generated from the pinned
+official AIDLC Requirements rules; Lite revisions remain TailTrail-owned.
 
 An awaiting Lite AIDLC run may move to **Standard AIDLC** without discarding
 its run ID or original plan. Ask the host to “switch to Standard AIDLC”, then
@@ -610,6 +681,86 @@ read-only smoke check and one short first action. Run it again at any time:
 ```bash
 python3 scripts/first-run.py --target /path/to/project --profile codex-plugin
 ```
+
+Deferred Phase 2 makes `workflow state` a complete metadata state machine.
+`transition` and `stage` accept only legal transitions and registered reason
+codes. They append sanitized journal events; they do not execute the named
+capability. `events` is read-only. `follow-up` requires a separately approved
+TailTrail run and a completed parent. `supersede` preserves and cross-links
+both workflow records. `cancel` ends runtime metadata and releases only the
+workflow-owned reservation; it does not roll back source or cancel a command
+that a host already started.
+
+Deferred Phase 3 makes `workflow approvals` the canonical runtime authority
+surface. Start activation records the approved-plan binding, but guarded stage
+start and skip transitions require a separate effective `wfauth-*` ID. Session
+and policy decisions are low-risk only; pause, session end, target/HEAD drift,
+material plan revision, expiry, and policy/guardrail drift fail closed. These
+commands still record control-plane metadata only and never replace Planning
+Lock, AIDLC, Dependency Gate, recovery, closure acceptance, or host safety.
+
+Deferred Phase 4 exposes typed capability-adapter exchanges:
+
+```bash
+python3 scripts/tailtrail.py workflow adapters list
+python3 scripts/tailtrail.py workflow adapters contract --adapter-id focused-testing
+python3 scripts/tailtrail.py workflow adapters prepare --root . --workflow-id <id> --stage-id <stage> --adapter-id <adapter> --approval-id <wfauth-id>
+python3 scripts/tailtrail.py workflow adapters record --root . --workflow-id <id> --stage-id <stage> --adapter-id <adapter> --result-ref .tailtrail/results/<result>.json
+python3 scripts/tailtrail.py workflow adapters show --root . --workflow-id <id> --stage-id <stage>
+python3 scripts/tailtrail.py workflow adapters validate --root . --workflow-id <id> --stage-id <stage>
+```
+
+`list` and `contract` inspect the closed eleven-adapter catalog. `prepare`
+validates canonical ownership, the frozen compiler stage, scoped freshness,
+registered capability, and exact action-class approval, then writes one
+idempotent TailTrail handoff. It does not invoke the feature. `record` accepts
+only a safe repository-relative JSON reference to a factual host/capability
+result and records a typed categorical outcome without raw output or source.
+`show` and `validate` are read-only.
+
+Deferred Phase 5 executes the frozen template lifecycle through typed adapter
+boundaries:
+
+```bash
+python3 scripts/tailtrail.py workflow execute status --root . --workflow-id <id>
+python3 scripts/tailtrail.py workflow execute start --root . --workflow-id <id> [--stage-id <stage>] [--approval-id <wfauth-id>]
+python3 scripts/tailtrail.py workflow execute finish --root . --workflow-id <id> --stage-id <stage>
+python3 scripts/tailtrail.py workflow execute skip --root . --workflow-id <id> --stage-id <stage> --approval-id <wfauth-id>
+```
+
+`status` is read-only and returns the shortest valid continuation. `start`
+prepares only the next typed handoff and stops at missing authority. The host or
+existing capability performs the work and records its factual result through
+`workflow adapters record`; `finish` validates that result and advances the
+stage. `skip` accepts only an explicit current skip approval. No command
+invents evidence, runs an arbitrary result command, retries project work, or
+bypasses Planning Lock, AIDLC, risk, recovery, or closure authority.
+
+Deferred Phase 6 adds automatic freshness, bounded low-risk retry, correction,
+Recovery/Replan, and safe resume:
+
+```bash
+python3 scripts/tailtrail.py workflow freshness show --root . --workflow-id <id>
+python3 scripts/tailtrail.py workflow freshness capture --root . --workflow-id <id> --reason manual-checkpoint
+python3 scripts/tailtrail.py workflow freshness assess --root . --workflow-id <id>
+python3 scripts/tailtrail.py workflow freshness apply --root . --workflow-id <id>
+python3 scripts/tailtrail.py workflow retry decide --root . --workflow-id <id> --stage-id <stage>
+python3 scripts/tailtrail.py workflow retry prepare --root . --workflow-id <id> --stage-id <stage>
+python3 scripts/tailtrail.py workflow retry record --root . --workflow-id <id> --stage-id <stage> --result-ref .tailtrail/results/<result>.json
+python3 scripts/tailtrail.py workflow retry show --root . --workflow-id <id>
+python3 scripts/tailtrail.py workflow resume --root . --workflow-id <id>
+python3 scripts/tailtrail.py workflow correction route --root . --workflow-id <id> --stage-id <stage> [--classification actionable] [--max-cycles 2]
+python3 scripts/tailtrail.py workflow correction show --root . --workflow-id <id>
+```
+
+`freshness show` and `resume` are read-only. `assess` saves a hash-only
+comparison; `apply` marks only affected passed stages stale and creates a
+bounded correction route. `retry prepare` emits a typed host handoff only for
+eligible deterministic local actions; it does not run the action. Project
+writes, tests/builds, scanners, providers, publish/deploy/merge, and destructive
+actions never retry automatically. `correction route` preserves the immutable
+anchor, requirement IDs, evidence, attempts, unaffected passed work, and Task
+Recovery Boundary references; it never applies source or Git recovery.
 
 Or let TailTrail detect the installed profile automatically:
 
@@ -1743,12 +1894,23 @@ tailtrail start "fix Sonar issue and prepare PR" --changed path/to/file
 tailtrail start "continue payment retry correction" --changed src/worker.py --run-id payment-retry
 tailtrail planning show --root . --run-id <run-id>
 tailtrail planning activate --root . --run-id <run-id> --approved
+tailtrail workflow evidence collect --root . --workflow-id <workflow-id>
+tailtrail workflow evidence refresh --root . --workflow-id <workflow-id> --change-type source-edit
+tailtrail workflow evidence resume --root . --workflow-id <workflow-id>
+tailtrail workflow evidence correction --root . --workflow-id <workflow-id>
+tailtrail workflow evidence close --root . --workflow-id <workflow-id>
+tailtrail workflow vertical status --root . --workflow-id <workflow-id>
+tailtrail workflow vertical finalize --root . --workflow-id <workflow-id>
 tailtrail reference --target /path/to/service-a --reference /path/to/service-b --goal "match validation style"
 ```
 
 The `hello` alias handles `hello tailtrail`, `hello TailTrail`, and the common typo `hello taitrail`, then delegates to `tailtrail hello`. If the launcher was installed before the alias existed, rerun `python3 scripts/tailtrail.py install launcher --force`.
 
 `tailtrail start` is the default guided-delivery entry point: it selects the smallest applicable TailTrail controls, creates a local Planning Lock, and saves the exact Start Report at `.tailtrail/runs/<run-id>/planning/start-report-v1.json`. It remains planning-only even if the same prompt says implement, set up, or replicate. After the user approves, use `tailtrail planning activate --root . --run-id <run-id> --approved`: guided-delivery and hands-free plans receive an immutable approved anchor at `anchors/approved-v1.json`; lean tasks keep only the lock. It does not edit source, run tests, or invoke an implementation agent by itself; managed source changes require that separately approved Planning Lock run.
+
+`tailtrail workflow evidence` is the DWR-3 control plane for an already activated workflow. `collect` records only run-local evidence references and hashes; `refresh` accepts one of eight categorical freshness signals and stales only the impacted stage path; `resume` is a read-only shortest continuation; and `correction` attaches the existing bounded correction packet without executing it. `close` follows the saved canonical Completion Report. It writes `completed` only for a complete report. To retain an incomplete receipt for audit, use `--accept-evidence-incomplete --approved`; that status is explicitly not a successful workflow completion. None of these commands runs project commands, source edits, tests, scanners, Git recovery, or retries.
+
+`tailtrail workflow vertical` is the DWR-4 proven small-change path. It accepts only a compiled `small-change` workflow. After the host has recorded factual source-edit and passing focused/unit evidence, `vertical finalize` composes the existing closure controls and writes the canonical DWR-3 receipt. It does not execute those stages itself. Missing evidence returns `evidence-incomplete` without creating a closure record or retrying work.
 
 If the installer says the bin directory is not on `PATH`, add that directory to your shell profile or run the launcher by full path.
 

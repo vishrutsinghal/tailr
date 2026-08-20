@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail DWR-3 Workflow Approval Ledger",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "approvals", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-stage-approvals"},
+    "workflow_id": {"pattern": "^ttw-[a-z0-9][a-z0-9-]{3,80}$"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "approvals": {"type": "array", "items": {"$ref": "workflow-approval-record.schema.json"}},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Deferred Phase 4 Adapter Input",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "revision", "plan_fingerprint", "stage_id", "adapter_id", "capability_id", "action_class", "authority", "idempotency_key", "approval_id", "requirement_uids", "scope_fingerprint", "approved_anchor_ref", "scope_ref", "requirements", "input_refs", "evidence_requirements", "freshness", "retry", "timeout_seconds", "status", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-adapter-input"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "revision": {"type": "integer", "minimum": 1},
+    "plan_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "stage_id": {"type": "string", "minLength": 1},
+    "adapter_id": {"type": "string", "minLength": 1},
+    "capability_id": {"type": "string", "minLength": 1},
+    "action_class": {"enum": ["read_local", "write_tailtrail_state", "write_project", "execute_project", "scan_local", "external_provider", "publish"]},
+    "authority": {"type": "string", "minLength": 1},
+    "idempotency_key": {"type": "string", "pattern": "^wfidem-"},
+    "approval_id": {"type": ["string", "null"], "pattern": "^wfauth-"},
+    "requirement_uids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "scope_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "approved_anchor_ref": {"type": "string"},
+    "scope_ref": {"type": "string"},
+    "requirements": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["requirement_uid", "statement", "preserve_rules", "likely_paths", "evidence_plan"], "properties": {"requirement_uid": {"type": "string", "minLength": 1}, "statement": {"type": "string"}, "preserve_rules": {"type": "array", "items": {"type": "string"}}, "likely_paths": {"type": "array", "items": {"type": "string"}}, "evidence_plan": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}},
+    "input_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "evidence_requirements": {"type": "array", "items": {"type": "string"}},
+    "freshness": {"const": "fresh"},
+    "retry": {"type": "object", "required": ["max_attempts", "automatic_retry"], "properties": {"max_attempts": {"type": "integer", "minimum": 1}, "automatic_retry": {"type": "boolean"}}, "additionalProperties": false},
+    "timeout_seconds": {"type": "integer", "minimum": 1},
+    "status": {"const": "prepared"},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

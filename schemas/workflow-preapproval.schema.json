@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail DWR-B Workflow Pre-approval",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "plan_fingerprint", "target_identity_fingerprint", "stage_ids", "action_classes", "expires_at", "state", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-preapproval"},
+    "workflow_id": {"pattern": "^ttw-[a-z0-9][a-z0-9-]{3,80}$"}, "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "plan_fingerprint": {"type": "string", "pattern": "^sha256:"}, "target_identity_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "stage_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "action_classes": {"type": "array", "items": {"enum": ["read-only", "tailtrail-state"]}},
+    "expires_at": {"type": "string", "format": "date-time"}, "state": {"const": "active"}, "boundary": {"type": "string"}
+  }, "additionalProperties": false
+}

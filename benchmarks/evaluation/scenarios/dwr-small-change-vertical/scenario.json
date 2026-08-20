@@ -1,0 +1,23 @@
+{
+  "schema_version": "1",
+  "scenario_id": "dwr-small-change-vertical",
+  "title": "DWR-4 Proven Small-Change Vertical",
+  "task_class": "workflow-runtime",
+  "evidence_label": "local-evidence",
+  "claim_boundaries": [
+    "This deterministic scenario scores committed, sanitized artifacts only.",
+    "It proves the DWR-4 evidence composition contract, not live model performance or production correctness.",
+    "The vertical adapter records no source edit, test execution, retry, or recovery action."
+  ],
+  "variants": [
+    {"id": "baseline", "artifact": "baseline-artifact.md"},
+    {"id": "tailtrail", "artifact": "tailtrail-artifact.md"}
+  ],
+  "dimensions": {
+    "approved_scope": {"weight": 2, "must_include": ["approved small change", "requirement ID"]},
+    "focused_evidence": {"weight": 2, "must_include": ["source-edit evidence", "focused validation"]},
+    "review_and_fulfilment": {"weight": 2, "must_include": ["completion review", "requirement fulfilment"]},
+    "closure": {"weight": 2, "must_include": ["canonical Completion Report", "completion receipt"]},
+    "safety": {"weight": 2, "must_include": ["no retry", "local-evidence"], "must_not_include": ["automatic source edit", "invented test pass"]}
+  }
+}

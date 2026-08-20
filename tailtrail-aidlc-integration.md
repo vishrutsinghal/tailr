@@ -10,6 +10,23 @@ This document separates:
 
 It is an integration design, not a claim that TailTrail already ships the full official engine.
 
+## Interactive Question Authority
+
+Question-level discussion is part of the AIDLC bridge. A user may ask why a
+numbered question exists, request a plain-language rephrase, or challenge its
+logic without discarding the current Planning Lock. Navigator coordinates the
+route, while the active AIDLC authority owns the resulting question.
+
+```text
+clarify Q5 -> saved question artifact -> explanation/rephrase only
+challenge Q5 -> authority-generated candidate -> user approval -> reopen answers
+```
+
+Use `tailtrail planning aidlc-question show|clarify|challenge|record|approve`.
+For Standard and Full, the replacement must be generated under the pinned
+official Requirements Analysis rules; TailTrail does not label a local rewrite
+as official.
+
 ## Reference and version boundary
 
 The external reference is [AWS Labs AI-DLC Workflows](https://github.com/awslabs/aidlc-workflows), with its [official guide](https://awslabs.github.io/aidlc-workflows/guide/00-introduction/). The project evolves quickly: public materials describe its 2.0 release and a five-phase, 32-stage engine. TailTrail must pin an official release or commit and record it per run. It must never claim compatibility with an unpinned moving target.

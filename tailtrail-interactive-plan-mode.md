@@ -6,6 +6,23 @@ Interactive Plan Mode is TailTrail's **Plan Decision Explorer**. It lets a user
 discuss an awaiting-approval TailTrail Start plan without having to approve it,
 reject it, create a new run, or let an agent begin implementation.
 
+## AIDLC Question Clarification And Correction
+
+Users can question an individual AIDLC item without rejecting the entire plan:
+
+```text
+I did not understand Q5. Explain its recommendation and rephrase it simply.
+```
+
+`tailtrail planning aidlc-question clarify --run-id <run-id> --question-id Q5`
+reads only the saved question artifact. It does not alter questions, answers,
+requirements, scope, anchors, or approval state. If the user says the question,
+option set, or reasoning is incorrect, TailTrail records a sanitized challenge,
+asks the active AIDLC authority for a replacement, records that candidate, and
+requires question-level approval before reopening the requirements answer set.
+Standard and Full runs must use the pinned official AIDLC Requirements rules for
+the replacement; Lite owns only Lite-question revisions.
+
 The problem it solves is simple: a Start plan can include files, requirements,
 tests, risks, or harnesses that the user does not yet understand. Today, the
 user has a hard choice between approving a plan they doubt and rejecting the

@@ -20,3 +20,12 @@ official questions/options with TailTrail advisory recommendation and reasoning,
 then return that same run's complete Official AI-DLC Requirements report. Do not
 inspect source or implement work.
 Do not implement, edit source, run tests/scanners/Terraform, or mutate Git.
+
+For an awaiting-approval AIDLC run, use `tailtrail planning aidlc-question
+clarify --run-id <id> --question-id Q5` when the user asks to explain or
+rephrase a numbered question. Explain only from saved AIDLC evidence and make
+no plan change. If the user says the question, options, or reasoning is wrong,
+create a sanitized `aidlc-question challenge`; the active AIDLC authority must
+generate the replacement, then TailTrail records it and requires explicit
+`aidlc-question approve`. Standard/Full replacements must follow the pinned
+official AIDLC Requirements rules.

@@ -42,6 +42,11 @@ class TailTrailRegistryTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_explicit_public_control_plane_commands_are_discoverable(self) -> None:
+        commands = tailtrail_registry.discover_tailtrail_commands(ROOT)
+
+        self.assertIn("workflow", commands)
+
     def test_registry_has_unique_ids_and_script_claims(self) -> None:
         registry = self.load_registry()
         features = registry["features"]

@@ -45,6 +45,8 @@ DEFAULT_READ_ONLY_TOOLS = (
     "planning_investigation_show",
     "planning_revision_show",
     "planning_authority_show",
+    "planning_aidlc_question_show",
+    "planning_aidlc_question_clarify",
     "aidlc_official_status",
     "aidlc_official_bridge_show",
     "aidlc_official_state_show",
@@ -56,7 +58,7 @@ DEFAULT_READ_ONLY_TOOLS = (
     "spec_kit_mapping_show",
     "spec_kit_convergence_show",
 )
-CONTROLLED_TOOLS = ("harness_control_check", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest")
+CONTROLLED_TOOLS = ("harness_control_check", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest")
 DENIED_TOOL_TERMS = (
     "apply",
     "build",
@@ -205,6 +207,8 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "planning_investigation_show": {"name": "planning_investigation_show", "description": "Read a saved sanitized bounded planning investigation receipt. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
         "planning_revision_show": {"name": "planning_revision_show", "description": "Read the current or named proposed Interactive Plan revision. Read-only; it never activates the plan.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 2}}, ["run_id"])},
         "planning_authority_show": {"name": "planning_authority_show", "description": "Read the latest AIDLC or Intent Bridge revision authority route. Read-only; it never changes requirements or source.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1}}, ["run_id"])},
+        "planning_aidlc_question_show": {"name": "planning_aidlc_question_show", "description": "Read one saved AIDLC question, options, recommendation, and reasoning. Read-only planning evidence.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question_id": {"type": "string"}}, ["run_id", "question_id"])},
+        "planning_aidlc_question_clarify": {"name": "planning_aidlc_question_clarify", "description": "Read saved evidence for explaining or plainly rephrasing one AIDLC question. It does not change the question, plan, or source.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question_id": {"type": "string"}}, ["run_id", "question_id"])},
         "aidlc_official_status": {"name": "aidlc_official_status", "description": "Read and validate a pinned official AWS AI-DLC pack manifest. Read-only; it never installs, attaches, or executes the pack.", "inputSchema": json_schema({"root": {"type": "string"}, "manifest": {"type": "string"}})},
         "aidlc_official_bridge_show": {"name": "aidlc_official_bridge_show", "description": "Read a saved official AI-DLC bridge identity for one TailTrail run. Read-only; Phase B never attaches or executes the official engine.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "aidlc_official_state_show": {"name": "aidlc_official_state_show", "description": "Project canonical run state and report ownership conflicts. Read-only; it never reconciles or rewrites artifacts.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
@@ -216,6 +220,9 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "spec_kit_mapping_show": {"name": "spec_kit_mapping_show", "description": "Read the active Spec Kit requirement mapping and slices for a TailTrail run.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "spec_kit_convergence_show": {"name": "spec_kit_convergence_show", "description": "Read the latest saved Spec Kit convergence report. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
+        "planning_aidlc_question_challenge": {"name": "planning_aidlc_question_challenge", "description": "Create a sanitized proposal to correct one AIDLC question. It does not change the active question yet.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question_id": {"type": "string"}, "reason_code": {"type": "string", "enum": ["unclear", "incorrect-assumption", "missing-option", "unclear-reasoning", "other"]}, "approved": {"type": "boolean"}}, ["run_id", "question_id", "reason_code", "approved"])},
+        "planning_aidlc_question_record": {"name": "planning_aidlc_question_record", "description": "Record one authority-generated replacement AIDLC question. User approval is still required before it becomes active.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "question", "approved"])},
+        "planning_aidlc_question_approve": {"name": "planning_aidlc_question_approve", "description": "Approve one recorded AIDLC question revision and reopen the current requirements answer set.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
         "planning_lock_start": {"name": "planning_lock_start", "description": "Create an awaiting-approval Planning Lock after the user explicitly asks to start TailTrail. Writes only TailTrail local metadata; it never edits project source or runs project commands.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
         "planning_investigate": {"name": "planning_investigate", "description": "Perform an explicitly approved, path-bounded, read-only source investigation for an awaiting Planning Lock. It writes only a sanitized TailTrail receipt and never edits source, runs tests, scanners, builds, package managers, Git, or plan revisions.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "paths": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "paths", "approved"])},
@@ -633,6 +640,47 @@ def planning_authority_show(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "planning_authority_show", "result": module.authority_show(root_from(args), run_id(args), args.get("sequence")), "execution": {"read_only": True, "exit_code": 0}}
 
 
+def _aidlc_question_module() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_aidlc_question_mcp", script("planning-aidlc-question.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def planning_aidlc_question_show(args: dict[str, Any]) -> dict[str, Any]:
+    return {"tool": "planning_aidlc_question_show", "result": _aidlc_question_module().show(root_from(args), run_id(args), str(args.get("question_id", ""))), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def planning_aidlc_question_clarify(args: dict[str, Any]) -> dict[str, Any]:
+    return {"tool": "planning_aidlc_question_clarify", "result": _aidlc_question_module().clarify(root_from(args), run_id(args), str(args.get("question_id", ""))), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def _aidlc_question_control(args: dict[str, Any], action: str) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError(f"{action} requires approved: true")
+    module = _aidlc_question_module(); root = root_from(args); identifier = run_id(args)
+    if action == "planning_aidlc_question_challenge":
+        result = module.challenge(root, identifier, str(args.get("question_id", "")), str(args.get("reason_code", "")))
+    elif action == "planning_aidlc_question_record":
+        result = module.record(root, identifier, json.dumps(args.get("question"), separators=(",", ":")))
+    else:
+        result = module.approve(root, identifier, True)
+    return {"tool": action, "result": result, "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "exit_code": 0}}
+
+
+def planning_aidlc_question_challenge(args: dict[str, Any]) -> dict[str, Any]:
+    return _aidlc_question_control(args, "planning_aidlc_question_challenge")
+
+
+def planning_aidlc_question_record(args: dict[str, Any]) -> dict[str, Any]:
+    return _aidlc_question_control(args, "planning_aidlc_question_record")
+
+
+def planning_aidlc_question_approve(args: dict[str, Any]) -> dict[str, Any]:
+    return _aidlc_question_control(args, "planning_aidlc_question_approve")
+
+
 def planning_revision_propose(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True:
         raise ValueError("planning_revision_propose requires approved: true")
@@ -926,7 +974,7 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "completion_feedback_show": completion_feedback_show, "profile_view": profile_view,
     "validation_receipt_show": validation_receipt_show, "release_confidence_show": release_confidence_show, "git_readiness": git_readiness,
     "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
-    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "execution_evidence_show": execution_evidence_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "planning_decision_show": planning_decision_show, "planning_investigation_show": planning_investigation_show, "planning_revision_show": planning_revision_show, "planning_authority_show": planning_authority_show, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "enterprise_target_policy_inspect": enterprise_target_policy_inspect, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_investigate": planning_investigate, "planning_revision_propose": planning_revision_propose, "planning_revision_approve": planning_revision_approve, "planning_aidlc_standard_propose": planning_aidlc_standard_propose, "planning_aidlc_standard_approve": planning_aidlc_standard_approve, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start, "execution_evidence_record": execution_evidence_record,
+    "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "execution_evidence_show": execution_evidence_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "planning_decision_show": planning_decision_show, "planning_investigation_show": planning_investigation_show, "planning_revision_show": planning_revision_show, "planning_authority_show": planning_authority_show, "planning_aidlc_question_show": planning_aidlc_question_show, "planning_aidlc_question_clarify": planning_aidlc_question_clarify, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "enterprise_target_policy_inspect": enterprise_target_policy_inspect, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_investigate": planning_investigate, "planning_revision_propose": planning_revision_propose, "planning_revision_approve": planning_revision_approve, "planning_aidlc_standard_propose": planning_aidlc_standard_propose, "planning_aidlc_standard_approve": planning_aidlc_standard_approve, "planning_aidlc_question_challenge": planning_aidlc_question_challenge, "planning_aidlc_question_record": planning_aidlc_question_record, "planning_aidlc_question_approve": planning_aidlc_question_approve, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start, "execution_evidence_record": execution_evidence_record,
     "spec_kit_detect": spec_kit_detect, "spec_kit_mapping_show": spec_kit_mapping_show, "spec_kit_convergence_show": spec_kit_convergence_show, "spec_kit_import": spec_kit_import, "spec_kit_amendment_propose": spec_kit_amendment_propose, "spec_kit_anchor_approve": spec_kit_anchor_approve, "spec_kit_convergence_record": spec_kit_convergence_record, "spec_kit_ci_ingest": spec_kit_ci_ingest,
 }
 

@@ -89,6 +89,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/release-confidence.py",
     "scripts/requirement-completion.py",
     "scripts/requirement-recovery-manifest.py",
+    "scripts/requirement_discovery.py",
     "scripts/route-context.py",
     "scripts/run-ledger.py",
     "scripts/spec-kit-amendment.py",

@@ -1,5 +1,174 @@
 # TailTrail Roadmap
 
+## Durable Workflow Runtime — foundation through DWR-4 and documentation Phase 0 implemented
+
+DWR-A implements the **Canonical Ownership Contract** only. `tailtrail workflow
+bind` creates a local metadata binding between one approved TailTrail run and
+one durable workflow ID. The binding references—not copies—the Planning Lock,
+immutable approved anchor, and anchor `#/requirements` matrix. It verifies the
+bound target identity, anchor fingerprint, requirement IDs, and safe
+repository-relative references through `tailtrail workflow validate`.
+
+This grants no workflow execution, resume, recovery, completion, or additional
+approval authority.
+
+Navigator Start planning now includes deterministic **requirement
+segregation**. Explicit bullets, sentences, semicolon clauses, and action lists
+are rendered as separately reviewable requirement IDs, and that exact matrix is
+carried into the immutable approved anchor for requirement-linked execution,
+evidence, drift, recovery, and closure. It preserves single-requirement wording
+and does not invent missing product decisions.
+
+DWR-B adds the **Declarative Capability and Approval Bridge**. `tailtrail
+workflow capabilities propose` accepts only registered TailTrail feature IDs
+and derives every stage's requirement IDs, approved-anchor reference, target
+identity, action class, and declared evidence boundary. It stores no shell
+command text and does not execute any stage. `preapprove` is deliberately
+limited to scoped, expiring read-only or TailTrail-state stages and remains
+bound to the canonical run and capability-plan fingerprint.
+
+The runtime still cannot use a workflow artifact to invoke source edits, tests,
+scanners, Git, providers, publishing, resume, recovery, or completion. Those
+capabilities stay deferred until their later DWR lifecycle phases.
+
+DWR-C adds **Task-Scoped Identity, Reservation Locking, and Freshness**. It
+captures only the approved requirement paths, requirement-level context
+anchors, and anchor evidence references; unrelated repository dirtiness is not
+a freshness signal. A single local reservation protects future code-changing
+workflow work. Status and stale diagnosis are read-only, and a stale lock is
+never deleted or retried automatically.
+
+DWR-minus adds the **Append-Only Storage Proof**: each workflow has a
+hash-chained local journal and a separately atomic projection. It stores only
+sanitized `.tailtrail` artifact references and hashes. A corrupted or
+interrupted journal fails closed while the last valid projection remains
+readable; TailTrail does not silently repair, truncate, or retry it.
+
+DWR-1 adds the **Local State Engine and Read-Only Product Surface**. It is a
+thin lifecycle control plane built on that journal, not a second orchestrator:
+`tailtrail workflow state create` attaches a workflow only to an approved
+canonical run; `list`, `show`, `status`, `replay`, and `doctor` expose safe
+local state; and `pause`, `resume`, and confirmed `cancel` append only
+lifecycle events. The state view makes the active requirement, evidence
+references, optional capability/scope status, reservation posture, and
+blocked/stale reasons visible without source, prompt, command, provider, Git,
+or execution access. Cancellation releases only its own metadata reservation;
+it never rolls back project work.
+
+DWR-1.5 adds the **Deterministic Workflow Compiler**. `tailtrail workflow
+compile plan` turns a valid canonical ownership binding plus DWR-B capability
+declaration into a hash-frozen, non-executable stage graph. It selects the
+smallest matching template, applies a bounded local compiler-policy overlay,
+rejects unavailable/forbidden/conflicting capabilities, resolves the graph
+acyclically, merges only compatible duplicate stages, and records a revision
+when the graph changes. `compile show` and `compile validate` are read-only.
+DWR-1.5 deliberately did not wire compilation to `tailtrail start` or permit
+project action; DWR-2 provides that controlled connection below.
+
+DWR-2 delivers that **Controlled Start Integration**. A normal Start report
+contains only a compact in-report workflow draft until its exact Planning Lock
+and immutable anchor are approved. Activation then creates the canonical
+binding, declared capability plan, local state projection, and frozen compiler
+plan under the same run ID—without dispatching a stage. `--no-workflow` keeps
+the legacy compact Start behavior and suppresses all DWR artifacts. DWR-2 also
+records explicit session or bounded policy stage approvals as hash-bound
+metadata for read-only/TailTrail-state stages only; they never authorize a
+project command.
+
+DWR-3 adds the **Evidence, Resume, Correction, and Closure Bridge**. It
+records only hashes and local references to existing execution receipts,
+Harness assessments, drift, correction/recovery artifacts, CI evidence, and
+the canonical Completion Report. Its eight-category freshness matrix marks
+only relevant stages and their downstream stages stale; passed, unaffected
+stages remain preserved. The resume path is a read-only next-stage decision,
+and correction attaches the existing bounded correction packet without retrying
+project work. Canonical closure writes a workflow completion receipt only for
+an already activated run. `completed` requires a complete Completion Report;
+an explicit accepted evidence gap remains visibly `evidence-incomplete`, never
+a success claim.
+
+DWR-4 now provides one **Proven Small-Change Vertical Path** only. After an
+approved small-change run records factual source-edit and focused/unit passing
+evidence, `tailtrail workflow vertical finalize` composes the existing closure
+recorder, review, requirement-completion gate, selected finalizer assessments,
+canonical Completion Report, and DWR-3 receipt. Missing evidence fails closed;
+the adapter neither runs work nor retries it. The deterministic Evaluation
+Harness scenario `dwr-small-change-vertical` proves the committed composition
+contract against a baseline fixture. Delivery, risk, scanner, CI-continuation,
+and distributed adapters remain later work.
+
+Deferred Phase 0 completes **Documentation and Contract Reconciliation**. The
+runtime design, command catalog, architecture, Feature Registry, and drift
+tests now agree on the implemented command families, canonical storage files,
+five compiled templates, deferred CI/scanner template, AIDLC authority modes,
+and phase statuses.
+
+Deferred Phase 1 completes **DWR-0 Runtime Contracts and Module Boundaries**.
+It adds closed workflow, stage, action, transition, approval, evidence,
+context, completion, and sanitized-event contracts; one canonical transition
+and reason-code vocabulary; AIDLC Off/Lite/Standard/Full fixtures; reusable
+standard-library validation; privacy/path/size/version rejection; real
+persisted-artifact validation; and the enforced 300-line runtime-module gate.
+The Extended installer now includes the complete durable-runtime package and
+schemas.
+
+### Durable Workflow Runtime phase status
+
+| Phase | Status | Next dependency or proof |
+| --- | --- | --- |
+| DWR-A | implemented | ownership tests |
+| DWR-B | implemented | capability/approval declaration tests |
+| DWR-C | implemented | scope, reservation, and freshness tests |
+| DWR-minus | implemented | storage replay/integrity tests |
+| DWR-0 | implemented | versioned contracts, privacy/path/size checks, and module boundary tests |
+| DWR-1 | implemented | state/replay tests |
+| DWR-1.5 | implemented | compiler/template tests |
+| DWR-2 | implemented | Start/approval integration tests |
+| DWR-3 | implemented | evidence/closure tests |
+| DWR-4 | implemented, narrow vertical | deterministic small-change scenario |
+| Deferred Phase 0 | implemented | documentation drift and strict registry checks |
+| Deferred Phase 1 | implemented | complete DWR-0 contract and schema boundary |
+| Deferred Phase 2 | implemented | deterministic workflow/stage transitions, replay, terminal boundaries, follow-up and supersession links |
+| Deferred Phase 3 | implemented | scoped authority records, guarded transition enforcement, expiry/invalidation, and adversarial approval tests |
+| Deferred Phase 4 | implemented | eleven typed core adapters, real action-class authority, idempotent handoffs, factual result receipts, and adapter contract tests |
+| Deferred Phase 5 | implemented | six deterministic templates, typed lifecycle execution, authority/risk/CI boundaries, replay, and completion receipts |
+| Deferred Phase 6 | implemented | automatic eight-type freshness, versioned checkpoints, bounded low-risk retry receipts, correction/Recovery-Replan routing, and safe resume |
+| Deferred Phase 7 | planned | token, learning, evaluation, and Meta-Harness adapters |
+| Deferred Phase 8 | planned | MCP and host conformance |
+| Deferred Phase 9 | planned | policy-backed CI continuation |
+| Deferred Phase 10 | planned | security/privacy/governance negative assurance |
+| Deferred Phase 11 | planned | deterministic and sanitized real-run release proof |
+| Deferred Phase 12 | optional, evidence-gated | enterprise/distributed adapter entry criteria |
+
+The complete requirements, file scope, exit gates, coverage matrix, and final
+definition of done remain canonical in
+`DURABLE-WORKFLOW-RUNTIME-REVISED.md` under **Deferred Implementation — Master
+Completion Plan**.
+
+Deferred Phase 4 completes **Core Capability Adapter Contracts**. Eleven
+closed adapters now bridge bootstrap, graph discovery, AIDLC clarification,
+planning, implementation boundaries, focused testing, review, requirement
+fulfilment, security, quality, and handoff to their existing Feature Registry
+owners. The runtime prepares idempotent typed handoffs and records sanitized
+categorical results; it does not copy feature logic or execute source, test,
+scanner, publish, or deploy operations. Compiler stages freeze their real
+adapter action class so Phase 3 approval enforcement can distinguish
+`write_project`, `execute_project`, and `scan_local` from metadata work.
+
+Deferred Phase 5 completes **Full Template Execution**. The frozen compiler now
+selects one of six exact graphs: Small Change, Delivery, Risk-Sensitive,
+Review-Only, CI/Scanner Remediation, or Repository Discovery. The executor
+advances only the shortest prerequisite-ready stage, prepares the existing
+typed adapter, consumes factual saved results, and completes only after every
+passed stage has valid evidence. Missing scoped authority pauses before
+dispatch; classified dependency, migration, privacy, auth, secret, and
+infrastructure work requires a matching approved risk-authority artifact;
+CI finding intake accepts saved CI/scanner receipts rather than silently
+invoking a provider. Repository Discovery is read-only, and Review-Only has no
+source-writing stage. Six end-to-end fixtures prove completion, stable replay,
+explicit skip authority, categorical failure, rejected-fix containment, and
+no invented completion evidence.
+
 ## Execution Evidence Bridge — planned
 
 The planned [Execution Evidence Bridge](tailtrail-execution-evidence-bridge.md)
@@ -36,9 +205,19 @@ tools automatically, contacts CI, deploys, or treats missing evidence as proof.
 Its reusable CI closure gate runs only after a calling workflow restores the
 sanitized TailTrail run state and linked CI receipt into its workspace.
 
-## Interactive Plan Mode — IP-0 through IP-5 implemented; IP-1A planned
+## Interactive Plan Mode — IP-0 through IP-5 and IP-1A implemented
 
-**Status:** IP-0 through IP-5 are implemented. IP-1A remains planned.
+**Status:** IP-0 through IP-5 and IP-1A are implemented.
+
+IP-1A adds question-level AIDLC discussion. A user can ask why `Q5` exists,
+request a clearer explanation or rephrase, or challenge its logic without
+rejecting the whole Planning Lock. Clarification reads only the saved AIDLC
+question artifact. A correctness challenge is recorded with a sanitized reason
+code, routed to the active AIDLC authority, recorded as a versioned candidate,
+and requires explicit question-level approval before the answer set reopens.
+Standard and Full replacements use the pinned official Requirements Analysis
+rules; TailTrail Lite owns Lite-question revisions. The same run, approval
+boundary, and source-free planning posture are preserved throughout.
 
 IP-2 is also implemented: an explicit `planning investigate` control reads only
 already planned paths, records sanitized structural evidence, and checks an
@@ -90,8 +269,8 @@ Interactive Plan Mode now records a sanitized, deterministic routing receipt
 and an evidence-labelled answer for a question about an awaiting-approval Start
 plan without creating a new run. It reads only saved lock/report evidence and
 returns `unknown` when that evidence cannot support an answer; it does not
-inspect source or revise the plan. Later phases will let users question,
-challenge, clarify, and revise an
+inspect source or revise the plan. Users can now question, challenge, clarify,
+and revise an
 awaiting-approval Start plan without rejecting it or creating a new run. It
 will expose the rationale for file scope, selected/deferred Harnesses, AIDLC
 mode, drift posture, validation tier, risk, token estimate, requirement

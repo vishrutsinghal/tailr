@@ -96,6 +96,19 @@ class PlanningDiscussionTests(unittest.TestCase):
         self.assertEqual(result["classification"], "aidlc-standard-switch")
         self.assertIn("planning aidlc-standard", result["route"])
 
+    def test_numbered_aidlc_question_routes_to_question_level_control(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix validation", "discussion-question")
+            explain = discussion.discuss(root, "discussion-question", "I did not understand Q5 or its reasoning")
+            challenge = discussion.discuss(root, "discussion-question", "Q5 has the wrong assumption")
+
+        self.assertEqual(explain["classification"], "aidlc-question-clarification")
+        self.assertIn("aidlc-question clarify", explain["route"])
+        self.assertIn("--question-id Q5", explain["route"])
+        self.assertEqual(challenge["classification"], "aidlc-question-challenge")
+        self.assertIn("aidlc-question challenge", challenge["route"])
+
     def test_feature_customization_routes_to_the_single_control_catalog(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

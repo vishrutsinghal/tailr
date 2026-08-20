@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Phase 6 Retry Attempts", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "attempts", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-retry-attempts"}, "workflow_id": {"type": "string", "pattern": "^ttw-"}, "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "attempts": {"type": "array", "items": {"type": "object", "required": ["operation_id", "attempt", "kind", "stage_id", "adapter_id", "action_class", "status", "outcome", "approval_id", "input_ref", "result_ref", "result_hash"], "properties": {
+      "operation_id": {"type": "string", "pattern": "^wfop-"}, "attempt": {"type": "integer", "minimum": 0}, "kind": {"enum": ["initial", "retry"]}, "stage_id": {"type": "string"}, "adapter_id": {"type": "string"},
+      "action_class": {"enum": ["read_local", "write_tailtrail_state", "write_project", "execute_project", "scan_local", "external_provider", "publish"]}, "status": {"enum": ["prepared", "completed"]}, "outcome": {"type": ["string", "null"]},
+      "approval_id": {"type": ["string", "null"]}, "input_ref": {"type": ["string", "null"]}, "result_ref": {"type": ["string", "null"]}, "result_hash": {"type": ["string", "null"], "pattern": "^sha256:"}
+    }, "additionalProperties": false}}, "boundary": {"type": "string", "minLength": 1}
+  }, "additionalProperties": false
+}

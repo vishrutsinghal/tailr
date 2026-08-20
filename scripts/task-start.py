@@ -12,6 +12,7 @@ from typing import Any
 
 import target_workspace
 import start_posture
+import requirement_discovery
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,13 @@ if BRIDGE_SPEC is None or BRIDGE_SPEC.loader is None:
 official_aidlc_bridge = importlib.util.module_from_spec(BRIDGE_SPEC)
 sys.modules["tailtrail_official_aidlc_bridge"] = official_aidlc_bridge
 BRIDGE_SPEC.loader.exec_module(official_aidlc_bridge)
+
+WORKFLOW_START_SPEC = importlib.util.spec_from_file_location("tailtrail_workflow_start_integration", ROOT / "scripts" / "workflow_runtime" / "start_integration.py")
+if WORKFLOW_START_SPEC is None or WORKFLOW_START_SPEC.loader is None:
+    raise SystemExit("Unable to load scripts/workflow_runtime/start_integration.py")
+workflow_start_integration = importlib.util.module_from_spec(WORKFLOW_START_SPEC)
+sys.modules["tailtrail_workflow_start_integration"] = workflow_start_integration
+WORKFLOW_START_SPEC.loader.exec_module(workflow_start_integration)
 
 SPEC_KIT_BRIDGE_SPEC = importlib.util.spec_from_file_location("tailtrail_spec_kit_bridge", ROOT / "scripts" / "spec-kit-bridge.py")
 if SPEC_KIT_BRIDGE_SPEC is None or SPEC_KIT_BRIDGE_SPEC.loader is None:
@@ -321,7 +329,8 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
     tasks = {str(item).lower() for item in plan.get("task_types", [])}
     risks = {str(item).lower() for item in plan.get("risk_indicators", [])}
     hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
-    tiny = plan.get("recommended_workflow") == ["lean"] and not hands_free
+    multiple_requirements = len(plan.get("requirement_matrix", [])) > 1
+    tiny = plan.get("recommended_workflow") == ["lean"] and not hands_free and not multiple_requirements
     broad = hands_free or len(changed) > 1 or any(word in lowered for word in ("feature", "implement", "workflow", "service", "endpoint", "api", "migration"))
     user_facing = any(word in lowered for word in ("user", "journey", "screen", "page", "ui", "endpoint", "api", "workflow"))
     ui_change = navigator.core.ui_change_requested(goal, changed)
@@ -355,6 +364,8 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
         if hands_free:
             add("Program Delivery Harness", "explicit hands-free/end-to-end request needs feature ordering and resume state")
         stages = ["approve requirements and scope", "map impacted paths", "implement the approved smallest change", "run selected computational checks", "issue one completion report"]
+        if multiple_requirements:
+            stages = ["approve the segregated requirement matrix and scope", "order requirements by dependency and select the first active requirement", "map and implement one approved requirement at a time", "record requirement-linked proof and drift at each checkpoint", "reconcile every requirement row in one completion report"]
         if ui_change:
             stages.insert(2, "inspect the existing UI system and nearest comparable screen; reuse its established patterns")
         if hands_free:
@@ -622,6 +633,9 @@ def build_report(
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
     plan = navigator.decide(goal, root, changed, command_prefix)
+    initial_paths = [str(item.get("path")) for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
+    if not plan.get("revision_requirement_matrix"):
+        plan["requirement_matrix"] = requirement_discovery.matrix(goal, initial_paths)
     delivery = guided_delivery(plan, goal, changed, root, run_id)
     spec_kit_source = spec_kit_bridge.load(root, spec_kit_feature) if spec_kit_feature else None
     if spec_kit_source:
@@ -635,6 +649,11 @@ def build_report(
             {"name": "Intent Bridge", "why": f"preserve {len(spec_kit_source['requirements'])} imported requirements and source revision through approval"},
             *delivery["selected"],
         ]
+    else:
+        paths = [str(item.get("path")) for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
+        program = delivery.get("hands_free_program")
+        if isinstance(program, dict) and isinstance(program.get("feature_requirements"), list):
+            plan["requirement_matrix"] = requirement_discovery.from_features(program["feature_requirements"], paths)
     ui_change = navigator.core.ui_change_requested(goal, changed)
     mode = aidlc_mode_selection(goal, aidlc_mode, root, plan, official_manifest)
     if mode["mode"] == "off":
@@ -758,6 +777,9 @@ def compact_start_report(report: dict[str, Any]) -> str:
         policy = lock.get("enterprise_policy")
         if isinstance(policy, dict):
             lines.append(f"- Enterprise target policy: `{policy.get('status', 'not-configured')}`.")
+    workflow_runtime = report.get("workflow_runtime", {})
+    if isinstance(workflow_runtime, dict) and workflow_runtime.get("enabled"):
+        lines.extend(["", "## Workflow runtime", "", f"- Draft: `{workflow_runtime.get('workflow_id')}` — no durable workflow artifacts exist before approval.", "- After approval: bind the canonical anchor, declare selected capabilities, and freeze the non-executing compiler graph."])
     lines.extend(["## Scope", ""])
     target = report.get("target_root")
     if isinstance(target, dict) and target.get("requested"):
@@ -773,25 +795,13 @@ def compact_start_report(report: dict[str, Any]) -> str:
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
     spec_kit_source = report.get("spec_kit_source")
+    requirement_rows = [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)]
+    for item in requirement_rows:
+        lines.append(f"- **{item.get('display_id', 'REQ')}:** {item.get('statement', '')}")
     if isinstance(spec_kit_source, dict):
-        for item in spec_kit_source.get("requirements", []):
-            lines.append(f"- **{item['external_id']}:** {item['statement']}")
         lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
-    elif hands_free_program:
-        for item in hands_free_program["feature_requirements"]:
-            lines.append(f"- **{item['display_id']}:** {item['statement']}")
-    elif "zero" in lowered_goal and "quantity" in lowered_goal:
-        lines.extend(
-            [
-                "- Reject zero quantities.",
-                "- Preserve valid positive quantities.",
-                "- Keep order-service behavior unchanged outside this validation boundary.",
-            ]
-        )
-    else:
+    if not requirement_rows:
         lines.append("- Implement the approved goal with the smallest maintainable change.")
-        if report.get("ui_consistency", {}).get("selected"):
-            lines.append("- Preserve the established UI system: reuse existing components, tokens, layout, responsive behavior, and accessibility patterns.")
     aidlc = report.get("aidlc_requirements")
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
@@ -833,14 +843,19 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.append(f"- First active slice: {hands_free_program['first_active_slice']}")
         lines.append(f"- Program approval gate: {hands_free_program['approval_gate']}")
     else:
-        if report.get("ui_consistency", {}).get("selected"):
+        if len(requirement_rows) > 1:
+            lines.append("- Confirm dependency order and select the first active requirement.")
+            lines.append("- Implement one approved requirement row at a time; map changed scope and focused proof to the same `REQ-*` ID before advancing.")
+            lines.append("- Reconcile every requirement row, preservation rule, evidence result, and unresolved drift in the Completion Report.")
+        elif report.get("ui_consistency", {}).get("selected"):
             lines.append("- Inspect the existing UI system and nearest comparable screen before changing the requested UI.")
             lines.append(f"- UI discovery: `{report['ui_consistency']['command']}`")
             lines.append(f"- Preserve: {report['ui_consistency']['boundary']}")
         else:
             lines.append("- Inspect the target, its focused test, and the likely caller.")
-        lines.append("- Make the smallest change within the listed scope.")
-        lines.append("- Run focused proof, then review the changed scope.")
+        if len(requirement_rows) <= 1:
+            lines.append("- Make the smallest change within the listed scope.")
+            lines.append("- Run focused proof, then review the changed scope.")
     validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
     lines.extend(["", "## Focused validation", ""])
     if validation:
@@ -903,6 +918,9 @@ def verbose_start_report(report: dict[str, Any]) -> str:
             lines.append(f"- Enterprise target policy: `{policy.get('status', 'not-configured')}`.")
     else:
         lines.append("- No persisted Planning Lock is attached to this rendered report.")
+    workflow_runtime = report.get("workflow_runtime", {})
+    if isinstance(workflow_runtime, dict) and workflow_runtime.get("enabled"):
+        lines.extend(["", "## Workflow runtime", "", f"- Draft workflow ID: `{workflow_runtime.get('workflow_id')}`.", "- Boundary: this remains a report-only draft until the exact Planning Lock is approved; no workflow artifact or stage execution has occurred."])
     lines.extend(["", "## Start Here", "", "- Review the scope, selected controls, and proof before approval.", "- Nothing in this report implements the task.", "", "## Goal", "", f"- {goal}", "", "## Navigator Decision", ""])
     lines.extend(
         [
@@ -935,18 +953,13 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
     spec_kit_source = report.get("spec_kit_source")
+    requirement_rows = [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)]
+    for item in requirement_rows:
+        lines.append(f"- **{item.get('display_id', 'REQ')}:** {item.get('statement', '')}")
     if isinstance(spec_kit_source, dict):
-        for item in spec_kit_source.get("requirements", []):
-            lines.append(f"- **{item['external_id']}:** {item['statement']}")
         lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
-    elif hands_free_program:
-        lines.extend(f"- **{item['display_id']}:** {item['statement']}" for item in hands_free_program["feature_requirements"])
-    elif "zero" in lowered_goal and "quantity" in lowered_goal:
-        lines.extend(["- Reject zero quantities.", "- Preserve valid positive quantities.", "- Keep order-service behavior unchanged outside this validation boundary."])
-    else:
+    if not requirement_rows:
         lines.append("- Implement the approved goal with the smallest maintainable change.")
-        if report.get("ui_consistency", {}).get("selected"):
-            lines.append("- Preserve the established UI system: reuse existing components, tokens, layout, responsive behavior, and accessibility patterns.")
     aidlc = report.get("aidlc_requirements")
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
@@ -1390,6 +1403,7 @@ def main() -> int:
     parser.add_argument("--official-stage", choices=("requirements", "design", "implementation", "build-and-test", "handoff", "operations"), default="requirements", help="Initial official AIDLC stage identity for full mode.")
     parser.add_argument("--intent-feature", "--spec-kit-feature", dest="spec_kit_feature", help="Explicitly use one already-imported Intent Bridge feature as the authoritative requirement source for this Planning Lock.")
     parser.add_argument("--no-planning-lock", action="store_true", help="Advanced compatibility escape hatch; does not create the local planning artifact.")
+    parser.add_argument("--no-workflow", action="store_true", help="Compatibility escape hatch; keep this Start run outside the DWR workflow runtime.")
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
     parser.add_argument("--verbose", action="store_true", help="Include full decision menu, posture details, and Navigator output.")
@@ -1443,6 +1457,7 @@ def main() -> int:
         effective_aidlc_mode = report["aidlc_mode"]["mode"]
         if not args.no_planning_lock:
             report["planning_lock"] = planning_lock.create(root, goal, args.planning_run_id, args.reference_root, input_roles=report["input_roles"], host_workspace=host_resolution, enterprise_policy=policy_result)
+            report["workflow_runtime"] = workflow_start_integration.draft(report, report["planning_lock"]["run_id"], disabled=args.no_workflow)
             report["target_resolution_receipt"] = enterprise_target_policy.receipt(root, report["planning_lock"]["run_id"], target_identity=report["planning_lock"]["target_identity"], input_roles=report["input_roles"], policy_result=policy_result, host_workspace=host_resolution)
             if effective_aidlc_mode in {"standard", "full"}:
                 report["official_aidlc_bridge"] = official_aidlc_bridge.create(
@@ -1464,6 +1479,8 @@ def main() -> int:
             elif effective_aidlc_mode == "full":
                 report["aidlc_requirements"] = planning_lock.request_official_aidlc_requirements(root, report["planning_lock"]["run_id"])
                 report["planning_report"] = planning_lock.enrich_start_report(root, report["planning_lock"]["run_id"], report)
+        elif args.no_workflow:
+            report["workflow_runtime"] = workflow_start_integration.draft(report, "not-persisted", disabled=True)
     except ValueError as error:
         parser.error(str(error))
     if args.format == "json":

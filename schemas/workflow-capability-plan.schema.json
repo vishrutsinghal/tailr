@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail DWR-B Workflow Capability Plan",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "ownership_ref", "ownership_fingerprint", "canonical_approval", "stages", "state", "boundary", "plan_fingerprint"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-capability-plan"},
+    "workflow_id": {"pattern": "^ttw-[a-z0-9][a-z0-9-]{3,80}$"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "ownership_ref": {"type": "string", "pattern": "^\\.tailtrail/"},
+    "ownership_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "canonical_approval": {"type": "object"},
+    "stages": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["stage_id", "capability_id", "action_class", "requires_canonical_approval", "inputs", "declared_evidence_outputs", "execution_authority", "boundary"], "properties": {"stage_id": {"type": "string"}, "capability_id": {"type": "string"}, "action_class": {"enum": ["read-only", "tailtrail-state", "managed-execution"]}, "requires_canonical_approval": {"type": "boolean"}, "inputs": {"type": "object"}, "declared_evidence_outputs": {"type": "object"}, "execution_authority": {"const": "not-implemented"}, "boundary": {"type": "string"}}, "additionalProperties": false}},
+    "state": {"const": "declared"},
+    "boundary": {"type": "string"},
+    "plan_fingerprint": {"type": "string", "pattern": "^sha256:"}
+  },
+  "additionalProperties": false
+}
