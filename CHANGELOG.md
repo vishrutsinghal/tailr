@@ -8,6 +8,26 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 
 ### Added
 
+- Durable Workflow Runtime Deferred Phase 12 optional enterprise adapter: a
+  provider-neutral state-store protocol, dependency-free local conformance
+  adapter, evidence-gated activation, tenant/actor/repository isolation,
+  read-only cross-repository identities, monotonic leases, fencing tokens,
+  ordered idempotent receipt transport, replay, sanitized observability,
+  bounded backup/restore validation, exact migration/rollback, cost controls,
+  CLI, MCP, schemas, installed-pack coverage, and host guidance. Local JSON
+  remains canonical and default. No provider, model API, database, queue,
+  container, background worker, upload, or automatic retry was introduced.
+
+- Durable Workflow Runtime Deferred Phase 11 release proof: a closed 15-scenario
+  portfolio, sanitized six-template local-run receipts, Codex/Copilot/Claude
+  convergence, calibrated safety and token-coverage observations, read-only
+  migration compatibility assessment, and a fail-closed release gate.
+
+  `--no-workflow` remains available as the compatibility escape hatch. Even a
+  passing release gate requires a separate exact-fingerprint retirement approval
+  and later reviewed release change; Phase 11 does not migrate old history or
+  remove compatibility automatically.
+
 - Durable Workflow Runtime Deferred Phase 5 full template execution: six exact
   deterministic graphs; shortest-continuation status; typed start, finish, and
   skip controls; scoped stage, risk, saved-CI/scanner, and release boundaries;

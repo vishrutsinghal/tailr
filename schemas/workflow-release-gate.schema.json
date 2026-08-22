@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 11 Release Gate",
+  "type": "object",
+  "required": ["schema_version", "type", "status", "scenario_coverage", "template_coverage", "host_conformance", "quality", "compatibility", "retirement_requires_separate_approval", "issues", "gate_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-release-gate"}, "status": {"enum": ["passed", "blocked"]},
+    "scenario_coverage": {"type": "object"}, "template_coverage": {"type": "object"}, "host_conformance": {"type": "object"}, "quality": {"type": "object"}, "compatibility": {"type": "object"},
+    "retirement_requires_separate_approval": {"const": true}, "issues": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}},
+    "gate_fingerprint": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

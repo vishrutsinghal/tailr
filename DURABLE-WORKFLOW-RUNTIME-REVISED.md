@@ -3,7 +3,7 @@
 Status: phased implementation in progress. DWR-A, DWR-B, DWR-C, DWR-minus,
 DWR-0, DWR-1, DWR-1.5, DWR-2, DWR-3, DWR-4, and Deferred Phases 0–3 are implemented.
 Deferred Phases 4 through 11 remain required for the complete local runtime;
-Deferred Phase 12 remains evidence-gated and optional.
+Deferred Phase 12 is implemented as an evidence-gated optional adapter; local mode remains supported and default.
 Revision basis: implemented runtime evidence and documentation reconciliation
 through August 20, 2026.
 Changes from original: canonical ownership, capability declaration, task scope,
@@ -1692,12 +1692,12 @@ coverage matrix below is implemented, registered, documented, and validated.
 | Deferred Phase 4 — capability adapters | implemented | `durable-workflow-deferred-phase-4` |
 | Deferred Phase 5 — full template execution | implemented | `durable-workflow-deferred-phase-5` |
 | Deferred Phase 6 — freshness/correction/recovery | implemented | `durable-workflow-deferred-phase-6` |
-| Deferred Phase 7 — token/learning/evaluation adapters | planned | `durable-workflow-deferred-phase-7` |
-| Deferred Phase 8 — MCP and host conformance | planned | `durable-workflow-deferred-phase-8` |
-| Deferred Phase 9 — CI continuation | planned | `durable-workflow-deferred-phase-9` |
-| Deferred Phase 10 — negative assurance | planned | `durable-workflow-deferred-phase-10` |
-| Deferred Phase 11 — real-run release proof | planned | `durable-workflow-deferred-phase-11` |
-| Deferred Phase 12 — enterprise adapter | optional/evidence-gated | `durable-workflow-deferred-phase-12` |
+| Deferred Phase 7 — token/learning/evaluation adapters | implemented | `durable-workflow-deferred-phase-7` |
+| Deferred Phase 8 — MCP and host conformance | implemented | `durable-workflow-deferred-phase-8` |
+| Deferred Phase 9 — CI continuation | implemented | `durable-workflow-deferred-phase-9` |
+| Deferred Phase 10 — negative assurance | implemented | `durable-workflow-deferred-phase-10` |
+| Deferred Phase 11 — real-run release proof | implemented | `durable-workflow-deferred-phase-11` |
+| Deferred Phase 12 — enterprise adapter | implemented, optional/evidence-gated | `durable-workflow-deferred-phase-12` |
 
 ### Non-Negotiable Boundaries For All Deferred Phases
 
@@ -2684,6 +2684,18 @@ Exit gate:
 > candidate appears before accepted completion; normalized evaluation and
 > Meta-Harness outputs contain no raw prompt/source/log or identifying data.
 
+**Implemented.** `workflow context` stores stage budget, selected/retrieval
+references, exactness, and reduction posture as compact local receipts; resume
+returns those receipts rather than history. `workflow context telemetry` accepts
+only a run/workflow/stage-linked host/provider usage receipt before emitting a
+measured label. `workflow outcomes learning` delegates accepted completed
+closures to the existing candidate-only learning governance, while incomplete
+delivery remains categorically separate. `workflow outcomes emit` writes closed,
+sanitized Evaluation and Meta-Harness artifacts for template/stage/freshness,
+correction, approval, requirement, and closure facts. These signals remain
+advisory and never override current source, policy, tests, CI, scanners, or user
+instructions.
+
 ### Deferred Phase 8 — MCP Workflow Surface And Host Conformance
 
 **Goal:** expose one runtime contract consistently to Codex, Copilot, Claude,
@@ -2737,6 +2749,17 @@ Exit gate:
 > cross-run, cross-target, path, and unknown-field tests; all three hosts show
 > the same canonical workflow status and closure boundary.
 
+**Implemented.** The `workflow_*` MCP surface uses closed schemas and delegates
+only to canonical runtime state, compiler, approval, evidence, correction, and
+closure controls. Read-only calls never initialize state; controlled calls need
+`approved: true`, safe references, and the underlying canonical checks.
+`workflow_create` can finish only the enabled workflow draft in an approved
+saved Start report; it rejects substituted IDs and legacy/partial runs, captures
+the canonical task scope, and validates existing artifacts before retry writes. Codex,
+Copilot, and Claude composed surfaces state the same workflow-MCP authority
+boundary, while receipt-based host conformance remains distinct from instruction
+conformance. The Extended installer ships the runtime bridge and contracts.
+
 ### Deferred Phase 9 — Policy-Backed CI Continuation
 
 **Goal:** allow CI to advance only explicitly approved non-interactive
@@ -2770,7 +2793,17 @@ Exit gate:
 > receipt and cannot perform or authorize project writes, scans, providers,
 > publication, deployment, merge, or recovery.
 
-### Deferred Phase 10 — Security, Privacy, Governance, And Negative Assurance
+**Implemented.** Closed CI policy, receipt, and continuation-index contracts
+bind every accepted result to the canonical workflow, run, requirements, stage,
+compiler revision/fingerprint, target, scope, Git commit, environment, artifact
+hash, and trusted provenance. Only explicitly listed validation,
+evidence-ingestion, reporting, and closure-readiness metadata stages may
+advance. Duplicate, delayed, out-of-order, late-terminal, failed, cancelled,
+stale, forged, and cross-boundary receipts have deterministic fail-closed
+outcomes. CI never runs commands, scanners, providers, fixes, dependencies,
+infrastructure, publication, deployment, merge, recovery, or canonical closure.
+
+### Deferred Phase 10 — Security, Privacy, Governance, And Negative Assurance *(implemented)*
 
 **Goal:** prove the runtime remains safe when artifacts, approvals, adapters,
 or hosts are malicious, stale, malformed, or ambiguous.
@@ -2826,7 +2859,13 @@ Exit gate:
 > and adapter drift checks pass, retained local data follows the documented
 > policy, and no runtime artifact crosses the privacy boundary.
 
-### Deferred Phase 11 — Evaluation, Real-Run Proof, Migration, And Release Gate
+Implemented with categorical denial audits, read-only integrity/privacy and
+governance assurance, and fingerprint-bound count-based retention whose cleanup
+is manual, explicit, terminal-workflow-only, local-only, and preserves canonical
+run history. The focused security, privacy, and negative suites exercise all 20
+required cases without adding a dependency.
+
+### Deferred Phase 11 — Evaluation, Real-Run Proof, Migration, And Release Gate *(implemented)*
 
 **Goal:** prove the full runtime helps real delivery before making it the only
 path or removing compatibility controls.
@@ -2891,6 +2930,13 @@ Exit gate:
 > all hosts and templates converge on the same canonical completion; measured
 > claims remain calibrated; compatibility removal is separately approved.
 
+Implemented as a closed 15-scenario catalog, fingerprinted scenario and
+six-template real-run receipts, calibrated count/categorical metrics, read-only
+migration/compatibility assessment, and a release evaluator that remains
+blocked until genuine template and Codex/Copilot/Claude receipts pass. A passing
+gate still cannot remove `--no-workflow`; only a separate exact-fingerprint
+approval records authority for a later reviewed release change.
+
 ### Deferred Phase 12 — Optional Enterprise And Distributed Runtime Adapter
 
 **Goal:** add distributed continuation only when local runtime evidence proves
@@ -2930,6 +2976,15 @@ Exit gate:
 > Distributed execution preserves the same canonical ownership, approval,
 > evidence, privacy, retry, recovery, and closure contracts as local mode;
 > isolation, failover, replay, migration, rollback, and cost tests pass.
+
+Implemented with a provider-neutral metadata state-store protocol, a
+dependency-free local conformance adapter, explicit receipt transport,
+monotonic leases and fencing tokens, tenant/actor/repository isolation,
+cross-repository read-only parent/child identities, centralized sanitized
+observability, bounded backup/restore validation, exact-fingerprint migration
+and rollback, and a closed conformance report. Activation remains impossible
+until the Phase 11 release gate and every enterprise entry control pass; local
+ownership, journal, approvals, evidence, recovery, and closure stay canonical.
 
 ### Final Coverage Matrix — Nothing May Be Omitted
 
@@ -3011,4 +3066,3 @@ Describe the goal
 
 The user should experience one clear workflow, while TailTrail retains the precision,
 guardrails, evidence, and reversibility needed for enterprise AI-assisted development.
-

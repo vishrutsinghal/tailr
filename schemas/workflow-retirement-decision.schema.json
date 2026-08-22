@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 11 Separately Approved Compatibility Retirement Decision",
+  "type": "object",
+  "required": ["schema_version", "type", "gate_fingerprint", "decision", "approved", "state", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-retirement-decision"}, "gate_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "decision": {"const": "retire-no-workflow"}, "approved": {"const": true}, "state": {"const": "approved-for-separate-release-change"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

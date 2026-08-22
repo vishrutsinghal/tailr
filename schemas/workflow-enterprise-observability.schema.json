@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Observability Projection", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "tenant_id", "repository_id", "continuation_mode", "canonical_status", "transport_status", "transport_event_count", "last_event_hash", "child_links", "read_only", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-observability"}, "workflow_id": {"type": "string"}, "tailtrail_run_id": {"type": "string"},
+    "tenant_id": {"type": "string"}, "repository_id": {"type": "string"}, "continuation_mode": {"enum": ["local", "enterprise-shadow"]},
+    "canonical_status": {"enum": ["valid", "blocked"]}, "transport_status": {"enum": ["valid", "blocked"]}, "transport_event_count": {"type": "integer", "minimum": 0},
+    "last_event_hash": {"type": ["string", "null"]}, "child_links": {"type": "array", "items": {"type": "object"}}, "read_only": {"const": true},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Entry Assessment", "type": "object",
+  "required": ["schema_version", "type", "policy_id", "status", "local_default", "issues", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-entry"}, "policy_id": {"type": "string"},
+    "status": {"enum": ["eligible", "blocked"]}, "local_default": {"const": true}, "need": {"enum": ["long-running", "cross-repository", "both"]},
+    "release_gate_fingerprint": {"type": "string", "pattern": "^sha256:"}, "issues": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

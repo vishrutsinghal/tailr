@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Conformance Report", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "status", "checks", "issues", "report_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-conformance"}, "workflow_id": {"type": "string"},
+    "status": {"enum": ["passed", "blocked"]}, "checks": {"type": "object", "additionalProperties": {"type": "boolean"}},
+    "issues": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}},
+    "report_fingerprint": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

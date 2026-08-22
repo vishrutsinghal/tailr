@@ -78,6 +78,43 @@ python3 scripts/tailtrail.py workflow evidence resume --root . --workflow-id <wo
 python3 scripts/tailtrail.py workflow evidence correction --root . --workflow-id <workflow-id>
 python3 scripts/tailtrail.py workflow evidence close --root . --workflow-id <workflow-id>
 python3 scripts/tailtrail.py workflow evidence validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow context record --root . --workflow-id <workflow-id> --stage-id <stage-id> --budget-tokens 8000 --selected-ref .tailtrail/context/selection.json --exactness structured-lossless --reduction-status reduced --retrieval-ref .tailtrail/context/retrieval.json
+python3 scripts/tailtrail.py workflow context telemetry --root . --workflow-id <workflow-id> --stage-id <stage-id> --source-ref .tailtrail/host-telemetry.json
+python3 scripts/tailtrail.py workflow context resume-summary --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow outcomes learning --root . --workflow-id <workflow-id> --accepted-by user
+python3 scripts/tailtrail.py workflow outcomes emit --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow outcomes validate --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow ci show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow ci ingest --root . --workflow-id <workflow-id> --receipt-ref .tailtrail/incoming/ci-receipt.json --policy-ref .tailtrail/workflow-ci-policy-v1.json --approved
+python3 scripts/tailtrail.py workflow assurance inspect --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow assurance governance --root .
+python3 scripts/tailtrail.py workflow assurance denials --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow retention show --root .
+python3 scripts/tailtrail.py workflow retention plan --root .
+python3 scripts/tailtrail.py workflow retention cleanup --root . --workflow-id <workflow-id> --plan-fingerprint <sha256:...> --approved
+python3 scripts/tailtrail.py workflow release catalog --root .
+python3 scripts/tailtrail.py workflow release show --root .
+python3 scripts/tailtrail.py workflow release compatibility --root .
+python3 scripts/tailtrail.py workflow release evaluate --root .
+python3 scripts/tailtrail.py workflow release scenario-record --root . --workflow-id <workflow-id> --observation-ref .tailtrail/incoming/scenario.json --approved
+python3 scripts/tailtrail.py workflow release real-run-record --root . --workflow-id <workflow-id> --observation-ref .tailtrail/incoming/real-run.json --approved
+python3 scripts/tailtrail.py workflow release retire --root . --gate-fingerprint <sha256:...> --approved
+python3 scripts/tailtrail.py workflow enterprise policy-record --root . --policy-ref .tailtrail/incoming/enterprise-policy.json --approved
+python3 scripts/tailtrail.py workflow enterprise entry --root . --policy-id <policy-id>
+python3 scripts/tailtrail.py workflow enterprise activate --root . --workflow-id <workflow-id> --policy-id <policy-id> --tenant-id <tenant-id> --repository-id <repository-id> --actor-id <actor-id> --approved
+python3 scripts/tailtrail.py workflow enterprise show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow enterprise link --root . --workflow-id <workflow-id> --identity-ref .tailtrail/incoming/child-identity.json --actor-id <actor-id> --approved
+python3 scripts/tailtrail.py workflow enterprise lease-acquire --root . --workflow-id <workflow-id> --tenant-id <tenant-id> --actor-id <actor-id> --approved
+python3 scripts/tailtrail.py workflow enterprise lease-release --root . --workflow-id <workflow-id> --tenant-id <tenant-id> --actor-id <actor-id> --lease-id <lease-id> --fencing-token <token> --approved
+python3 scripts/tailtrail.py workflow enterprise ingest --root . --workflow-id <workflow-id> --receipt-ref .tailtrail/incoming/enterprise-event.json --approved
+python3 scripts/tailtrail.py workflow enterprise replay --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow enterprise observe --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow enterprise backup --root . --workflow-id <workflow-id> --approved
+python3 scripts/tailtrail.py workflow enterprise restore-validate --root . --backup-ref .tailtrail/enterprise/backups/<workflow-id>/<backup-id>.json
+python3 scripts/tailtrail.py workflow enterprise migration-plan --root . --workflow-id <workflow-id> --direction local-to-enterprise
+python3 scripts/tailtrail.py workflow enterprise migrate --root . --workflow-id <workflow-id> --direction local-to-enterprise --migration-fingerprint <sha256:...> --approved
+python3 scripts/tailtrail.py workflow enterprise rollback --root . --workflow-id <workflow-id> --migration-fingerprint <sha256:...> --approved
+python3 scripts/tailtrail.py workflow enterprise conformance --root . --workflow-id <workflow-id>
 python3 scripts/tailtrail.py workflow vertical status --root . --workflow-id <workflow-id>
 python3 scripts/tailtrail.py workflow vertical finalize --root . --workflow-id <workflow-id>
 python3 scripts/tailtrail.py planning show --root . --run-id <run-id>

@@ -152,7 +152,7 @@ class CliDispatchTests(unittest.TestCase):
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if command == "workflow":', body)
         self.assertIn('return workflow(args)', body)
-        self.assertIn('{"bind", "show", "validate", "capabilities", "task", "storage", "state", "compile", "approvals", "evidence", "vertical", "adapters", "execute", "freshness", "retry", "resume", "correction"}', body)
+        self.assertIn('"correction", "context", "outcomes", "ci", "assurance", "retention", "release", "enterprise"}', body)
 
     def test_spec_kit_policy_has_a_public_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")

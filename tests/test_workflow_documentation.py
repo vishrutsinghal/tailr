@@ -91,6 +91,43 @@ WORKFLOW_COMMAND_PATHS = (
     ("resume",),
     ("correction", "show"),
     ("correction", "route"),
+    ("context", "record"),
+    ("context", "telemetry"),
+    ("context", "resume-summary"),
+    ("outcomes", "learning"),
+    ("outcomes", "emit"),
+    ("outcomes", "validate"),
+    ("ci", "show"),
+    ("ci", "ingest"),
+    ("assurance", "inspect"),
+    ("assurance", "governance"),
+    ("assurance", "denials"),
+    ("retention", "show"),
+    ("retention", "plan"),
+    ("retention", "cleanup"),
+    ("release", "catalog"),
+    ("release", "show"),
+    ("release", "compatibility"),
+    ("release", "evaluate"),
+    ("release", "scenario-record"),
+    ("release", "real-run-record"),
+    ("release", "retire"),
+    ("enterprise", "policy-record"),
+    ("enterprise", "entry"),
+    ("enterprise", "activate"),
+    ("enterprise", "show"),
+    ("enterprise", "link"),
+    ("enterprise", "lease-acquire"),
+    ("enterprise", "lease-release"),
+    ("enterprise", "ingest"),
+    ("enterprise", "replay"),
+    ("enterprise", "observe"),
+    ("enterprise", "backup"),
+    ("enterprise", "restore-validate"),
+    ("enterprise", "migration-plan"),
+    ("enterprise", "migrate"),
+    ("enterprise", "rollback"),
+    ("enterprise", "conformance"),
 )
 
 IMPLEMENTED_PHASES = {
@@ -110,11 +147,15 @@ IMPLEMENTED_PHASES = {
     "durable-workflow-deferred-phase-4",
     "durable-workflow-deferred-phase-5",
     "durable-workflow-deferred-phase-6",
+    "durable-workflow-deferred-phase-7",
+    "durable-workflow-deferred-phase-8",
+    "durable-workflow-deferred-phase-9",
+    "durable-workflow-deferred-phase-10",
+    "durable-workflow-deferred-phase-11",
+    "durable-workflow-deferred-phase-12",
 }
 
-PLANNED_PHASES = {
-    *(f"durable-workflow-deferred-phase-{number}" for number in range(7, 13)),
-}
+PLANNED_PHASES = set()
 
 
 def load_module(path: Path, name: str) -> Any:

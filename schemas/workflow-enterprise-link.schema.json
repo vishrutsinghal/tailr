@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Parent Child Link", "type": "object",
+  "required": ["schema_version", "type", "parent_workflow_id", "parent_run_id", "parent_repository_id", "child_workflow_id", "child_run_id", "child_repository_id", "tenant_id", "relationship", "authority", "link_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-link"},
+    "parent_workflow_id": {"type": "string"}, "parent_run_id": {"type": "string"}, "parent_repository_id": {"type": "string"},
+    "child_workflow_id": {"type": "string"}, "child_run_id": {"type": "string"}, "child_repository_id": {"type": "string"},
+    "tenant_id": {"type": "string"}, "relationship": {"enum": ["parent-child"]}, "authority": {"const": "read-only-reference"},
+    "link_fingerprint": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

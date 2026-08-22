@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 10 Manual Cleanup Plan",
+  "type": "object",
+  "required": ["schema_version", "type", "policy_ref", "policy_fingerprint", "terminal_workflow_ids", "retained_workflow_ids", "candidate_workflow_ids", "plan_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-retention-plan"},
+    "policy_ref": {"type": ["string", "null"]},
+    "policy_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "terminal_workflow_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^ttw-"}},
+    "retained_workflow_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^ttw-"}},
+    "candidate_workflow_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^ttw-"}},
+    "plan_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

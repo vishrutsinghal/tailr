@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Backup Manifest", "type": "object",
+  "required": ["schema_version", "type", "backup_id", "workflow_id", "tailtrail_run_id", "tenant_id", "artifact_hashes", "event_count", "created_at", "state", "backup_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-backup"}, "backup_id": {"type": "string"},
+    "workflow_id": {"type": "string"}, "tailtrail_run_id": {"type": "string"}, "tenant_id": {"type": "string"},
+    "artifact_hashes": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^sha256:"}}, "event_count": {"type": "integer", "minimum": 0},
+    "created_at": {"type": "string"}, "state": {"const": "verified"}, "backup_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

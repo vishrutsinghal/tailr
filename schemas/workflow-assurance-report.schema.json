@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 10 Read-Only Assurance Report",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "status", "checks", "privacy", "report_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-assurance-report"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "status": {"enum": ["passed", "blocked"]},
+    "checks": {"type": "array", "items": {"type": "object", "required": ["check_id", "status", "issue_codes"], "properties": {"check_id": {"type": "string", "pattern": "^[a-z0-9-]+$"}, "status": {"enum": ["passed", "blocked", "not-present"]}, "issue_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}}}, "additionalProperties": false}},
+    "privacy": {"type": "object", "required": ["files_inspected", "blocked_artifact_refs", "issue_codes"], "properties": {"files_inspected": {"type": "integer", "minimum": 0}, "blocked_artifact_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "issue_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}}}, "additionalProperties": false},
+    "report_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

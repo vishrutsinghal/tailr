@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 10 Manual Cleanup Receipt",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "policy_fingerprint", "plan_fingerprint", "state", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-retention-cleanup"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "policy_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "plan_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "state": {"const": "removed-local-workflow-runtime"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Lease", "type": "object",
+  "required": ["schema_version", "type", "lease_id", "workflow_id", "tailtrail_run_id", "tenant_id", "actor_id", "epoch", "fencing_token", "issued_at", "expires_at", "state", "lease_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-lease"}, "lease_id": {"type": "string"},
+    "workflow_id": {"type": "string"}, "tailtrail_run_id": {"type": "string"}, "tenant_id": {"type": "string"}, "actor_id": {"type": "string"},
+    "epoch": {"type": "integer", "minimum": 1}, "fencing_token": {"type": "string", "pattern": "^fence-[a-f0-9]{24}$"},
+    "issued_at": {"type": "string"}, "expires_at": {"type": "string"}, "state": {"enum": ["active", "released"]},
+    "lease_fingerprint": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 9 CI Continuation Index",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "policy_ref", "policy_fingerprint", "receipts", "continuation_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-ci-continuation"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "policy_ref": {"type": "string", "minLength": 1},
+    "policy_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "receipts": {"type": "array", "items": {"type": "object", "required": ["receipt_id", "stage_id", "attempt", "outcome", "disposition", "receipt_ref", "receipt_fingerprint"], "properties": {"receipt_id": {"type": "string"}, "stage_id": {"type": "string"}, "attempt": {"type": "integer", "minimum": 1}, "outcome": {"enum": ["pass", "fail", "cancelled"]}, "disposition": {"enum": ["advanced", "duplicate-suppressed", "delayed-ignored", "out-of-order-blocked", "late-terminal-ignored"]}, "receipt_ref": {"type": "string"}, "receipt_fingerprint": {"type": "string", "pattern": "^sha256:"}}, "additionalProperties": false}},
+    "continuation_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

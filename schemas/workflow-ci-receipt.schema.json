@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 9 Linked CI Receipt",
+  "type": "object",
+  "required": ["schema_version", "type", "receipt_id", "workflow_id", "tailtrail_run_id", "requirement_uids", "stage_id", "operation_kind", "compiler_revision", "compiler_plan_fingerprint", "target_identity_fingerprint", "scope_fingerprint", "commit_sha", "environment", "command_label", "outcome", "artifact_ref", "artifact_hash", "provenance", "policy_ref", "policy_fingerprint", "observed_at", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-ci-receipt"},
+    "receipt_id": {"type": "string", "pattern": "^wfci-[a-z0-9-]+$"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "requirement_uids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "stage_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "operation_kind": {"enum": ["validation", "evidence-ingestion", "reporting", "closure-readiness"]},
+    "compiler_revision": {"type": "integer", "minimum": 1},
+    "compiler_plan_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "target_identity_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "scope_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "commit_sha": {"type": "string", "pattern": "^[a-f0-9]{7,64}$"},
+    "environment": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+    "command_label": {"type": "string", "minLength": 1, "maxLength": 160},
+    "outcome": {"enum": ["pass", "fail", "cancelled"]},
+    "artifact_ref": {"type": "string", "minLength": 1},
+    "artifact_hash": {"type": "string", "pattern": "^sha256:"},
+    "provenance": {"type": "object", "required": ["provider", "pipeline_ref", "provider_run_id", "job_ref", "attempt", "attestation_ref"], "properties": {"provider": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}, "pipeline_ref": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "provider_run_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}, "job_ref": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}, "attempt": {"type": "integer", "minimum": 1}, "attestation_ref": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "policy_ref": {"type": "string", "minLength": 1},
+    "policy_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "observed_at": {"type": "string", "minLength": 1, "maxLength": 80},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

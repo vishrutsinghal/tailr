@@ -133,12 +133,12 @@ schemas.
 | Deferred Phase 4 | implemented | eleven typed core adapters, real action-class authority, idempotent handoffs, factual result receipts, and adapter contract tests |
 | Deferred Phase 5 | implemented | six deterministic templates, typed lifecycle execution, authority/risk/CI boundaries, replay, and completion receipts |
 | Deferred Phase 6 | implemented | automatic eight-type freshness, versioned checkpoints, bounded low-risk retry receipts, correction/Recovery-Replan routing, and safe resume |
-| Deferred Phase 7 | planned | token, learning, evaluation, and Meta-Harness adapters |
-| Deferred Phase 8 | planned | MCP and host conformance |
-| Deferred Phase 9 | planned | policy-backed CI continuation |
-| Deferred Phase 10 | planned | security/privacy/governance negative assurance |
-| Deferred Phase 11 | planned | deterministic and sanitized real-run release proof |
-| Deferred Phase 12 | optional, evidence-gated | enterprise/distributed adapter entry criteria |
+| Deferred Phase 7 | implemented | linked telemetry, candidate-only learning, and sanitized workflow evaluation/Meta-Harness outputs |
+| Deferred Phase 8 | implemented | closed MCP workflow bridge, host lifecycle surface, and pack inventory |
+| Deferred Phase 9 | implemented | policy-backed linked CI continuation with deterministic fail-closed receipts |
+| Deferred Phase 10 | implemented | fail-closed security/privacy/governance assurance, denial audit, and manual retention |
+| Deferred Phase 11 | implemented | deterministic scenarios, sanitized real-run evidence, compatibility assessment, and fail-closed release gate |
+| Deferred Phase 12 | implemented, optional and evidence-gated | provider-neutral state store, fenced transport, tenancy, observability, recovery, migration, rollback, and enterprise conformance |
 
 The complete requirements, file scope, exit gates, coverage matrix, and final
 definition of done remain canonical in

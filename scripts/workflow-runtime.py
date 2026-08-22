@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from workflow_runtime import adapters, approvals, capabilities, compiler, correction, evidence, executor, freshness, ownership, resume, retry, start_integration, state, storage, task_scope, vertical
+from workflow_runtime import adapters, approvals, assurance, capabilities, ci, compiler, context, correction, denials, enterprise, enterprise_recovery, enterprise_transport, evidence, executor, freshness, outcomes, ownership, release, resume, retention, retry, start_integration, state, storage, task_scope, vertical
 
 
 def main() -> int:
@@ -120,6 +120,53 @@ def main() -> int:
     correction_sub = correction_parser.add_subparsers(dest="correction_command", required=True)
     show_correction = correction_sub.add_parser("show"); show_correction.add_argument("--root", type=Path, default=Path.cwd()); show_correction.add_argument("--workflow-id", required=True)
     route_correction = correction_sub.add_parser("route"); route_correction.add_argument("--root", type=Path, default=Path.cwd()); route_correction.add_argument("--workflow-id", required=True); route_correction.add_argument("--stage-id", required=True); route_correction.add_argument("--classification"); route_correction.add_argument("--max-cycles", type=int, default=2)
+    context_parser = sub.add_parser("context", help="Deferred Phase 7 compact context and linked token telemetry receipts.")
+    context_sub = context_parser.add_subparsers(dest="context_command", required=True)
+    receipt = context_sub.add_parser("record"); receipt.add_argument("--root", type=Path, default=Path.cwd()); receipt.add_argument("--workflow-id", required=True); receipt.add_argument("--stage-id", required=True); receipt.add_argument("--budget-tokens", required=True, type=int); receipt.add_argument("--selected-ref", action="append", default=[]); receipt.add_argument("--exactness", required=True); receipt.add_argument("--reduction-status", required=True); receipt.add_argument("--retrieval-ref", action="append", default=[])
+    telemetry = context_sub.add_parser("telemetry"); telemetry.add_argument("--root", type=Path, default=Path.cwd()); telemetry.add_argument("--workflow-id", required=True); telemetry.add_argument("--stage-id", required=True); telemetry.add_argument("--source-ref", required=True)
+    summary = context_sub.add_parser("resume-summary"); summary.add_argument("--root", type=Path, default=Path.cwd()); summary.add_argument("--workflow-id", required=True)
+    outcomes_parser = sub.add_parser("outcomes", help="Deferred Phase 7 candidate-only learning and sanitized evaluation outputs.")
+    outcomes_sub = outcomes_parser.add_subparsers(dest="outcomes_command", required=True)
+    learn = outcomes_sub.add_parser("learning"); learn.add_argument("--root", type=Path, default=Path.cwd()); learn.add_argument("--workflow-id", required=True); learn.add_argument("--accepted-by", choices=("user", "trusted-ci"), required=True)
+    for name in ("emit", "validate"):
+        item = outcomes_sub.add_parser(name); item.add_argument("--root", type=Path, default=Path.cwd()); item.add_argument("--workflow-id", required=True)
+    ci_parser = sub.add_parser("ci", help="Deferred Phase 9 policy-backed CI receipt continuation.")
+    ci_sub = ci_parser.add_subparsers(dest="ci_command", required=True)
+    ci_show = ci_sub.add_parser("show"); ci_show.add_argument("--root", type=Path, default=Path.cwd()); ci_show.add_argument("--workflow-id", required=True)
+    ci_ingest = ci_sub.add_parser("ingest"); ci_ingest.add_argument("--root", type=Path, default=Path.cwd()); ci_ingest.add_argument("--workflow-id", required=True); ci_ingest.add_argument("--receipt-ref", required=True); ci_ingest.add_argument("--policy-ref", required=True); ci_ingest.add_argument("--approved", action="store_true")
+    assurance_parser = sub.add_parser("assurance", help="Deferred Phase 10 read-only integrity, privacy, denial, and governance assurance.")
+    assurance_sub = assurance_parser.add_subparsers(dest="assurance_command", required=True)
+    assurance_inspect = assurance_sub.add_parser("inspect"); assurance_inspect.add_argument("--root", type=Path, default=Path.cwd()); assurance_inspect.add_argument("--workflow-id", required=True)
+    assurance_governance = assurance_sub.add_parser("governance"); assurance_governance.add_argument("--root", type=Path, default=Path.cwd())
+    assurance_denials = assurance_sub.add_parser("denials"); assurance_denials.add_argument("--root", type=Path, default=Path.cwd()); assurance_denials.add_argument("--workflow-id", required=True)
+    retention_parser = sub.add_parser("retention", help="Deferred Phase 10 count-based local retention with explicit manual cleanup.")
+    retention_sub = retention_parser.add_subparsers(dest="retention_command", required=True)
+    for name in ("show","plan"):
+        item=retention_sub.add_parser(name); item.add_argument("--root",type=Path,default=Path.cwd()); item.add_argument("--policy-ref")
+    retention_cleanup=retention_sub.add_parser("cleanup"); retention_cleanup.add_argument("--root",type=Path,default=Path.cwd()); retention_cleanup.add_argument("--workflow-id",required=True); retention_cleanup.add_argument("--plan-fingerprint",required=True); retention_cleanup.add_argument("--policy-ref"); retention_cleanup.add_argument("--approved",action="store_true")
+    release_parser=sub.add_parser("release",help="Deferred Phase 11 deterministic real-run evidence and fail-closed release gate.")
+    release_sub=release_parser.add_subparsers(dest="release_command",required=True)
+    for name in ("catalog","show","compatibility","evaluate"):
+        item=release_sub.add_parser(name); item.add_argument("--root",type=Path,default=Path.cwd())
+    for name in ("scenario-record","real-run-record"):
+        item=release_sub.add_parser(name); item.add_argument("--root",type=Path,default=Path.cwd()); item.add_argument("--workflow-id",required=True); item.add_argument("--observation-ref",required=True); item.add_argument("--approved",action="store_true")
+    retirement=release_sub.add_parser("retire"); retirement.add_argument("--root",type=Path,default=Path.cwd()); retirement.add_argument("--gate-fingerprint",required=True); retirement.add_argument("--approved",action="store_true")
+    enterprise_parser=sub.add_parser("enterprise",help="Deferred Phase 12 optional evidence-gated enterprise adapter.")
+    enterprise_sub=enterprise_parser.add_subparsers(dest="enterprise_command",required=True)
+    policy_record=enterprise_sub.add_parser("policy-record"); policy_record.add_argument("--root",type=Path,default=Path.cwd()); policy_record.add_argument("--policy-ref",required=True); policy_record.add_argument("--approved",action="store_true")
+    entry=enterprise_sub.add_parser("entry"); entry.add_argument("--root",type=Path,default=Path.cwd()); entry.add_argument("--policy-id",required=True)
+    for name in ("show","replay","observe","conformance"):
+        item=enterprise_sub.add_parser(name); item.add_argument("--root",type=Path,default=Path.cwd()); item.add_argument("--workflow-id",required=True)
+    activate=enterprise_sub.add_parser("activate"); activate.add_argument("--root",type=Path,default=Path.cwd()); activate.add_argument("--workflow-id",required=True); activate.add_argument("--policy-id",required=True); activate.add_argument("--tenant-id",required=True); activate.add_argument("--repository-id",required=True); activate.add_argument("--actor-id",required=True); activate.add_argument("--approved",action="store_true")
+    link=enterprise_sub.add_parser("link"); link.add_argument("--root",type=Path,default=Path.cwd()); link.add_argument("--workflow-id",required=True); link.add_argument("--identity-ref",required=True); link.add_argument("--actor-id",required=True); link.add_argument("--approved",action="store_true")
+    lease_acquire=enterprise_sub.add_parser("lease-acquire"); lease_acquire.add_argument("--root",type=Path,default=Path.cwd()); lease_acquire.add_argument("--workflow-id",required=True); lease_acquire.add_argument("--tenant-id",required=True); lease_acquire.add_argument("--actor-id",required=True); lease_acquire.add_argument("--approved",action="store_true")
+    lease_release=enterprise_sub.add_parser("lease-release"); lease_release.add_argument("--root",type=Path,default=Path.cwd()); lease_release.add_argument("--workflow-id",required=True); lease_release.add_argument("--tenant-id",required=True); lease_release.add_argument("--actor-id",required=True); lease_release.add_argument("--lease-id",required=True); lease_release.add_argument("--fencing-token",required=True); lease_release.add_argument("--approved",action="store_true")
+    ingest=enterprise_sub.add_parser("ingest"); ingest.add_argument("--root",type=Path,default=Path.cwd()); ingest.add_argument("--workflow-id",required=True); ingest.add_argument("--receipt-ref",required=True); ingest.add_argument("--approved",action="store_true")
+    backup=enterprise_sub.add_parser("backup"); backup.add_argument("--root",type=Path,default=Path.cwd()); backup.add_argument("--workflow-id",required=True); backup.add_argument("--approved",action="store_true")
+    restore=enterprise_sub.add_parser("restore-validate"); restore.add_argument("--root",type=Path,default=Path.cwd()); restore.add_argument("--backup-ref",required=True)
+    plan=enterprise_sub.add_parser("migration-plan"); plan.add_argument("--root",type=Path,default=Path.cwd()); plan.add_argument("--workflow-id",required=True); plan.add_argument("--direction",choices=("local-to-enterprise","enterprise-to-local"),required=True)
+    migrate=enterprise_sub.add_parser("migrate"); migrate.add_argument("--root",type=Path,default=Path.cwd()); migrate.add_argument("--workflow-id",required=True); migrate.add_argument("--direction",choices=("local-to-enterprise","enterprise-to-local"),required=True); migrate.add_argument("--migration-fingerprint",required=True); migrate.add_argument("--approved",action="store_true")
+    rollback=enterprise_sub.add_parser("rollback"); rollback.add_argument("--root",type=Path,default=Path.cwd()); rollback.add_argument("--workflow-id",required=True); rollback.add_argument("--migration-fingerprint",required=True); rollback.add_argument("--approved",action="store_true")
     args = parser.parse_args()
     try:
         if args.command == "bind": result = ownership.bind(args.root, args.run_id, args.workflow_id)
@@ -198,6 +245,49 @@ def main() -> int:
         elif args.command == "resume": result = resume.plan(args.root, args.workflow_id)
         elif args.command == "correction":
             result = correction.show(args.root, args.workflow_id) if args.correction_command == "show" else correction.route(args.root, args.workflow_id, args.stage_id, args.classification, args.max_cycles)
+        elif args.command == "context":
+            if args.context_command == "record": result = context.record(args.root, args.workflow_id, args.stage_id, args.budget_tokens, args.selected_ref, args.exactness, args.reduction_status, args.retrieval_ref)
+            elif args.context_command == "telemetry": result = context.record_telemetry(args.root, args.workflow_id, args.stage_id, args.source_ref)
+            else: result = context.resume_summary(args.root, args.workflow_id)
+        elif args.command == "outcomes":
+            if args.outcomes_command == "learning": result = outcomes.learning(args.root, args.workflow_id, args.accepted_by)
+            elif args.outcomes_command == "emit": result = outcomes.emit(args.root, args.workflow_id)
+            else: result = outcomes.validate(args.root, args.workflow_id)
+        elif args.command == "ci":
+            result = ci.show(args.root, args.workflow_id) if args.ci_command == "show" else ci.ingest(args.root, args.workflow_id, args.receipt_ref, args.policy_ref, args.approved)
+        elif args.command == "assurance":
+            if args.assurance_command == "inspect": result=assurance.inspect(args.root,args.workflow_id)
+            elif args.assurance_command == "governance": result=assurance.governance(args.root)
+            else: result=denials.show(args.root,args.workflow_id)
+        elif args.command == "retention":
+            if args.retention_command == "show": result=retention.show(args.root,args.policy_ref)
+            elif args.retention_command == "plan": result=retention.plan(args.root,args.policy_ref)
+            else: result=retention.cleanup(args.root,args.workflow_id,args.plan_fingerprint,args.policy_ref,args.approved)
+        elif args.command == "release":
+            if args.release_command == "catalog": result=release.catalog()
+            elif args.release_command == "show": result=release.show(args.root)
+            elif args.release_command == "compatibility": result=release.compatibility(args.root)
+            elif args.release_command == "evaluate": result=release.evaluate(args.root)
+            elif args.release_command == "scenario-record": result=release.record_scenario(args.root,args.workflow_id,args.observation_ref,args.approved)
+            elif args.release_command == "real-run-record": result=release.record_real_run(args.root,args.workflow_id,args.observation_ref,args.approved)
+            else: result=release.retire(args.root,args.gate_fingerprint,args.approved)
+        elif args.command == "enterprise":
+            if args.enterprise_command == "policy-record": result=enterprise.record_policy(args.root,args.policy_ref,args.approved)
+            elif args.enterprise_command == "entry": result=enterprise.entry(args.root,args.policy_id)
+            elif args.enterprise_command == "show": result=enterprise.show(args.root,args.workflow_id)
+            elif args.enterprise_command == "activate": result=enterprise.activate(args.root,args.workflow_id,args.policy_id,args.tenant_id,args.repository_id,args.actor_id,args.approved)
+            elif args.enterprise_command == "link": result=enterprise.link(args.root,args.workflow_id,args.identity_ref,args.actor_id,args.approved)
+            elif args.enterprise_command == "lease-acquire": result=enterprise_transport.acquire(args.root,args.workflow_id,args.tenant_id,args.actor_id,args.approved)
+            elif args.enterprise_command == "lease-release": result=enterprise_transport.release_lease(args.root,args.workflow_id,args.tenant_id,args.actor_id,args.lease_id,args.fencing_token,args.approved)
+            elif args.enterprise_command == "ingest": result=enterprise_transport.ingest(args.root,args.workflow_id,args.receipt_ref,args.approved)
+            elif args.enterprise_command == "replay": result=enterprise_transport.replay(args.root,args.workflow_id)
+            elif args.enterprise_command == "observe": result=enterprise_transport.observe(args.root,args.workflow_id)
+            elif args.enterprise_command == "backup": result=enterprise_recovery.backup(args.root,args.workflow_id,args.approved)
+            elif args.enterprise_command == "restore-validate": result=enterprise_recovery.restore_validate(args.root,args.backup_ref)
+            elif args.enterprise_command == "migration-plan": result=enterprise_recovery.migration_plan(args.root,args.workflow_id,args.direction)
+            elif args.enterprise_command == "migrate": result=enterprise_recovery.migrate(args.root,args.workflow_id,args.direction,args.migration_fingerprint,args.approved)
+            elif args.enterprise_command == "rollback": result=enterprise_recovery.rollback(args.root,args.workflow_id,args.migration_fingerprint,args.approved)
+            else: result=enterprise_recovery.conformance(args.root,args.workflow_id)
         elif args.approval_command == "show": result = start_integration.show_approvals(args.root, args.workflow_id)
         elif args.approval_command == "session": result = start_integration.grant_session(args.root, args.workflow_id, args.action_class, args.approved, args.session_id, args.expires_at)
         elif args.approval_command == "session-end": result = approvals.expire_session(args.root, args.workflow_id, args.session_id, "host-session-ended")
@@ -212,6 +302,10 @@ def main() -> int:
         else: result = start_integration.validate_approvals(args.root, args.workflow_id)
         print(json.dumps(result, indent=2, sort_keys=True)); return 0 if result.get("valid", True) else 2
     except (OSError, ValueError, json.JSONDecodeError) as error:
+        workflow_id=getattr(args,"workflow_id",None)
+        if workflow_id:
+            operation="workflow_"+str(args.command)+"_"+str(getattr(args,f"{args.command}_command","control"))
+            denials.best_effort(Path(getattr(args,"root",Path.cwd())),workflow_id,operation,str(error),"cli")
         print(f"Workflow runtime error: {error}"); return 2
 
 

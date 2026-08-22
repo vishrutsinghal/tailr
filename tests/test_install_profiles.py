@@ -218,6 +218,52 @@ class InstallProfileTests(unittest.TestCase):
         self.assertLessEqual(registered_scripts, set(copilot.PACK_SCRIPTS))
         self.assertLessEqual(registered_root_docs, set(copilot.PACK_FILES))
 
+    def test_extended_pack_includes_phase7_through_phase12_runtime_surface(self):
+        entries = set(copilot.pack_entries_for(copilot.PACK_FILES, copilot.PACK_DIRS, copilot.PACK_SCRIPTS))
+        self.assertTrue({
+            "scripts/workflow_runtime/context.py",
+            "scripts/workflow_runtime/outcomes.py",
+            "scripts/workflow_runtime/mcp_bridge.py",
+            "scripts/workflow_runtime/ci.py",
+            "scripts/workflow_runtime/assurance.py",
+            "scripts/workflow_runtime/denials.py",
+            "scripts/workflow_runtime/retention.py",
+            "scripts/workflow_runtime/release.py",
+            "scripts/workflow_runtime/enterprise.py",
+            "scripts/workflow_runtime/enterprise_transport.py",
+            "scripts/workflow_runtime/enterprise_recovery.py",
+            "schemas/workflow-context-receipt.schema.json",
+            "schemas/workflow-token-telemetry.schema.json",
+            "schemas/workflow-learning-link.schema.json",
+            "schemas/workflow-evaluation-event.schema.json",
+            "schemas/workflow-meta-harness-signal.schema.json",
+            "schemas/workflow-ci-policy.schema.json",
+            "schemas/workflow-ci-receipt.schema.json",
+            "schemas/workflow-ci-continuation.schema.json",
+            "schemas/workflow-denial-audit.schema.json",
+            "schemas/workflow-retention-policy.schema.json",
+            "schemas/workflow-retention-plan.schema.json",
+            "schemas/workflow-retention-cleanup.schema.json",
+            "schemas/workflow-assurance-report.schema.json",
+            "schemas/workflow-release-scenario.schema.json",
+            "schemas/workflow-real-run-proof.schema.json",
+            "schemas/workflow-release-gate.schema.json",
+            "schemas/workflow-compatibility-report.schema.json",
+            "schemas/workflow-retirement-decision.schema.json",
+            "schemas/workflow-enterprise-policy.schema.json",
+            "schemas/workflow-enterprise-binding.schema.json",
+            "schemas/workflow-enterprise-lease.schema.json",
+            "schemas/workflow-enterprise-event.schema.json",
+            "schemas/workflow-enterprise-link.schema.json",
+            "schemas/workflow-enterprise-backup.schema.json",
+            "schemas/workflow-enterprise-migration.schema.json",
+            "schemas/workflow-enterprise-conformance.schema.json",
+            "schemas/workflow-enterprise-entry.schema.json",
+            "schemas/workflow-enterprise-replay.schema.json",
+            "schemas/workflow-enterprise-observability.schema.json",
+            "schemas/workflow-enterprise-restore-validation.schema.json",
+        } <= entries)
+
     def test_copilot_update_rewrites_manifest_with_the_installed_surface(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp)

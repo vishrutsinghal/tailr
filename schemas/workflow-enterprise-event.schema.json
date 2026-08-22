@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Transport Event", "type": "object",
+  "required": ["schema_version", "type", "event_id", "workflow_id", "tailtrail_run_id", "tenant_id", "actor_id", "sequence", "event_kind", "lease_id", "fencing_token", "canonical_event_ref", "canonical_event_hash", "previous_event_hash", "event_hash", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-event"},
+    "event_id": {"type": "string", "pattern": "^ente-[a-z0-9][a-z0-9-]{2,80}$"}, "workflow_id": {"type": "string"}, "tailtrail_run_id": {"type": "string"},
+    "tenant_id": {"type": "string"}, "actor_id": {"type": "string"}, "sequence": {"type": "integer", "minimum": 1},
+    "event_kind": {"enum": ["checkpoint", "continuation", "child-linked", "failover", "migration", "rollback"]},
+    "lease_id": {"type": "string"}, "fencing_token": {"type": "string"}, "canonical_event_ref": {"type": "string"},
+    "canonical_event_hash": {"type": "string", "pattern": "^sha256:"}, "previous_event_hash": {"type": ["string", "null"]},
+    "event_hash": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

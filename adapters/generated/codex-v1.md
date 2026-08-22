@@ -39,6 +39,31 @@ closure boundaries.
 - Do not start implementation after a why-question or a revision request.
 - Route AIDLC and Intent Bridge wording changes to their designated authority.
 
+## Durable Workflow MCP boundary
+
+- Use the same canonical workflow ID and approved run across status, evidence,
+  correction, resume, and closure.
+- Read-only workflow MCP tools inspect local state only; controlled workflow
+  tools require explicit approval and cannot invent Planning Lock, AIDLC,
+  dependency, recovery, or closure authority.
+- Host receipts are sanitized, linked evidence. They do not replace the
+  canonical workflow status or completion boundary.
+- CI continuation requires the exact approved CI policy plus run, target,
+  plan, scope, commit, artifact-hash, and trusted-provenance bindings. It may
+  advance validation/reporting metadata only; it never fixes source, changes
+  dependencies/infrastructure, scans, calls providers, publishes, deploys,
+  merges, recovers, or finalizes closure.
+- Negative assurance returns categorical issue and denial codes only; hosts must
+  not echo hostile prompts, source, logs, identities, credentials, or commands.
+- Retention is local, count-based, and manual. There is no background deletion
+  or upload; exact candidate and plan bindings plus explicit approval are required.
+
+- Phase 11 release proof accepts only linked sanitized scenario, template, and host receipts. Missing evidence remains blocked.
+- A passing release gate never retires `--no-workflow`; separate exact-gate approval and a reviewed release change are required.
+
+- Phase 12 enterprise continuation is optional, provider-neutral, and local-default. Hosts must require the passing Phase 11 gate, complete approved entry policy, per-workflow activation, tenant/actor authority, and current fencing token.
+- Enterprise receipts and observability are sanitized metadata shadows only; canonical local ownership, approvals, evidence, recovery, and closure always win. Hosts must not upload raw workflow/source/log data or infer provider readiness from local conformance.
+
 ## Boundary
 
 This generated surface validates local instruction composition only. It does not

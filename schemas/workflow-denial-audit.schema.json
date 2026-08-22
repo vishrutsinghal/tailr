@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 10 Categorical Denial Audit",
+  "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "denials", "audit_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-denial-audit"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "denials": {"type": "array", "items": {"type": "object", "required": ["sequence", "operation", "category", "reason_code", "source"], "properties": {
+      "sequence": {"type": "integer", "minimum": 1},
+      "operation": {"type": "string", "pattern": "^[a-z0-9_-]+$"},
+      "category": {"enum": ["authority", "integrity", "path", "privacy", "retry", "provider", "freshness", "contract", "cross-boundary", "completion", "host-boundary", "retention"]},
+      "reason_code": {"enum": ["approval-denied", "artifact-invalid", "unsafe-reference", "privacy-blocked", "retry-prohibited", "provider-not-authorized", "input-stale", "unknown-contract", "cross-boundary-substitution", "completion-not-proven", "host-stop-required", "retention-not-authorized"]},
+      "source": {"enum": ["mcp", "cli", "retention"]}
+    }, "additionalProperties": false}},
+    "audit_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

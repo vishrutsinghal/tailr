@@ -890,6 +890,49 @@ def check_registry_drift_advisory() -> None:
         fail(f"registry drift {issue.get('category')}: {issue.get('message')}")
 
 
+def check_workflow_negative_assurance() -> None:
+    """Keep the implemented Phase 10 registry, pack, schema, tests, and docs aligned."""
+    registry = json.loads(read("tailtrail-registry.json"))
+    feature = next((item for item in registry.get("features", []) if item.get("id") == "durable-workflow-deferred-phase-10"), None)
+    if not feature or feature.get("status") != "implemented":
+        fail("Deferred Phase 10 must remain registered as implemented")
+        return
+    required = {
+        "scripts/workflow_runtime/assurance.py", "scripts/workflow_runtime/denials.py", "scripts/workflow_runtime/retention.py",
+        "schemas/workflow-assurance-report.schema.json", "schemas/workflow-denial-audit.schema.json",
+        "schemas/workflow-retention-policy.schema.json", "schemas/workflow-retention-plan.schema.json", "schemas/workflow-retention-cleanup.schema.json",
+        "tests/test_workflow_security.py", "tests/test_workflow_privacy.py", "tests/test_workflow_negative.py",
+    }
+    declared = set(feature.get("scripts", [])) | set(feature.get("docs", [])) | set(feature.get("tests", []))
+    for path in sorted(required):
+        if not (ROOT / path).is_file(): fail(f"Phase 10 required file is missing: {path}")
+        if path not in declared: fail(f"Phase 10 registry omits required file: {path}")
+    commands = read("TAILTRAIL-COMMANDS.md")
+    for command in ("workflow assurance inspect", "workflow assurance governance", "workflow assurance denials", "workflow retention show", "workflow retention plan", "workflow retention cleanup"):
+        if command not in commands: fail(f"Phase 10 command documentation omits: {command}")
+
+
+def check_workflow_release_proof() -> None:
+    registry=json.loads(read("tailtrail-registry.json")); feature=next((item for item in registry.get("features",[]) if item.get("id")=="durable-workflow-deferred-phase-11"),None)
+    if not feature or feature.get("status")!="implemented": fail("Deferred Phase 11 must remain registered as implemented"); return
+    required={"scripts/workflow_runtime/release.py","schemas/workflow-release-scenario.schema.json","schemas/workflow-real-run-proof.schema.json","schemas/workflow-release-gate.schema.json","schemas/workflow-compatibility-report.schema.json","schemas/workflow-retirement-decision.schema.json","tests/test_workflow_release_scenarios.py","tests/test_workflow_real_runs.py","tests/test_workflow_release_gate.py","docs/workflow-release-migration.md"}; declared=set(feature.get("scripts",[]))|set(feature.get("docs",[]))|set(feature.get("tests",[]))
+    for path in sorted(required):
+        if not (ROOT/path).is_file(): fail(f"Phase 11 required file is missing: {path}")
+        if path not in declared: fail(f"Phase 11 registry omits required file: {path}")
+
+
+def check_workflow_enterprise_adapter() -> None:
+    registry=json.loads(read("tailtrail-registry.json")); feature=next((item for item in registry.get("features",[]) if item.get("id")=="durable-workflow-deferred-phase-12"),None)
+    if not feature or feature.get("status")!="implemented": fail("Deferred Phase 12 must remain registered as implemented"); return
+    required={"scripts/workflow_runtime/enterprise.py","scripts/workflow_runtime/enterprise_transport.py","scripts/workflow_runtime/enterprise_recovery.py","schemas/workflow-enterprise-policy.schema.json","schemas/workflow-enterprise-binding.schema.json","schemas/workflow-enterprise-lease.schema.json","schemas/workflow-enterprise-event.schema.json","schemas/workflow-enterprise-link.schema.json","schemas/workflow-enterprise-backup.schema.json","schemas/workflow-enterprise-migration.schema.json","schemas/workflow-enterprise-conformance.schema.json","schemas/workflow-enterprise-entry.schema.json","schemas/workflow-enterprise-replay.schema.json","schemas/workflow-enterprise-observability.schema.json","schemas/workflow-enterprise-restore-validation.schema.json","tests/test_workflow_enterprise_adapter.py","tests/test_workflow_enterprise_transport.py","tests/test_workflow_enterprise_recovery.py","tests/test_workflow_enterprise_mcp.py","docs/workflow-enterprise-adapter.md"}; declared=set(feature.get("scripts",[]))|set(feature.get("docs",[]))|set(feature.get("tests",[]))
+    for path in sorted(required):
+        if not (ROOT/path).is_file(): fail(f"Phase 12 required file is missing: {path}")
+        if path not in declared: fail(f"Phase 12 registry omits required file: {path}")
+    commands=read("TAILTRAIL-COMMANDS.md")
+    for command in ("enterprise policy-record","enterprise entry","enterprise activate","enterprise lease-acquire","enterprise ingest","enterprise backup","enterprise migration-plan","enterprise rollback","enterprise conformance"):
+        if command not in commands: fail(f"Phase 12 command documentation omits: {command}")
+
+
 def main() -> int:
     check_expected_files()
     check_manifest()
@@ -902,6 +945,9 @@ def main() -> int:
     check_governance_sync()
     check_adapter_sync()
     check_registry_drift_advisory()
+    check_workflow_negative_assurance()
+    check_workflow_release_proof()
+    check_workflow_enterprise_adapter()
 
     if errors:
         for error in errors:

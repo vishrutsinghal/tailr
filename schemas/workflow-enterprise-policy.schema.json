@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Enterprise Adapter Policy",
+  "type": "object",
+  "required": ["schema_version", "type", "policy_id", "adapter_id", "need", "evidence_refs", "controls", "tenants", "limits", "state", "policy_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-enterprise-policy"},
+    "policy_id": {"type": "string", "pattern": "^entp-[a-z0-9][a-z0-9-]{2,60}$"},
+    "adapter_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,60}$"},
+    "need": {"enum": ["long-running", "cross-repository", "both"]},
+    "evidence_refs": {"type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": {"type": "string"}},
+    "controls": {
+      "type": "object",
+      "required": ["operational_ownership", "threat_model", "tenancy", "retention", "backup", "disaster_recovery", "audit", "availability", "cost"],
+      "properties": {
+        "operational_ownership": {"const": true}, "threat_model": {"const": true}, "tenancy": {"const": true},
+        "retention": {"const": true}, "backup": {"const": true}, "disaster_recovery": {"const": true},
+        "audit": {"const": true}, "availability": {"const": true}, "cost": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "tenants": {
+      "type": "array", "minItems": 1, "maxItems": 50,
+      "items": {
+        "type": "object", "required": ["tenant_id", "actor_ids", "repository_ids"],
+        "properties": {
+          "tenant_id": {"type": "string", "pattern": "^tenant-[a-z0-9][a-z0-9-]{2,60}$"},
+          "actor_ids": {"type": "array", "minItems": 1, "maxItems": 50, "uniqueItems": true, "items": {"type": "string", "pattern": "^actor-[a-z0-9][a-z0-9-]{2,60}$"}},
+          "repository_ids": {"type": "array", "minItems": 1, "maxItems": 50, "uniqueItems": true, "items": {"type": "string", "pattern": "^repo-[a-z0-9][a-z0-9-]{2,60}$"}}
+        }, "additionalProperties": false
+      }
+    },
+    "limits": {
+      "type": "object", "required": ["lease_seconds", "max_events_per_workflow", "max_backups", "retained_events"],
+      "properties": {
+        "lease_seconds": {"type": "integer", "minimum": 30, "maximum": 3600},
+        "max_events_per_workflow": {"type": "integer", "minimum": 1, "maximum": 100000},
+        "max_backups": {"type": "integer", "minimum": 1, "maximum": 100},
+        "retained_events": {"type": "integer", "minimum": 1, "maximum": 100000}
+      }, "additionalProperties": false
+    },
+    "state": {"const": "approved"},
+    "policy_fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

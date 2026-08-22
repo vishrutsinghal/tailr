@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 10 Local Workflow Retention Policy",
+  "type": "object",
+  "required": ["schema_version", "type", "policy_id", "max_terminal_workflows", "manual_cleanup_only", "preserve_nonterminal", "background_deletion", "upload", "policy_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-retention-policy"},
+    "policy_id": {"type": "string", "pattern": "^wfret-[a-z0-9-]+$"},
+    "max_terminal_workflows": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "manual_cleanup_only": {"const": true},
+    "preserve_nonterminal": {"const": true},
+    "background_deletion": {"const": false},
+    "upload": {"const": false},
+    "policy_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

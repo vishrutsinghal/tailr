@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 9 CI Continuation Policy",
+  "type": "object",
+  "required": ["schema_version", "type", "policy_id", "status", "workflow_id", "tailtrail_run_id", "revision", "compiler_plan_fingerprint", "target_identity_fingerprint", "scope_fingerprint", "allowed_environments", "trusted_provenance", "allowed_stages", "policy_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-ci-policy"},
+    "policy_id": {"type": "string", "pattern": "^wfci-policy-[a-z0-9-]+$"},
+    "status": {"const": "approved"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "compiler_plan_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "target_identity_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "scope_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "allowed_environments": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}},
+    "trusted_provenance": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "object", "required": ["provider", "pipeline_ref"], "properties": {"provider": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"}, "pipeline_ref": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+$"}}, "additionalProperties": false}},
+    "allowed_stages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "object", "required": ["stage_id", "operation_kind"], "properties": {"stage_id": {"type": "string", "pattern": "^[a-z0-9-]+$"}, "operation_kind": {"enum": ["validation", "evidence-ingestion", "reporting", "closure-readiness"]}}, "additionalProperties": false}},
+    "policy_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  },
+  "additionalProperties": false
+}

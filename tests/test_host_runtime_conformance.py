@@ -24,12 +24,12 @@ ledger = load("host_runtime_ledger_test", "scripts/run-ledger.py")
 
 
 OBSERVATIONS = {
-    "small-bug": ["planning-lock-created", "complete-start-report", "no-write-before-approval"],
-    "hands-free-feature": ["program-requirements", "dependency-order", "first-active-slice", "approval-gate"],
+    "small-bug": ["planning-lock-created", "complete-start-report", "approval-recorded", "no-write-before-approval"],
+    "hands-free-feature": ["program-requirements", "dependency-order", "first-active-slice", "approval-gate", "execution-handoff"],
     "rejected-requirement": ["same-run-preserved", "rejection-routed", "implementation-blocked"],
-    "evidence-failure": ["requirement-incomplete", "correction-or-replan-offered", "no-false-completion"],
-    "recovery": ["approved-anchor-preserved", "task-owned-recovery", "unrelated-work-preserved"],
-    "ci-wait": ["awaiting-linked-ci", "no-positive-learning", "acceptance-not-inferred"],
+    "evidence-failure": ["evidence-recorded", "requirement-incomplete", "failure-visible", "correction-or-replan-offered", "no-false-completion"],
+    "recovery": ["approved-anchor-preserved", "task-owned-recovery", "resume-recommendation", "unrelated-work-preserved"],
+    "ci-wait": ["awaiting-linked-ci", "policy-backed-ci-continuation", "closure-boundary-visible", "no-positive-learning", "acceptance-not-inferred"],
 }
 
 

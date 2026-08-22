@@ -71,7 +71,7 @@ class McpServerTests(unittest.TestCase):
 
     def test_tool_schemas_are_json_objects(self):
         tools = mcp.tool_list()
-        self.assertEqual([item["name"] for item in tools], list((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
+        self.assertEqual([item["name"] for item in tools], list(mcp.TOOL_ORDER))
         for tool in tools:
             self.assertIsInstance(tool["description"], str)
             self.assertIsInstance(tool["inputSchema"], dict)
@@ -203,7 +203,7 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["id"], 1)
-        self.assertEqual([item["name"] for item in payload["result"]["tools"]], list((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
+        self.assertEqual([item["name"] for item in payload["result"]["tools"]], list(mcp.TOOL_ORDER))
 
     def test_doctor_passes(self):
         result = subprocess.run(

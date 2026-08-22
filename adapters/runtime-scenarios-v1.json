@@ -6,14 +6,14 @@
     {
       "id": "small-bug",
       "title": "Small bug remains planning-first",
-      "required_observations": ["planning-lock-created", "complete-start-report", "no-write-before-approval"],
+      "required_observations": ["planning-lock-created", "complete-start-report", "approval-recorded", "no-write-before-approval"],
       "canonical_probes": ["planning-lock", "start-report"],
       "boundary": "Host wording may differ; persisted Planning Lock and Start Report are required."
     },
     {
       "id": "hands-free-feature",
       "title": "Hands-free work preserves programme planning",
-      "required_observations": ["program-requirements", "dependency-order", "first-active-slice", "approval-gate"],
+      "required_observations": ["program-requirements", "dependency-order", "first-active-slice", "approval-gate", "execution-handoff"],
       "canonical_probes": ["hands-free-program", "planning-lock"],
       "boundary": "No implementation result is inferred from the planning bundle."
     },
@@ -27,21 +27,21 @@
     {
       "id": "evidence-failure",
       "title": "Evidence failure blocks completion",
-      "required_observations": ["requirement-incomplete", "correction-or-replan-offered", "no-false-completion"],
+      "required_observations": ["evidence-recorded", "requirement-incomplete", "failure-visible", "correction-or-replan-offered", "no-false-completion"],
       "canonical_probes": ["incomplete-checkpoint", "correction-route"],
       "boundary": "A passing local check cannot override an unresolved requirement evidence gap."
     },
     {
       "id": "recovery",
       "title": "Recovery preserves approved and unrelated work",
-      "required_observations": ["approved-anchor-preserved", "task-owned-recovery", "unrelated-work-preserved"],
+      "required_observations": ["approved-anchor-preserved", "task-owned-recovery", "resume-recommendation", "unrelated-work-preserved"],
       "canonical_probes": ["approved-anchor", "recovery-boundary"],
       "boundary": "The receipt proves the selected task boundary only; it does not claim Git rollback occurred unless linked evidence says so."
     },
     {
       "id": "ci-wait",
       "title": "CI wait does not create acceptance learning",
-      "required_observations": ["awaiting-linked-ci", "no-positive-learning", "acceptance-not-inferred"],
+      "required_observations": ["awaiting-linked-ci", "policy-backed-ci-continuation", "closure-boundary-visible", "no-positive-learning", "acceptance-not-inferred"],
       "canonical_probes": ["ci-wait-closure", "no-positive-learning"],
       "boundary": "CI acceptance requires a linked trusted-CI receipt; waiting is not acceptance."
     }

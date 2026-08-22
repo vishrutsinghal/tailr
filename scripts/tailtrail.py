@@ -914,8 +914,8 @@ def mcp(args: list[str]) -> int:
 
 
 def workflow(args: list[str]) -> int:
-    if not args or args[0] not in {"bind", "show", "validate", "capabilities", "task", "storage", "state", "compile", "approvals", "evidence", "vertical", "adapters", "execute", "freshness", "retry", "resume", "correction"}:
-        print("Usage: tailtrail workflow bind|show|validate|capabilities|task|storage|state|compile|approvals|evidence|vertical|adapters|execute|freshness|retry|resume|correction --root . [--run-id <run-id>] [--workflow-id <workflow-id>]")
+    if not args or args[0] not in {"bind", "show", "validate", "capabilities", "task", "storage", "state", "compile", "approvals", "evidence", "vertical", "adapters", "execute", "freshness", "retry", "resume", "correction", "context", "outcomes", "ci", "assurance", "retention", "release", "enterprise"}:
+        print("Usage: tailtrail workflow bind|show|validate|capabilities|task|storage|state|compile|approvals|evidence|vertical|adapters|execute|freshness|retry|resume|correction|context|outcomes|ci|assurance|retention|release|enterprise --root . [--run-id <run-id>] [--workflow-id <workflow-id>]")
         return 2
     return run_script("workflow-runtime.py", args)
 

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Replay", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "status", "valid", "events", "issues", "last_event_hash", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-replay"}, "workflow_id": {"type": "string"},
+    "status": {"enum": ["valid", "blocked"]}, "valid": {"type": "boolean"}, "events": {"type": "array", "items": {"type": "object"}},
+    "issues": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}}, "last_event_hash": {"type": ["string", "null"]},
+    "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

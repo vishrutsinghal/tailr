@@ -58,7 +58,11 @@ DEFAULT_READ_ONLY_TOOLS = (
     "spec_kit_mapping_show",
     "spec_kit_convergence_show",
 )
-CONTROLLED_TOOLS = ("harness_control_check", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest")
+LEGACY_CONTROLLED_TOOLS = ("harness_control_check", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest")
+WORKFLOW_READ_ONLY_TOOLS = ("workflow_list", "workflow_show", "workflow_status", "workflow_current", "workflow_compiler_show", "workflow_approvals_show", "workflow_freshness_show", "workflow_evidence_show", "workflow_resume", "workflow_doctor", "workflow_replay", "workflow_ci_show", "workflow_assurance_inspect", "workflow_denials_show", "workflow_retention_show", "workflow_retention_plan", "workflow_release_catalog", "workflow_release_show", "workflow_release_compatibility", "workflow_release_evaluate", "workflow_enterprise_entry", "workflow_enterprise_show", "workflow_enterprise_replay", "workflow_enterprise_observe", "workflow_enterprise_restore_validate", "workflow_enterprise_migration_plan", "workflow_enterprise_conformance")
+WORKFLOW_CONTROLLED_TOOLS = ("workflow_create", "workflow_approval_decide", "workflow_state_control", "workflow_adapter_record", "workflow_correction_request", "workflow_closure_finalize", "workflow_ci_ingest", "workflow_retention_cleanup", "workflow_release_scenario_record", "workflow_real_run_record", "workflow_release_retire", "workflow_enterprise_policy_record", "workflow_enterprise_activate", "workflow_enterprise_link", "workflow_enterprise_lease_acquire", "workflow_enterprise_lease_release", "workflow_enterprise_ingest", "workflow_enterprise_backup", "workflow_enterprise_migrate", "workflow_enterprise_rollback")
+WORKFLOW_MCP_TOOLS = (*WORKFLOW_READ_ONLY_TOOLS, *WORKFLOW_CONTROLLED_TOOLS)
+CONTROLLED_TOOLS = (*LEGACY_CONTROLLED_TOOLS, *WORKFLOW_CONTROLLED_TOOLS)
 DENIED_TOOL_TERMS = (
     "apply",
     "build",
@@ -94,7 +98,9 @@ def registry_read_only_tools() -> tuple[str, ...]:
     return DEFAULT_READ_ONLY_TOOLS
 
 
-READ_ONLY_TOOLS = registry_read_only_tools()
+LEGACY_READ_ONLY_TOOLS = registry_read_only_tools()
+READ_ONLY_TOOLS = (*LEGACY_READ_ONLY_TOOLS, *WORKFLOW_READ_ONLY_TOOLS)
+TOOL_ORDER = (*LEGACY_READ_ONLY_TOOLS, *LEGACY_CONTROLLED_TOOLS, *WORKFLOW_MCP_TOOLS)
 
 
 def script(name: str) -> Path:
@@ -108,6 +114,43 @@ def json_schema(properties: dict[str, Any], required: list[str] | None = None) -
         "required": required or [],
         "additionalProperties": False,
     }
+
+
+def workflow_tool_definitions() -> dict[str, dict[str, Any]]:
+    read = {"root":{"type":"string"}, "workflow_id":{"type":"string"}}
+    controlled = {**read, "approved":{"type":"boolean"}}
+    names = {"workflow_list":("List canonical local workflow projections. Read-only.", {"root":{"type":"string"}}), "workflow_show":("Show canonical workflow state. Read-only.",read), "workflow_status":("Show canonical workflow status. Read-only.",read), "workflow_current":("Show current requirement and stage. Read-only.",read), "workflow_compiler_show":("Show frozen compiler plan. Read-only.",read), "workflow_approvals_show":("Show scoped approvals. Read-only.",read), "workflow_freshness_show":("Show freshness and stale reasons. Read-only.",read), "workflow_evidence_show":("Show evidence and completion receipt. Read-only.",read), "workflow_resume":("Show shortest safe resume recommendation. Read-only.",read), "workflow_doctor":("Run local workflow doctor. Read-only.",read), "workflow_replay":("Replay local workflow journal. Read-only.",read), "workflow_ci_show":("Show policy-backed CI continuation receipts. Read-only.",read), "workflow_create":("Create state only from an approved canonical run; requires explicit approval.",{**controlled,"run_id":{"type":"string"}}), "workflow_approval_decide":("Record a scoped stage decision after explicit approval; never executes work.",{**controlled,"stage_ids":{"type":"array","items":{"type":"string"}},"action_classes":{"type":"array","items":{"type":"string"}},"operation_kind":{"type":"string"},"operation_ref":{"type":"string"},"decision":{"enum":["approved","rejected","edited"]},"rationale":{"type":"string"}}), "workflow_state_control":("Pause, resume, cancel, or supersede local workflow state after explicit approval.",{**controlled,"action":{"enum":["pause","resume","cancel","supersede"]},"successor_workflow_id":{"type":"string"}}), "workflow_adapter_record":("Record a typed saved host result after explicit approval; never executes it.",{**controlled,"stage_id":{"type":"string"},"adapter_id":{"type":"string"},"result_ref":{"type":"string"}}), "workflow_correction_request":("Request bounded correction/replan routing after explicit approval.",{**controlled,"stage_id":{"type":"string"},"classification":{"type":"string"},"max_cycles":{"type":"integer","minimum":1,"maximum":2}}), "workflow_closure_finalize":("Finalize canonical workflow closure after explicit approval.",{**controlled,"accept_evidence_incomplete":{"type":"boolean"}}), "workflow_ci_ingest":("Ingest one linked policy-approved CI receipt and advance metadata only.",{**controlled,"receipt_ref":{"type":"string"},"policy_ref":{"type":"string"}})}
+    required = {"workflow_create":["run_id","approved"], "workflow_approval_decide":["workflow_id","stage_ids","action_classes","operation_kind","operation_ref","decision","rationale","approved"], "workflow_state_control":["workflow_id","action","approved"], "workflow_adapter_record":["workflow_id","stage_id","adapter_id","result_ref","approved"], "workflow_correction_request":["workflow_id","stage_id","approved"], "workflow_closure_finalize":["workflow_id","approved"], "workflow_ci_ingest":["workflow_id","receipt_ref","policy_ref","approved"]}
+    names.update({"workflow_assurance_inspect":("Inspect runtime integrity and privacy categorically. Read-only.",read),"workflow_denials_show":("Show sanitized categorical denial audit. Read-only.",read),"workflow_retention_show":("Show local retention policy without scanning or deleting.",{"root":{"type":"string"},"policy_ref":{"type":"string"}}),"workflow_retention_plan":("Plan count-based terminal retention without deleting.",{"root":{"type":"string"},"policy_ref":{"type":"string"}}),"workflow_retention_cleanup":("Delete exactly one fingerprint-bound terminal retention candidate after explicit approval.",{**controlled,"plan_fingerprint":{"type":"string"},"policy_ref":{"type":"string"}})})
+    required.update({"workflow_retention_cleanup":["workflow_id","plan_fingerprint","approved"]})
+    names.update({"workflow_release_catalog":("List the closed Phase 11 scenario and template catalog. Read-only.",{"root":{"type":"string"}}),"workflow_release_show":("Show sanitized Phase 11 evidence. Read-only.",{"root":{"type":"string"}}),"workflow_release_compatibility":("Assess migration and compatibility without changing history. Read-only.",{"root":{"type":"string"}}),"workflow_release_evaluate":("Evaluate the fail-closed Phase 11 release gate. Read-only.",{"root":{"type":"string"}}),"workflow_release_scenario_record":("Record one approved linked deterministic scenario observation.",{**controlled,"observation_ref":{"type":"string"}}),"workflow_real_run_record":("Record one approved linked sanitized real-run observation.",{**controlled,"observation_ref":{"type":"string"}}),"workflow_release_retire":("Record separate retirement approval only for an exact passing release gate.",{"root":{"type":"string"},"gate_fingerprint":{"type":"string"},"approved":{"type":"boolean"}})})
+    required.update({"workflow_release_scenario_record":["workflow_id","observation_ref","approved"],"workflow_real_run_record":["workflow_id","observation_ref","approved"],"workflow_release_retire":["gate_fingerprint","approved"]})
+    names.update({
+        "workflow_enterprise_entry":("Assess Phase 12 evidence and governance entry criteria. Read-only.",{"root":{"type":"string"},"policy_id":{"type":"string"}}),
+        "workflow_enterprise_show":("Show one optional enterprise binding. Read-only.",read),
+        "workflow_enterprise_replay":("Replay sanitized enterprise transport metadata. Read-only.",read),
+        "workflow_enterprise_observe":("Show centralized sanitized enterprise projection. Read-only.",read),
+        "workflow_enterprise_restore_validate":("Validate a metadata backup without restoring or overwriting state.",{"root":{"type":"string"},"backup_ref":{"type":"string"}}),
+        "workflow_enterprise_migration_plan":("Plan local/enterprise continuation migration. Read-only.",{**read,"direction":{"enum":["local-to-enterprise","enterprise-to-local"]}}),
+        "workflow_enterprise_conformance":("Evaluate Phase 12 isolation, replay, recovery, migration, cost, privacy, and closure controls. Read-only.",read),
+        "workflow_enterprise_policy_record":("Record an approved enterprise entry policy; does not activate it.",{"root":{"type":"string"},"policy_ref":{"type":"string"},"approved":{"type":"boolean"}}),
+        "workflow_enterprise_activate":("Bind an eligible canonical workflow to an optional adapter after explicit approval.",{**controlled,"policy_id":{"type":"string"},"tenant_id":{"type":"string"},"repository_id":{"type":"string"},"actor_id":{"type":"string"}}),
+        "workflow_enterprise_link":("Record a read-only cross-repository parent/child identity link.",{**controlled,"identity_ref":{"type":"string"},"actor_id":{"type":"string"}}),
+        "workflow_enterprise_lease_acquire":("Acquire a bounded tenant/actor lease and new fencing token.",{**controlled,"tenant_id":{"type":"string"},"actor_id":{"type":"string"}}),
+        "workflow_enterprise_lease_release":("Release the exact active fenced lease.",{**controlled,"tenant_id":{"type":"string"},"actor_id":{"type":"string"},"lease_id":{"type":"string"},"fencing_token":{"type":"string"}}),
+        "workflow_enterprise_ingest":("Ingest one approved ordered sanitized transport receipt.",{**controlled,"receipt_ref":{"type":"string"}}),
+        "workflow_enterprise_backup":("Create a bounded verified metadata backup manifest.",controlled),
+        "workflow_enterprise_migrate":("Apply an exact approved local/enterprise continuation migration plan.",{**controlled,"direction":{"enum":["local-to-enterprise","enterprise-to-local"]},"migration_fingerprint":{"type":"string"}}),
+        "workflow_enterprise_rollback":("Roll back an exact applied enterprise migration to local continuation.",{**controlled,"migration_fingerprint":{"type":"string"}}),
+    })
+    required.update({
+        "workflow_enterprise_entry":["policy_id"],"workflow_enterprise_restore_validate":["backup_ref"],"workflow_enterprise_migration_plan":["workflow_id","direction"],
+        "workflow_enterprise_policy_record":["policy_ref","approved"],"workflow_enterprise_activate":["workflow_id","policy_id","tenant_id","repository_id","actor_id","approved"],
+        "workflow_enterprise_link":["workflow_id","identity_ref","actor_id","approved"],"workflow_enterprise_lease_acquire":["workflow_id","tenant_id","actor_id","approved"],
+        "workflow_enterprise_lease_release":["workflow_id","tenant_id","actor_id","lease_id","fencing_token","approved"],"workflow_enterprise_ingest":["workflow_id","receipt_ref","approved"],
+        "workflow_enterprise_backup":["workflow_id","approved"],"workflow_enterprise_migrate":["workflow_id","direction","migration_fingerprint","approved"],
+        "workflow_enterprise_rollback":["workflow_id","migration_fingerprint","approved"]})
+    return {name:{"name":name,"description":names[name][0],"inputSchema":json_schema(names[name][1], required.get(name, [] if name == "workflow_list" else ["workflow_id"]))} for name in WORKFLOW_MCP_TOOLS}
 
 
 def tool_definitions() -> dict[str, dict[str, Any]]:
@@ -238,17 +281,18 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "spec_kit_anchor_approve": {"name": "spec_kit_anchor_approve", "description": "Approve one material Spec Kit amendment and create amended TailTrail-only anchor state. Requires explicit approval.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "spec_kit_convergence_record": {"name": "spec_kit_convergence_record", "description": "Record a local Spec Kit convergence report after explicit approval. It does not edit Spec Kit files or run tests.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "spec_kit_ci_ingest": {"name": "spec_kit_ci_ingest", "description": "Ingest a supplied local CI receipt into a selected Spec Kit run. Requires explicit approval; it makes no CI network call.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "input": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "input", "approved"])},
+        **workflow_tool_definitions(),
     }
 
 
 def tool_list() -> list[dict[str, Any]]:
-    return [tool_definitions()[name] for name in (*READ_ONLY_TOOLS, *CONTROLLED_TOOLS)]
+    return [tool_definitions()[name] for name in TOOL_ORDER]
 
 
 def ensure_safe_tools() -> list[str]:
     errors: list[str] = []
     definitions = tool_definitions()
-    expected_order = (*READ_ONLY_TOOLS, *CONTROLLED_TOOLS)
+    expected_order = TOOL_ORDER
     actual_order = tuple(definitions)
     if actual_order != expected_order:
         index = next(
@@ -264,7 +308,7 @@ def ensure_safe_tools() -> list[str]:
     for name in definitions:
         if name not in (*CONTROLLED_TOOLS, "install_status") and any(term in name for term in DENIED_TOOL_TERMS):
             errors.append(f"tool name is not read-only: {name}")
-    for name in (*READ_ONLY_TOOLS, *CONTROLLED_TOOLS):
+    for name in TOOL_ORDER:
         schema = definitions[name].get("inputSchema")
         if not isinstance(schema, dict) or schema.get("type") != "object":
             errors.append(f"{name}: inputSchema must be an object schema")
@@ -962,6 +1006,11 @@ def spec_kit_ci_ingest(args: dict[str, Any]) -> dict[str, Any]:
     return spec_kit_control(args, "spec_kit_ci_ingest", ["ci-evidence-ingest.py", "--root", root.as_posix(), "--run-id", run_id(args), "--input", input_path.as_posix()])
 
 
+def workflow_mcp(args: dict[str, Any], name: str) -> dict[str, Any]:
+    from workflow_runtime import mcp_bridge
+    return mcp_bridge.call(name, args)
+
+
 HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "navigator_plan": navigator_plan,
     "start_report": start_report,
@@ -977,6 +1026,7 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "execution_evidence_show": execution_evidence_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "planning_decision_show": planning_decision_show, "planning_investigation_show": planning_investigation_show, "planning_revision_show": planning_revision_show, "planning_authority_show": planning_authority_show, "planning_aidlc_question_show": planning_aidlc_question_show, "planning_aidlc_question_clarify": planning_aidlc_question_clarify, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "enterprise_target_policy_inspect": enterprise_target_policy_inspect, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_investigate": planning_investigate, "planning_revision_propose": planning_revision_propose, "planning_revision_approve": planning_revision_approve, "planning_aidlc_standard_propose": planning_aidlc_standard_propose, "planning_aidlc_standard_approve": planning_aidlc_standard_approve, "planning_aidlc_question_challenge": planning_aidlc_question_challenge, "planning_aidlc_question_record": planning_aidlc_question_record, "planning_aidlc_question_approve": planning_aidlc_question_approve, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start, "execution_evidence_record": execution_evidence_record,
     "spec_kit_detect": spec_kit_detect, "spec_kit_mapping_show": spec_kit_mapping_show, "spec_kit_convergence_show": spec_kit_convergence_show, "spec_kit_import": spec_kit_import, "spec_kit_amendment_propose": spec_kit_amendment_propose, "spec_kit_anchor_approve": spec_kit_anchor_approve, "spec_kit_convergence_record": spec_kit_convergence_record, "spec_kit_ci_ingest": spec_kit_ci_ingest,
 }
+HANDLERS.update({name: (lambda args, tool=name: workflow_mcp(args, tool)) for name in WORKFLOW_MCP_TOOLS})
 
 
 def call_tool(name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:

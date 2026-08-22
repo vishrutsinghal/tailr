@@ -12,7 +12,14 @@ from workflow_runtime import reason_codes
 ROOT = Path(__file__).resolve().parents[2]
 MAX_ARTIFACT_BYTES = 256 * 1024
 MAX_EVENT_BYTES = 16 * 1024
-DISALLOWED_FIELDS = {"prompt", "raw_prompt", "raw_source", "source_body", "raw_log", "secret", "credential", "user_identity", "customer_data"}
+DISALLOWED_FIELDS = {"prompt", "raw_prompt", "raw_source", "source_body", "raw_log", "secret", "credential", "password", "private_key", "api_key", "access_token", "authorization", "cookie", "user_identity", "customer_data", "email", "ip_address", "full_name"}
+SECRET_PATTERNS = (
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\bBearer [A-Za-z0-9._-]{20,}\b", re.IGNORECASE),
+    re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"),
+)
 SCHEMA_BY_TYPE = {
     "tailtrail-workflow-instance": "workflow-instance.schema.json",
     "tailtrail-workflow-stage": "workflow-stage.schema.json",
@@ -21,6 +28,35 @@ SCHEMA_BY_TYPE = {
     "tailtrail-workflow-approval-record": "workflow-approval-record.schema.json",
     "tailtrail-workflow-evidence-record": "workflow-evidence-record.schema.json",
     "tailtrail-workflow-context-receipt": "workflow-context-receipt.schema.json",
+    "tailtrail-workflow-token-telemetry": "workflow-token-telemetry.schema.json",
+    "tailtrail-workflow-learning-link": "workflow-learning-link.schema.json",
+    "tailtrail-workflow-evaluation-event": "workflow-evaluation-event.schema.json",
+    "tailtrail-workflow-meta-harness-signal": "workflow-meta-harness-signal.schema.json",
+    "tailtrail-workflow-ci-policy": "workflow-ci-policy.schema.json",
+    "tailtrail-workflow-ci-receipt": "workflow-ci-receipt.schema.json",
+    "tailtrail-workflow-ci-continuation": "workflow-ci-continuation.schema.json",
+    "tailtrail-workflow-denial-audit": "workflow-denial-audit.schema.json",
+    "tailtrail-workflow-retention-policy": "workflow-retention-policy.schema.json",
+    "tailtrail-workflow-retention-plan": "workflow-retention-plan.schema.json",
+    "tailtrail-workflow-retention-cleanup": "workflow-retention-cleanup.schema.json",
+    "tailtrail-workflow-assurance-report": "workflow-assurance-report.schema.json",
+    "tailtrail-workflow-release-scenario": "workflow-release-scenario.schema.json",
+    "tailtrail-workflow-real-run-proof": "workflow-real-run-proof.schema.json",
+    "tailtrail-workflow-release-gate": "workflow-release-gate.schema.json",
+    "tailtrail-workflow-compatibility-report": "workflow-compatibility-report.schema.json",
+    "tailtrail-workflow-retirement-decision": "workflow-retirement-decision.schema.json",
+    "tailtrail-workflow-enterprise-policy": "workflow-enterprise-policy.schema.json",
+    "tailtrail-workflow-enterprise-binding": "workflow-enterprise-binding.schema.json",
+    "tailtrail-workflow-enterprise-lease": "workflow-enterprise-lease.schema.json",
+    "tailtrail-workflow-enterprise-event": "workflow-enterprise-event.schema.json",
+    "tailtrail-workflow-enterprise-link": "workflow-enterprise-link.schema.json",
+    "tailtrail-workflow-enterprise-backup": "workflow-enterprise-backup.schema.json",
+    "tailtrail-workflow-enterprise-migration": "workflow-enterprise-migration.schema.json",
+    "tailtrail-workflow-enterprise-conformance": "workflow-enterprise-conformance.schema.json",
+    "tailtrail-workflow-enterprise-entry": "workflow-enterprise-entry.schema.json",
+    "tailtrail-workflow-enterprise-replay": "workflow-enterprise-replay.schema.json",
+    "tailtrail-workflow-enterprise-observability": "workflow-enterprise-observability.schema.json",
+    "tailtrail-workflow-enterprise-restore-validation": "workflow-enterprise-restore-validation.schema.json",
     "tailtrail-workflow-completion-contract": "workflow-completion-contract.schema.json",
     "tailtrail-workflow-runtime-event": "workflow-runtime-event.schema.json",
     "tailtrail-workflow-ownership-binding": "workflow-ownership.schema.json",
@@ -99,7 +135,14 @@ def _privacy_issues(value: Any, path: str = "$") -> list[str]:
             issues.extend(_privacy_issues(item, f"{path}.{key}"))
     elif isinstance(value, list):
         for index, item in enumerate(value): issues.extend(_privacy_issues(item, f"{path}[{index}]"))
+    elif isinstance(value, str) and any(pattern.search(value) for pattern in SECRET_PATTERNS):
+        issues.append(f"{path} contains secret-like material")
     return issues
+
+
+def privacy_issues(value: Any) -> list[str]:
+    """Return categorical-safe validation findings; callers must not echo values."""
+    return _privacy_issues(value)
 
 
 def _reference_issues(value: Any, path: str = "$") -> list[str]:

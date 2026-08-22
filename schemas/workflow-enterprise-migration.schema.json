@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Migration", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "direction", "from_mode", "to_mode", "backup_ref", "backup_hash", "state", "migration_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-migration"}, "workflow_id": {"type": "string"}, "tailtrail_run_id": {"type": "string"},
+    "direction": {"enum": ["local-to-enterprise", "enterprise-to-local"]}, "from_mode": {"enum": ["local", "enterprise-shadow"]}, "to_mode": {"enum": ["local", "enterprise-shadow"]},
+    "backup_ref": {"type": "string"}, "backup_hash": {"type": "string", "pattern": "^sha256:"}, "state": {"enum": ["planned", "applied", "rolled-back"]},
+    "migration_fingerprint": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

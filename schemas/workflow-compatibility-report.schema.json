@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Phase 11 Migration And Compatibility Report",
+  "type": "object",
+  "required": ["schema_version", "type", "status", "existing_commands_authoritative", "existing_artifacts_authoritative", "automatic_history_migration", "explicit_compatible_adapters_only", "host_guidance", "installed_pack_complete", "no_workflow_documented", "retention_manual_only", "aliases", "rollback_documented", "report_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-compatibility-report"}, "status": {"enum": ["passed", "blocked"]},
+    "existing_commands_authoritative": {"const": true}, "existing_artifacts_authoritative": {"const": true}, "automatic_history_migration": {"const": false}, "explicit_compatible_adapters_only": {"const": true},
+    "host_guidance": {"type": "object"}, "installed_pack_complete": {"type": "boolean"}, "no_workflow_documented": {"type": "boolean"}, "retention_manual_only": {"type": "boolean"}, "aliases": {"type": "array"}, "rollback_documented": {"type": "boolean"},
+    "report_fingerprint": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

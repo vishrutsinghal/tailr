@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Adapter Binding", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tailtrail_run_id", "tenant_id", "repository_id", "adapter_id", "policy_ref", "policy_hash", "canonical_ownership_ref", "canonical_ownership_hash", "continuation_mode", "state", "binding_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-binding"},
+    "workflow_id": {"type": "string"}, "tailtrail_run_id": {"type": "string"},
+    "tenant_id": {"type": "string"}, "repository_id": {"type": "string"}, "adapter_id": {"type": "string"},
+    "policy_ref": {"type": "string"}, "policy_hash": {"type": "string", "pattern": "^sha256:"},
+    "canonical_ownership_ref": {"type": "string"}, "canonical_ownership_hash": {"type": "string", "pattern": "^sha256:"},
+    "continuation_mode": {"enum": ["local", "enterprise-shadow"]}, "state": {"enum": ["active", "rolled-back"]},
+    "binding_fingerprint": {"type": "string", "pattern": "^sha256:"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}
