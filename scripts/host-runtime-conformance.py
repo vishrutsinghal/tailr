@@ -58,7 +58,7 @@ def receipt_digest(payload: dict[str, Any]) -> str:
 
 def contracts() -> tuple[dict[str, Any], dict[str, Any]]:
     matrix, scenarios = read(MATRIX), read(SCENARIOS)
-    if matrix.get("type") != "tailtrail-host-adapter-compatibility" or matrix.get("adapter_version") != "v2":
+    if matrix.get("type") != "tailtrail-host-adapter-compatibility" or matrix.get("adapter_version") != "v3":
         raise ValueError("host compatibility matrix is incompatible")
     if scenarios.get("type") != "tailtrail-host-runtime-scenarios" or scenarios.get("scenario_version") != "v1":
         raise ValueError("host runtime scenario contract is incompatible")

@@ -294,7 +294,11 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
             }
         else:
             selected["selection"] = "navigator-hands-free-escalation"
-            selected["full_escalation"] = {"state": "selected", "signals": signals, "reason": "Navigator found programme-scale signals and a compatible pinned official pack."}
+            selected["full_escalation"] = {
+                "state": "selected",
+                "signals": signals,
+                "reason": "Navigator found programme-scale signals and a compatible pinned official pack; Full execution still requires a new Full-mode Planning Lock and cannot silently upgrade an existing run.",
+            }
             return selected
     else:
         selected = official_aidlc_bridge.preflight(root, "standard", manifest)
@@ -669,7 +673,7 @@ def build_report(
         "ui_consistency": {
             "selected": ui_change,
             "command": f"{command_prefix} ui discover --root {json.dumps(root.as_posix())}" + "".join(f" --changed {path}" for path in changed[:5]),
-            "boundary": "Reuse existing components, styles, tokens, layout, responsive behavior, and accessibility patterns. Do not introduce a UI library, font, global token set, or unrelated redesign without explicit approval.",
+            "boundary": "Reuse existing components, styles, tokens, layout, responsive behavior, and accessibility patterns. Preserve the established UI system; do not introduce a UI library, font, global token set, or unrelated redesign without explicit approval.",
         },
         "aidlc_mode": mode,
         "aidlc_mode_features": aidlc_mode_features(mode["mode"]),

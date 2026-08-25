@@ -9,6 +9,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+IMPORT_ROOT = ROOT.parent if (ROOT / "__init__.py").is_file() else ROOT
+try:
+    sys.path.remove(IMPORT_ROOT.as_posix())
+except ValueError:
+    pass
+sys.path.insert(0, IMPORT_ROOT.as_posix())
 UPDATE_COPILOT_PATH = ROOT / "scripts" / "update-copilot.py"
 SPEC = importlib.util.spec_from_file_location("tailtrail_update_copilot", UPDATE_COPILOT_PATH)
 if SPEC is None or SPEC.loader is None:
@@ -25,14 +31,14 @@ def main() -> int:
     parser.add_argument("--strategy", choices=["preserve", "backup-overwrite"], default="preserve", help="How to handle locally modified TailTrail-managed files.")
     parser.add_argument("--dry-run", action="store_true", help="Show what would change without writing files.")
     args = parser.parse_args()
+    from tailtrail.install.cli import main as installer_main
 
-    target_root = args.root.resolve()
-    pack_dir = update_copilot.install_copilot.validate_pack_dir(args.pack_dir) if args.pack_dir else update_copilot.infer_pack_dir(target_root)
-    report = update_copilot.update_copilot(target_root, pack_dir, args.strategy, args.dry_run)
-    print("TailTrail general updater")
-    update_copilot.print_report(target_root, pack_dir, args.strategy, args.dry_run, report)
-    print("Scope: current implementation updates the managed TailTrail pack and Copilot repository instructions.")
-    return 0
+    forwarded = ["update", "--host", "all", "--target", args.root.resolve().as_posix()]
+    if args.strategy == "backup-overwrite":
+        forwarded.append("--force")
+    if args.dry_run:
+        forwarded.append("--dry-run")
+    return installer_main(forwarded)
 
 
 if __name__ == "__main__":

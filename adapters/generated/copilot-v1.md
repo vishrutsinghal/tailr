@@ -1,7 +1,8 @@
 # TailTrail Composed Host Surface — Copilot
 
-**Adapter version:** `v2`
+**Adapter version:** `v3`
 **Host source:** `adapters/copilot-instructions.md`
+**Qualification:** `contract-tested` (not runtime-observed or supported)
 
 ## Precedence
 
@@ -22,6 +23,9 @@ closure boundaries.
 - `wait-ci` does not create learning. Linked CI acceptance may create a
   candidate-only learning artifact and deterministic evaluation.
 - CLI or configured MCP required for persisted control-plane artifacts.
+- First action in GitHub Copilot Chat: `/tailtrail-start <your task>`
+- Enforceable repository policy remains `ci-authoritative`.
+- Global settings, network activity, and account changes are approval-required.
 
 ## Conformance scenarios
 

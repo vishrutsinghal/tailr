@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
   "type": "tailtrail-host-adapter-compatibility",
-  "adapter_version": "v2",
+  "adapter_version": "v3",
   "precedence": [
     "host safety",
     "user request",
@@ -9,9 +9,72 @@
     "tailtrail assurance rules"
   ],
   "hosts": [
-    {"id": "codex", "source": "AGENTS.md", "generated": "adapters/generated/codex-v1.md", "support": "strong", "official_full_mode": "verified local official requirements/checkpoint artifacts", "runtime_adapter": "receipt-v1", "runtime_status": "not-validated"},
-    {"id": "copilot", "source": "adapters/copilot-instructions.md", "generated": "adapters/generated/copilot-v1.md", "support": "good", "official_full_mode": "CLI or configured MCP required for persisted control-plane artifacts", "runtime_adapter": "receipt-v1", "runtime_status": "not-validated"},
-    {"id": "claude", "source": "adapters/claude.md", "generated": "adapters/generated/claude-v1.md", "support": "good", "official_full_mode": "CLI or configured MCP required for persisted control-plane artifacts", "runtime_adapter": "receipt-v1", "runtime_status": "not-validated"}
+    {
+      "id": "codex",
+      "display_name": "Codex",
+      "owner": "tailtrail-hosts",
+      "source": "AGENTS.md",
+      "generated": "adapters/generated/codex-v1.md",
+      "qualification": "contract-tested",
+      "supported": false,
+      "official_full_mode": "verified local official requirements/checkpoint artifacts",
+      "runtime_adapter": "receipt-v1",
+      "runtime_status": "not-validated",
+      "core_files": [
+        {"source": "AGENTS.md", "destination": "AGENTS.md"},
+        {"source": ".codex-plugin/plugin.json", "destination": ".codex-plugin/plugin.json"},
+        {"source": "skills/tailtrail/SKILL.md", "destination": "skills/tailtrail/SKILL.md"},
+        {"source": "skills/tailtrail-review/SKILL.md", "destination": "skills/tailtrail-review/SKILL.md"},
+        {"source": "skills/tailtrail-start/SKILL.md", "destination": "skills/tailtrail-start/SKILL.md"}
+      ],
+      "composition_markers": {"AGENTS.md": ["TailTrail Project Guidance", "Current-turn Start boundary"], ".codex-plugin/plugin.json": ["\"name\": \"tailtrail\""], "skills/tailtrail-start/SKILL.md": ["TailTrail Start", "Approved-run closure"]},
+      "first_action": {"surface": "Codex chat", "invocation": "tailtrail start \"<your task>\"", "result": "Return the complete persisted Start Report and stop before implementation."},
+      "version_detection": {"kind": "command", "command": ["codex", "--version"], "qualified_versions": [], "limitation": "No Codex version is release-supported until E5 platform and E10 real-host matrices pass; detected versions are diagnostic metadata only."},
+      "capabilities": {"instruction_loading": "host-assisted", "workflow_execution": "host-assisted", "policy_enforcement": "ci-authoritative", "global_settings": "approval-required", "network_activity": "approval-required", "account_changes": "approval-required"},
+      "migration": {"strategy": "transactional-replace-owned-files", "compatible_from": ["v2", "v3"], "rollback": "E3 transaction backup"}
+    },
+    {
+      "id": "copilot",
+      "display_name": "GitHub Copilot",
+      "owner": "tailtrail-hosts",
+      "source": "adapters/copilot-instructions.md",
+      "generated": "adapters/generated/copilot-v1.md",
+      "qualification": "contract-tested",
+      "supported": false,
+      "official_full_mode": "CLI or configured MCP required for persisted control-plane artifacts",
+      "runtime_adapter": "receipt-v1",
+      "runtime_status": "not-validated",
+      "core_files": [
+        {"source": "adapters/copilot-instructions.md", "destination": ".github/copilot-instructions.md"},
+        {"source": ".github/prompts/tailtrail-start.prompt.md", "destination": ".github/prompts/tailtrail-start.prompt.md"}
+      ],
+      "composition_markers": {".github/copilot-instructions.md": ["TailTrail For GitHub Copilot", "Current-turn Start boundary"], ".github/prompts/tailtrail-start.prompt.md": ["Planning Lock", "complete and only normal assistant response"]},
+      "first_action": {"surface": "GitHub Copilot Chat", "invocation": "/tailtrail-start <your task>", "result": "Return the complete persisted Start Report; repository CI remains authoritative for enforceable policy."},
+      "version_detection": {"kind": "host-reported", "command": [], "qualified_versions": [], "limitation": "Copilot spans IDE and service versions, so the adapter never guesses a version. A real-run receipt must record the exact host-reported version."},
+      "capabilities": {"instruction_loading": "host-assisted", "workflow_execution": "host-assisted", "policy_enforcement": "ci-authoritative", "global_settings": "approval-required", "network_activity": "approval-required", "account_changes": "approval-required"},
+      "migration": {"strategy": "transactional-replace-owned-files", "compatible_from": ["v2", "v3"], "rollback": "E3 transaction backup"}
+    },
+    {
+      "id": "claude",
+      "display_name": "Claude",
+      "owner": "tailtrail-hosts",
+      "source": "adapters/claude.md",
+      "generated": "adapters/generated/claude-v1.md",
+      "qualification": "contract-tested",
+      "supported": false,
+      "official_full_mode": "CLI or configured MCP required for persisted control-plane artifacts",
+      "runtime_adapter": "receipt-v1",
+      "runtime_status": "not-validated",
+      "core_files": [
+        {"source": "adapters/claude.md", "destination": "CLAUDE.md"},
+        {"source": ".claude/commands/tailtrail-start.md", "destination": ".claude/commands/tailtrail-start.md"}
+      ],
+      "composition_markers": {"CLAUDE.md": ["TailTrail For Claude", "Current-turn Start boundary"], ".claude/commands/tailtrail-start.md": ["Planning Lock", "Copy the complete Start Report verbatim"]},
+      "first_action": {"surface": "Claude Code", "invocation": "/tailtrail-start <your task>", "result": "Return the complete persisted Start Report and stop before implementation."},
+      "version_detection": {"kind": "command", "command": ["claude", "--version"], "qualified_versions": [], "limitation": "No Claude Code version is release-supported until E5 platform and E10 real-host matrices pass; detected versions are diagnostic metadata only."},
+      "capabilities": {"instruction_loading": "host-assisted", "workflow_execution": "host-assisted", "policy_enforcement": "ci-authoritative", "global_settings": "approval-required", "network_activity": "approval-required", "account_changes": "approval-required"},
+      "migration": {"strategy": "transactional-replace-owned-files", "compatible_from": ["v2", "v3"], "rollback": "E3 transaction backup"}
+    }
   ],
   "conformance_scenarios": [
     {"id": "small-bug", "expected": "Navigator-first planning lock; smallest focused fix only after approval."},
@@ -23,5 +86,5 @@
   ],
   "runtime_scenarios": "adapters/runtime-scenarios-v1.json",
   "runtime_receipt_schema": "schemas/host-runtime-receipt.schema.json",
-  "boundary": "Instruction support and runtime evidence are reported separately. No host is runtime-passed without six fresh validated receipts."
+  "boundary": "Contract-tested means local adapter, installer, composition, diagnostic, and negative-assurance tests passed. It is not runtime-observed or supported. No host is runtime-passed without six fresh validated receipts, and no host is supported until the E5 and E10 release matrices pass."
 }

@@ -1,0 +1,54 @@
+{
+  "adapter_version": "v3",
+  "artifact_references": [
+    ".tailtrail/runs/e10-rejected/events.jsonl",
+    ".tailtrail/runs/e10-rejected/planning/lock-v1.json"
+  ],
+  "boundary": "Real host-executed receipt: every referenced artifact and transition was independently verified on disk before this receipt was written. No result is inferred or fabricated.",
+  "bundle_digest": "7cc11719dc61624ab92a09c30125e9818e9b6c8534d34a3af10143da5abb2078",
+  "declared_outcome": "pass",
+  "failure_codes": [],
+  "host": "copilot",
+  "host_version": "github-copilot-chat-live-session-2026-08-25",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "13a703e6a40bf44d2915ad88e61db3a68cab32b8a3c0974199e0fdb189c94db5"
+  },
+  "observations": [
+    "same-run-preserved",
+    "rejection-routed",
+    "implementation-blocked"
+  ],
+  "observed_transitions": [
+    {
+      "sequence": 1,
+      "state": "run_created"
+    },
+    {
+      "sequence": 2,
+      "state": "planning_lock_created"
+    },
+    {
+      "sequence": 3,
+      "state": "target_resolution_recorded"
+    },
+    {
+      "sequence": 4,
+      "state": "start_report_saved"
+    },
+    {
+      "sequence": 5,
+      "state": "anchor_drafted"
+    },
+    {
+      "sequence": 6,
+      "state": "proposal_rejected"
+    }
+  ],
+  "receipt_id": "copilot-rejected-requirement-e10-real-1",
+  "run_id": "e10-rejected",
+  "scenario_id": "rejected-requirement",
+  "scenario_version": "v1",
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-receipt"
+}

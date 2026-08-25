@@ -26,7 +26,7 @@ class FirstRunTests(unittest.TestCase):
                 path = target / item; path.parent.mkdir(parents=True, exist_ok=True); path.write_text("x", encoding="utf-8")
             result = first_run.check(target, "codex-plugin", "tailtrail")
         self.assertEqual(result["installation"], "passed")
-        self.assertIn("Using TailTrail Navigator", result["first_action"]["command"])
+        self.assertEqual(result["first_action"]["command"], 'tailtrail start "<your task>"')
 
     def test_missing_installed_file_is_not_reported_as_a_pass(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

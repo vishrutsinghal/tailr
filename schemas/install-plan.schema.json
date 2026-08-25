@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/install-plan.schema.json",
+  "title": "TailTrail InstallPlan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plan_id", "operation", "version", "host", "profile", "target", "existing_version", "entries", "conflicts", "removals"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "plan_id": {"type": "string", "pattern": "^[a-f0-9]{24}$"},
+    "operation": {"enum": ["install", "update", "repair", "uninstall"]},
+    "version": {"type": "string", "minLength": 1},
+    "host": {"enum": ["codex", "copilot", "claude"]},
+    "profile": {"enum": ["core", "extended"]},
+    "target": {"type": "string", "minLength": 1},
+    "existing_version": {"type": ["string", "null"]},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "size", "action", "source", "previous_sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "size": {"type": "integer", "minimum": 0},
+          "action": {"enum": ["create", "replace", "replace-with-backup", "unchanged", "conflict"]},
+          "source": {"type": "string", "minLength": 1},
+          "previous_sha256": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "conflicts": {"type": "array", "items": {"type": "string"}},
+    "removals": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Access Review", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "tenant_id", "repository_id", "authorized_actor_ids", "authorized_repository_ids", "binding_repository_authorized", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-access-review"}, "workflow_id": {"type": "string"},
+    "tenant_id": {"type": "string"}, "repository_id": {"type": "string"},
+    "authorized_actor_ids": {"type": "array", "items": {"type": "string"}}, "authorized_repository_ids": {"type": "array", "items": {"type": "string"}},
+    "binding_repository_authorized": {"type": "boolean"}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

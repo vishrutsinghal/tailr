@@ -20,6 +20,16 @@ This file records the public release license and provenance decisions for TailTr
 - TailTrail does not vendor third-party source code, assets, or documentation.
 - Files are original TailTrail project files unless a file explicitly states otherwise.
 - Optional generated local outputs under `.tailtrail/` are user/project runtime artifacts and are not part of the public release source.
+- `release-manifest.json` is the versioned authority for candidate scope,
+  version sources, approved public upstream repositories, workflows,
+  distribution policy, and smoke ordering.
+- `platform-release-contract.json` is the OS, Python, artifact, host-profile,
+  limitation, and observed-evidence authority.
+- `release-build-lock.json` records exact build-only dependencies, ownership,
+  upgrade expectations, and rollback. TailTrail has no runtime dependencies.
+- Tagged artifacts are identity-attested by the hosted release workflow only
+  after the exact platform matrix passes. Deterministic local provenance is an
+  inspectable candidate, not a signature.
 
 ## Public Release Boundary
 

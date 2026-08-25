@@ -1,0 +1,96 @@
+{
+  "adapter_version": "v3",
+  "artifact_references": [
+    ".tailtrail/runs/e10-recovery/anchors/approved-v1.json",
+    ".tailtrail/runs/e10-recovery/recovery/boundary.json"
+  ],
+  "boundary": "Real host-executed receipt: every referenced artifact and transition was independently verified on disk before this receipt was written. No result is inferred or fabricated.",
+  "bundle_digest": "7cc11719dc61624ab92a09c30125e9818e9b6c8534d34a3af10143da5abb2078",
+  "declared_outcome": "fail",
+  "failure_codes": [
+    "missing-resume-recommendation-evidence"
+  ],
+  "host": "copilot",
+  "host_version": "github-copilot-chat-live-session-2026-08-25",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "8b7a7b54679935bb9524c1dd82a0dff3d5fc1b31b44b9caa8a65dc863b03d61c"
+  },
+  "observations": [
+    "approved-anchor-preserved",
+    "task-owned-recovery",
+    "unrelated-work-preserved"
+  ],
+  "observed_transitions": [
+    {
+      "sequence": 1,
+      "state": "run_created"
+    },
+    {
+      "sequence": 2,
+      "state": "planning_lock_created"
+    },
+    {
+      "sequence": 3,
+      "state": "target_resolution_recorded"
+    },
+    {
+      "sequence": 4,
+      "state": "start_report_saved"
+    },
+    {
+      "sequence": 5,
+      "state": "planning_lock_approved"
+    },
+    {
+      "sequence": 6,
+      "state": "anchor_drafted"
+    },
+    {
+      "sequence": 7,
+      "state": "anchor_approved"
+    },
+    {
+      "sequence": 8,
+      "state": "workflow_ownership_bound"
+    },
+    {
+      "sequence": 9,
+      "state": "workflow_capability_plan_declared"
+    },
+    {
+      "sequence": 10,
+      "state": "workflow_storage_initialized"
+    },
+    {
+      "sequence": 11,
+      "state": "workflow_state_created"
+    },
+    {
+      "sequence": 12,
+      "state": "workflow_compiler_plan_created"
+    },
+    {
+      "sequence": 13,
+      "state": "workflow_stage_approval_recorded"
+    },
+    {
+      "sequence": 14,
+      "state": "workflow_runtime_activated"
+    },
+    {
+      "sequence": 15,
+      "state": "planning_activated"
+    },
+    {
+      "sequence": 16,
+      "state": "recovery_boundary_created"
+    }
+  ],
+  "receipt_id": "copilot-recovery-e10-real-1",
+  "run_id": "e10-recovery",
+  "scenario_id": "recovery",
+  "scenario_version": "v1",
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-receipt"
+}

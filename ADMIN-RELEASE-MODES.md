@@ -65,7 +65,7 @@ Internal export excludes:
 - `CODE_OF_CONDUCT.md`
 - `PUBLIC-CLAIMS.md`
 - `RELEASE-CHECKLIST.md`
-- `.github/workflows/tailtrail-ci.yml`
+- `.github/workflows/trust.yml`
 - `scripts/release-check.py`
 - public/admin planning docs such as roadmap and honest review files
 - this admin release-mode file
@@ -77,7 +77,8 @@ Because the public marker is absent, the normal `tailtrail.py` command surface d
 
 ## Public Distribution Behavior
 
-Public export includes the public release files and writes `.tailtrail-public-release`.
+Public export includes the candidate and public release files selected by
+`release-manifest.json`, then writes `.tailtrail-public-release`.
 
 Because the public marker is present, `tailtrail.py release-check` is available in the public distribution. Admin source trees can also run it with:
 

@@ -1,0 +1,151 @@
+{
+  "adapter_version": "v3",
+  "artifact_references": [
+    ".tailtrail/runs/e10-ci-wait/closure-decisions/decision-70ee4d2ba3e608de.json"
+  ],
+  "boundary": "Real host-executed receipt: every referenced artifact and transition was independently verified on disk before this receipt was written. No result is inferred or fabricated.",
+  "bundle_digest": "7cc11719dc61624ab92a09c30125e9818e9b6c8534d34a3af10143da5abb2078",
+  "declared_outcome": "pass",
+  "failure_codes": [],
+  "host": "copilot",
+  "host_version": "github-copilot-chat-live-session-2026-08-25",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "72c13b0536431dae67dfeb968a71b5d2acbb5f3a1d2398f8105f3c1d3fd7b6d6"
+  },
+  "observations": [
+    "awaiting-linked-ci",
+    "policy-backed-ci-continuation",
+    "closure-boundary-visible",
+    "no-positive-learning",
+    "acceptance-not-inferred"
+  ],
+  "observed_transitions": [
+    {
+      "sequence": 1,
+      "state": "run_created"
+    },
+    {
+      "sequence": 2,
+      "state": "planning_lock_created"
+    },
+    {
+      "sequence": 3,
+      "state": "target_resolution_recorded"
+    },
+    {
+      "sequence": 4,
+      "state": "start_report_saved"
+    },
+    {
+      "sequence": 5,
+      "state": "planning_lock_approved"
+    },
+    {
+      "sequence": 6,
+      "state": "anchor_drafted"
+    },
+    {
+      "sequence": 7,
+      "state": "anchor_approved"
+    },
+    {
+      "sequence": 8,
+      "state": "workflow_ownership_bound"
+    },
+    {
+      "sequence": 9,
+      "state": "workflow_capability_plan_declared"
+    },
+    {
+      "sequence": 10,
+      "state": "workflow_storage_initialized"
+    },
+    {
+      "sequence": 11,
+      "state": "workflow_state_created"
+    },
+    {
+      "sequence": 12,
+      "state": "workflow_compiler_plan_created"
+    },
+    {
+      "sequence": 13,
+      "state": "workflow_stage_approval_recorded"
+    },
+    {
+      "sequence": 14,
+      "state": "workflow_runtime_activated"
+    },
+    {
+      "sequence": 15,
+      "state": "planning_activated"
+    },
+    {
+      "sequence": 16,
+      "state": "harness_checkpoint"
+    },
+    {
+      "sequence": 17,
+      "state": "validation_receipt"
+    },
+    {
+      "sequence": 18,
+      "state": "execution_evidence_recorded"
+    },
+    {
+      "sequence": 19,
+      "state": "harness_checkpoint"
+    },
+    {
+      "sequence": 20,
+      "state": "completion_review"
+    },
+    {
+      "sequence": 21,
+      "state": "completion_gate"
+    },
+    {
+      "sequence": 22,
+      "state": "closure_recorded"
+    },
+    {
+      "sequence": 23,
+      "state": "completion_report_created"
+    },
+    {
+      "sequence": 24,
+      "state": "workflow_scope_captured"
+    },
+    {
+      "sequence": 25,
+      "state": "workflow_storage_snapshot_captured"
+    },
+    {
+      "sequence": 26,
+      "state": "workflow_evidence_collected"
+    },
+    {
+      "sequence": 27,
+      "state": "workflow_storage_snapshot_captured"
+    },
+    {
+      "sequence": 28,
+      "state": "workflow_completion_receipt_recorded"
+    },
+    {
+      "sequence": 29,
+      "state": "closure_finalized"
+    },
+    {
+      "sequence": 30,
+      "state": "completion_report_created"
+    }
+  ],
+  "receipt_id": "copilot-ci-wait-e10-real-1",
+  "run_id": "e10-ci-wait",
+  "scenario_id": "ci-wait",
+  "scenario_version": "v1",
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-receipt"
+}

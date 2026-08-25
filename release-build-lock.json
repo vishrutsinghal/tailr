@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-release-build-lock",
+  "owner": "tailtrail-release",
+  "upgrade_policy": "Review monthly and before each release; respond to applicable advisories before publication.",
+  "rollback": "Revert this lock and pyproject.toml together, rebuild twice, and rerun package and supply-chain gates.",
+  "dependencies": [
+    {"name": "setuptools", "version": "84.0.0", "scope": "build", "source": "https://pypi.org/project/setuptools/84.0.0/"},
+    {"name": "wheel", "version": "0.48.0", "scope": "build", "source": "https://pypi.org/project/wheel/0.48.0/"},
+    {"name": "packaging", "version": "26.3", "scope": "build-transitive-pinned", "source": "https://pypi.org/project/packaging/26.3/"}
+  ]
+}

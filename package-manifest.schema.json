@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/package-manifest.schema.json",
+  "title": "TailTrail package manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "package", "required_files", "required_directories", "excluded_names", "excluded_suffixes", "runtime_required"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "package": {"const": "tailtrail"},
+    "required_files": {"$ref": "#/$defs/paths"},
+    "required_directories": {"$ref": "#/$defs/paths"},
+    "excluded_names": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "excluded_suffixes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "runtime_required": {"$ref": "#/$defs/paths"}
+  },
+  "$defs": {
+    "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

@@ -35,10 +35,10 @@ class Release3ExperienceTests(unittest.TestCase):
     def test_install_is_canonical_and_covers_each_supported_host(self) -> None:
         install = (ROOT / "INSTALL.md").read_text(encoding="utf-8")
         self.assertIn("canonical installation, update, and verification guide", install)
-        self.assertIn("install codex-plugin", install)
-        self.assertIn("--profile copilot", install)
-        self.assertIn("--profile claude", install)
-        self.assertIn("install verify", install)
+        self.assertIn("install --host codex --profile core", install)
+        self.assertIn("install --host copilot --profile core", install)
+        self.assertIn("install --host claude --profile core", install)
+        self.assertIn("tailtrail verify --host codex", install)
 
     def test_core_surface_ships_quickstart_docs_and_host_guides(self) -> None:
         self.assertIn("INSTALL.md", surfaces.CORE_FILES)
@@ -52,4 +52,3 @@ class Release3ExperienceTests(unittest.TestCase):
         self.assertIn("[installing TailTrail](INSTALL.md)", quickstart)
         self.assertIn("[INSTALL.md](INSTALL.md)", cheatsheet)
         self.assertIn("Installation and\nupdate instructions are canonical in `INSTALL.md`", guide)
-

@@ -2,6 +2,184 @@
   "schema_version": "1",
   "features": [
     {
+      "id": "self-contained-package",
+      "title": "Self-Contained Package Kernel, Integrity, Compatibility, And Artifact Proof",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Enterprise Stabilization E2",
+      "owner": "tailtrail-packaging",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail package-info",
+        "tailtrail version",
+        "tailtrail doctor"
+      ],
+      "docs": [
+        "PACKAGE-CONTRACT.md",
+        "INSTALL.md",
+        "SUPPORT.md",
+        "VERSIONING.md",
+        "package-manifest.json",
+        "package-manifest.schema.json"
+      ],
+      "scripts": [
+        "scripts/__init__.py",
+        "scripts/package-release-proof.py"
+      ],
+      "tests": [
+        "tests/test_self_contained_package.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "command-surface",
+        "planning-lock"
+      ],
+      "since_version": "0.6.0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "transactional-installer-lifecycle",
+      "title": "Transactional Host Installer Lifecycle",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Enterprise Stabilization E3",
+      "owner": "tailtrail-install",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail install",
+        "tailtrail verify",
+        "tailtrail doctor --host",
+        "tailtrail status",
+        "tailtrail update",
+        "tailtrail repair",
+        "tailtrail recover",
+        "tailtrail rollback",
+        "tailtrail uninstall"
+      ],
+      "docs": [
+        "INSTALLER-LIFECYCLE.md",
+        "INSTALL.md",
+        "TAILTRAIL-COMMANDS.md",
+        "schemas/install-plan.schema.json",
+        "schemas/install-ownership-manifest.schema.json",
+        "schemas/install-journal-event.schema.json"
+      ],
+      "scripts": [
+        "scripts/installer.py"
+      ],
+      "tests": [
+        "tests/test_transactional_installer.py",
+        "tests/test_install_profiles.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "self-contained-package"
+      ],
+      "since_version": "0.6.0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "cross-platform-supply-chain",
+      "title": "Cross-Platform Artifact Qualification And Release Supply Chain",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Enterprise Stabilization E5",
+      "owner": "tailtrail-release",
+      "governance_class": "product",
+      "commands": [],
+      "docs": [
+        "SUPPLY-CHAIN.md",
+        "INSTALL.md",
+        "SUPPORT.md",
+        "RELEASE-CHECKLIST.md",
+        "PUBLIC-RELEASE-METADATA.md",
+        "platform-release-contract.json",
+        "release-build-lock.json",
+        "schemas/platform-qualification-receipt.schema.json",
+        "schemas/release-evidence.schema.json"
+      ],
+      "scripts": [
+        "scripts/platform-qualification.py",
+        "scripts/supply-chain.py"
+      ],
+      "tests": [
+        "tests/test_cross_platform_supply_chain.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "self-contained-package",
+        "enterprise-host-adapters"
+      ],
+      "since_version": "0.6.0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "enterprise-host-adapters",
+      "title": "Codex, GitHub Copilot, And Claude Adapter Contracts",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Enterprise Stabilization E4",
+      "owner": "tailtrail-hosts",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail install --host",
+        "tailtrail doctor --host",
+        "tailtrail adapters conformance",
+        "tailtrail adapters runtime prepare"
+      ],
+      "docs": [
+        "HOST-ADAPTERS.md",
+        "ASSISTANT-COMPATIBILITY.md",
+        "adapters/host-compatibility-v1.json",
+        "schemas/host-adapter-contract.schema.json",
+        "docs/hosts/codex.md",
+        "docs/hosts/copilot.md",
+        "docs/hosts/claude.md"
+      ],
+      "scripts": [],
+      "tests": [
+        "tests/test_enterprise_host_adapters.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "transactional-installer-lifecycle"
+      ],
+      "since_version": "0.6.0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "repository-ci-enforcement",
+      "title": "Repository And CI Enforcement Product",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Enterprise Stabilization E6",
+      "owner": "tailtrail-governance",
+      "governance_class": "governance",
+      "commands": ["tailtrail enforce validate", "tailtrail enforce check", "tailtrail enforce migrate"],
+      "docs": ["REPOSITORY-ENFORCEMENT.md", "GUARDRAILS.md", "DEPENDENCY-GATE.md", "tailtrail-enforcement-policy.json", "tailtrail-enforcement-baseline.json", "tailtrail-enforcement-suppressions.json", "schemas/repository-enforcement-policy.schema.json", "schemas/repository-enforcement-report.schema.json", "schemas/repository-enforcement-suppression.schema.json"],
+      "scripts": ["scripts/repository-enforcement.py"],
+      "tests": ["tests/test_repository_enforcement.py"],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": ["cross-platform-supply-chain", "guardrails"],
+      "since_version": "0.6.0",
+      "deprecated_in_version": null
+    },
+    {
       "id": "public-evidence-portfolio",
       "title": "Release 5 Public Benchmark Fixtures And Sanitized Model-Run Capture",
       "status": "implemented",
@@ -1237,15 +1415,19 @@
       "docs": [
         "ADMIN-RELEASE-MODES.md",
         "RELEASE-CHECKLIST.md",
-        "PUBLIC-RELEASE-METADATA.md"
+        "PUBLIC-RELEASE-METADATA.md",
+        "release-manifest.json",
+        "release-manifest.schema.json"
       ],
       "scripts": [
         "scripts/release-check.py",
+        "scripts/release_manifest.py",
         "scripts/export-release.py",
         "scripts/smoke-test.py"
       ],
       "tests": [
-        "tests/test_navigator_core.py"
+        "tests/test_navigator_core.py",
+        "tests/test_release_truth.py"
       ],
       "mcp_tools": [],
       "requires_approval": true,
@@ -2542,6 +2724,44 @@
       "evidence_label": "local-evidence",
       "depends_on": ["durable-workflow-deferred-phase-11"],
       "since_version": "dwr-deferred-12",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "enterprise-readiness-program",
+      "title": "Enterprise Readiness Baseline, Ownership, Inventory, And Closure Program",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Enterprise Stabilization / Phase E0",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail enterprise-readiness validate",
+        "tailtrail enterprise-readiness status",
+        "tailtrail enterprise-readiness inventory --format json"
+      ],
+      "docs": [
+        "ENTERPRISE-READINESS-ASSESSMENT.md",
+        "enterprise-closure-registry.json",
+        "enterprise-closure-registry.schema.json",
+        "TAILTRAIL-COMMANDS.md",
+        "CHANGELOG.md",
+        "aidlc-docs/phase-e0-requirements.md",
+        "aidlc-docs/phase-e0-design.md"
+      ],
+      "scripts": [
+        "scripts/enterprise-readiness.py"
+      ],
+      "tests": [
+        "tests/test_enterprise_readiness.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "registry"
+      ],
+      "since_version": "enterprise-e0",
       "deprecated_in_version": null
     },
     {

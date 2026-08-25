@@ -1,0 +1,298 @@
+{
+  "schema_version": "1",
+  "product": {
+    "name": "tailtrail",
+    "version": "0.6.0",
+    "version_sources": [
+      "pyproject.toml",
+      ".codex-plugin/plugin.json",
+      "tailtrail/__init__.py"
+    ]
+  },
+  "candidate_additions": [
+    "ENTERPRISE-READINESS-ASSESSMENT.md",
+    "MANIFEST.in",
+    "PACKAGE-CONTRACT.md",
+    "INSTALLER-LIFECYCLE.md",
+    "HOST-ADAPTERS.md",
+    "SUPPLY-CHAIN.md",
+    "REPOSITORY-ENFORCEMENT.md",
+    "aidlc-docs/phase-e0-design.md",
+    "aidlc-docs/phase-e0-requirements.md",
+    "aidlc-docs/phase-e1-design.md",
+    "aidlc-docs/phase-e1-requirements.md",
+    "aidlc-docs/phase-e2-design.md",
+    "aidlc-docs/phase-e2-requirements.md",
+    "aidlc-docs/phase-e3-design.md",
+    "aidlc-docs/phase-e3-requirements.md",
+    "aidlc-docs/phase-e4-design.md",
+    "aidlc-docs/phase-e4-requirements.md",
+    "aidlc-docs/phase-e5-dependency-decision.md",
+    "aidlc-docs/phase-e5-design.md",
+    "aidlc-docs/phase-e5-requirements.md",
+    "aidlc-docs/phase-e6-design.md",
+    "aidlc-docs/phase-e6-requirements.md",
+    "enterprise-closure-registry.json",
+    "enterprise-closure-registry.schema.json",
+    "release-manifest.json",
+    "release-manifest.schema.json",
+    "package-manifest.json",
+    "package-manifest.schema.json",
+    "platform-release-contract.json",
+    "release-build-lock.json",
+    "scripts/__init__.py",
+    "scripts/enterprise-readiness.py",
+    "scripts/package-release-proof.py",
+    "scripts/platform-qualification.py",
+    "scripts/supply-chain.py",
+    "scripts/installer.py",
+    "scripts/release_manifest.py",
+    "scripts/repository-enforcement.py",
+    "schemas/repository-enforcement-policy.schema.json",
+    "schemas/repository-enforcement-report.schema.json",
+    "schemas/repository-enforcement-suppression.schema.json",
+    "tailtrail-enforcement-baseline.json",
+    "tailtrail-enforcement-policy.json",
+    "tailtrail-enforcement-suppressions.json",
+    "schemas/install-journal-event.schema.json",
+    "schemas/install-ownership-manifest.schema.json",
+    "schemas/install-plan.schema.json",
+    "schemas/host-adapter-contract.schema.json",
+    "schemas/platform-qualification-receipt.schema.json",
+    "schemas/release-evidence.schema.json",
+    "setup.py",
+    "tailtrail/__init__.py",
+    "tailtrail/api.py",
+    "tailtrail/cli.py",
+    "tailtrail/errors.py",
+    "tailtrail/kernel.py",
+    "tailtrail/install/__init__.py",
+    "tailtrail/install/catalog.py",
+    "tailtrail/install/cli.py",
+    "tailtrail/install/engine.py",
+    "tailtrail/install/models.py",
+    "tailtrail/hosts/__init__.py",
+    "tailtrail/hosts/contracts.py",
+    "tailtrail/hosts/diagnostics.py",
+    "tailtrail/migrations/__init__.py",
+    "tailtrail/resources.py",
+    "tests/test_enterprise_readiness.py",
+    "tests/test_release_truth.py",
+    "tests/test_self_contained_package.py",
+    "tests/test_transactional_installer.py"
+    ,"tests/test_enterprise_host_adapters.py",
+    "tests/test_cross_platform_supply_chain.py",
+    "tests/test_repository_enforcement.py",
+    ".github/actions/enforce/action.yml",
+    ".github/workflows/platform-supply-chain.yml",
+    ".github/workflows/repository-enforcement.yml"
+  ],
+  "candidate_exclusions": {
+    "files": [
+      "issue.txt"
+    ],
+    "prefixes": [
+      "aidlc-rules/"
+    ]
+  },
+  "required_release_files": [
+    ".codex-plugin/plugin.json",
+    ".github/ISSUE_TEMPLATE/bug_report.md",
+    ".github/ISSUE_TEMPLATE/docs_feedback.md",
+    ".github/ISSUE_TEMPLATE/feature_request.md",
+    ".github/ISSUE_TEMPLATE/security_note.md",
+    ".github/pull_request_template.md",
+    "ARCHITECTURE.md",
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "DEMO.md",
+    "ENTERPRISE-READINESS-ASSESSMENT.md",
+    "LICENSE",
+    "NOTICE.md",
+    "PACKAGE-CONTRACT.md",
+    "INSTALLER-LIFECYCLE.md",
+    "HOST-ADAPTERS.md",
+    "SUPPLY-CHAIN.md",
+    "REPOSITORY-ENFORCEMENT.md",
+    "PUBLIC-CLAIMS.md",
+    "PUBLIC-RELEASE-METADATA.md",
+    "PUBLIC-ROADMAP.md",
+    "README.md",
+    "RELEASE-CHECKLIST.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "USER-GUIDE.md",
+    "VERSIONING.md",
+    "enterprise-closure-registry.json",
+    "enterprise-closure-registry.schema.json",
+    "release-manifest.json",
+    "release-manifest.schema.json",
+    "package-manifest.json",
+    "package-manifest.schema.json",
+    "platform-release-contract.json",
+    "release-build-lock.json",
+    "pyproject.toml",
+    "setup.py",
+    "tailtrail/__init__.py",
+    "tailtrail/cli.py",
+    "tailtrail/install/engine.py",
+    "scripts/check-tailtrail.py",
+    "scripts/installer.py",
+    "scripts/platform-qualification.py",
+    "scripts/public-doc-audit.py",
+    "scripts/release-check.py",
+    "scripts/release_manifest.py",
+    "scripts/repository-enforcement.py",
+    "scripts/smoke-test.py"
+    ,"scripts/supply-chain.py",
+    "schemas/repository-enforcement-policy.schema.json",
+    "schemas/repository-enforcement-report.schema.json",
+    "schemas/repository-enforcement-suppression.schema.json",
+    "schemas/platform-qualification-receipt.schema.json",
+    "schemas/release-evidence.schema.json",
+    "tailtrail-enforcement-baseline.json",
+    "tailtrail-enforcement-policy.json",
+    "tailtrail-enforcement-suppressions.json"
+  ],
+  "workflows": [
+    {
+      "path": ".github/workflows/trust.yml",
+      "required_fragments": [
+        "python -m unittest discover -s tests",
+        "python scripts/enterprise-readiness.py validate",
+        "python scripts/check-tailtrail.py",
+        "python scripts/public-doc-audit.py",
+        "python scripts/release-check.py",
+        "python scripts/smoke-test.py"
+      ]
+    },
+    {
+      "path": ".github/workflows/spec-kit-closure.yml",
+      "required_fragments": [
+        "python3 scripts/tailtrail.py spec-kit ci-gate"
+      ]
+    },
+    {
+      "path": ".github/workflows/platform-supply-chain.yml",
+      "required_fragments": [
+        "os: [ubuntu-latest, macos-latest, windows-latest]",
+        "python-version: [\"3.12\", \"3.13\"]",
+        "python scripts/platform-qualification.py report",
+        "python scripts/supply-chain.py verify",
+        "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6"
+      ]
+    },
+    {
+      "path": ".github/workflows/repository-enforcement.yml",
+      "required_fragments": [
+        "permissions:",
+        "contents: read",
+        "python scripts/tailtrail.py enforce validate",
+        "uses: ./.github/actions/enforce",
+        "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+      ]
+    }
+  ],
+  "public_audit": {
+    "text_suffixes": [
+      ".json",
+      ".md",
+      ".toml",
+      ".yaml",
+      ".yml"
+    ],
+    "allowed_repository_urls": [
+      "https://github.com/ai-mode/ai-mode",
+      "https://github.com/awslabs/aidlc-workflows",
+      "https://github.com/github/spec-kit",
+      "https://github.com/vishrutsinghal/tailr"
+    ],
+    "excluded_files": [
+      "scripts/public-doc-audit.py",
+      "scripts/release-check.py",
+      "tests/test_release_truth.py"
+    ]
+  },
+  "repository_hygiene": {
+    "forbidden_names": [
+      ".DS_Store",
+      "__pycache__"
+    ],
+    "forbidden_parts": [
+      ".tailtrail"
+    ],
+    "allowed_paths": [
+      "demo-project-layout/tailtrail-demo-workspace/.tailtrail/README.md"
+    ]
+  },
+  "distribution": {
+    "public_only_files": [
+      ".github/ISSUE_TEMPLATE/bug_report.md",
+      ".github/ISSUE_TEMPLATE/docs_feedback.md",
+      ".github/ISSUE_TEMPLATE/feature_request.md",
+      ".github/ISSUE_TEMPLATE/security_note.md",
+      ".github/pull_request_template.md",
+      ".github/workflows/trust.yml",
+      ".github/workflows/platform-supply-chain.yml",
+      ".github/workflows/repository-enforcement.yml",
+      ".github/actions/enforce/action.yml",
+      "ARCHITECTURE.md",
+      "CHANGELOG.md",
+      "CODE_OF_CONDUCT.md",
+      "CONTRIBUTING.md",
+      "DEMO.md",
+      "LICENSE",
+      "NOTICE.md",
+      "PUBLIC-CLAIMS.md",
+      "PUBLIC-RELEASE-METADATA.md",
+      "PUBLIC-ROADMAP.md",
+      "RELEASE-CHECKLIST.md",
+      "SECURITY.md",
+      "SUPPORT.md",
+      "SUPPLY-CHAIN.md",
+      "REPOSITORY-ENFORCEMENT.md",
+      "tailtrail-enforcement-baseline.json",
+      "tailtrail-enforcement-policy.json",
+      "tailtrail-enforcement-suppressions.json",
+      "VERSIONING.md",
+      "scripts/public-doc-audit.py",
+      "scripts/release-check.py",
+      "scripts/release_manifest.py",
+      "scripts/smoke-test.py"
+    ],
+    "admin_only_files": [
+      "ADMIN-RELEASE-MODES.md",
+      "DESIGN.md",
+      "scripts/export-release.py"
+    ],
+    "internal_excluded_files": [
+      "ENTERPRISE-REVIEW.md",
+      "HONEST-REVIEW.md",
+      "HONEST-REVIEW-IMPLEMENTATION-PLAN.md",
+      "ROADMAP.md",
+      "V2-IMPLEMENTATION-GUIDE.md",
+      "scripts/check-tailtrail.py"
+    ],
+    "internal_excluded_prefixes": [
+      ".github/",
+      "benchmarks/results/"
+    ]
+  },
+  "smoke": {
+    "preflight_commands": [
+      ["scripts/public-doc-audit.py"],
+      ["scripts/release-check.py"],
+      ["scripts/tailtrail.py", "doctor"]
+    ],
+    "journey_commands": [
+      ["tailtrail_cli.py", "hello"],
+      ["scripts/tailtrail.py", "help"],
+      ["scripts/tailtrail.py", "hello"],
+      ["scripts/tailtrail.py", "start", "fix Sonar issue", "--changed", "missing-file.py"],
+      ["scripts/tailtrail.py", "graph", "--changed", "scripts/tailtrail.py"],
+      ["scripts/tailtrail.py", "quality", "scan", "--root", "."],
+      ["scripts/tailtrail.py", "test", "plan", "--root", ".", "--changed", "scripts/tailtrail.py"]
+    ]
+  }
+}

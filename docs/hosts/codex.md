@@ -1,16 +1,16 @@
 # Codex quickstart
 
-From the TailTrail source checkout, install into the project you will open in
-Codex:
+Install the self-contained package, then project the Core adapter into the
+repository you will open in Codex:
 
 ```powershell
-py -3 scripts\tailtrail.py install codex-plugin --target "D:\path\to\project"
+tailtrail install --host codex --profile core --target "D:\path\to\project"
 ```
 
 On macOS/Linux:
 
 ```bash
-python3 scripts/tailtrail.py install codex-plugin --target "/absolute/path/to/project"
+tailtrail install --host codex --profile core --target "/absolute/path/to/project"
 ```
 
 Open the target project in Codex, start a new chat, then say:
@@ -22,4 +22,6 @@ tailtrail start "fix the zero quantity validation defect"
 Review the Planning Lock. Approve the run only when its scope and requirements
 are correct. After implementation, Codex returns TailTrail's Completion Report.
 
-Verify or refresh the install with [INSTALL.md](../../INSTALL.md).
+Verify with `tailtrail doctor --host codex --target <project>`. This validates
+the installed v3 contract; it does not claim a real Codex version was observed
+or supported. See [HOST-ADAPTERS.md](../../HOST-ADAPTERS.md).

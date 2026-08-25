@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/enterprise-closure-registry.schema.json",
+  "title": "TailTrail Enterprise Closure Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "program",
+    "candidate_baseline",
+    "maturity_mapping",
+    "inventory_contracts",
+    "requirements",
+    "known_defects"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "authority_document",
+        "current_phase",
+        "default_owner",
+        "feature_freeze"
+      ],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "title": {"type": "string", "minLength": 1},
+        "authority_document": {"type": "string", "minLength": 1},
+        "current_phase": {"type": "string", "pattern": "^E(?:[0-9]|1[0-2])$"},
+        "default_owner": {"type": "string", "minLength": 1},
+        "feature_freeze": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "until_phase", "allowed_change_classes"],
+          "properties": {
+            "state": {"const": "active"},
+            "until_phase": {"const": "E12"},
+            "allowed_change_classes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "candidate_baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captured_at",
+        "git_commit",
+        "branch",
+        "worktree_state",
+        "release_candidate_state",
+        "declaration",
+        "untracked_dispositions"
+      ],
+      "properties": {
+        "captured_at": {"type": "string", "format": "date"},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "branch": {"type": "string", "minLength": 1},
+        "worktree_state": {"enum": ["clean", "dirty-explicitly-classified"]},
+        "release_candidate_state": {"enum": ["declared", "blocked"]},
+        "declaration": {"type": "string", "minLength": 1},
+        "untracked_dispositions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "disposition", "owner", "reason"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "disposition": {"enum": ["include", "exclude", "pending-review"]},
+              "owner": {"type": "string", "minLength": 1},
+              "reason": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "maturity_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implemented", "planned", "deprecated"],
+      "properties": {
+        "implemented": {"enum": ["supported", "preview", "experimental", "planned", "retired"]},
+        "planned": {"enum": ["supported", "preview", "experimental", "planned", "retired"]},
+        "deprecated": {"enum": ["supported", "preview", "experimental", "planned", "retired"]}
+      }
+    },
+    "inventory_contracts": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "owner", "surface", "maturity", "sources", "discovery", "validation"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+          "category": {"enum": ["commands", "schemas", "adapters", "persisted-artifacts", "ci-controls", "install-surfaces", "release-files", "support-claims"]},
+          "owner": {"type": "string", "minLength": 1},
+          "surface": {"enum": ["core", "extended", "mixed"]},
+          "maturity": {"enum": ["supported", "preview", "experimental", "planned", "retired"]},
+          "sources": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "discovery": {"type": "string", "minLength": 1},
+          "validation": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "category", "owner", "priority", "phase", "dependencies", "implementation_paths", "validation", "acceptance", "evidence", "maturity", "status"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^ENT-E(?:[0-9]|1[0-2])-[0-9]{3}$"},
+          "title": {"type": "string", "minLength": 1},
+          "category": {"type": "string", "minLength": 1},
+          "owner": {"type": "string", "minLength": 1},
+          "priority": {"enum": ["P0", "P1", "P2"]},
+          "phase": {"type": "string", "pattern": "^E(?:[0-9]|1[0-2])$"},
+          "dependencies": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^ENT-E(?:[0-9]|1[0-2])-[0-9]{3}$"}},
+          "implementation_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+          "validation": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+          "acceptance": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+          "evidence": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+          "maturity": {"enum": ["supported", "preview", "experimental", "planned", "retired"]},
+          "status": {"enum": ["planned", "in-progress", "blocked", "complete"]}
+        }
+      }
+    },
+    "known_defects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "requirement_id", "title", "owner", "phase", "status", "evidence"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^DEF-[0-9]{3}$"},
+          "requirement_id": {"type": "string", "pattern": "^ENT-E(?:[0-9]|1[0-2])-[0-9]{3}$"},
+          "title": {"type": "string", "minLength": 1},
+          "owner": {"type": "string", "minLength": 1},
+          "phase": {"type": "string", "pattern": "^E(?:[0-9]|1[0-2])$"},
+          "status": {"enum": ["open", "closed"]},
+          "evidence": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

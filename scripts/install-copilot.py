@@ -15,6 +15,12 @@ from install_surfaces import DEFAULT_SURFACE, SURFACES, resolve
 
 
 ROOT = Path(__file__).resolve().parents[1]
+IMPORT_ROOT = ROOT.parent if (ROOT / "__init__.py").is_file() else ROOT
+try:
+    sys.path.remove(IMPORT_ROOT.as_posix())
+except ValueError:
+    pass
+sys.path.insert(0, IMPORT_ROOT.as_posix())
 
 COPILOT_SOURCE = ROOT / "adapters" / "copilot-instructions.md"
 START_PROMPT_SOURCE = ROOT / ".github" / "prompts" / "tailtrail-start.prompt.md"
@@ -36,23 +42,33 @@ PACK_FILES = [
     "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
     "EVALUATION-HARNESS.md",
     "ENTERPRISE-REVIEW.md",
+    "ENTERPRISE-READINESS-ASSESSMENT.md",
     "GEMINI.md",
     "GUARDRAILS.md",
+    "HOST-ADAPTERS.md",
     "GOVERNANCE.md",
     "INSTALL.md",
+    "INSTALLER-LIFECYCLE.md",
     "IMPROVEMENT-PLAN.md",
     "LEARNING-GOVERNANCE.md",
     "MCP-SERVER.md",
+    "MANIFEST.in",
     "META-HARNESS-IMPLEMENTATION.md",
     "NAVIGATOR-TEST-SCENARIOS.md",
+    "PACKAGE-CONTRACT.md",
+    "REPOSITORY-ENFORCEMENT.md",
+    "platform-release-contract.json",
     "PUBLIC-CLAIMS.md",
     "PUBLIC-RELEASE-METADATA.md",
     "QUICKSTART.md",
     "CHEATSHEET.md",
     "README.md",
     "RELEASE-CHECKLIST.md",
+    "release-build-lock.json",
     "ROADMAP.md",
     "SECURITY.md",
+    "SUPPORT.md",
+    "SUPPLY-CHAIN.md",
     "TOKEN-AUTOPILOT.md",
     "TOKEN-HARNESS.md",
     "TOKEN-SLICER.md",
@@ -62,6 +78,10 @@ PACK_FILES = [
     "harness-engineering.md",
     "harness-engineering-workflow.md",
     "program-delivery-harness.md",
+    "enterprise-closure-registry.json",
+    "enterprise-closure-registry.schema.json",
+    "release-manifest.json",
+    "release-manifest.schema.json",
     "tailtrail-registry.json",
     "tailtrail-registry.schema.json",
     "tailtrail-spec-kit-integration.md",
@@ -79,13 +99,24 @@ PACK_FILES = [
     "context/slices.md",
     "context/token-router.md",
     "pyproject.toml",
+    "package-manifest.json",
+    "package-manifest.schema.json",
+    "setup.py",
     "tailtrail-policy.example.md",
+    "tailtrail-enforcement-baseline.json",
+    "tailtrail-enforcement-policy.json",
+    "tailtrail-enforcement-suppressions.json",
     "tailtrail_cli.py",
     "templates/intent-overrides.json",
     "templates/enterprise-target-policy.example.json",
     "templates/dependency-decision.example.json",
     "USEFUL-PROMPTS.md",
     "USER-GUIDE.md",
+    "VERSIONING.md",
+    "aidlc-docs/phase-e0-design.md",
+    "aidlc-docs/phase-e0-requirements.md",
+    "aidlc-docs/phase-e3-design.md",
+    "aidlc-docs/phase-e3-requirements.md",
 ]
 
 PACK_DIRS = [
@@ -97,10 +128,12 @@ PACK_DIRS = [
     "docs",
     "hooks",
     "templates",
+    "tailtrail",
     "schemas",
 ]
 
 PACK_SCRIPTS = [
+    "scripts/__init__.py",
     "scripts/aidlc-check.py",
     "scripts/aidlc-official-bridge.py",
     "scripts/aidlc-official-detect.py",
@@ -158,6 +191,7 @@ PACK_SCRIPTS = [
     "scripts/expand-intent.py",
     "scripts/evidence-metrics.py",
     "scripts/enterprise-target-policy.py",
+    "scripts/enterprise-readiness.py",
     "scripts/flaky-test-tracker.py",
     "scripts/first-run.py",
     "scripts/graph-learning.py",
@@ -177,6 +211,7 @@ PACK_SCRIPTS = [
     "scripts/install-copilot.py",
     "scripts/install-launcher.py",
     "scripts/install-local.py",
+    "scripts/installer.py",
     "scripts/install_surfaces.py",
     "scripts/maintainability-harness.py",
     "scripts/learning-agent.py",
@@ -193,6 +228,8 @@ PACK_SCRIPTS = [
     "scripts/outcome-telemetry.py",
     "scripts/policy-check.py",
     "scripts/phase8-advanced.py",
+    "scripts/package-release-proof.py",
+    "scripts/platform-qualification.py",
     "scripts/planning-lock.py",
     "scripts/prompt-profile.py",
     "scripts/prompt_profile.py",
@@ -219,13 +256,16 @@ PACK_SCRIPTS = [
     "scripts/spec-kit-observability.py",
     "scripts/spec-kit-policy.py",
     "scripts/spec-kit-slices.py",
+    "scripts/supply-chain.py",
     "scripts/slice-context.py",
     "scripts/smoke-test.py",
     "scripts/summarize-output.py",
     "scripts/recovery-reconcile.py",
+    "scripts/repository-enforcement.py",
     "scripts/recovery-diagnostician.py",
     "scripts/release-confidence.py",
     "scripts/release-check.py",
+    "scripts/release_manifest.py",
     "scripts/route-context.py",
     "scripts/requirement_discovery.py",
     "scripts/requirement-completion.py",
@@ -748,89 +788,16 @@ def main() -> int:
     parser.add_argument("--force", action="store_true", help="Overwrite existing target files.")
     args = parser.parse_args()
 
-    target_was_used = args.target is not None
+    # E3 compatibility boundary: retain the historical flags, but make the
+    # package-owned transactional engine the only executable write path.
+    from tailtrail.install.cli import main as installer_main
+
     target_root = (args.target or args.root).resolve()
-    with_tailtrail_pack = args.with_tailtrail_pack or target_was_used or args.upgrade or args.status
-    pack_dir_value = "." if target_was_used and args.pack_dir == "tailtrail" else args.pack_dir
-    pack_dir = validate_pack_dir(pack_dir_value) if with_tailtrail_pack else None
-    pack_root = target_root / pack_dir if pack_dir is not None else target_root
-    written: list[str] = []
-    skipped: list[str] = []
-
-    if args.status:
-        if pack_dir is None:
-            raise SystemExit("--status requires a managed pack target")
-        return status(pack_root, pack_dir)
-
-    if args.upgrade:
-        if pack_dir is None:
-            raise SystemExit("--upgrade requires a managed pack target")
-        code = upgrade_to_extended(pack_root, pack_dir, args.force, written, skipped)
-        if written:
-            print("Written:")
-            for path in written:
-                print(f"- {path}")
-        if skipped:
-            print("Skipped:")
-            for path in skipped:
-                print(f"- {path}")
-        if code == 0:
-            return print_first_run(target_root, pack_dir)
-        return code
-
-    if not args.pack_only:
-        write_copilot(
-            target_root / ".github" / "copilot-instructions.md",
-            pack_dir,
-            args.force,
-            written,
-            skipped,
-        )
-        write_start_prompt(
-            target_root / ".github" / "prompts" / "tailtrail-start.prompt.md",
-            pack_dir,
-            args.force,
-            written,
-            skipped,
-        )
-
-    if with_tailtrail_pack:
-        pack_files, pack_dirs, pack_scripts = resolve(args.surface, PACK_FILES, PACK_DIRS, PACK_SCRIPTS)
-        for relative_path in pack_files:
-            if relative_path == ".github/copilot-instructions.md":
-                continue
-            if relative_path == ".github/prompts/tailtrail-start.prompt.md":
-                write_start_prompt(pack_root / relative_path, pack_dir, args.force, written, skipped)
-                continue
-            copy_file(ROOT / relative_path, pack_root / relative_path, args.force, written, skipped)
-        for relative_path in pack_dirs:
-            copy_dir(ROOT / relative_path, pack_root / relative_path, args.force, written, skipped)
-        for relative_path in pack_scripts:
-            copy_file(ROOT / relative_path, pack_root / relative_path, args.force, written, skipped)
-        write_manifest(pack_root, pack_dir, written, args.surface, pack_files, pack_dirs, pack_scripts)
-
-    if not args.no_gitignore:
-        write_gitignore(target_root, pack_dir, written, skipped)
-
-    setup_name = "TailTrail managed pack" if args.pack_only else "TailTrail Copilot setup"
-    print(f"{setup_name} target: {target_root}")
-    if pack_dir is not None:
-        print(f"TailTrail pack folder: {(target_root / pack_dir).resolve()}")
-        print(f"TailTrail surface: {args.surface}")
-    if written:
-        print("Written:")
-        for path in written:
-            print(f"- {path}")
-    if skipped:
-        print("Skipped existing files:")
-        for path in skipped:
-            print(f"- {path}")
-    if pack_dir is not None and args.surface == "core":
-        print("Core installed. Run 'tailtrail install upgrade-to-extended' when ready.")
-    print("Next: review target changes. Do not commit TailTrail install/runtime files; commit only intentional tailtrail-meta/ metadata.")
-    if pack_dir is not None:
-        return print_first_run(target_root, pack_dir)
-    return 0
+    operation = "status" if args.status else "update" if args.upgrade else "install"
+    forwarded = [operation, "--host", "copilot", "--target", target_root.as_posix(), "--profile", "extended" if args.upgrade else args.surface]
+    if args.force:
+        forwarded.append("--force")
+    return installer_main(forwarded)
 
 
 if __name__ == "__main__":

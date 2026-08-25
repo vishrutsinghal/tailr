@@ -13,6 +13,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+# Keep this documented compatibility entry point importable from the repository
+# root while the canonical implementation remains in scripts/navigator.py.
+SCRIPTS = Path(__file__).resolve().parent / "scripts"
+if SCRIPTS.as_posix() not in sys.path:
+    sys.path.insert(0, SCRIPTS.as_posix())
+
 import navigator_core as core
 import navigator_render
 import prompt_profile

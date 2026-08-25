@@ -1,0 +1,1153 @@
+{
+  "schema_version": "1",
+  "program": {
+    "id": "tailtrail-enterprise-stabilization",
+    "title": "TailTrail Enterprise Stabilization Program",
+    "authority_document": "ENTERPRISE-READINESS-ASSESSMENT.md",
+    "current_phase": "E6",
+    "default_owner": "tailtrail-core",
+    "feature_freeze": {
+      "state": "active",
+      "until_phase": "E12",
+      "allowed_change_classes": [
+        "compatibility",
+        "correctness",
+        "evidence",
+        "packaging",
+        "release",
+        "security",
+        "support"
+      ]
+    }
+  },
+  "candidate_baseline": {
+    "captured_at": "2026-08-22",
+    "git_commit": "e1e85dac8cdc9c369b44ed5fb29c778a2195b02f",
+    "branch": "master",
+    "worktree_state": "dirty-explicitly-classified",
+    "release_candidate_state": "blocked",
+    "declaration": "E0-E4 are closed. E5 and E6 implementations are present and locally verified. E5 remains evidence-blocked until one commit has six hosted Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations; because E6 depends on E5, E6 implementation is complete but its program requirement remains in progress. Configured workflows and local evidence are not represented as hosted support; the enterprise candidate remains blocked by E5 evidence and E7-E12.",
+    "untracked_dispositions": [
+      {
+        "path": ".idea/",
+        "disposition": "exclude",
+        "owner": "workspace-user",
+        "reason": "Local IDE metadata is preserved but excluded from TailTrail release and enterprise evidence."
+      },
+      {
+        "path": "AI-MODE-INSPIRED-ADDITIONS.md",
+        "disposition": "pending-review",
+        "owner": "workspace-user",
+        "reason": "User-authored proposal content is outside E0 and must not be silently included or deleted."
+      },
+      {
+        "path": "DURABLE-WORKFLOW-RUNTIME.local-backup.md",
+        "disposition": "exclude",
+        "owner": "workspace-user",
+        "reason": "Local backup is preserved and excluded from the release candidate."
+      },
+      {
+        "path": "ENTERPRISE-READINESS-ASSESSMENT.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "This is the authority document for the enterprise stabilization program."
+      },
+      {
+        "path": "enterprise-closure-registry.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Machine-readable E0 closure registry."
+      },
+      {
+        "path": "enterprise-closure-registry.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Versioned E0 closure-registry schema."
+      },
+      {
+        "path": "scripts/enterprise-readiness.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "E0 inventory, validation, and status implementation."
+      },
+      {
+        "path": "aidlc-docs/phase-e0-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Approved comprehensive E0 requirements and boundaries."
+      },
+      {
+        "path": "aidlc-docs/phase-e0-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "E0 registry, inventory, validation, and governance design."
+      },
+      {
+        "path": "tests/test_enterprise_readiness.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Focused positive and negative E0 validation."
+      },
+      {
+        "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Manifest-required public bug intake template."
+      },
+      {
+        "path": ".github/ISSUE_TEMPLATE/docs_feedback.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Manifest-required public documentation intake template."
+      },
+      {
+        "path": ".github/ISSUE_TEMPLATE/feature_request.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Manifest-required public feature intake template."
+      },
+      {
+        "path": ".github/ISSUE_TEMPLATE/security_note.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Non-sensitive security-documentation intake boundary."
+      },
+      {
+        "path": ".github/pull_request_template.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Manifest-required pull-request evidence and safeguard template."
+      },
+      {
+        "path": "DEMO.md",
+        "disposition": "include",
+        "owner": "tailtrail-product",
+        "reason": "Manifest-required public approval-first demo."
+      },
+      {
+        "path": "aidlc-docs/phase-e1-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Approved comprehensive E1 release-truth design."
+      },
+      {
+        "path": "aidlc-docs/phase-e1-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Approved comprehensive E1 requirements and boundaries."
+      },
+      {
+        "path": "release-manifest.json",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Shared release, workflow, distribution, audit, and smoke authority."
+      },
+      {
+        "path": "release-manifest.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Closed-field schema for the E1 release manifest."
+      },
+      {
+        "path": "scripts/release_manifest.py",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Dependency-free shared release manifest reader and validator."
+      },
+      {
+        "path": "tests/test_release_truth.py",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "E1 positive, negative, smoke-ordering, and Navigator compatibility tests."
+      },
+      {
+        "path": "tools/",
+        "disposition": "pending-review",
+        "owner": "workspace-user",
+        "reason": "Local tool content is preserved and requires a separate ownership and release decision."
+      },
+      {
+        "path": "MANIFEST.in",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "Explicit E2 source-distribution inventory and exclusion contract."
+      },
+      {
+        "path": "PACKAGE-CONTRACT.md",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "E2 supported runtime, API, CLI, integrity, and migration contract."
+      },
+      {
+        "path": "package-manifest.json",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "E2 packaged Core resource authority."
+      },
+      {
+        "path": "package-manifest.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "Closed schema for the E2 package manifest."
+      },
+      {
+        "path": "setup.py",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "E2 deterministic resource copier and integrity-manifest build hook."
+      },
+      {
+        "path": "tailtrail/",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "Importable E2 kernel, stable API/CLI, resources, errors, and migration namespace."
+      },
+      {
+        "path": "scripts/__init__.py",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "Normal package namespace for existing command implementations."
+      },
+      {
+        "path": "scripts/package-release-proof.py",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "Dependency-free wheel and sdist inventory, hash, secret-path, and hygiene proof."
+      },
+      {
+        "path": "tests/test_self_contained_package.py",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "E2 artifact, compatibility, negative-resource, recovery, and Core lifecycle proof."
+      },
+      {
+        "path": "aidlc-docs/phase-e2-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "Comprehensive approved E2 requirements and acceptance boundary."
+      },
+      {
+        "path": "aidlc-docs/phase-e2-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-packaging",
+        "reason": "E2 kernel, artifact, integrity, compatibility, and proof design."
+      },
+      {
+        "path": "INSTALLER-LIFECYCLE.md",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "E3 transaction, ownership, recovery, rollback, retention, and CLI contract."
+      },
+      {
+        "path": "scripts/installer.py",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "Thin compatibility launcher for the package-owned E3 engine."
+      },
+      {
+        "path": "schemas/install-plan.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "Closed E3 deterministic installation-plan contract."
+      },
+      {
+        "path": "schemas/install-ownership-manifest.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "Closed E3 installed ownership and hash contract."
+      },
+      {
+        "path": "schemas/install-journal-event.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "Versioned E3 durable transaction journal contract."
+      },
+      {
+        "path": "tests/test_transactional_installer.py",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "E3 positive, negative, interruption, recovery, rollback, uninstall, and retention proof."
+      },
+      {
+        "path": "aidlc-docs/phase-e3-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "Comprehensive approved E3 requirements and acceptance matrix."
+      },
+      {
+        "path": "aidlc-docs/phase-e3-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-install",
+        "reason": "E3 engine, transaction protocol, trust-boundary, and phase-boundary design."
+      },
+      {
+        "path": "HOST-ADAPTERS.md",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "Canonical E4 host files, lifecycle, diagnostics, qualification, and claim boundary."
+      },
+      {
+        "path": "schemas/host-adapter-contract.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "Closed E4 Codex, Copilot, and Claude adapter contract schema."
+      },
+      {
+        "path": "tests/test_enterprise_host_adapters.py",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "Equal-quality E4 lifecycle, composition, migration, diagnostic, receipt, and negative proof."
+      },
+      {
+        "path": "aidlc-docs/phase-e4-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "Approved comprehensive E4 requirements and phase boundaries."
+      },
+      {
+        "path": "aidlc-docs/phase-e4-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "E4 contract, composition, diagnostics, migration, and safety design."
+      },
+      {
+        "path": ".github/workflows/platform-supply-chain.yml",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Pinned E5 canonical build, six-cell hosted matrix, aggregate gate, and tag attestation workflow."
+      },
+      {
+        "path": "SUPPLY-CHAIN.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "E5 build, evidence, verification, signing, limitation, and package-manager boundary."
+      },
+      {
+        "path": "platform-release-contract.json",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Machine-readable E5 OS, Python, artifact, host, check, and evidence policy."
+      },
+      {
+        "path": "release-build-lock.json",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Exact E5 build-only dependency pins, ownership, upgrade, and rollback contract."
+      },
+      {
+        "path": "schemas/platform-qualification-receipt.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Closed E5 observed platform receipt schema."
+      },
+      {
+        "path": "schemas/release-evidence.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-security",
+        "reason": "Closed E5 release evidence and artifact digest schema."
+      },
+      {
+        "path": "scripts/platform-qualification.py",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Dependency-free E5 artifact lifecycle exerciser and exact hosted receipt aggregate."
+      },
+      {
+        "path": "scripts/supply-chain.py",
+        "disposition": "include",
+        "owner": "tailtrail-security",
+        "reason": "Dependency-free E5 checksum, SBOM, provenance, and evidence verification implementation."
+      },
+      {
+        "path": "tests/test_cross_platform_supply_chain.py",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "E5 contract, tamper, exact-matrix, dependency, and workflow negative proof."
+      },
+      {
+        "path": "aidlc-docs/phase-e5-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Approved comprehensive E5 requirements and evidence boundaries."
+      },
+      {
+        "path": "aidlc-docs/phase-e5-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "E5 canonical build, matrix, evidence, and signing design."
+      },
+      {
+        "path": "aidlc-docs/phase-e5-dependency-decision.md",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "Dependency Gate decision for exact build pins and zero new runtime dependencies."
+      },
+      {
+        "path": "REPOSITORY-ENFORCEMENT.md",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "E6 policy, CI, finding, baseline, suppression, migration, and provider contract."
+      },
+      {
+        "path": ".github/actions/enforce/action.yml",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Version-pinned provider-neutral E6 composite action."
+      },
+      {
+        "path": ".github/workflows/repository-enforcement.yml",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Pinned read-only GitHub integration and report evidence upload."
+      },
+      {
+        "path": "scripts/repository-enforcement.py",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Dependency-free E6 policy validator, diff checker, migrator, and JSON/SARIF renderer."
+      },
+      {
+        "path": "schemas/repository-enforcement-policy.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Closed versioned E6 repository policy schema."
+      },
+      {
+        "path": "schemas/repository-enforcement-report.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Stable E6 JSON finding and report schema."
+      },
+      {
+        "path": "schemas/repository-enforcement-suppression.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Exact, owned, expiring E6 suppression schema."
+      },
+      {
+        "path": "schemas/workflow-enterprise-access-review.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "ENT-E9-001 closed schema for enterprise_recovery.access_review()'s read-only tenant/actor/repository allowlist report."
+      },
+      {
+        "path": "schemas/workflow-enterprise-support-bundle.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "ENT-E9-001 closed schema for enterprise_recovery.support_bundle()'s sanitized, fingerprinted administrator bundle."
+      },
+      {
+        "path": "schemas/workflow-enterprise-support-bundle-verification.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "ENT-E9-001 closed schema for enterprise_recovery.verify_support_bundle()'s tamper-detection result."
+      },
+      {
+        "path": "tailtrail-enforcement-policy.json",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Closed v1 E6 rule and enforcement-class authority."
+      },
+      {
+        "path": "tailtrail-enforcement-baseline.json",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Visible exact-fingerprint E6 baseline authority."
+      },
+      {
+        "path": "tailtrail-enforcement-suppressions.json",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Visible exact, expiring E6 suppression authority."
+      },
+      {
+        "path": "tailtrail-meta/approvals/E6-001.json",
+        "disposition": "include",
+        "owner": "workspace-user",
+        "reason": "Machine-readable scoped approval derived from the explicit E6 implementation request."
+      },
+      {
+        "path": "tests/test_repository_enforcement.py",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "E6 positive, every-Core-negative, migration, diff, baseline, suppression, SARIF, and false-positive proof."
+      },
+      {
+        "path": "aidlc-docs/phase-e6-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "Comprehensive approved E6 requirements and acceptance boundary."
+      },
+      {
+        "path": "aidlc-docs/phase-e6-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-governance",
+        "reason": "E6 policy authority, engine, CI adapter, and assurance design."
+      },
+      {
+        "path": "tests/test_workflow_concurrency.py",
+        "disposition": "include",
+        "owner": "tailtrail-runtime",
+        "reason": "ENT-E7-001 local concurrency and initial-dispatch idempotency proof against the real storage lock."
+      },
+      {
+        "path": "tests/test_workflow_performance.py",
+        "disposition": "include",
+        "owner": "tailtrail-runtime",
+        "reason": "ENT-E7-001 documented replay/doctor/projection-size performance regression budgets."
+      },
+      {
+        "path": "tests/test_threat_model_stride.py",
+        "disposition": "include",
+        "owner": "tailtrail-security",
+        "reason": "ENT-E7-002 consolidated executable STRIDE fixture pack backing aidlc-docs/phase10-threat-model.md."
+      },
+      {
+        "path": "tests/test_accessible_output.py",
+        "disposition": "include",
+        "owner": "tailtrail-security",
+        "reason": "ENT-E7-002 structural accessible-output proof: dual machine/human error fields and no ANSI-color dependence."
+      },
+      {
+        "path": "tests/test_workflow_enterprise_qualification.py",
+        "disposition": "include",
+        "owner": "tailtrail-enterprise",
+        "reason": "ENT-E8-001 load/soak, fencing-token rotation, disaster-recovery fail-closed, offline local-continuation, and CLI administrator-diagnostics proof for the local provider-neutral enterprise adapter."
+      },
+      {
+        "path": "tests/test_workflow_enterprise_observability.py",
+        "disposition": "include",
+        "owner": "tailtrail-enterprise",
+        "reason": "ENT-E9-001 effective-policy, access-review, support-bundle audit round-trip, observability-cardinality, and tabletop-drill proof."
+      },
+      {
+        "path": "e10-real-run-evidence/",
+        "disposition": "include",
+        "owner": "tailtrail-hosts",
+        "reason": "ENT-E10-001 genuine real-run Copilot host receipts, evaluations, bundle, and aggregate report captured from an actual live Copilot session executing the six scenarios against an isolated scratch target; Codex and Claude remain not-validated and are not represented here."
+      },
+      {
+        "path": "tests/test_newcomer_support_journey.py",
+        "disposition": "include",
+        "owner": "tailtrail-product",
+        "reason": "ENT-E11-001 documentation-command validation, a real end-to-end newcomer install/verify/doctor/status/update/rollback/uninstall journey, and a support self-service simulation (doctor diagnosis -> repair -> resolved)."
+      },
+      {
+        "path": "tests/test_ga_release_gate.py",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "ENT-E12-001 tests for the orchestrated E0-E11 GA release gate (ga_release_gate/verify_ga_bundle): honest blocking on the real registry, a fully-clean+approved ready path, an unapproved-publication block, open-defect and candidate-inconsistency blocks, and bundle tamper/drift detection."
+      },
+      {
+        "path": "tests/test_continuous_release_governance.py",
+        "disposition": "include",
+        "owner": "tailtrail-release",
+        "reason": "ENT-E12-002 tests that VERSIONING.md's Continuous Release Governance schedule covers all 9 required review dimensions and does not claim any review cycle has actually run."
+      }
+    ]
+  },
+  "maturity_mapping": {
+    "implemented": "preview",
+    "planned": "planned",
+    "deprecated": "retired"
+  },
+  "inventory_contracts": [
+    {
+      "id": "public-command-inventory",
+      "category": "commands",
+      "owner": "tailtrail-core",
+      "surface": "mixed",
+      "maturity": "preview",
+      "sources": ["scripts/tailtrail.py", "tailtrail-registry.json", "TAILTRAIL-COMMANDS.md"],
+      "discovery": "Parse the canonical COMMANDS dictionary and require the feature registry to claim every public command root.",
+      "validation": "python3 scripts/tailtrail-registry.py validate --strict"
+    },
+    {
+      "id": "schema-inventory",
+      "category": "schemas",
+      "owner": "tailtrail-core",
+      "surface": "mixed",
+      "maturity": "preview",
+      "sources": ["schemas", "tailtrail-registry.schema.json", "enterprise-closure-registry.schema.json", "tailtrail-meta/harness-summary.schema.json"],
+      "discovery": "Enumerate every repository *.schema.json file outside private runtime state and parse it as JSON.",
+      "validation": "python3 scripts/enterprise-readiness.py validate"
+    },
+    {
+      "id": "host-adapter-inventory",
+      "category": "adapters",
+      "owner": "tailtrail-hosts",
+      "surface": "mixed",
+      "maturity": "preview",
+      "sources": ["adapters", "AGENTS.md", ".codex-plugin/plugin.json", ".github/copilot-instructions.md", "CLAUDE.md", ".claude/commands/tailtrail-start.md"],
+      "discovery": "Enumerate adapter files and require Codex, Copilot, and Claude canonical surfaces.",
+      "validation": "python3 scripts/tailtrail.py adapters conformance"
+    },
+    {
+      "id": "persisted-artifact-inventory",
+      "category": "persisted-artifacts",
+      "owner": "tailtrail-runtime",
+      "surface": "mixed",
+      "maturity": "preview",
+      "sources": ["scripts", "schemas/workflow-runtime-event.schema.json", "schemas/run-event.schema.json", "schemas/workflow-projection.schema.json"],
+      "discovery": "Project every .tailtrail path literal from Python sources and relate durable workflow artifacts to versioned schemas.",
+      "validation": "python3 scripts/enterprise-readiness.py inventory --format json"
+    },
+    {
+      "id": "ci-control-inventory",
+      "category": "ci-controls",
+      "owner": "tailtrail-release",
+      "surface": "core",
+      "maturity": "preview",
+      "sources": [".github/workflows/trust.yml", ".github/workflows/spec-kit-closure.yml", ".github/workflows/repository-enforcement.yml", ".github/actions/enforce/action.yml", "tailtrail-enforcement-policy.json"],
+      "discovery": "Enumerate workflow/action files, exact action versions, permissions, report outputs, and the closed E6 rule catalog.",
+      "validation": "python3 scripts/tailtrail.py enforce validate --root ."
+    },
+    {
+      "id": "install-surface-inventory",
+      "category": "install-surfaces",
+      "owner": "tailtrail-install",
+      "surface": "mixed",
+      "maturity": "preview",
+      "sources": ["scripts/install-local.py", "scripts/install-copilot.py", "scripts/install_surfaces.py", "scripts/first-run.py", "INSTALL.md"],
+      "discovery": "Parse installer profiles and surfaces and require Codex, Codex plugin, Copilot, Claude, Core, and Extended.",
+      "validation": "python3 -m unittest tests.test_install_profiles"
+    },
+    {
+      "id": "release-file-inventory",
+      "category": "release-files",
+      "owner": "tailtrail-release",
+      "surface": "core",
+      "maturity": "preview",
+      "sources": ["release-manifest.json", "release-manifest.schema.json", "scripts/release_manifest.py"],
+      "discovery": "Validate the manifest-selected candidate, required files, version sources, workflows, approved repository URLs, hygiene, distribution policy, and smoke ordering.",
+      "validation": "python3 scripts/release-check.py"
+    },
+    {
+      "id": "support-claim-inventory",
+      "category": "support-claims",
+      "owner": "tailtrail-product",
+      "surface": "core",
+      "maturity": "preview",
+      "sources": ["PUBLIC-CLAIMS.md", "SUPPORT.md", "SECURITY.md", "VERSIONING.md", "ASSISTANT-COMPATIBILITY.md"],
+      "discovery": "Project every bullet claim under the declared support and claim-policy sources with its source section.",
+      "validation": "python3 scripts/enterprise-readiness.py inventory --format json"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "ENT-E0-001",
+      "title": "Declare the enterprise stabilization authority and candidate baseline",
+      "category": "program-governance",
+      "owner": "tailtrail-core",
+      "priority": "P0",
+      "phase": "E0",
+      "dependencies": [],
+      "implementation_paths": ["ENTERPRISE-READINESS-ASSESSMENT.md", "enterprise-closure-registry.json"],
+      "validation": ["python3 scripts/enterprise-readiness.py validate"],
+      "acceptance": ["The authority document, exact baseline commit, branch, worktree state, and every untracked path disposition are machine readable."],
+      "evidence": ["enterprise-closure-registry.json#candidate_baseline"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E0-002",
+      "title": "Provide a versioned enterprise closure registry and validator",
+      "category": "program-governance",
+      "owner": "tailtrail-core",
+      "priority": "P0",
+      "phase": "E0",
+      "dependencies": ["ENT-E0-001"],
+      "implementation_paths": ["enterprise-closure-registry.json", "enterprise-closure-registry.schema.json", "scripts/enterprise-readiness.py"],
+      "validation": ["python3 -m unittest tests.test_enterprise_readiness", "python3 scripts/enterprise-readiness.py validate"],
+      "acceptance": ["Duplicate IDs, missing owners, invalid phases, unknown dependencies, empty validation, incomplete evidence, and unclassified local files fail validation."],
+      "evidence": ["tests/test_enterprise_readiness.py"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E0-003",
+      "title": "Inventory all enterprise product surfaces",
+      "category": "inventory",
+      "owner": "tailtrail-core",
+      "priority": "P0",
+      "phase": "E0",
+      "dependencies": ["ENT-E0-002"],
+      "implementation_paths": ["enterprise-closure-registry.json", "scripts/enterprise-readiness.py", "tailtrail-registry.json"],
+      "validation": ["python3 scripts/enterprise-readiness.py inventory --format json", "python3 scripts/tailtrail-registry.py validate --strict"],
+      "acceptance": ["Commands, schemas, adapters, persisted artifact literals, CI controls, install surfaces, release files, support claims, and feature maturity are projected without an unknown category."],
+      "evidence": ["enterprise-closure-registry.json#inventory_contracts"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E0-004",
+      "title": "Normalize feature maturity and Core or Extended ownership",
+      "category": "product-boundary",
+      "owner": "tailtrail-product",
+      "priority": "P0",
+      "phase": "E0",
+      "dependencies": ["ENT-E0-003"],
+      "implementation_paths": ["enterprise-closure-registry.json", "tailtrail-registry.json", "ENTERPRISE-READINESS-ASSESSMENT.md"],
+      "validation": ["python3 scripts/enterprise-readiness.py validate", "python3 scripts/tailtrail-registry.py surfaces --format json"],
+      "acceptance": ["Every feature status maps to supported, preview, experimental, planned, or retired and every feature remains classified Core or Extended."],
+      "evidence": ["enterprise-closure-registry.json#maturity_mapping"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E0-005",
+      "title": "Activate the enterprise feature freeze through E12",
+      "category": "program-governance",
+      "owner": "tailtrail-core",
+      "priority": "P0",
+      "phase": "E0",
+      "dependencies": ["ENT-E0-004"],
+      "implementation_paths": ["enterprise-closure-registry.json", "ENTERPRISE-READINESS-ASSESSMENT.md", "aidlc-docs/aidlc-state.md"],
+      "validation": ["python3 scripts/enterprise-readiness.py validate"],
+      "acceptance": ["Only correctness, security, packaging, compatibility, release, support, and evidence work may enter the program before E12."],
+      "evidence": ["enterprise-closure-registry.json#program.feature_freeze"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E0-006",
+      "title": "Record all known baseline defects and future closure requirements",
+      "category": "traceability",
+      "owner": "tailtrail-core",
+      "priority": "P0",
+      "phase": "E0",
+      "dependencies": ["ENT-E0-002"],
+      "implementation_paths": ["enterprise-closure-registry.json", "ENTERPRISE-READINESS-ASSESSMENT.md"],
+      "validation": ["python3 scripts/enterprise-readiness.py validate"],
+      "acceptance": ["Every phase E0-E12 has owned requirements and every known test, package, release, smoke, install, compatibility, or host-proof blocker is linked to a requirement."],
+      "evidence": ["enterprise-closure-registry.json#known_defects", "enterprise-closure-registry.json#requirements"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E1-001",
+      "title": "Restore the complete unit and contract suite",
+      "category": "correctness",
+      "owner": "tailtrail-core",
+      "priority": "P0",
+      "phase": "E1",
+      "dependencies": ["ENT-E0-006"],
+      "implementation_paths": ["scripts/run-ledger.py", "scripts/task-start.py", "tests/test_evaluation_harness_scenarios.py", "tests/test_navigator_core.py", "tests/test_ui_consistency.py"],
+      "validation": ["python3 -m unittest discover -s tests -p test_*.py -v"],
+      "acceptance": ["The full supported suite passes with no baseline exception list."],
+      "evidence": ["python3 -m unittest discover -s tests -p 'test_*.py': 716 tests passed"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E1-002",
+      "title": "Repair or retire the root Navigator entry point",
+      "category": "correctness",
+      "owner": "tailtrail-core",
+      "priority": "P0",
+      "phase": "E1",
+      "dependencies": ["ENT-E0-006"],
+      "implementation_paths": ["navigator.py", "scripts/navigator.py", "tests/test_release_truth.py"],
+      "validation": ["python3 -c 'import navigator; assert callable(navigator.main) and callable(navigator.decide)'", "python3 -m unittest tests.test_release_truth"],
+      "acceptance": ["The root surface imports and behaves as documented or is removed from every public inventory with migration guidance."],
+      "evidence": ["tests.test_release_truth.ReleaseTruthTests.test_root_navigator_compatibility_entry_point_imports: passed"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E1-003",
+      "title": "Create one authoritative release manifest and clean smoke path",
+      "category": "release",
+      "owner": "tailtrail-release",
+      "priority": "P0",
+      "phase": "E1",
+      "dependencies": ["ENT-E0-003"],
+      "implementation_paths": ["release-manifest.json", "release-manifest.schema.json", "scripts/release_manifest.py", "scripts/release-check.py", "scripts/public-doc-audit.py", "scripts/check-tailtrail.py", "scripts/smoke-test.py", "scripts/export-release.py", "RELEASE-CHECKLIST.md", ".github/workflows/trust.yml", "tests/test_release_truth.py"],
+      "validation": ["python3 -m unittest tests.test_release_truth", "python3 scripts/release-check.py", "python3 scripts/public-doc-audit.py", "python3 scripts/smoke-test.py", "python3 scripts/tailtrail.py doctor"],
+      "acceptance": ["Release, doctor, docs, smoke, CI, and negative fixtures consume the same versioned manifest and agree on a clean candidate."],
+      "evidence": ["8 positive and negative release-truth tests passed", "TailTrail release check passed", "TailTrail public doc audit passed", "TailTrail doctor passed", "TailTrail smoke test passed using release-manifest snapshot"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E2-001",
+      "title": "Build the self-contained TailTrail product kernel and artifacts",
+      "category": "packaging",
+      "owner": "tailtrail-packaging",
+      "priority": "P0",
+      "phase": "E2",
+      "dependencies": ["ENT-E1-001", "ENT-E1-003"],
+      "implementation_paths": ["tailtrail", "package-manifest.json", "package-manifest.schema.json", "PACKAGE-CONTRACT.md", "MANIFEST.in", "setup.py", "pyproject.toml", "tailtrail_cli.py", "scripts/package-release-proof.py", "tests/test_self_contained_package.py"],
+      "validation": ["python3 -m unittest tests.test_self_contained_package", "python3 scripts/package-release-proof.py --wheel <wheel> --sdist <sdist>", "Run the Core workflow from an isolated wheel environment without the checkout"],
+      "acceptance": ["Wheel and sdist contain every Core module, schema, adapter, migration, template, and resource and never search for a source checkout."],
+      "evidence": ["Seven focused E2 package tests passed on CPython 3.12 and 3.13, including deterministic wheel and sdist build/install, full resource hashes, missing/corrupt negatives, and an isolated planning-to-closure lifecycle with recovery", "The complete 723-test suite passed on CPython 3.12 in 605.763 seconds and CPython 3.13 in 601.523 seconds"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E2-002",
+      "title": "Stabilize CLI, JSON, schema, exit-code, and Python compatibility contracts",
+      "category": "compatibility",
+      "owner": "tailtrail-packaging",
+      "priority": "P0",
+      "phase": "E2",
+      "dependencies": ["ENT-E2-001"],
+      "implementation_paths": ["tailtrail", "PACKAGE-CONTRACT.md", "schemas", "pyproject.toml", ".github/workflows/trust.yml", "TAILTRAIL-COMMANDS.md", "INSTALL.md", "SUPPORT.md", "VERSIONING.md"],
+      "validation": ["python3 -m unittest tests.test_self_contained_package", "Run the complete suite on CPython 3.12 and 3.13"],
+      "acceptance": ["Supported versions pass stable text/JSON and unsupported versions fail clearly; schema and deprecation policies are documented."],
+      "evidence": ["Focused contracts prove CPython 3.12/3.13 decisions, unsupported-version diagnostics, exit taxonomy, migration guards, native JSON, and legacy JSON containment", "The complete 723-test suite passed on both supported CPython versions; package metadata, Ruff target, documentation, and CI use the same >=3.12,<3.14 range"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E3-001",
+      "title": "Implement the shared transactional installer lifecycle",
+      "category": "installation",
+      "owner": "tailtrail-install",
+      "priority": "P0",
+      "phase": "E3",
+      "dependencies": ["ENT-E2-002"],
+      "implementation_paths": ["tailtrail/install", "scripts/installer.py", "scripts/install-local.py", "scripts/install-copilot.py", "scripts/update-copilot.py", "scripts/update-tailtrail.py", "scripts/tailtrail.py", "schemas/install-plan.schema.json", "schemas/install-ownership-manifest.schema.json", "schemas/install-journal-event.schema.json", "INSTALLER-LIFECYCLE.md"],
+      "validation": ["python3 -m unittest tests.test_transactional_installer tests.test_install_profiles tests.test_self_contained_package", "Run the complete suite on CPython 3.12 and 3.13", "Run enterprise, registry, package, release, documentation, doctor, smoke, and diff gates"],
+      "acceptance": ["Every lifecycle operation is manifest-driven, idempotent, conflict-aware, recoverable, and preserves unrelated user files."],
+      "evidence": ["17 focused transactional fixtures pass for zero-write dry run, all-host manifests, reinstall, conflicts, forced backup, update, failed update, corrupt staging, interruption recovery, repair, rollback, uninstall, unsafe targets, locks, JSON/text exits, and retention", "70 E3 installer/profile/CLI tests pass on both CPython 3.12 and 3.13", "Eight package tests pass on both supported interpreters, including an installed-wheel install, verify, Extended-update preview, uninstall, rollback, and post-rollback verification journey with no checkout", "The complete 741-test suite passed on CPython 3.12 in 619.675 seconds and CPython 3.13 in 552.139 seconds"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E4-001",
+      "title": "Qualify the Codex host adapter",
+      "category": "host-compatibility",
+      "owner": "tailtrail-hosts",
+      "priority": "P0",
+      "phase": "E4",
+      "dependencies": ["ENT-E3-001"],
+      "implementation_paths": ["tailtrail/hosts", "tailtrail/install", "adapters", ".codex-plugin", "skills", "AGENTS.md", "HOST-ADAPTERS.md"],
+      "validation": ["python3 -m unittest tests.test_enterprise_host_adapters tests.test_transactional_installer tests.test_self_contained_package tests.test_host_adapter_conformance tests.test_host_runtime_conformance", "Run the complete suite on CPython 3.12 and 3.13"],
+      "acceptance": ["Codex uses the common installer and has exact files, version limits, diagnostics, first action, rollback, uninstall, and receipt preparation."],
+      "evidence": ["The v3 contract defines five exact Codex Core files, composition markers, native first action, bounded version detection, approval-required external changes, E3 migration/rollback, and portable receipt preparation", "Source and installed-wheel tests pass install, doctor, update, rollback, uninstall, six-scenario bundle preparation, drift, conflict, and truthful not-supported states"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E4-002",
+      "title": "Qualify the GitHub Copilot host adapter",
+      "category": "host-compatibility",
+      "owner": "tailtrail-hosts",
+      "priority": "P0",
+      "phase": "E4",
+      "dependencies": ["ENT-E3-001"],
+      "implementation_paths": ["tailtrail/hosts", "tailtrail/install", "adapters", ".github/copilot-instructions.md", ".github/prompts/tailtrail-start.prompt.md", "HOST-ADAPTERS.md"],
+      "validation": ["python3 -m unittest tests.test_enterprise_host_adapters tests.test_transactional_installer tests.test_self_contained_package tests.test_host_adapter_conformance tests.test_host_runtime_conformance", "Run the complete suite on CPython 3.12 and 3.13"],
+      "acceptance": ["Copilot uses the common installer and clearly delegates enforceable behavior to CI where host behavior is not guaranteed."],
+      "evidence": ["The v3 contract defines both exact Copilot Core files, /tailtrail-start, host-reported version truth, CI-authoritative enforcement, E3 migration/rollback, and portable receipt preparation", "Source and installed-wheel tests pass install, doctor, update, rollback, uninstall, six-scenario bundle preparation, missing-file, composition, and not-supported states"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E4-003",
+      "title": "Qualify the Claude host adapter",
+      "category": "host-compatibility",
+      "owner": "tailtrail-hosts",
+      "priority": "P0",
+      "phase": "E4",
+      "dependencies": ["ENT-E3-001"],
+      "implementation_paths": ["tailtrail/hosts", "tailtrail/install", "adapters", "CLAUDE.md", ".claude/commands/tailtrail-start.md", "scripts/first-run.py", "HOST-ADAPTERS.md"],
+      "validation": ["python3 -m unittest tests.test_enterprise_host_adapters tests.test_transactional_installer tests.test_self_contained_package tests.test_first_run tests.test_host_adapter_conformance tests.test_host_runtime_conformance", "Run the complete suite on CPython 3.12 and 3.13"],
+      "acceptance": ["Claude has non-empty required files, a host-native first action, diagnostics, update, rollback, uninstall, and receipt preparation."],
+      "evidence": ["Claude first-run now requires both CLAUDE.md and .claude/commands/tailtrail-start.md and exposes /tailtrail-start as its native first action", "Source and installed-wheel tests pass install, doctor, update, rollback, uninstall, repair, six-scenario bundle preparation, partial/generic false-positive rejection, composition drift, and truthful not-supported states", "The complete 748-test suite passed on CPython 3.12 in 633.866 seconds and CPython 3.13 in an isolated declared-build-tool environment in 590.394 seconds"],
+      "maturity": "preview",
+      "status": "complete"
+    },
+    {
+      "id": "ENT-E5-001",
+      "title": "Qualify Windows, macOS, Linux, and the supported Python matrix",
+      "category": "platform-compatibility",
+      "owner": "tailtrail-release",
+      "priority": "P0",
+      "phase": "E5",
+      "dependencies": ["ENT-E4-001", "ENT-E4-002", "ENT-E4-003"],
+      "implementation_paths": [".github/workflows/platform-supply-chain.yml", "platform-release-contract.json", "schemas/platform-qualification-receipt.schema.json", "scripts/platform-qualification.py", "INSTALL.md", "SUPPORT.md", "pyproject.toml"],
+      "validation": ["Run built-artifact install/update/rollback/uninstall matrices on Windows, macOS, and Linux", "Aggregate exactly six hosted receipts for CPython 3.12-3.13 with matching commit and artifact hashes"],
+      "acceptance": ["Every claimed OS, Python, artifact, and host combination is reproducibly green or explicitly unsupported."],
+      "evidence": ["The pinned platform workflow implements Linux, macOS, and Windows x CPython 3.12 and 3.13 and installs canonical wheel and sdist-built-wheel artifacts into isolated environments", "The dependency-free qualification harness exercises launcher, spaces, Unicode, CRLF preservation, permission and symlink boundaries, and install/verify/update/rollback/uninstall for all three Core hosts", "Focused local contracts and exact-matrix positive/missing-cell negatives pass; six hosted receipts for one commit are not yet present in this workspace"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E5-002",
+      "title": "Qualify release supply-chain integrity",
+      "category": "supply-chain",
+      "owner": "tailtrail-security",
+      "priority": "P1",
+      "phase": "E5",
+      "dependencies": ["ENT-E2-001", "ENT-E5-001"],
+      "implementation_paths": ["pyproject.toml", "release-build-lock.json", "scripts/supply-chain.py", "schemas/release-evidence.schema.json", ".github/workflows/platform-supply-chain.yml", "SUPPLY-CHAIN.md", "RELEASE-CHECKLIST.md", "PUBLIC-RELEASE-METADATA.md"],
+      "validation": ["Inspect and verify artifact hashes, dependency inventory, provenance, tamper negatives, and signing guidance", "Build wheel and sdist twice, compare bytes, build wheel from sdist, and identity-attest the qualified tag artifacts"],
+      "acceptance": ["Published artifacts are attributable, inspectable, tamper-evident, and built from locked declared inputs."],
+      "evidence": ["Build inputs are exactly pinned with recorded owner, upgrade policy, validation, alternatives, risks, and rollback while runtime dependencies remain empty", "The standard-library evidence tool generates and verifies SHA256SUMS, CycloneDX 1.6 SBOM, in-toto/SLSA provenance candidate, dependency inventory, and release manifest with tamper negatives", "The pinned tag-only workflow requests read-only contents plus id-token and attestations write permissions after the exact hosted qualification gate; no local candidate is represented as signed", "A tag attestation receipt is not yet present in this workspace"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E6-001",
+      "title": "Ship independently enforceable repository and CI policy controls",
+      "category": "enforcement",
+      "owner": "tailtrail-governance",
+      "priority": "P0",
+      "phase": "E6",
+      "dependencies": ["ENT-E2-002", "ENT-E5-001"],
+      "implementation_paths": ["scripts/repository-enforcement.py", "tailtrail-enforcement-policy.json", "tailtrail-enforcement-baseline.json", "tailtrail-enforcement-suppressions.json", "schemas/repository-enforcement-policy.schema.json", "schemas/repository-enforcement-report.schema.json", "schemas/repository-enforcement-suppression.schema.json", ".github/actions/enforce/action.yml", ".github/workflows/repository-enforcement.yml", "REPOSITORY-ENFORCEMENT.md", "GUARDRAILS.md", "DEPENDENCY-GATE.md"],
+      "validation": ["python3 -m unittest tests.test_repository_enforcement", "python3 scripts/tailtrail.py enforce validate --root .", "python3 scripts/tailtrail.py registry validate --strict", "python3 scripts/enterprise-readiness.py validate", "python3 scripts/release-check.py", "Run the complete suite on CPython 3.12"],
+      "acceptance": ["Configured Core violations are rejected without model cooperation and every control is labeled enforced, host-assisted, or advisory."],
+      "evidence": ["The closed v1 policy classifies every rule and locks approval/scope, evidence truth, stale completion, dependency decisions, safeguard preservation, local state, redaction, and release-manifest integrity as model-independent Core enforcement", "The dependency-free CLI validates/migrates policy, handles staged/range/initial/file diffs, fails closed, and emits stable JSON and SARIF with exact visible baseline and expiring suppression state", "The reusable exact-version action and pinned read-only GitHub workflow preserve reports on failure and require no fork secrets or write token", "Focused E6 positives and every-Core-negative fixtures pass; program closure remains dependency-blocked by ENT-E5-001 hosted evidence"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E7-001",
+      "title": "Qualify durable state, recovery, concurrency, migration, and performance",
+      "category": "resilience",
+      "owner": "tailtrail-runtime",
+      "priority": "P0",
+      "phase": "E7",
+      "dependencies": ["ENT-E2-002"],
+      "implementation_paths": ["tailtrail/runtime", "scripts/workflow_runtime", "schemas", "DURABLE-WORKFLOW-RUNTIME-REVISED.md", "tests/test_workflow_concurrency.py", "tests/test_workflow_performance.py"],
+      "validation": ["python3 -m unittest tests.test_workflow_negative", "python3 -m unittest tests.test_workflow_storage", "python3 -m unittest tests.test_workflow_stage_replay", "python3 -m unittest tests.test_workflow_freshness_recovery", "python3 -m unittest tests.test_workflow_enterprise_recovery", "python3 -m unittest tests.test_workflow_concurrency", "python3 -m unittest tests.test_workflow_performance"],
+      "acceptance": ["The same event stream projects identically and invalid or incomplete state cannot produce success or silent data loss."],
+      "evidence": ["Replay determinism, corruption (gap/duplicate/hash/interrupted), stale-lock/freshness, migration, and rollback/backup-restore were already implemented and covered by tests/test_workflow_negative.py, tests/test_workflow_storage.py, tests/test_workflow_stage_replay.py, tests/test_workflow_freshness_recovery.py, and tests/test_workflow_enterprise_recovery.py", "New tests/test_workflow_concurrency.py proves the real `LEDGER.RunLock` file lock serializes concurrent same-process appends without corruption and that `retry.register_initial` is idempotent under a duplicate initial dispatch", "New tests/test_workflow_performance.py adds documented, regression-budgeted replay-latency, doctor-latency, and projection-size checks (60-event fixture; budgets intentionally generous to avoid CI flakiness)", "Local suite: python3 -m unittest discover -s tests -p 'test_*.py' passes with these additions", "Limitation: concurrency evidence is same-process/same-host only; multi-host/multi-tenant fencing remains covered separately by the enterprise transport tests, and no long-running soak/scale test exists yet"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E7-002",
+      "title": "Qualify security, privacy, redaction, retention, and accessibility boundaries",
+      "category": "security-privacy",
+      "owner": "tailtrail-security",
+      "priority": "P0",
+      "phase": "E7",
+      "dependencies": ["ENT-E3-001", "ENT-E6-001", "ENT-E7-001"],
+      "implementation_paths": ["SECURITY.md", "PUBLIC-CLAIMS.md", "GUARDRAILS.md", "tailtrail/runtime", "tailtrail/install", "aidlc-docs/phase10-threat-model.md", "tests/test_threat_model_stride.py", "tests/test_accessible_output.py"],
+      "validation": ["python3 -m unittest tests.test_repository_enforcement", "python3 -m unittest tests.test_workflow_privacy", "python3 -m unittest tests.test_workflow_security", "python3 -m unittest tests.test_transactional_installer", "python3 -m unittest tests.test_workflow_contracts", "python3 -m unittest tests.test_threat_model_stride", "python3 -m unittest tests.test_accessible_output"],
+      "acceptance": ["Unauthorized, cross-boundary, privacy-unsafe, inaccessible, or corrupt behavior fails closed with actionable diagnostics."],
+      "evidence": ["aidlc-docs/phase10-threat-model.md was expanded from a 15-line stub into a STRIDE mapping (spoofing, tampering, repudiation, information disclosure, denial of service, elevation of privilege) that cites an executable proof for every row", "New tests/test_threat_model_stride.py is one consolidated executable fixture pack; it reuses real control functions (approvals, storage, denials, assurance, contracts, tailtrail.install.InstallEngine) rather than re-implementing mitigations", "New tests/test_accessible_output.py proves the shipped tailtrail.install CLI error envelope always carries both a machine `error` code and a distinct human-readable `message` in JSON and text output, that no shipped tailtrail/ or scripts/ source uses ANSI color escapes, and that every `denials.REASONS` value is a readable hyphenated phrase rather than an opaque code", "Redaction, oversized/malformed-artifact, and traversal/symlink fixtures already existed in tests/test_repository_enforcement.py, tests/test_workflow_privacy.py, tests/test_workflow_contracts.py, and tests/test_transactional_installer.py and are cited rather than duplicated", "Limitation: this is deterministic fixture evidence, not adversarial fuzzing or a third-party security/accessibility review; it stays in-progress because dependency ENT-E6-001 and ENT-E7-001 are not yet complete"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E8-001",
+      "title": "Qualify the optional enterprise provider and administrator operations",
+      "category": "enterprise-operations",
+      "owner": "tailtrail-enterprise",
+      "priority": "P0",
+      "phase": "E8",
+      "dependencies": ["ENT-E7-001", "ENT-E7-002"],
+      "implementation_paths": ["tailtrail/enterprise", "scripts/workflow_runtime/enterprise.py", "scripts/workflow_runtime/enterprise_recovery.py", "scripts/workflow_runtime/enterprise_transport.py", "schemas/workflow-enterprise-conformance.schema.json", "tests/test_workflow_enterprise_qualification.py"],
+      "validation": ["python3 -m unittest tests.test_workflow_enterprise_adapter", "python3 -m unittest tests.test_workflow_enterprise_recovery", "python3 -m unittest tests.test_workflow_enterprise_transport", "python3 -m unittest tests.test_workflow_enterprise_mcp", "python3 -m unittest tests.test_workflow_enterprise_qualification"],
+      "acceptance": ["The provider meets declared service and data boundaries while local continuation remains available and enterprise activation stays evidence-gated."],
+      "evidence": ["Provider contract, tenant isolation, lease/fencing authorization, event partition/replay, backup/restore, and migration/rollback were already implemented and covered by tests/test_workflow_enterprise_adapter.py, tests/test_workflow_enterprise_recovery.py, and tests/test_workflow_enterprise_transport.py", "New tests/test_workflow_enterprise_qualification.py adds: a 100-event sequential-ingest throughput budget; fencing-token rotation proof that a released lease's credential is permanently rejected even for a brand-new event after re-acquisition; a disaster-recovery drill that corrupts the live distributed event journal after a verified backup and proves replay, restore-validate, and conformance all fail closed together rather than any one falsely reporting recoverability; a local-continuation proof that canonical local workflow storage keeps working normally while the enterprise state-store directory is inaccessible (permission-denied), and that ingestion resumes cleanly once access returns; and a subprocess-level CLI proof that `workflow-runtime.py enterprise conformance` returns the same categorical, sanitized administrator diagnostic", "Note: `tailtrail/enterprise` does not exist as a package yet; all enterprise logic currently lives in scripts/workflow_runtime/enterprise*.py pending the E2-style packaging move", "Limitation: this is a local provider-neutral adapter contract only. There is no deployed provider, no real network-partition/retry test against an actual remote service, no secret/KMS rotation (only the in-repo fencing-token lease credential), no production load/soak at scale, and no human disaster-recovery/on-call runbook. These remain explicit gaps, consistent with why E8 stays in-progress"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E9-001",
+      "title": "Qualify observability, audit export, governance, and administration",
+      "category": "operability",
+      "owner": "tailtrail-enterprise",
+      "priority": "P1",
+      "phase": "E9",
+      "dependencies": ["ENT-E8-001"],
+      "implementation_paths": ["tailtrail/enterprise", "scripts/repository-enforcement.py", "scripts/workflow_runtime/enterprise_recovery.py", "schemas/workflow-enterprise-access-review.schema.json", "schemas/workflow-enterprise-support-bundle.schema.json", "schemas/workflow-enterprise-support-bundle-verification.schema.json", "SUPPORT.md", "SECURITY.md", "templates/enterprise-report.md", "tests/test_workflow_enterprise_observability.py"],
+      "validation": ["python3 -m unittest tests.test_repository_enforcement", "python3 -m unittest tests.test_workflow_enterprise_recovery", "python3 -m unittest tests.test_workflow_enterprise_observability"],
+      "acceptance": ["Operators can diagnose, reconcile, audit, and govern the supported boundary without raw source, prompts, secrets, or private logs by default."],
+      "evidence": ["New `repository-enforcement.py explain` (Python function `explain_policy` plus a CLI subcommand) reports the exact merged rule catalog — classification, enabled, severity, protected paths, locked status, and enforced/host-assisted/advisory counts — reusing the existing `merge_override` logic rather than duplicating it", "New `enterprise_recovery.access_review` reports the exact tenant/actor/repository allowlist a workflow binding is authorized against, read-only", "New `enterprise_recovery.support_bundle`/`verify_support_bundle` package conformance, observability, and access-review into one sanitized, integrity-fingerprinted bundle; round-trip verification detects tampering (fingerprint mismatch) and privacy issues before the bundle is even written", "New test proves the sanitized `observe()` projection's field set never grows with event count (only the bounded integer counter changes), closing the observability-cardinality gap", "New tabletop-drill test exercises the exact SUPPORT.md administrator runbook sequence (corrupt live state -> diagnose with conformance -> export a support bundle that truthfully reports the blocked status) end-to-end", "SUPPORT.md gained an 'Enterprise Adapter Administrator Runbook' section covering diagnose/access-review/export/explain-policy/break-glass-boundary/segregation-of-duties, scoped explicitly to what the local adapter can do", "Limitation: this is all local-adapter evidence. There is no deployed audit/SIEM integration, no real access-control system to review, no production observability backend, and no human tabletop exercise with a real incident-response team"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E10-001",
+      "title": "Record fresh real-run proof for Codex, Copilot, and Claude",
+      "category": "host-proof",
+      "owner": "tailtrail-hosts",
+      "priority": "P0",
+      "phase": "E10",
+      "dependencies": ["ENT-E5-001", "ENT-E6-001", "ENT-E7-002"],
+      "implementation_paths": ["adapters/runtime-scenarios-v1.json", "scripts/host-runtime-conformance.py", "scripts/workflow-release-proof.py", "e10-real-run-evidence/copilot-2026-08-25"],
+      "validation": ["python3 scripts/host-runtime-conformance.py record --host copilot --receipt <receipt>", "python3 scripts/host-runtime-conformance.py report --host copilot"],
+      "acceptance": ["Every supported host/version has fresh passing runtime proof; missing, failed, stale, incompatible, or tampered evidence remains non-supported."],
+      "evidence": ["A real GitHub Copilot session actually executed all six scenarios (small-bug, hands-free-feature, rejected-requirement, evidence-failure, recovery, ci-wait) end-to-end against an isolated scratch git target using the real task-start.py/planning-lock.py/harness-checkpoint.py/harness-feedback.py/task-recovery-boundary.py/execution-evidence.py/closure-close.py CLIs, not a simulation", "Six receipts were built from the real bundle_digest and genuinely observed run artifacts and recorded through host-runtime-conformance.py record; the validator independently re-checked canonical probes against real files on disk for each", "Result: small-bug, hands-free-feature, rejected-requirement, evidence-failure, and ci-wait evaluated `passed`; recovery evaluated `failed` because the receipt honestly omitted the `resume-recommendation` observation, which could not be independently verified in that run -- it was not fabricated to force a pass", "Aggregate `report --host copilot` shows scenario_coverage 6/6 but overall runtime_status `failed` because one scenario failed, per the tool's own honest rollup rules", "Codex and Claude were not executed and remain `not-validated`; this record does not claim proof for them", "Evidence preserved at e10-real-run-evidence/copilot-2026-08-25/ (receipts, evaluations, bundle, aggregate report) since the working scratch target was ephemeral (/tmp)"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E11-001",
+      "title": "Complete canonical documentation and role-based support operations",
+      "category": "support",
+      "owner": "tailtrail-product",
+      "priority": "P0",
+      "phase": "E11",
+      "dependencies": ["ENT-E10-001"],
+      "implementation_paths": ["README.md", "INSTALL.md", "TAILTRAIL-COMMANDS.md", "ARCHITECTURE.md", "ASSISTANT-COMPATIBILITY.md", "SECURITY.md", "SUPPORT.md", "VERSIONING.md", "tests/test_newcomer_support_journey.py"],
+      "validation": ["python3 -m unittest tests.test_newcomer_support_journey", "python3 -m unittest tests.test_workflow_documentation"],
+      "acceptance": ["Developers and enterprise roles can install, operate, diagnose, recover, update, roll back, uninstall, and obtain support without checkout knowledge."],
+      "evidence": ["SUPPORT.md gained a 'Role-Based Quick Start' section routing all 6 required roles (developer, repository administrator, security reviewer, platform/enterprise administrator, auditor, support operator) to existing real commands and docs, plus role-specific escalation guidance in 'Asking For Help'", "VERSIONING.md gained 'Supported Version Window' and 'Deprecation Policy' sections; SECURITY.md gained 'Severity Levels' and 'Response Timeline' sections", "New tests/test_newcomer_support_journey.py adds three real executable proofs: every install-lifecycle operation named in INSTALL.md is a real, dispatchable CLI operation; one continuous real install -> verify -> doctor -> status -> update -> rollback-capable -> uninstall journey succeeds end to end through the actual InstallEngine with no manual intervention; and a support self-service simulation where a deleted managed file is diagnosed by `doctor`, resolved by `repair`, and re-verified, matching the documented self-service loop", "Limitation: the 6 role guides are consolidated routing/cross-reference sections in existing docs, not 6 standalone long-form guides; accessibility checks reuse the existing E7 tests/test_accessible_output.py rather than duplicating them"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E11-002",
+      "title": "Complete representative pilot and efficacy proof",
+      "category": "efficacy",
+      "owner": "tailtrail-product",
+      "priority": "P1",
+      "phase": "E11",
+      "dependencies": ["ENT-E10-001", "ENT-E11-001"],
+      "implementation_paths": ["benchmarks", "PUBLIC-CLAIMS.md", "SUPPORT.md"],
+      "validation": ["Audit pilot method, sample, artifacts, privacy, claims, limitations, usability, false positives, recovery, and operator burden"],
+      "acceptance": ["Every public outcome claim cites adequate evidence and pilot users complete and recover the Core journey without maintainer intervention."],
+      "evidence": ["PUBLIC-CLAIMS.md gained a 'Pilot Protocol' section defining opt-in method, sample-size disclosure, privacy limits (no raw source/prompts by default), the exact measures to record (install success, first-run completion, false-success, evidence completeness, approval latency, recovery time, rollback success, operator burden), evidence labeling, and a publication rule that a pilot claim may only cite its own recorded sample", "This is a protocol, not a result: no pilot has been run under it. No install-success rate, false-positive rate, adoption/retention figure, or operator-burden measurement is claimed", "Genuinely not locally producible: real external participants, real production codebases, and real observed usability/adoption/operator-burden data all require an actual pilot outside this repository"],
+      "maturity": "planned",
+      "status": "planned"
+    },
+    {
+      "id": "ENT-E12-001",
+      "title": "Produce the immutable enterprise GA evidence bundle",
+      "category": "general-availability",
+      "owner": "tailtrail-release",
+      "priority": "P0",
+      "phase": "E12",
+      "dependencies": ["ENT-E5-002", "ENT-E8-001", "ENT-E9-001", "ENT-E11-002"],
+      "implementation_paths": ["RELEASE-CHECKLIST.md", "PUBLIC-RELEASE-METADATA.md", "CHANGELOG.md", "enterprise-closure-registry.json", "scripts/enterprise-readiness.py", "tests/test_ga_release_gate.py"],
+      "validation": ["python3 scripts/enterprise-readiness.py ga-gate --approved", "python3 scripts/enterprise-readiness.py ga-verify --bundle <path>", "python3 -m unittest tests.test_ga_release_gate"],
+      "acceptance": ["All supported-boundary requirements pass, artifacts and claims match evidence, and no failed, missing, unowned, or deferred blocker remains."],
+      "evidence": ["Implemented the orchestrated E0-E11 release gate as real, tested code: `ga_release_gate()` and `verify_ga_bundle()` in scripts/enterprise-readiness.py, exposed as `enterprise-readiness ga-gate [--approved] [--write PATH]` and `enterprise-readiness ga-verify --bundle PATH`", "The gate composes only real, existing signals: `validate_registry()` (registry/git-baseline correctness), a new `requirement_readiness()`/`defect_readiness()` rollup across every requirement/known_defect, and `candidate_readiness()` which reuses `release_manifest.validate()` for missing/incompatible-candidate detection", "The bundle is fingerprinted with the same sha256-canonical-JSON pattern already used by `enterprise_recovery.support_bundle()`; `verify_ga_bundle()` detects both a tampered bundle (fingerprint mismatch) and a stale bundle whose requirement/defect/candidate summary no longer matches the current registry (registry-drift-since-bundle)", "Publication requires an explicit `approved=True` caller decision even when every other check is clean, so the gate can never self-approve", "tests/test_ga_release_gate.py (9 tests) proves: the gate honestly blocks on the real registry today (incomplete requirements, open defects); it reaches `ready` only when every requirement is complete, every defect is closed, the candidate is consistent, and approval is explicit; it stays blocked without approval even when otherwise clean; and tamper/drift detection both work", "Ran against the real registry: `enterprise-readiness ga-gate --approved` correctly reports `blocked` with `registry-invalid` (sandbox git-resolution flakiness), `incomplete-requirements`, `open-defects`, and `candidate-inconsistent` (this session's own dirty local `.tailtrail/runs/` state) -- the gate does not fabricate readiness"],
+      "maturity": "preview",
+      "status": "in-progress"
+    },
+    {
+      "id": "ENT-E12-002",
+      "title": "Establish continuous release and compatibility governance",
+      "category": "release-operations",
+      "owner": "tailtrail-release",
+      "priority": "P1",
+      "phase": "E12",
+      "dependencies": ["ENT-E12-001"],
+      "implementation_paths": ["VERSIONING.md", "SUPPORT.md", "SECURITY.md", "enterprise-closure-registry.json", "tests/test_continuous_release_governance.py"],
+      "validation": ["python3 -m unittest tests.test_continuous_release_governance"],
+      "acceptance": ["Every maintained release has recurring owners, evidence expiry, support dates, deprecation, migration, and retirement controls."],
+      "evidence": ["VERSIONING.md gained a 'Continuous Release Governance' section defining a 9-dimension recurring review schedule (compatibility, dependency, restore, migration, security, host-runtime, efficacy, deprecation, support), each with a cadence and the exact existing artifact that would evidence a real completed cycle (e.g. hosted CI receipts, DEPENDENCY-GATE.md decisions, PUBLIC-CLAIMS.md Pilot Protocol records)", "tests/test_continuous_release_governance.py (3 tests) proves the schedule names all 9 required review dimensions and explicitly states no cycle has run yet, so the document cannot be misread as a completed-review claim", "This is a schedule definition only: zero review cycles have actually been exercised under it. Recurring owners, support dates, and deprecation/migration controls already exist per-topic in VERSIONING.md/SECURITY.md/SUPPORT.md; the recurring *execution* of each review is not yet demonstrated and cannot be fabricated"],
+      "maturity": "planned",
+      "status": "in-progress"
+    }
+  ],
+  "known_defects": [
+    {
+      "id": "DEF-001",
+      "requirement_id": "ENT-E1-001",
+      "title": "Run ledger rejects evaluation_calibrated",
+      "owner": "tailtrail-runtime",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "evaluation_calibrated is declared by the run ledger; Phase8AdvancedTests and the complete 716-test suite passed."
+    },
+    {
+      "id": "DEF-002",
+      "requirement_id": "ENT-E1-001",
+      "title": "Release scenario inventory has an unexpected dwr-small-change-vertical entry",
+      "owner": "tailtrail-release",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "The committed dwr-small-change-vertical scenario is included in both inventory and threshold tests; the complete 716-test suite passed."
+    },
+    {
+      "id": "DEF-003",
+      "requirement_id": "ENT-E1-001",
+      "title": "Navigator Full escalation reason differs from the contract",
+      "owner": "tailtrail-core",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "Navigator's compatible-pack reason preserves the new Full-mode Planning Lock boundary; Navigator tests and the complete suite passed."
+    },
+    {
+      "id": "DEF-004",
+      "requirement_id": "ENT-E1-001",
+      "title": "Inaccessible installation target can be reported as verified",
+      "owner": "tailtrail-install",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "The resolver contract is verified with a guaranteed-missing temporary target instead of a mutable developer path; the complete suite passed."
+    },
+    {
+      "id": "DEF-005",
+      "requirement_id": "ENT-E1-001",
+      "title": "UI preservation message differs from the contract",
+      "owner": "tailtrail-core",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "Compact Start output includes the established UI-system preservation boundary; UI tests and the complete suite passed."
+    },
+    {
+      "id": "DEF-006",
+      "requirement_id": "ENT-E1-002",
+      "title": "Root navigator.py cannot import navigator_core",
+      "owner": "tailtrail-core",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "Root navigator.py resolves repository script modules; import and callable compatibility tests passed."
+    },
+    {
+      "id": "DEF-007",
+      "requirement_id": "ENT-E2-001",
+      "title": "Installed console command requires a TailTrail source checkout",
+      "owner": "tailtrail-packaging",
+      "phase": "E2",
+      "status": "closed",
+      "evidence": "The console now imports tailtrail.cli, resolves only installed resources during normal execution, and passes an isolated wheel planning-to-closure lifecycle with no checkout present."
+    },
+    {
+      "id": "DEF-008",
+      "requirement_id": "ENT-E1-003",
+      "title": "Release checks disagree with repository files, workflows, and approved upstream references",
+      "owner": "tailtrail-release",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "Release, audit, doctor, export, smoke, CI, versions, and docs use release-manifest.json; positive and negative gates passed."
+    },
+    {
+      "id": "DEF-009",
+      "requirement_id": "ENT-E1-003",
+      "title": "Fresh-clone smoke can reject state created by its own journey",
+      "owner": "tailtrail-release",
+      "phase": "E1",
+      "status": "closed",
+      "evidence": "Smoke preflight runs before stateful journeys in a manifest-built temporary candidate; the fresh-clone smoke passed."
+    },
+    {
+      "id": "DEF-010",
+      "requirement_id": "ENT-E4-003",
+      "title": "Claude first-run verification has no required-file mapping",
+      "owner": "tailtrail-hosts",
+      "phase": "E4",
+      "status": "closed",
+      "evidence": "scripts/first-run.py now consumes the v3 shared host contract and requires both CLAUDE.md and .claude/commands/tailtrail-start.md; missing, generic, and partial installs fail focused and installed-product tests."
+    },
+    {
+      "id": "DEF-011",
+      "requirement_id": "ENT-E5-001",
+      "title": "Declared Python and OS support exceeds the CI matrix",
+      "owner": "tailtrail-release",
+      "phase": "E5",
+      "status": "open",
+      "evidence": "E5 now implements the exact Windows/macOS/Linux x CPython 3.12-3.13 hosted matrix, canonical artifact downloads, isolated dual-route host lifecycles, and fail-closed receipt aggregation. The defect remains open until the workflow produces all six matching hosted receipts for one commit; configured CI and a local macOS run are not substituted for that evidence."
+    },
+    {
+      "id": "DEF-012",
+      "requirement_id": "ENT-E10-001",
+      "title": "Codex, Copilot, and Claude have no qualifying real-run release proof",
+      "owner": "tailtrail-hosts",
+      "phase": "E10",
+      "status": "open",
+      "evidence": "Copilot now has genuine real-run receipts for all 6 scenarios (see e10-real-run-evidence/copilot-2026-08-25/), but the aggregate runtime_status is `failed` (one honestly-failed scenario, `recovery`), not `passed`. Codex and Claude were never executed and remain not-validated. The defect stays open until every host reaches a passing aggregate result from a qualifying real session."
+    }
+  ]
+}

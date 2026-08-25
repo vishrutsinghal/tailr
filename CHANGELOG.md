@@ -8,6 +8,53 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 
 ### Added
 
+- Enterprise Stabilization Phase E4 host adapters: one closed v3 contract for
+  exact Codex, GitHub Copilot, and Claude Core files, composition, native first
+  actions, diagnostics, version limitations, CI-authoritative enforcement,
+  approval-required external changes, transactional adapter migration, and
+  sanitized six-scenario receipt preparation. Source and checkout-free wheel
+  lifecycles cover all three hosts; Claude partial installs fail closed. The
+  complete 748-test suite passes on CPython 3.12 and 3.13. These adapters are
+  contract-tested, not runtime-observed or release-supported; E5-E12 remain
+  gated.
+
+- Enterprise Stabilization Phase E3 transactional installer lifecycle: one
+  package-owned engine for Codex, Copilot, and Claude with versioned plans,
+  per-host ownership manifests, durable journals and locks, zero-write dry run,
+  hash-verified staging, atomic replacement, conflict fencing, mandatory
+  backups for forced changes, automatic failure restoration, unclean-stop
+  recovery, repair, deterministic update, rollback, safe uninstall, retention,
+  and stable text/JSON/exit contracts. Installed-artifact tests and the complete
+  741-test suite pass on both supported CPython versions, closing E3; E4-E12
+  remain gated.
+
+- Enterprise Stabilization Phase E2 self-contained package: an importable
+  product kernel and stable API/CLI, CPython 3.12-3.13 support contract,
+  explicit wheel/sdist inventory, full packaged-resource SHA-256 verification,
+  versioned migration baseline, categorical exit/JSON errors, checkout-free
+  dispatch, artifact hygiene/secret-path inspection, Core installer ownership,
+  CI artifact gates, and isolated hello/doctor/planning/approval/recovery/
+  evidence/closure proof with missing/corrupt negative tests. The complete
+  723-test suite passes on both supported CPython versions, closing E2;
+  E3-E12 remain gated.
+
+- Enterprise Stabilization Phase E1 test and release truth: all registered test
+  regressions fixed, root Navigator compatibility restored, one versioned
+  release manifest and schema shared across release/audit/doctor/export/smoke/CI,
+  explicit public-upstream and candidate-scope policy, missing community/demo
+  files added, generated state isolated from smoke preflight, negative release
+  fixtures added, and the complete 716-test suite restored with no exception
+  list. This closes E1 only; E2-E12 remain gated at that historical checkpoint.
+
+- Enterprise Stabilization Phase E0 baseline and ownership: a versioned
+  enterprise closure registry and schema, strict read-only validator, complete
+  command/schema/adapter/state/CI/install/release/support inventory projection,
+  feature maturity normalization, active E0-E12 feature freeze, exact candidate
+  baseline and untracked-file dispositions, 27 owned closure requirements, 12
+  known defects, top-level CLI commands, Extended-pack coverage, comprehensive
+  AIDLC artifacts, and positive/negative focused tests. E0 closes classification
+  and ownership only; the release candidate remains blocked by E1-E12 gates.
+
 - Durable Workflow Runtime Deferred Phase 12 optional enterprise adapter: a
   provider-neutral state-store protocol, dependency-free local conformance
   adapter, evidence-gated activation, tenant/actor/repository isolation,
@@ -136,6 +183,8 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 
 ### Known Limitations
 
-- First public release is source-only.
+- Host-profile transactional lifecycle and cross-platform qualification remain
+  governed by Enterprise Phases E3-E5; the E2 wheel/sdist is available but does
+  not claim those later host/platform gates.
 - Exact token savings require user-provided measured model/API telemetry.
 - TailTrail is scanner-aware but does not replace security scanners, CI, tests, review, or approval.

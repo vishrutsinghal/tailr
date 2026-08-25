@@ -23,6 +23,7 @@ COMMANDS = {
     "commands": "Print the detailed command catalog.",
     "hello": "Confirm TailTrail is installed and reachable.",
     "version": "Show source/pack location.",
+    "package-info": "Show installed package mode and verified resource status.",
     "start": "Start a task with Navigator-first plan, metrics, setup posture, and learning quality.",
     "planning": "Create, inspect, discuss, revise, approve, or enforce a Planning Lock for one run.",
     "do": "Alias for start; run Navigator-first planning for a free-form task.",
@@ -75,10 +76,18 @@ COMMANDS = {
     "guard": "Run local guardrail checks against a diff or staged changes.",
     "guardrail": "Run guardrail checks and precision baselines.",
     "dependency": "Validate structured Dependency Gate decisions against a diff.",
+    "enforce": "Run versioned repository and CI policy enforcement with JSON/SARIF output.",
     "governance": "Check or sync repeated governance text.",
     "registry": "Inspect and validate the TailTrail feature registry.",
+    "enterprise-readiness": "Inspect and validate the enterprise stabilization baseline and closure registry.",
     "policy": "Initialize or validate local TailTrail policy files.",
-    "install": "Run install helpers.",
+    "install": "Install a host profile through the transactional lifecycle.",
+    "verify": "Verify manifest-owned host files.",
+    "status": "Show installed host lifecycle status.",
+    "rollback": "Restore a prior installer transaction.",
+    "uninstall": "Safely remove manifest-owned host files.",
+    "repair": "Repair missing or corrupt managed host files transactionally.",
+    "recover": "Recover an interrupted installer transaction.",
     "first-run": "Verify a local TailTrail install and show one simple first action.",
     "update": "Run update-tailtrail.py.",
     "team-init": "Run team-init.py.",
@@ -103,6 +112,10 @@ def release_check_allowed() -> bool:
 
 def internal_release_enabled() -> bool:
     return (ROOT / ".tailtrail-internal-release").exists()
+
+
+def packaged_runtime_enabled() -> bool:
+    return (ROOT / "package-integrity.json").is_file()
 
 
 def invocation() -> str:
@@ -164,7 +177,13 @@ def script(name: str) -> Path:
 
 def run_script(name: str, args: list[str]) -> int:
     command = [PYTHON, script(name).as_posix(), *args]
-    result = subprocess.run(command, cwd=Path.cwd(), check=False)
+    capture = os.environ.get("TAILTRAIL_JSON_ENVELOPE_CAPTURE") == "1"
+    result = subprocess.run(command, cwd=Path.cwd(), check=False, text=capture, stdout=subprocess.PIPE if capture else None, stderr=subprocess.PIPE if capture else None)
+    if capture:
+        if result.stdout:
+            print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="", file=sys.stderr)
     return result.returncode
 
 
@@ -354,6 +373,9 @@ def print_help() -> None:
     print(f"  {command} registry mcp --format json")
     print(f"  {command} registry validate --strict")
     print(f"  {command} registry drift")
+    print(f"  {command} enterprise-readiness validate")
+    print(f"  {command} enterprise-readiness status")
+    print(f"  {command} enterprise-readiness inventory --format json")
     print(f"  {command} adapters check")
     print(f"  {command} adapters sync")
     print(f"  {command} policy check --root .")
@@ -400,9 +422,29 @@ def print_version() -> int:
     return 0
 
 
+def package_info(args: list[str]) -> int:
+    packaged = packaged_runtime_enabled()
+    manifest = ROOT / "package-manifest.json"
+    valid = manifest.is_file()
+    payload = {
+        "type": "tailtrail-package-status",
+        "mode": "installed-package" if packaged else "source-compatibility",
+        "root": ROOT.as_posix(),
+        "valid": valid,
+        "issues": [] if valid else ["missing package-manifest.json"],
+    }
+    if json_output_requested(args):
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        print(f"TailTrail package {'passed' if valid else 'failed'}.")
+        print(f"Mode: {payload['mode']}")
+        print(f"Package root: {ROOT}")
+    return 0 if valid else 1
+
+
 def hello() -> int:
     manifest = ROOT / ".tailtrail-install.json"
-    mode = "installed pack" if manifest.is_file() else "source checkout"
+    mode = "installed package" if packaged_runtime_enabled() else "installed pack" if manifest.is_file() else "source checkout"
     if not quiet_enabled(sys.argv[2:]):
         print_startup_banner()
     print("Hello from TailTrail.")
@@ -471,7 +513,31 @@ def start(args: list[str]) -> int:
     return run_script("task-start.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
 
 
-def doctor() -> int:
+def doctor(args: list[str] | None = None) -> int:
+    if args:
+        return run_script("installer.py", ["doctor", *args])
+    if packaged_runtime_enabled():
+        package_manifest_path = ROOT / "package-manifest.json"
+        try:
+            package_manifest = json.loads(package_manifest_path.read_text(encoding="utf-8"))
+            required = package_manifest["runtime_required"]
+            if not isinstance(required, list) or not all(isinstance(item, str) for item in required):
+                raise ValueError("runtime_required must be a list of paths")
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as error:
+            print("TailTrail installed-package doctor failed.")
+            print(f"Package manifest error: {error}")
+            return 1
+        missing = [item for item in required if not (ROOT / item).exists()]
+        if missing:
+            print("TailTrail installed-package doctor failed.")
+            print("Missing:")
+            for item in missing:
+                print(f"- {item}")
+            return 1
+        print("TailTrail installed-package doctor passed.")
+        print(f"Package location: {ROOT}")
+        return 0
+
     if internal_release_enabled() or not (ROOT / ".codex-plugin").exists():
         manifest_path = ROOT / ".tailtrail-install.json"
         surface = "extended"
@@ -619,28 +685,25 @@ def aidlc(args: list[str]) -> int:
 
 def install(args: list[str]) -> int:
     if not args:
-        print("Usage: tailtrail install codex|codex-plugin|copilot|claude|local|launcher|verify|upgrade-to-extended|status [args]")
+        print("Usage: tailtrail install --host codex|copilot|claude --profile core|extended --target <path> [--dry-run]")
         return 2
     action, rest = args[0], args[1:]
-    if action == "copilot":
-        return run_script("install-copilot.py", rest)
-    if action == "claude":
-        return run_script("install-local.py", ["--profile", "claude", *rest])
-    if action == "codex":
-        return run_script("install-local.py", ["--profile", "codex", *rest])
-    if action == "codex-plugin":
-        return run_script("install-local.py", ["--profile", "codex-plugin", *rest])
+    if action in {"codex", "codex-plugin", "copilot", "claude"}:
+        host = "codex" if action == "codex-plugin" else action
+        return run_script("installer.py", ["install", "--host", host, *rest])
     if action == "local":
         return run_script("install-local.py", rest)
     if action == "launcher":
         return run_script("install-launcher.py", rest)
     if action == "verify":
+        # Read-only compatibility for pre-E3 projected packs. Canonical E3
+        # verification is the top-level `tailtrail verify --host ...` command.
         return run_script("first-run.py", rest)
     if action == "upgrade-to-extended":
-        return run_script("install-copilot.py", ["--surface", "extended", "--upgrade", *rest])
-    if action == "status":
-        return run_script("install-copilot.py", ["--status", *rest])
-    print("Unknown install action. Use: codex, codex-plugin, copilot, claude, local, launcher, verify, upgrade-to-extended, or status")
+        return run_script("installer.py", ["update", "--host", "all", "--profile", "extended", *rest])
+    if action.startswith("--"):
+        return run_script("installer.py", ["install", *args])
+    print("Unknown install action. Use --host codex|copilot|claude, or a compatibility host alias.")
     return 2
 
 
@@ -769,6 +832,13 @@ def dependency(args: list[str]) -> int:
         print("Usage: tailtrail dependency validate|check [args]")
         return 2
     return run_script("dependency-decision.py", args)
+
+
+def enforce(args: list[str]) -> int:
+    if not args or args[0] not in {"validate", "check", "migrate"}:
+        print("Usage: tailtrail enforce validate|check|migrate [args]")
+        return 2
+    return run_script("repository-enforcement.py", args)
 
 
 def admin(args: list[str]) -> int:
@@ -996,6 +1066,8 @@ def main() -> int:
         return hello()
     if command == "version":
         return print_version()
+    if command == "package-info":
+        return package_info(args)
     if command in {"start", "do", "run"}:
         return start(args)
     if command == "planning":
@@ -1117,13 +1189,15 @@ def main() -> int:
     if command == "eval":
         return evaluation(args)
     if command == "doctor":
-        return doctor()
+        return doctor(args)
     if command == "guard":
         return guard(args)
     if command == "guardrail":
         return guardrail(args)
     if command == "dependency":
         return dependency(args)
+    if command == "enforce":
+        return enforce(args)
     if command == "governance":
         if not args:
             print("Usage: tailtrail governance check|sync")
@@ -1131,14 +1205,18 @@ def main() -> int:
         return run_script("sync-governance.py", args)
     if command == "registry":
         return registry(args)
+    if command == "enterprise-readiness":
+        return run_script("enterprise-readiness.py", args)
     if command == "policy":
         return run_script("policy-check.py", args)
     if command == "install":
         return install(args)
+    if command in {"verify", "status", "rollback", "uninstall", "repair", "recover"}:
+        return run_script("installer.py", [command, *args])
     if command == "first-run":
         return run_script("first-run.py", args)
     if command == "update":
-        return run_script("update-tailtrail.py", args)
+        return run_script("installer.py", ["update", *args])
     if command == "team-init":
         return run_script("team-init.py", args)
     if command == "adapters":

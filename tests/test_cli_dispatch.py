@@ -75,18 +75,18 @@ class CliDispatchTests(unittest.TestCase):
 
     def test_install_codex_routes_to_the_codex_profile(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
-        self.assertIn('if action == "codex":', body)
-        self.assertIn('return run_script("install-local.py", ["--profile", "codex", *rest])', body)
+        self.assertIn('if action in {"codex", "codex-plugin", "copilot", "claude"}:', body)
+        self.assertIn('return run_script("installer.py", ["install", "--host", host, *rest])', body)
 
     def test_install_codex_plugin_routes_to_the_codex_plugin_profile(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
-        self.assertIn('if action == "codex-plugin":', body)
-        self.assertIn('return run_script("install-local.py", ["--profile", "codex-plugin", *rest])', body)
+        self.assertIn('host = "codex" if action == "codex-plugin" else action', body)
+        self.assertIn('return run_script("installer.py", ["install", "--host", host, *rest])', body)
 
     def test_install_claude_routes_to_the_claude_profile(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
-        self.assertIn('if action == "claude":', body)
-        self.assertIn('return run_script("install-local.py", ["--profile", "claude", *rest])', body)
+        self.assertIn('if action in {"codex", "codex-plugin", "copilot", "claude"}:', body)
+        self.assertIn('return run_script("installer.py", ["install", "--host", host, *rest])', body)
 
     def test_completion_report_has_a_public_harness_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")

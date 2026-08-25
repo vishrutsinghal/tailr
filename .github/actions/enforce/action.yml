@@ -1,0 +1,81 @@
+name: TailTrail repository enforcement
+description: Run the version-pinned provider-neutral TailTrail enforcement CLI.
+inputs:
+  version:
+    description: Exact TailTrail version to install when distribution is pypi.
+    required: true
+    default: "0.6.0"
+  distribution:
+    description: Use pypi for released consumers or checkout for TailTrail's own source validation.
+    required: true
+    default: pypi
+  base:
+    description: Base commit; unavailable shallow/fork bases fail over to an initial-commit diff.
+    required: false
+    default: ""
+  head:
+    description: Head commit.
+    required: false
+    default: HEAD
+  output-directory:
+    description: Directory for JSON and SARIF reports.
+    required: true
+    default: tailtrail-enforcement-results
+  pr-body:
+    description: Pull-request body used only for deterministic evidence-claim checks.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Validate exact version and select launcher
+      shell: bash
+      env:
+        TAILTRAIL_VERSION_INPUT: ${{ inputs.version }}
+        TAILTRAIL_DISTRIBUTION_INPUT: ${{ inputs.distribution }}
+      run: |
+        if ! python -c 'import os,re,sys; sys.exit(0 if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", os.environ["TAILTRAIL_VERSION_INPUT"]) and os.environ["TAILTRAIL_DISTRIBUTION_INPUT"] in {"pypi","checkout"} else 2)'; then
+          echo "TailTrail version must be exact and distribution must be pypi or checkout." >&2
+          exit 2
+        fi
+        if [ "$TAILTRAIL_DISTRIBUTION_INPUT" = pypi ]; then
+          python -m pip install --disable-pip-version-check "tailtrail==$TAILTRAIL_VERSION_INPUT"
+        fi
+    - name: Enforce policy and emit stable reports
+      shell: bash
+      env:
+        TAILTRAIL_DISTRIBUTION_INPUT: ${{ inputs.distribution }}
+        TAILTRAIL_BASE_INPUT: ${{ inputs.base }}
+        TAILTRAIL_HEAD_INPUT: ${{ inputs.head }}
+        TAILTRAIL_OUTPUT_INPUT: ${{ inputs.output-directory }}
+        TAILTRAIL_PR_BODY_INPUT: ${{ inputs.pr-body }}
+      run: |
+        mkdir -p "$TAILTRAIL_OUTPUT_INPUT"
+        if [ "$TAILTRAIL_DISTRIBUTION_INPUT" = checkout ]; then
+          launcher=(python scripts/tailtrail.py enforce check)
+        else
+          launcher=(tailtrail enforce check)
+        fi
+        range=()
+        if [ -n "$TAILTRAIL_BASE_INPUT" ]; then
+          range=(--base "$TAILTRAIL_BASE_INPUT" --head "$TAILTRAIL_HEAD_INPUT")
+        else
+          range=(--initial --head "$TAILTRAIL_HEAD_INPUT")
+        fi
+        pr_body=()
+        pr_body_file=""
+        if [ -n "$TAILTRAIL_PR_BODY_INPUT" ]; then
+          pr_body_file="$(mktemp)"
+          trap 'rm -f "$pr_body_file"' EXIT
+          printf '%s' "$TAILTRAIL_PR_BODY_INPUT" > "$pr_body_file"
+          pr_body=(--pr-body "$pr_body_file")
+        fi
+        set +e
+        "${launcher[@]}" "${range[@]}" "${pr_body[@]}" --format json --output "$TAILTRAIL_OUTPUT_INPUT/report.json"
+        json_status=$?
+        "${launcher[@]}" "${range[@]}" "${pr_body[@]}" --format sarif --output "$TAILTRAIL_OUTPUT_INPUT/report.sarif"
+        sarif_status=$?
+        set -e
+        if [ "$json_status" -ne 0 ] || [ "$sarif_status" -ne 0 ]; then
+          exit 1
+        fi

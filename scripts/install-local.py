@@ -14,6 +14,12 @@ from install_surfaces import DEFAULT_SURFACE, SURFACES
 
 
 ROOT = Path(__file__).resolve().parents[1]
+IMPORT_ROOT = ROOT.parent if (ROOT / "__init__.py").is_file() else ROOT
+try:
+    sys.path.remove(IMPORT_ROOT.as_posix())
+except ValueError:
+    pass
+sys.path.insert(0, IMPORT_ROOT.as_posix())
 
 PROFILES = ("inspect", "generic", "codex", "codex-plugin", "copilot", "claude", "aidlc", "hooks", "full")
 CODEX_PLUGIN_PAYLOAD = (
@@ -413,6 +419,18 @@ def main() -> int:
     args = parser.parse_args()
 
     profile = "inspect" if args.inspect else args.profile
+    if profile in {"codex", "codex-plugin", "copilot", "claude", "full"}:
+        if args.target is None:
+            raise SystemExit("--target is required for install profiles")
+        from tailtrail.install.cli import main as installer_main
+
+        host = "codex" if profile == "codex-plugin" else "all" if profile == "full" else profile
+        forwarded = ["install", "--host", host, "--profile", args.surface, "--target", args.target.resolve().as_posix()]
+        if args.dry_run:
+            forwarded.append("--dry-run")
+        if args.force:
+            forwarded.append("--force")
+        return installer_main(forwarded)
     if profile in {"codex", "codex-plugin"}:
         validate_codex_plugin_payload()
     else:

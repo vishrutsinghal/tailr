@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Support Bundle Verification", "type": "object",
+  "required": ["schema_version", "type", "bundle_ref", "status", "issues", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-support-bundle-verification"}, "bundle_ref": {"type": "string"},
+    "status": {"enum": ["passed", "blocked"]}, "issues": {"type": "array", "items": {"type": "string"}}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

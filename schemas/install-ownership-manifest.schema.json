@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/install-ownership-manifest.schema.json",
+  "title": "TailTrail installed ownership manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool", "version", "adapter_version", "host", "profile", "target", "installed_at", "transaction_id", "files", "migrations", "ownership", "backups"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "tool": {"const": "tailtrail"},
+    "version": {"type": "string", "minLength": 1},
+    "adapter_version": {"pattern": "^v[0-9]+$"},
+    "host": {"enum": ["codex", "copilot", "claude"]},
+    "profile": {"enum": ["core", "extended"]},
+    "target": {"type": "string", "minLength": 1},
+    "installed_at": {"type": "integer", "minimum": 0},
+    "transaction_id": {"type": "string", "minLength": 1},
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha256", "size", "owner", "transaction_id"],
+        "properties": {
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "size": {"type": "integer", "minimum": 0},
+          "owner": {"const": "tailtrail"},
+          "transaction_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "migrations": {"type": "array", "items": {"type": "string"}},
+    "ownership": {"const": "tailtrail-managed"},
+    "backups": {"type": "array", "items": {"type": "string"}}
+  }
+}

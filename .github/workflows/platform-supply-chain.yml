@@ -1,0 +1,128 @@
+name: Platform and supply-chain qualification
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_DATE_EPOCH: "1704067200"
+
+jobs:
+  canonical-build:
+    name: Canonical reproducible artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Install exact release build inputs
+        run: python -m pip install setuptools==84.0.0 wheel==0.48.0 packaging==26.3
+      - name: Build canonical wheel and sdist
+        run: |
+          python -m pip wheel . --no-deps --no-build-isolation --wheel-dir dist
+          python setup.py sdist --dist-dir dist
+          python -m pip wheel dist/tailtrail-0.6.0.tar.gz --no-deps --no-build-isolation --wheel-dir sdist-wheel
+      - name: Rebuild and compare bytes
+        run: |
+          python -m pip wheel . --no-deps --no-build-isolation --wheel-dir reproducible
+          python setup.py sdist --dist-dir reproducible
+          cmp dist/tailtrail-0.6.0-py3-none-any.whl reproducible/tailtrail-0.6.0-py3-none-any.whl
+          cmp dist/tailtrail-0.6.0.tar.gz reproducible/tailtrail-0.6.0.tar.gz
+      - name: Inspect both publication artifacts
+        run: python scripts/package-release-proof.py --wheel dist/tailtrail-0.6.0-py3-none-any.whl --sdist dist/tailtrail-0.6.0.tar.gz
+      - name: Generate and verify supply-chain evidence
+        run: |
+          python scripts/supply-chain.py create --artifact dist/tailtrail-0.6.0-py3-none-any.whl --artifact dist/tailtrail-0.6.0.tar.gz --output release-evidence --commit "$GITHUB_SHA"
+          python scripts/supply-chain.py verify --artifact dist/tailtrail-0.6.0-py3-none-any.whl --artifact dist/tailtrail-0.6.0.tar.gz --bundle release-evidence
+      - name: Upload immutable qualification inputs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: canonical-release-inputs
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/tailtrail-0.6.0-py3-none-any.whl
+            dist/tailtrail-0.6.0.tar.gz
+            sdist-wheel/tailtrail-0.6.0-py3-none-any.whl
+            release-evidence/
+
+  platform-matrix:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    needs: canonical-build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Download canonical artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: canonical-release-inputs
+          path: release-inputs
+      - name: Exercise both artifact routes and every host lifecycle
+        run: python scripts/platform-qualification.py exercise --wheel release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl --sdist-wheel release-inputs/sdist-wheel/tailtrail-0.6.0-py3-none-any.whl --output platform-receipts/${{ runner.os }}-py${{ matrix.python-version }}.json --commit ${{ github.sha }}
+      - name: Upload observed platform receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-receipt-${{ runner.os }}-py${{ matrix.python-version }}
+          if-no-files-found: error
+          retention-days: 14
+          path: platform-receipts/*.json
+
+  qualification-gate:
+    name: Exact hosted matrix gate
+    needs: [canonical-build, platform-matrix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Download canonical artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: canonical-release-inputs
+          path: release-inputs
+      - name: Download all platform receipts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: platform-receipt-*
+          path: observed-receipts
+          merge-multiple: true
+      - name: Require exact OS, Python, artifact, and host coverage
+        run: python scripts/platform-qualification.py report --receipts observed-receipts --commit ${{ github.sha }} --wheel release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl --sdist-wheel release-inputs/sdist-wheel/tailtrail-0.6.0-py3-none-any.whl
+
+  identity-attestation:
+    name: Identity-attest tagged artifacts
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: qualification-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download qualified artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: canonical-release-inputs
+          path: release-inputs
+      - name: Create GitHub/Sigstore build provenance attestations
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: |
+            release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl
+            release-inputs/dist/tailtrail-0.6.0.tar.gz

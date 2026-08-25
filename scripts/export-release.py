@@ -5,73 +5,26 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-import subprocess
 from pathlib import Path
+
+import release_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-
-PUBLIC_ONLY_FILES = {
-    ".github/ISSUE_TEMPLATE/bug_report.md",
-    ".github/ISSUE_TEMPLATE/docs_feedback.md",
-    ".github/ISSUE_TEMPLATE/feature_request.md",
-    ".github/ISSUE_TEMPLATE/security_note.md",
-    ".github/pull_request_template.md",
-    ".github/workflows/tailtrail-ci.yml",
-    "ARCHITECTURE.md",
-    "CHANGELOG.md",
-    "CODE_OF_CONDUCT.md",
-    "CONTRIBUTING.md",
-    "DEMO.md",
-    "LICENSE",
-    "NOTICE.md",
-    "PUBLIC-CLAIMS.md",
-    "PUBLIC-RELEASE-METADATA.md",
-    "PUBLIC-ROADMAP.md",
-    "RELEASE-CHECKLIST.md",
-    "SECURITY.md",
-    "SUPPORT.md",
-    "VERSIONING.md",
-    "scripts/public-doc-audit.py",
-    "scripts/release-check.py",
-    "scripts/smoke-test.py",
-}
-
-ADMIN_ONLY_FILES = {
-    "ADMIN-RELEASE-MODES.md",
-    "DESIGN.md",
-    "scripts/export-release.py",
-}
-
-INTERNAL_EXCLUDED_FILES = {
-    *PUBLIC_ONLY_FILES,
-    *ADMIN_ONLY_FILES,
-    "ENTERPRISE-REVIEW.md",
-    "HONEST-REVIEW.md",
-    "HONEST-REVIEW-IMPLEMENTATION-PLAN.md",
-    "ROADMAP.md",
-    "scripts/check-tailtrail.py",
-    "V2-IMPLEMENTATION-GUIDE.md",
-}
-
-INTERNAL_EXCLUDED_PREFIXES = (
-    ".github/",
-    "benchmarks/results/",
-)
-
-PUBLIC_EXCLUDED_FILES = {
-    *ADMIN_ONLY_FILES,
-}
+RELEASE_MANIFEST = release_manifest.load(ROOT)
+DISTRIBUTION = RELEASE_MANIFEST["distribution"]
+PUBLIC_ONLY_FILES = set(DISTRIBUTION["public_only_files"])
+ADMIN_ONLY_FILES = set(DISTRIBUTION["admin_only_files"])
+INTERNAL_EXCLUDED_FILES = {*PUBLIC_ONLY_FILES, *ADMIN_ONLY_FILES, *DISTRIBUTION["internal_excluded_files"]}
+INTERNAL_EXCLUDED_PREFIXES = tuple(DISTRIBUTION["internal_excluded_prefixes"])
+PUBLIC_EXCLUDED_FILES = set(ADMIN_ONLY_FILES)
 
 PUBLIC_MARKER = ".tailtrail-public-release"
 INTERNAL_MARKER = ".tailtrail-internal-release"
 
 
 def git_files() -> list[str]:
-    result = subprocess.run(["git", "ls-files"], cwd=ROOT, text=True, capture_output=True, check=False)
-    if result.returncode != 0:
-        raise SystemExit(result.stderr or "git ls-files failed")
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return release_manifest.candidate_files(ROOT, RELEASE_MANIFEST)
 
 
 def should_include(path: str, mode: str) -> bool:

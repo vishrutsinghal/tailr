@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import io
 import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 from pathlib import Path
+
+import release_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,37 +31,28 @@ def run_external(root: Path, args: list[str]) -> tuple[int, str, str]:
 
 
 def fresh_clone(source: Path, destination: Path) -> str:
-    """Create a clone-like tracked snapshot without copying local runtime state."""
-    archive = subprocess.run(["git", "archive", "--format=tar", "HEAD"], cwd=source, capture_output=True, check=False)
-    if archive.returncode == 0:
-        destination.mkdir(parents=True, exist_ok=True)
-        with tarfile.open(fileobj=io.BytesIO(archive.stdout), mode="r:") as bundle:
-            members = [
-                member
-                for member in bundle.getmembers()
-                if "__MACOSX" not in Path(member.name).parts and Path(member.name).name not in {".DS_Store"}
-            ]
-            if any(Path(member.name).is_absolute() or ".." in Path(member.name).parts for member in members):
-                raise RuntimeError("git archive produced an unsafe member path")
-            bundle.extractall(destination, members=members)
-        return "git-archive"
-    shutil.copytree(source, destination, ignore=ignore)
-    return "copytree-fallback"
+    """Build the manifest-defined candidate, including reviewed uncommitted additions."""
+    manifest = release_manifest.load(source)
+    tracked_existing = [path for path in release_manifest.git_files(source) if (source / path).is_file()]
+    errors = release_manifest.validate(source, manifest, tracked_existing)
+    if errors:
+        raise RuntimeError("release candidate is invalid: " + "; ".join(errors))
+    files = release_manifest.candidate_files(source, manifest)
+    destination.mkdir(parents=True, exist_ok=True)
+    for relative in files:
+        path = Path(relative)
+        if path.is_absolute() or ".." in path.parts:
+            raise RuntimeError(f"release manifest contains unsafe path: {relative}")
+        target = destination / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source / path, target)
+    return "release-manifest"
 
 
 def smoke(root: Path) -> list[str]:
     failures: list[str] = []
-    commands = [
-        ["tailtrail_cli.py", "hello"],
-        ["scripts/tailtrail.py", "help"],
-        ["scripts/tailtrail.py", "hello"],
-        ["scripts/tailtrail.py", "start", "fix Sonar issue", "--changed", "missing-file.py"],
-        ["scripts/tailtrail.py", "graph", "--changed", "scripts/tailtrail.py"],
-        ["scripts/tailtrail.py", "quality", "scan", "--root", "."],
-        ["scripts/tailtrail.py", "test", "plan", "--root", ".", "--changed", "scripts/tailtrail.py"],
-        ["scripts/release-check.py"],
-        ["scripts/tailtrail.py", "doctor"],
-    ]
+    manifest = release_manifest.load(root)
+    commands = [*manifest["smoke"]["preflight_commands"], *manifest["smoke"]["journey_commands"]]
     for command in commands:
         code, stdout, stderr = run(root, command)
         if code != 0:
@@ -89,7 +80,12 @@ def main() -> int:
 
     temp_root = Path(tempfile.mkdtemp(prefix="tailtrail-smoke-"))
     clone = temp_root / "tailtrail"
-    snapshot_method = fresh_clone(source, clone)
+    try:
+        snapshot_method = fresh_clone(source, clone)
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"TailTrail smoke test failed before execution: {error}", file=sys.stderr)
+        shutil.rmtree(temp_root, ignore_errors=True)
+        return 1
     failures = smoke(clone)
 
     if failures:

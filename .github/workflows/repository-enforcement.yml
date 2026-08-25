@@ -1,0 +1,50 @@
+name: Repository enforcement
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  enforce:
+    name: TailTrail policy v1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Validate policy contract
+        run: python scripts/tailtrail.py enforce validate
+      - name: Compute provider-neutral enforcement range
+        id: range
+        shell: bash
+        env:
+          EVENT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: echo "base=$EVENT_BASE" >> "$GITHUB_OUTPUT"
+      - name: Run reusable enforcement action
+        id: enforcement
+        continue-on-error: true
+        uses: ./.github/actions/enforce
+        with:
+          version: "0.6.0"
+          distribution: checkout
+          base: ${{ steps.range.outputs.base }}
+          head: ${{ github.sha }}
+          pr-body: ${{ github.event.pull_request.body || '' }}
+      - name: Upload JSON and SARIF evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tailtrail-repository-enforcement
+          if-no-files-found: error
+          retention-days: 14
+          path: tailtrail-enforcement-results/
+      - name: Enforce result
+        if: steps.enforcement.outcome != 'success'
+        run: exit 1

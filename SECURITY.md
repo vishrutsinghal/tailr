@@ -51,3 +51,29 @@ Maintainers should:
 4. Patch with the smallest safe change.
 5. Add or update validation in `scripts/check-tailtrail.py` or `scripts/release-check.py`.
 6. Publish a clear security note when a release is issued.
+
+## Severity Levels
+
+- **Critical**: bypasses an approval gate, authority check, or fail-closed
+  boundary; exposes secrets, prompts, or private data by default; or allows
+  unapproved project writes.
+- **High**: allows a categorical control (redaction, retention, scope,
+  isolation) to be silently weakened or bypassed without an approval gate
+  failing.
+- **Medium**: incorrect diagnostic, denial, or evidence output that does not
+  itself expose sensitive data or bypass an approval gate.
+- **Low**: documentation, wording, or non-security UX defects with no
+  exploitable effect.
+
+## Response Timeline
+
+These are target response times, not a contractual SLA:
+
+- Acknowledge a private report within 2 business days.
+- Critical: aim for a patch within 5 business days of confirmed reproduction.
+- High: aim for a patch within 2 weeks.
+- Medium: aim for the next scheduled minor release.
+- Low: aim for the next scheduled release of any kind.
+
+Security fixes follow the same supported-version window as `VERSIONING.md`;
+fixes are not backported past the currently supported minor line.

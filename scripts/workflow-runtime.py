@@ -155,8 +155,10 @@ def main() -> int:
     enterprise_sub=enterprise_parser.add_subparsers(dest="enterprise_command",required=True)
     policy_record=enterprise_sub.add_parser("policy-record"); policy_record.add_argument("--root",type=Path,default=Path.cwd()); policy_record.add_argument("--policy-ref",required=True); policy_record.add_argument("--approved",action="store_true")
     entry=enterprise_sub.add_parser("entry"); entry.add_argument("--root",type=Path,default=Path.cwd()); entry.add_argument("--policy-id",required=True)
-    for name in ("show","replay","observe","conformance"):
+    for name in ("show","replay","observe","conformance","access-review"):
         item=enterprise_sub.add_parser(name); item.add_argument("--root",type=Path,default=Path.cwd()); item.add_argument("--workflow-id",required=True)
+    support_bundle=enterprise_sub.add_parser("support-bundle"); support_bundle.add_argument("--root",type=Path,default=Path.cwd()); support_bundle.add_argument("--workflow-id",required=True); support_bundle.add_argument("--approved",action="store_true")
+    support_bundle_verify=enterprise_sub.add_parser("support-bundle-verify"); support_bundle_verify.add_argument("--root",type=Path,default=Path.cwd()); support_bundle_verify.add_argument("--bundle-ref",required=True)
     activate=enterprise_sub.add_parser("activate"); activate.add_argument("--root",type=Path,default=Path.cwd()); activate.add_argument("--workflow-id",required=True); activate.add_argument("--policy-id",required=True); activate.add_argument("--tenant-id",required=True); activate.add_argument("--repository-id",required=True); activate.add_argument("--actor-id",required=True); activate.add_argument("--approved",action="store_true")
     link=enterprise_sub.add_parser("link"); link.add_argument("--root",type=Path,default=Path.cwd()); link.add_argument("--workflow-id",required=True); link.add_argument("--identity-ref",required=True); link.add_argument("--actor-id",required=True); link.add_argument("--approved",action="store_true")
     lease_acquire=enterprise_sub.add_parser("lease-acquire"); lease_acquire.add_argument("--root",type=Path,default=Path.cwd()); lease_acquire.add_argument("--workflow-id",required=True); lease_acquire.add_argument("--tenant-id",required=True); lease_acquire.add_argument("--actor-id",required=True); lease_acquire.add_argument("--approved",action="store_true")
@@ -287,6 +289,9 @@ def main() -> int:
             elif args.enterprise_command == "migration-plan": result=enterprise_recovery.migration_plan(args.root,args.workflow_id,args.direction)
             elif args.enterprise_command == "migrate": result=enterprise_recovery.migrate(args.root,args.workflow_id,args.direction,args.migration_fingerprint,args.approved)
             elif args.enterprise_command == "rollback": result=enterprise_recovery.rollback(args.root,args.workflow_id,args.migration_fingerprint,args.approved)
+            elif args.enterprise_command == "access-review": result=enterprise_recovery.access_review(args.root,args.workflow_id)
+            elif args.enterprise_command == "support-bundle": result=enterprise_recovery.support_bundle(args.root,args.workflow_id,args.approved)
+            elif args.enterprise_command == "support-bundle-verify": result=enterprise_recovery.verify_support_bundle(args.root,args.bundle_ref)
             else: result=enterprise_recovery.conformance(args.root,args.workflow_id)
         elif args.approval_command == "show": result = start_integration.show_approvals(args.root, args.workflow_id)
         elif args.approval_command == "session": result = start_integration.grant_session(args.root, args.workflow_id, args.action_class, args.approved, args.session_id, args.expires_at)

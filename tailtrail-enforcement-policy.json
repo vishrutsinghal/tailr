@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-repository-enforcement-policy",
+  "policy_version": 1,
+  "minimum_tailtrail_version": "0.6.0",
+  "rules": {
+    "approval-scope": {"classification": "enforced", "enabled": true, "severity": "high", "protected_paths": [".github/actions/", ".github/workflows/", "schemas/", "pyproject.toml", "release-manifest.json", "tailtrail-enforcement-policy.json"]},
+    "evidence-truth": {"classification": "enforced", "enabled": true, "severity": "high"},
+    "stale-completion": {"classification": "enforced", "enabled": true, "severity": "high"},
+    "dependency-decision": {"classification": "enforced", "enabled": true, "severity": "high"},
+    "safeguard-preservation": {"classification": "enforced", "enabled": true, "severity": "medium"},
+    "local-state": {"classification": "enforced", "enabled": true, "severity": "high"},
+    "redaction": {"classification": "enforced", "enabled": true, "severity": "high"},
+    "release-manifest": {"classification": "enforced", "enabled": true, "severity": "high"},
+    "host-instruction-conformance": {"classification": "host-assisted", "enabled": true, "severity": "medium"},
+    "maintainability-guidance": {"classification": "advisory", "enabled": true, "severity": "low"}
+  },
+  "evidence": {"markers": ["evidence:", "validation:", "command:", "result:", "exit code:"]},
+  "approval": {"directory": "tailtrail-meta/approvals", "maximum_age_days": 30},
+  "dependency": {"decision_directory": "tailtrail-meta/dependency-decisions"},
+  "baseline": {"path": "tailtrail-enforcement-baseline.json"},
+  "suppressions": {"path": "tailtrail-enforcement-suppressions.json", "maximum_days": 30, "allow_high_severity": false},
+  "limits": {"maximum_diff_bytes": 2000000, "maximum_findings": 1000}
+}

@@ -638,17 +638,16 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("Lean delivery", {item["name"] for item in report["guided_delivery"]["selected"]})
 
     def test_start_detects_an_inaccessible_target_repo_in_the_goal_before_discovery(self) -> None:
-        goal = (
-            "User Story: generate audit events. Changes has to be made in this repo; "
-            "check this too /Users/vsingha7/Desktop/famas/dap-famas-aws-frontend-service"
-        )
-        resolution = task_start.resolve_target_root(goal, None)
-        report = task_start.target_boundary_report(goal, resolution, "tailtrail")
-        rendered = task_start.render_markdown(report)
+        with tempfile.TemporaryDirectory() as temp:
+            missing = Path(temp) / "repository-that-does-not-exist"
+            goal = f"User Story: generate audit events. Changes has to be made in this repo; check this too {missing}"
+            resolution = task_start.resolve_target_root(goal, None)
+            report = task_start.target_boundary_report(goal, resolution, "tailtrail")
+            rendered = task_start.render_markdown(report)
 
         self.assertEqual(resolution["status"], "inaccessible")
         self.assertEqual(resolution["source"], "goal")
-        self.assertEqual(resolution["requested"], "/Users/vsingha7/Desktop/famas/dap-famas-aws-frontend-service")
+        self.assertEqual(resolution["requested"], missing.as_posix())
         self.assertIn("## Target repository boundary", rendered)
         self.assertIn("No Planning Lock was created", rendered)
         self.assertNotIn("## Scope", rendered)

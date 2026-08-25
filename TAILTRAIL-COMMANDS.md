@@ -8,7 +8,39 @@ Main entry point:
 python3 scripts/tailtrail.py <command> [args]
 ```
 
-Installed pack entry point:
+Self-contained package entry point (CPython 3.12 or 3.13):
+
+```bash
+tailtrail <command> [args]
+tailtrail package-info --format json
+tailtrail version --format json
+```
+
+The installed command resolves and verifies resources inside its wheel/sdist;
+it does not search for a source checkout. See `PACKAGE-CONTRACT.md` for the
+stable API, JSON, exit-code, Python, integrity, and migration contracts.
+
+Transactional host lifecycle:
+
+```bash
+tailtrail install --host codex --profile core --target . --dry-run
+tailtrail install --host codex --profile core --target .
+tailtrail doctor --host codex --target . --format json
+tailtrail verify --host codex --target .
+tailtrail doctor --host codex --target .
+tailtrail status --host codex --target .
+tailtrail update --host codex --target .
+tailtrail repair --host codex --target .
+tailtrail recover --target .
+tailtrail rollback --to <transaction-id> --target .
+tailtrail uninstall --host codex --target . --dry-run
+```
+
+Replace `codex` with `copilot` or `claude`. Every command uses the same E3
+plan, ownership manifest, staging, backup, verification, rollback, and JSON
+contract described in `INSTALLER-LIFECYCLE.md`.
+
+Repository-projected pack entry point:
 
 ```bash
 python3 tailtrail/scripts/tailtrail.py <command> [args]
@@ -21,6 +53,7 @@ python3 scripts/tailtrail.py help
 python3 scripts/tailtrail.py commands
 python3 scripts/tailtrail.py hello
 python3 scripts/tailtrail.py version
+python3 scripts/tailtrail.py package-info --format json
 python3 scripts/tailtrail.py do "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py run "fix Sonar issue and prepare PR"
 python3 scripts/tailtrail.py "fix Sonar issue and prepare PR"
@@ -1247,6 +1280,20 @@ Reference repos are not source to copy from. Use them for conventions, validatio
 
 ## Guardrail Enforcement Lite
 
+## Repository and CI Enforcement
+
+```bash
+python3 scripts/tailtrail.py enforce validate --root .
+python3 scripts/tailtrail.py enforce check --root . --base <base-sha> --head <head-sha> --format json
+python3 scripts/tailtrail.py enforce check --root . --diff change.patch --format sarif --output report.sarif
+python3 scripts/tailtrail.py enforce migrate --input legacy-v0.json --output policy-v1.json
+```
+
+Use `enforce` for the fail-closed, provider-neutral E6 policy product. It emits
+stable JSON or SARIF, keeps baseline and suppressed findings visible, rejects
+new Core violations without model cooperation, and fails closed on malformed
+policies or inputs. See `REPOSITORY-ENFORCEMENT.md` for policy and CI setup.
+
 ```bash
 python3 scripts/tailtrail.py guard check
 python3 scripts/tailtrail.py guard check --enforce
@@ -2016,7 +2063,7 @@ python3 scripts/sync-adapters.py --write
 
 Use `adapters check` after changing assistant guidance. It verifies source adapters match tool-facing files and that every adapter includes the required TailTrail behavior contract: Navigator-first workflow, approval before implementation, post-change review, scanner approval, advisory learnings, measured-token claim boundaries, evidence labels, and local policy behavior.
 
-`adapters conformance` verifies the Phase F versioned composed surfaces for
+`adapters conformance` verifies the E4 v3 versioned composed surfaces for
 Codex, Copilot, and Claude. It checks the fixed precedence order and six local
 control-flow scenarios; it does not claim identical runtime behavior by hosts.
 
@@ -2128,3 +2175,24 @@ Still pending:
 - `eval portfolio compare`: planned for portfolio consolidation
 - `eval guardrails report`: planned for guardrail report consolidation
 - `eval outcome export`: planned for outcome export consolidation
+
+## Enterprise readiness program
+
+```bash
+python3 scripts/tailtrail.py enterprise-readiness validate
+python3 scripts/tailtrail.py enterprise-readiness status
+python3 scripts/tailtrail.py enterprise-readiness status --format json
+python3 scripts/tailtrail.py enterprise-readiness inventory --format json
+```
+
+`enterprise-readiness validate` is the strict Phase E0 gate for the versioned
+enterprise closure registry. It checks ownership, priorities, phase coverage,
+dependencies, implementation and validation obligations, completion evidence,
+feature maturity mapping, feature-freeze policy, untracked candidate-file
+dispositions, authority-document phase coverage, and all inventory categories.
+
+`enterprise-readiness inventory` projects the current public commands, schemas,
+adapter files and host surfaces, persisted `.tailtrail` artifact literals, CI
+workflow controls, install profiles and surfaces, release-file presence,
+support claims, and normalized feature maturity. It is read-only and does not
+convert local validation into enterprise support or release eligibility.

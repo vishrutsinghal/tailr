@@ -1,0 +1,34 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-platform-release-contract",
+  "supported_operating_systems": ["linux", "macos", "windows"],
+  "supported_python_versions": ["3.12", "3.13"],
+  "artifact_routes": ["wheel", "sdist-to-wheel"],
+  "host_profiles": ["codex:core", "copilot:core", "claude:core"],
+  "required_checks": [
+    "artifact-install",
+    "console-launcher",
+    "space-and-unicode-path",
+    "line-ending-preservation",
+    "permission-model",
+    "symlink-boundary",
+    "install",
+    "verify",
+    "update",
+    "rollback",
+    "uninstall"
+  ],
+  "evidence_policy": {
+    "configured_is_observed": false,
+    "simulated_is_observed": false,
+    "receipt_commit_must_match": true,
+    "receipt_artifact_hash_must_match": true,
+    "release_requires_hosted_receipts": true,
+    "release_requires_identity_attestation": true
+  },
+  "limitations": [
+    "Host adapters are contract-tested until E10 supplies qualifying real-host receipts.",
+    "Symlink creation may be unavailable on Windows without developer mode or elevated rights; fail-closed rejection is still required when a symlink exists.",
+    "Package-manager adapters are outside the support boundary until they verify canonical release hashes and invoke this lifecycle contract."
+  ]
+}

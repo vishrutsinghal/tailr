@@ -1,7 +1,8 @@
 # TailTrail Composed Host Surface — Codex
 
-**Adapter version:** `v2`
+**Adapter version:** `v3`
 **Host source:** `AGENTS.md`
+**Qualification:** `contract-tested` (not runtime-observed or supported)
 
 ## Precedence
 
@@ -22,6 +23,9 @@ closure boundaries.
 - `wait-ci` does not create learning. Linked CI acceptance may create a
   candidate-only learning artifact and deterministic evaluation.
 - verified local official requirements/checkpoint artifacts.
+- First action in Codex chat: `tailtrail start "<your task>"`
+- Enforceable repository policy remains `ci-authoritative`.
+- Global settings, network activity, and account changes are approval-required.
 
 ## Conformance scenarios
 

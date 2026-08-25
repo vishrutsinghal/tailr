@@ -1,16 +1,46 @@
 # Install TailTrail
 
-This is the canonical installation, update, and verification guide. Run the
-commands from a TailTrail source checkout, and replace the target path with the
-project TailTrail should guide.
+This is the canonical installation, update, and verification guide. TailTrail
+requires CPython 3.12 or 3.13.
+
+## Install the self-contained command
+
+Install a released wheel (preferred) or sdist into an isolated environment,
+then run TailTrail from any project directory. The command does not require a
+TailTrail source checkout and has no runtime dependencies:
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/python -m pip install tailtrail-0.6.0-py3-none-any.whl
+.venv/bin/tailtrail hello
+.venv/bin/tailtrail doctor
+```
+
+On Windows, use `.venv\Scripts\python` and `.venv\Scripts\tailtrail`.
+`tailtrail package-info --format json` verifies every packaged resource hash.
+See [PACKAGE-CONTRACT.md](PACKAGE-CONTRACT.md) for supported APIs, exit codes,
+JSON envelopes, integrity, and migration policy.
+Before installing a downloaded release, verify its SHA-256 and GitHub identity
+attestation as described in [SUPPLY-CHAIN.md](SUPPLY-CHAIN.md). A checksum
+detects changed bytes but does not establish publisher identity.
+
+Use the installed command to transactionally project host guidance into an
+existing target repository. See [INSTALLER-LIFECYCLE.md](INSTALLER-LIFECYCLE.md)
+for the complete plan, ownership, backup, recovery, and retention contract.
+The exact Core files, first actions, composition rules, diagnostics, and
+qualification boundaries are defined in [HOST-ADAPTERS.md](HOST-ADAPTERS.md).
+E4 host adapters are contract-tested; this does not claim a runtime-observed or
+release-supported host/operating-system version.
+E5 platform support is commit-specific and begins only when the published
+Linux/macOS/Windows x CPython 3.12/3.13 hosted receipt aggregate is green.
 
 ## Pick one host profile
 
 | Host | Windows | macOS / Linux |
 | --- | --- | --- |
-| Codex | `py -3 scripts\tailtrail.py install codex-plugin --target "D:\path\to\project"` | `python3 scripts/tailtrail.py install codex-plugin --target "/absolute/path/to/project"` |
-| GitHub Copilot | `py -3 scripts\tailtrail.py install local --target "D:\path\to\project" --profile copilot` | `python3 scripts/tailtrail.py install local --target "/absolute/path/to/project" --profile copilot` |
-| Claude | `py -3 scripts\tailtrail.py install local --target "D:\path\to\project" --profile claude` | `python3 scripts/tailtrail.py install local --target "/absolute/path/to/project" --profile claude` |
+| Codex | `tailtrail install --host codex --profile core --target "D:\path\to\project"` | `tailtrail install --host codex --profile core --target /path/to/project` |
+| GitHub Copilot | `tailtrail install --host copilot --profile core --target "D:\path\to\project"` | `tailtrail install --host copilot --profile core --target /path/to/project` |
+| Claude | `tailtrail install --host claude --profile core --target "D:\path\to\project"` | `tailtrail install --host claude --profile core --target /path/to/project` |
 
 On Windows, use `py -3`; do not use a bare `python`, which can resolve to the
 Microsoft Store alias instead of a real Python runtime.
@@ -20,66 +50,45 @@ chat**. The new chat loads the installed TailTrail instructions.
 
 ## Verify
 
-Use one read-only command from the TailTrail checkout:
+Use the manifest-driven read-only verification command:
 
 ```powershell
-py -3 scripts\tailtrail.py install verify --target "D:\path\to\project"
+tailtrail verify --host codex --target "D:\path\to\project"
 ```
 
 ```bash
-python3 scripts/tailtrail.py install verify --target "/absolute/path/to/project"
+tailtrail verify --host codex --target /path/to/project
 ```
 
-It checks the installed guidance and runs TailTrail's local `hello` smoke
-check. It does not alter the target project, run project tests, or invoke an
-agent.
+It verifies every owned file against the installed ownership manifest. Use
+`tailtrail doctor --host codex --target .` for lifecycle diagnostics and
+`tailtrail status --host codex --target .` for version/profile status.
 
 ## Update an existing install
 
-### GitHub Copilot
-
-Preview first, then update. The updater preserves changed managed files unless
-you explicitly choose a replacement strategy.
-
-```powershell
-py -3 scripts\update-tailtrail.py --root "D:\path\to\project" --dry-run
-py -3 scripts\update-tailtrail.py --root "D:\path\to\project"
-```
-
-To make recoverable backups and replace TailTrail-managed files:
-
-```powershell
-py -3 scripts\update-tailtrail.py --root "D:\path\to\project" --strategy backup-overwrite
-```
-
-### Codex and Claude
-
-Use the original installer with a dry run, then `--force` only after reviewing
-or committing local changes to TailTrail-managed files:
-
 ```bash
-python3 scripts/tailtrail.py install codex-plugin --target "/absolute/path/to/project" --dry-run
-python3 scripts/tailtrail.py install codex-plugin --target "/absolute/path/to/project" --force
+tailtrail update --host codex --target /path/to/project --dry-run
+tailtrail update --host codex --target /path/to/project
 ```
 
-For Claude, replace `codex-plugin` with `local --profile claude`.
-
-`--force` refreshes TailTrail-managed guidance and skills; it does not update
-your application source code.
+Modified managed files are preserved and reported. After review, `--force`
+backs them up before replacement. Use `tailtrail repair`, `tailtrail recover`,
+or `tailtrail rollback --to <transaction-id>` for the corresponding recovery
+path. `tailtrail uninstall --dry-run` previews hash-owned removals.
 
 ## Optional surfaces
 
 Managed packs support:
 
-- `--surface core` — small first-run pack with Start, Navigator, guardrails,
+- `--profile core` — small first-run host surface.
   adapters, hooks, and quick docs.
-- `--surface extended` — the default full pack, including AIDLC, reports,
+- `--profile extended` — packaged Extended resources plus the host surface.
   learning, benchmarks, quality/security helpers, and token tools.
 
 Use Core for lightweight onboarding. Upgrade later without deleting files:
 
 ```bash
-python3 scripts/tailtrail.py install upgrade-to-extended --target /path/to/project
+tailtrail update --host codex --profile extended --target /path/to/project
 ```
 
 ## Optional official AI-DLC Full mode

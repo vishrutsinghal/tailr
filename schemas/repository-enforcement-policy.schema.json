@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/repository-enforcement-policy.schema.json",
+  "title": "TailTrail Repository Enforcement Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "policy_version", "minimum_tailtrail_version", "rules", "evidence", "approval", "dependency", "baseline", "suppressions", "limits"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-repository-enforcement-policy"},
+    "policy_version": {"const": 1},
+    "minimum_tailtrail_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "rules": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/rule"}},
+    "evidence": {"type": "object", "additionalProperties": false, "required": ["markers"], "properties": {"markers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}}},
+    "approval": {"type": "object", "additionalProperties": false, "required": ["directory", "maximum_age_days"], "properties": {"directory": {"type": "string", "minLength": 1}, "maximum_age_days": {"type": "integer", "minimum": 1, "maximum": 365}}},
+    "dependency": {"type": "object", "additionalProperties": false, "required": ["decision_directory"], "properties": {"decision_directory": {"type": "string", "minLength": 1}}},
+    "baseline": {"type": "object", "additionalProperties": false, "required": ["path"], "properties": {"path": {"type": "string", "minLength": 1}}},
+    "suppressions": {"type": "object", "additionalProperties": false, "required": ["path", "maximum_days", "allow_high_severity"], "properties": {"path": {"type": "string", "minLength": 1}, "maximum_days": {"type": "integer", "minimum": 1, "maximum": 90}, "allow_high_severity": {"const": false}}},
+    "limits": {"type": "object", "additionalProperties": false, "required": ["maximum_diff_bytes", "maximum_findings"], "properties": {"maximum_diff_bytes": {"type": "integer", "minimum": 1024}, "maximum_findings": {"type": "integer", "minimum": 1, "maximum": 10000}}}
+  },
+  "$defs": {"rule": {"type": "object", "additionalProperties": false, "required": ["classification", "enabled", "severity"], "properties": {"classification": {"enum": ["enforced", "host-assisted", "advisory"]}, "enabled": {"type": "boolean"}, "severity": {"enum": ["low", "medium", "high"]}, "protected_paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}}}}
+}

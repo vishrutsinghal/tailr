@@ -111,3 +111,45 @@ def conformance(root: Path, workflow_id: str) -> dict[str,Any]:
     issues.extend(name for name,value in checks.items() if not value)
     categorical=sorted({value for value in issues if value.replace("-","").isalnum()})
     payload={"schema_version":"1","type":"tailtrail-workflow-enterprise-conformance","workflow_id":workflow_id,"status":"passed" if not issues else "blocked","checks":checks,"issues":categorical,"report_fingerprint":"","boundary":"Read-only local enterprise-adapter conformance. Passing does not attest a provider deployment, availability SLA, encryption system, external backup, or production readiness."}; payload["report_fingerprint"]=enterprise.digest({key:item for key,item in payload.items() if key!="report_fingerprint"}); contracts.require_valid(payload); return payload
+
+
+def _support_bundle_dir(root: Path) -> Path: return enterprise.directory(root)/"support-bundles"
+
+
+def access_review(root: Path, workflow_id: str) -> dict[str,Any]:
+    """E9 read-only access-review: who is authorized for this workflow's tenant.
+
+    Reports the exact actor and repository allowlist from the approved policy,
+    and whether the current binding's actor/repository are within it. It never
+    grants, revokes, or changes authorization; it only reports it.
+    """
+    root=root.resolve(); binding=enterprise._binding(root,workflow_id); row=enterprise.tenant(root,binding)
+    payload={"schema_version":"1","type":"tailtrail-workflow-enterprise-access-review","workflow_id":workflow_id,"tenant_id":binding["tenant_id"],"repository_id":binding["repository_id"],"authorized_actor_ids":sorted(row["actor_ids"]),"authorized_repository_ids":sorted(row["repository_ids"]),"binding_repository_authorized":binding["repository_id"] in row["repository_ids"],"boundary":"Read-only policy-derived access review. It reports the approved allowlist only; it grants no authorization and stores no credential."}
+    contracts.require_valid(payload); return payload
+
+
+def support_bundle(root: Path, workflow_id: str, approved: bool) -> dict[str,Any]:
+    """E9 administrator support bundle: one sanitized diagnostic package.
+
+    Aggregates conformance, observability, and access-review into one bundle
+    with an integrity fingerprint so it can be exported and later re-verified
+    (round-trip). It contains only categorical/sanitized fields already
+    produced by `conformance`, `observe`, and `access_review` — no raw source,
+    prompt, or secret is added.
+    """
+    if approved is not True: raise ValueError("enterprise support-bundle export requires explicit approval")
+    root=root.resolve()
+    payload={"schema_version":"1","type":"tailtrail-workflow-enterprise-support-bundle","workflow_id":workflow_id,"created_at":_stamp(),"conformance":conformance(root,workflow_id),"observability":enterprise_transport.observe(root,workflow_id),"access_review":access_review(root,workflow_id),"bundle_fingerprint":"","boundary":"Sanitized administrator support bundle only. It contains categorical conformance, observability, and access-review data; no raw source, prompt, secret, or private log is included."}
+    if contracts.privacy_issues(payload): raise ValueError("enterprise support bundle failed a privacy check and was not written")
+    payload["bundle_fingerprint"]=enterprise.digest({key:item for key,item in payload.items() if key!="bundle_fingerprint"}); contracts.require_valid(payload)
+    directory=_support_bundle_dir(root); directory.mkdir(parents=True,exist_ok=True); destination=directory/f"entsb-{workflow_id}-{_stamp().replace(':','').replace('-','')}.json"; LEDGER.atomic_json(destination,payload)
+    binding=enterprise._binding(root,workflow_id); LEDGER.append_event(root,binding["tailtrail_run_id"],"workflow_enterprise_support_bundle_exported",{"workflow_id":workflow_id,"artifact":destination.relative_to(root).as_posix()})
+    return {"artifact":destination.relative_to(root).as_posix(),**payload}
+
+
+def verify_support_bundle(root: Path, bundle_ref: str) -> dict[str,Any]:
+    """Read-only round-trip integrity check for a previously exported bundle."""
+    root=root.resolve(); _path,value=enterprise._read_ref(root,bundle_ref); contracts.require_valid(value)
+    expected=enterprise.digest({key:item for key,item in value.items() if key!="bundle_fingerprint"})
+    issues=[] if value.get("bundle_fingerprint")==expected and value.get("type")=="tailtrail-workflow-enterprise-support-bundle" else ["bundle-fingerprint-invalid"]
+    return {"schema_version":"1","type":"tailtrail-workflow-enterprise-support-bundle-verification","bundle_ref":bundle_ref,"status":"passed" if not issues else "blocked","issues":issues,"boundary":"Read-only round-trip verification; it never repairs or rewrites the bundle."}

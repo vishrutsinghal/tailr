@@ -7,6 +7,8 @@ import re
 import sys
 from pathlib import Path
 
+import release_manifest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_FILES = {
@@ -534,27 +536,8 @@ def read(relative_path: str) -> str:
 
 
 def list_files() -> list[str]:
-    files: list[str] = []
-    for path in ROOT.rglob("*"):
-        if ".git" in path.parts:
-            continue
-        if "aidlc-rules" in path.parts:
-            continue
-        if ".tailtrail" in path.parts:
-            continue
-        if ".idea" in path.parts:
-            continue
-        if ".video-tools" in path.parts:
-            continue
-        if "__pycache__" in path.parts:
-            continue
-        if "benchmarks" in path.parts and "results" in path.parts and path.name != ".gitkeep":
-            continue
-        if path.name == ".DS_Store":
-            continue
-        if path.is_file():
-            files.append(path.relative_to(ROOT).as_posix())
-    return sorted(files)
+    """Return exactly the shared release candidate, excluding local workspace state."""
+    return release_manifest.candidate_files(ROOT, release_manifest.load(ROOT))
 
 
 def check_manifest() -> None:
@@ -588,21 +571,10 @@ def check_skill(relative_path: str, expected_name: str) -> None:
 
 
 def check_expected_files() -> None:
-    files = set(list_files())
-    expected_files = set(EXPECTED_FILES)
-    if (ROOT / ".tailtrail-public-release").exists():
-        expected_files -= PUBLIC_EXPORT_EXCLUDED_FILES
-        expected_files.add(".tailtrail-public-release")
-
-    for expected_file in sorted(expected_files):
-        if expected_file not in files:
-            fail(f"missing {expected_file}")
-
-    for file in sorted(files):
-        if file.startswith(ALLOWED_EXTENSION_PREFIXES):
-            continue
-        if file not in expected_files:
-            fail(f"unexpected file {file}")
+    manifest = release_manifest.load(ROOT)
+    tracked_existing = [path for path in release_manifest.git_files(ROOT) if (ROOT / path).is_file()]
+    for error in release_manifest.validate(ROOT, manifest, tracked_existing):
+        fail(error)
 
 
 def check_content() -> None:

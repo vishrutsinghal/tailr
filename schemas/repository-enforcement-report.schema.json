@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/repository-enforcement-report.schema.json",
+  "title": "TailTrail Repository Enforcement Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "status", "policy_version", "diff_mode", "finding_count", "blocking_count", "findings", "rule_catalog", "limitations"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-repository-enforcement-report"},
+    "status": {"enum": ["passed", "failed"]}, "policy_version": {"const": 1}, "diff_mode": {"enum": ["file", "range", "initial", "staged"]},
+    "finding_count": {"type": "integer", "minimum": 0}, "blocking_count": {"type": "integer", "minimum": 0},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "rule_catalog": {"type": "object", "additionalProperties": {"enum": ["enforced", "host-assisted", "advisory"]}},
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  },
+  "$defs": {"finding": {"type": "object", "additionalProperties": false, "required": ["fingerprint", "rule_id", "classification", "severity", "path", "line", "message", "evidence", "remediation", "state", "blocking"], "properties": {"fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "rule_id": {"type": "string", "minLength": 1}, "classification": {"enum": ["enforced", "host-assisted", "advisory"]}, "severity": {"enum": ["low", "medium", "high"]}, "path": {"type": "string", "minLength": 1}, "line": {"type": "integer", "minimum": 1}, "message": {"type": "string", "minLength": 1}, "evidence": {"type": "string"}, "remediation": {"type": "string", "minLength": 1}, "state": {"enum": ["new", "baseline", "suppressed"]}, "blocking": {"type": "boolean"}}}}
+}

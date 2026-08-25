@@ -57,7 +57,7 @@ wait. This verifies local composition, not identical runtime behavior by hosts.
 
 ## Real-host runtime conformance
 
-Phase J uses `runtime-scenarios-v1.json` and sanitized receipts to evaluate the
+E4 prepares `runtime-scenarios-v1.json` and sanitized receipts; E10 evaluates the
 same six observable scenarios in Codex, Copilot, and Claude. Prepare a portable
 host bundle, run the scenarios in that host, then record one receipt per
 scenario:

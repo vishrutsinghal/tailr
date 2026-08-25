@@ -17,7 +17,7 @@ TailTrail is Codex-first. Other assistants are supported through portable instru
 
 ## Versioned composed surfaces
 
-The Phase F compatibility matrix is
+The E4 v3 compatibility contract is
 [`adapters/host-compatibility-v1.json`](adapters/host-compatibility-v1.json).
 It generates composed instruction surfaces for Codex, GitHub Copilot, and
 Claude and fixes the precedence order: **host safety → user request → official
@@ -27,8 +27,11 @@ AI-DLC stage rules → TailTrail assurance rules**. Run:
 python3 scripts/tailtrail.py adapters conformance
 ```
 
-This is local instruction conformance only. It does not claim that the hosts
-have identical tool access, context handling, or runtime behavior.
+This is local contract conformance only. It covers exact Core files, the shared
+installer lifecycle, composition, diagnostics, first actions, limitations, and
+receipt preparation. It does not claim that the hosts have identical tool
+access, context handling, runtime behavior, or a supported version. See
+`HOST-ADAPTERS.md`.
 
 Phase J adds a separate real-host evidence path:
 

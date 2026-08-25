@@ -120,7 +120,10 @@ Lead with concrete findings and file references when available. If there are no 
 
 ## Approval Boundary
 
-Guardrails guide behavior. They are not an automated policy engine in this phase.
+Assistant guardrails guide host behavior and are not independently enforceable.
+Repository and CI controls are separately automated by the closed E6 policy
+described in `REPOSITORY-ENFORCEMENT.md`; every rule there is explicitly labeled
+`enforced`, `host-assisted`, or `advisory`.
 
 Agents may recommend changes to workflow, policy, or prompts, but TailTrail behavior should not change silently without user or maintainer approval.
 
@@ -145,6 +148,17 @@ Minimal local pre-commit example:
       pass_filenames: false
       args: ["--fail-on", "dependency-gate,local-state"]
 ```
+
+For the supported fail-closed repository product, use:
+
+```bash
+python3 scripts/tailtrail.py enforce validate --root .
+python3 scripts/tailtrail.py enforce check --root . --base <base-sha> --head <head-sha>
+```
+
+Unlike Guard Lite, this consumes the versioned repository policy, approval,
+baseline, suppression, Dependency Gate, release-manifest, JSON, and SARIF
+contracts and exits nonzero for every configured Core violation.
 
 ## Guardrail Precision Baseline
 

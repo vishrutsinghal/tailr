@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/repository-enforcement-suppression.schema.json",
+  "title": "TailTrail Enforcement Suppressions",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "type", "policy_version", "suppressions"],
+  "properties": {"schema_version": {"const": "1"}, "type": {"const": "tailtrail-enforcement-suppressions"}, "policy_version": {"const": 1}, "suppressions": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["fingerprint", "rule_id", "path", "owner", "reason", "expires"], "properties": {"fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "rule_id": {"type": "string", "minLength": 1}, "path": {"type": "string", "minLength": 1}, "owner": {"type": "string", "minLength": 1}, "reason": {"type": "string", "minLength": 1}, "expires": {"type": "string", "format": "date"}}}}}
+}

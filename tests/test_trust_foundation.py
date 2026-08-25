@@ -35,6 +35,9 @@ class TrustFoundationContractTests(unittest.TestCase):
             target = Path(temp)
             (target / ".github").mkdir()
             (target / ".github" / "copilot-instructions.md").write_text("guidance\n", encoding="utf-8")
+            prompt = target / ".github" / "prompts" / "tailtrail-start.prompt.md"
+            prompt.parent.mkdir()
+            prompt.write_text("start prompt\n", encoding="utf-8")
             pack = target / "tailtrail"
             pack.mkdir()
             (pack / ".tailtrail-install.json").write_text(json.dumps({"surface": "core"}), encoding="utf-8")
@@ -100,9 +103,11 @@ class TrustFoundationContractTests(unittest.TestCase):
 
     def test_fresh_clone_smoke_excludes_local_runtime_state(self) -> None:
         smoke = (SCRIPTS / "smoke-test.py").read_text(encoding="utf-8")
-        self.assertIn("git archive", smoke)
-        for excluded in (".tailtrail", ".video-tools", "__MACOSX", "__pycache__"):
-            self.assertIn(excluded, smoke)
+        manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("release_manifest.candidate_files", smoke)
+        self.assertIn("shutil.copy2", smoke)
+        self.assertIn(".tailtrail", manifest["repository_hygiene"]["forbidden_parts"])
+        self.assertIn("__pycache__", manifest["repository_hygiene"]["forbidden_names"])
 
 
 if __name__ == "__main__":

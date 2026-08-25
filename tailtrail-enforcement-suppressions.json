@@ -1,0 +1,6 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-enforcement-suppressions",
+  "policy_version": 1,
+  "suppressions": []
+}

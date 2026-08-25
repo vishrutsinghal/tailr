@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "TailTrail Enterprise Support Bundle", "type": "object",
+  "required": ["schema_version", "type", "workflow_id", "created_at", "conformance", "observability", "access_review", "bundle_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-enterprise-support-bundle"}, "workflow_id": {"type": "string"},
+    "created_at": {"type": "string", "minLength": 1}, "conformance": {"type": "object"}, "observability": {"type": "object"}, "access_review": {"type": "object"},
+    "bundle_fingerprint": {"type": "string", "minLength": 1}, "boundary": {"type": "string", "minLength": 1, "maxLength": 500}
+  }, "additionalProperties": false
+}

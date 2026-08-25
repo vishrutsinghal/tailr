@@ -13,6 +13,10 @@ requirement.
 
 It works with Codex, GitHub Copilot, Claude, Cursor, ChatGPT, and Gemini.
 
+The self-contained `tailtrail` wheel and sdist support CPython 3.12 and 3.13,
+have no runtime dependencies, verify their packaged resources before command
+dispatch, and do not need a source checkout. See [INSTALL.md](INSTALL.md).
+
 ## Get a plan in two minutes
 
 1. Install TailTrail into the project you want to work in. Use the one
@@ -70,7 +74,7 @@ to break a larger delivery into approved slices.
 | Evidence-aware testing | Focused, integration, or release evidence selected by task risk. |
 | Context Continuity | Correction memory across repeated attempts. |
 | Safe recovery | Bounded checkpoints that protect unrelated work. |
-| Guard and dependency checks | Reviewable dependency decisions and CI enforcement. |
+| Guard and dependency checks | Reviewable dependency decisions plus versioned, fail-closed JSON/SARIF repository enforcement. |
 
 ## Use the right page
 
@@ -79,6 +83,7 @@ to break a larger delivery into approved slices.
 - [CHEATSHEET.md](CHEATSHEET.md) — problem-to-command map.
 - [USEFUL-PROMPTS.md](USEFUL-PROMPTS.md) — copyable assistant prompts.
 - [TAILTRAIL-COMMANDS.md](TAILTRAIL-COMMANDS.md) — complete command reference.
+- [REPOSITORY-ENFORCEMENT.md](REPOSITORY-ENFORCEMENT.md) — policy, CI action, baselines, suppressions, and SARIF.
 - [USER-GUIDE.md](USER-GUIDE.md) — guided product concepts and advanced paths.
 
 ## Trust boundary
@@ -90,4 +95,5 @@ never claims those checks passed unless it has their actual receipt.
 For contributors, the repository CI validates Python compatibility, adapter
 contracts, registry consistency, installer smoke behavior, selected guardrail
 classes, and dependency decisions. See [IMPROVEMENT-PLAN.md](IMPROVEMENT-PLAN.md)
-for the delivery roadmap.
+for the delivery roadmap and [context/guardrail-layers.md](context/guardrail-layers.md)
+for the layered enforcement model.

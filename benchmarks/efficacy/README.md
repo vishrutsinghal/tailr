@@ -140,6 +140,6 @@ under `benchmarks/results/`.
 
 ## CI
 
-The public CI workflow runs the efficacy runner in strict JSON mode on every
-manual validation run so schema and labeling regressions fail visibly. See
-`.github/workflows/tailtrail-ci.yml` for the exact step.
+The supported CI workflow runs the repository contract suite, which includes
+the efficacy contract tests. See `.github/workflows/trust.yml` for the exact
+release and test gates.

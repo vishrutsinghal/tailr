@@ -3,22 +3,32 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
+CONTRACTS_PATH = next(path for path in (ROOT / "tailtrail" / "hosts" / "contracts.py", ROOT / "hosts" / "contracts.py") if path.is_file())
+_spec = importlib.util.spec_from_file_location("tailtrail_host_contracts_first_run", CONTRACTS_PATH)
+if _spec is None or _spec.loader is None:
+    raise RuntimeError("unable to load TailTrail host contracts")
+_contracts_module = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = _contracts_module
+_spec.loader.exec_module(_contracts_module)
+HOSTS = _contracts_module.HOSTS
+core_files = _contracts_module.core_files
+host_first_action = _contracts_module.first_action
 
 
 def expected(profile: str, pack_dir: str) -> list[str]:
+    host = "codex" if profile == "codex-plugin" else profile
+    if host in HOSTS:
+        return [destination for _source, destination in core_files(host, ROOT)]
     mapping = {
         "generic": ["AGENTS.md"],
-        "codex": ["AGENTS.md"],
-        "codex-plugin": ["AGENTS.md", ".codex-plugin/plugin.json", "skills/tailtrail/SKILL.md", "skills/tailtrail-review/SKILL.md"],
-        "copilot": [".github/copilot-instructions.md", f"{pack_dir}/.tailtrail-install.json"],
         "aidlc": ["AIDLC.md"],
         "full": [".github/copilot-instructions.md", f"{pack_dir}/.tailtrail-install.json", "AIDLC.md"],
     }
@@ -39,8 +49,10 @@ def detect_profile(target: Path, pack_dir: str) -> str:
 
 
 def first_action(profile: str) -> dict[str, str]:
-    if profile in {"codex", "codex-plugin"}:
-        return {"surface": "Codex chat", "command": "Using TailTrail Navigator, plan \"<your task>\" before implementation.", "why": "Codex reads the installed AGENTS guidance and TailTrail skills from the project."}
+    host = "codex" if profile == "codex-plugin" else profile
+    if host in HOSTS:
+        action = host_first_action(host, ROOT)
+        return {"surface": action["surface"], "command": action["invocation"], "why": action["result"]}
     return {"surface": "CLI or supported assistant", "command": 'tailtrail start "<your task>"', "why": "Start chooses the smallest TailTrail workflow and asks for approval before implementation."}
 
 

@@ -1,0 +1,63 @@
+include setup.py
+include .github/prompts/tailtrail-start.prompt.md
+include pyproject.toml
+include package-manifest.json
+include package-manifest.schema.json
+include platform-release-contract.json
+include release-build-lock.json
+include release-manifest.json
+include release-manifest.schema.json
+include enterprise-closure-registry.json
+include enterprise-closure-registry.schema.json
+include tailtrail-registry.json
+include tailtrail-registry.schema.json
+include AGENTS.md
+include AIDLC.md
+include ARCHITECTURE.md
+include ASSISTANT-COMPATIBILITY.md
+include CLAUDE.md
+include DEPENDENCY-GATE.md
+include EVALUATION-HARNESS.md
+include GOVERNANCE.md
+include GUARDRAILS.md
+include HOST-ADAPTERS.md
+include INSTALL.md
+include INSTALLER-LIFECYCLE.md
+include MCP-SERVER.md
+include PACKAGE-CONTRACT.md
+include REPOSITORY-ENFORCEMENT.md
+include PUBLIC-CLAIMS.md
+include README.md
+include ROADMAP.md
+include SECURITY.md
+include SUPPORT.md
+include SUPPLY-CHAIN.md
+include TAILTRAIL-COMMANDS.md
+include USER-GUIDE.md
+include VERSIONING.md
+include tailtrail-policy.example.md
+include tailtrail-enforcement-baseline.json
+include tailtrail-enforcement-policy.json
+include tailtrail-enforcement-suppressions.json
+include LICENSE
+include NOTICE.md
+recursive-include tailtrail *.py
+recursive-include scripts *.py
+recursive-include schemas *
+recursive-include templates *
+recursive-include adapters *
+recursive-include context *
+recursive-include docs *
+recursive-include examples *
+recursive-include hooks *
+recursive-include skills *
+recursive-include aidlc *
+recursive-include .claude *
+recursive-include .codex-plugin *
+recursive-include .cursor *
+recursive-include .openai *
+global-exclude .DS_Store *.py[cod]
+exclude AI-MODE-INSPIRED-ADDITIONS.md
+exclude DURABLE-WORKFLOW-RUNTIME.local-backup.md
+prune **/__pycache__
+prune tests

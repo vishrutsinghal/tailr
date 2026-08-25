@@ -161,27 +161,28 @@ class InstallProfileTests(unittest.TestCase):
     def test_upgrade_to_extended_is_additive(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "core"
+            target.mkdir()
             result = run("scripts/install-copilot.py", "--target", target.as_posix(), "--surface", "core")
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
-            _, to_add, blocked = copilot.plan_upgrade(target, Path("."))
-            core_files, core_dirs, core_scripts = surfaces.resolve("core", copilot.PACK_FILES, copilot.PACK_DIRS, copilot.PACK_SCRIPTS)
-            core_entries = set(copilot.pack_entries_for(core_files, core_dirs, core_scripts))
-            self.assertTrue(to_add)
-            self.assertFalse(blocked)
-            self.assertTrue(core_entries.isdisjoint(to_add))
+            upgrade = run("scripts/installer.py", "update", "--host", "copilot", "--profile", "extended", "--target", target.as_posix(), "--dry-run", "--format", "json")
+            plan = json.loads(upgrade.stdout)["plan"]
+            self.assertTrue([entry for entry in plan["entries"] if entry["action"] == "create"])
+            self.assertFalse(plan["conflicts"])
 
     def test_manifest_records_surface(self):
         with tempfile.TemporaryDirectory() as tmp:
             core_target = Path(tmp) / "core"
             extended_target = Path(tmp) / "extended"
+            core_target.mkdir()
+            extended_target.mkdir()
             core = run("scripts/install-copilot.py", "--target", core_target.as_posix(), "--surface", "core")
             extended = run("scripts/install-copilot.py", "--target", extended_target.as_posix())
             self.assertEqual(core.returncode, 0, core.stderr + core.stdout)
             self.assertEqual(extended.returncode, 0, extended.stderr + extended.stdout)
-            core_manifest = json.loads((core_target / ".tailtrail-install.json").read_text(encoding="utf-8"))
-            extended_manifest = json.loads((extended_target / ".tailtrail-install.json").read_text(encoding="utf-8"))
-            self.assertEqual(core_manifest["surface"], "core")
-            self.assertEqual(extended_manifest["surface"], "extended")
+            core_manifest = json.loads((core_target / ".tailtrail/install/manifests/copilot.json").read_text(encoding="utf-8"))
+            extended_manifest = json.loads((extended_target / ".tailtrail/install/manifests/copilot.json").read_text(encoding="utf-8"))
+            self.assertEqual(core_manifest["profile"], "core")
+            self.assertEqual(extended_manifest["profile"], "extended")
 
     def test_unknown_surface_rejected(self):
         with self.assertRaises(ValueError):

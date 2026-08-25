@@ -3,20 +3,29 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CONTRACTS_PATH = next(path for path in (ROOT / "tailtrail" / "hosts" / "contracts.py", ROOT / "hosts" / "contracts.py") if path.is_file())
+_spec = importlib.util.spec_from_file_location("tailtrail_host_contracts_adapter", CONTRACTS_PATH)
+if _spec is None or _spec.loader is None:
+    raise RuntimeError("unable to load TailTrail host contracts")
+_contracts_module = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = _contracts_module
+_spec.loader.exec_module(_contracts_module)
+load_contracts = _contracts_module.contracts
 REQUIRED_SCENARIOS = {"small-bug", "hands-free-feature", "rejected-requirement", "evidence-failure", "recovery", "ci-wait"}
 PRECEDENCE = ["host safety", "user request", "official stage rules", "tailtrail assurance rules"]
 
 
 def load(root: Path) -> dict:
-    path = root / "adapters" / "host-compatibility-v1.json"
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("type") != "tailtrail-host-adapter-compatibility" or payload.get("adapter_version") != "v2":
-        raise ValueError("host compatibility matrix must be a v2 TailTrail adapter matrix")
+    payload = load_contracts(root)
+    if payload.get("type") != "tailtrail-host-adapter-compatibility" or payload.get("adapter_version") != "v3":
+        raise ValueError("host compatibility matrix must be a v3 TailTrail adapter matrix")
     if payload.get("precedence") != PRECEDENCE:
         raise ValueError("host compatibility precedence is not the required safety order")
     if {item.get("id") for item in payload.get("conformance_scenarios", [])} != REQUIRED_SCENARIOS:
@@ -28,6 +37,14 @@ def render(host: dict, matrix: dict) -> str:
     scenarios = "\n".join(f"- **{item['id']}:** {item['expected']}" for item in matrix["conformance_scenarios"])
     scenarios += "\n\n## Interactive Plan boundary\n\n- Preserve the current run ID for questions and plan-update requests.\n- Explain saved evidence first; source investigation and plan revision require their separate approvals.\n- Do not start implementation after a why-question or a revision request.\n- Route AIDLC and Intent Bridge wording changes to their designated authority."
     surface = f"""# TailTrail Composed Host Surface — {host['id'].title()}\n\n**Adapter version:** `{matrix['adapter_version']}`\n**Host source:** `{host['source']}`\n\n## Precedence\n\n1. Host safety\n2. User request\n3. Official AI-DLC stage rules for a verified Full-mode run\n4. TailTrail assurance rules\n\nA lower layer cannot weaken a higher layer. Official rules select lifecycle\nstages; TailTrail preserves the approved anchor, evidence, drift, recovery, and\nclosure boundaries.\n\n## Host contract\n\n- `tailtrail start` is planning-only and requires approval before implementation.\n- A rejected requirement preserves its run and routes to requirements/design.\n- Completion uses saved requirement-linked evidence; do not invent command or CI results.\n- `wait-ci` does not create learning. Linked CI acceptance may create a\n  candidate-only learning artifact and deterministic evaluation.\n- {host['official_full_mode']}.\n\n## Conformance scenarios\n\n{scenarios}\n\n## Durable Workflow MCP boundary\n\n- Use the same canonical workflow ID and approved run across status, evidence,\n  correction, resume, and closure.\n- Read-only workflow MCP tools inspect local state only; controlled workflow\n  tools require explicit approval and cannot invent Planning Lock, AIDLC,\n  dependency, recovery, or closure authority.\n- Host receipts are sanitized, linked evidence. They do not replace the\n  canonical workflow status or completion boundary.\n- CI continuation requires the exact approved CI policy plus run, target,\n  plan, scope, commit, artifact-hash, and trusted-provenance bindings. It may\n  advance validation/reporting metadata only; it never fixes source, changes\n  dependencies/infrastructure, scans, calls providers, publishes, deploys,\n  merges, recovers, or finalizes closure.\n- Negative assurance returns categorical issue and denial codes only; hosts must\n  not echo hostile prompts, source, logs, identities, credentials, or commands.\n- Retention is local, count-based, and manual. There is no background deletion\n  or upload; exact candidate and plan bindings plus explicit approval are required.\n\n## Boundary\n\nThis generated surface validates local instruction composition only. It does not\nguarantee runtime behavior by the host or replace host safety policy.\n"""
+    surface = surface.replace(
+        f"**Host source:** `{host['source']}`\n\n",
+        f"**Host source:** `{host['source']}`\n**Qualification:** `{host['qualification']}` (not runtime-observed or supported)\n\n",
+    )
+    surface = surface.replace(
+        f"- {host['official_full_mode']}.\n\n",
+        f"- {host['official_full_mode']}.\n- First action in {host['first_action']['surface']}: `{host['first_action']['invocation']}`\n- Enforceable repository policy remains `{host['capabilities']['policy_enforcement']}`.\n- Global settings, network activity, and account changes are approval-required.\n\n",
+    )
     release = "- Phase 11 release proof accepts only linked sanitized scenario, template, and host receipts. Missing evidence remains blocked.\n- A passing release gate never retires `--no-workflow`; separate exact-gate approval and a reviewed release change are required.\n\n"
     enterprise = "- Phase 12 enterprise continuation is optional, provider-neutral, and local-default. Hosts must require the passing Phase 11 gate, complete approved entry policy, per-workflow activation, tenant/actor authority, and current fencing token.\n- Enterprise receipts and observability are sanitized metadata shadows only; canonical local ownership, approvals, evidence, recovery, and closure always win. Hosts must not upload raw workflow/source/log data or infer provider readiness from local conformance.\n\n"
     return surface.replace("## Boundary\n\n", release + enterprise + "## Boundary\n\n")

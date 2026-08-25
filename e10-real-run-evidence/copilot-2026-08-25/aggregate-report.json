@@ -1,0 +1,42 @@
+{
+  "adapter_version": "v3",
+  "allowed_statuses": [
+    "failed",
+    "incompatible",
+    "not-validated",
+    "passed",
+    "stale"
+  ],
+  "boundary": "Instruction and runtime statuses are separate. Missing runtime receipts are not-validated, never passed.",
+  "instruction_conformance": {
+    "issues": [],
+    "status": "passed"
+  },
+  "runtime_conformance": [
+    {
+      "host": "copilot",
+      "latest_evaluations": {
+        "ci-wait": ".tailtrail/host-runtime/receipts/copilot/ci-wait/copilot-ci-wait-e10-real-1/receipt-v1.json",
+        "evidence-failure": ".tailtrail/host-runtime/receipts/copilot/evidence-failure/copilot-evidence-failure-e10-real-1/receipt-v1.json",
+        "hands-free-feature": ".tailtrail/host-runtime/receipts/copilot/hands-free-feature/copilot-hands-free-feature-e10-real-1/receipt-v1.json",
+        "recovery": ".tailtrail/host-runtime/receipts/copilot/recovery/copilot-recovery-e10-real-1/receipt-v1.json",
+        "rejected-requirement": ".tailtrail/host-runtime/receipts/copilot/rejected-requirement/copilot-rejected-requirement-e10-real-1/receipt-v1.json",
+        "small-bug": ".tailtrail/host-runtime/receipts/copilot/small-bug/copilot-small-bug-e10-real-1/receipt-v1.json"
+      },
+      "runtime_status": "failed",
+      "scenario_coverage": 6,
+      "scenario_total": 6,
+      "scenarios": {
+        "ci-wait": "passed",
+        "evidence-failure": "passed",
+        "hands-free-feature": "passed",
+        "recovery": "failed",
+        "rejected-requirement": "passed",
+        "small-bug": "passed"
+      }
+    }
+  ],
+  "scenario_version": "v1",
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-conformance-report"
+}

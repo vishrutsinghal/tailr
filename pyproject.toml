@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools==84.0.0", "wheel==0.48.0", "packaging==26.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,16 +7,16 @@ name = "tailtrail"
 version = "0.6.0"
 description = "Local-first development guidance for smaller, evidence-backed coding workflows."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
 authors = [{ name = "TailTrail" }]
 dependencies = []
 
 [project.scripts]
-tailtrail = "tailtrail_cli:main"
+tailtrail = "tailtrail.cli:main"
 
 [tool.setuptools]
-py-modules = ["tailtrail_cli"]
+packages = ["tailtrail", "tailtrail.hosts", "tailtrail.install", "tailtrail.migrations"]
 include-package-data = true
 
 [tool.setuptools.package-data]
@@ -30,9 +30,8 @@ addopts = "-v --tb=short"
 
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
 ignore = ["E501", "W503"]
-

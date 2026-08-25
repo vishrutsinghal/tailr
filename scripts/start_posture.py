@@ -47,7 +47,8 @@ def token_posture(root: Path, plan: dict[str, Any], large_context_files: tuple[s
 
 def setup_posture(root: Path, command_prefix: str, source_root: Path) -> dict[str, Any]:
     installed = (root / ".tailtrail-install.json").is_file() or bool(list(root.glob("*/.tailtrail-install.json")))
-    return {"source_checkout": (source_root / ".codex-plugin").exists(), "installed_pack_detected": installed, "recommended_check": f"{command_prefix} doctor", "recommended_update_check": f"{command_prefix} update --root {json.dumps(root.as_posix())} --dry-run" if installed else f"{command_prefix} install local --inspect", "note": "Run update checks as dry-run first. Preserve local edits unless the user approves backup-overwrite."}
+    packaged = (source_root / "package-integrity.json").is_file()
+    return {"source_checkout": not packaged and (source_root / ".codex-plugin").exists(), "installed_package": packaged, "installed_pack_detected": installed, "recommended_check": f"{command_prefix} doctor", "recommended_update_check": f"{command_prefix} update --root {json.dumps(root.as_posix())} --dry-run" if installed else f"{command_prefix} install local --inspect", "note": "Run update checks as dry-run first. Preserve local edits unless the user approves backup-overwrite."}
 
 
 def review_posture(plan: dict[str, Any], command_prefix: str) -> dict[str, Any]:

@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-repository-approval",
+  "policy_version": 1,
+  "approval_id": "E6-001",
+  "approved": true,
+  "owner": "workspace-user",
+  "reason": "The user explicitly requested complete end-to-end Phase E6 repository and CI enforcement implementation.",
+  "paths": [".github/workflows/", ".github/actions/", "schemas/", "pyproject.toml", "release-manifest.json", "tailtrail-enforcement-policy.json"],
+  "expires": "2026-09-23"
+}

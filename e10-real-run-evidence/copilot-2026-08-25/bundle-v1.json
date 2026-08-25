@@ -1,0 +1,109 @@
+{
+  "adapter_version": "v3",
+  "boundary": "Portable observable contract only. It contains no source, prompt, secret, execution result, or runtime pass claim.",
+  "bundle_digest": "7cc11719dc61624ab92a09c30125e9818e9b6c8534d34a3af10143da5abb2078",
+  "bundle_version": "v1",
+  "host": "copilot",
+  "instruction_sha256": "2bc6e36a6de63e1acee3ce9f1b2270cc248e90e09e03e09f161051b34d91ce19",
+  "instruction_source": "adapters/copilot-instructions.md",
+  "receipt_schema": "schemas/host-runtime-receipt.schema.json",
+  "runtime_adapter": "receipt-v1",
+  "scenario_contract": "adapters/runtime-scenarios-v1.json",
+  "scenario_version": "v1",
+  "scenarios": [
+    {
+      "boundary": "Host wording may differ; persisted Planning Lock and Start Report are required.",
+      "canonical_probes": [
+        "planning-lock",
+        "start-report"
+      ],
+      "id": "small-bug",
+      "required_observations": [
+        "planning-lock-created",
+        "complete-start-report",
+        "approval-recorded",
+        "no-write-before-approval"
+      ],
+      "title": "Small bug remains planning-first"
+    },
+    {
+      "boundary": "No implementation result is inferred from the planning bundle.",
+      "canonical_probes": [
+        "hands-free-program",
+        "planning-lock"
+      ],
+      "id": "hands-free-feature",
+      "required_observations": [
+        "program-requirements",
+        "dependency-order",
+        "first-active-slice",
+        "approval-gate",
+        "execution-handoff"
+      ],
+      "title": "Hands-free work preserves programme planning"
+    },
+    {
+      "boundary": "A rejection cannot silently create a replacement run or authorize source writes.",
+      "canonical_probes": [
+        "proposal-rejected",
+        "planning-lock"
+      ],
+      "id": "rejected-requirement",
+      "required_observations": [
+        "same-run-preserved",
+        "rejection-routed",
+        "implementation-blocked"
+      ],
+      "title": "Rejected requirement stays in the same run"
+    },
+    {
+      "boundary": "A passing local check cannot override an unresolved requirement evidence gap.",
+      "canonical_probes": [
+        "incomplete-checkpoint",
+        "correction-route"
+      ],
+      "id": "evidence-failure",
+      "required_observations": [
+        "evidence-recorded",
+        "requirement-incomplete",
+        "failure-visible",
+        "correction-or-replan-offered",
+        "no-false-completion"
+      ],
+      "title": "Evidence failure blocks completion"
+    },
+    {
+      "boundary": "The receipt proves the selected task boundary only; it does not claim Git rollback occurred unless linked evidence says so.",
+      "canonical_probes": [
+        "approved-anchor",
+        "recovery-boundary"
+      ],
+      "id": "recovery",
+      "required_observations": [
+        "approved-anchor-preserved",
+        "task-owned-recovery",
+        "resume-recommendation",
+        "unrelated-work-preserved"
+      ],
+      "title": "Recovery preserves approved and unrelated work"
+    },
+    {
+      "boundary": "CI acceptance requires a linked trusted-CI receipt; waiting is not acceptance.",
+      "canonical_probes": [
+        "ci-wait-closure",
+        "no-positive-learning"
+      ],
+      "id": "ci-wait",
+      "required_observations": [
+        "awaiting-linked-ci",
+        "policy-backed-ci-continuation",
+        "closure-boundary-visible",
+        "no-positive-learning",
+        "acceptance-not-inferred"
+      ],
+      "title": "CI wait does not create acceptance learning"
+    }
+  ],
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-bundle"
+}

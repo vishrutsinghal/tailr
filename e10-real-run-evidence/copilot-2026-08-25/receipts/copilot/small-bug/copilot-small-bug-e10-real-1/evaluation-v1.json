@@ -1,0 +1,25 @@
+{
+  "adapter_version": "v3",
+  "boundary": "Observed host evidence is advisory until this validator links it to the current scenario contract and canonical run state.",
+  "canonical_probes": {
+    "planning-lock": true,
+    "start-report": true
+  },
+  "canonical_state": {
+    "status": "valid",
+    "valid": true
+  },
+  "evaluation": "passed",
+  "evidence_label": "supplied-host-receipt + deterministic-local-validation",
+  "failed_probes": [],
+  "host": "copilot",
+  "host_version": "github-copilot-chat-live-session-2026-08-25",
+  "ledger_sequence": 16,
+  "missing_observations": [],
+  "receipt_artifact": ".tailtrail/host-runtime/receipts/copilot/small-bug/copilot-small-bug-e10-real-1/receipt-v1.json",
+  "receipt_id": "copilot-small-bug-e10-real-1",
+  "run_id": "e10-small-bug",
+  "scenario_id": "small-bug",
+  "schema_version": "1",
+  "type": "tailtrail-host-runtime-evaluation"
+}

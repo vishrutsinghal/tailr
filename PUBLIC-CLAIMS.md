@@ -76,6 +76,41 @@ telemetry, TailTrail records it as `benchmark-measured`; otherwise it records
 `model-run-unmeasured`. Any public numeric claim must cite the exact committed
 result and its label.
 
+## Pilot Protocol
+
+This section defines how a representative efficacy pilot must be run and
+reported (Phase E11, `ENT-E11-002`). **No pilot has been executed under this
+protocol yet; nothing in this section is a claim of measured pilot outcomes.**
+It exists so that if and when a pilot runs, its evidence is comparable and
+its claims stay bounded.
+
+- **Method**: opt-in only. Participants explicitly consent per repository;
+  there is no default or silent enrollment.
+- **Sample**: record the number of participating repositories/teams, task
+  types attempted, and duration. A single-repository or single-user trial must
+  be labeled as such, not generalized to "teams" or "enterprises."
+- **Privacy**: no raw source, prompts, or private logs are collected by
+  default. Only sanitized `enterprise support-bundle` output, redacted
+  `doctor`/`completion-report` results, and explicit participant-provided
+  telemetry may be collected, and only with the participant's approval.
+- **Measures**: install success rate, first-run completion rate, false-success
+  rate (completion reports later found wrong), evidence completeness rate,
+  approval latency, recovery time after an interrupted run, rollback success,
+  and operator time per workflow (self-reported, since TailTrail does not
+  observe wall-clock human time).
+- **Evidence labeling**: pilot results follow the same `Evidence Labels`
+  above. Self-reported operator burden is `estimated` unless corroborated by
+  timestamped logs; everything else follows the measured/observed/advisory
+  rules already defined.
+- **Limitations that must be disclosed with any pilot claim**: sample size,
+  which task types were and were not attempted, whether participants had
+  prior TailTrail experience, and whether any maintainer intervened during
+  the pilot (if so, the affected run is not "without maintainer
+  intervention").
+- **Publication rule**: a pilot claim may only cite this protocol's actual
+  recorded artifacts (sample size, method, dated report). It may never be
+  phrased as if it applies beyond the recorded sample.
+
 ## Release Check Behavior
 
 `scripts/release-check.py` scans public-facing docs for risky phrases. It allows cautious or negative statements such as "TailTrail does not replace CI" but should fail on unsupported promotional claims.
