@@ -16,3 +16,15 @@ class ArchitectureFitnessTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);self.setup(root);result=fitness.assess(root,"run",["other.py"])
   self.assertEqual(result["findings"][0]["category"],"scope")
+ def test_planning_contract_requires_graph_receipt_and_guards_dependency_boundary(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);ledger.init_run(root,"planned","architecture");(root/"src").mkdir();(root/"src"/"service.py").write_text("",encoding="utf-8")
+   proposal=root/"proposal.json";proposal.write_text(json.dumps({"requirements":[{"statement":"map callers without a new dependency","likely_paths":["src/service.py","pyproject.toml"],"acceptance_criteria":[],"preserve_rules":[],"evidence_plan":[],"architecture_contract":{"required_paths":[],"protected_paths":[],"forbidden_imports":[],"requires_caller_map":True,"no_new_dependencies":True}}]}),encoding="utf-8")
+   drafted=anchor.draft(root,"planned",proposal);anchor.approve(root,"planned")
+   missing=fitness.assess(root,"planned",["src/service.py"])
+   anchor.graph_receipt(root,"planned",[drafted["requirements"][0]["requirement_uid"]],["src/service.py"],"local-ast")
+   preserved=fitness.assess(root,"planned",["src/service.py"])
+   dependency_drift=fitness.assess(root,"planned",["src/service.py","pyproject.toml"])
+  self.assertEqual(missing["state"],"unknown")
+  self.assertTrue(preserved["complete"]);self.assertEqual(preserved["state"],"preserved")
+  self.assertEqual(dependency_drift["state"],"drifted")

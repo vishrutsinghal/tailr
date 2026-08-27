@@ -13,6 +13,10 @@ from typing import Any
 import target_workspace
 import start_posture
 import requirement_discovery
+import architecture_planning
+import behaviour_planning
+import maintainability_planning
+import ui_planning
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -336,7 +340,7 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
     multiple_requirements = len(plan.get("requirement_matrix", [])) > 1
     tiny = plan.get("recommended_workflow") == ["lean"] and not hands_free and not multiple_requirements
     broad = hands_free or len(changed) > 1 or any(word in lowered for word in ("feature", "implement", "workflow", "service", "endpoint", "api", "migration"))
-    user_facing = any(word in lowered for word in ("user", "journey", "screen", "page", "ui", "endpoint", "api", "workflow"))
+    user_facing = behaviour_planning.selected_for(goal)
     ui_change = navigator.core.ui_change_requested(goal, changed)
     run = delivery_run_signals(root, run_id)
     selected: list[dict[str, str]] = []
@@ -637,6 +641,26 @@ def build_report(
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
     plan = navigator.decide(goal, root, changed, command_prefix)
+    plan["likely_impacted_files"] = architecture_planning.filter_weak_suggestions(
+        goal,
+        [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)],
+    )
+    behaviour_selected = behaviour_planning.selected_for(goal)
+    ui_change = navigator.core.ui_change_requested(goal, changed)
+    ui_profile = ui_planning.discover(root, goal, changed) if ui_change else {"selected": False, "surface_status": "not-selected", "candidates": []}
+    plan["likely_impacted_files"] = behaviour_planning.filter_weak_suggestions(
+        goal, plan["likely_impacted_files"]
+    )
+    plan["likely_impacted_files"] = architecture_planning.add_explicit_role_candidates(
+        root, goal, plan["likely_impacted_files"]
+    )
+    plan["likely_impacted_files"] = behaviour_planning.add_role_candidates(
+        root, goal, plan["likely_impacted_files"], behaviour_selected
+    )
+    if ui_change:
+        plan["likely_impacted_files"] = ui_planning.refine_impacted(
+            goal, changed, plan["likely_impacted_files"], ui_profile
+        )
     initial_paths = [str(item.get("path")) for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
     if not plan.get("revision_requirement_matrix"):
         plan["requirement_matrix"] = requirement_discovery.matrix(goal, initial_paths)
@@ -658,7 +682,49 @@ def build_report(
         program = delivery.get("hands_free_program")
         if isinstance(program, dict) and isinstance(program.get("feature_requirements"), list):
             plan["requirement_matrix"] = requirement_discovery.from_features(program["feature_requirements"], paths)
-    ui_change = navigator.core.ui_change_requested(goal, changed)
+    architecture_selected = any(
+        item.get("name") == "Architecture Fitness Harness"
+        for item in delivery.get("selected", [])
+        if isinstance(item, dict)
+    )
+    architecture_plan = architecture_planning.build(
+        goal,
+        plan.get("likely_impacted_files", []),
+        plan.get("requirement_matrix", []),
+        architecture_selected,
+    )
+    architecture_planning.apply_contracts(plan.get("requirement_matrix", []), architecture_plan)
+    ui_plan = ui_planning.build(
+        goal,
+        plan.get("requirement_matrix", []),
+        ui_profile,
+        ui_change,
+    )
+    ui_planning.apply_contracts(plan.get("requirement_matrix", []), ui_plan)
+    behaviour_selected = any(
+        item.get("name") == "Behaviour Harness"
+        for item in delivery.get("selected", [])
+        if isinstance(item, dict)
+    )
+    behaviour_plan = behaviour_planning.build(
+        goal,
+        plan.get("likely_impacted_files", []),
+        plan.get("requirement_matrix", []),
+        behaviour_selected,
+    )
+    behaviour_planning.apply_contracts(plan.get("requirement_matrix", []), behaviour_plan)
+    maintainability_selected = any(
+        item.get("name") == "Maintainability Harness"
+        for item in delivery.get("selected", [])
+        if isinstance(item, dict)
+    )
+    maintainability_plan = maintainability_planning.build(
+        goal,
+        plan.get("likely_impacted_files", []),
+        plan.get("requirement_matrix", []),
+        maintainability_selected,
+    )
+    maintainability_planning.apply_contracts(plan.get("requirement_matrix", []), maintainability_plan)
     mode = aidlc_mode_selection(goal, aidlc_mode, root, plan, official_manifest)
     if mode["mode"] == "off":
         delivery["selected"] = [item for item in delivery["selected"] if item.get("name") != "AIDLC"]
@@ -670,8 +736,13 @@ def build_report(
         "command_prefix": command_prefix,
         "navigator": plan,
         "guided_delivery": delivery,
+        "architecture_plan": architecture_plan,
+        "behaviour_plan": behaviour_plan,
+        "maintainability_plan": maintainability_plan,
+        "ui_plan": ui_plan,
         "ui_consistency": {
             "selected": ui_change,
+            "surface_status": ui_plan.get("surface_status", "not-selected"),
             "command": f"{command_prefix} ui discover --root {json.dumps(root.as_posix())}" + "".join(f" --changed {path}" for path in changed[:5]),
             "boundary": "Reuse existing components, styles, tokens, layout, responsive behavior, and accessibility patterns. Preserve the established UI system; do not introduce a UI library, font, global token set, or unrelated redesign without explicit approval.",
         },
@@ -742,6 +813,46 @@ def focused_validation_command(root: Path, impacted: list[dict[str, Any]], comma
     return None
 
 
+def focused_validation_plan(
+    root: Path,
+    impacted: list[dict[str, Any]],
+    requirements: list[dict[str, Any]],
+    command_prefix: str,
+) -> list[dict[str, str]]:
+    """Return every requested validation tier without inventing a test target."""
+    requested: list[str] = []
+    for row in requirements:
+        contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
+        for tier in contract.get("tiers", []) if isinstance(contract, dict) else []:
+            if isinstance(tier, str) and tier not in requested:
+                requested.append(tier)
+    test_items = [
+        item for item in impacted
+        if isinstance(item, dict) and "test" in str(item.get("path", "")).lower()
+    ]
+    rows: list[dict[str, str]] = []
+    for tier in requested or ["unit"]:
+        tier_paths = [
+            item for item in test_items
+            if f"/{tier}/" in "/" + str(item.get("path", "")).lower().replace("\\", "/") + "/"
+        ]
+        if tier == "behaviour" and not tier_paths:
+            tier_paths = [
+                item for item in test_items
+                if "/tests/ui/" in "/" + str(item.get("path", "")).lower().replace("\\", "/")
+                or any(marker in str(item.get("path", "")).lower() for marker in ("accessibility", "a11y", "visual"))
+            ]
+        candidate_items = tier_paths or ([] if tier in {"unit", "integration", "contract", "behaviour", "e2e"} else test_items)
+        command = focused_validation_command(root, candidate_items[:1], command_prefix) if candidate_items else None
+        rows.append({
+            "tier": tier,
+            "candidate": str(candidate_items[0].get("path")) if candidate_items else "not resolved from planning evidence",
+            "command": command or "",
+            "status": "planned after approval" if command else "must be discovered after approval",
+        })
+    return rows
+
+
 def short_trigger(value: str) -> str:
     """Keep deferred-feature cells readable; detailed rules remain in verbose artifacts."""
     lowered = value.lower()
@@ -791,7 +902,10 @@ def compact_start_report(report: dict[str, Any]) -> str:
     for item in impacted[:4]:
         lines.append(f"- `{item['path']}` — {item['reason']}")
     if not impacted:
-        lines.append("- Scope unresolved: no reliable repository file matched this goal. Add `--changed path/to/file` or approve read-only discovery; unrelated Git changes were not used.")
+        if report.get("ui_plan", {}).get("selected"):
+            lines.append("- UI implementation surface not discovered. Confirm the frontend/UI root or approve bounded read-only UI discovery; backend files were not substituted as UI scope.")
+        else:
+            lines.append("- Scope unresolved: no reliable repository file matched this goal. Add `--changed path/to/file` or approve read-only discovery; unrelated Git changes were not used.")
     roles = report.get("input_roles", {})
     if isinstance(roles, dict):
         read_only_count = max(0, len(roles.get("inputs", [])) - 1)
@@ -839,6 +953,10 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.extend(["", "## Selected TailTrail features", "", "| Feature | When | Used for this task |", "| --- | --- | --- |"])
         for name, when, why in feature_rows:
             lines.append(f"| {name} | {when} | {why} |")
+    lines.extend(architecture_planning.markdown_lines(report.get("architecture_plan", {}), detailed=False))
+    lines.extend(behaviour_planning.markdown_lines(report.get("behaviour_plan", {}), detailed=False))
+    lines.extend(maintainability_planning.markdown_lines(report.get("maintainability_plan", {}), detailed=False))
+    lines.extend(ui_planning.markdown_lines(report.get("ui_plan", {}), detailed=False))
     lines.extend(["", "## Plan", ""])
     if hands_free_program:
         lines.append("- Proposed dependency order:")
@@ -860,12 +978,12 @@ def compact_start_report(report: dict[str, Any]) -> str:
         if len(requirement_rows) <= 1:
             lines.append("- Make the smallest change within the listed scope.")
             lines.append("- Run focused proof, then review the changed scope.")
-    validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
+    validation_rows = focused_validation_plan(root, impacted, requirement_rows, str(report["command_prefix"]))
     lines.extend(["", "## Focused validation", ""])
-    if validation:
-        lines.append(f"- `{validation}`")
-    else:
-        lines.append("- Not yet resolved from planning evidence. After approval, discover the nearest focused test before implementation; do not claim a validation command until the local convention is verified.")
+    lines.extend(["| Tier | Candidate | Status / command |", "| --- | --- | --- |"])
+    for item in validation_rows:
+        detail = f"`{item['command']}`" if item["command"] else item["status"]
+        lines.append(f"| {item['tier']} | `{item['candidate']}` | {detail} |")
     token = report["token_posture"]
     lines.extend(
         [
@@ -885,6 +1003,8 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.append("- Approve this AIDLC-backed plan to accept its recommendations and begin implementation, or reject it for deeper AIDLC refinement." if isinstance(aidlc, dict) else "- Approve this plan to begin implementation, or name any file/scope change before approval.")
     if delivery.get("hands_free_program"):
         lines.append("- This is a hands-free request; approve the proposed program slices before implementation begins.")
+    if report.get("ui_plan", {}).get("surface_status") == "not-discovered":
+        lines.append("- UI scope must be confirmed before implementation approval; TailTrail will not treat backend candidates as the missing UI surface.")
     lines.extend(["", "_Run with `--verbose` for advanced harness, token, code-intelligence, recovery, and product-metrics detail._", ""])
     return "\n".join(lines)
 
@@ -947,7 +1067,10 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     for item in impacted:
         lines.append(f"| `{item.get('path')}` | {item.get('reason')} |")
     if not impacted:
-        lines.append("| Scope unresolved | Add `--changed path/to/file` or approve read-only discovery. Unrelated Git changes were not used. |")
+        if report.get("ui_plan", {}).get("selected"):
+            lines.append("| UI surface not discovered | Confirm the frontend/UI root or approve bounded read-only UI discovery. Backend files were not substituted as UI scope. |")
+        else:
+            lines.append("| Scope unresolved | Add `--changed path/to/file` or approve read-only discovery. Unrelated Git changes were not used. |")
     roles = report.get("input_roles", {})
     if isinstance(roles, dict):
         lines.extend(["", "## Input roles", "", "| Input | Role | Access | Status |", "| --- | --- | --- | --- |"])
@@ -996,6 +1119,10 @@ def verbose_start_report(report: dict[str, Any]) -> str:
         lines.append("| Code Review Graph Lite | Planning now | identified likely callers and focused validation context |")
     for item in selected:
         lines.append(f"| {item.get('name')} | After approval | {item.get('why')} |")
+    lines.extend(architecture_planning.markdown_lines(report.get("architecture_plan", {}), detailed=True))
+    lines.extend(behaviour_planning.markdown_lines(report.get("behaviour_plan", {}), detailed=True))
+    lines.extend(maintainability_planning.markdown_lines(report.get("maintainability_plan", {}), detailed=True))
+    lines.extend(ui_planning.markdown_lines(report.get("ui_plan", {}), detailed=True))
     lines.extend(["", "## Deferred TailTrail features", ""])
     for item in deferred:
         lines.append(f"- **{item.get('name')}:** {short_trigger(str(item.get('when', '')))}")
@@ -1009,14 +1136,19 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     if report.get("ui_consistency", {}).get("selected"):
         lines.extend(["- UI discovery before implementation: `" + str(report["ui_consistency"]["command"]) + "`", "- UI preservation boundary: " + str(report["ui_consistency"]["boundary"])])
     lines.extend([f"- Boundary: {delivery['execution_boundary']}", "", "## Validation", ""])
-    validation = focused_validation_command(root, impacted, str(report["command_prefix"]))
-    lines.append(f"- Focused proof: `{validation}`" if validation else "- Focused proof: select the repository-native test for the approved changed behavior.")
+    validation_rows = focused_validation_plan(root, impacted, requirement_rows, str(report["command_prefix"]))
+    lines.extend(["| Tier | Candidate | Status / command |", "| --- | --- | --- |"])
+    for item in validation_rows:
+        detail = f"`{item['command']}`" if item["command"] else item["status"]
+        lines.append(f"| {item['tier']} | `{item['candidate']}` | {detail} |")
     lines.append("- Tests and validation run only after approval.")
     lines.extend(["", "## Token estimate", "", f"- Estimated focused context: approximately `{token['used_tokens']}` tokens.", f"- Estimated baseline context: approximately `{token['baseline_tokens']}` tokens.", f"- Estimated avoided context: approximately `{token['avoided_tokens']}` tokens (`{token['estimated_reduction_percent']}%` reduction).", "- Evidence: local file-size estimate only; exact model/API usage requires linked provider telemetry.", "", "## Evidence posture", "", "- Code intelligence: local-only `lite`, `v1`, and `v2`; provider-backed V3 is not default.", "- Evidence: local estimate only; no exact token-savings claim.", "", "## Approval", ""])
     if isinstance(aidlc, dict) and aidlc.get("state") == "official-aidlc-host-generation-required":
         lines.append("- The official Requirements Analysis questions must be generated, answered, and explicitly approved before TailTrail can freeze the anchor or begin implementation.")
     else:
         lines.append("- Approve this plan to begin implementation, or name any file/scope change before approval.")
+    if report.get("ui_plan", {}).get("surface_status") == "not-discovered":
+        lines.append("- UI scope must be confirmed before implementation approval; TailTrail will not treat backend candidates as the missing UI surface.")
     return "\n".join(lines) + "\n"
 
 

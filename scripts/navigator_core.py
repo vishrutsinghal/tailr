@@ -430,6 +430,53 @@ def feature_signal_is_test_only(goal: str) -> bool:
     return not any(term in lowered for term in non_test_feature_terms)
 
 
+def keyword_found(text: str, keyword: str) -> bool:
+    """Match a planning keyword as a token or phrase, never as a substring.
+
+    Short routing terms such as ``ci`` and ``pr`` previously matched words such
+    as ``accessibility`` and ``preview``.  That selected CI and review controls
+    for unrelated UI work.  Separators such as ``/`` and ``-`` remain valid
+    boundaries so paths and ordinary hyphenated prose still work.
+    """
+    normalized = re.escape(keyword.lower()).replace(r"\ ", r"\s+")
+    return re.search(rf"(?<![a-z0-9_]){normalized}(?![a-z0-9_])", text.lower()) is not None
+
+
+def _non_negated_keyword_found(text: str, keyword: str) -> bool:
+    """Return true when a keyword expresses requested work, not a prohibition."""
+    normalized = re.escape(keyword.lower()).replace(r"\ ", r"\s+")
+    for match in re.finditer(rf"(?<![a-z0-9_]){normalized}(?![a-z0-9_])", text.lower()):
+        prefix = text.lower()[max(0, match.start() - 80):match.start()]
+        if re.search(r"(?:do\s+not|don't|must\s+not|should\s+not|avoid|without|no\s+new)\b[^.;!?]{0,70}$", prefix):
+            continue
+        return True
+    return False
+
+
+def dependency_change_requested(goal: str) -> bool:
+    """Distinguish dependency work from a no-new-dependency guardrail."""
+    return any(
+        _non_negated_keyword_found(goal, word)
+        for word in ("dependency", "package", "library", "upgrade")
+    )
+
+
+def review_change_requested(goal: str) -> bool:
+    """Identify code/work review without treating a UI label as review work."""
+    lowered = goal.lower().strip()
+    if re.match(r"^review\b", lowered):
+        return True
+    return any(
+        keyword_found(lowered, phrase)
+        for phrase in (
+            "review my code", "review the code", "review code", "code review",
+            "review my changes", "review the changes", "review this diff",
+            "review this pr", "review the pr", "review this branch",
+            "post-change review", "after implementation", "before pr",
+        )
+    )
+
+
 def task_types(goal: str) -> list[str]:
     if is_repo_overview_request(goal):
         return ["repo-overview"]
@@ -438,7 +485,11 @@ def task_types(goal: str) -> list[str]:
     for word, task in TASK_KEYWORDS.items():
         if word == "add" and task == "feature" and feature_signal_is_test_only(goal):
             continue
-        if word in lowered and task not in found:
+        if task == "dependency" and not dependency_change_requested(goal):
+            continue
+        if word == "review" and task == "review" and not review_change_requested(goal):
+            continue
+        if keyword_found(lowered, word) and task not in found:
             found.append(task)
     return found or ["implementation"]
 
@@ -452,7 +503,7 @@ def ui_change_requested(goal: str, changed: list[str]) -> bool:
     discovery remains an approved read-only delivery step.
     """
     lowered = goal.lower()
-    if any(term in lowered for term in UI_GOAL_TERMS):
+    if any(keyword_found(lowered, term) for term in UI_GOAL_TERMS):
         return True
     for raw_path in changed:
         path = Path(raw_path.replace("\\", "/"))
@@ -465,10 +516,15 @@ def ui_change_requested(goal: str, changed: list[str]) -> bool:
 
 def risk_indicators(goal: str, changed: list[str]) -> list[str]:
     lowered = goal.lower()
-    risks = {label for word, label in RISK_KEYWORDS.items() if word in lowered}
+    risks = {
+        label
+        for word, label in RISK_KEYWORDS.items()
+        if keyword_found(lowered, word)
+        and (label != "dependency" or dependency_change_requested(goal))
+    }
     path_text = " ".join(changed).lower()
     for word, label in RISK_KEYWORDS.items():
-        if word in path_text:
+        if keyword_found(path_text, word):
             risks.add(label)
     if len(changed) > 3:
         risks.add("multi-file")
@@ -485,8 +541,7 @@ def has_override(goal: str, phrase: str) -> bool:
 
 
 def term_found(goal: str, terms: tuple[str, ...]) -> bool:
-    lowered = goal.lower()
-    return any(term in lowered for term in terms)
+    return any(keyword_found(goal, term) for term in terms)
 
 
 def ci_sonar_requested(goal: str, tasks: list[str], risks: list[str]) -> bool:

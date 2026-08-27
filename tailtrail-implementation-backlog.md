@@ -745,6 +745,13 @@ completion without forcing expensive inference into every task.
      forbidden-import checks linked to requirement UIDs.
    - Writes a local architecture assessment and append-only event; no source
      edit, semantic-provider execution, or architecture guess is treated as proof.
+   - The Start planning bridge is implemented: explicit architectural wording
+     becomes requirement-linked invariants, file-role hypotheses,
+     implementation guidance, proof expectations, and post-change checks.
+   - The architecture contract is preserved through Start report, immutable
+     approved anchor, and execution handoff. Caller/parallel-boundary contracts
+     require a linked graph receipt; no-new-dependency contracts check actual
+     manifest/lockfile scope.
 
 5. **Behaviour Harness — implemented V1**
    - Requirement-linked user-flow scenarios with preconditions, action,
@@ -763,6 +770,11 @@ completion without forcing expensive inference into every task.
 | `schemas/requirement-recovery-manifest.schema.json` | Implemented Mode B manifest contract. |
 | `scripts/recovery-diagnostician.py` | Implemented threshold-gated local-artifact diagnosis for repeated failure; never edits code. |
 | `scripts/recovery-reconcile.py` | Implemented exact-patch conflict classification for the normal recovery path. |
+| `scripts/architecture_planning.py` | Builds the planning-only requirement-linked Architecture Fitness contract and renders its Start insights. |
+| `scripts/architecture-fitness.py` | Evaluates changed scope, approved path/import/dependency rules, and required graph receipts after implementation. |
+| `scripts/task-start.py` | Carries architecture insights into compact/verbose Start reports and exposes every requested validation tier. |
+| `scripts/planning-lock.py` | Preserves architecture and validation contracts in the immutable execution handoff. |
+| `tests/test_architecture_planning.py` | Covers architecture role discovery, invariant rendering, validation gaps, anchor persistence, and execution steering. |
 | `tests/test_requirement_recovery_manifest.py` | Implemented baseline preservation, later-overlap refusal, and repeated-evidence diagnosis tests. |
 
 Mode B V1 uses structured JSON artifacts instead of Markdown templates so a
@@ -782,12 +794,46 @@ Findings are requirement-linked `architecture` or `scope` drift and are stored
 at `.tailtrail/runs/<run-id>/architecture/assessment-<n>.json`.
 MCP hosts can retrieve the latest artifact with `architecture_assessment_show`.
 
+Before approval, Start now displays an **Architecture Fitness Plan** whenever
+Navigator selects this Harness. It is explicitly labeled
+`planning-hypothesis`: file inventory can identify likely interface,
+orchestration, adapter, dependency, and evidence roles, but cannot claim a real
+caller relationship or required edit before source inspection is approved.
+The plan includes:
+
+- requirement IDs for every architecture invariant;
+- the boundary that should remain authoritative;
+- implementation guidance that prevents wrong-layer or parallel paths;
+- expected unit/integration/contract or graph proof;
+- file roles and confidence;
+- deterministic checks to run against actual changed scope.
+
+Explicitly requested proof tiers are never collapsed into one convenient test.
+If unit evidence is requested but no focused unit target is known, Start shows
+`must be discovered after approval` next to the valid integration command.
+
 ### Behaviour Harness V1: implementation design
 
 Behaviour Harness V1 converts a user-facing requirement into an explicit local
 scenario, then verifies that a matching receipt exists for the same requirement,
 proof tier, and asserted behavior. It does not run an undisclosed environment or
 promote a unit pass into integration proof.
+
+The implemented planning layer is `scripts/behaviour_planning.py`. Navigator
+activates it for user/customer journeys, workflows, state/status transitions,
+notifications, user-facing surfaces, and API behaviour. Before approval it:
+
+- separates functional, preservation, side-effect, and evidence requirements;
+- inventories likely interface, orchestration, authoritative-state, transition,
+  side-effect, behaviour-test, integration-test, and contract-test roles;
+- stores observable scenarios with preconditions, actions, expected outcomes,
+  preservation rules, and exact required evidence tiers;
+- carries those contracts into the immutable anchor and execution handoff; and
+- rejects stale domain-specific planning language unsupported by the current
+  goal or repository inventory.
+
+The planner never claims that an inventory candidate is a confirmed caller or
+required edit. Post-approval source inspection must confirm the actual path.
 
 ```mermaid
 flowchart LR
@@ -866,26 +912,28 @@ corresponding read-only MCP inspector. V1 deliberately does not perform a
 three-way merge, synthesize conflict edits, recover renamed/binary/untracked
 files, or claim that a same-hunk merge has a unique correct answer.
 
-### Maintainability Harness V1: implementation design
+### Maintainability Harness V2: implementation design — implemented
 
-Maintainability Harness V1 is a post-change **local assessment**, not a style
-bot and not a second test runner. It makes the common ways an agent can pass a
-test while still making the change harder to own visible: unapproved path scope,
-test-only edits, duplicate production definitions, and narrow classes that look
-like specialised single-use wrappers.
+Maintainability Harness V2 adds the planning and baseline contracts that V1 was
+missing. It remains a local assessment, not a style bot or a second test runner.
+`scripts/maintainability_planning.py` turns only explicit user wording into
+atomic requirement-linked rules for refactor ownership, reuse, preservation,
+abstraction restraint, demonstrated duplication reduction, and bounded scope.
+The Start report names the proof and failure condition for each rule before the
+user approves implementation.
 
 ```mermaid
 flowchart LR
-    A["Approved anchor likely paths"] --> D["Maintainability assessment"]
-    B["Actual changed paths"] --> D
-    C["Local Python AST"] --> D
-    D --> E["Actionable findings\nscope or test-chasing"]
-    D --> F["Advisories\nduplicate logic or abstraction"]
-    E --> G["Incomplete checkpoint"]
-    F --> H["Source review before correction"]
+    A["Start: atomic maintainability requirements"] --> B["User approval"]
+    B --> C["Automatic pre-edit baseline\nSHA-256 + local AST"]
+    C --> D["Approved implementation"]
+    D --> E["Actual changed paths + post-change AST"]
+    E --> F["Baseline delta + rule results"]
+    F --> G["Closure receipts and drift status"]
 ```
 
 ```powershell
+py -3 scripts/tailtrail.py harness maintainability --root . --run-id claim-validation --baseline
 py -3 scripts/tailtrail.py harness maintainability --root . --run-id claim-validation --changed src/claims_api/validation.py --changed tests/test_claim_validation.py
 ```
 
@@ -895,17 +943,27 @@ py -3 scripts/tailtrail.py harness maintainability --root . --run-id claim-valid
 | Test chasing | Changed test paths with no changed production path | Blocking `test-chasing` / `needs-decision` finding | A test-only change needs an explicit reason before it can count as proof. |
 | Duplicate logic | Local AST definitions repeated across changed production paths | Advisory `duplicate-logic` item | It prompts a reuse comparison without falsely declaring all same-named functions defective. |
 | Unnecessary abstraction | Local AST finds a small changed `*Validator`, `*Manager`, `*Handler`, `*Factory`, or `*Adapter` class | Advisory `unnecessary-abstraction` item | It makes a possible single-use layer reviewable, not automatically forbidden. |
+| Requested duplication reduction | Approved pre-edit exact body/call-sequence groups vs. post-change groups | Requirement-linked `improved`, `regressed`, or `evidence-incomplete` result | A refactor cannot claim improvement from a green test alone. |
+| Baseline identity | Approved candidate file SHA-256 plus anchor fingerprint | Immutable `baseline-v1.json` | The comparison cannot silently move to a post-edit starting point. |
 
-The assessment writes
+If no exact AST group exists for semantically duplicated orchestration, the
+assessment does not invent improvement. It requires a saved, requirement-linked
+execution-evidence `harness-result` with classification
+`maintainability-improved` or `duplication-reduced`; otherwise MNT-01 remains
+`evidence-incomplete`.
+
+Approval automatically writes
+`.tailtrail/runs/<run-id>/maintainability/baseline-v1.json` and appends
+`maintainability_baseline_captured`. The assessment writes
 `.tailtrail/runs/<run-id>/maintainability/assessment-<n>.json` and appends a
-`maintainability_assessed` event. Its `complete` flag is false only for the
-deterministic actionable findings. AST-based duplicate and abstraction signals
-are deliberately advisory because local syntax cannot decide whether a new
-layer is justified by a real domain boundary. MCP hosts can inspect the latest
-saved artifact with `maintainability_assessment_show`; the tool cannot run the
-assessment or edit source.
+`maintainability_assessed` event. Scope, test-only changes, missing baselines,
+and unchanged/regressed exact duplication are actionable findings when their
+approved rule requires them. Abstraction necessity and semantic equivalence
+remain advisory because local syntax cannot decide a domain boundary. MCP hosts
+can inspect the latest saved assessment with
+`maintainability_assessment_show`; the tool cannot edit source.
 
-V1 does not inspect diffs, count uses across the entire repository, run lint or
+V2 does not infer semantic duplication, run lint or
 tests, infer dependency intent, or auto-remove an abstraction. Existing
 testing profiles, dependency gate, Code Graph, policy, and TailTrail Review
 remain the appropriate complementary controls. Future versions can add

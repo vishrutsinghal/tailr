@@ -346,6 +346,8 @@ def _hands_free_requirement_matrix(features: list[dict[str, Any]], paths: list[s
             "validation_contract": {"state": "conditional" if conditional else "required", "tiers": tiers or ["unit"]},
             "architecture_contract": {"required_paths": [], "protected_paths": [], "forbidden_imports": []},
             "behavior_contract": {"scenarios": []},
+            "maintainability_contract": {"rules": []},
+            "ui_contract": {},
         })
     return rows
 
@@ -400,6 +402,15 @@ def _official_aidlc_state_module() -> Any:
     return module
 
 
+def _maintainability_harness_module() -> Any:
+    """Load the deterministic baseline capture without creating a package dependency."""
+    spec = importlib.util.spec_from_file_location("planning_lock_maintainability_harness", ROOT / "scripts" / "maintainability-harness.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def _saved_start_report(root: Path, run_id: str) -> dict[str, Any]:
     return active_start_report(root, run_id).get("report", {})
 
@@ -436,9 +447,20 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
             "requirement_uid": row["requirement_uid"],
             "display_id": row["display_id"],
             "statement": row["statement"],
+            "likely_paths": row.get("likely_paths", []),
+            "preserve_rules": row.get("preserve_rules", []),
+            "validation_contract": row.get("validation_contract", {}),
+            "architecture_contract": row.get("architecture_contract", {}),
+            "behavior_contract": row.get("behavior_contract", {}),
+            "maintainability_contract": row.get("maintainability_contract", {}),
+            "ui_contract": row.get("ui_contract", {}),
         } for row in approved_anchor.get("requirements", [])],
         "workflow": delivery.get("stages", ["inspect approved scope", "implement", "validate", "review", "report completion"]),
         "selected_features": delivery.get("selected", []),
+        "architecture_plan": saved_report.get("architecture_plan", {}),
+        "behaviour_plan": saved_report.get("behaviour_plan", {}),
+        "maintainability_plan": saved_report.get("maintainability_plan", {}),
+        "ui_plan": saved_report.get("ui_plan", {}),
         "likely_paths": [row.get("path") for row in plan.get("likely_impacted_files", []) if isinstance(row, dict) and row.get("path")],
         "execution_boundary": "Implementation may begin only within this activated approved anchor. TailTrail remains responsible for scope, evidence, drift, recovery, and completion controls.",
         "official_aidlc": bridge if isinstance(bridge, dict) else {"mode": (saved_report.get("aidlc_mode", {}) or {}).get("mode", "lite"), "state": "not-attached"},
@@ -459,6 +481,15 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
             "selected_harnesses": [row.get("name") for row in delivery.get("selected", []) if isinstance(row, dict) and row.get("name")],
         },
     }
+    selected_harnesses = handoff["closure"]["selected_harnesses"]
+    if "Maintainability Harness" in selected_harnesses and anchor_artifact:
+        baseline = _maintainability_harness_module().capture_baseline(root, run_id)
+        handoff["maintainability_baseline"] = {
+            "state": "captured" if baseline.get("complete") else "evidence-incomplete",
+            "artifact": baseline.get("run_artifact"),
+            "inspected_paths": baseline.get("snapshot", {}).get("inspected_paths", []),
+            "boundary": baseline.get("boundary"),
+        }
     return handoff
 
 
@@ -885,6 +916,16 @@ def render_execution_handoff(payload: dict[str, Any]) -> str:
         else:
             lines.append(f"- State: `{runtime.get('state')}` — {runtime.get('reason', 'no runtime action was taken')}.")
     lines.extend(["", "## Execution boundary", "", f"- {payload['execution_boundary']}", "- Next: inspect only the approved paths, implement the smallest compliant change, and run the selected evidence.", ""])
+    baseline = payload.get("maintainability_baseline")
+    if isinstance(baseline, dict):
+        lines.extend([
+            "## Maintainability baseline",
+            "",
+            f"- State: `{baseline.get('state')}`; artifact: `{baseline.get('artifact')}`.",
+            f"- Inspected approved production candidates: {len(baseline.get('inspected_paths', []))}.",
+            f"- {baseline.get('boundary')}",
+            "",
+        ])
     closure = payload.get("closure", {})
     if closure.get("required"):
         lines.extend([

@@ -203,6 +203,7 @@ schemas/input-role-registry.schema.json
 schemas/install-journal-event.schema.json
 schemas/install-ownership-manifest.schema.json
 schemas/install-plan.schema.json
+schemas/maintainability-baseline.schema.json
 schemas/maintainability-harness.schema.json
 schemas/official-aidlc-bridge.schema.json
 schemas/official-aidlc-pack.schema.json
@@ -259,6 +260,7 @@ schemas/workflow-context-receipt.schema.json
 schemas/workflow-correction-packet.schema.json
 schemas/workflow-dashboard.schema.json
 schemas/workflow-denial-audit.schema.json
+schemas/workflow-enterprise-access-review.schema.json
 schemas/workflow-enterprise-backup.schema.json
 schemas/workflow-enterprise-binding.schema.json
 schemas/workflow-enterprise-conformance.schema.json
@@ -271,6 +273,8 @@ schemas/workflow-enterprise-observability.schema.json
 schemas/workflow-enterprise-policy.schema.json
 schemas/workflow-enterprise-replay.schema.json
 schemas/workflow-enterprise-restore-validation.schema.json
+schemas/workflow-enterprise-support-bundle-verification.schema.json
+schemas/workflow-enterprise-support-bundle.schema.json
 schemas/workflow-evaluation-event.schema.json
 schemas/workflow-evidence-record.schema.json
 schemas/workflow-evidence.schema.json
@@ -311,8 +315,10 @@ scripts/aidlc-official-install.py
 scripts/aidlc-requirements.py
 scripts/analyze-benchmark.py
 scripts/architecture-fitness.py
+scripts/architecture_planning.py
 scripts/ast-map.py
 scripts/behavior-harness.py
+scripts/behaviour_planning.py
 scripts/benchmark-tailtrail.py
 scripts/bootstrap-snapshot.py
 scripts/cache-summary.py
@@ -375,6 +381,7 @@ scripts/learning-refresh.py
 scripts/learning-review.py
 scripts/learnings.py
 scripts/maintainability-harness.py
+scripts/maintainability_planning.py
 scripts/mcp-server.py
 scripts/meta-harness-analyze.py
 scripts/meta-harness-propose.py
@@ -468,6 +475,7 @@ scripts/token-telemetry.py
 scripts/token_budget_coach.py
 scripts/token_telemetry.py
 scripts/ui-consistency.py
+scripts/ui_planning.py
 scripts/update-copilot.py
 scripts/update-tailtrail.py
 scripts/validation-receipt.py

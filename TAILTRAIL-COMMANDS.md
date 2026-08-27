@@ -954,13 +954,16 @@ Behaviour Harness verifies requirement-linked user-flow scenarios against exact
 local receipts. A scenario needs matching requirement UID, tier, asserted
 behavior, and passing outcome; missing integration/E2E proof remains incomplete.
 
-## Maintainability Harness (Phase 6 V1)
+## Maintainability Harness (Phase 6 V2)
 
 ```bash
+python3 scripts/tailtrail.py harness maintainability --root . --run-id example-change --baseline
 python3 scripts/tailtrail.py harness maintainability --root . --run-id example-change --changed src/service.py --changed tests/test_service.py
 ```
 
-Maintainability Harness records deterministic approved-scope and test-only
+The baseline command is normally invoked automatically immediately after plan
+approval and before the first managed source edit. Maintainability Harness then
+records deterministic approved-scope and test-only
 change findings, then labels duplicate definitions and possible specialised
 single-use abstractions as advisory local-AST signals. It does not edit source,
 run tests, or claim that an advisory signal is a defect. The latest local

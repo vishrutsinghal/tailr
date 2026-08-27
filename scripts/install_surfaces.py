@@ -55,7 +55,9 @@ CORE_DIRS: tuple[str, ...] = (
 CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/aidlc-official-host.py",
     "scripts/architecture-fitness.py",
+    "scripts/architecture_planning.py",
     "scripts/behavior-harness.py",
+    "scripts/behaviour_planning.py",
     "scripts/bootstrap-snapshot.py",
     "scripts/change-intent-anchor.py",
     "scripts/check-tailtrail.py",
@@ -86,6 +88,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/install_surfaces.py",
     "scripts/installer.py",
     "scripts/maintainability-harness.py",
+    "scripts/maintainability_planning.py",
     "scripts/navigator.py",
     "scripts/navigator_core.py",
     "scripts/navigator_discovery.py",
@@ -129,6 +132,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/testing-profile.py",
     "scripts/token_budget_coach.py",
     "scripts/ui-consistency.py",
+    "scripts/ui_planning.py",
     "scripts/validation-receipt.py",
 )
 

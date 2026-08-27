@@ -77,8 +77,13 @@ class StartEntrypointTests(unittest.TestCase):
 
     def test_copilot_resolves_installed_pack_before_declaring_start_unavailable(self) -> None:
         body = (ROOT / "adapters" / "copilot-instructions.md").read_text(encoding="utf-8")
+        transactional = ".tailtrail/install/payload/copilot/scripts/tailtrail.py"
+        legacy = "tailtrail/scripts/tailtrail.py"
+        self.assertIn(transactional, body)
         self.assertIn("tailtrail/scripts/tailtrail.py", body)
         self.assertIn("scripts/tailtrail.py", body)
+        self.assertLess(body.index(transactional), body.index(legacy))
+        self.assertIn("Never prefer the legacy pack", body)
         self.assertIn("before saying TailTrail Start cannot run", body)
         self.assertIn("substitute a manual plan", body)
 

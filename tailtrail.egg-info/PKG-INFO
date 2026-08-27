@@ -52,6 +52,28 @@ run tests, or change Git until you approve the plan.
 | GitHub Copilot | [Copilot quickstart](docs/hosts/copilot.md) |
 | Claude | [Claude quickstart](docs/hosts/claude.md) |
 
+## TailTrail in plain language
+
+Coding agents can generate code quickly, but larger tasks often fail in less
+obvious ways: a caller is missed, one requirement is forgotten, tests prove only
+the easiest path, or repeated corrections move the implementation away from the
+original request.
+
+TailTrail adds a local control and evidence layer around the agent. It keeps the
+approved intent visible, selects only the controls the task needs, checks the
+result from several angles, and produces one completion report. It does not
+replace the coding agent—the agent still reads and writes the code—but it makes
+the delivery easier to inspect, correct, resume, and trust.
+
+This is useful when you want to:
+
+- keep a small fix small and avoid unnecessary refactoring;
+- deliver a multi-file feature without missing callers, contracts, or tests;
+- ask questions about a plan before approving it;
+- recover from repeated failures without losing unrelated work;
+- see what was actually validated instead of accepting a generic “tests pass”;
+- run the same governed workflow from Codex, Copilot, Claude, CLI, or MCP.
+
 ## The daily flow
 
 ```mermaid
@@ -76,17 +98,63 @@ Approve the plan. Implement the smallest maintainable change and run the focused
 Use `hands-free:` or `end-to-end:` only when you deliberately want TailTrail
 to break a larger delivery into approved slices.
 
-## What TailTrail adds
+## What TailTrail packs
 
-| Capability | Outcome |
-| --- | --- |
-| Navigator | A scoped plan before edits begin. |
-| Requirement Completion Harness | Requirement-to-code-to-proof traceability. |
-| Architecture and Behaviour Harnesses | Protection against missed callers and unit-only confidence. |
-| Evidence-aware testing | Focused, integration, or release evidence selected by task risk. |
-| Context Continuity | Correction memory across repeated attempts. |
-| Safe recovery | Bounded checkpoints that protect unrelated work. |
-| Guard and dependency checks | Reviewable dependency decisions plus versioned, fail-closed JSON/SARIF repository enforcement. |
+TailTrail does not run every feature for every task. Navigator selects the
+smallest useful workflow during planning; other controls remain armed and
+activate only when their trigger—such as drift, a failed correction, UI work, or
+release risk—actually occurs.
+
+### Harnesses and assurance loops
+
+| Implemented Harness | What it checks or controls | Why it matters |
+| --- | --- | --- |
+| **Requirement Completion Harness V1–V4** | Maps stable requirement IDs to likely and actual code paths, preservation rules, evidence, checkpoints, convergence, closure, and recovery. | Prevents “code changed” from being mistaken for “the requirement is complete.” |
+| **Architecture Fitness Harness** | Checks callers, layers, contracts, dependency direction, expected files, and unexpected architectural change. | Catches service-only fixes, missed callers, wrong-layer logic, and architecture drift. |
+| **Behaviour Harness** | Compares approved user/API scenarios with observed behaviour evidence. | Proves the user-facing flow, including failures and side effects, rather than accepting unit tests alone. |
+| **Maintainability Harness** | Looks for duplicate logic, unnecessary abstractions, test-chasing, excessive churn, and unjustified scope. | Keeps agent-generated changes understandable and aligned with existing project patterns. |
+| **Context Continuity Harness V1–V3** | Carries forward the active requirement, prior decisions, failed attempts, drift, and “do not repeat” reminders; its watcher/advisory layer can remind the main agent when intervention signals appear. | Reduces repeated mistakes and keeps a long-running agent focused without reloading the entire history. |
+| **Program Delivery Harness and deterministic orchestrator** | Breaks hands-free or end-to-end programmes into dependency-ordered features, slices, checkpoints, and approval gates. | Makes large deliveries resumable and prevents one uncontrolled implementation pass. |
+| **Evidence-Aware Testing** | Selects a testing profile, minimum evidence tier, requirement links, receipts, CI inputs, flaky-test posture, and evidence metrics. | Matches proof to the task instead of running arbitrary tests or trusting a generic pass statement. |
+| **Higher-Tier Testing and Release Confidence** | Covers integration, contract, behaviour/E2E, migration, environment, deployment, rollback, release policy, and calibration evidence. | Extends confidence beyond unit tests when the change crosses system or release boundaries. |
+| **Token Harness and budgeting** | Routes and reduces safe context, preserves exact evidence, records estimates, and accepts measured telemetry only when linked. | Keeps context manageable without treating estimates as exact model usage or dropping critical source and policy. |
+| **Evaluation Harness** | Runs deterministic scenarios, datasets, normalization, baseline comparisons, workflow outcomes, token evidence, and delivery evaluation. | Measures whether TailTrail improves completion and drift control instead of relying on product claims. |
+| **Meta-Harness** | Reviews TailTrail’s own workflow fit, confidence, guardrails, context, metrics, learning, and proposal readiness. | Detects when TailTrail itself selected too much, too little, or the wrong control. |
+| **Benchmark and Efficacy Harness** | Runs repeatable benchmark fixtures and analyzes captured efficacy results. | Provides measured local evidence for product evaluation while keeping live-model claims separate. |
+| **Harness convergence, templates, and finalization** | Selects project-specific templates, compares checkpoints, bounds correction cycles, finalizes selected Harnesses, and creates one Completion Report. | Gives all Harnesses a shared lifecycle instead of producing disconnected assessments. |
+
+### Other major product features
+
+| Feature area | What is included | How it helps |
+| --- | --- | --- |
+| **Navigator and TailTrail Start** | Automatic task classification, feature selection, skipped/deferred explanations, focused validation, token estimate, and a Planning Lock. | Gives the user a TailTrail decision before implementation starts. |
+| **Target and code intelligence** | Enterprise Target Workspace Resolver, input-role registry, Code Graph Mapper, caller/test discovery, cache freshness, semantic evidence labels, and cross-repository reference mapping. | Keeps the agent in the correct editable repository and makes impact decisions from local project evidence. |
+| **Canonical requirements and anchors** | Versioned requirement IDs, requirement-to-impact matrix, immutable approved intent, phase/slice anchors, actual state, and amendment history. | Provides the stable reference used for implementation, drift detection, evaluation, and selective recovery. |
+| **AIDLC integration** | Off, Lite, verified official Standard, and verified official Full modes; official questions, recommendations, stage approvals, session resume/redo/jump/recovery, and evidence/closure adapters. | Matches lifecycle depth to task complexity without presenting a local questionnaire as official AIDLC. |
+| **Intent Bridge** | Detects, imports, versions, maps, amends, and converges existing structured requirement sources. | Lets source-owned specifications remain authoritative while TailTrail manages delivery evidence and drift. |
+| **Interactive Plan Mode** | Evidence-backed explain/discuss, bounded investigation, question clarification/challenge, plan revision, AIDLC mode switch, and Expert Plan Customization. | Lets users challenge any file, requirement, feature, risk, validation, token, or approval decision without rejecting the whole plan. |
+| **Durable Workflow Runtime** | Canonical ownership, workflow identity, state machine, task locks, freshness, declarative capabilities, approvals, adapters, retries, pause/resume, CI continuation, replay, retention, and closure. | Moves long-running work from chat memory into deterministic local state. |
+| **Advanced runtime boundaries** | Approval-gated contracts for multi-agent graphs, source-writing MCP operations, cloud/Kubernetes runners, model-based diagnosis, live evaluation, and externally measured claims. | Lets advanced execution be integrated explicitly without pretending a local contract is a running external service. |
+| **Failure, drift, and bounded correction** | Failure intake receipts, classification, sanitized fingerprints, requirement/drift mapping, correction packets, repeated-cycle detection, and recovery/replan routing. | Acknowledges pasted failures, avoids infinite retry loops, and fixes the relevant requirement under the same run. |
+| **Safe Git recovery and Mode B diagnosis** | Git readiness, task recovery boundaries, checkpoints, selective reconciliation, conflict classification, and an evidence-based Recovery Diagnostician. | Preserves completed and unrelated work while reverting or repairing only the active task’s owned delta. |
+| **UI Consistency Guardrail** | Read-only discovery of components, tokens, layouts, responsive rules, accessibility patterns, and existing visual tests. | Makes UI agents reuse the repository’s design system instead of introducing a parallel one. |
+| **Closure, dashboard, and guarded learning** | Execution-evidence recorder, selected-Harness finalizer, requirement/control status tables, token posture, acceptance choices, deterministic evaluation, candidate-only learning, and a local workflow dashboard. | Shows what is complete, missing, unresolved, measured, or unavailable before learning from the result. |
+| **MCP and host adapters** | Inspection-first MCP tools, approval-gated controlled operations, and composed Codex, GitHub Copilot, Claude, Cursor, ChatGPT, and Gemini guidance with conformance receipts. | Makes the same workflow callable and debuggable across hosts without giving every tool unrestricted write authority. |
+| **Guardrails and quality intelligence** | Dependency Gate, security/review lenses, Sonar and vulnerability evidence, CI summaries, policy checks, and versioned JSON/SARIF repository enforcement. | Preserves safety and makes heavy or state-changing checks explicit, reviewable, and evidence-labelled. |
+| **Enterprise workflow controls** | Enterprise target policy, identity binding, tenant/repository/actor context, leases and fencing, audit events, backup/restore validation, migration/rollback, observability, and conformance. | Adds deterministic local enterprise contracts while keeping remote-service claims evidence-gated. |
+| **Packaging, installation, and supply chain** | Transactional install/update/repair/uninstall, ownership manifests, rollback journals, self-contained package validation, platform qualification, host quickstarts, and release manifests. | Makes TailTrail installable and recoverable without requiring users to understand its internal schemas on day one. |
+| **Reporting and product learning** | Outcome telemetry, quality loops, value reports, sanitized learning candidates, refresh/review, and public-claim boundaries. | Improves future routing from trusted evidence while current source, tests, policy, and user direction remain authoritative. |
+
+### A simple mental model
+
+```text
+Navigator decides what matters
+    -> AIDLC clarifies requirements when needed
+    -> the agent implements the approved scope
+    -> Harnesses check intent, architecture, behaviour, and evidence
+    -> bounded loops correct gaps or recover safely
+    -> one Completion Report shows what is complete and what is not
+```
 
 ## Use the right page
 

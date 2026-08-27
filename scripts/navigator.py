@@ -1125,8 +1125,15 @@ def decide(
         changed = changed_args
         target_origin = "provided"
     else:
-        changed = goal_discovered_paths(root, goal)
-        target_origin = "goal-discovery" if changed else "none"
+        if core.ui_change_requested(goal, []):
+            # A UI-first request must begin from repository-owned UI paths.
+            # Generic content matching can otherwise select backend files that
+            # happen to contain words such as validation, status, or events.
+            changed = repository_discovered_paths(root, goal, limit=8)
+            target_origin = "repository-discovery" if changed else "none"
+        else:
+            changed = goal_discovered_paths(root, goal)
+            target_origin = "goal-discovery" if changed else "none"
         if not changed and "review" not in tasks:
             changed = repository_discovered_paths(root, goal)
             target_origin = "repository-discovery" if changed else "none"
@@ -1544,7 +1551,10 @@ def decide(
     else:
         skipped.append(FeatureDecision("Quality Signal Scanner", "no full scan, local quality precheck, Sonar check, or vulnerability scan request detected"))
 
-    needs_handoff = not skip_handoff and not tiny and any(word in goal.lower() for word in ("handoff", "pr", "release", "reviewer", "approval", "transfer"))
+    needs_handoff = not skip_handoff and not tiny and any(
+        core.keyword_found(goal, word)
+        for word in ("handoff", "pr", "release", "reviewer", "approval", "transfer")
+    )
     if needs_handoff:
         selected.append(FeatureDecision("Handoff", "review, approval, release, or transfer signal detected"))
         workflow.append("handoff")
@@ -1622,9 +1632,10 @@ def decide(
         if not workflow:
             workflow = ["implementation"]
         elif "implementation" not in workflow:
-            # The workflow label is an execution path, not a list of planning
-            # lenses. A fix must visibly begin with the approved implementation.
-            workflow.insert(0, "implementation")
+            # Requirements authority must precede implementation. Other
+            # planning/review lenses can follow the implementation stage.
+            requirements_index = workflow.index("aidlc_requirements") if "aidlc_requirements" in workflow else -1
+            workflow.insert(requirements_index + 1, "implementation")
         if "review" in workflow and ("qa_review" in workflow or "test_precision" in workflow):
             # Review findings are most useful after the focused change and
             # validation evidence exist, so display it as a post-change step.

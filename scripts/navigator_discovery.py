@@ -61,7 +61,15 @@ def _candidates(root: Path) -> list[Path]:
     try:
         tracked = subprocess.run(["git", "ls-files"], cwd=root, text=True, capture_output=True, check=False)
         if tracked.returncode == 0:
-            return [root / line.strip() for line in tracked.stdout.splitlines() if line.strip()]
+            paths = [line.strip() for line in tracked.stdout.splitlines() if line.strip()]
+            untracked = subprocess.run(
+                ["git", "ls-files", "--others", "--exclude-standard"],
+                cwd=root, text=True, capture_output=True, check=False,
+            )
+            if untracked.returncode == 0:
+                paths.extend(line.strip() for line in untracked.stdout.splitlines() if line.strip())
+            if paths:
+                return [root / line for line in dict.fromkeys(paths)]
     except OSError:
         pass
     return list(root.rglob("*"))[:10_000]

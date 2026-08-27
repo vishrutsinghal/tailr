@@ -1145,9 +1145,23 @@ or arbitrary shell tool.
 Phase 6 now includes the implemented Architecture Fitness Harness V1: approved
 requirement path contracts, required/protected-path checks, local Python-AST
 forbidden-import checks, requirement-linked findings, local artifacts, and MCP
-inspection. Maintainability Harness V1 is also implemented: it records
-approved-scope and test-only-change findings, and surfaces duplicate-definition
-and specialised-abstraction signals as local-AST advisories. Conflict
+inspection. Its implemented planning bridge now makes Architecture Fitness
+visible before approval: Navigator derives requirement-linked invariants,
+classifies candidate files by architecture role, distinguishes inspection from
+edit authority, removes unrelated graph-suggested feature specifications, and
+names implementation guidance and post-change proof. Those contracts survive
+the immutable anchor and execution handoff. The post-change sensor also checks
+no-new-dependency boundaries and requires a requirement-linked graph receipt
+when caller or parallel-boundary coverage was approved. Maintainability Harness
+V2 is also implemented end to end: Start segregates refactor, reuse,
+preservation, abstraction, duplication-reduction, and scope requirements;
+renders requirement-linked rules, role-aware candidate files, proof, and failure
+conditions; and carries the contract through the immutable anchor and execution
+handoff. Explicit approval automatically captures the pre-edit SHA-256/local-AST
+baseline. Closure compares exact function-body and call-sequence groups, new
+symbol/abstraction signals, and actual scope against that baseline while keeping
+semantic equivalence advisory. Generic preservation wording no longer invents
+an API or exactly-once notification contract. Conflict
 classification and reconciliation V1 is also implemented: it reverses only an
 explicit, Git-verified task patch, preserves unrelated tracked work, and turns
 same-hunk overlap into a no-write reconciliation artifact. Mode B recovery V1
@@ -1158,6 +1172,15 @@ Behaviour Harness V1 is implemented: approved user-flow scenarios are
 linked to requirement IDs and exact evidence receipts, while missing or blocked
 integration/E2E proof remains a visible completion gap. Mode B recovery and the
 threshold-triggered Recovery Diagnostician are implemented local V1 controls.
+The Start planning bridge is also implemented: behavioural wording now creates
+atomic functional, preservation, side-effect, and evidence requirements;
+discovers interface, orchestration, state, transition, notification, behaviour,
+integration, and contract roles from repository inventory; renders a dedicated
+requirement-linked Behaviour Harness Plan; and preserves those scenarios in the
+approved anchor and execution handoff. Explicit behaviour/integration proof is
+required at closure, and negative wording such as "instead of unit tests" no
+longer incorrectly selects unit proof. A planning relevance check rejects
+foreign domain terms before a stale architecture contract can be persisted.
 
 Navigator UI Consistency Guardrail V1 is implemented as a lightweight companion
 to Behaviour Harness: UI/frontend/screen/page/component/style signals select a

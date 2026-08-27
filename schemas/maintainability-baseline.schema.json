@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/maintainability-baseline.schema.json",
+  "title": "TailTrail Maintainability Baseline",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "anchor_fingerprint", "snapshot", "rules", "complete", "evidence_label", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-maintainability-baseline"},
+    "run_id": {"type": "string"},
+    "anchor_fingerprint": {"type": ["string", "null"]},
+    "snapshot": {"type": "object"},
+    "rules": {"type": "array", "items": {"type": "object"}},
+    "complete": {"type": "boolean"},
+    "evidence_label": {"type": "string"},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": true
+}

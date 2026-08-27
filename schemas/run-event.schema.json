@@ -102,6 +102,7 @@
                 "program_correction_recorded",
                 "architecture_assessed",
                 "behavior_assessed",
+                "maintainability_baseline_captured",
                 "maintainability_assessed",
                 "requirement_impact_mapped",
                 "harness_convergence_assessed",

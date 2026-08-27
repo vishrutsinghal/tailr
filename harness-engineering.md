@@ -3267,6 +3267,51 @@ Python AST forbidden-import rules, writes a run-linked assessment artifact, and
 exposes that saved evidence for MCP inspection. The broader layer-direction,
 runtime-path, and cross-language rules described below remain future extensions.
 
+The requirement-to-architecture planning bridge is also implemented. When
+Navigator selects Architecture Fitness, Start no longer adds only a feature
+name. It derives a bounded, reviewable architecture hypothesis from the user's
+wording and repository path inventory:
+
+```mermaid
+flowchart LR
+    A["User requirements"] --> B["Navigator architecture signals"]
+    C["Repository path inventory"] --> B
+    B --> D["Requirement-linked invariants"]
+    B --> E["File roles: interface / orchestration / adapter / evidence"]
+    D --> F["Architecture Fitness Plan in Start report"]
+    E --> F
+    F --> G["Explicit approval"]
+    G --> H["Immutable anchor + execution handoff"]
+    H --> I["Implementation follows approved guidance"]
+    I --> J["Changed-scope, import, dependency, and graph-receipt checks"]
+    J --> K["preserved / drifted / expanded-needs-approval / unknown"]
+```
+
+The planning state is deliberately labeled `planning-hypothesis`. Before
+approval, TailTrail may say that `api.py` is an interface candidate because the
+user explicitly named API callers; it may not say that the API must change or
+that a caller relationship was proven. Candidate caller paths remain
+inspection-only until approved source and graph evidence confirms them.
+
+For an idempotent payment-retry requirement, the generated contract can state:
+
+| Requirement | Invariant | Implementation guidance | Proof |
+| --- | --- | --- | --- |
+| Retry is idempotent | Retry must not duplicate payment/order effects. | Coordinate through the existing service/payment boundary. | Focused unit + submission integration evidence. |
+| Reuse the adapter | Existing adapter remains authoritative. | Do not bypass it from API/service callers. | Import/symbol review + caller-path receipt. |
+| Map all callers | Every material service/API caller is assessed. | Inspect candidates; edit only where the approved contract requires it. | Requirement-linked Code Graph receipt. |
+| Preserve success | Successful order creation remains compatible. | Avoid caller-specific special cases. | Existing success-path integration proof. |
+| No dependency | Manifest and lock files remain unchanged. | Reuse installed/platform capabilities. | Changed-path dependency check. |
+| No second abstraction | No parallel adapter/client is introduced. | Extend the existing boundary. | Architecture + Maintainability assessment. |
+
+This contract is copied into the immutable approved requirement rows and the
+execution handoff, so the implementation agent receives the same invariants it
+approved. After implementation, `architecture-fitness.py` compares actual
+changed paths with approved scope, checks protected/required paths and imports,
+detects prohibited dependency-boundary changes, and requires a linked graph
+receipt for approved caller/parallel-boundary assertions. Missing proof becomes
+`unknown`; it is never rendered as a generic pass.
+
 This matters because a change can appear to work in one test while being placed
 in the wrong layer, bypassing shared validation, duplicating business logic, or
 creating a forbidden dependency direction.
@@ -3456,11 +3501,39 @@ evidence proves they improve completion more than they add complexity.
 
 ## Behaviour Harness
 
-**Implementation status:** Behaviour Harness V1 is implemented as a
-requirement-linked scenario-evidence assessor. It records a scenario only as
-validated when a local receipt matches the requirement UID, declared tier,
-asserted behavior, and passing outcome. Environment provisioning, fixture
-generation, and live E2E execution remain future work.
+**Implementation status:** Behaviour Harness V1 is implemented end to end from
+planning through closure. `scripts/behaviour_planning.py` converts explicit
+user wording into atomic requirements, repository-inventory role candidates,
+observable scenarios, preservation rules, and mandatory proof tiers. The
+scenarios survive Planning Lock approval in each requirement's
+`behavior_contract` and in the execution handoff. `scripts/behavior-harness.py`
+then records a scenario only as validated when a local receipt matches the
+requirement UID, declared tier, asserted behavior, and passing outcome.
+Environment provisioning, fixture generation, and live E2E execution remain
+future work.
+
+The planning bridge is deliberately evidence-bounded:
+
+```mermaid
+flowchart LR
+    A["User-facing requirement"] --> B["Atomic requirement rows"]
+    B --> C["Behaviour role inventory"]
+    C --> D["Scenario + preservation + proof contract"]
+    D --> E["Approved anchor"]
+    E --> F["Implementation and exact receipts"]
+    F --> G["Behaviour Harness assessment"]
+    G --> H["Completion Report"]
+```
+
+It treats service, state/repository, transition, notification, API, behaviour
+test, integration test, and contract test files as inspection candidates—not
+automatic edit targets. When the prompt explicitly requires behaviour and
+integration proof, both tiers remain mandatory; a unit receipt cannot replace
+them. Suggested dependency manifests are removed from behavioural scope unless
+the task actually names dependency or test-configuration work. Domain-specific
+planning language not supported by the current goal or path inventory is
+rejected before the Start report is saved, preventing context from an earlier
+payment, retry, cancellation, or shipment plan from leaking into a new run.
 
 The **Behaviour Harness** compares the observed user- or system-visible behavior
 to the desired behavior and invariants in the anchor. It answers:
@@ -3983,12 +4056,40 @@ that production behavior has been proven.
 
 ## Maintainability Harness
 
-**Implementation status (V1): implemented.** TailTrail now provides
-`tailtrail harness maintainability`: a local post-change assessment that records
-approved-scope and test-only-change findings, plus duplicate-definition and
-specialised-abstraction advisories from the changed Python source. It writes a
-versioned local artifact and an append-only ledger event; source review remains
-the final decision for every advisory.
+**Implementation status (V2): implemented end to end.** Maintainability is now
+visible before approval instead of appearing only as a selected feature. The
+planning bridge in `scripts/maintainability_planning.py` separates explicit
+refactor, reuse, preservation, abstraction, duplication-reduction, and scope
+requirements; links each row to a maintainability rule; classifies candidate
+files by role; and states the proof and failure condition in compact and verbose
+Start reports. It does not inspect source or assert that duplication exists
+during Planning Lock.
+
+After explicit approval—and before the first managed source edit—TailTrail
+automatically captures `.tailtrail/runs/<run-id>/maintainability/baseline-v1.json`.
+The baseline records approved production candidates, SHA-256 file identity,
+local Python symbols, exact function-body groups, repeated call-sequence groups,
+and narrow abstraction candidates. The post-change
+`tailtrail harness maintainability` assessment compares current structure with
+that immutable baseline, reconciles actual changed scope, keeps semantic
+judgment advisory, and writes requirement-linked rule results. Behaviour
+preservation is still proven by receipts; AST similarity alone never proves
+business equivalence. When exact AST groups cannot represent semantic
+duplication, closure remains evidence-incomplete until the host records a
+requirement-linked `harness-result` classified `maintainability-improved` or
+`duplication-reduced` from focused diff/review evidence.
+
+```mermaid
+flowchart LR
+    A["Explicit refactor requirements"] --> B["Maintainability Planning contract"]
+    B --> C{"Planning Lock approved?"}
+    C -->|No| D["No source read or baseline"]
+    C -->|Yes| E["Capture pre-edit baseline"]
+    E --> F["Small approved implementation"]
+    F --> G["Post-change structural assessment"]
+    G --> H["Requirement-linked rule results"]
+    H --> I["Closure + preservation receipts"]
+```
 
 The **Maintainability Harness** is the first concrete TailTrail harness category.
 It regulates whether an agent-generated change remains understandable,

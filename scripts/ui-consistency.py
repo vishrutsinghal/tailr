@@ -12,6 +12,7 @@ from typing import Iterable
 IGNORED_DIRS = {".git", ".tailtrail", ".video-tools", "node_modules", "dist", "build", "coverage", ".next", "__pycache__", "venv", ".venv"}
 STYLE_SUFFIXES = {".css", ".scss", ".sass", ".less"}
 COMPONENT_SUFFIXES = {".jsx", ".tsx", ".vue", ".svelte"}
+SCREEN_SUFFIXES = COMPONENT_SUFFIXES | {".html"}
 COMPONENT_DIR_NAMES = {"components", "component", "ui", "widgets", "shared"}
 SCREEN_DIR_NAMES = {"pages", "screens", "views", "routes", "app"}
 STYLE_DIR_NAMES = {"styles", "style", "theme", "themes", "tokens", "design-system"}
@@ -62,16 +63,26 @@ def discover(root: Path, changed: list[str]) -> dict[str, object]:
         name = path.name.lower()
         if suffix in COMPONENT_SUFFIXES and parts & COMPONENT_DIR_NAMES:
             components.append(rel)
-        if suffix in COMPONENT_SUFFIXES and parts & SCREEN_DIR_NAMES:
+        if suffix in SCREEN_SUFFIXES and (parts & SCREEN_DIR_NAMES or "ui" in parts):
             screens.append(rel)
         if suffix in STYLE_SUFFIXES or parts & STYLE_DIR_NAMES or name in {"tailwind.config.js", "tailwind.config.ts", "theme.ts", "theme.js", "tokens.json", "design-tokens.json"}:
             styles.append(rel)
-        if "storybook" in rel.lower() or "playwright" in rel.lower() or "cypress" in rel.lower() or "visual" in rel.lower():
+        if (
+            "storybook" in rel.lower()
+            or "playwright" in rel.lower()
+            or "cypress" in rel.lower()
+            or "visual" in rel.lower()
+            or ("tests/ui/" in rel.lower() and (name.startswith("test_") or ".test." in name or ".spec." in name))
+            or "accessibility" in rel.lower()
+            or "a11y" in rel.lower()
+        ):
             visual_tests.append(rel)
+    surface_status = "discovered" if components or screens or styles else "not-discovered"
     return {
         "type": "tailtrail-ui-consistency-profile",
         "root": root.as_posix(),
         "changed_paths": changed,
+        "surface_status": surface_status,
         "shared_component_candidates": limited(components),
         "similar_screen_candidates": limited(screens),
         "style_and_token_candidates": limited(styles),
@@ -87,7 +98,7 @@ def discover(root: Path, changed: list[str]) -> dict[str, object]:
 
 
 def markdown(profile: dict[str, object]) -> str:
-    lines = ["# TailTrail UI Consistency Profile", "", "Read-only local discovery. No files were changed.", ""]
+    lines = ["# TailTrail UI Consistency Profile", "", "Read-only local discovery. No files were changed.", "", f"- UI implementation surface: **{profile.get('surface_status', 'not-discovered')}**.", ""]
     for heading, key in (("Shared component candidates", "shared_component_candidates"), ("Comparable screen candidates", "similar_screen_candidates"), ("Style / token candidates", "style_and_token_candidates"), ("Frontend package evidence", "package_evidence"), ("Existing visual-test candidates", "visual_test_candidates")):
         values = profile[key]
         lines.extend([f"## {heading}", ""])
