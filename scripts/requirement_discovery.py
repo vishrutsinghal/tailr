@@ -16,6 +16,10 @@ ACTION = (
 ACTION_START = re.compile(rf"^(?:do\s+not\s+|must\s+|must\s+not\s+|should\s+)?(?:{ACTION})\b", re.IGNORECASE)
 SUBJECT_ACTION = re.compile(rf"^(?P<subject>[A-Za-z][A-Za-z0-9 _/-]{{0,60}}?)\s+(?P<action>{ACTION})\b", re.IGNORECASE)
 PREFIX = re.compile(r"^(?:tailtrail\s+start\s*[,;:-]?\s*)?(?:hands[- ]free|end[- ]to[- ]end)\s*:\s*", re.IGNORECASE)
+WORKFLOW_PREFIX = re.compile(
+    r"^(?:(?:using|use)\s+(?:tailtrail\s+)?(?:aidlc(?:\s+(?:lite|standard|full))?|navigator)\s*[,;:-]\s*)+",
+    re.IGNORECASE,
+)
 BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 
 
@@ -122,7 +126,7 @@ def _expand_ui_feature_list(value: str) -> list[str]:
 
 def statements(goal: str) -> list[str]:
     """Split only explicit clauses, bullets, sentences, and action predicates."""
-    value = PREFIX.sub("", goal.strip())
+    value = WORKFLOW_PREFIX.sub("", PREFIX.sub("", goal.strip()))
     if "zero quantity" in value.lower() and "validation" in value.lower():
         return [
             "Reject zero quantities in the existing validation boundary.",

@@ -95,6 +95,17 @@ EVALUATION_TRIGGER_WORDS = {
     "scenario",
 }
 
+
+def display_prose(value: Any) -> str:
+    """Normalize host-escaped prose for stable, single-line Markdown display.
+
+    Canonical artifacts retain the original user text. Only host-facing prose
+    is normalized, so Windows paths and exact evidence fields are not altered.
+    """
+    text = re.sub(r"\\(?:r\\n|n|r)", " ", str(value))
+    text = " ".join(text.split())
+    return text.translate(str.maketrans({"\u2013": "-", "\u2014": "-", "\u2212": "-", "\ufffd": "-"}))
+
 def target_root_from_goal(goal: str) -> str | None:
     """Extract one explicit local target root from user wording.
 
@@ -130,12 +141,12 @@ def render_target_boundary_report(report: dict[str, Any]) -> str:
         [
             "# TailTrail Start Plan",
             "",
-            f"**Goal:** {report['goal']}",
+            f"**Goal:** {display_prose(report['goal'])}",
             "",
             "## Target repository boundary",
             "",
             f"- Requested target: `{requested}`",
-            f"- Status: **{target['status']}** — {target['reason']}.",
+            f"- Status: **{target['status']}** - {display_prose(target['reason'])}.",
             "- No Planning Lock was created and no repository files, Git state, tests, scanners, or project commands were used.",
             "",
             "## Next step",
@@ -146,6 +157,121 @@ def render_target_boundary_report(report: dict[str, Any]) -> str:
             "",
         ]
     )
+
+
+def requested_technical_scope(goal: str) -> list[str]:
+    """Return user-named delivery areas without claiming repository paths."""
+    lowered = goal.lower()
+    cues = (
+        (("api", "contract"), "API and public contract"),
+        (("service", "orchestration"), "service orchestration"),
+        (("repository", "model"), "repository and authoritative state model"),
+        (("inventory", "reservation", "allocation"), "inventory, allocation, and reservation effects"),
+        (("payment", "charge", "refund"), "payment charge/refund idempotency"),
+        (("notification", "publish"), "notification ordering and deduplication"),
+        (("audit",), "immutable audit evidence"),
+        (("unit", "integration", "contract", "behaviour", "behavior"), "unit, integration, contract, and behaviour proof"),
+        (("metric", "observability"), "operational metrics and observability"),
+        (("ci",), "CI evidence"),
+        (("migration", "compatibility"), "migration and compatibility"),
+        (("rollout", "rollback"), "rollout and rollback safety"),
+        (("terraform", "infrastructure"), "infrastructure boundary: plan only; do not apply"),
+    )
+    return [label for terms, label in cues if any(term in lowered for term in terms)]
+
+
+def target_fit_boundary_report(
+    goal: str,
+    root: Path,
+    fit: dict[str, Any],
+    command_prefix: str,
+    planned: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a non-persisted, target-agnostic plan for a low-confidence workspace."""
+    planned = planned or {}
+    delivery = planned.get("guided_delivery", {}) if isinstance(planned, dict) else {}
+    navigator_plan = planned.get("navigator", {}) if isinstance(planned, dict) else {}
+    program = delivery.get("hands_free_program") if isinstance(delivery, dict) else None
+    requirements = program.get("feature_requirements", []) if isinstance(program, dict) else navigator_plan.get("requirement_matrix", [])
+    return {
+        "goal": goal,
+        "root": root.as_posix(),
+        "command_prefix": command_prefix,
+        "target_fit": fit,
+        "target_fit_boundary": True,
+        "requirements": requirements if isinstance(requirements, list) else [],
+        "program": program if isinstance(program, dict) else None,
+        "aidlc_mode": planned.get("aidlc_mode", {}) if isinstance(planned, dict) else {},
+        "selected_features": delivery.get("selected", []) if isinstance(delivery, dict) else [],
+        "technical_scope": requested_technical_scope(goal),
+    }
+
+
+def render_target_fit_boundary_report(report: dict[str, Any]) -> str:
+    fit = report["target_fit"]
+    root = str(report["root"])
+    lines = [
+        "# TailTrail Pre-Target Start Plan",
+        "",
+        f"**Goal:** {display_prose(report['goal'])}",
+        "",
+        "## Target confirmation",
+        "",
+        f"- Current workspace: `{root}`",
+        f"- Status: **{fit['status']}** - {display_prose(fit['reason'])}.",
+        "- TailTrail rejected the discovered file scope, but preserved the target-independent requirements and delivery design below.",
+        "- No Planning Lock was created. Full AIDLC, implementation, tests, scanners, and Git changes have not started.",
+    ]
+    requirements = [item for item in report.get("requirements", []) if isinstance(item, dict)]
+    if requirements:
+        lines.extend(["", "## Requirement bifurcation", ""])
+        for item in requirements:
+            lines.append(f"- **{item.get('display_id', 'REQ')}:** {display_prose(item.get('statement', ''))}")
+    technical_scope = [str(item) for item in report.get("technical_scope", [])]
+    if technical_scope:
+        lines.extend(["", "## Intended technical scope", ""])
+        lines.extend(f"- {display_prose(item)}" for item in technical_scope)
+    aidlc = report.get("aidlc_mode", {})
+    if isinstance(aidlc, dict) and aidlc:
+        lines.extend([
+            "",
+            "## AIDLC route",
+            "",
+            f"- Requested mode: **{display_prose(aidlc.get('mode', 'unknown'))}**.",
+            f"- Preflight state: `{aidlc.get('state', 'unavailable')}`.",
+            "- After target confirmation, the pinned official lifecycle owns the Full AIDLC requirements questions, options, recommendations, reasoning, design, implementation, build/test, and handoff stages.",
+            "- Question Orchestrator validates relevance and requirement traceability; TailTrail does not replace the official questionnaire.",
+        ])
+    features = [item for item in report.get("selected_features", []) if isinstance(item, dict)]
+    if features:
+        lines.extend(["", "## Selected TailTrail features", "", "| Feature | Use after target confirmation |", "| --- | --- |"])
+        for item in features:
+            lines.append(f"| {display_prose(item.get('name', 'TailTrail control'))} | {display_prose(item.get('why', 'Selected for this task.'))} |")
+    program = report.get("program")
+    if isinstance(program, dict):
+        lines.extend(["", "## End-to-end delivery program", "", "Proposed dependency order:"])
+        for index, stage in enumerate(program.get("dependency_order", []), start=1):
+            lines.append(f"{index}. {display_prose(stage)}")
+        lines.extend([
+            "",
+            f"- First active slice: {display_prose(program.get('first_active_slice', 'requirements only'))}",
+            f"- Approval gate: {display_prose(program.get('approval_gate', 'target and requirements approval required'))}",
+        ])
+    candidates = fit.get("discovered_candidates", [])
+    if candidates:
+        lines.extend(["", "## Rejected workspace matches", ""])
+        lines.append("- These paths were not accepted as implementation scope: " + ", ".join(f"`{path}`" for path in candidates) + ".")
+    lines.extend([
+        "",
+        "## Next action",
+        "",
+        "- Open the application repository and rerun this same Start request there.",
+        "- Or append an explicit target to the command you just ran:",
+        "  `--root \"D:/absolute/path/to/target-project\"`",
+        "- Once the target is confirmed, TailTrail reruns read-only impact mapping there, creates the Planning Lock, and starts the official Full AIDLC requirements stage.",
+        "",
+    ])
+    return "\n".join(lines)
 
 
 def delivery_run_signals(root: Path, run_id: str | None) -> dict[str, Any]:
@@ -319,11 +445,11 @@ def aidlc_mode_features(mode: str) -> dict[str, list[str]]:
         "Explicit approval before implementation",
     ]
     if mode == "lite":
-        return {"included": [*common, "Local AIDLC Lifecycle Lite only when Navigator selects it"], "not_included": ["Mandatory AIDLC requirements workshop", "Official pack verification or bridge identity"]}
+        return {"included": [*common, "Local AIDLC Lifecycle Lite only when Navigator selects it", "Question Orchestrator context, quality, and requirement traceability"], "not_included": ["Mandatory AIDLC requirements workshop", "Official pack verification or bridge identity"]}
     if mode == "standard":
-        return {"included": [*common, "Verified official AI-DLC Requirements Analysis rules loaded by the host", "Host-generated official questions with options, TailTrail recommendations, and reasoning", "Canonical approved anchor and requirement-linked execution handoff"], "not_included": ["Full official lifecycle stages after requirements"]}
+        return {"included": [*common, "Verified official AI-DLC Requirements Analysis rules loaded by the host", "Question Orchestrator grounding, quality, and requirement traceability", "Host-generated official questions with options, TailTrail recommendations, and reasoning", "Canonical approved anchor and requirement-linked execution handoff"], "not_included": ["Full official lifecycle stages after requirements"]}
     if mode == "full":
-        return {"included": [*common, "Phase A pinned-pack compatibility verification", "Full official AI-DLC lifecycle rules loaded by the host", "Host-generated official questions with options, TailTrail recommendations, and reasoning", "TailTrail anchor frozen from approved official requirement references and decisions", "After approval: receipt-driven official runtime attachment with ordered resume, redo, jump, and recovery history"], "not_included": ["TailTrail-generated substitute questions or silent local fallback"]}
+        return {"included": [*common, "Phase A pinned-pack compatibility verification", "Full official AI-DLC lifecycle rules loaded by the host", "Question Orchestrator grounding, quality, and requirement traceability", "Host-generated official questions with options, TailTrail recommendations, and reasoning", "TailTrail anchor frozen from approved official requirement references and decisions", "After approval: receipt-driven official runtime attachment with ordered resume, redo, jump, and recovery history"], "not_included": ["TailTrail-generated substitute questions or silent local fallback"]}
     return {"included": [*common, "AIDLC lifecycle routing disabled for this run"], "not_included": ["Local AIDLC Requirements stage", "Official pack verification and bridge identity"]}
 
 
@@ -357,6 +483,8 @@ def guided_delivery(plan: dict[str, Any], goal: str, changed: list[str], root: P
         stages = ["inspect the exact target", "implement the smallest change", "run focused proof", "report completion"]
     else:
         add("Canonical requirements", "create or confirm the approved requirement boundary before source changes")
+        if "aidlc_requirements" in plan.get("recommended_workflow", []):
+            add("Question Orchestrator", "ground AIDLC questions in saved requirements and inventory evidence, validate relevance, and map every decision to requirement IDs")
         add("Requirement Completion Harness", "map the requirement to code, preservation rules, and proof")
         if changed or broad:
             add("Requirement-to-Impact Map", "trace likely files, callers, and focused tests before implementation")
@@ -872,7 +1000,7 @@ def compact_start_report(report: dict[str, Any]) -> str:
     lock = report.get("planning_lock")
     impacted = [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)]
     root = Path(str(report["root"]))
-    goal = str(report["goal"])
+    goal = display_prose(report["goal"])
     lowered_goal = goal.lower()
     lines = ["# TailTrail Start Plan", "", f"**Goal:** {goal}", ""]
     if lock:
@@ -882,7 +1010,7 @@ def compact_start_report(report: dict[str, Any]) -> str:
                 "",
                 f"- Run ID: `{lock['run_id']}`",
                 f"- Target identity: `{lock.get('target_identity', {}).get('fingerprint', 'legacy lock')}`.",
-                "- Status: **awaiting approval** — no source files, tests, scanners, or Git changes were run.",
+                "- Status: **awaiting approval** - no source files, tests, scanners, or Git changes were run.",
                 "",
             ]
         )
@@ -894,13 +1022,13 @@ def compact_start_report(report: dict[str, Any]) -> str:
             lines.append(f"- Enterprise target policy: `{policy.get('status', 'not-configured')}`.")
     workflow_runtime = report.get("workflow_runtime", {})
     if isinstance(workflow_runtime, dict) and workflow_runtime.get("enabled"):
-        lines.extend(["", "## Workflow runtime", "", f"- Draft: `{workflow_runtime.get('workflow_id')}` — no durable workflow artifacts exist before approval.", "- After approval: bind the canonical anchor, declare selected capabilities, and freeze the non-executing compiler graph."])
+        lines.extend(["", "## Workflow runtime", "", f"- Draft: `{workflow_runtime.get('workflow_id')}` - no durable workflow artifacts exist before approval.", "- After approval: bind the canonical anchor, declare selected capabilities, and freeze the non-executing compiler graph."])
     lines.extend(["## Scope", ""])
     target = report.get("target_root")
     if isinstance(target, dict) and target.get("requested"):
         lines.append(f"- Target repository: `{target['requested']}` ({target.get('status', 'verified')}).")
     for item in impacted[:4]:
-        lines.append(f"- `{item['path']}` — {item['reason']}")
+        lines.append(f"- `{item['path']}` - {display_prose(item['reason'])}")
     if not impacted:
         if report.get("ui_plan", {}).get("selected"):
             lines.append("- UI implementation surface not discovered. Confirm the frontend/UI root or approve bounded read-only UI discovery; backend files were not substituted as UI scope.")
@@ -909,13 +1037,13 @@ def compact_start_report(report: dict[str, Any]) -> str:
     roles = report.get("input_roles", {})
     if isinstance(roles, dict):
         read_only_count = max(0, len(roles.get("inputs", [])) - 1)
-        lines.extend(["", "## Input roles", "", f"- Target: `{roles.get('target_root', root.as_posix())}` — editable only after approval.", f"- Read-only inputs: {read_only_count}. References, design, requirements, and evidence cannot become implementation scope."])
+        lines.extend(["", "## Input roles", "", f"- Target: `{roles.get('target_root', root.as_posix())}` - editable only after approval.", f"- Read-only inputs: {read_only_count}. References, design, requirements, and evidence cannot become implementation scope."])
     lines.extend(["", "## Requirements", ""])
     hands_free_program = delivery.get("hands_free_program")
     spec_kit_source = report.get("spec_kit_source")
     requirement_rows = [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)]
     for item in requirement_rows:
-        lines.append(f"- **{item.get('display_id', 'REQ')}:** {item.get('statement', '')}")
+        lines.append(f"- **{item.get('display_id', 'REQ')}:** {display_prose(item.get('statement', ''))}")
     if isinstance(spec_kit_source, dict):
         lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
     if not requirement_rows:
@@ -924,16 +1052,16 @@ def compact_start_report(report: dict[str, Any]) -> str:
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
         if aidlc.get("state") == "official-aidlc-host-generation-required":
-            lines.extend(["", "## Official AIDLC requirements", "", "- The verified official Requirements Analysis stage is ready for the configured host.", "- The host must load the recorded official rules and generate questions, options, TailTrail advisory recommendations, and reasoning before implementation can be approved.", "- TailTrail validates and persists that official stage artifact under this same run ID; it will not fabricate a local substitute questionnaire.", ""])
+            lines.extend(["", "## Official AIDLC requirements", "", "- The verified official Requirements Analysis stage is ready for the configured host.", "- The host must load the recorded official rules and saved Question Orchestrator context, then generate material questions with requirement traceability, options, TailTrail advisory recommendations, and evidence-grounded reasoning before implementation can be approved.", "- TailTrail validates grounding and persists that official stage artifact under this same run ID; it will not fabricate a local substitute questionnaire.", ""])
         else:
             lines.extend(["", "## AIDLC requirements and recommendations", "", "- Assumption: " + "; ".join(stage.get("assumptions", [])), "- Non-goal: " + "; ".join(stage.get("non_goals", [])), ""])
             for question in aidlc.get("questions", []):
-                lines.extend([f"### {question.get('id', 'Question')} — {question.get('question', '')}", f"- **Recommended:** {question.get('recommended', '')}", f"- **Reasoning:** {question.get('reasoning', '')}", ""])
+                lines.extend([f"### {question.get('id', 'Question')} - {display_prose(question.get('question', ''))}", f"- **Recommended:** {display_prose(question.get('recommended', ''))}", f"- **Reasoning:** {display_prose(question.get('reasoning', ''))}", ""])
     aidlc_mode = report.get("aidlc_mode", {})
     if isinstance(aidlc_mode, dict):
         lines.extend(["", "## AIDLC mode", "", f"- Selected mode: `{aidlc_mode.get('mode')}`", f"- Selection: `{aidlc_mode.get('selection')}`", f"- State: `{aidlc_mode.get('state')}`", f"- Boundary: {aidlc_mode.get('boundary')}"])
         escalation = aidlc_mode.get("full_escalation", {})
-        if isinstance(escalation, dict): lines.append(f"- Full escalation: `{escalation.get('state')}` — {escalation.get('reason')}")
+        if isinstance(escalation, dict): lines.append(f"- Full escalation: `{escalation.get('state')}` - {display_prose(escalation.get('reason'))}")
         if aidlc_mode.get("mode") in {"standard", "full"}:
             lines.append("- Official stage: verified official Requirements Analysis rules govern these questions; the host generates them and TailTrail validates/imports approved decisions before freezing the anchor.")
     mode_features = report.get("aidlc_mode_features", {})
@@ -1018,7 +1146,7 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     impacted = [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)]
     selected = [item for item in delivery.get("selected", []) if isinstance(item, dict)]
     deferred = [item for item in delivery.get("activated_later", []) if isinstance(item, dict)]
-    goal = str(report["goal"])
+    goal = display_prose(report["goal"])
     lowered_goal = goal.lower()
     code_intel = report["code_intelligence"]
     token = report["token_posture"]
@@ -1065,7 +1193,7 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     # Verbose is the escape hatch for compact Start output. Never repeat a
     # compact-mode truncation hint here: show every discovered file instead.
     for item in impacted:
-        lines.append(f"| `{item.get('path')}` | {item.get('reason')} |")
+        lines.append(f"| `{item.get('path')}` | {display_prose(item.get('reason'))} |")
     if not impacted:
         if report.get("ui_plan", {}).get("selected"):
             lines.append("| UI surface not discovered | Confirm the frontend/UI root or approve bounded read-only UI discovery. Backend files were not substituted as UI scope. |")
@@ -1082,7 +1210,7 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     spec_kit_source = report.get("spec_kit_source")
     requirement_rows = [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)]
     for item in requirement_rows:
-        lines.append(f"- **{item.get('display_id', 'REQ')}:** {item.get('statement', '')}")
+        lines.append(f"- **{item.get('display_id', 'REQ')}:** {display_prose(item.get('statement', ''))}")
     if isinstance(spec_kit_source, dict):
         lines.append(f"- Source: `{spec_kit_source['feature_id']}` / `{spec_kit_source['source_revision']}` (imported snapshot v{spec_kit_source['snapshot_version']}).")
     if not requirement_rows:
@@ -1091,7 +1219,7 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     if isinstance(aidlc, dict):
         stage = aidlc.get("aidlc_stage", {})
         if aidlc.get("state") == "official-aidlc-host-generation-required":
-            lines.extend(["", "## Official AIDLC requirements", "", "- The verified official Requirements Analysis stage is ready for the configured host.", "- The host must load the recorded official rules and generate questions, options, TailTrail advisory recommendations, and reasoning before implementation can be approved.", "- TailTrail validates and persists that official stage artifact under this same run ID; it will not fabricate a local substitute questionnaire.", "", f"- Stage gate: {stage.get('stage_gate', '')}"])
+            lines.extend(["", "## Official AIDLC requirements", "", "- The verified official Requirements Analysis stage is ready for the configured host.", "- The host must load the recorded official rules and saved Question Orchestrator context, then generate material questions with requirement traceability, options, TailTrail advisory recommendations, and evidence-grounded reasoning before implementation can be approved.", "- TailTrail validates grounding and persists that official stage artifact under this same run ID; it will not fabricate a local substitute questionnaire.", "", f"- Stage gate: {stage.get('stage_gate', '')}"])
         else:
             lines.extend(["", "## AIDLC requirements and recommendations", "", "### Assumptions", ""])
             lines.extend(f"- {item}" for item in stage.get("assumptions", []))
@@ -1099,13 +1227,13 @@ def verbose_start_report(report: dict[str, Any]) -> str:
             lines.extend(f"- {item}" for item in stage.get("non_goals", []))
             lines.extend(["", "### Questions", ""])
             for question in aidlc.get("questions", []):
-                lines.extend([f"#### {question.get('id', 'Question')} — {question.get('question', '')}", f"- **Recommended:** {question.get('recommended', '')}", f"- **Reasoning:** {question.get('reasoning', '')}", ""])
+                lines.extend([f"#### {question.get('id', 'Question')} - {display_prose(question.get('question', ''))}", f"- **Recommended:** {display_prose(question.get('recommended', ''))}", f"- **Reasoning:** {display_prose(question.get('reasoning', ''))}", ""])
             lines.extend(["", f"- Stage gate: {stage.get('stage_gate', '')}"])
     aidlc_mode = report.get("aidlc_mode", {})
     if isinstance(aidlc_mode, dict):
         lines.extend(["", "## AIDLC mode", "", f"- Selected mode: `{aidlc_mode.get('mode')}`", f"- Selection: `{aidlc_mode.get('selection')}`", f"- State: `{aidlc_mode.get('state')}`", f"- Boundary: {aidlc_mode.get('boundary')}"])
         escalation = aidlc_mode.get("full_escalation", {})
-        if isinstance(escalation, dict): lines.append(f"- Full escalation: `{escalation.get('state')}` — {escalation.get('reason')}")
+        if isinstance(escalation, dict): lines.append(f"- Full escalation: `{escalation.get('state')}` - {display_prose(escalation.get('reason'))}")
     mode_features = report.get("aidlc_mode_features", {})
     if isinstance(mode_features, dict):
         lines.extend(["", "## AIDLC mode features", "", "| Included | Not included in this mode |", "| --- | --- |"])
@@ -1155,6 +1283,8 @@ def verbose_start_report(report: dict[str, Any]) -> str:
 def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     if report.get("target_boundary"):
         return render_target_boundary_report(report)
+    if report.get("target_fit_boundary"):
+        return render_target_fit_boundary_report(report)
     plan = report["navigator"]
     lock = report.get("planning_lock")
     lock_lines = []
@@ -1218,7 +1348,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         "",
         "## Goal",
         "",
-        f"- {report['goal']}",
+        f"- {display_prose(report['goal'])}",
         "",
         "## Navigator Decision",
         "",
@@ -1399,7 +1529,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         "",
         "## Goal",
         "",
-        f"- {report['goal']}",
+        f"- {display_prose(report['goal'])}",
         "",
             "## Navigator Summary",
         "",
@@ -1415,7 +1545,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     )
     lines.extend(["", "## Guided Delivery Details", ""])
     lines.extend(f"- {item['name']}: {item['why']}" for item in delivery["selected"])
-    lines.extend(f"- Later — {item['name']}: {item['when']}" for item in delivery["activated_later"])
+    lines.extend(f"- Later - {item['name']}: {display_prose(item['when'])}" for item in delivery["activated_later"])
     if run_signals.get("evidence"):
         lines.append("- Run evidence pointers: " + ", ".join(f"`{item}`" for item in run_signals["evidence"]))
     for item in selected[:6]:
@@ -1586,6 +1716,21 @@ def main() -> int:
             parser.error("Select an imported Intent Bridge feature with --intent-feature <feature>; TailTrail will not guess or auto-import a requirement source.")
         report = build_report(goal, root, args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest, requested_spec_kit_feature)
         report["target_root"] = {key: value for key, value in target.items() if key != "root"}
+        fit = target_workspace.assess_plan_fit(
+            goal,
+            root,
+            report.get("navigator", {}).get("likely_impacted_files", []),
+            resolution_source=str(target.get("source", "unknown")),
+            changed=args.changed,
+        )
+        report["target_fit"] = fit
+        if fit["blocking"]:
+            boundary = target_fit_boundary_report(goal, root, fit, args.command_prefix, report)
+            if args.format == "json":
+                print(json.dumps(boundary, indent=2, sort_keys=True, default=str))
+            else:
+                print(render_markdown(boundary, verbose=args.verbose), end="")
+            return 2
         if isinstance(host_resolution, dict):
             report["host_workspace"] = {key: value for key, value in host_resolution.items() if key != "root"}
         report["enterprise_policy"] = policy_result

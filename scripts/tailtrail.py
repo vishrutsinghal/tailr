@@ -510,6 +510,10 @@ def start(args: list[str]) -> int:
         return 0
     if not quiet_enabled(args) and not json_output_requested(args):
         print_startup_banner()
+        # The delegated Start process writes directly to the same stream.
+        # Flush first so redirected/Copilot/Codex output cannot place the
+        # parent banner after the child report.
+        sys.stdout.flush()
     return run_script("task-start.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
 
 
@@ -1071,6 +1075,8 @@ def main() -> int:
     if command in {"start", "do", "run"}:
         return start(args)
     if command == "planning":
+        if args and args[0] == "question-context":
+            return run_script("question-orchestrator.py", ["show", *args[1:]])
         if args and args[0] == "aidlc-question":
             return run_script("planning-aidlc-question.py", args[1:])
         if args and args[0] in {"discuss", "explain", "discussion-show", "decision-show"}:

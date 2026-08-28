@@ -21,8 +21,8 @@
     }
   },
   "candidate_baseline": {
-    "captured_at": "2026-08-22",
-    "git_commit": "e1e85dac8cdc9c369b44ed5fb29c778a2195b02f",
+    "captured_at": "2026-08-28",
+    "git_commit": "e65526ed9cd23a2503dd0503c3a59859f469df4f",
     "branch": "master",
     "worktree_state": "dirty-explicitly-classified",
     "release_candidate_state": "blocked",
@@ -543,6 +543,30 @@
         "disposition": "include",
         "owner": "tailtrail-release",
         "reason": "ENT-E12-002 tests that VERSIONING.md's Continuous Release Governance schedule covers all 9 required review dimensions and does not claim any review cycle has actually run."
+      },
+      {
+        "path": "scripts/question-orchestrator.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Shared Question Orchestrator implementation for grounded Lite and official AIDLC requirement decisions."
+      },
+      {
+        "path": "schemas/question-context.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Versioned contract for saved Navigator-to-AIDLC question context."
+      },
+      {
+        "path": "schemas/orchestrated-question-set.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Versioned contract for requirement-linked AIDLC questions and quality evidence."
+      },
+      {
+        "path": "tests/test_question_orchestrator.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Focused grounding, traceability, authority, and compatibility proof for the Question Orchestrator."
       }
     ]
   },

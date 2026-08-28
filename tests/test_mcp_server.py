@@ -36,7 +36,7 @@ anchor = load_script("mcp_execution_anchor_test", "scripts/change-intent-anchor.
 
 class McpServerTests(unittest.TestCase):
     def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
-        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "planning_decision_show", "planning_investigation_show", "planning_revision_show", "planning_authority_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report", "execution_evidence_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
+        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "planning_decision_show", "planning_investigation_show", "planning_revision_show", "planning_authority_show", "planning_question_context_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report", "execution_evidence_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
         self.assertTrue({"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest"}.issubset(set(mcp.CONTROLLED_TOOLS)))
         self.assertEqual(set(mcp.HANDLERS), set((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         self.assertEqual(mcp.ensure_safe_tools(), [])
@@ -83,6 +83,27 @@ class McpServerTests(unittest.TestCase):
             result = mcp.call_tool("host_conformance_report", {"root": tmp, "host": "codex"})
         self.assertTrue(result["execution"]["read_only"])
         self.assertEqual(result["result"]["runtime_conformance"][0]["runtime_status"], "not-validated")
+
+    def test_question_context_show_is_read_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact = root / ".tailtrail" / "runs" / "question-run" / "planning" / "question-context-v1.json"
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text(json.dumps({
+                "schema_version": "1",
+                "type": "tailtrail-question-context",
+                "run_id": "question-run",
+                "aidlc_mode": "standard",
+                "question_authority": "official-ai-dlc-pack",
+                "goal": "Add validation.",
+                "requirements": [],
+                "known_facts": [],
+                "unknowns": [],
+                "question_policy": {},
+            }), encoding="utf-8")
+            result = mcp.call_tool("planning_question_context_show", {"root": tmp, "run_id": "question-run"})
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["question_authority"], "official-ai-dlc-pack")
 
     def test_enterprise_target_policy_inspection_is_read_only(self):
         with tempfile.TemporaryDirectory() as tmp:

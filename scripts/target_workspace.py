@@ -26,9 +26,11 @@ TARGET_ROOT_CUES = (
     "implement in", "implement within", "target repo", "target repository",
     "target root", "project root",
 )
-STATUSES = {"verified", "ambiguous", "inaccessible", "unmapped", "blocked"}
+STATUSES = {"verified", "ambiguous", "inaccessible", "unmapped", "blocked", "needs-confirmation"}
 MANIFESTS = ("package.json", "pyproject.toml", "pom.xml", "build.gradle", "build.gradle.kts", "go.mod", "Cargo.toml", "Gemfile")
 LANGUAGE_SUFFIXES = {".py": "Python", ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript", ".jsx": "JavaScript", ".java": "Java", ".cs": "C#", ".go": "Go", ".rb": "Ruby", ".rs": "Rust"}
+PRODUCTION_SUFFIXES = frozenset(LANGUAGE_SUFFIXES)
+NON_PRODUCTION_ROOTS = {"test", "tests", "docs", "doc", "examples", "fixtures"}
 INPUT_ROLE_ACCESS = {
     "target": "read-write-after-approval",
     "related-repo": "read-only",
@@ -291,7 +293,7 @@ def resolve(
     else:
         prompt = prompt_candidate(goal)
         if prompt:
-            selected.append(candidate("goal", Path(prompt), prompt))
+            selected.append(candidate("goal", Path(prompt)))
         else:
             selected.append(candidate("host-cwd", cwd))
 
@@ -303,6 +305,79 @@ def resolve(
     if not path.is_dir():
         return {"status": "inaccessible", "source": choice["source"], "requested": choice["requested"], "candidates": [choice], "reason": "the selected target repository is not accessible from this host"}
     return {"status": "verified", "source": choice["source"], "requested": choice["requested"], "root": path.resolve(), "candidates": [choice], "reason": "one accessible editable target was resolved"}
+
+
+def assess_plan_fit(
+    goal: str,
+    root: Path,
+    impacted: list[dict[str, Any]],
+    *,
+    resolution_source: str,
+    changed: list[str] | None = None,
+) -> dict[str, Any]:
+    """Fail closed when implicit workspace discovery finds no production scope.
+
+    An explicit root, host workspace, prompt target, alias, or ``--changed`` path
+    is an intentional target selection and remains authoritative. For an
+    implicit current-directory target, however, a feature request that maps
+    only to tests/docs is not enough evidence that the correct repository is
+    open. This check runs after read-only Navigator discovery and before a
+    Planning Lock is persisted.
+    """
+    if resolution_source != "host-cwd" or changed:
+        return {
+            "status": "verified",
+            "blocking": False,
+            "reason": "the target was explicitly selected or scoped",
+            "production_candidates": [],
+        }
+
+    lowered = " ".join(str(goal).lower().split())
+    production_request = any(
+        term in lowered
+        for term in (
+            "add api", "add service", "implement", "feature", "end to end",
+            "end-to-end", "customer journey", "validation across", "endpoint",
+            "refactor", "user-facing", "user facing", "ui page", "screen",
+        )
+    )
+    documentation_scope = any(
+        term in lowered
+        for term in ("documentation only", "docs only", "readme", "changelog", "markdown documentation")
+    )
+    test_scope = any(
+        term in lowered
+        for term in ("test only", "tests only", "add tests", "update tests", "test coverage only")
+    )
+    docs_or_tests_only = (documentation_scope or test_scope) and not production_request
+    production: list[str] = []
+    discovered: list[str] = []
+    for item in impacted:
+        if not isinstance(item, dict) or not item.get("path"):
+            continue
+        raw = str(item["path"]).replace("\\", "/")
+        discovered.append(raw)
+        path = Path(raw)
+        parts = {part.lower() for part in path.parts}
+        if path.suffix.lower() in PRODUCTION_SUFFIXES and not parts.intersection(NON_PRODUCTION_ROOTS):
+            production.append(raw)
+
+    if production or docs_or_tests_only:
+        return {
+            "status": "verified",
+            "blocking": False,
+            "reason": "read-only discovery found production scope consistent with the request" if production else "the request is explicitly limited to tests or documentation",
+            "production_candidates": production,
+            "discovered_candidates": discovered,
+        }
+    return {
+        "status": "needs-confirmation",
+        "blocking": True,
+        "reason": "the implicit current workspace produced no production-code candidate for this request; test or documentation matches alone cannot prove it is the intended repository",
+        "root": root.resolve().as_posix(),
+        "production_candidates": [],
+        "discovered_candidates": discovered,
+    }
 
 
 def markdown(result: dict[str, Any]) -> str:

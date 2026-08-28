@@ -211,6 +211,7 @@ schemas/official-aidlc-run-state.schema.json
 schemas/official-aidlc-sanitized-reference.schema.json
 schemas/official-aidlc-session.schema.json
 schemas/official-aidlc-transition-receipt.schema.json
+schemas/orchestrated-question-set.schema.json
 schemas/planning-aidlc-mode-switch.schema.json
 schemas/planning-authority-route.schema.json
 schemas/planning-conversation.schema.json
@@ -220,6 +221,7 @@ schemas/planning-revision.schema.json
 schemas/platform-qualification-receipt.schema.json
 schemas/program-plan.schema.json
 schemas/program-state.schema.json
+schemas/question-context.schema.json
 schemas/recovery-reconciliation.schema.json
 schemas/release-evidence.schema.json
 schemas/repository-enforcement-policy.schema.json
@@ -415,6 +417,7 @@ scripts/public-doc-audit.py
 scripts/quality-loop.py
 scripts/quality-run.py
 scripts/quality-scan.py
+scripts/question-orchestrator.py
 scripts/recovery-diagnostician.py
 scripts/recovery-reconcile.py
 scripts/registry-drift.py

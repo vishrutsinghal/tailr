@@ -32,11 +32,14 @@ reconstruct a plan from the goal.**
 **Official AIDLC exception:** if the saved Start report has
 `aidlc_requirements.state = official-aidlc-host-generation-required`, do not stop
 at a local substitute. Read the pinned official Requirements Analysis and
-question-format rules referenced by the report, generate the official questions
-and options, attach a TailTrail advisory recommendation and reasoning to each,
+question-format rules plus the saved Question Orchestrator context referenced by
+the report. Generate only material official questions and options; include
+requirement IDs, decision class and impact, known context, evidence references,
+and attach a TailTrail advisory recommendation and evidence-grounded reasoning to each,
 record them with `tailtrail planning official-aidlc-questions`, and return the
 complete `TailTrail Official AI-DLC Requirements` report for the same run. Do
-not inspect project source, implement work, or claim the recommendations are
+not inspect project source, present inventory hypotheses as confirmed source
+behavior, implement work, or claim the recommendations are
 official-pack text; the user may choose any option or Other with detail.
 
 Before sending the report, verify it includes every required heading: `Planning Lock`,

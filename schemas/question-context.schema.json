@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/question-context.schema.json",
+  "title": "TailTrail Question Orchestrator Context",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "type",
+    "run_id",
+    "aidlc_mode",
+    "question_authority",
+    "requirements",
+    "known_facts",
+    "unknowns",
+    "question_policy"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-question-context"},
+    "run_id": {"type": "string", "minLength": 1},
+    "aidlc_mode": {"enum": ["lite", "standard", "full"]},
+    "question_authority": {"enum": ["local-lite", "official-ai-dlc-pack"]},
+    "goal": {"type": "string"},
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["requirement_id", "statement", "kind"],
+        "properties": {
+          "requirement_id": {"type": "string", "minLength": 1},
+          "statement": {"type": "string", "minLength": 1},
+          "kind": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "known_facts": {"type": "array", "items": {"type": "object"}},
+    "unknowns": {"type": "array", "items": {"type": "object"}},
+    "question_policy": {"type": "object"}
+  },
+  "additionalProperties": false
+}

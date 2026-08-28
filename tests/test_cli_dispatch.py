@@ -54,6 +54,30 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn("Navigator", result.stdout)
         self.assertIn("Evaluation Harness", result.stdout)
 
+    def test_start_flushes_banner_before_a_delegated_boundary_report(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                "start",
+                "add an order-amendment API and customer journey",
+                "--aidlc",
+                "off",
+                "--no-planning-lock",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.count("Navigator online. Context stays lean."), 1)
+        self.assertLess(
+            result.stdout.index("Navigator online. Context stays lean."),
+            result.stdout.index("# TailTrail Pre-Target Start Plan"),
+        )
+
     def test_hyphen_wrappers_delegate_to_importable_modules(self) -> None:
         for wrapper, module in WRAPPER_PAIRS.items():
             with self.subTest(wrapper=wrapper):

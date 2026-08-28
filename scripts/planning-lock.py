@@ -7,6 +7,8 @@ import base64
 import hashlib
 import importlib.util
 import json
+import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,13 @@ def ledger() -> Any:
 
 
 L = ledger()
+
+
+def _display_prose(value: Any) -> str:
+    """Normalize host-escaped prose without mutating canonical artifacts."""
+    text = re.sub(r"\\(?:r\\n|n|r)", " ", str(value))
+    text = " ".join(text.split())
+    return text.translate(str.maketrans({"\u2013": "-", "\u2014": "-", "\u2212": "-", "\ufffd": "-"}))
 
 
 def target_workspace() -> Any:
@@ -375,6 +384,15 @@ def _aidlc_requirements_module() -> Any:
     return module
 
 
+def _question_orchestrator_module() -> Any:
+    """Load the shared context/quality layer without changing AIDLC authority."""
+    spec = importlib.util.spec_from_file_location("planning_lock_question_orchestrator", ROOT / "scripts" / "question-orchestrator.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def _official_aidlc_bridge_module() -> Any:
     """Load the Phase B identity bridge without attaching an external engine."""
     spec = importlib.util.spec_from_file_location("planning_lock_official_aidlc_bridge", ROOT / "scripts" / "aidlc-official-bridge.py")
@@ -423,6 +441,35 @@ def _is_full_official_run(root: Path, run_id: str) -> bool:
 def _is_official_aidlc_run(root: Path, run_id: str) -> bool:
     report = _saved_start_report(root, run_id)
     return isinstance(report, dict) and (report.get("aidlc_mode", {}) or {}).get("mode") in {"standard", "full"}
+
+
+def _prepare_question_context(root: Path, run_id: str, proposal: dict[str, Any], mode: str) -> dict[str, Any]:
+    """Persist one shared input contract for Lite and official requirements."""
+    context = _question_orchestrator_module().prepare_context(
+        run_id,
+        mode,
+        proposal["goal"],
+        proposal["requirements"],
+        _saved_start_report(root, run_id),
+    )
+    planning = L.state_dir(root, run_id) / "planning"
+    existing = sorted(
+        planning.glob("question-context-v*.json"),
+        key=lambda item: int(item.stem.rsplit("v", 1)[-1]),
+    )
+    if existing and read(existing[-1]) == context:
+        return {**context, "artifact": existing[-1].relative_to(root).as_posix()}
+    version = int(existing[-1].stem.rsplit("v", 1)[-1]) + 1 if existing else 1
+    path = planning / f"question-context-v{version}.json"
+    L.atomic_json(path, context)
+    L.append_event(root, run_id, "question_context_prepared", {
+        "artifact": path.relative_to(root).as_posix(),
+        "aidlc_mode": mode,
+        "question_authority": context["question_authority"],
+        "known_fact_count": len(context["known_facts"]),
+        "unknown_count": len(context["unknowns"]),
+    })
+    return {**context, "artifact": path.relative_to(root).as_posix()}
 
 
 def _official_bridge(root: Path, run_id: str) -> dict[str, Any]:
@@ -601,7 +648,8 @@ def request_aidlc_requirements(root: Path, run_id: str, revision_context: list[d
     feedback = [row for event in events if event.get("event_type") == "proposal_rejected" for row in event.get("payload", {}).get("feedback", [])]
     context = revision_context or []
     feedback.extend({"comment": str(row.get("reason", "")).strip()} for row in context if str(row.get("reason", "")).strip())
-    stage = _aidlc_requirements_module().gather(proposal["goal"], proposal["requirements"], feedback)
+    question_context = _prepare_question_context(root, run_id, proposal, "lite")
+    stage = _aidlc_requirements_module().gather(proposal["goal"], proposal["requirements"], feedback, question_context)
     artifact = L.state_dir(root, run_id) / "planning" / "aidlc-requirements-v1.json"
     document = {
         "schema_version": "1",
@@ -615,13 +663,16 @@ def request_aidlc_requirements(root: Path, run_id: str, revision_context: list[d
         "revision_context": context,
         "aidlc_stage": stage,
         "questions": stage["questions"],
+        "question_context": question_context["artifact"],
+        "question_quality": stage["question_quality"],
+        "question_traceability": stage["question_traceability"],
         "question_revision": 1,
         "approval_gate": stage["stage_gate"],
     }
     L.atomic_json(artifact, document)
     payload = {"rejection_number": template["rejection_number"], "reason": "user-selected-aidlc-requirements", "artifact": artifact.relative_to(root).as_posix(), "revision_context_count": len(context)}
     L.append_event(root, run_id, "aidlc_requirements_requested", payload)
-    return {"run_id": run_id, "state": "aidlc-requirements-gathering", "artifact": artifact.relative_to(root).as_posix(), "source_boundary": template["source_boundary"], "requirements": proposal["requirements"], "questions": stage["questions"], "aidlc_stage": stage, "prior_feedback": feedback, "revision_context": context, "approval_gate": document["approval_gate"]}
+    return {"run_id": run_id, "state": "aidlc-requirements-gathering", "artifact": artifact.relative_to(root).as_posix(), "source_boundary": template["source_boundary"], "requirements": proposal["requirements"], "questions": stage["questions"], "question_context": question_context["artifact"], "question_quality": stage["question_quality"], "question_traceability": stage["question_traceability"], "aidlc_stage": stage, "prior_feedback": feedback, "revision_context": context, "approval_gate": document["approval_gate"]}
 
 
 def request_official_aidlc_requirements(root: Path, run_id: str, revision_context: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -642,14 +693,17 @@ def request_official_aidlc_requirements(root: Path, run_id: str, revision_contex
     feedback = [row for event in events if event.get("event_type") == "proposal_rejected" for row in event.get("payload", {}).get("feedback", [])]
     context = revision_context or []
     feedback.extend({"comment": str(row.get("reason", "")).strip()} for row in context if str(row.get("reason", "")).strip())
-    stage = _official_aidlc_requirements_module().stage_request(root, _official_bridge(root, run_id), proposal["goal"], proposal["requirements"], feedback)
+    saved = _saved_start_report(root, run_id)
+    mode = str((saved.get("aidlc_mode", {}) or {}).get("mode", "standard"))
+    question_context = _prepare_question_context(root, run_id, proposal, mode)
+    stage = _official_aidlc_requirements_module().stage_request(root, _official_bridge(root, run_id), proposal["goal"], proposal["requirements"], feedback, question_context)
     artifact = L.state_dir(root, run_id) / "planning" / "official-aidlc-requirements-v1.json"
     document = {
         "schema_version": "1", "type": "tailtrail-official-aidlc-requirements", "run_id": run_id,
         "goal": proposal["goal"], "stage": "requirements-gathering", "source_boundary": template["source_boundary"],
         "requirements": proposal["requirements"], "prior_feedback": feedback, "revision_context": context, "official_stage": stage,
         "questions": [], "question_revision": 1, "approval_gate": stage["stage_gate"],
-        "official_questions": None,
+        "official_questions": None, "question_context": question_context["artifact"], "question_quality": None, "question_traceability": [],
     }
     L.atomic_json(artifact, document)
     L.append_event(root, run_id, "official_aidlc_requirements_requested", {"artifact": artifact.relative_to(root).as_posix(), "official_references": stage["official_references"], "host_action_required": True})
@@ -659,7 +713,7 @@ def request_official_aidlc_requirements(root: Path, run_id: str, revision_contex
 def _official_requirements_payload(root: Path, run_id: str, document: dict[str, Any], artifact: Path) -> dict[str, Any]:
     stage = document["official_stage"]
     pending = not document.get("questions")
-    return {"run_id": run_id, "state": "official-aidlc-host-generation-required" if pending else "official-aidlc-requirements-gathering", "authority": "official-ai-dlc-pack", "artifact": artifact.relative_to(root).as_posix(), "official_questions": document["official_questions"], "source_boundary": document["source_boundary"], "requirements": document["requirements"], "questions": document["questions"], "aidlc_stage": stage, "prior_feedback": document.get("prior_feedback", []), "revision_context": document.get("revision_context", []), "approval_gate": document["approval_gate"], "host_action": stage.get("host_action") if pending else None}
+    return {"run_id": run_id, "state": "official-aidlc-host-generation-required" if pending else "official-aidlc-requirements-gathering", "authority": "official-ai-dlc-pack", "artifact": artifact.relative_to(root).as_posix(), "official_questions": document["official_questions"], "source_boundary": document["source_boundary"], "requirements": document["requirements"], "questions": document["questions"], "question_context": document.get("question_context"), "question_quality": document.get("question_quality"), "question_traceability": document.get("question_traceability", []), "aidlc_stage": stage, "prior_feedback": document.get("prior_feedback", []), "revision_context": document.get("revision_context", []), "approval_gate": document["approval_gate"], "host_action": stage.get("host_action") if pending else None}
 
 
 def record_official_aidlc_questions(root: Path, run_id: str, questions_json: str) -> dict[str, Any]:
@@ -669,14 +723,23 @@ def record_official_aidlc_questions(root: Path, run_id: str, questions_json: str
         raise ValueError("official host questions require Standard or Full AIDLC")
     artifact = _official_aidlc_artifact(root, run_id, "official-aidlc-requirements-v1.json")
     document = read(artifact)
-    questions = _official_aidlc_requirements_module().validate_host_questions(json.loads(questions_json))
+    normalized = _official_aidlc_requirements_module().validate_host_questions(json.loads(questions_json))
+    context_path = root / str(document.get("question_context", ""))
+    if not context_path.is_file():
+        raise ValueError("official AIDLC question context is unavailable")
+    question_context = read(context_path)
+    evaluated = _question_orchestrator_module().evaluate_questions(normalized, question_context, "official-ai-dlc-pack")
+    questions = evaluated["questions"]
     document["questions"] = questions
+    document["question_quality"] = evaluated["quality"]
+    document["question_traceability"] = evaluated["traceability"]
     document["official_questions"] = (L.state_dir(root, run_id) / "aidlc-official" / "requirements" / "questions-v1.json").relative_to(root).as_posix()
     questions_path = root / document["official_questions"]
     questions_path.parent.mkdir(parents=True, exist_ok=True)
-    L.atomic_json(questions_path, {"type": "official-ai-dlc-host-questions", "run_id": run_id, "official_references": document["official_stage"]["official_references"], "questions": questions})
+    L.atomic_json(questions_path, {"type": "official-ai-dlc-host-questions", "run_id": run_id, "official_references": document["official_stage"]["official_references"], "question_context": document["question_context"], "quality": evaluated["quality"], "traceability": evaluated["traceability"], "questions": questions})
     L.atomic_json(artifact, document)
     L.append_event(root, run_id, "official_aidlc_host_questions_recorded", {"artifact": document["official_questions"], "question_ids": [item["id"] for item in questions]})
+    L.append_event(root, run_id, "question_quality_validated", {"artifact": document["official_questions"], "status": evaluated["quality"]["status"], "question_count": len(questions), "authority": "official-ai-dlc-pack"})
     return _official_requirements_payload(root, run_id, document, artifact)
 
 
@@ -847,7 +910,7 @@ def render_aidlc_requirements(payload: dict[str, Any]) -> str:
         "# TailTrail AIDLC Requirements",
         "",
         f"**Run ID:** `{payload['run_id']}`",
-        "**Stage:** requirements gathering — planning only; no source inspection or implementation has run.",
+        "**Stage:** requirements gathering - planning only; no source inspection or implementation has run.",
         "",
         "## Current requirement boundary",
         "",
@@ -855,26 +918,35 @@ def render_aidlc_requirements(payload: dict[str, Any]) -> str:
         "| --- | --- |",
     ]
     for index, row in enumerate(payload["requirements"], start=1):
-        lines.append(f"| {row.get('display_id', f'REQ-{index:02d}')} | {row.get('statement', '')} |")
+        lines.append(f"| {row.get('display_id', f'REQ-{index:02d}')} | {_display_prose(row.get('statement', ''))} |")
     if official:
         lines[0] = "# TailTrail Official AI-DLC Requirements"
         lines[3] = "**Stage:** official Requirements Analysis; planning only, with no source inspection or implementation."
         lines.extend(["", "## Official rule references", ""])
         lines.extend(f"- `{path}`" for path in payload["aidlc_stage"]["official_references"].values())
     if official and not payload["questions"]:
-        lines.extend(["", "## Official host action required", "", "- Read the listed pinned official rules, including Requirements Analysis and the question-format guide.", "- Generate the questions from that official stage; each needs meaningful options including Other, a TailTrail advisory recommendation, and reasoning for that recommendation.", "- Record the generated artifact with `tailtrail planning official-aidlc-questions --root . --run-id <run-id> --questions-base64 <base64-utf8-json>` (or `--questions '<json>'` where quoting is safe).", "- The recommendation is TailTrail advisory guidance; the user may select any official option or Other with detail.", "- No source inspection, implementation, tests, scanners, or Git actions are permitted while gathering requirements.", ""])
+        lines.extend(["", "## Question Orchestrator", "", f"- Context: `{payload.get('question_context')}`.", "- Authority: official AI-DLC Requirements Analysis; TailTrail validates grounding and traceability but does not generate a substitute questionnaire.", "", "## Official host action required", "", "- Read the listed pinned official rules and the saved Question Orchestrator context.", "- Generate only material unresolved decisions. Each question needs meaningful options including Other, requirement IDs, decision class and impact, known context, evidence references, a TailTrail advisory recommendation, and evidence-grounded reasoning.", "- Repository-specific claims require explicit saved evidence; inventory hypotheses must remain labelled as hypotheses.", "- Record exhaustive questionnaires with `tailtrail planning official-aidlc-questions --root . --run-id <run-id> --questions-stdin`; use `--questions-base64` for smaller Windows-safe payloads or `--questions '<json>'` where quoting is safe.", "- The recommendation is TailTrail advisory guidance; the user may select any official option or Other with detail.", "- No source inspection, implementation, tests, scanners, or Git actions are permitted while gathering requirements.", ""])
         return "\n".join(lines)
+    quality = payload.get("question_quality") or {}
+    lines.extend(["", "## Question Orchestrator", "", f"- Context: `{payload.get('question_context')}`.", f"- Authority: `{quality.get('authority', 'unknown')}`.", f"- Quality gate: `{quality.get('status', 'unavailable')}` for {quality.get('question_count', len(payload['questions']))} question(s).", "- Every question is mapped to requirement IDs and a material decision impact; repository hypotheses are not confirmed source facts."])
     lines.extend(["", "## Questions to resolve", ""])
+    extension_heading_added = False
     for row in payload["questions"]:
-        lines.extend([f"### {row['id']}", "", row["question"]])
+        if row.get("decision_class") == "extension-opt-in" and not extension_heading_added:
+            lines.extend(["## Optional official extensions", ""])
+            extension_heading_added = True
+        lines.extend([f"### {row['id']}", "", _display_prose(row["question"])])
         for option in row["options"]:
-            lines.append(f"- **{option['id']}:** {option['text']}")
-        lines.extend([f"- **Recommended:** {row['recommended']}", f"- **Reasoning:** {row['reasoning']}", ""])
+            lines.append(f"- **{option['id']}:** {_display_prose(option['text'])}")
+        lines.extend([f"- **Recommended:** {_display_prose(row['recommended'])}", f"- **Reasoning:** {_display_prose(row['reasoning'])}", f"- **Affects:** {', '.join(row.get('requirement_ids', [])) or 'unmapped'}", f"- **Decision:** {row.get('decision_class', 'unclassified')} - {', '.join(row.get('decision_impact', [])) or 'impact unavailable'}", ""])
     lines.extend([
         "",
         "## Next response",
         "",
-        "- Reply with `Q1: ...`, `Q2: ...`, and `Q3: ...` (and `Q4` when present), or state that a question is not applicable.",
+        (
+            f"- Reply with one answer for every question, `{payload['questions'][0]['id']}` through "
+            f"`{payload['questions'][-1]['id']}`. Choose one listed option for each question; use `Other` with details when needed."
+        ),
         "- TailTrail will then present a revised requirement boundary for approval. It will not inspect source or implement work until that revised boundary is approved.",
         "",
     ])
@@ -885,9 +957,9 @@ def render_aidlc_requirements(payload: dict[str, Any]) -> str:
 
 def render_aidlc_revision(payload: dict[str, Any]) -> str:
     official = payload.get("authority") == "official-ai-dlc-pack"
-    lines = ["# TailTrail AIDLC Revised Requirements", "", f"**Run ID:** `{payload['run_id']}`", "**State:** awaiting AIDLC approval — no source inspection or implementation has run.", "", "## Revised requirement boundary", "", "| ID | Requirement |", "| --- | --- |"]
+    lines = ["# TailTrail AIDLC Revised Requirements", "", f"**Run ID:** `{payload['run_id']}`", "**State:** awaiting AIDLC approval - no source inspection or implementation has run.", "", "## Revised requirement boundary", "", "| ID | Requirement |", "| --- | --- |"]
     for row in payload["requirements"]:
-        lines.append(f"| {row.get('display_id')} | {row.get('statement')} |")
+        lines.append(f"| {row.get('display_id')} | {_display_prose(row.get('statement'))} |")
     lines.extend(["", "## Recorded AIDLC decisions", ""])
     if official:
         lines[0] = "# TailTrail Official AI-DLC Revised Requirements"
@@ -901,9 +973,9 @@ def render_aidlc_revision(payload: dict[str, Any]) -> str:
 
 
 def render_execution_handoff(payload: dict[str, Any]) -> str:
-    lines = ["# TailTrail Execution Handoff", "", f"**Run ID:** `{payload['run_id']}`", "**State:** execution ready — AIDLC requirements are approved and the existing Planning Lock is activated.", "", "## Active requirements", ""]
+    lines = ["# TailTrail Execution Handoff", "", f"**Run ID:** `{payload['run_id']}`", "**State:** execution ready - AIDLC requirements are approved and the existing Planning Lock is activated.", "", "## Active requirements", ""]
     for row in payload["active_requirements"]:
-        lines.append(f"- **{row['display_id']}:** {row['statement']}")
+        lines.append(f"- **{row['display_id']}:** {_display_prose(row['statement'])}")
     lines.extend(["", "## Selected TailTrail controls", ""])
     for row in payload.get("selected_features", []):
         lines.append(f"- **{row.get('name')}:** {row.get('why')}")
@@ -914,7 +986,7 @@ def render_execution_handoff(payload: dict[str, Any]) -> str:
             lines.append(f"- Workflow: `{runtime.get('workflow_id')}`; compiler template: `{runtime.get('compiler', {}).get('template_id')}`.")
             lines.append("- State: compiled and non-executing. A later runtime adapter must still request its own action authority.")
         else:
-            lines.append(f"- State: `{runtime.get('state')}` — {runtime.get('reason', 'no runtime action was taken')}.")
+            lines.append(f"- State: `{runtime.get('state')}` - {_display_prose(runtime.get('reason', 'no runtime action was taken'))}.")
     lines.extend(["", "## Execution boundary", "", f"- {payload['execution_boundary']}", "- Next: inspect only the approved paths, implement the smallest compliant change, and run the selected evidence.", ""])
     baseline = payload.get("maintainability_baseline")
     if isinstance(baseline, dict):
@@ -945,7 +1017,7 @@ def render_feedback_template(payload: dict[str, Any]) -> str:
         "# TailTrail Plan Feedback",
         "",
         f"**Run ID:** `{payload['run_id']}`",
-        "**State:** feedback required — no project source, tests, scanners, Git, or implementation commands were run.",
+        "**State:** feedback required - no project source, tests, scanners, Git, or implementation commands were run.",
         "",
         "## Review each requirement",
         "",
@@ -960,8 +1032,8 @@ def render_feedback_template(payload: dict[str, Any]) -> str:
         "",
         "Choose one path; TailTrail does not write feedback on your behalf:",
         "",
-        "1. **Review individually:** reply with `REQ-01: approve` or `REQ-01: reject — <reason>` for every row.",
-        "2. **Reject all:** reply `Reject all — <one concrete reason>`.",
+        "1. **Review individually:** reply with `REQ-01: approve` or `REQ-01: reject - <reason>` for every row.",
+        "2. **Reject all:** reply `Reject all - <one concrete reason>`.",
         "3. **Use AIDLC now:** reply `Use AIDLC Requirements mode`.",
         "",
         "- Individual review needs a decision for every row. Rejected rows need a concrete comment.",
@@ -1149,6 +1221,7 @@ def main() -> int:
     official_question_source = official_questions_parser.add_mutually_exclusive_group(required=True)
     official_question_source.add_argument("--questions", help="JSON list of official host-generated questions, options, recommendations, and reasoning.")
     official_question_source.add_argument("--questions-base64", help="UTF-8 question JSON encoded as Base64; use on Windows hosts where native argument quoting strips JSON quotes.")
+    official_question_source.add_argument("--questions-stdin", action="store_true", help="Read one complete UTF-8 JSON line from standard input; preferred for exhaustive questionnaires that exceed Windows command-line limits.")
     aidlc_cycle_parser = sub.add_parser("aidlc-cycle", help="Run one safe AIDLC Requirements control-plane transition for an existing run.")
     aidlc_cycle_parser.add_argument("--root", type=Path, default=Path.cwd())
     aidlc_cycle_parser.add_argument("--run-id", required=True)
@@ -1188,6 +1261,10 @@ def main() -> int:
                     questions_json = base64.b64decode(args.questions_base64, validate=True).decode("utf-8")
                 except (ValueError, UnicodeDecodeError) as error:
                     raise ValueError(f"--questions-base64 must be valid Base64-encoded UTF-8 JSON: {error}") from error
+            elif args.questions_stdin:
+                questions_json = sys.stdin.readline()
+                if not questions_json.strip():
+                    raise ValueError("--questions-stdin requires a non-empty UTF-8 JSON document on standard input")
             payload = record_official_aidlc_questions(args.root, args.run_id, questions_json)
         elif args.command == "aidlc-cycle":
             answers_json = args.answers

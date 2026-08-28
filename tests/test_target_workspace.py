@@ -52,6 +52,44 @@ class TargetWorkspaceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('"status": "inaccessible"', result.stdout)
 
+    def test_implicit_workspace_requires_confirmation_when_only_test_matches_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fit = target_workspace.assess_plan_fit(
+                "add delivery-address validation across the API and order service",
+                root,
+                [{"path": "tests/test_validation.py", "reason": "goal-matched target"}],
+                resolution_source="host-cwd",
+            )
+        self.assertTrue(fit["blocking"])
+        self.assertEqual(fit["status"], "needs-confirmation")
+        self.assertEqual(fit["production_candidates"], [])
+
+    def test_implicit_workspace_is_accepted_when_production_scope_is_found(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fit = target_workspace.assess_plan_fit(
+                "add delivery-address validation across the API and order service",
+                root,
+                [
+                    {"path": "src/order_service/service.py", "reason": "architecture role candidate"},
+                    {"path": "tests/test_validation.py", "reason": "goal-matched target"},
+                ],
+                resolution_source="host-cwd",
+            )
+        self.assertFalse(fit["blocking"])
+        self.assertEqual(fit["production_candidates"], ["src/order_service/service.py"])
+
+    def test_implicit_documentation_only_request_does_not_require_production_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            fit = target_workspace.assess_plan_fit(
+                "fix a typo in README",
+                Path(temp),
+                [{"path": "README.md", "reason": "goal-matched target"}],
+                resolution_source="host-cwd",
+            )
+        self.assertFalse(fit["blocking"])
+
     def test_input_roles_keep_references_read_only_and_redact_external_locator(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "target"

@@ -55,6 +55,21 @@ def project(root: Path) -> None:
 
 
 class BehaviourPlanningTests(unittest.TestCase):
+    def test_cross_layer_customer_journey_adds_existing_integration_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / "tests" / "integration" / "test_service.py"
+            path.parent.mkdir(parents=True)
+            path.write_text("", encoding="utf-8")
+            expanded = behaviour.add_role_candidates(
+                root,
+                "Add validation across the API, service, and customer journey.",
+                [],
+                True,
+            )
+
+        self.assertIn("tests/integration/test_service.py", {item["path"] for item in expanded})
+
     def test_start_builds_behaviour_contract_scope_and_required_tiers(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); project(root)

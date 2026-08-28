@@ -9,6 +9,7 @@ calls it, persists its output, and controls approval; AIDLC owns the questions.
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,14 @@ ROOT = Path(__file__).resolve().parents[1]
 STAGE_PLAYBOOK = ROOT / "aidlc" / "stages" / "requirements.md"
 QUESTION_TEMPLATE = ROOT / "templates" / "question-file.md"
 REQUIREMENTS_TEMPLATE = ROOT / "templates" / "requirements.md"
+
+
+def _question_orchestrator() -> Any:
+    spec = importlib.util.spec_from_file_location("aidlc_question_orchestrator", ROOT / "scripts" / "question-orchestrator.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
 
 
 def _stage_evidence() -> dict[str, str]:
@@ -36,7 +45,7 @@ def _stage_evidence() -> dict[str, str]:
     }
 
 
-def gather(goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]]) -> dict[str, Any]:
+def gather(goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]], question_context: dict[str, Any] | None = None) -> dict[str, Any]:
     """Produce the bounded AIDLC Requirements-stage brief.
 
     The output follows the stage playbook: functional intent, explicit
@@ -49,6 +58,10 @@ def gather(goal: str, requirements: list[dict[str, Any]], feedback: list[dict[st
     statements = " ".join(str(row.get("statement", "")) for row in requirements).lower()
     prompt_context = f"{goal.lower()} {statements}"
     questions = _questions_for(prompt_context, feedback)
+    context = question_context or _question_orchestrator().prepare_context(
+        "not-persisted", "lite", goal, requirements, None,
+    )
+    evaluated = _question_orchestrator().evaluate_questions(questions, context, "local-lite")
     return {
         "stage": "AIDLC Requirements",
         "stage_evidence": evidence,
@@ -58,7 +71,10 @@ def gather(goal: str, requirements: list[dict[str, Any]], feedback: list[dict[st
         "known_facts": _known_facts(prompt_context),
         "assumptions": ["Current Planning Lock scope is a proposal, not approved implementation scope."],
         "non_goals": ["Do not inspect source, run tests, edit files, or implement code before the revised requirement boundary is approved."],
-        "questions": questions,
+        "questions": evaluated["questions"],
+        "question_context": context,
+        "question_quality": evaluated["quality"],
+        "question_traceability": evaluated["traceability"],
         "stage_gate": "All material questions are answered or explicitly accepted as risk; then TailTrail presents the revised requirement boundary for approval.",
     }
 
@@ -233,7 +249,15 @@ def validate_answers(stage: dict[str, Any], answers: list[dict[str, Any]]) -> di
         if choice == "Other" and not detail:
             raise ValueError(f"{question_id} requires detail when choice is Other")
         selected = next(option["text"] for option in question["options"] if option["id"] == choice)
-        resolved[question_id] = {"choice": choice, "detail": detail, "selected": selected}
+        resolved[question_id] = {
+            "choice": choice,
+            "detail": detail,
+            "selected": selected,
+            "requirement_ids": list(question.get("requirement_ids", [])),
+            "decision_class": question.get("decision_class"),
+            "decision_impact": list(question.get("decision_impact", [])),
+            "evidence_refs": list(question.get("evidence_refs", [])),
+        }
     return resolved
 
 

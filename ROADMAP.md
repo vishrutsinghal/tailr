@@ -316,6 +316,35 @@ Analysis adapter and its first stage gate are implemented in Phase C. Phase I
 now adds the separate post-approval, receipt-driven runtime attachment while
 preserving the immutable Phase B identity.
 
+### AIDLC Question Orchestrator — implemented
+
+TailTrail now inserts one shared Question Orchestrator between Navigator and
+the active AIDLC authority. Navigator supplies proposed requirements and saved
+repository-inventory evidence. Lite keeps local question generation, while
+Standard and Full keep the pinned official AI-DLC pack and configured host as
+the question authority. The orchestrator never creates a competing official
+questionnaire.
+
+The implementation adds `scripts/question-orchestrator.py`, versioned
+`question-context-v<revision>.json` artifacts per run, schemas for the context and
+orchestrated question set, CLI inspection through `tailtrail planning
+question-context`, and read-only MCP inspection through
+`planning_question_context_show`. Every question is mapped to requirement IDs,
+a decision class and material impact, known context, and evidence references.
+Official Standard and Full adapters preserve that complete host-authored block
+through validation, persistence, answer intake, and approval. Partial metadata
+fails closed; metadata-free legacy artifacts remain readable with explicitly
+inferred mappings.
+The quality gate rejects duplicate questions/options, unknown requirement IDs,
+unsupported decision classes, and repository-specific recommendation claims
+without explicit saved evidence. Answer records carry this traceability into
+the revised requirements and immutable approved anchor. Source bodies, tests,
+scanners, implementation, and approval remain outside this pre-approval layer.
+
+Detailed contracts, examples, authority boundaries, and the end-to-end graph
+are documented in
+[TailTrail and Official AI-DLC: Current State and Integration Design](tailtrail-aidlc-integration.md#question-orchestrator--implemented).
+
 ### Official AI-DLC evidence checkpoint adapter — Phase D implemented
 
 Full-mode runs can now persist a requirement-linked official design plan and

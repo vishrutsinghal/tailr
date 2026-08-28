@@ -100,6 +100,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/program-plan.py",
     "scripts/prompt_profile.py",
     "scripts/public-benchmark.py",
+    "scripts/question-orchestrator.py",
     "scripts/recovery-diagnostician.py",
     "scripts/recovery-reconcile.py",
     "scripts/release-confidence.py",

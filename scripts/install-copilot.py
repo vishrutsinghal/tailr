@@ -146,6 +146,7 @@ PACK_SCRIPTS = [
     "scripts/official-aidlc-runtime.py",
     "scripts/planning-discussion.py",
     "scripts/planning-aidlc-question.py",
+    "scripts/question-orchestrator.py",
     "scripts/planning-feature-controls.py",
     "scripts/planning-investigation.py",
     "scripts/planning-revision.py",

@@ -47,6 +47,7 @@ def role(path: str) -> str:
     if name in DEPENDENCY_FILES or name.endswith((".lock", ".csproj", ".fsproj")): return "dependency boundary"
     if any(part in name for part in ("api", "controller", "endpoint", "route")): return "interface boundary"
     if any(part in name for part in ("service", "orchestrat", "use_case", "usecase")): return "orchestration boundary"
+    if any(part in name for part in ("validation", "validator")): return "validation boundary"
     if any(part in name for part in ("payment", "gateway", "adapter", "repository", "inventory", "notification", "audit")): return "domain/integration boundary"
     if lowered.startswith("infra/") or name.endswith(".tf"): return "infrastructure boundary"
     return "implementation candidate"
@@ -93,10 +94,21 @@ def add_explicit_role_candidates(root: Path, goal: str, impacted: list[dict[str,
     requested: list[tuple[bool, str, tuple[str, ...]]] = [
         ("api" in lowered, "API/interface", ("src/**/api.py", "src/**/*api*.py", "app/**/api.py", "app/**/*controller*")),
         ("service" in lowered or "caller" in lowered, "service/orchestration", ("src/**/service.py", "src/**/*service*.py", "app/**/*service*")),
+        ("validat" in lowered, "validation", ("src/**/validation.py", "src/**/*validator*.py", "src/**/*validation*.py", "app/**/*validator*", "app/**/*validation*")),
+        (
+            "validat" in lowered and any(term in lowered for term in ("focused", "evidence", "proof", "test")),
+            "unit evidence",
+            ("tests/unit/test*validat*.py", "test/unit/test*validat*.py", "tests/test*validat*.py"),
+        ),
     ]
     existing_roles = {role(path) for path in existing}
     for active, label, patterns in requested:
-        expected_role = "interface boundary" if label.startswith("API") else "orchestration boundary"
+        expected_role = {
+            "API/interface": "interface boundary",
+            "service/orchestration": "orchestration boundary",
+            "validation": "validation boundary",
+            "unit evidence": "unit evidence",
+        }[label]
         if not active or expected_role in existing_roles:
             continue
         for path in _inventory(root, patterns):

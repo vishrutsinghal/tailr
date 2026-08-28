@@ -12,6 +12,7 @@ import json
 import importlib.util
 from pathlib import Path
 from typing import Any
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,7 +26,8 @@ def _stage_goal(goal: str) -> str:
     requirements artifact is a bounded, sanitizer-validated summary, so line
     breaks are collapsed rather than rejected or silently truncated.
     """
-    return " ".join(str(goal).split())
+    text = re.sub(r"\\(?:r\\n|n|r)", " ", str(goal))
+    return " ".join(text.split())
 
 
 def _sanitizer() -> Any:
@@ -107,7 +109,7 @@ def _questions(goal: str, requirements: list[dict[str, Any]], feedback: list[dic
     return questions
 
 
-def stage_request(root: Path, bridge: dict[str, Any], goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]]) -> dict[str, Any]:
+def stage_request(root: Path, bridge: dict[str, Any], goal: str, requirements: list[dict[str, Any]], feedback: list[dict[str, Any]], question_context: dict[str, Any] | None = None) -> dict[str, Any]:
     """Describe an official Requirements Analysis stage for the host to execute.
 
     The official pack is a rule pack.  It does not contain a Python question
@@ -126,7 +128,8 @@ def stage_request(root: Path, bridge: dict[str, Any], goal: str, requirements: l
         "goal": _stage_goal(goal),
         "requirements": requirements,
         "prior_feedback": feedback,
-        "host_action": "Read the listed official rules, then generate requirement questions, meaningful mutually exclusive options including Other, a TailTrail recommendation, and reasoning for every recommendation.",
+        "question_context": (question_context or {}).get("artifact"),
+        "host_action": "Read the listed official rules and the saved Question Orchestrator context. Generate only material unresolved decisions with meaningful mutually exclusive options including Other. Every question must include requirement_ids, decision_class, decision_impact, known_context, evidence_refs, a TailTrail advisory recommendation, and evidence-grounded reasoning. Repository-specific claims require explicit saved evidence; do not replace official AIDLC authority with a local questionnaire.",
         "stage_gate": "The host-generated official Requirements Analysis questions, answers, and revised requirement boundary must be explicitly approved before TailTrail freezes its anchor.",
     }
 
@@ -157,8 +160,38 @@ def validate_host_questions(questions: Any) -> list[dict[str, Any]]:
             raise ValueError(f"{identifier} must end with an Other option as required by the official question format")
         if recommended not in {option["text"] for option in normalized}:
             raise ValueError(f"{identifier} recommended value must exactly match one option text")
+        traceability_keys = (
+            "requirement_ids",
+            "decision_class",
+            "decision_impact",
+            "known_context",
+            "evidence_refs",
+        )
+        supplied_traceability = [key for key in traceability_keys if key in item]
+        if supplied_traceability and len(supplied_traceability) != len(traceability_keys):
+            missing = ", ".join(key for key in traceability_keys if key not in item)
+            raise ValueError(f"{identifier} traceability metadata is incomplete; missing: {missing}")
+        traceability: dict[str, Any] = {}
+        if supplied_traceability:
+            for key in ("requirement_ids", "decision_impact", "known_context", "evidence_refs"):
+                values = item[key]
+                if not isinstance(values, list) or not values or any(not isinstance(value, str) or not value.strip() for value in values):
+                    raise ValueError(f"{identifier} {key} must be a non-empty string list")
+                traceability[key] = list(dict.fromkeys(value.strip() for value in values))
+            decision_class = item["decision_class"]
+            if not isinstance(decision_class, str) or not decision_class.strip():
+                raise ValueError(f"{identifier} decision_class must be a non-empty string")
+            traceability["decision_class"] = decision_class.strip()
         ids.add(identifier)
-        validated.append({"id": identifier, "question": question, "options": normalized, "recommended": recommended, "reasoning": reasoning, "recommendation_origin": "tailtrail-advisory"})
+        validated.append({
+            "id": identifier,
+            "question": question,
+            "options": normalized,
+            "recommended": recommended,
+            "reasoning": reasoning,
+            "recommendation_origin": "tailtrail-advisory",
+            **traceability,
+        })
     return validated
 
 
@@ -196,7 +229,15 @@ def validate_answers(stage: dict[str, Any], answers: list[dict[str, Any]]) -> di
         detail = str(row.get("detail", "")).strip()
         if choice == "Other" and not detail:
             raise ValueError(f"{identifier} requires detail when choice is Other")
-        resolved[identifier] = {"choice": choice, "detail": detail, "selected": options[choice]}
+        resolved[identifier] = {
+            "choice": choice,
+            "detail": detail,
+            "selected": options[choice],
+            "requirement_ids": list(question.get("requirement_ids", [])),
+            "decision_class": question.get("decision_class"),
+            "decision_impact": list(question.get("decision_impact", [])),
+            "evidence_refs": list(question.get("evidence_refs", [])),
+        }
     return resolved
 
 

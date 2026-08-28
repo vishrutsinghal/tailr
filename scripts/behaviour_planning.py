@@ -97,6 +97,10 @@ def add_role_candidates(root: Path, goal: str, impacted: list[dict[str, Any]], s
     if _ui_only(goal):
         return impacted
     lowered = goal.lower(); existing = {str(item.get("path", "")) for item in impacted}
+    cross_layer_journey = (
+        any(word in lowered for word in ("api", "service"))
+        and any(word in lowered for word in ("customer", "journey", "workflow", "user-facing"))
+    )
     existing_roles = {_path_role(path) for path in existing}; additions: list[dict[str, str]] = []
     roles: list[tuple[bool, str, str, tuple[str, ...]]] = [
         (True, "workflow orchestration", "behaviour workflow", ("src/**/service.py", "src/**/*service*.py", "app/**/*service*")),
@@ -105,7 +109,7 @@ def add_role_candidates(root: Path, goal: str, impacted: list[dict[str, Any]], s
         (any(word in lowered for word in ("shipment", "fulfil", "fulfill")), "shipment transition", "shipment transition", ("src/**/*shipment*.py", "src/**/shipping.py", "src/**/*fulfil*.py", "src/**/*fulfill*.py")),
         ("notification" in lowered, "side-effect boundary", "notification side effect", ("src/**/*notification*.py", "src/**/*publisher*.py", "src/**/*event*.py")),
         (True, "behaviour evidence", "behaviour evidence", ("tests/behaviour/test*.py", "tests/behavior/test*.py")),
-        ("integration" in lowered, "integration evidence", "integration evidence", ("tests/integration/test*.py", "test/integration/test*.py")),
+        ("integration" in lowered or cross_layer_journey, "integration evidence", "integration evidence", ("tests/integration/test*.py", "test/integration/test*.py")),
         ("api" in lowered or "response" in lowered or "contract" in lowered, "contract evidence", "API preservation evidence", ("tests/contract/test*.py", "test/contract/test*.py")),
     ]
     for active, expected_role, label, patterns in roles:

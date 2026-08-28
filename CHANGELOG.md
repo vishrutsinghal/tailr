@@ -8,6 +8,13 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 
 ### Added
 
+- Shared Question Orchestrator for Navigator, Lite AIDLC, and pinned official
+  Standard/Full AIDLC. It persists a versioned question context, preserves the
+  active AIDLC question authority, rejects duplicate or ungrounded questions,
+  maps each decision to requirement IDs and downstream impacts, preserves the
+  full official host traceability block through answers and approval, exposes
+  read-only CLI/MCP inspection, and ships in Core and Extended host packs.
+
 - Enterprise Stabilization Phase E4 host adapters: one closed v3 contract for
   exact Codex, GitHub Copilot, and Claude Core files, composition, native first
   actions, diagnostics, version limitations, CI-authoritative enforcement,

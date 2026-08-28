@@ -26,6 +26,20 @@ planning_lock = task_start.planning_lock
 
 
 class RequirementDiscoveryTests(unittest.TestCase):
+    def test_workflow_routing_prefix_is_not_a_delivery_requirement(self) -> None:
+        statements = discovery.statements(
+            "using AIDLC, add delivery-address validation across the API and service. "
+            "Preserve existing create-order behavior."
+        )
+        self.assertNotIn("Using AIDLC.", statements)
+        self.assertEqual(
+            statements,
+            [
+                "Add delivery-address validation across the API and service.",
+                "Preserve existing create-order behavior.",
+            ],
+        )
+
     def test_bullets_sentences_and_semicolons_become_stable_requirement_rows(self) -> None:
         goal = """Add cancellation eligibility.
 - Release inventory exactly once

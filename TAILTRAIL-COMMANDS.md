@@ -1842,6 +1842,7 @@ python3 scripts/tailtrail.py aidlc official sanitize validate --root . --input p
 
 # Standard/Full requirements lifecycle: host-run official stage -> TailTrail anchor
 python3 scripts/tailtrail.py planning aidlc-requirements --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning question-context --root . --run-id <run-id>
 python3 scripts/tailtrail.py planning official-aidlc-questions --root . --run-id <run-id> --questions-base64 <base64-utf8-json>
 python3 scripts/tailtrail.py planning aidlc-answer --root . --run-id <run-id> --answers '<answers-json>'
 python3 scripts/tailtrail.py planning aidlc-approve --root . --run-id <run-id> --approved
@@ -1849,8 +1850,13 @@ python3 scripts/tailtrail.py planning aidlc-approve --root . --run-id <run-id> -
 
 Standard and Full modes use the verified official-pack Requirements Analysis
 rules through the configured host. The host generates the questions/options;
-TailTrail records only a sanitized artifact and adds advisory recommendation
-and reasoning fields. `aidlc-approve` is the single linked approval: it
+TailTrail first supplies a saved Question Orchestrator context containing the
+proposed requirements, labelled inventory evidence, unresolved decisions, and
+authority boundary. The host-generated artifact must map each question to
+requirement IDs, decision impact, known context, and evidence references.
+TailTrail validates grounding and traceability, records the sanitized artifact,
+and adds advisory recommendation and reasoning fields. It does not replace the
+official question authority. `aidlc-approve` is the single linked approval: it
 writes the official stage decision, freezes the immutable TailTrail anchor, and
 activates the same Planning Lock. A rejected Full-mode boundary routes back to
 official requirements, or to the official design route when the feedback names

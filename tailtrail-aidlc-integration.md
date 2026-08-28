@@ -108,6 +108,165 @@ tailtrail start "hands-free: add order cancellation and refund end to end" --ver
 
 Today this creates a planning boundary, an AIDLC-backed question/recommendation brief, an approval gate, and then TailTrailâ€™s requirement/drift/evidence controls after approval.
 
+### Question Orchestrator — implemented
+
+TailTrail now has one shared **Question Orchestrator** between Navigator and the
+selected AIDLC authority. It is not a competing question generator. Navigator
+supplies the proposed requirement boundary and repository-inventory evidence;
+the active AIDLC authority still owns question generation. The orchestrator
+creates the grounding contract, validates the question set, maps every decision
+to requirement IDs, and carries that traceability into answers and approval.
+
+For official Standard and Full runs, the official-question validator preserves
+the complete host-supplied traceability block: `requirement_ids`,
+`decision_class`, `decision_impact`, `known_context`, and `evidence_refs`. A
+partially supplied block fails closed because silently mixing explicit and
+inferred fields can produce misleading mappings. Legacy artifacts that contain
+none of these fields remain readable; the orchestrator labels their mappings as
+inferred instead of presenting them as host-authored evidence.
+
+```mermaid
+flowchart LR
+    U["User requirement"] --> N["Navigator<br/>scope and proposed requirements"]
+    N --> C["Question Context<br/>facts, hypotheses, unknowns, constraints"]
+    C --> O["Question Orchestrator<br/>routing and quality contract"]
+    O --> L["Lite local question authority"]
+    O --> F["Official Standard or Full<br/>host question authority"]
+    L --> Q["Requirement-linked questions"]
+    F --> Q
+    Q --> G["Grounding and quality gate"]
+    G --> A["Answers and revised requirements"]
+    A --> K["Immutable approved anchor"]
+```
+
+Text alternative: Navigator creates a saved context contract. Lite or official
+AIDLC generates the questions. The orchestrator validates and traces the
+result, then approved answers flow into the existing immutable anchor.
+
+#### Authority by mode
+
+| Mode | Question authority | Question Orchestrator responsibility |
+| --- | --- | --- |
+| Lite | TailTrail local AIDLC | Enrich local questions with requirement mappings, decision class/impact, evidence references, and quality state. |
+| Standard | Pinned official AI-DLC Requirements Analysis through the configured host | Supply the saved context and validate the host-generated official artifact; never generate a local substitute. |
+| Full | Pinned official AI-DLC lifecycle through the configured host | Apply the same requirements contract, then preserve the official lifecycle identity through later stages. |
+
+#### Saved context contract
+
+Every AIDLC requirements run writes:
+
+```text
+.tailtrail/runs/<run-id>/planning/question-context-v<revision>.json
+```
+
+The first gathering writes v1. A material refinement writes the next immutable
+revision; an identical resume reuses the latest artifact instead of duplicating
+state. The artifact contains:
+
+- proposed requirement IDs and statements;
+- user-stated facts and preservation constraints;
+- repository-inventory hypotheses with explicit confidence labels;
+- unresolved decision topics and their likely impact;
+- the active question authority;
+- the planning boundary, including `source_bodies_read: false`.
+
+It never turns a path match into a confirmed implementation fact. Repository
+facts that require source inspection must come from a separately approved
+bounded investigation or from post-approval implementation inspection.
+
+Example:
+
+```json
+{
+  "run_id": "start-...",
+  "aidlc_mode": "standard",
+  "question_authority": "official-ai-dlc-pack",
+  "requirements": [
+    {
+      "requirement_id": "REQ-01",
+      "statement": "Add delivery-address validation.",
+      "kind": "change"
+    }
+  ],
+  "known_facts": [
+    {
+      "fact_id": "INV-01",
+      "fact": "Repository inventory identified `validation.py` as a validation boundary.",
+      "evidence": "src/order_service/validation.py",
+      "confidence": "repository-inventory-hypothesis"
+    }
+  ]
+}
+```
+
+#### Question quality contract
+
+Every saved question is enriched with:
+
+```json
+{
+  "id": "OQ2",
+  "authority": "official-ai-dlc-pack",
+  "requirement_ids": ["REQ-01", "REQ-03"],
+  "decision_class": "user-decision",
+  "decision_impact": ["acceptance-criteria", "public-behavior"],
+  "known_context": ["Backward compatibility is explicitly required."],
+  "evidence_refs": ["user-requirement:REQ-03"]
+}
+```
+
+The deterministic quality gate checks:
+
+1. question and option uniqueness;
+2. valid requirement-ID mappings;
+3. supported decision classification;
+4. non-empty material decision impact;
+5. grounding for repository-specific recommendation claims;
+6. preservation of the selected AIDLC authority.
+
+An official question claiming that the repository already uses a field,
+library, status code, or data shape must provide an explicit saved evidence
+reference. Otherwise recording fails closed instead of presenting an invented
+fact to the user. Missing explicit requirement mappings remain visible as
+warnings when TailTrail can infer a backward-compatible mapping.
+
+#### Answer and anchor traceability
+
+Answers now retain their requirement IDs, decision class, decision impact, and
+evidence references. This creates a continuous trace:
+
+```text
+user prompt
+  -> proposed requirement
+  -> question context
+  -> AIDLC question
+  -> selected answer
+  -> revised requirement boundary
+  -> immutable approved anchor
+  -> implementation evidence and drift
+  -> completion report
+```
+
+The orchestrator does not approve implementation, rewrite an official
+question, inspect source, run tests, or execute a model. Existing question
+clarification, challenge, authority-generated replacement, and explicit
+question-approval controls remain unchanged.
+
+#### Product surfaces
+
+```bash
+# Inspect the saved context for one run
+python3 scripts/tailtrail.py planning question-context --root . --run-id <run-id>
+
+# Standard/Full host submission remains the official question boundary
+python3 scripts/tailtrail.py planning official-aidlc-questions \
+  --root . --run-id <run-id> --questions-base64 <base64-utf8-json>
+```
+
+MCP exposes the same context through the read-only
+`planning_question_context_show` tool. The implementation is packaged in Core
+and Extended installations through `scripts/question-orchestrator.py`.
+
 ### What TailTrail does not currently provide
 
 TailTrail is not feature-equivalent to official AI-DLC Workflows:

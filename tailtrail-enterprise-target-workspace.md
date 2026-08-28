@@ -112,6 +112,22 @@ No source files are in scope until the target is verified.
 
 ## Scope confidence
 
+### Implicit-workspace production confidence
+
+When Start falls back to the host's current directory, path existence alone is
+not sufficient. After bounded read-only Navigator discovery and before saving a
+Planning Lock, TailTrail now checks whether the proposed scope contains at
+least one production-code candidate. A feature request that maps only to tests,
+documentation, or support files returns `needs-confirmation` and shows the weak
+matches plus an explicit `--root` recovery command. No Planning Lock is created.
+
+Explicit `--root`, host-workspace, prompt-target, alias, and `--changed` inputs
+remain authoritative because they are deliberate target or scope selections.
+Documentation-only and test-only tasks do not require a production candidate.
+This gate prevents a credible-looking application plan from being produced in
+the TailTrail tooling checkout or another unrelated current directory without
+adding a new prompt burden for correctly opened application workspaces.
+
 TailTrail must display why a file appears in a plan.
 
 | Evidence | Confidence | Planning behavior |

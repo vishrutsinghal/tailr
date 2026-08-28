@@ -660,6 +660,44 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertEqual(resolution["status"], "verified")
         self.assertEqual(resolution["source"], "--root")
 
+    def test_target_fit_boundary_is_crisp_and_creates_no_planning_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fit = {
+                "status": "needs-confirmation",
+                "blocking": True,
+                "reason": "only test matches were found",
+                "discovered_candidates": ["tests/test_validation.py"],
+            }
+            report = task_start.target_fit_boundary_report(
+                "add API validation,\\nthen preserve service behavior",
+                root,
+                fit,
+                "tailtrail",
+                {
+                    "aidlc_mode": {"mode": "full", "state": "official-full-ready"},
+                    "navigator": {"requirement_matrix": [{"display_id": "REQ-01", "statement": "Preserve service behavior."}]},
+                    "guided_delivery": {
+                        "selected": [{"name": "Requirement Completion Harness", "why": "prove requirement completion"}],
+                        "hands_free_program": None,
+                    },
+                },
+            )
+            rendered = task_start.render_markdown(report)
+        self.assertIn("# TailTrail Pre-Target Start Plan", rendered)
+        self.assertIn("add API validation, then preserve service behavior", rendered)
+        self.assertIn("`tests/test_validation.py`", rendered)
+        self.assertIn("No Planning Lock was created", rendered)
+        self.assertIn("## Requirement bifurcation", rendered)
+        self.assertIn("## Intended technical scope", rendered)
+        self.assertIn("## AIDLC route", rendered)
+        self.assertIn("Requested mode: **full**", rendered)
+        self.assertIn("## Selected TailTrail features", rendered)
+        self.assertIn('append an explicit target', rendered)
+        self.assertIn('--root \"D:/absolute/path/to/target-project\"', rendered)
+        self.assertNotIn('start \"your goal\"', rendered)
+        self.assertNotIn("\\n", rendered)
+
     def test_start_compact_report_lists_selected_tailtrail_features(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

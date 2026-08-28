@@ -23,6 +23,7 @@ def load(name: str, relative: str):
 bridge = load("official_aidlc_bridge_test", "scripts/aidlc-official-bridge.py")
 ledger = load("official_aidlc_bridge_ledger_test", "scripts/run-ledger.py")
 lock = load("official_aidlc_planning_lock_test", "scripts/planning-lock.py")
+official_requirements = load("official_aidlc_requirements_test", "scripts/official-aidlc-requirements.py")
 
 
 def digest(path: Path) -> str:
@@ -71,6 +72,11 @@ def host_questions() -> list[dict[str, object]]:
         ],
         "recommended": "Service and API behavior",
         "reasoning": "The stated delivery includes an API and audit evidence, so the caller contract is part of the boundary.",
+        "requirement_ids": ["REQ-01"],
+        "decision_class": "architecture-decision",
+        "decision_impact": ["architecture", "public-contract"],
+        "known_context": ["The requested delivery includes service and API behavior."],
+        "evidence_refs": ["user-requirement:REQ-01"],
     }]
 
 
@@ -183,6 +189,39 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(recorded["state"], "official-aidlc-requirements-gathering")
         self.assertEqual(saved["questions"][0]["recommendation_origin"], "tailtrail-advisory")
+        self.assertEqual(saved["questions"][0]["requirement_ids"], ["REQ-01"])
+        self.assertEqual(saved["questions"][0]["decision_class"], "architecture-decision")
+        self.assertEqual(saved["questions"][0]["decision_impact"], ["architecture", "public-contract"])
+        self.assertEqual(saved["questions"][0]["known_context"], ["The requested delivery includes service and API behavior."])
+        self.assertEqual(saved["questions"][0]["evidence_refs"], ["user-requirement:REQ-01"])
+        self.assertEqual(recorded["question_quality"]["warnings"], [])
+        rendered = lock.render_aidlc_requirements(recorded)
+        self.assertIn("**Affects:** REQ-01", rendered)
+        self.assertIn("**Decision:** architecture-decision - architecture, public-contract", rendered)
+        answers = official_requirements.validate_answers(
+            {"questions": saved["questions"]},
+            [{"question_id": "OQ1", "choice": "B"}],
+        )
+        self.assertEqual(answers["OQ1"]["requirement_ids"], ["REQ-01"])
+        self.assertEqual(answers["OQ1"]["decision_class"], "architecture-decision")
+        self.assertEqual(answers["OQ1"]["decision_impact"], ["architecture", "public-contract"])
+        self.assertEqual(answers["OQ1"]["evidence_refs"], ["user-requirement:REQ-01"])
+
+    def test_official_question_validation_keeps_legacy_payloads_compatible(self):
+        legacy = host_questions()
+        for key in ("requirement_ids", "decision_class", "decision_impact", "known_context", "evidence_refs"):
+            legacy[0].pop(key)
+
+        validated = official_requirements.validate_host_questions(legacy)
+
+        self.assertNotIn("requirement_ids", validated[0])
+
+    def test_official_question_validation_rejects_partial_traceability(self):
+        partial = host_questions()
+        partial[0].pop("evidence_refs")
+
+        with self.assertRaisesRegex(ValueError, "traceability metadata is incomplete"):
+            official_requirements.validate_host_questions(partial)
 
     def test_full_hands_free_start_accepts_a_multiline_goal_in_the_official_stage(self):
         goal = """hands-free: add an order-amendment capability end to end.

@@ -662,6 +662,47 @@
       "deprecated_in_version": null
     },
     {
+      "id": "question-orchestrator",
+      "title": "AIDLC Question Orchestrator",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Official AI-DLC integration - Question Orchestrator",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail planning question-context --run-id <run-id>"
+      ],
+      "docs": [
+        "tailtrail-aidlc-integration.md",
+        "ROADMAP.md",
+        "MCP-SERVER.md",
+        "schemas/question-context.schema.json",
+        "schemas/orchestrated-question-set.schema.json"
+      ],
+      "scripts": [
+        "scripts/question-orchestrator.py"
+      ],
+      "tests": [
+        "tests/test_question_orchestrator.py",
+        "tests/test_aidlc_requirements.py",
+        "tests/test_aidlc_official_bridge.py",
+        "tests/test_mcp_server.py"
+      ],
+      "mcp_tools": [
+        "planning_question_context_show"
+      ],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "navigator",
+        "aidlc",
+        "planning-lock"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
       "id": "official-aidlc-compatibility",
       "title": "Official AI-DLC Compatibility Foundation",
       "status": "implemented",
@@ -762,6 +803,7 @@
       "evidence_label": "local-evidence",
       "depends_on": [
         "official-aidlc-compatibility",
+        "question-orchestrator",
         "planning-lock",
         "mcp",
         "registry"

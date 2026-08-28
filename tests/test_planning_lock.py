@@ -25,6 +25,11 @@ ledger = load("planning_lock_ledger_test", "scripts/run-ledger.py")
 
 
 class PlanningLockTests(unittest.TestCase):
+    def test_official_question_recorder_supports_stdin_for_large_windows_payloads(self) -> None:
+        source = (ROOT / "scripts" / "planning-lock.py").read_text(encoding="utf-8")
+        self.assertIn('official_question_source.add_argument("--questions-stdin"', source)
+        self.assertIn("questions_json = sys.stdin.readline()", source)
+
     def test_start_is_locked_until_a_separate_explicit_approval(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -216,9 +221,55 @@ class PlanningLockTests(unittest.TestCase):
         self.assertIn("recommended", aidlc["questions"][0])
         rendered = lock.render_aidlc_requirements(aidlc)
         self.assertIn("# TailTrail AIDLC Requirements", rendered)
-        self.assertIn("Q1:", rendered)
+        self.assertIn("### Q1", rendered)
         self.assertIn("### Q4", rendered)
         self.assertIn("Validator and service/API path", rendered)
+
+    def test_aidlc_response_requires_every_generated_question(self) -> None:
+        questions = [
+            {
+                "id": f"Q{index}",
+                "question": f"Question {index}?",
+                "options": [
+                    {"id": "A", "text": "First"},
+                    {"id": "B", "text": "Second"},
+                    {"id": "Other", "text": "Other — describe the intended behavior."},
+                ],
+                "recommended": "First",
+                "reasoning": "Focused reason.",
+            }
+            for index in range(1, 7)
+        ]
+        rendered = lock.render_aidlc_requirements({
+            "run_id": "all-questions",
+            "requirements": [{"display_id": "REQ-01", "statement": "Deliver the feature."}],
+            "questions": questions,
+        })
+        self.assertIn("one answer for every question, `Q1` through `Q6`", rendered)
+        self.assertNotIn("and `Q3`", rendered)
+
+    def test_aidlc_report_normalizes_escaped_lines_and_unicode_punctuation(self) -> None:
+        rendered = lock.render_aidlc_requirements({
+            "run_id": "presentation-cleanup",
+            "requirements": [{"display_id": "REQ-01", "statement": "Add API,\\nservice, and journey validation."}],
+            "questions": [{
+                "id": "Q1",
+                "question": "Which boundary applies?\\nChoose one.",
+                "options": [
+                    {"id": "A", "text": "API and service — preserve compatibility."},
+                    {"id": "Other", "text": "Other — explain the boundary."},
+                ],
+                "recommended": "API and service — preserve compatibility.",
+                "reasoning": "The requirement names both layers — this keeps proof aligned.",
+                "requirement_ids": ["REQ-01"],
+                "decision_class": "architecture-decision",
+                "decision_impact": ["architecture"],
+            }],
+        })
+        self.assertNotIn("\\n", rendered)
+        self.assertNotIn("—", rendered)
+        self.assertNotIn("�", rendered)
+        self.assertIn("Add API, service, and journey validation.", rendered)
 
     def test_aidlc_answers_activate_same_run_and_create_execution_handoff(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

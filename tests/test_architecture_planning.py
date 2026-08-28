@@ -34,6 +34,23 @@ GOAL = (
 
 
 class ArchitecturePlanningTests(unittest.TestCase):
+    def test_explicit_validation_adds_existing_boundary_and_focused_unit_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for relative in ("src/orders/validation.py", "tests/unit/test_validation.py"):
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+            expanded = architecture.add_explicit_role_candidates(
+                root,
+                "Add validation across the service and gather focused evidence.",
+                [],
+            )
+
+        paths = {item["path"] for item in expanded}
+        self.assertEqual(paths, {"src/orders/validation.py", "tests/unit/test_validation.py"})
+        self.assertEqual(architecture.role("src/orders/validation.py"), "validation boundary")
+
     def test_filters_unrelated_spec_and_adds_explicit_api_role(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

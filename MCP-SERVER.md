@@ -25,6 +25,7 @@ Use `mcp tools` to inspect the available tool contract. Use `mcp doctor` before 
 - `profile_view`, `validation_receipt_show`, and `release_confidence_show`: inspect declared testing tiers, requirement-linked proof, and the latest receipt-based release-confidence view.
 - `git_readiness`, `recovery_boundary_show`, and `recovery_reconciliation_show`: inspect Phase 4 Mode A readiness, boundary state, and the latest no-write conflict classification.
 - `architecture_assessment_show` and `maintainability_assessment_show`: inspect the latest requirement-linked architecture or maintainability assessment.
+- `planning_question_context_show`: reads the saved Question Orchestrator input contract for one run, including active AIDLC authority, requirement IDs, labelled known facts, unresolved decisions, and the no-source-body boundary. It cannot generate or revise questions.
 - `aidlc_official_status`, `aidlc_official_bridge_show`, `aidlc_official_state_show`, and `aidlc_official_sanitize_validate`: inspect pinned-pack compatibility, immutable bridge identity, canonical ownership, and the fail-closed reference boundary.
 - `aidlc_official_session_status`: projects the verified Phase I runtime attachment, current official stage, and append-only transition count. It is read-only and cannot attach a session, import a receipt, or execute the official pack.
 - `host_conformance_report`: reports Phase J instruction conformance and
