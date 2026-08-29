@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Reproduction Contract",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "domain", "status", "trigger", "expected", "actual", "reproduction_method", "safety_boundary", "revision"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-reproduction-contract"},
+    "run_id": {"type": "string", "minLength": 1},
+    "domain": {"enum": ["code", "architecture", "database", "api-integration"]},
+    "max_achievable_confidence_state": {"type": "string"},
+    "status": {"enum": ["awaiting-approval", "approved", "rejected", "blocked"]},
+    "trigger": {"type": "string", "minLength": 1},
+    "expected": {"type": "string", "minLength": 1},
+    "actual": {"type": "string", "minLength": 1},
+    "reproduction_method": {"type": "string", "minLength": 1},
+    "preserve_rules": {"type": "array", "items": {"type": "string"}},
+    "safety_boundary": {"type": "string", "minLength": 1},
+    "reject_reason": {"type": ["string", "null"]},
+    "revision": {"type": "integer", "minimum": 1},
+    "approved_at": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

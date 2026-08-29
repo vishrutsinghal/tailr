@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Correction Packet",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "hypothesis_id", "domain", "root_cause_statement", "anchor_draft_path", "status"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-correction-packet"},
+    "run_id": {"type": "string", "minLength": 1},
+    "hypothesis_id": {"type": "string", "minLength": 1},
+    "domain": {"enum": ["code", "architecture", "database", "api-integration"]},
+    "root_cause_statement": {"type": "string", "minLength": 1},
+    "anchor_draft_path": {"type": "string", "minLength": 1},
+    "status": {"enum": ["proposed", "approved"]},
+    "approved_at": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

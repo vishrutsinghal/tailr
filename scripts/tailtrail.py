@@ -33,6 +33,7 @@ COMMANDS = {
     "navigator": "Use the short TailTrail Navigator context, plan, or implementation-proposal modes.",
     "ledger": "Create, append, validate, or project local Phase 1 run state.",
     "failure": "Record or inspect sanitized post-implementation failure artifacts.",
+    "debug": "Debug Harness: turn a symptom into a proven root cause (Code/Architecture/Database/API-integration domains only).",
     "anchor": "Draft, approve, invalidate, or review a local change-intent anchor.",
     "intent": "Expand a short TailTrail prompt through expand-intent.py.",
     "expand": "Alias for intent.",
@@ -125,6 +126,31 @@ def invocation() -> str:
     return f"python3 {Path(sys.argv[0]).as_posix()}"
 
 
+def warn_if_stale_checkout() -> None:
+    """Best-effort notice when an installed launcher runs a different, stale
+    TailTrail checkout than the one under the current directory. Only fires
+    when invoked through a generated launcher/wrapper (TAILTRAIL_COMMAND_NAME
+    is set); silent for direct `python3 scripts/tailtrail.py` runs and tests."""
+    if not os.environ.get("TAILTRAIL_COMMAND_NAME"):
+        return
+    try:
+        here = Path(__file__).resolve()
+        cwd = Path.cwd()
+        for candidate in (cwd, *cwd.parents):
+            local_entry = candidate / "scripts" / "tailtrail.py"
+            if local_entry.is_file() and local_entry.resolve() != here:
+                print(
+                    f"TailTrail note: `{invocation()}` runs {here}, but {local_entry.resolve()} "
+                    "is a different TailTrail checkout under the current directory. If output looks "
+                    "out of date, run that checkout directly (python3 scripts/tailtrail.py ...) or "
+                    "refresh this launcher: python3 scripts/install-launcher.py --force",
+                    file=sys.stderr,
+                )
+                return
+    except OSError:
+        return
+
+
 def quiet_enabled(args: list[str] | None = None) -> bool:
     if os.environ.get("TAILTRAIL_QUIET", "").lower() in {"1", "true", "yes", "on"}:
         return True
@@ -132,7 +158,7 @@ def quiet_enabled(args: list[str] | None = None) -> bool:
 
 
 def strip_wrapper_flags(args: list[str]) -> list[str]:
-    return [item for item in args if item != "--quiet"]
+    return [item for item in args if item not in {"--quiet", "--debug", "--build"}]
 
 
 def json_output_requested(args: list[str]) -> bool:
@@ -501,6 +527,68 @@ def print_start_overview() -> None:
     print('tailtrail start "fix the claim amount validation bug" --changed src/claims_api/validation.py --verbose')
     print()
     print("Start is plan-only. It does not edit code until you approve the plan.")
+    print()
+    print("A goal that reports a symptom rather than a requirement (\"orders")
+    print("double-charge on timeout\") is routed to the Debug Harness instead of")
+    print("the normal build workflow. Force one or the other with --debug / --build.")
+
+
+DEBUG_INTENT_PHRASES = (
+    "double charge", "double-charge", "charged twice", "charges twice",
+    "crashes when", "throws an exception", "raises an exception",
+    "fails when", "failing when", "intermittent failure", "returns the wrong",
+    "returns wrong", "produces the wrong", "unexpected result",
+    "reproduce:", "regression:", "bug:", "defect:", "stopped working",
+    "no longer works", "used to work",
+)
+
+
+def classify_start_intent(goal: str, args: list[str]) -> str:
+    """Best-effort, conservative classification of a `tailtrail start` goal as
+    a debug investigation vs. a normal build workflow. Ambiguous goals default
+    to build (unchanged behavior); only explicit flags or unambiguous
+    bug-report phrasing route to the Debug Harness (DEBUG-HARNESS.md Section 3)."""
+    if "--debug" in args:
+        return "debug"
+    if "--build" in args:
+        return "build"
+    if "--error" in args or "--command" in args:
+        return "debug"
+    lowered = goal.lower()
+    if any(phrase in lowered for phrase in DEBUG_INTENT_PHRASES):
+        return "debug"
+    return "build"
+
+
+def filter_debug_forward_args(args: list[str]) -> list[str]:
+    """Keep only the goal text and the flags debug-intake.py understands;
+    silently drop build-only flags (--changed, --verbose, --debug, --build)
+    rather than letting them fail argparse in the Debug Harness scripts."""
+    allowed_value_flags = {"--error", "--command", "--run-id", "--root"}
+    allowed_flags = {"--attach"}
+    kept: list[str] = []
+    skip_next = False
+    for index, value in enumerate(args):
+        if skip_next:
+            skip_next = False
+            continue
+        if value in allowed_value_flags:
+            kept.append(value)
+            if index + 1 < len(args):
+                kept.append(args[index + 1])
+                skip_next = True
+            continue
+        if value in allowed_flags:
+            kept.append(value)
+            continue
+        if value.startswith("--"):
+            # Unrecognized (build-only) flag: drop it, and drop its value too
+            # unless the next token is itself a flag (e.g. --verbose).
+            if index + 1 < len(args) and not args[index + 1].startswith("--"):
+                skip_next = True
+            continue
+        kept.append(value)
+    return kept
 
 
 def start(args: list[str]) -> int:
@@ -508,12 +596,18 @@ def start(args: list[str]) -> int:
         print_startup_banner()
         print_start_overview()
         return 0
+    goal = next((value for value in args if not value.startswith("--")), "")
+    intent = classify_start_intent(goal, args)
     if not quiet_enabled(args) and not json_output_requested(args):
         print_startup_banner()
         # The delegated Start process writes directly to the same stream.
         # Flush first so redirected/Copilot/Codex output cannot place the
         # parent banner after the child report.
         sys.stdout.flush()
+    if intent == "debug":
+        print("Navigator: classified this goal as a debug investigation (not a build workflow).")
+        print("Routing to the Debug Harness. Re-run with --build to force the normal build workflow instead.")
+        return debug(filter_debug_forward_args(args))
     return run_script("task-start.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
 
 
@@ -685,6 +779,28 @@ def aidlc(args: list[str]) -> int:
         return run_script("aidlc-official-detect.py", rest)
     print("Unknown aidlc action. Use: init, check, or official")
     return 2
+
+
+def debug(args: list[str]) -> int:
+    if not args:
+        print("Usage: tailtrail debug \"<symptom>\" [--error <file>] [--command \"<cmd>\"] [--run-id <id>] [--attach]")
+        print("       tailtrail debug reproduction draft|approve|reject|show ...")
+        print("       tailtrail debug hypothesis add|experiment|replan|prove|domain-status|show ...")
+        print("       tailtrail debug correction propose|approve|show ...")
+        print("       tailtrail debug completion-report generate|show ...")
+        return 2
+    action, rest = args[0], strip_wrapper_flags(args[1:])
+    if action == "reproduction":
+        return run_script("debug-reproduction.py", rest)
+    if action == "hypothesis":
+        return run_script("debug-hypothesis.py", rest)
+    if action == "correction":
+        return run_script("debug-correction.py", rest)
+    if action == "completion-report":
+        return run_script("debug-completion.py", rest)
+    if action in {"open", "show"}:
+        return run_script("debug-intake.py", strip_wrapper_flags(args))
+    return run_script("debug-intake.py", ["open", "--symptom", action, *rest])
 
 
 def install(args: list[str]) -> int:
@@ -1057,6 +1173,7 @@ def adapters(args: list[str]) -> int:
 
 
 def main() -> int:
+    warn_if_stale_checkout()
     if len(sys.argv) < 2 or sys.argv[1] in {"help", "-h", "--help"}:
         print_help()
         return 0
@@ -1108,8 +1225,10 @@ def main() -> int:
         return run_script("run-ledger.py", args)
     if command == "failure":
         return run_script("execution-failure.py", args)
+    if command == "debug":
+        return debug(args)
     if command == "execution-evidence":
-        return run_script("execution-evidence.py", args)
+        return run_script("execution-evidence.py", strip_wrapper_flags(args))
     if command == "anchor":
         return run_script("change-intent-anchor.py", args)
     if command in {"intent", "expand"}:

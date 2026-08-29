@@ -2,6 +2,54 @@
   "schema_version": "1",
   "features": [
     {
+      "id": "debug-harness",
+      "title": "Debug Harness Prototype (Code/Architecture/Database/API-integration)",
+      "status": "implemented",
+      "surface": "extended",
+      "roadmap_ref": "Debug Harness Prototype",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail debug",
+        "tailtrail debug reproduction",
+        "tailtrail debug hypothesis",
+        "tailtrail debug correction",
+        "tailtrail debug completion-report"
+      ],
+      "docs": [
+        "DEBUG-HARNESS.md"
+      ],
+      "scripts": [
+        "scripts/debug-intake.py",
+        "scripts/debug-reproduction.py",
+        "scripts/debug-hypothesis.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-completion.py"
+      ],
+      "tests": [
+        "tests/test_debug_harness.py",
+        "tests/test_navigator_debug_routing.py"
+      ],
+      "mcp_tools": [
+        "debug_intake_show",
+        "debug_reproduction_show",
+        "debug_hypothesis_ledger_show",
+        "debug_completion_report_show",
+        "debug_start",
+        "debug_reproduction_approve",
+        "debug_experiment_record",
+        "debug_correction_approve"
+      ],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "planning-lock"
+      ],
+      "since_version": "0.6.0",
+      "deprecated_in_version": null
+    },
+    {
       "id": "self-contained-package",
       "title": "Self-Contained Package Kernel, Integrity, Compatibility, And Artifact Proof",
       "status": "implemented",

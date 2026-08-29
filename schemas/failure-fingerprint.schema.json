@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Failure Fingerprint",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "fingerprint", "symptom_hash", "first_seen_at"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-failure-fingerprint"},
+    "run_id": {"type": "string", "minLength": 1},
+    "domain": {"enum": ["code", "architecture", "database", "cloud-infrastructure", "security", "api-integration", "network", "unknown"]},
+    "fingerprint": {"type": "string", "minLength": 1},
+    "symptom_hash": {"type": "string", "minLength": 1},
+    "stack_signature": {"type": "array", "items": {"type": "string"}},
+    "entry_point": {"type": ["string", "null"]},
+    "first_seen_at": {"type": "string"},
+    "matched_learning_ids": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

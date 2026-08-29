@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Hypothesis Ledger",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "hypotheses", "sequence"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-hypothesis-ledger"},
+    "run_id": {"type": "string", "minLength": 1},
+    "cycle_limit": {"type": "integer", "minimum": 1},
+    "experiments_since_reset": {"type": "integer", "minimum": 0},
+    "investigation_blocked": {"type": "boolean"},
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hypothesis_id", "domain", "statement", "rank", "status"],
+        "properties": {
+          "hypothesis_id": {"type": "string", "minLength": 1},
+          "domain": {"enum": ["code", "architecture", "database", "api-integration"]},
+          "statement": {"type": "string", "minLength": 1},
+          "rank": {"type": "integer", "minimum": 1},
+          "supporting_evidence": {"type": "array", "items": {"type": "string"}},
+          "contradicting_evidence": {"type": "array", "items": {"type": "string"}},
+          "next_experiment": {"type": ["string", "null"]},
+          "status": {"enum": ["open", "eliminated", "proven"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "sequence": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": false
+}
