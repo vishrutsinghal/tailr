@@ -289,6 +289,8 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     ]
     saved_start = read(directory / "planning" / "start-report-v1.json") if (directory / "planning" / "start-report-v1.json").is_file() else {}
     start_report = saved_start.get("report", saved_start) if isinstance(saved_start, dict) else {}
+    handoff = read(directory / "planning" / "execution-handoff-v1.json") if (directory / "planning" / "execution-handoff-v1.json").is_file() else {}
+    execution_authority = handoff.get("execution_authority", {}) if isinstance(handoff, dict) else {}
     official_design, official_design_path = latest(directory / "aidlc-official" / "checkpoints", "design-plan-*.json")
     official_evidence, official_evidence_path = latest(directory / "aidlc-official" / "checkpoints", "evidence-checkpoint-*.json")
     official_handoff, official_handoff_path = latest(directory / "aidlc-official" / "checkpoints", "handoff-*.json")
@@ -305,6 +307,17 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     maintainability_required = "Maintainability Harness" in selected_names
     passed_tiers = sorted({str(item.get("tier")) for item in receipts if item.get("outcome") == "pass"})
     failed_receipts = [item for item in receipts if item.get("outcome") != "pass"]
+    receipt_outcomes = {str(item.get("outcome")) for item in receipts}
+    if gate and gate.get("complete"):
+        test_status = "pass"
+    elif receipt_outcomes & {"fail", "timed-out"}:
+        test_status = "fail"
+    elif "blocked" in receipt_outcomes:
+        test_status = "blocked"
+    elif "unavailable" in receipt_outcomes:
+        test_status = "unavailable"
+    else:
+        test_status = "not-evidenced"
     requirement_complete = sum(item["status"] == "complete" for item in requirements)
 
     def harness(name: str, artifact: dict[str, Any] | None, artifact_path: str | None, *, required: bool = False, complete: bool | None = None, basis: str) -> dict[str, Any]:
@@ -320,6 +333,11 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         harness("Maintainability Harness", maintainability, maintainability_path, required=maintainability_required, basis="recorded refactor/maintainability assessment"),
         harness("Evidence-Aware Testing", gate, gate_path, required=True, basis="completion gate and validation receipts"),
     ]
+    for item in harnesses:
+        if item["name"] == "Evidence-Aware Testing" and item["status"] != "pass":
+            item["status"] = test_status
+        if item["name"] == "Requirement Completion Harness" and test_status in {"blocked", "unavailable"}:
+            item["status"] = "incomplete"
 
     payload = {
         "schema_version": "1",
@@ -348,7 +366,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "findings": (behavior or {}).get("findings", []),
         },
         "tests": {
-            "status": "pass" if gate and gate.get("complete") else ("fail" if gate else "not-evidenced"),
+            "status": test_status,
             "passed_tiers": passed_tiers,
             "failed_or_unavailable_receipts": failed_receipts,
             "findings": (gate or {}).get("findings", []),
@@ -376,6 +394,11 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "valid": canonical_state["valid"],
             "issues": canonical_state["issues"],
         },
+        "execution_authority": execution_authority or {
+            "route": "not-recorded", "status": "unavailable",
+            "auto_granted_action_classes": [], "separate_gate_triggers": [],
+            "boundary": "No execution-authority artifact was saved for this run.",
+        },
         "source_artifacts": {
             "approved_anchor": "anchors/approved-v1.json",
             "checkpoint": checkpoint_path,
@@ -402,6 +425,23 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         and payload["canonical_state"]["valid"]
     )
     payload["overall_status"] = "complete" if ready else "evidence-incomplete"
+    execution_blockers: list[dict[str, Any]] = []
+    seen_blockers: set[tuple[str, str, str]] = set()
+    for item in failed_receipts:
+        blocker = {
+            "outcome": str(item.get("outcome")),
+            "command_label": str(item.get("command_label", item.get("tier", "validation"))),
+            "asserted_behavior": str(item.get("asserted_behavior", "Saved validation did not pass.")),
+        }
+        identity = (blocker["outcome"], blocker["command_label"], blocker["asserted_behavior"])
+        if identity not in seen_blockers:
+            seen_blockers.add(identity); execution_blockers.append(blocker)
+    payload["implementation"] = {
+        "status": "complete" if ready else ("blocked" if test_status in {"blocked", "unavailable"} or failures["status"] == "unresolved" else "incomplete"),
+        "changed_paths": payload["changed_scope"]["changed_paths"],
+        "blockers": execution_blockers,
+        "boundary": "Implementation status is derived from saved changed paths, requirement checkpoints, and factual command receipts; it is not inferred from chat narration.",
+    }
     payload["drift_learning"] = drift_learning_observation(directory, payload, record)
     payload["completion_learning"] = completion_learning_intake(root, directory, payload, record)
     payload["positive_learning"] = positive_learning_status(directory, payload)
@@ -413,6 +453,16 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "control": "Planning Lock and approved anchor",
             "status": "approved",
             "detail": "immutable approved requirement boundary",
+        },
+        {
+            "control": "Execution authority",
+            "status": payload["execution_authority"]["status"],
+            "detail": f"{payload['execution_authority']['route']}; auto-granted: {', '.join(payload['execution_authority'].get('auto_granted_action_classes', [])) or 'none'}",
+        },
+        {
+            "control": "Implementation delivery",
+            "status": payload["implementation"]["status"],
+            "detail": f"{len(payload['implementation']['changed_paths'])} changed path(s); {len(payload['implementation']['blockers'])} saved blocker(s)",
         },
         {
             "control": "Official AI-DLC evidence checkpoint",
@@ -502,6 +552,7 @@ def render(payload: dict[str, Any]) -> str:
         "",
         f"Run: `{payload['run_id']}`",
         f"Overall: **{payload['overall_status']}**",
+        f"Implementation: **{payload['implementation']['status']}**",
         "",
         f"Requirement delivery: **{requirements['complete']}/{requirements['total']} complete**",
         f"Overall evidence: **tests {tests['status']} ({tiers}); drift {payload['drift']['status']}**",
@@ -515,6 +566,10 @@ def render(payload: dict[str, Any]) -> str:
         proof = f"{len(requirement['evidence'])} saved item(s)"
         drift = ", ".join(sorted({str(item.get("classification")) for item in requirement["drift"] if item.get("classification")})) or ("not assessed" if payload["drift"]["status"] == "not-assessed" else "none recorded")
         lines.append(f"| {table_cell(requirement['display_id'])} - {table_cell(requirement['statement'])} | {table_cell(requirement['status'])} | {table_cell(proof)} | {table_cell(drift)} |")
+    if payload["implementation"]["blockers"]:
+        lines.extend(["", "## Execution blockers", "", "| Outcome | Check | Boundary |", "| --- | --- | --- |"])
+        for blocker in payload["implementation"]["blockers"]:
+            lines.append(f"| {table_cell(blocker['outcome'])} | {table_cell(blocker['command_label'])} | {table_cell(blocker['asserted_behavior'])} |")
     lines.extend([
         "",
         "## TailTrail control status",

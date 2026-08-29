@@ -62,6 +62,32 @@ def apply_policy_preapproval(root: Path, workflow_id: str) -> dict[str, Any] | N
     return approvals.grant_policy(root, workflow_id, selected, policy_ref)
 
 
+def execution_authority_policy(saved_report: dict[str, Any]) -> dict[str, Any]:
+    """Resolve post-plan authority without weakening material approval gates."""
+    mode = str((saved_report.get("aidlc_mode", {}) or {}).get("mode", "lite"))
+    sensitive = ["dependency", "recovery", "scan_local", "external_provider", "publish", "deploy", "merge"]
+    if isinstance(saved_report.get("spec_kit_source"), dict):
+        return {
+            "mode": mode, "route": "intent-bridge-slice-gated", "status": "material-gates-retained",
+            "auto_granted_action_classes": [],
+            "separate_gate_triggers": ["source-revision-change", "slice-amendment", *sensitive],
+            "boundary": "Intent Bridge source ownership and the active delivery slice remain authoritative. Approval does not silently authorize a changed source revision or material slice amendment.",
+        }
+    if mode in {"standard", "full"}:
+        return {
+            "mode": mode, "route": "official-aidlc-stage-gated", "status": "material-gates-retained",
+            "auto_granted_action_classes": [],
+            "separate_gate_triggers": ["official-material-stage-transition", "requirement-or-design-amendment", *sensitive],
+            "boundary": "The pinned official AI-DLC lifecycle owns material stage transitions. Approval within a stage must not become per-command approval, but TailTrail does not infer the next official stage authority.",
+        }
+    return {
+        "mode": mode, "route": "approved-plan-auto-grant", "status": "safe-local-execution-authorized",
+        "auto_granted_action_classes": ["read_local", "write_tailtrail_state", "write_project", "execute_project"],
+        "separate_gate_triggers": ["material-scope-change", "requirement-contradiction", *sensitive],
+        "boundary": "The approved Lite/Off plan grants only hash-bound safe local work inside the immutable anchor. Sensitive or materially divergent actions still require their designated authority.",
+    }
+
+
 def activate(root: Path, run_id: str, saved_report: dict[str, Any], anchor_artifact: str | None) -> dict[str, Any]:
     """Persist DWR artifacts only after a canonical Start anchor exists."""
     descriptor = saved_report.get("workflow_runtime", {}) if isinstance(saved_report, dict) else {}
@@ -77,8 +103,10 @@ def activate(root: Path, run_id: str, saved_report: dict[str, Any], anchor_artif
     compiled = compiler.compile(root, workflow_id)
     initial_approval = approvals.record_initial(root, workflow_id)
     policy_approval = apply_policy_preapproval(root, workflow_id)
+    authority = execution_authority_policy(saved_report)
+    plan_grant = approvals.grant_approved_plan(root, workflow_id) if authority["route"] == "approved-plan-auto-grant" else None
     LEDGER.append_event(root, run_id, "workflow_runtime_activated", {"workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "compiler_plan": compiled["artifact"], "compiler_plan_fingerprint": compiled["plan_fingerprint"]})
-    return {"state": "compiled", "workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "state_view": {"status": lifecycle["status"], "lifecycle_state": lifecycle["lifecycle_state"]}, "compiler": {"artifact": compiled["artifact"], "revision": compiled["revision"], "plan_fingerprint": compiled["plan_fingerprint"], "template_id": compiled["template_id"]}, "initial_plan_approval": initial_approval.get("record"), "policy_preapproval": policy_approval, "next": "The compiled graph is ready for a later execution adapter; DWR-2 has not dispatched a stage.", "boundary": "Activation persists only TailTrail workflow metadata and does not run project work."}
+    return {"state": "compiled", "workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "state_view": {"status": lifecycle["status"], "lifecycle_state": lifecycle["lifecycle_state"]}, "compiler": {"artifact": compiled["artifact"], "revision": compiled["revision"], "plan_fingerprint": compiled["plan_fingerprint"], "template_id": compiled["template_id"]}, "initial_plan_approval": initial_approval.get("record"), "policy_preapproval": policy_approval, "execution_authority": {**authority, "approval_id": (plan_grant or {}).get("record", {}).get("approval_id")}, "next": "The compiled graph is ready for its host adapter. Safe local stages may reuse the plan-derived grant only when execution_authority says so; no stage was dispatched during activation.", "boundary": "Activation persists TailTrail workflow metadata and bounded authority only; it does not run project work."}
 
 
 def show_approvals(root: Path, workflow_id: str) -> dict[str, Any]:

@@ -75,6 +75,26 @@ records explicit session or bounded policy stage approvals as hash-bound
 metadata for read-only/TailTrail-state stages only; they never authorize a
 project command.
 
+The post-approval authority path is now mode-aware. Lite and Off plans create
+one hash-bound `plan-derived` grant for safe local inspection, TailTrail-state
+updates, approved-scope source edits, and focused project validation. Standard
+and Full official AI-DLC runs retain authority-owned material lifecycle gates;
+Intent Bridge retains source-revision and active-slice gates. Every mode still
+requires separate authority for material scope/requirement changes,
+dependencies, recovery, scanners, providers, publishing, deployment, and
+merge operations. Lite/Off consumes the Execution Handoff internally and
+continues implementation without a second user-facing pause; its authority is
+shown in the Completion Report. Standard/Full and Intent Bridge expose their
+defensive handoff because a material authority gate remains. This avoids both
+hidden authority and per-command approval fatigue.
+
+Start now also validates every explicit `--changed` path against the resolved
+target before creating a Planning Lock. A missing or out-of-root path returns a
+non-persisted Pre-Target plan with the exact invalid paths and target-correction
+command. This prevents approval from authorizing an impossible workspace. At
+closure, unavailable or blocked receipts produce an explicit implementation
+status and blocker table; they are no longer mislabeled as failed tests.
+
 DWR-3 adds the **Evidence, Resume, Correction, and Closure Bridge**. It
 records only hashes and local references to existing execution receipts,
 Harness assessments, drift, correction/recovery artifacts, CI evidence, and
@@ -315,6 +335,15 @@ Phase B itself does not attach an engine; the verified official Requirements
 Analysis adapter and its first stage gate are implemented in Phase C. Phase I
 now adds the separate post-approval, receipt-driven runtime attachment while
 preserving the immutable Phase B identity.
+
+Phase C now also compiles every revised requirement's evidence tiers against
+one shared capability registry before approval. This closes the former gap in
+which Behaviour Harness could plan `behaviour` proof that closure receipts
+could not record. After Standard or Full questions are answered, the same run
+now renders a resolved delivery plan with target scope, selected/deferred
+features, Architecture/Behaviour/Maintainability/UI lenses, guided stages,
+focused validation, token posture, and the explicit approval boundary. No
+project implementation begins during this projection.
 
 ### AIDLC Question Orchestrator — implemented
 

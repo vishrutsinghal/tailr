@@ -473,6 +473,32 @@ Approves the compiled plan revision, selected stages, listed files or scopes, an
 named actions. It does not automatically approve later scanner, publish, dependency, or
 destructive actions.
 
+### Mode-aware post-approval execution *(implemented)*
+
+Initial plan approval is converted into exactly one auditable execution route:
+
+| Requirement authority | Post-approval behavior | Additional material gates |
+| --- | --- | --- |
+| AIDLC Off or Lite | Write a hash-bound `plan-derived` grant for `read_local`, `write_tailtrail_state`, `write_project`, and `execute_project` stages inside the immutable anchor. | Material scope or requirement change, dependency, recovery, scanner, provider, publish, deploy, or merge. |
+| Official AI-DLC Standard or Full | Preserve official lifecycle-stage authority; do not create a plan-derived project grant. Commands inside an already authorized stage should be batched by the host rather than approved one by one. | Official material stage transition, requirement/design amendment, and every sensitive action. |
+| Intent Bridge | Preserve source revision and active delivery-slice authority; do not infer project authority from a rewritten local copy. | Source revision change, slice amendment, and every sensitive action. |
+
+The grant is bound to the canonical run, target identity, approved-anchor
+fingerprint, requirement IDs, compiler revision and graph, policy fingerprint,
+and covered stages. A mismatched or stale record fails closed. Activation
+records authority but dispatches no command. For Lite/Off, the host consumes
+the Execution Handoff internally and proceeds directly; the Completion Report
+is the first user-facing authority/handoff summary. Standard/Full and Intent
+Bridge show the defensive handoff because another material gate remains.
+Closure reports prior authority and never retroactively creates it.
+
+Before any of these routes can be approved, each explicit `--changed` path must
+exist inside the resolved target repository. Missing or escaping paths produce
+a non-persisted Pre-Target report and no Planning Lock. Completion separately
+reports `complete`, `incomplete`, or `blocked` implementation status. An
+unavailable target or command is rendered with its factual blocker and is not
+presented as a failed test execution.
+
 ### Stage Approval
 
 Required when a stage introduces a guarded action not covered by the initial approval, such as:
@@ -537,7 +563,7 @@ An approval record contains:
 - scope and expiry condition
 - timestamp
 - decision: approved, rejected, or edited
-- approval source: interactive, session, or policy
+- approval source: interactive, plan-derived, session, or policy
 
 No raw user message is required.
 

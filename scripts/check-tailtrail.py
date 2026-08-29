@@ -268,6 +268,7 @@ EXPECTED_FILES = {
     "scripts/change-intent-anchor.py",
     "scripts/completion-review.py",
     "scripts/closure-contract.py",
+    "scripts/evidence-tiers.py",
     "scripts/closure-close.py",
     "scripts/closure-correction.py",
     "scripts/closure-evaluation.py",

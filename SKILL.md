@@ -80,8 +80,10 @@ When the user answers an active AIDLC Requirements report, record all answers
 with `tailtrail planning aidlc-cycle --run-id <active-run-id> --answers '<json>'`
 and return the resulting revised boundary for approval. When the user approves
 that boundary, run `tailtrail planning aidlc-cycle --run-id <active-run-id>
---approved`, return the Execution Handoff, and continue implementation only
-under that same activated run and approved AIDLC anchor.
+--approved` and retain the internal Execution Handoff. For Lite/Off
+`approved-plan-auto-grant`, continue implementation immediately and expose the
+handoff/authority only in closure. Standard/Full and Intent Bridge retain the
+visible defensive handoff and their material authority gate.
 
 On Windows native shells, use `--answers-base64 <base64-utf8-json>` in place of
 `--answers` so native argument quoting cannot corrupt the JSON.
@@ -101,7 +103,10 @@ actual token use: it is measured only when host/provider telemetry is linked to
 the exact run ID.
 
 When approval returns an `execution_handoff`, persist its exact run ID and obey
-its `closure.command`. Before any final response after a source edit, execute
-that command through the same resolved TailTrail CLI used for Start and return
-its stdout verbatim. `Changes made`, `Validation`, and next-step narratives are
-not valid replacements for the closure response.
+its `closure.command`. Treat Lite/Off `approved-plan-auto-grant` as an internal
+handoff and continue safe implementation without a user-facing pause. Show
+Standard/Full or Intent Bridge defensive handoffs because their material gate
+remains. Before any final response after a source edit, execute the closure
+command and return its stdout verbatim; closure exposes the Lite/Off authority
+record. `Changes made`, `Validation`, and next-step narratives are not valid
+replacements for the closure response.

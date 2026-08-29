@@ -90,6 +90,30 @@ class CompletionReportTests(unittest.TestCase):
         self.assertEqual(result["tests"]["status"], "not-evidenced")
         self.assertEqual(result["overall_status"], "evidence-incomplete")
 
+    def test_unavailable_execution_is_blocked_not_reported_as_failed_tests(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); uid = self.setup_run(root)
+            run = ledger.state_dir(root, "run")
+            (run / "validation-receipts").mkdir(parents=True)
+            (run / "completion-gates").mkdir()
+            (run / "validation-receipts" / "target-check.json").write_text(json.dumps({
+                "requirement_uid": uid, "tier": "unit", "outcome": "unavailable",
+                "command_label": "approved target existence check",
+                "asserted_behavior": "The approved target must exist before implementation.",
+            }), encoding="utf-8")
+            (run / "completion-gates" / "gate-1.json").write_text(json.dumps({"complete": False, "findings": ["target unavailable"]}), encoding="utf-8")
+            result = report.build(root, "run"); rendered = report.render(result)
+
+        self.assertEqual(result["tests"]["status"], "unavailable")
+        self.assertEqual(result["implementation"]["status"], "blocked")
+        self.assertIn("Implementation: **blocked**", rendered)
+        self.assertIn("## Execution blockers", rendered)
+        self.assertEqual(len(result["implementation"]["blockers"]), 1)
+        controls = {item["control"]: item for item in result["tailtrail_status"]}
+        self.assertEqual(controls["Evidence-Aware Testing"]["status"], "unavailable")
+        self.assertEqual(controls["Requirement Completion Harness"]["status"], "incomplete")
+        self.assertNotIn("tests fail", rendered)
+
     def test_no_execution_evidence_is_labelled_not_assessed_not_success(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

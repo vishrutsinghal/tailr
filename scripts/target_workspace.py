@@ -103,11 +103,19 @@ def _remote_identity(raw: str | None) -> tuple[str | None, str | None]:
 def identity(root: Path) -> dict[str, Any]:
     """Capture safe, deterministic target identity without reading source bodies."""
     root = root.resolve()
+    managed_pack_roots = {
+        manifest.parent.resolve()
+        for manifest in root.glob("*/.tailtrail-install.json")
+        if manifest.is_file()
+    }
     manifests = [name for name in MANIFESTS if (root / name).is_file()]
     languages: set[str] = set()
     inventory: list[str] = []
     for path in list(root.rglob("*"))[:10_000]:
         if not path.is_file() or any(part in {".git", ".tailtrail", "node_modules", ".venv", "venv", "__pycache__"} for part in path.parts):
+            continue
+        resolved_path = path.resolve()
+        if any(resolved_path.is_relative_to(pack_root) for pack_root in managed_pack_roots):
             continue
         relative = path.relative_to(root).as_posix()
         if path.suffix.lower() in LANGUAGE_SUFFIXES:
@@ -324,7 +332,33 @@ def assess_plan_fit(
     open. This check runs after read-only Navigator discovery and before a
     Planning Lock is persisted.
     """
-    if resolution_source != "host-cwd" or changed:
+    if changed:
+        missing: list[str] = []
+        existing: list[str] = []
+        for raw in changed:
+            candidate = Path(str(raw))
+            resolved = candidate.resolve() if candidate.is_absolute() else (root.resolve() / candidate).resolve()
+            try:
+                resolved.relative_to(root.resolve())
+            except ValueError:
+                missing.append(str(raw).replace("\\", "/"))
+                continue
+            (existing if resolved.is_file() else missing).append(str(raw).replace("\\", "/"))
+        if missing:
+            return {
+                "status": "changed-path-missing", "blocking": True,
+                "reason": "one or more explicit --changed paths do not exist inside the selected target repository",
+                "root": root.resolve().as_posix(), "missing_changed_paths": missing,
+                "existing_changed_paths": existing, "production_candidates": [],
+                "discovered_candidates": [str(item.get("path")) for item in impacted if isinstance(item, dict) and item.get("path")],
+            }
+        return {
+            "status": "verified", "blocking": False,
+            "reason": "every explicit --changed path exists inside the selected target repository",
+            "production_candidates": existing, "existing_changed_paths": existing,
+        }
+
+    if resolution_source != "host-cwd":
         return {
             "status": "verified",
             "blocking": False,

@@ -133,6 +133,22 @@ class StartEntrypointTests(unittest.TestCase):
                 self.assertIn("closure.command", body)
                 self.assertIn("generic", body.lower())
 
+    def test_lite_approval_continues_and_defensive_modes_show_handoff(self) -> None:
+        for relative_path in (
+            "AGENTS.md",
+            "adapters/copilot-instructions.md",
+            ".github/copilot-instructions.md",
+            ".github/prompts/tailtrail-start.prompt.md",
+            "skills/tailtrail-start/SKILL.md",
+        ):
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertIn("approved-plan-auto-grant", body)
+                self.assertIn("Lite/Off", body)
+                self.assertIn("Standard/Full", body)
+                self.assertIn("Intent Bridge", body)
+                self.assertIn("closure", body.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -73,6 +73,7 @@ CORE_SCRIPTS: tuple[str, ...] = (
     "scripts/delivery-orchestrator.py",
     "scripts/dependency-decision.py",
     "scripts/enterprise-target-policy.py",
+    "scripts/evidence-tiers.py",
     "scripts/execution-failure.py",
     "scripts/expand-intent.py",
     "scripts/git-readiness.py",

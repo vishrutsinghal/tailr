@@ -1160,6 +1160,31 @@ The adapter writes a small, auditable set of run-local artifacts:
 - `aidlc-official/requirements/approval-v1.json` — the explicit official
   stage decision that authorizes TailTrail to freeze `anchors/approved-v1.json`.
 
+Before that approval is offered, the revised boundary now passes a canonical
+evidence-capability compilation step. Every requested validation tier must be
+recordable by TailTrail's receipt and closure surfaces; unsupported tiers block
+approval instead of failing only after implementation. The shared registry is
+`scripts/evidence-tiers.py`. It includes `behaviour` as a first-class tier and
+normalizes the spelling alias `behavior` to that canonical value.
+
+The answered-requirements report is also a resolved delivery plan, rather than
+only a list of revised requirements. It projects the immutable Start evidence
+back into the same operator-facing sections used by detailed Navigator plans:
+
+- Navigator decision and target scope;
+- selected and deferred TailTrail features;
+- Architecture Fitness, Behaviour, Maintainability, and UI-consistency plans
+  when selected;
+- guided delivery stages and first active slice;
+- focused validation candidates and commands;
+- token estimate and exactness boundary; and
+- the approval boundary for the revised AIDLC requirements.
+
+This projection does not rediscover source or create a parallel plan. It reads
+the saved Start report and binds it to the revised AIDLC requirement IDs, so the
+questions, approved requirements, selected Harnesses, and later closure proof
+remain part of one run.
+
 There is one approval, not two: approving the revised official Requirements
 Analysis stage writes the official gate artifact, freezes the TailTrail anchor,
 activates the existing Planning Lock, and creates the normal execution handoff.
@@ -1175,6 +1200,10 @@ stage. TailTrail does not substitute its own parallel questionnaire.
 - [x] Import sanitized requirement references and approved decisions.
 - [x] Freeze TailTrail anchor after official-stage approval.
 - [x] Send rejection/revision to official requirements/design, not a parallel TailTrail questionnaire.
+- [x] Compile planned evidence tiers before approval and reject unsupported
+  plan/receipt combinations early.
+- [x] Render the resolved post-question delivery plan with scope, Harness
+  lenses, validation, token posture, deferred controls, and approval boundary.
 - [x] Implement the Requirements-stage Official Approval-Gate Adapter that maps the official gate to
   TailTrail requirement/decision/evidence transitions and records one linked
   event per decision.

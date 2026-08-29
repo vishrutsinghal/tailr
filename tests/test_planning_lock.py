@@ -131,6 +131,7 @@ class PlanningLockTests(unittest.TestCase):
         self.assertTrue(handoff["closure"]["required"])
         self.assertEqual(handoff["closure"]["command"], "tailtrail completion-report --root . --run-id plan-3")
         self.assertIn("generic changes-made", handoff["closure"]["response_rule"])
+        self.assertEqual(handoff["execution_authority"]["route"], "legacy-no-runtime-authority")
 
     def test_lean_activation_does_not_create_an_anchor(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -287,9 +288,15 @@ class PlanningLockTests(unittest.TestCase):
                 {"question_id": "Q3", "choice": "B"},
             ])
             revision = lock.submit_aidlc_answers(root, "plan-aidlc-handoff", answers)
+            rendered_revision = lock.render_aidlc_revision(revision)
             handoff = lock.approve_aidlc_requirements(root, "plan-aidlc-handoff", True)
             activity = ledger.projection(root, "plan-aidlc-handoff")["activity"]
         self.assertEqual(revision["state"], "aidlc-revision-ready")
+        self.assertEqual(revision["evidence_capability"]["status"], "compatible")
+        self.assertIn("## Navigator Decision", rendered_revision)
+        self.assertIn("## Selected TailTrail features", rendered_revision)
+        self.assertIn("## Validation", rendered_revision)
+        self.assertIn("## Token estimate", rendered_revision)
         self.assertIn("service/API path", revision["requirements"][0]["statement"])
         self.assertEqual(handoff["state"], "execution-ready")
         self.assertTrue(handoff["planning_lock"]["writes_allowed"])

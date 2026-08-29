@@ -168,6 +168,7 @@ PACK_SCRIPTS = [
     "scripts/ci-evidence-ingest.py",
     "scripts/completion-review.py",
     "scripts/closure-contract.py",
+    "scripts/evidence-tiers.py",
     "scripts/closure-close.py",
     "scripts/closure-correction.py",
     "scripts/closure-evaluation.py",

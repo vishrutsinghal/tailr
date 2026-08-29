@@ -73,8 +73,10 @@ When the user answers an active AIDLC Requirements report, record every answer
 with `tailtrail planning aidlc-cycle --run-id <active-run-id> --answers '<json>'`
 and return the resulting revised boundary for approval. When the user approves
 that boundary, run `tailtrail planning aidlc-cycle --run-id <active-run-id>
---approved`, return the Execution Handoff, then continue normal TailTrail
-implementation under the same activated run only.
+--approved` and retain the internal Execution Handoff. For Lite/Off
+`approved-plan-auto-grant`, continue safe implementation immediately without
+returning the handoff as a stopping response. Standard/Full and Intent Bridge
+retain the visible defensive handoff and material gate.
 
 On Windows native shells, use `--answers-base64 <base64-utf8-json>` in place of
 `--answers` so native argument quoting cannot corrupt the JSON.
@@ -87,10 +89,12 @@ separately; actual model tokens remain unavailable unless linked host/provider
 telemetry identifies this exact run ID.
 
 When plan approval returns an `execution_handoff`, retain its run ID and obey
-`closure.command`. Before any final response after a source edit, execute that
-command through the same resolved TailTrail CLI used for Start and return its
-stdout verbatim. A `Changes made`, `Validation`, or next-step narrative is never
-a substitute for the Completion Report.
+`closure.command`. Lite/Off `approved-plan-auto-grant` consumes that handoff
+internally and continues implementation; Standard/Full and Intent Bridge show
+it because a material authority gate remains. Before any final response after
+a source edit, execute closure and return its stdout verbatim, including the
+recorded execution-authority route. A `Changes made`, `Validation`, or next-step
+narrative is never a substitute for the Completion Report.
 
 Until the Start plan or revised AIDLC boundary is explicitly approved, do not
 edit source, run project commands, scanners, tests, Terraform, or Git mutations.

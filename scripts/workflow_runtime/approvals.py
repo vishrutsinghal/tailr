@@ -115,7 +115,7 @@ def _record(root: Path, workflow_id: str, *, stage_ids: list[str], action_classe
     if not classes or not set(classes) <= ACTION_CLASSES: raise ValueError("approval contains an unknown action class")
     if operation_kind not in OPERATION_KINDS: raise ValueError("approval contains an unknown guarded operation kind")
     if decision not in {"approved", "rejected", "edited"}: raise ValueError("approval decision must be approved, rejected, or edited")
-    if source not in {"interactive", "session", "policy"}: raise ValueError("approval source is invalid")
+    if source not in {"interactive", "plan-derived", "session", "policy"}: raise ValueError("approval source is invalid")
     if source in {"session", "policy"} and not set(classes) <= LOW_RISK: raise ValueError("session/policy pre-approval cannot authorize project execution, scan, provider, or publish actions")
     required_classes = OPERATION_CLASSES.get(operation_kind, set())
     if not required_classes <= set(classes): raise ValueError(f"{operation_kind} approval requires action class: " + ", ".join(sorted(required_classes)))
@@ -161,6 +161,20 @@ def record_initial(root: Path, workflow_id: str) -> dict[str, Any]:
     return _record(root, workflow_id, stage_ids=[str(row["stage_id"]) for row in plan["stages"]], action_classes=["write_tailtrail_state"],
                    operation_kind="initial-plan", operation_ref=str(context["binding"]["planning_lock_ref"]), decision="approved", source="interactive",
                    rationale="Canonical Planning Lock and immutable approved anchor were approved for this exact run, target, compiler graph, and scope.")
+
+
+def grant_approved_plan(root: Path, workflow_id: str) -> dict[str, Any]:
+    """Derive safe local execution authority from one approved Lite/Off plan."""
+    context = _context(root.resolve(), workflow_id)
+    safe_classes = {"read_local", "write_tailtrail_state", "write_project", "execute_project"}
+    stages = [str(row["stage_id"]) for row in context["plan"]["stages"] if str(row.get("adapter_action_class")) in safe_classes]
+    classes = sorted({str(row.get("adapter_action_class")) for row in context["plan"]["stages"] if str(row.get("stage_id")) in stages})
+    return _record(
+        root, workflow_id, stage_ids=stages, action_classes=classes,
+        operation_kind="other-guarded", operation_ref=str(context["plan"]["artifact"]),
+        decision="approved", source="plan-derived",
+        rationale="The user approved this exact Lite/Off Planning Lock and immutable anchor; safe local inspection, scoped implementation, focused validation, review, and TailTrail-state stages inherit that bounded authority.",
+    )
 
 
 def decide(root: Path, workflow_id: str, **values: Any) -> dict[str, Any]:

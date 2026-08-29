@@ -233,13 +233,20 @@ def render_target_fit_boundary_report(report: dict[str, Any]) -> str:
         lines.extend(f"- {display_prose(item)}" for item in technical_scope)
     aidlc = report.get("aidlc_mode", {})
     if isinstance(aidlc, dict) and aidlc:
+        mode = str(aidlc.get("mode", "unknown"))
+        route_text = {
+            "lite": "After target confirmation, local AIDLC Lite remains the requirement-clarification route; no official lifecycle stage is implied.",
+            "off": "After target confirmation, AIDLC remains disabled and the approved Navigator requirement boundary governs implementation.",
+            "standard": "After target confirmation, the pinned official Requirements Analysis stage owns questions and approved decisions.",
+            "full": "After target confirmation, the pinned official lifecycle owns requirements, design, implementation, build/test, and handoff stages.",
+        }.get(mode, "After target confirmation, TailTrail preserves the selected AIDLC authority route.")
         lines.extend([
             "",
             "## AIDLC route",
             "",
-            f"- Requested mode: **{display_prose(aidlc.get('mode', 'unknown'))}**.",
+            f"- Requested mode: **{display_prose(mode)}**.",
             f"- Preflight state: `{aidlc.get('state', 'unavailable')}`.",
-            "- After target confirmation, the pinned official lifecycle owns the Full AIDLC requirements questions, options, recommendations, reasoning, design, implementation, build/test, and handoff stages.",
+            f"- {route_text}",
             "- Question Orchestrator validates relevance and requirement traceability; TailTrail does not replace the official questionnaire.",
         ])
     features = [item for item in report.get("selected_features", []) if isinstance(item, dict)]
@@ -261,6 +268,10 @@ def render_target_fit_boundary_report(report: dict[str, Any]) -> str:
     if candidates:
         lines.extend(["", "## Rejected workspace matches", ""])
         lines.append("- These paths were not accepted as implementation scope: " + ", ".join(f"`{path}`" for path in candidates) + ".")
+    missing_changed = fit.get("missing_changed_paths", [])
+    if missing_changed:
+        lines.extend(["", "## Invalid explicit paths", ""])
+        lines.append("- These `--changed` paths do not exist in the selected repository: " + ", ".join(f"`{path}`" for path in missing_changed) + ".")
     lines.extend([
         "",
         "## Next action",
@@ -268,7 +279,7 @@ def render_target_fit_boundary_report(report: dict[str, Any]) -> str:
         "- Open the application repository and rerun this same Start request there.",
         "- Or append an explicit target to the command you just ran:",
         "  `--root \"D:/absolute/path/to/target-project\"`",
-        "- Once the target is confirmed, TailTrail reruns read-only impact mapping there, creates the Planning Lock, and starts the official Full AIDLC requirements stage.",
+        "- Once the target is confirmed, TailTrail reruns read-only impact mapping there, creates the Planning Lock, and continues through the selected AIDLC route.",
         "",
     ])
     return "\n".join(lines)

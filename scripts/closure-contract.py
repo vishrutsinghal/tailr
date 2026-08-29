@@ -16,7 +16,15 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TIERS = {"unit", "component", "integration", "contract", "e2e", "infrastructure", "release-smoke"}
+
+
+def load(name: str, filename: str) -> Any:
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
+    module = importlib.util.module_from_spec(spec); assert spec and spec.loader; spec.loader.exec_module(module); return module
+
+
+EVIDENCE_TIERS = load("closure_contract_evidence_tiers", "evidence-tiers.py")
+TIERS = set(EVIDENCE_TIERS.CANONICAL_EVIDENCE_TIERS)
 OUTCOMES = {"pass", "fail", "blocked", "timed-out", "unavailable"}
 EVIDENCE_LABELS = {"local-command", "ci-receipt", "host-telemetry"}
 
@@ -74,7 +82,7 @@ def validate_receipt(receipt: Any, known_requirements: set[str], index: int) -> 
     unknown_uids = sorted(set(uids) - known_requirements)
     if unknown_uids:
         raise ValueError(f"receipts[{index}] references unknown approved requirement UID(s): {', '.join(unknown_uids)}")
-    tier = receipt.get("tier")
+    tier = EVIDENCE_TIERS.normalize(receipt.get("tier"))
     if tier not in TIERS:
         raise ValueError(f"receipts[{index}].tier is not supported")
     outcome = receipt.get("outcome")

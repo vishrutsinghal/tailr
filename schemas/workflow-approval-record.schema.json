@@ -22,7 +22,7 @@
     "scope_fingerprint": {"type": "string", "pattern": "^sha256:"},
     "requirement_uids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
     "decision": {"enum": ["approved", "rejected", "edited"]},
-    "source": {"enum": ["interactive", "session", "policy"]},
+    "source": {"enum": ["interactive", "plan-derived", "session", "policy"]},
     "created_at": {"type": "string"},
     "expires_at": {"type": ["string", "null"]},
     "session_id": {"type": ["string", "null"]},

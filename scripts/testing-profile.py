@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Validate local repository testing tiers; JSON is valid YAML for the example profile."""
 from __future__ import annotations
-import argparse,json
+import argparse,importlib.util,json
 from pathlib import Path
 from typing import Any
-TIERS={"unit","component","integration","contract","e2e","infrastructure","release-smoke"}
+ROOT=Path(__file__).resolve().parents[1]
+def evidence_tiers():
+ s=importlib.util.spec_from_file_location("testing_profile_evidence_tiers",ROOT/"scripts"/"evidence-tiers.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
+EVIDENCE_TIERS=evidence_tiers();TIERS=set(EVIDENCE_TIERS.CANONICAL_EVIDENCE_TIERS)
 def load(path:Path)->dict[str,Any]:
  data=json.loads(path.read_text(encoding="utf-8"))
  if not isinstance(data,dict) or not isinstance(data.get("tiers"),list):raise ValueError("profile needs a tiers list")

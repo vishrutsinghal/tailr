@@ -76,6 +76,9 @@ def spec_kit_evidence() -> Any:
 
 
 def workflow_start_integration() -> Any:
+    scripts_root = str(ROOT / "scripts")
+    if scripts_root not in sys.path:
+        sys.path.insert(0, scripts_root)
     spec = importlib.util.spec_from_file_location("planning_lock_workflow_start_integration", ROOT / "scripts" / "workflow_runtime" / "start_integration.py")
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
@@ -429,6 +432,80 @@ def _maintainability_harness_module() -> Any:
     return module
 
 
+def _evidence_tiers_module() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_evidence_tiers", ROOT / "scripts" / "evidence-tiers.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def _planning_renderer_module(name: str, filename: str) -> Any:
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def _ensure_evidence_capability(path: Path, revision: dict[str, Any]) -> dict[str, Any]:
+    capability = revision.get("evidence_capability")
+    if not isinstance(capability, dict):
+        capability = _evidence_tiers_module().compile_requirements(revision.get("requirements", []))
+        revision["evidence_capability"] = capability
+        L.atomic_json(path, revision)
+    if capability.get("status") != "compatible":
+        raise ValueError("AIDLC requirements cannot be approved until the evidence capability check passes")
+    return capability
+
+
+def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> dict[str, Any]:
+    """Project the saved Navigator plan through resolved AIDLC decisions."""
+    report = _saved_start_report(root, run_id)
+    navigator = report.get("navigator", {}) or {}
+    delivery = report.get("guided_delivery", {}) or {}
+    impacted = [row for row in navigator.get("likely_impacted_files", []) if isinstance(row, dict)]
+    validation: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for requirement in revision.get("requirements", []):
+        for tier in (requirement.get("validation_contract", {}) or {}).get("tiers", []):
+            candidates = [str(row.get("path")) for row in impacted if f"/tests/{tier}/" in f"/{str(row.get('path', '')).replace(chr(92), '/')}" or (tier == "behaviour" and "/tests/behavior/" in f"/{str(row.get('path', '')).replace(chr(92), '/')}")]
+            if not candidates:
+                candidates = [str(row.get("path")) for row in impacted if str(row.get("path", "")).replace("\\", "/").startswith("tests/")]
+            candidate = candidates[0] if candidates else "approved evidence receipt"
+            key = (str(tier), candidate)
+            if key in seen:
+                continue
+            seen.add(key)
+            if candidate.startswith("tests/"):
+                path = Path(candidate)
+                command = f"{report.get('command_prefix', 'python3')} -m unittest discover -s {path.parent.as_posix()} -p {path.name} -v"
+            else:
+                command = "Record a requirement-linked approved evidence receipt."
+            validation.append({"tier": str(tier), "candidate": candidate, "command": command})
+    return {
+        "navigator_decision": {
+            "workflow": list(navigator.get("recommended_workflow", [])),
+            "task_types": list(navigator.get("task_types", [])),
+            "risks": list(navigator.get("risk_indicators", [])),
+        },
+        "scope": impacted,
+        "selected_features": [row for row in delivery.get("selected", []) if isinstance(row, dict)],
+        "deferred_features": [row for row in delivery.get("activated_later", []) if isinstance(row, dict)],
+        "guided_delivery": delivery,
+        "architecture_plan": report.get("architecture_plan", {}),
+        "behaviour_plan": report.get("behaviour_plan", {}),
+        "maintainability_plan": report.get("maintainability_plan", {}),
+        "ui_plan": report.get("ui_plan", {}),
+        "validation": validation,
+        "token_posture": report.get("token_posture", {}),
+        "evidence_posture": {
+            "code_intelligence": "local-only lite, v1, and v2; provider-backed V3 is not default",
+            "exactness": "local estimate only; exact model/API usage requires linked provider telemetry",
+        },
+    }
+
+
 def _saved_start_report(root: Path, run_id: str) -> dict[str, Any]:
     return active_start_report(root, run_id).get("report", {})
 
@@ -759,11 +836,12 @@ def submit_official_aidlc_answers(root: Path, run_id: str, answers_json: str) ->
         raise ValueError("The configured host must first record official Requirements Analysis questions with `official-aidlc-questions`; TailTrail will not substitute a local questionnaire.")
     stage = {**document["official_stage"], "requirements": document["requirements"], "questions": document["questions"]}
     revision = _official_aidlc_requirements_module().revise(stage, json.loads(answers_json))
+    evidence_capability = _evidence_tiers_module().compile_requirements(revision["requirements"])
     revision_path = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
-    payload = {"schema_version": "1", "type": "tailtrail-official-aidlc-revised-requirements", "run_id": run_id, "source_boundary": document["source_boundary"], "question_revision": document.get("question_revision", 1), "official_references": document["official_stage"]["official_references"], **revision}
+    payload = {"schema_version": "1", "type": "tailtrail-official-aidlc-revised-requirements", "run_id": run_id, "source_boundary": document["source_boundary"], "question_revision": document.get("question_revision", 1), "official_references": document["official_stage"]["official_references"], "evidence_capability": evidence_capability, "resolved_plan": _resolved_aidlc_plan(root, run_id, revision), **revision}
     L.atomic_json(revision_path, payload)
     L.append_event(root, run_id, "official_aidlc_requirements_answered", {"artifact": revision_path.relative_to(root).as_posix(), "question_ids": sorted(revision["official_decisions"]), "status": "official-revision-ready"})
-    return {"run_id": run_id, "state": "official-aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **revision}
+    return {"state": "official-aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **payload}
 
 
 def show_official_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
@@ -781,6 +859,7 @@ def approve_official_aidlc_requirements(root: Path, run_id: str, approved: bool)
         raise ValueError(f"official AIDLC requirements cannot activate run `{run_id}` from its current state")
     revision_path = _official_aidlc_artifact(root, run_id, "official-aidlc-revised-requirements-v1.json")
     revision = read(revision_path)
+    _ensure_evidence_capability(revision_path, revision)
     questions = read(_official_aidlc_artifact(root, run_id, "official-aidlc-requirements-v1.json"))
     if revision.get("question_revision", 1) != questions.get("question_revision", 1):
         raise ValueError("official AIDLC answers are stale because a question revision was approved; answer the current question set again")
@@ -796,6 +875,7 @@ def approve_official_aidlc_requirements(root: Path, run_id: str, approved: bool)
     workflow_runtime = workflow_start_integration().activate(root, run_id, saved, anchor_artifact)
     handoff = execution_handoff(root, run_id, saved, anchor_artifact)
     handoff["workflow_runtime"] = workflow_runtime
+    handoff["execution_authority"] = workflow_runtime.get("execution_authority", {})
     handoff["execution_boundary"] = "Implementation may begin only within the anchor frozen after official AIDLC Requirements Analysis approval."
     handoff_path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
     L.atomic_json(handoff_path, handoff)
@@ -825,11 +905,12 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
     answers = json.loads(answers_json)
     engine = _aidlc_requirements_module()
     revision = engine.revise(stage_document, answers)
+    evidence_capability = _evidence_tiers_module().compile_requirements(revision["requirements"])
     revision_path = L.state_dir(root, run_id) / "planning" / "aidlc-revised-requirements-v1.json"
-    payload = {"schema_version": "1", "type": "tailtrail-aidlc-revised-requirements", "run_id": run_id, "source_boundary": stage_document["source_boundary"], "question_revision": stage_document.get("question_revision", 1), **revision}
+    payload = {"schema_version": "1", "type": "tailtrail-aidlc-revised-requirements", "run_id": run_id, "source_boundary": stage_document["source_boundary"], "question_revision": stage_document.get("question_revision", 1), "evidence_capability": evidence_capability, "resolved_plan": _resolved_aidlc_plan(root, run_id, revision), **revision}
     L.atomic_json(revision_path, payload)
     L.append_event(root, run_id, "aidlc_requirements_answered", {"artifact": revision_path.relative_to(root).as_posix(), "question_ids": sorted(revision["aidlc_answers"]), "status": "revision-ready"})
-    return {"run_id": run_id, "state": "aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **revision}
+    return {"state": "aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **payload}
 
 
 def show_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
@@ -883,6 +964,7 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
         raise ValueError(f"AIDLC requirements cannot activate run `{run_id}` from status `{current['status']}`")
     revision_path = _aidlc_artifact(root, run_id, "aidlc-revised-requirements-v1.json")
     revision = read(revision_path)
+    _ensure_evidence_capability(revision_path, revision)
     questions = read(_aidlc_artifact(root, run_id, "aidlc-requirements-v1.json"))
     if revision.get("question_revision", 1) != questions.get("question_revision", 1):
         raise ValueError("AIDLC answers are stale because a question revision was approved; answer the current question set again")
@@ -895,6 +977,7 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
     workflow_runtime = workflow_start_integration().activate(root, run_id, saved, anchor_artifact)
     handoff = execution_handoff(root, run_id, saved, anchor_artifact)
     handoff["workflow_runtime"] = workflow_runtime
+    handoff["execution_authority"] = workflow_runtime.get("execution_authority", {})
     handoff["execution_boundary"] = "Implementation may begin only within the activated AIDLC-approved anchor. TailTrail remains responsible for scope, evidence, drift, recovery, and completion controls."
     handoff_path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
     L.atomic_json(handoff_path, handoff)
@@ -966,6 +1049,55 @@ def render_aidlc_revision(payload: dict[str, Any]) -> str:
         lines[3] = "**State:** awaiting official Requirements Analysis approval; no source inspection or implementation has run."
     for question_id, answer in payload.get("official_decisions", payload.get("aidlc_answers", {})).items():
         lines.append(f"- **{question_id}:** {answer['selected']}")
+    capability = payload.get("evidence_capability", {}) or {}
+    lines.extend(["", "## Evidence capability check", "", f"- Status: `{capability.get('status', 'unavailable')}`."])
+    for row in capability.get("requirements", []):
+        lines.append(f"- **{row.get('requirement_id')}:** {', '.join(row.get('tiers', [])) or 'no required tier'} - `{row.get('status')}`")
+    resolved = payload.get("resolved_plan", {}) or {}
+    decision = resolved.get("navigator_decision", {}) or {}
+    lines.extend([
+        "", "## Navigator Decision", "",
+        "- Workflow: " + " -> ".join(decision.get("workflow", [])),
+        "- Task types: " + (", ".join(decision.get("task_types", [])) or "not classified"),
+        "- Risks: " + (", ".join(decision.get("risks", [])) or "none detected"),
+        "", "## Scope", "", "| Path | Planning evidence |", "| --- | --- |",
+    ])
+    for row in resolved.get("scope", []):
+        lines.append(f"| `{row.get('path')}` | {_display_prose(row.get('reason', ''))} |")
+    lines.extend(["", "## Selected TailTrail features", "", "| Feature | When | Why |", "| --- | --- | --- |", "| Navigator | Planning resolved | reconciled the saved plan with approved AIDLC decisions |"])
+    for row in resolved.get("selected_features", []):
+        lines.append(f"| {row.get('name')} | After approval | {_display_prose(row.get('why', ''))} |")
+    architecture = _planning_renderer_module("planning_lock_architecture_render", "architecture_planning.py")
+    behaviour = _planning_renderer_module("planning_lock_behaviour_render", "behaviour_planning.py")
+    maintainability = _planning_renderer_module("planning_lock_maintainability_render", "maintainability_planning.py")
+    ui = _planning_renderer_module("planning_lock_ui_render", "ui_planning.py")
+    lines.extend(architecture.markdown_lines(resolved.get("architecture_plan", {}), detailed=True))
+    lines.extend(behaviour.markdown_lines(resolved.get("behaviour_plan", {}), detailed=True))
+    lines.extend(maintainability.markdown_lines(resolved.get("maintainability_plan", {}), detailed=True))
+    lines.extend(ui.markdown_lines(resolved.get("ui_plan", {}), detailed=True))
+    lines.extend(["", "## Deferred TailTrail features", ""])
+    for row in resolved.get("deferred_features", []):
+        lines.append(f"- **{row.get('name')}:** {_display_prose(row.get('when', ''))}")
+    delivery = resolved.get("guided_delivery", {}) or {}
+    lines.extend(["", "## Guided Delivery", "", f"- Mode: `{delivery.get('mode', 'guided-delivery')}`", "- After approval:"])
+    for index, stage in enumerate(delivery.get("stages", []), start=1):
+        lines.append(f"  {index}. {stage}")
+    if delivery.get("execution_boundary"):
+        lines.append(f"- Boundary: {delivery.get('execution_boundary')}")
+    lines.extend(["", "## Validation", "", "| Tier | Candidate | Command |", "| --- | --- | --- |"])
+    for row in resolved.get("validation", []):
+        lines.append(f"| {row.get('tier')} | `{row.get('candidate')}` | `{row.get('command')}` |")
+    token = resolved.get("token_posture", {}) or {}
+    lines.extend([
+        "", "## Token estimate", "",
+        f"- Estimated focused context: approximately `{token.get('used_tokens', 0)}` tokens.",
+        f"- Estimated baseline context: approximately `{token.get('baseline_tokens', 0)}` tokens.",
+        f"- Estimated avoided context: approximately `{token.get('avoided_tokens', 0)}` tokens (`{token.get('estimated_reduction_percent', 0)}%` reduction).",
+        "- Actual model tokens remain unavailable without linked host/provider telemetry.",
+        "", "## Evidence posture", "",
+        f"- Code intelligence: {resolved.get('evidence_posture', {}).get('code_intelligence', 'unavailable')}.",
+        f"- Exactness: {resolved.get('evidence_posture', {}).get('exactness', 'unavailable')}.",
+    ])
     lines.extend(["", "## Approval", "", "- Approve this AIDLC boundary to create the immutable TailTrail anchor and activate this same run for scoped implementation.", ""])
     if official:
         lines[-2] = "- Approve this official Requirements Analysis boundary to freeze the immutable TailTrail anchor and activate this same run."
@@ -984,9 +1116,16 @@ def render_execution_handoff(payload: dict[str, Any]) -> str:
         lines.extend(["", "## Workflow runtime", ""])
         if runtime.get("state") == "compiled":
             lines.append(f"- Workflow: `{runtime.get('workflow_id')}`; compiler template: `{runtime.get('compiler', {}).get('template_id')}`.")
-            lines.append("- State: compiled and non-executing. A later runtime adapter must still request its own action authority.")
+            lines.append("- State: compiled and non-executing. Runtime adapters consume only the authority recorded below.")
         else:
             lines.append(f"- State: `{runtime.get('state')}` - {_display_prose(runtime.get('reason', 'no runtime action was taken'))}.")
+    authority = payload.get("execution_authority")
+    if isinstance(authority, dict):
+        lines.extend(["", "## Execution authority", "", f"- Route: `{authority.get('route')}`; status: `{authority.get('status')}`."])
+        granted = ", ".join(authority.get("auto_granted_action_classes", [])) or "none"
+        lines.append(f"- Automatically granted action classes: `{granted}`.")
+        lines.append(f"- Separate gates remain for: {', '.join(authority.get('separate_gate_triggers', [])) or 'none recorded'}.")
+        lines.append(f"- {authority.get('boundary')}")
     lines.extend(["", "## Execution boundary", "", f"- {payload['execution_boundary']}", "- Next: inspect only the approved paths, implement the smallest compliant change, and run the selected evidence.", ""])
     baseline = payload.get("maintainability_baseline")
     if isinstance(baseline, dict):
@@ -1119,6 +1258,11 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     if anchor_result and anchor_result.get("artifact"):
         handoff = execution_handoff(root, run_id, saved_report, str(anchor_result["artifact"]))
         handoff["workflow_runtime"] = workflow_runtime
+        handoff["execution_authority"] = workflow_runtime.get("execution_authority", {
+            "route": "legacy-no-runtime-authority", "status": "host-boundary-applies",
+            "auto_granted_action_classes": [], "separate_gate_triggers": ["all-managed-execution"],
+            "boundary": "This legacy or disabled workflow has no durable runtime authority artifact; the host approval boundary still applies.",
+        })
         if spec_kit_slice_result:
             handoff["spec_kit_slice"] = {
                 "active_slice": spec_kit_slice_result["active_slice"],

@@ -23,7 +23,7 @@ def load(name: str, relative: str):
 
 
 lock = load("workflow_start_lock_test", "scripts/planning-lock.py")
-from workflow_runtime import start_integration
+from workflow_runtime import approvals, start_integration
 
 
 class WorkflowStartIntegrationTests(unittest.TestCase):
@@ -59,12 +59,29 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
             runtime = activated["workflow_runtime"]
             compiler_artifact = root / runtime["compiler"]["artifact"]
             compiler_exists = compiler_artifact.is_file()
+            compiled_plan = json.loads(compiler_artifact.read_text(encoding="utf-8"))
+            implement = next(row for row in compiled_plan["stages"] if row["adapter_action_class"] == "write_project")
+            authorized = approvals.authorize_stage(root, runtime["workflow_id"], implement["stage_id"], runtime["execution_authority"]["approval_id"])
             state_view = subprocess.run([sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "workflow", "state", "show", "--root", root.as_posix(), "--workflow-id", runtime["workflow_id"]], cwd=ROOT, text=True, capture_output=True, check=False)
 
         self.assertEqual(runtime["state"], "compiled")
         self.assertTrue(compiler_exists)
         self.assertEqual(json.loads(state_view.stdout)["current_stage"], "not-executing")
         self.assertEqual(activated["execution_handoff"]["workflow_runtime"]["compiler"]["template_id"], runtime["compiler"]["template_id"])
+        self.assertEqual(runtime["execution_authority"]["route"], "approved-plan-auto-grant")
+        self.assertIn("write_project", runtime["execution_authority"]["auto_granted_action_classes"])
+        self.assertTrue(runtime["execution_authority"]["approval_id"].startswith("wfauth-"))
+        self.assertEqual(authorized["source"], "plan-derived")
+        self.assertNotIn("scan_local", authorized["action_classes"])
+
+    def test_official_and_intent_runs_retain_material_gates(self) -> None:
+        official = start_integration.execution_authority_policy({"aidlc_mode": {"mode": "full"}})
+        intent = start_integration.execution_authority_policy({"aidlc_mode": {"mode": "lite"}, "spec_kit_source": {"feature_id": "014-order"}})
+
+        self.assertEqual(official["route"], "official-aidlc-stage-gated")
+        self.assertEqual(intent["route"], "intent-bridge-slice-gated")
+        self.assertEqual(official["auto_granted_action_classes"], [])
+        self.assertEqual(intent["auto_granted_action_classes"], [])
 
     def test_no_workflow_is_a_compatibility_escape_hatch(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

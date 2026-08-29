@@ -38,7 +38,21 @@ def main() -> int:
         forwarded.append("--force")
     if args.dry_run:
         forwarded.append("--dry-run")
-    return installer_main(forwarded)
+    status = installer_main(forwarded)
+    if status != 0:
+        return status
+
+    # Projects installed before the transactional host adapters keep their
+    # executable pack in <target>/<pack-dir>. Host payload updates alone do not
+    # refresh that launcher, so update the manifest-owned legacy pack too.
+    target = args.root.resolve()
+    pack_dir = update_copilot.install_copilot.validate_pack_dir(args.pack_dir) if args.pack_dir else update_copilot.infer_pack_dir(target)
+    if (target / pack_dir / update_copilot.install_copilot.MANIFEST_NAME).is_file():
+        report = update_copilot.update_copilot(target, pack_dir, args.strategy, args.dry_run)
+        update_copilot.print_report(target, pack_dir, args.strategy, args.dry_run, report)
+        if report.conflicts:
+            return 2
+    return status
 
 
 if __name__ == "__main__":

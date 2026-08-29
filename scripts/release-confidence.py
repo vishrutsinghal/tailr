@@ -10,7 +10,15 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TIERS = ("unit", "component", "integration", "contract", "e2e", "infrastructure", "release-smoke")
+
+
+def evidence_tiers() -> Any:
+    spec = importlib.util.spec_from_file_location("release_confidence_evidence_tiers", ROOT / "scripts" / "evidence-tiers.py")
+    module = importlib.util.module_from_spec(spec); assert spec and spec.loader; spec.loader.exec_module(module); return module
+
+
+EVIDENCE_TIERS = evidence_tiers()
+TIERS = EVIDENCE_TIERS.CANONICAL_EVIDENCE_TIERS
 
 
 def ledger() -> Any:

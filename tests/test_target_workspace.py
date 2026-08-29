@@ -15,6 +15,23 @@ import target_workspace
 
 
 class TargetWorkspaceTests(unittest.TestCase):
+    def test_identity_ignores_manifest_owned_installed_pack_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            app = root / "src" / "service.py"
+            app.parent.mkdir()
+            app.write_text("value = 1\n", encoding="utf-8")
+            pack = root / "tailtrail"
+            (pack / "scripts").mkdir(parents=True)
+            (pack / ".tailtrail-install.json").write_text("{}\n", encoding="utf-8")
+            (pack / "scripts" / "runtime.py").write_text("old = True\n", encoding="utf-8")
+            before = target_workspace.identity(root)
+            (pack / "scripts" / "runtime.py").write_text("new = True\n", encoding="utf-8")
+            (pack / "scripts" / "added.py").write_text("added = True\n", encoding="utf-8")
+            after = target_workspace.identity(root)
+        self.assertEqual(before["fingerprint"], after["fingerprint"])
+        self.assertEqual(1, after["project"]["inventory_count"])
+
     def test_explicit_root_has_priority_over_prompt_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             result = target_workspace.resolve("changes must be made in /not-the-target", explicit_root=Path(temp))
@@ -79,6 +96,48 @@ class TargetWorkspaceTests(unittest.TestCase):
             )
         self.assertFalse(fit["blocking"])
         self.assertEqual(fit["production_candidates"], ["src/order_service/service.py"])
+
+    def test_explicit_missing_changed_path_blocks_before_planning_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fit = target_workspace.assess_plan_fit(
+                "add delivery-address validation", root,
+                [{"path": "src/order_service/validation.py", "reason": "user-provided target"}],
+                resolution_source="host-cwd", changed=["src/order_service/validation.py"],
+            )
+        self.assertTrue(fit["blocking"])
+        self.assertEqual(fit["status"], "changed-path-missing")
+        self.assertEqual(fit["missing_changed_paths"], ["src/order_service/validation.py"])
+
+    def test_explicit_existing_changed_path_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); target = root / "src" / "service.py"
+            target.parent.mkdir(); target.write_text("value = 1\n", encoding="utf-8")
+            fit = target_workspace.assess_plan_fit(
+                "fix service validation", root,
+                [{"path": "src/service.py", "reason": "user-provided target"}],
+                resolution_source="host-cwd", changed=["src/service.py"],
+            )
+        self.assertFalse(fit["blocking"])
+        self.assertEqual(fit["existing_changed_paths"], ["src/service.py"])
+
+    def test_start_missing_changed_path_creates_no_planning_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(),
+                "add delivery-address validation", "--root", root.as_posix(),
+                "--changed", "src/order_service/validation.py", "--verbose",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+            run_state_exists = (root / ".tailtrail" / "runs").exists()
+
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("# TailTrail Pre-Target Start Plan", result.stdout)
+        self.assertIn("## Invalid explicit paths", result.stdout)
+        self.assertIn("src/order_service/validation.py", result.stdout)
+        self.assertIn("local AIDLC Lite remains", result.stdout)
+        self.assertNotIn("official Full AIDLC requirements stage", result.stdout)
+        self.assertFalse(run_state_exists)
 
     def test_implicit_documentation_only_request_does_not_require_production_scope(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
