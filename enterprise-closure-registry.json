@@ -125,6 +125,12 @@
         "reason": "Executable tests for the Debug Harness prototype, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
       },
       {
+        "path": "tests/test_navigator_debug_routing.py",
+        "disposition": "pending-review",
+        "owner": "workspace-user",
+        "reason": "Executable tests for the tailtrail-start-to-Debug-Harness classification routing, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
+      },
+      {
         "path": "DURABLE-WORKFLOW-RUNTIME.local-backup.md",
         "disposition": "exclude",
         "owner": "workspace-user",
