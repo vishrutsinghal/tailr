@@ -1228,7 +1228,7 @@ def main() -> int:
     if command == "debug":
         return debug(args)
     if command == "execution-evidence":
-        return run_script("execution-evidence.py", args)
+        return run_script("execution-evidence.py", strip_wrapper_flags(args))
     if command == "anchor":
         return run_script("change-intent-anchor.py", args)
     if command in {"intent", "expand"}:
