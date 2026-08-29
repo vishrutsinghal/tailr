@@ -126,26 +126,38 @@ class DebugHarnessTests(unittest.TestCase):
                 reproduction.approve(root, "run")
 
     def test_completion_report_caps_at_domain_ceiling(self):
+        self.assert_domain_ceiling("database", "regression-validated")
+
+    def test_completion_report_caps_at_domain_ceiling_for_api_integration(self):
+        self.assert_domain_ceiling("api-integration", "regression-validated")
+
+    def test_completion_report_reaches_behavior_restored_for_architecture_domain(self):
+        self.assert_domain_ceiling("architecture", "behavior-restored")
+
+    def assert_domain_ceiling(self, domain: str, expected_ceiling: str) -> None:
+        """Proves a proven hypothesis + approved correction + passing regression
+        + 'restored' harness-result evidence never reports a confidence_state
+        above the domain's own ceiling (DEBUG-HARNESS.md Section 7.5)."""
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            intake.open_intake(root, "run", "slow query on checkout", None, None, False)
-            reproduction.draft(root, "run", {**CONTRACT_SOURCE, "domain": "database", "trigger": "Slow query on checkout"})
+            intake.open_intake(root, "run", f"symptom in the {domain} domain", None, None, False)
+            reproduction.draft(root, "run", {**CONTRACT_SOURCE, "domain": domain, "trigger": f"Trigger in the {domain} domain"})
             reproduction.approve(root, "run")
             anchor = json.loads((root / ".tailtrail" / "runs" / "run" / "anchors" / "approved-v1.json").read_text(encoding="utf-8"))
             uid = anchor["requirements"][0]["requirement_uid"]
             fp = self.record_command_evidence(root, "run", uid)
-            ledger = hypothesis.add_hypothesis(root, "run", "database", "Missing index on orders.customer_id", 1)
-            ledger2 = hypothesis.add_hypothesis(root, "run", "database", "Lock contention on retry", 2)
+            ledger = hypothesis.add_hypothesis(root, "run", domain, "Hypothesis A", 1)
+            ledger2 = hypothesis.add_hypothesis(root, "run", domain, "Hypothesis B", 2)
             h1, h2 = ledger["hypotheses"][0]["hypothesis_id"], ledger2["hypotheses"][1]["hypothesis_id"]
-            hypothesis.record_experiment(root, "run", h1, "EXPLAIN shows full table scan", "strengthens", fp, True)
-            hypothesis.record_experiment(root, "run", h2, "no lock wait observed", "eliminates", fp, True)
+            hypothesis.record_experiment(root, "run", h1, "supporting evidence observed", "strengthens", fp, True)
+            hypothesis.record_experiment(root, "run", h2, "alternative ruled out", "eliminates", fp, True)
             hypothesis.prove(root, "run", h1)
             correction.propose(root, "run", h1, None)
             correction.approve(root, "run", True)
             evidence.append(root, "run", {"kind": "harness-result", "requirement_uids": [uid], "classification": "Behaviour Harness: checkout-with-timeout user journey restored"}, True)
             report = completion.generate(root, "run")
-            self.assertEqual(report["domain_confidence_ceiling"], "regression-validated")
-            self.assertEqual(report["confidence_state"], "regression-validated")
+            self.assertEqual(report["domain_confidence_ceiling"], expected_ceiling)
+            self.assertEqual(report["confidence_state"], expected_ceiling)
 
 
 if __name__ == "__main__":
