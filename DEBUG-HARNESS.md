@@ -198,6 +198,17 @@ tailtrail debug --run-id <existing-run>          # attach to an active build run
 tailtrail debug --recent-change                   # anchor to the latest approved change
 ```
 
+**Navigator-driven entry point (implemented).** `tailtrail start "<goal>"` is
+also a debug entry point, not only a build one: `classify_start_intent()` in
+`scripts/tailtrail.py` routes a goal to the Debug Harness instead of the
+normal build workflow when it carries an unambiguous bug-report signal
+(`--error`/`--command` present, or high-precision phrasing such as "charged
+twice", "crashes when", "stopped working") — otherwise it falls through to
+the existing build path unchanged. `--debug`/`--build` force one or the
+other explicitly. This mirrors how Navigator already selects features for
+build runs; ambiguous goals default to build rather than guessing, and the
+routing decision is always printed, never silent (see `tests/test_navigator_debug_routing.py`).
+
 A pasted error, log, or stack trace attached to an **existing** approved run
 must never silently create a new Planning Lock or a new debug run — this
 mirrors the "current-turn Start boundary" rule TailTrail already enforces for
@@ -263,6 +274,18 @@ of attempts, the run enters `ReproductionBlocked` and returns to the user for
 a revised contract — TailTrail must never proceed to "fix" an unreproduced
 symptom.
 
+**Turn-by-turn approval boundary (mirrors `tailtrail start`'s Planning Lock
+stop-and-wait behavior).** A host/agent must draft the reproduction contract,
+show it to the user with status `awaiting-approval`, and **stop** — it must
+not call `reproduction approve` in the same turn, even if the user's original
+message described the whole investigation end-to-end. Only a separate,
+explicit follow-up message (for example: "I approve the reproduction contract
+for run `<run-id>`") may trigger approval. The identical rule applies before
+`correction approve` in Phase 5: propose the correction packet, show it, stop,
+and require a second explicit approval message before implementing the fix.
+A single upfront message must never be treated as pre-authorizing every gate
+it happens to mention.
+
 ### Phase 3 — Hypothesis ledger
 
 An append-only ledger (mirrors the append-only evidence stream pattern of
@@ -305,7 +328,9 @@ existing Program Delivery / Harness pipeline exactly like an approved
 requirement: Architecture Fitness checks the fix lands in the right layer,
 Behaviour Harness proves the user journey is restored, Evidence-Aware Testing
 selects the regression tier, Drift Control watches for scope creep beyond the
-proven cause.
+proven cause. The correction packet is proposed, shown, and left
+`awaiting-approval`; the same turn-by-turn boundary above applies before it is
+approved and before the fix is implemented.
 
 ### Phase 6 — Debug closure
 

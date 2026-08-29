@@ -158,7 +158,7 @@ def quiet_enabled(args: list[str] | None = None) -> bool:
 
 
 def strip_wrapper_flags(args: list[str]) -> list[str]:
-    return [item for item in args if item != "--quiet"]
+    return [item for item in args if item not in {"--quiet", "--debug", "--build"}]
 
 
 def json_output_requested(args: list[str]) -> bool:
@@ -527,6 +527,68 @@ def print_start_overview() -> None:
     print('tailtrail start "fix the claim amount validation bug" --changed src/claims_api/validation.py --verbose')
     print()
     print("Start is plan-only. It does not edit code until you approve the plan.")
+    print()
+    print("A goal that reports a symptom rather than a requirement (\"orders")
+    print("double-charge on timeout\") is routed to the Debug Harness instead of")
+    print("the normal build workflow. Force one or the other with --debug / --build.")
+
+
+DEBUG_INTENT_PHRASES = (
+    "double charge", "double-charge", "charged twice", "charges twice",
+    "crashes when", "throws an exception", "raises an exception",
+    "fails when", "failing when", "intermittent failure", "returns the wrong",
+    "returns wrong", "produces the wrong", "unexpected result",
+    "reproduce:", "regression:", "bug:", "defect:", "stopped working",
+    "no longer works", "used to work",
+)
+
+
+def classify_start_intent(goal: str, args: list[str]) -> str:
+    """Best-effort, conservative classification of a `tailtrail start` goal as
+    a debug investigation vs. a normal build workflow. Ambiguous goals default
+    to build (unchanged behavior); only explicit flags or unambiguous
+    bug-report phrasing route to the Debug Harness (DEBUG-HARNESS.md Section 3)."""
+    if "--debug" in args:
+        return "debug"
+    if "--build" in args:
+        return "build"
+    if "--error" in args or "--command" in args:
+        return "debug"
+    lowered = goal.lower()
+    if any(phrase in lowered for phrase in DEBUG_INTENT_PHRASES):
+        return "debug"
+    return "build"
+
+
+def filter_debug_forward_args(args: list[str]) -> list[str]:
+    """Keep only the goal text and the flags debug-intake.py understands;
+    silently drop build-only flags (--changed, --verbose, --debug, --build)
+    rather than letting them fail argparse in the Debug Harness scripts."""
+    allowed_value_flags = {"--error", "--command", "--run-id"}
+    allowed_flags = {"--attach"}
+    kept: list[str] = []
+    skip_next = False
+    for index, value in enumerate(args):
+        if skip_next:
+            skip_next = False
+            continue
+        if value in allowed_value_flags:
+            kept.append(value)
+            if index + 1 < len(args):
+                kept.append(args[index + 1])
+                skip_next = True
+            continue
+        if value in allowed_flags:
+            kept.append(value)
+            continue
+        if value.startswith("--"):
+            # Unrecognized (build-only) flag: drop it, and drop its value too
+            # unless the next token is itself a flag (e.g. --verbose).
+            if index + 1 < len(args) and not args[index + 1].startswith("--"):
+                skip_next = True
+            continue
+        kept.append(value)
+    return kept
 
 
 def start(args: list[str]) -> int:
@@ -534,12 +596,18 @@ def start(args: list[str]) -> int:
         print_startup_banner()
         print_start_overview()
         return 0
+    goal = next((value for value in args if not value.startswith("--")), "")
+    intent = classify_start_intent(goal, args)
     if not quiet_enabled(args) and not json_output_requested(args):
         print_startup_banner()
         # The delegated Start process writes directly to the same stream.
         # Flush first so redirected/Copilot/Codex output cannot place the
         # parent banner after the child report.
         sys.stdout.flush()
+    if intent == "debug":
+        print("Navigator: classified this goal as a debug investigation (not a build workflow).")
+        print("Routing to the Debug Harness. Re-run with --build to force the normal build workflow instead.")
+        return debug(filter_debug_forward_args(args))
     return run_script("task-start.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
 
 
