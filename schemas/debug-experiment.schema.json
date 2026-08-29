@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Experiment",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "sequence", "hypothesis_id", "action", "deterministic", "outcome", "evidence_boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-experiment"},
+    "run_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "hypothesis_id": {"type": "string", "minLength": 1},
+    "action": {"type": "string", "minLength": 1},
+    "deterministic": {"const": true},
+    "outcome": {"enum": ["eliminates", "strengthens", "inconclusive"]},
+    "evidence_event_id": {"type": ["string", "null"]},
+    "evidence_boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

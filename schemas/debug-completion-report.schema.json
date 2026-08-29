@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Completion Report",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "confidence_state", "domain_confidence_ceiling", "acceptance_state"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-completion-report"},
+    "run_id": {"type": "string", "minLength": 1},
+    "domain": {"enum": ["code", "architecture", "database", "api-integration", "unknown"]},
+    "domain_confidence_ceiling": {"type": "string"},
+    "confidence_state": {
+      "enum": [
+        "symptom-captured",
+        "reproduction-confirmed",
+        "hypothesis-supported",
+        "root-cause-proven",
+        "correction-proposed",
+        "correction-implemented",
+        "regression-validated",
+        "behavior-restored"
+      ]
+    },
+    "root_cause_statement": {"type": ["string", "null"]},
+    "correction_packet_ref": {"type": ["string", "null"]},
+    "domains_investigated": {"type": "array", "items": {"type": "string"}},
+    "domains_eliminated": {"type": "array", "items": {"type": "string"}},
+    "domains_not_investigated": {"type": "array", "items": {"type": "string"}},
+    "acceptance_state": {"enum": ["accept-user", "wait-ci", "reopen", "evidence-incomplete"]},
+    "gaps": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

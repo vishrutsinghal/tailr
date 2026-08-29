@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Intake",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "reported_symptom", "candidate_domains", "created_at"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-intake"},
+    "run_id": {"type": "string", "minLength": 1},
+    "reported_symptom": {"type": "string", "minLength": 1},
+    "attached_error": {"type": ["string", "null"]},
+    "attached_command": {"type": ["string", "null"]},
+    "reproduction_frequency": {"enum": ["always", "intermittent", "once", "unknown"]},
+    "safety_impact": {"enum": ["read-only", "write", "external-call", "payment", "pii", "unknown"]},
+    "known_vs_assumed": {
+      "type": "object",
+      "properties": {
+        "known": {"type": "array", "items": {"type": "string"}},
+        "assumed": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "likely_path": {"type": "array", "items": {"type": "string"}},
+    "candidate_domains": {
+      "type": "array",
+      "items": {"enum": ["code", "architecture", "database", "cloud-infrastructure", "security", "api-integration", "network"]}
+    },
+    "domains_eliminated": {"type": "array", "items": {"type": "string"}},
+    "domains_not_investigated": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string"}
+  },
+  "additionalProperties": false
+}

@@ -33,6 +33,7 @@ COMMANDS = {
     "navigator": "Use the short TailTrail Navigator context, plan, or implementation-proposal modes.",
     "ledger": "Create, append, validate, or project local Phase 1 run state.",
     "failure": "Record or inspect sanitized post-implementation failure artifacts.",
+    "debug": "Debug Harness: turn a symptom into a proven root cause (Code/Architecture/Database/API-integration domains only).",
     "anchor": "Draft, approve, invalidate, or review a local change-intent anchor.",
     "intent": "Expand a short TailTrail prompt through expand-intent.py.",
     "expand": "Alias for intent.",
@@ -123,6 +124,31 @@ def invocation() -> str:
     if command_name:
         return command_name
     return f"python3 {Path(sys.argv[0]).as_posix()}"
+
+
+def warn_if_stale_checkout() -> None:
+    """Best-effort notice when an installed launcher runs a different, stale
+    TailTrail checkout than the one under the current directory. Only fires
+    when invoked through a generated launcher/wrapper (TAILTRAIL_COMMAND_NAME
+    is set); silent for direct `python3 scripts/tailtrail.py` runs and tests."""
+    if not os.environ.get("TAILTRAIL_COMMAND_NAME"):
+        return
+    try:
+        here = Path(__file__).resolve()
+        cwd = Path.cwd()
+        for candidate in (cwd, *cwd.parents):
+            local_entry = candidate / "scripts" / "tailtrail.py"
+            if local_entry.is_file() and local_entry.resolve() != here:
+                print(
+                    f"TailTrail note: `{invocation()}` runs {here}, but {local_entry.resolve()} "
+                    "is a different TailTrail checkout under the current directory. If output looks "
+                    "out of date, run that checkout directly (python3 scripts/tailtrail.py ...) or "
+                    "refresh this launcher: python3 scripts/install-launcher.py --force",
+                    file=sys.stderr,
+                )
+                return
+    except OSError:
+        return
 
 
 def quiet_enabled(args: list[str] | None = None) -> bool:
@@ -687,6 +713,28 @@ def aidlc(args: list[str]) -> int:
     return 2
 
 
+def debug(args: list[str]) -> int:
+    if not args:
+        print("Usage: tailtrail debug \"<symptom>\" [--error <file>] [--command \"<cmd>\"] [--run-id <id>] [--attach]")
+        print("       tailtrail debug reproduction draft|approve|reject|show ...")
+        print("       tailtrail debug hypothesis add|experiment|replan|prove|domain-status|show ...")
+        print("       tailtrail debug correction propose|approve|show ...")
+        print("       tailtrail debug completion-report generate|show ...")
+        return 2
+    action, rest = args[0], args[1:]
+    if action == "reproduction":
+        return run_script("debug-reproduction.py", rest)
+    if action == "hypothesis":
+        return run_script("debug-hypothesis.py", rest)
+    if action == "correction":
+        return run_script("debug-correction.py", rest)
+    if action == "completion-report":
+        return run_script("debug-completion.py", rest)
+    if action in {"open", "show"}:
+        return run_script("debug-intake.py", args)
+    return run_script("debug-intake.py", ["open", "--symptom", action, *rest])
+
+
 def install(args: list[str]) -> int:
     if not args:
         print("Usage: tailtrail install --host codex|copilot|claude --profile core|extended --target <path> [--dry-run]")
@@ -1057,6 +1105,7 @@ def adapters(args: list[str]) -> int:
 
 
 def main() -> int:
+    warn_if_stale_checkout()
     if len(sys.argv) < 2 or sys.argv[1] in {"help", "-h", "--help"}:
         print_help()
         return 0
@@ -1108,6 +1157,8 @@ def main() -> int:
         return run_script("run-ledger.py", args)
     if command == "failure":
         return run_script("execution-failure.py", args)
+    if command == "debug":
+        return debug(args)
     if command == "execution-evidence":
         return run_script("execution-evidence.py", args)
     if command == "anchor":
