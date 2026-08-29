@@ -564,7 +564,7 @@ def filter_debug_forward_args(args: list[str]) -> list[str]:
     """Keep only the goal text and the flags debug-intake.py understands;
     silently drop build-only flags (--changed, --verbose, --debug, --build)
     rather than letting them fail argparse in the Debug Harness scripts."""
-    allowed_value_flags = {"--error", "--command", "--run-id"}
+    allowed_value_flags = {"--error", "--command", "--run-id", "--root"}
     allowed_flags = {"--attach"}
     kept: list[str] = []
     skip_next = False
@@ -789,7 +789,7 @@ def debug(args: list[str]) -> int:
         print("       tailtrail debug correction propose|approve|show ...")
         print("       tailtrail debug completion-report generate|show ...")
         return 2
-    action, rest = args[0], args[1:]
+    action, rest = args[0], strip_wrapper_flags(args[1:])
     if action == "reproduction":
         return run_script("debug-reproduction.py", rest)
     if action == "hypothesis":
@@ -799,7 +799,7 @@ def debug(args: list[str]) -> int:
     if action == "completion-report":
         return run_script("debug-completion.py", rest)
     if action in {"open", "show"}:
-        return run_script("debug-intake.py", args)
+        return run_script("debug-intake.py", strip_wrapper_flags(args))
     return run_script("debug-intake.py", ["open", "--symptom", action, *rest])
 
 

@@ -44,6 +44,13 @@ class NavigatorDebugRoutingTests(unittest.TestCase):
             ["a bug report", "--error", "trace.txt", "--run-id", "run-1", "--attach"],
         )
 
+    def test_forward_args_keep_root(self):
+        args = ["a bug report", "--root", "/tmp/target-project", "--run-id", "run-1"]
+        self.assertEqual(
+            tailtrail.filter_debug_forward_args(args),
+            ["a bug report", "--root", "/tmp/target-project", "--run-id", "run-1"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
