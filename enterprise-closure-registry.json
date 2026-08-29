@@ -21,12 +21,12 @@
     }
   },
   "candidate_baseline": {
-    "captured_at": "2026-08-28",
-    "git_commit": "e65526ed9cd23a2503dd0503c3a59859f469df4f",
+    "captured_at": "2026-08-29",
+    "git_commit": "af6d62071ccd363232a204e474278a82398a0cc8",
     "branch": "master",
     "worktree_state": "dirty-explicitly-classified",
     "release_candidate_state": "blocked",
-    "declaration": "E0-E4 are closed. E5 and E6 implementations are present and locally verified. E5 remains evidence-blocked until one commit has six hosted Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations; because E6 depends on E5, E6 implementation is complete but its program requirement remains in progress. Configured workflows and local evidence are not represented as hosted support; the enterprise candidate remains blocked by E5 evidence and E7-E12.",
+    "declaration": "E0-E4 are closed. E5 and E6 implementations are present and locally verified. E5 remains evidence-blocked until one commit has six hosted Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations; because E6 depends on E5, E6 implementation is complete but its program requirement remains in progress. Configured workflows and local evidence are not represented as hosted support; the enterprise candidate remains blocked by E5 evidence and E7-E12. A repository-owner-approved, named exception ('debug-harness-exception') to the E6-E12 feature freeze was granted on 2026-08-29 to merge the Debug Harness prototype (Code/Architecture/Database/API-integration domains; see DEBUG-HARNESS.md); this is a scoped exception for that one feature, not a general lift of the freeze.",
     "untracked_dispositions": [
       {
         "path": ".idea/",
@@ -42,93 +42,9 @@
       },
       {
         "path": "DEBUG-HARNESS.md",
-        "disposition": "pending-review",
+        "disposition": "include",
         "owner": "workspace-user",
-        "reason": "User-requested design proposal for a future Debug Harness feature, expanded from debug-intial.md; outside E0 and must not be silently included or deleted."
-      },
-      {
-        "path": "schemas/debug-intake.schema.json",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype schema, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope, not part of the release candidate."
-      },
-      {
-        "path": "schemas/failure-fingerprint.schema.json",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype schema, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope, not part of the release candidate."
-      },
-      {
-        "path": "schemas/reproduction-contract.schema.json",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype schema, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope, not part of the release candidate."
-      },
-      {
-        "path": "schemas/hypothesis-ledger.schema.json",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype schema, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope, not part of the release candidate."
-      },
-      {
-        "path": "schemas/debug-experiment.schema.json",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype schema, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope, not part of the release candidate."
-      },
-      {
-        "path": "schemas/debug-correction-packet.schema.json",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype schema, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope, not part of the release candidate."
-      },
-      {
-        "path": "schemas/debug-completion-report.schema.json",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype schema, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope, not part of the release candidate."
-      },
-      {
-        "path": "scripts/debug-intake.py",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype script (Phase 1/3: failure intake, fingerprint, code-path map), built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
-      },
-      {
-        "path": "scripts/debug-reproduction.py",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype script (Phase 2: reproduction contract + approval gate), built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
-      },
-      {
-        "path": "scripts/debug-hypothesis.py",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype script (Phase 4/5: hypothesis ledger, bounded experiments, domain evidence status), built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
-      },
-      {
-        "path": "scripts/debug-correction.py",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype script (Phase 6: correction packet handoff), built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
-      },
-      {
-        "path": "scripts/debug-completion.py",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Debug Harness prototype script (Phase 7: debug completion report), built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
-      },
-      {
-        "path": "tests/test_debug_harness.py",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Executable tests for the Debug Harness prototype, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
-      },
-      {
-        "path": "tests/test_navigator_debug_routing.py",
-        "disposition": "pending-review",
-        "owner": "workspace-user",
-        "reason": "Executable tests for the tailtrail-start-to-Debug-Harness classification routing, built on the isolated debug-harness/code-architecture-prototype branch; outside E0/feature-freeze scope."
+        "reason": "Debug Harness design doc; merged to master under the debug-harness-exception feature-freeze exception granted 2026-08-29 (see program.feature_freeze and candidate_baseline.declaration)."
       },
       {
         "path": "DURABLE-WORKFLOW-RUNTIME.local-backup.md",
