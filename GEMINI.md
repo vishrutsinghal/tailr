@@ -74,6 +74,12 @@ Use `AIDLC.md` for broad, risky, ambiguous, regulated, multi-team, or long-runni
 
 For handoff, use `aidlc/stages/handoff.md` and the matching handoff template.
 
+## Debug Harness
+
+For a reported symptom, failing test, or bug report (not a build requirement), use `tailtrail debug "<symptom>"` or `tailtrail start "<symptom>"` — Navigator routes unambiguous bug-report phrasing to the Debug Harness automatically; force it with `--debug`, or force the normal build workflow with `--build`. The harness scripts (`scripts/debug-*.py`) ship only in the Extended profile; run `tailtrail update --profile extended` first if only Core is installed.
+
+The workflow is intake -> reproduction contract -> hypothesis ledger -> bounded experiments -> root-cause proof -> correction -> completion report. Never skip an approval turn: show the drafted reproduction contract and stop; only a separate, explicit user approval message may trigger `debug reproduction approve`. The same boundary applies before `debug correction approve`. Every experiment must reference a real, already-recorded `execution-evidence` event; a hypothesis is proven only once it has real supporting evidence and a competing hypothesis has actually been eliminated. "Tests pass" is never treated as "root cause proven." See `DEBUG-HARNESS.md` for the complete design and domain-ceiling model (Code/Architecture/Database/API-integration only; Cloud/Security/Network stay out of scope).
+
 ## Guardrails
 
 Use only relevant sections from `GUARDRAILS.md` and only the relevant layer from `context/guardrail-layers.md`. Preserve exact code, diffs, configs, commands, dependency versions, IDs, paths, hashes, security rules, policy text, and logs being debugged. For non-trivial work, include evidence, assumptions, skipped areas, and residual risk.

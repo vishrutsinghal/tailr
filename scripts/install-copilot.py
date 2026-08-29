@@ -38,6 +38,7 @@ PACK_FILES = [
     "CHANGELOG.md",
     "CLAUDE.md",
     "CONTRIBUTING.md",
+    "DEBUG-HARNESS.md",
     "DEPENDENCY-GATE.md",
     "DURABLE-WORKFLOW-RUNTIME-REVISED.md",
     "EVALUATION-HARNESS.md",
@@ -351,6 +352,11 @@ PACK_SCRIPTS = [
     "scripts/vulnerability-scan.py",
     "scripts/vulnerability-summary.py",
     "scripts/workflow-dashboard.py",
+    "scripts/debug-intake.py",
+    "scripts/debug-reproduction.py",
+    "scripts/debug-hypothesis.py",
+    "scripts/debug-correction.py",
+    "scripts/debug-completion.py",
 ]
 
 MANIFEST_NAME = ".tailtrail-install.json"
