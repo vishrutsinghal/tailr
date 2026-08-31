@@ -84,6 +84,11 @@ def prepare(root: Path, workflow_id: str, stage_id: str, adapter_id: str, approv
     root = root.resolve(); binding, plan, stage, definition = _context(root, workflow_id, stage_id, adapter_id)
     freshness = task_scope.freshness(root, workflow_id)
     if not freshness["valid"] or not freshness["fresh"]: raise ValueError("adapter inputs are stale or invalid")
+    if stage_id.startswith("d-"):
+        from workflow_runtime import freshness as operational_freshness
+        operational = operational_freshness.assess(root, workflow_id)
+        if operational["status"] == "stale" and stage_id in operational["affected_stage_ids"]:
+            raise ValueError("debug workflow evidence is stale for this stage; apply freshness classification and resume through correction before another experiment")
     if stage.get("approval_class") != "none" or definition["action_class"] in adapter_catalog.GUARDED_ACTIONS:
         approval = approvals.authorize_stage(root, workflow_id, stage_id, approval_id)
         if approval is None:

@@ -1,0 +1,18 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://tailtrail.dev/schemas/debug-evaluation-report.schema.json",
+  "title":"TailTrail Debug Evaluation Report",
+  "type":"object",
+  "required":["schema_version","type","scenario_version","status","scenario_results","metrics","evidence_label","claim_boundaries"],
+  "properties":{
+    "schema_version":{"const":"1"},
+    "type":{"const":"tailtrail-debug-evaluation-report"},
+    "scenario_version":{"const":"v1"},
+    "status":{"enum":["passed","failed"]},
+    "scenario_results":{"type":"array","minItems":10,"maxItems":10},
+    "metrics":{"type":"object"},
+    "evidence_label":{"const":"deterministic-local-fixture"},
+    "claim_boundaries":{"type":"array","minItems":1,"items":{"type":"string"}}
+  },
+  "additionalProperties":true
+}

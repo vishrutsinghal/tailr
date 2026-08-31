@@ -1,0 +1,19 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://tailtrail.dev/schemas/debug-release-gate.schema.json",
+  "title":"TailTrail Debug Release Gate",
+  "type":"object",
+  "required":["schema_version","type","status","deterministic_evaluation","instruction_conformance","host_runtime_conformance","debug_vertical_runs","blocking_reasons","boundary"],
+  "properties":{
+    "schema_version":{"const":"1"},
+    "type":{"const":"tailtrail-debug-release-gate"},
+    "status":{"enum":["passed","blocked"]},
+    "deterministic_evaluation":{"enum":["passed","failed","missing"]},
+    "instruction_conformance":{"enum":["passed","failed"]},
+    "host_runtime_conformance":{"type":"object"},
+    "debug_vertical_runs":{"type":"object"},
+    "blocking_reasons":{"type":"array","items":{"type":"string"}},
+    "boundary":{"type":"string","minLength":1}
+  },
+  "additionalProperties":true
+}

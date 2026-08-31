@@ -65,6 +65,19 @@ class PlanningDiscussionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "awaiting approval"):
                 discussion.discuss(root, "discussion-approved", "Why was validation.py selected?")
 
+    def test_debug_plan_only_approval_keeps_reproduction_discussion_available(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "debug duplicate effect", "discussion-debug")
+            lock.save_start_report(root, "discussion-debug", {"goal": "debug duplicate effect", "debug_plan": {"workflow_type": "debug-investigation"}})
+            lock.approve_debug_plan(root, "discussion-debug")
+
+            result = discussion.discuss(root, "discussion-debug", "Why is the reproduction method still unresolved?")
+
+        self.assertTrue(result["recorded"])
+        self.assertEqual(result["discussion_state"]["planning_lock_status"], "approved")
+        self.assertFalse(result["source_changed"])
+
     def test_unknown_message_remains_ordinary_chat_without_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

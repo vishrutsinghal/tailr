@@ -94,6 +94,19 @@ Approved blocking actions such as `mark-stale`, `suppress`, `archive`, and `dele
 
 ## Promotion Rules
 
+### Debug Harness candidates
+
+A Debug run can create positive learning only after the canonical Completion
+Report is complete and the delivery is explicitly accepted by a user or linked
+trusted CI. The candidate may contain only a sanitized failure fingerprint,
+proven cause domain, domain-capped confidence state, validation tiers, and the
+acceptance source. Raw symptoms, prompts, source, logs, stack frames,
+repository/user/customer identity, credentials, and secrets are forbidden.
+
+Debug learning remains `candidate-only` and follows the same review,
+confidence, staleness, suppression, and explicit promotion rules below. A
+Debug closure or high confidence state never promotes guidance by itself.
+
 Promote to curated learnings only when:
 
 - the event is reusable

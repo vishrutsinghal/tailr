@@ -35,6 +35,35 @@ anchor = load_script("mcp_execution_anchor_test", "scripts/change-intent-anchor.
 
 
 class McpServerTests(unittest.TestCase):
+    def test_debug_orientation_surface_is_read_only_or_explicitly_approval_gated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with self.assertRaisesRegex(ValueError, "no debug orientation"):
+                mcp.call_tool("debug_orientation_show", {"root": root.as_posix(), "run_id": "missing"})
+            self.assertFalse((root / ".tailtrail").exists())
+            with self.assertRaisesRegex(ValueError, "requires approved: true"):
+                mcp.call_tool("debug_orientation_create", {"root": root.as_posix(), "run_id": "missing", "approved": False})
+
+    def test_complete_debug_lifecycle_tools_are_classified_and_approval_gated(self) -> None:
+        read_only = {"debug_intake_show", "debug_reproduction_show", "debug_orientation_show",
+                     "debug_hypothesis_ledger_show", "debug_correction_show", "debug_governance_show",
+                     "debug_harness_convergence_show", "debug_completion_report_show",
+                     "workflow_current", "workflow_resume", "workflow_replay", "completion_report_show"}
+        read_only.update({"debug_evaluation_report", "debug_release_gate"})
+        controlled = {"debug_start", "debug_reproduction_draft", "debug_reproduction_revise",
+                      "debug_reproduction_approve", "debug_orientation_create", "debug_hypothesis_add",
+                      "debug_hypothesis_reprioritize", "debug_experiment_propose", "debug_experiment_record",
+                      "debug_root_cause_prove", "debug_correction_propose", "debug_correction_approve",
+                      "debug_harness_convergence_finalize", "debug_closure_finalize"}
+        controlled.add("debug_evaluation_run")
+        self.assertLessEqual(read_only, set(mcp.READ_ONLY_TOOLS))
+        self.assertLessEqual(controlled, set(mcp.CONTROLLED_TOOLS))
+        for name in controlled:
+            required = mcp.tool_definitions()[name]["inputSchema"]["required"]
+            self.assertIn("approved", required, name)
+            with self.assertRaisesRegex(ValueError, "requires approved: true"):
+                mcp.call_tool(name, {"root": ".", "run_id": "missing", "approved": False})
+
     def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
         self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "planning_decision_show", "planning_investigation_show", "planning_revision_show", "planning_authority_show", "planning_question_context_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report", "execution_evidence_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
         self.assertTrue({"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest"}.issubset(set(mcp.CONTROLLED_TOOLS)))
@@ -381,6 +410,32 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("--planning-run-id", calls[0])
         self.assertEqual(calls[0][calls[0].index("--format") + 1], "markdown")
         self.assertNotIn("--no-planning-lock", calls[0])
+
+    def test_atomic_tailtrail_start_forwards_sanitized_debug_classification_inputs(self):
+        calls = []
+        original = mcp.command_result
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "# TailTrail Debug Start Plan\n", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            result = mcp.tailtrail_start({
+                "goal": "checkout is misbehaving",
+                "root": ROOT.as_posix(),
+                "workflow": "debug",
+                "error_artifact_supplied": True,
+                "reproduction_command_supplied": True,
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        self.assertTrue(result["result"].startswith("# TailTrail Debug Start Plan"))
+        self.assertIn("--debug", calls[0])
+        self.assertEqual(calls[0][calls[0].index("--error") + 1], "provided-via-mcp")
+        self.assertEqual(calls[0][calls[0].index("--command") + 1], "provided-via-mcp")
 
     def test_navigator_plan_command_construction(self):
         calls = []

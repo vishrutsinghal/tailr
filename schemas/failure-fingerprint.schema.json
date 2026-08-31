@@ -10,10 +10,12 @@
     "domain": {"enum": ["code", "architecture", "database", "cloud-infrastructure", "security", "api-integration", "network", "unknown"]},
     "fingerprint": {"type": "string", "minLength": 1},
     "symptom_hash": {"type": "string", "minLength": 1},
-    "stack_signature": {"type": "array", "items": {"type": "string"}},
+    "stack_signature_hashes": {"type": "array", "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
     "entry_point": {"type": ["string", "null"]},
     "first_seen_at": {"type": "string"},
-    "matched_learning_ids": {"type": "array", "items": {"type": "string"}}
+    "matched_learning_ids": {"type": "array", "items": {"type": "string"}},
+    "portable": {"const": true},
+    "privacy": {"type": "object"}
   },
   "additionalProperties": false
 }

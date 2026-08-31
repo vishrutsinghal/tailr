@@ -60,6 +60,17 @@ def success_pattern(report: dict[str, Any]) -> str:
     return f"For a {count}-requirement delivery, retain requirement-linked {tiers} receipts and selected harness evidence before declaring completion."
 
 
+def debug_profile(root: Path, run_id: str, report: dict[str, Any]) -> dict[str, Any] | None:
+    debug = report.get("debug", {})
+    if debug.get("debug_status") == "not-triggered": return None
+    fingerprint_path = L.state_dir(root, run_id) / "debug" / "fingerprint" / "failure-fingerprint-v1.json"
+    if not fingerprint_path.is_file(): raise ValueError("accepted Debug learning requires a sanitized failure fingerprint")
+    fingerprint = json.loads(fingerprint_path.read_text(encoding="utf-8"))
+    if fingerprint.get("portable") is not True or (fingerprint.get("privacy") or {}).get("raw_values") is not False:
+        raise ValueError("Debug learning fingerprint is not marked sanitized and portable")
+    return {"failure_fingerprint": fingerprint["fingerprint"], "proven_cause_class": debug.get("domain"), "confidence_state": debug.get("confidence_state"), "domain_confidence_ceiling": debug.get("domain_confidence_ceiling"), "validation_tiers": report.get("tests", {}).get("passed_tiers", []), "raw_values": False}
+
+
 def capture(root: Path, run_id: str, accepted_by: str) -> dict[str, Any]:
     root = root.resolve()
     if accepted_by not in {"user", "trusted-ci"}:
@@ -70,7 +81,8 @@ def capture(root: Path, run_id: str, accepted_by: str) -> dict[str, Any]:
         raise ValueError("positive learning is not eligible: " + "; ".join(reasons))
 
     directory = L.state_dir(root, run_id)
-    key = {"run_id": run_id, "accepted_by": accepted_by, "requirements": report["requirement_status"]["total"], "tiers": report["tests"]["passed_tiers"]}
+    debug = debug_profile(root, run_id, report)
+    key = {"run_id": run_id, "accepted_by": accepted_by, "requirements": report["requirement_status"]["total"], "tiers": report["tests"]["passed_tiers"], "debug_fingerprint": debug.get("failure_fingerprint") if debug else None}
     candidate_id = "success-" + hashlib.sha256(canonical(key).encode("utf-8")).hexdigest()[:16]
     path = directory / "positive-learning" / f"{candidate_id}.json"
     if path.is_file():
@@ -89,6 +101,7 @@ def capture(root: Path, run_id: str, accepted_by: str) -> dict[str, Any]:
         "promotion": "candidate-only; explicit learning review required",
         "sanitization": "No raw source, prompt, log, repository name, user identity, or customer data is stored.",
         "source_report": "completion report evaluated locally for this run",
+        "debug_profile": debug,
         "boundary": "This candidate records one accepted outcome. It is not a universal rule, a quality claim, or an automatic future-agent instruction.",
     }
     SAN.validate_artifact(root, payload, "learning")

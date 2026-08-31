@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Investigation Handoff",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "state", "requirement_uid", "reproduction_revision", "reproduction_contract", "approved_anchor", "workflow_runtime", "allowed_actions", "forbidden_actions", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-investigation-handoff"},
+    "run_id": {"type": "string"},
+    "state": {"const": "investigation-ready"},
+    "requirement_uid": {"type": "string", "pattern": "^req-[a-f0-9]{12}$"},
+    "reproduction_revision": {"type": "integer", "minimum": 1},
+    "reproduction_contract": {"type": "string"},
+    "approved_anchor": {"type": "string"},
+    "workflow_runtime": {
+      "type": "object",
+      "required": ["state", "workflow_id", "compiler", "current_stage", "investigation_approval", "boundary"],
+      "properties": {
+        "state": {"const": "compiled"},
+        "workflow_id": {"type": "string", "pattern": "^ttw-"},
+        "binding": {"type": "string"},
+        "capability_plan": {"type": "string"},
+        "task_scope": {"type": "string"},
+        "compiler": {"type": "object"},
+        "current_stage": {"const": "d-01-intake"},
+        "current_stage_display": {"const": "D-01 Intake"},
+        "initial_plan_approval": {"type": ["object", "null"]},
+        "investigation_approval": {"type": "object"},
+        "next": {"type": "string"},
+        "boundary": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "allowed_actions": {"type": "array", "items": {"type": "string"}},
+    "forbidden_actions": {"type": "array", "items": {"type": "string"}},
+    "next": {"type": "string"},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

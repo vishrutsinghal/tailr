@@ -20,6 +20,34 @@ def _adapter(capability_id: str, action_class: str, authority: str, outputs: lis
 
 
 ADAPTERS: dict[str, dict[str, Any]] = {
+    "debug-intake": _adapter(
+        "debug-harness", "write_tailtrail_state", "approved-debug-run",
+        ["reproduction_contract_ref", "requirement_uid", "safety_boundary", "status"],
+    ),
+    "debug-reproduction": _adapter(
+        "debug-harness", "execute_project", "approved-reproduction-contract",
+        ["exact_command", "outcome", "reproduction_fingerprint", "artifact_ref", "status"], timeout=900,
+    ),
+    "debug-hypothesis": _adapter(
+        "debug-harness", "write_tailtrail_state", "debug-hypothesis-ledger",
+        ["hypothesis_refs", "requirement_uid", "evidence_gaps", "cycle", "status"],
+    ),
+    "debug-experiment": _adapter(
+        "debug-harness", "execute_project", "approved-debug-experiment",
+        ["hypothesis_id", "exact_command", "expected_signal", "outcome", "artifact_ref", "cycle"], timeout=900,
+    ),
+    "debug-root-cause": _adapter(
+        "debug-harness", "write_tailtrail_state", "debug-root-cause-proof",
+        ["proven_hypothesis", "supporting_evidence_refs", "eliminated_hypothesis_refs", "status"],
+    ),
+    "debug-correction-proposal": _adapter(
+        "debug-harness", "write_tailtrail_state", "debug-correction-authority",
+        ["requirement_uid", "root_cause_ref", "bounded_changed_paths", "preserve_rules", "validation_plan", "status"],
+    ),
+    "debug-closure": _adapter(
+        "debug-harness", "write_tailtrail_state", "tailtrail-closure",
+        ["requirement_results", "root_cause_ref", "correction_ref", "regression_refs", "drift_status", "status"],
+    ),
     "bootstrap": _adapter(
         "canonical-local-state", "read_local", "canonical-run",
         ["target_identity_ref", "repository_readiness", "policy_refs", "manifest_refs", "languages", "host", "canonical_state_refs"], retry=1,
@@ -70,6 +98,11 @@ ADAPTERS: dict[str, dict[str, Any]] = {
 GUARDED_ACTIONS = {"write_project", "execute_project", "scan_local", "external_provider", "publish"}
 OUTCOMES = {"pass", "fail", "blocked", "skipped", "timeout", "unavailable"}
 STAGE_ADAPTERS = {
+    "d-01-intake": "debug-intake", "d-02-reproduction": "debug-reproduction",
+    "d-03-project-orientation": "graph-discovery", "d-04-hypothesis-generation": "debug-hypothesis",
+    "d-05-experiment": "debug-experiment", "d-06-root-cause-proof": "debug-root-cause",
+    "d-07-correction-proposal": "debug-correction-proposal", "d-08-correction-implementation": "implementation-boundary",
+    "d-09-regression-validation": "focused-testing", "d-10-closure": "debug-closure",
     "bootstrap": "bootstrap", "discover": "graph-discovery", "graph-impact": "graph-discovery",
     "scope-diff": "bootstrap", "graph-freshness": "graph-discovery", "bounded-discovery": "graph-discovery",
     "graph-overlay": "graph-discovery", "clarify": "clarification-aidlc", "plan": "planning",

@@ -19,7 +19,12 @@ reproduction = load("debug_harness_test_reproduction", "scripts/debug-reproducti
 hypothesis = load("debug_harness_test_hypothesis", "scripts/debug-hypothesis.py")
 correction = load("debug_harness_test_correction", "scripts/debug-correction.py")
 completion = load("debug_harness_test_completion", "scripts/debug-completion.py")
+canonical_completion = load("debug_harness_test_canonical_completion", "scripts/completion-report.py")
 evidence = load("debug_harness_test_evidence", "scripts/execution-evidence.py")
+behavior = load("debug_harness_test_behavior", "scripts/behavior-harness.py")
+convergence = load("debug_harness_test_convergence", "scripts/debug-harness-convergence.py")
+closure_recorder = load("debug_harness_test_closure_recorder", "scripts/closure-recorder.py")
+closure_finalizer = load("debug_harness_test_closure_finalizer", "scripts/closure-finalizer.py")
 
 CONTRACT_SOURCE = {
     "domain": "code",
@@ -33,6 +38,17 @@ CONTRACT_SOURCE = {
 
 
 class DebugHarnessTests(unittest.TestCase):
+    def converge(self, root: Path, run_id: str, uid: str, asserted: str) -> None:
+        run = root / ".tailtrail" / "runs" / run_id
+        scenarios = run / "debug" / "scenario-input.json"; receipts = run / "debug" / "scenario-receipts.json"
+        scenarios.parent.mkdir(parents=True, exist_ok=True)
+        scenarios.write_text(json.dumps({"scenarios":[{"scenario_id":"debug-restored", "requirement_uid":uid, "preconditions":[], "action":"retry the failed journey", "expected_outcome":asserted, "preservation":[], "evidence":[{"tier":"integration", "asserted_behavior":asserted}]}]}), encoding="utf-8")
+        receipts.write_text(json.dumps({"receipts":[{"requirement_uid":uid, "tier":"integration", "outcome":"pass", "asserted_behavior":asserted}]}), encoding="utf-8")
+        behavior.assess(root, run_id, scenarios, receipts)
+        recovery = run / "recovery" / "boundary.json"; recovery.parent.mkdir(parents=True, exist_ok=True); recovery.write_text(json.dumps({"type":"test-recovery-boundary"}), encoding="utf-8")
+        result = convergence.finalize(root, run_id, True)
+        self.assertTrue(result["complete"])
+
     def open_and_approve(self, root: Path, run_id: str = "run") -> str:
         """Opens intake, drafts+approves a reproduction contract, and returns the
         approved investigation requirement_uid."""
@@ -58,14 +74,22 @@ class DebugHarnessTests(unittest.TestCase):
             hypothesis.record_experiment(root, "run", h2, "order state present at retry time", "eliminates", fp, True)
             proven = hypothesis.prove(root, "run", h1)
             self.assertEqual(next(row for row in proven["hypotheses"] if row["hypothesis_id"] == h1)["status"], "proven")
-            correction.propose(root, "run", h1, None)
+            correction.propose(root, "run", h1, None, {"expected_changed_paths": ["src/payments.py"], "expected_changed_symbols": [{"path": "src/payments.py", "symbols": ["charge"]}], "validation_tiers": ["integration"], "behaviour_scenarios": ["timeout retry produces one charge"]})
             correction.approve(root, "run", True)
+            evidence.append(root, "run", {"kind": "source-edit", "requirement_uids": [uid], "changed_paths": ["src/payments.py"]}, True)
+            correction.scope_check(root, "run", ["src/payments.py"], True)
             evidence.append(root, "run", {"kind": "harness-result", "requirement_uids": [uid], "classification": "Behaviour Harness: checkout-with-timeout user journey restored"}, True)
+            self.converge(root, "run", uid, "checkout-with-timeout user journey restored")
             report = completion.generate(root, "run")
             self.assertEqual(report["confidence_state"], "behavior-restored")
-            self.assertEqual(report["acceptance_state"], "accept-user")
+            self.assertEqual(report["debug_status"], "pass")
+            self.assertEqual(report["authority"], "section-only")
             self.assertEqual(report["domains_eliminated"], [])
             self.assertEqual(report["gaps"], [])
+            canonical = canonical_completion.build(root, "run", record=False)
+            self.assertEqual(canonical["debug"]["debug_status"], "pass")
+            self.assertEqual(canonical["debug"]["authority"], "section-only")
+            self.assertNotIn("acceptance_state", canonical["debug"])
 
     def test_unsupported_domain_is_rejected_at_reproduction_and_hypothesis(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -77,6 +101,19 @@ class DebugHarnessTests(unittest.TestCase):
             reproduction.approve(root, "run")
             with self.assertRaisesRegex(ValueError, "not supported"):
                 hypothesis.add_hypothesis(root, "run", "network", "a network hypothesis", 1)
+
+    def test_canonical_finalizer_creates_fail_closed_debug_section(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.open_and_approve(root)
+            self.record_command_evidence(root, "run", uid)
+            closure_recorder.record(root, run_id="run")
+            result = closure_finalizer.finalize(root, "run")
+            self.assertEqual(result["debug_section"]["status"], "evidence-incomplete")
+            report = canonical_completion.show(root, "run")
+            self.assertEqual(report["overall_status"], "evidence-incomplete")
+            self.assertEqual(report["debug"]["authority"], "section-only")
+            self.assertNotIn("acceptance_state", report["debug"])
 
     def test_experiment_requires_a_real_execution_evidence_event(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -107,8 +144,8 @@ class DebugHarnessTests(unittest.TestCase):
             fp = self.record_command_evidence(root, "run", uid)
             ledger = hypothesis.add_hypothesis(root, "run", "code", "Retry lacks an idempotency key", 1)
             h1 = ledger["hypotheses"][0]["hypothesis_id"]
-            for _ in range(hypothesis.DEFAULT_CYCLE_LIMIT):
-                ledger = hypothesis.record_experiment(root, "run", h1, "inconclusive probe", "inconclusive", fp, True)
+            for cycle in range(hypothesis.DEFAULT_CYCLE_LIMIT):
+                ledger = hypothesis.record_experiment(root, "run", h1, f"inconclusive probe {cycle + 1}", "inconclusive", fp, True, f"signal {cycle + 1}")
             self.assertTrue(ledger["investigation_blocked"])
             with self.assertRaisesRegex(ValueError, "investigation is blocked"):
                 hypothesis.record_experiment(root, "run", h1, "one more probe", "inconclusive", fp, True)
@@ -152,9 +189,12 @@ class DebugHarnessTests(unittest.TestCase):
             hypothesis.record_experiment(root, "run", h1, "supporting evidence observed", "strengthens", fp, True)
             hypothesis.record_experiment(root, "run", h2, "alternative ruled out", "eliminates", fp, True)
             hypothesis.prove(root, "run", h1)
-            correction.propose(root, "run", h1, None)
+            correction.propose(root, "run", h1, None, {"expected_changed_paths": ["src/domain.py"], "expected_changed_symbols": [{"path": "src/domain.py", "symbols": ["handle"]}], "validation_tiers": ["integration"], "behaviour_scenarios": ["approved domain behaviour is restored"]})
             correction.approve(root, "run", True)
+            evidence.append(root, "run", {"kind": "source-edit", "requirement_uids": [uid], "changed_paths": ["src/domain.py"]}, True)
+            correction.scope_check(root, "run", ["src/domain.py"], True)
             evidence.append(root, "run", {"kind": "harness-result", "requirement_uids": [uid], "classification": "Behaviour Harness: checkout-with-timeout user journey restored"}, True)
+            self.converge(root, "run", uid, "checkout-with-timeout user journey restored")
             report = completion.generate(root, "run")
             self.assertEqual(report["domain_confidence_ceiling"], expected_ceiling)
             self.assertEqual(report["confidence_state"], expected_ceiling)

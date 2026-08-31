@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/debug-experiment-proposal.schema.json",
+  "title": "TailTrail Debug Experiment Proposal",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "revision", "hypothesis_id", "requirement_uid", "failure_fingerprint", "action", "expected_signal", "deterministic", "experiment_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-experiment-proposal"},
+    "run_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "hypothesis_id": {"type": "string", "minLength": 1},
+    "requirement_uid": {"type": "string", "minLength": 1},
+    "failure_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "action": {"type": "string", "minLength": 1},
+    "expected_signal": {"type": "string", "minLength": 1},
+    "deterministic": {"const": true},
+    "experiment_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": true
+}

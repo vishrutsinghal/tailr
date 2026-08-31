@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail DI-8 Debug Harness Convergence",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "workflow_id", "requirement_uid", "selected_controls", "control_results", "requirement_results", "complete", "status", "next", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-harness-convergence"},
+    "run_id": {"type": "string", "minLength": 1},
+    "workflow_id": {"type": "string", "minLength": 1},
+    "requirement_uid": {"type": "string", "minLength": 1},
+    "selected_controls": {"type": "array", "items": {"type": "object", "required": ["control", "reason"], "properties": {"control": {"type": "string"}, "reason": {"type": "string"}}, "additionalProperties": false}},
+    "control_results": {"type": "array", "items": {"type": "object", "required": ["control", "status", "artifact", "evidence", "reason"], "properties": {"control": {"type": "string"}, "status": {"type": "string"}, "artifact": {"type": ["string", "null"]}, "evidence": {"type": "array", "items": {"type": ["string", "null"]}}, "reason": {"type": "string"}}, "additionalProperties": false}},
+    "requirement_results": {"type": "array", "items": {"type": "object"}},
+    "complete": {"type": "boolean"},
+    "status": {"enum": ["pass", "evidence-incomplete"]},
+    "next": {"type": "string"},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

@@ -142,6 +142,66 @@
               "string",
               "null"
             ]
+          },
+          "integration_contract": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "implemented_capabilities",
+              "remaining_integration",
+              "deferred_domains",
+              "future_scope",
+              "canonical_owners"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "prototype-implemented",
+                  "integration-incomplete",
+                  "integrated"
+                ]
+              },
+              "implemented_capabilities": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "remaining_integration": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "deferred_domains": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "future_scope": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "canonical_owners": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "intent_and_routing",
+                  "approved_investigation_boundary",
+                  "lifecycle_state",
+                  "execution_evidence",
+                  "requirement_and_drift_status",
+                  "delivery_closure",
+                  "learning_and_evaluation"
+                ],
+                "properties": {
+                  "intent_and_routing": { "type": "string", "minLength": 1 },
+                  "approved_investigation_boundary": { "type": "string", "minLength": 1 },
+                  "lifecycle_state": { "type": "string", "minLength": 1 },
+                  "execution_evidence": { "type": "string", "minLength": 1 },
+                  "requirement_and_drift_status": { "type": "string", "minLength": 1 },
+                  "delivery_closure": { "type": "string", "minLength": 1 },
+                  "learning_and_evaluation": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
           }
         }
       }

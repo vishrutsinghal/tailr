@@ -38,6 +38,23 @@ REQUIRED_FEATURE_KEYS = {
     "since_version",
     "deprecated_in_version",
 }
+OPTIONAL_FEATURE_KEYS = {"integration_contract"}
+INTEGRATION_STATUSES = {"prototype-implemented", "integration-incomplete", "integrated"}
+INTEGRATION_LIST_FIELDS = {
+    "implemented_capabilities",
+    "remaining_integration",
+    "deferred_domains",
+    "future_scope",
+}
+CANONICAL_OWNER_FIELDS = {
+    "intent_and_routing",
+    "approved_investigation_boundary",
+    "lifecycle_state",
+    "execution_evidence",
+    "requirement_and_drift_status",
+    "delivery_closure",
+    "learning_and_evaluation",
+}
 STRING_LIST_FIELDS = {"commands", "docs", "scripts", "tests", "mcp_tools", "depends_on"}
 STATUS_VALUES = {"planned", "implemented", "deprecated"}
 SURFACE_VALUES = {"core", "extended"}
@@ -103,7 +120,7 @@ def mcp_projection(registry: dict[str, Any]) -> list[dict[str, Any]]:
         for tool in tools:
             if not isinstance(tool, str) or not tool:
                 continue
-            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve"}
+            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "debug_start", "debug_reproduction_draft", "debug_reproduction_approve", "debug_experiment_record", "debug_correction_approve"}
             projection.append(
                 {
                     "tool": tool,
@@ -233,7 +250,7 @@ def validate_registry(registry: dict[str, Any], root: Path = ROOT) -> list[str]:
         for key in sorted(missing):
             issues.append(f"{label} missing required key `{key}`")
 
-        extra = set(feature) - REQUIRED_FEATURE_KEYS
+        extra = set(feature) - REQUIRED_FEATURE_KEYS - OPTIONAL_FEATURE_KEYS
         for key in sorted(extra):
             issues.append(f"{label} has unexpected key `{key}`")
 
@@ -263,6 +280,39 @@ def validate_registry(registry: dict[str, Any], root: Path = ROOT) -> list[str]:
             issues.append(f"{label} read_only must be a boolean")
         if feature.get("deprecated_in_version") is not None and not isinstance(feature.get("deprecated_in_version"), str):
             issues.append(f"{label} deprecated_in_version must be a string or null")
+
+        integration_contract = feature.get("integration_contract")
+        if integration_contract is not None:
+            if not isinstance(integration_contract, dict):
+                issues.append(f"{label} integration_contract must be an object")
+            else:
+                expected_contract_fields = {"status", *INTEGRATION_LIST_FIELDS, "canonical_owners"}
+                missing_contract_fields = expected_contract_fields - set(integration_contract)
+                extra_contract_fields = set(integration_contract) - expected_contract_fields
+                for key in sorted(missing_contract_fields):
+                    issues.append(f"{label} integration_contract missing `{key}`")
+                for key in sorted(extra_contract_fields):
+                    issues.append(f"{label} integration_contract has unexpected key `{key}`")
+                if integration_contract.get("status") not in INTEGRATION_STATUSES:
+                    issues.append(
+                        f"{label} integration_contract status must be one of {sorted(INTEGRATION_STATUSES)}"
+                    )
+                for key in INTEGRATION_LIST_FIELDS:
+                    values = integration_contract.get(key)
+                    if not isinstance(values, list) or any(
+                        not isinstance(item, str) or not item for item in values
+                    ):
+                        issues.append(f"{label} integration_contract {key} must contain non-empty strings")
+                owners = integration_contract.get("canonical_owners")
+                if not isinstance(owners, dict) or set(owners) != CANONICAL_OWNER_FIELDS:
+                    issues.append(
+                        f"{label} integration_contract canonical_owners must define exactly "
+                        f"{sorted(CANONICAL_OWNER_FIELDS)}"
+                    )
+                elif any(not isinstance(owner, str) or not owner for owner in owners.values()):
+                    issues.append(
+                        f"{label} integration_contract canonical_owners values must be non-empty strings"
+                    )
 
         for key in STRING_LIST_FIELDS:
             values = feature.get(key)

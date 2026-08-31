@@ -7,10 +7,10 @@
     "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-operational-checkpoint"},
     "workflow_id": {"type": "string", "pattern": "^ttw-"}, "tailtrail_run_id": {"type": "string", "minLength": 1},
     "revision": {"type": "integer", "minimum": 1}, "reason": {"type": "string", "pattern": "^(execution-baseline|approved-baseline|manual-checkpoint|(stage|retry)-passed:[a-z0-9-]+)$"},
-    "snapshot": {"type": "object", "required": ["scoped_sources", "scoped_docs", "path_owners", "manifests", "dependencies", "policies", "repository_identity", "graph_fingerprint", "security_fingerprint", "plan_fingerprint"], "properties": {
+    "snapshot": {"type": "object", "required": ["scoped_sources", "scoped_docs", "path_owners", "manifests", "dependencies", "policies", "repository_identity", "graph_fingerprint", "security_fingerprint", "debug_reproduction_fingerprint", "plan_fingerprint"], "properties": {
       "scoped_sources": {"$ref": "#/$defs/hashMap"}, "scoped_docs": {"$ref": "#/$defs/hashMap"}, "manifests": {"$ref": "#/$defs/hashMap"}, "dependencies": {"$ref": "#/$defs/hashMap"}, "policies": {"$ref": "#/$defs/hashMap"},
       "path_owners": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}},
-      "repository_identity": {"$ref": "#/$defs/hash"}, "graph_fingerprint": {"$ref": "#/$defs/hash"}, "security_fingerprint": {"$ref": "#/$defs/hash"}, "plan_fingerprint": {"$ref": "#/$defs/hash"}
+      "repository_identity": {"$ref": "#/$defs/hash"}, "graph_fingerprint": {"$ref": "#/$defs/hash"}, "security_fingerprint": {"$ref": "#/$defs/hash"}, "debug_reproduction_fingerprint": {"$ref": "#/$defs/hash"}, "plan_fingerprint": {"$ref": "#/$defs/hash"}
     }, "additionalProperties": false},
     "snapshot_fingerprint": {"$ref": "#/$defs/hash"}, "previous_checkpoint_ref": {"type": ["string", "null"]}, "artifact_ref": {"type": "string", "minLength": 1}, "boundary": {"type": "string", "minLength": 1}
   },

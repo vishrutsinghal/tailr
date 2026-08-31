@@ -28,6 +28,14 @@ def ledger() -> Any:
 L = ledger()
 
 
+def load_module(name: str, filename: str) -> Any:
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def _display_prose(value: Any) -> str:
     """Normalize host-escaped prose without mutating canonical artifacts."""
     text = re.sub(r"\\(?:r\\n|n|r)", " ", str(value))
@@ -175,9 +183,14 @@ def assert_discussion_allowed(root: Path, run_id: str) -> dict[str, Any]:
     separate projection so existing approval and activation paths stay stable.
     """
     payload = show(root.resolve(), run_id)
-    if payload["status"] != "awaiting-approval":
+    debug_reproduction_discussion = (
+        payload.get("status") == "approved"
+        and payload.get("writes_allowed") is False
+        and (payload.get("approval") or {}).get("kind") == "debug-plan-only"
+    )
+    if payload["status"] != "awaiting-approval" and not debug_reproduction_discussion:
         raise ValueError(
-            "Interactive Plan Mode is available only while the Planning Lock is awaiting approval; "
+            "Interactive Plan Mode is available only while a plan is awaiting approval or a debug reproduction proposal awaits approval; "
             f"run `{run_id}` is `{payload['status']}`"
         )
     return payload
@@ -301,6 +314,58 @@ def approve(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     payload.pop("artifact", None)
     L.atomic_json(path, payload)
     L.append_event(root, run_id, "planning_lock_approved", {"artifact": path.relative_to(L.state_dir(root, run_id)).as_posix(), "writes_allowed": True})
+    return show(root, run_id)
+
+
+def approve_debug_plan(root: Path, run_id: str) -> dict[str, Any]:
+    """Approve debug planning without granting investigation or source-write authority."""
+    root = root.resolve()
+    path = lock_path(root, run_id)
+    payload = show(root, run_id)
+    if payload["status"] == "approved":
+        if (payload.get("approval") or {}).get("kind") != "debug-plan-only":
+            raise ValueError("run is already approved under a non-debug authority")
+        return payload
+    if payload["status"] != "awaiting-approval":
+        raise ValueError(f"debug planning lock is not approvable from status `{payload['status']}`")
+    payload["status"] = "approved"
+    payload["writes_allowed"] = False
+    payload["approval"] = {"kind": "debug-plan-only", "run_id": run_id}
+    payload["authority_scope"] = "reproduction-draft-only"
+    payload.pop("artifact", None)
+    L.atomic_json(path, payload)
+    L.append_event(root, run_id, "debug_plan_approved", {
+        "artifact": path.relative_to(L.state_dir(root, run_id)).as_posix(),
+        "writes_allowed": False,
+        "authority_scope": "reproduction-draft-only",
+    })
+    return show(root, run_id)
+
+
+def approve_debug_investigation(root: Path, run_id: str, reproduction_revision: int) -> dict[str, Any]:
+    """Grant investigation-only authority after a specific reproduction revision is approved."""
+    root = root.resolve()
+    path = lock_path(root, run_id)
+    payload = show(root, run_id)
+    if payload.get("status") != "approved" or (payload.get("approval") or {}).get("kind") != "debug-plan-only":
+        raise ValueError("approve the canonical Debug Start Plan before approving reproduction")
+    payload["writes_allowed"] = True
+    payload["approval"] = {
+        "kind": "debug-reproduction-contract",
+        "run_id": run_id,
+        "reproduction_revision": reproduction_revision,
+    }
+    payload["authority_scope"] = "debug-investigation-only"
+    payload["source_writes_allowed"] = False
+    payload.pop("artifact", None)
+    L.atomic_json(path, payload)
+    L.append_event(root, run_id, "planning_lock_approved", {
+        "artifact": path.relative_to(L.state_dir(root, run_id)).as_posix(),
+        "writes_allowed": True,
+        "source_writes_allowed": False,
+        "authority_scope": "debug-investigation-only",
+        "reproduction_revision": reproduction_revision,
+    })
     return show(root, run_id)
 
 
@@ -1150,6 +1215,37 @@ def render_execution_handoff(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_debug_reproduction_proposal(payload: dict[str, Any]) -> str:
+    contract = payload["reproduction_contract"]
+    lines = [
+        "# TailTrail Reproduction Contract Proposal", "",
+        f"Run ID: `{payload['run_id']}`", "",
+        "## State", "",
+        "- Debug Start Plan: approved",
+        "- Investigation authority: blocked pending reproduction approval",
+        "- Source-write authority: blocked", "",
+        "## Proposed reproduction boundary", "",
+        f"- Revision: `{contract['revision']}`",
+        f"- Requirement UID: `{contract['requirement_uid']}`",
+        f"- Domain: `{contract['domain']}`",
+        f"- Trigger: {_display_prose(contract['trigger'])}",
+        f"- Expected: {_display_prose(contract['expected'])}",
+        f"- Actual: {_display_prose(contract['actual'])}",
+        f"- Reproduction: {_display_prose(contract['reproduction_method'])}", "",
+        "## Preserve and safety rules", "",
+    ]
+    lines.extend(f"- {_display_prose(item)}" for item in contract.get("preserve_rules", []))
+    lines.append(f"- Safety boundary: {_display_prose(contract['safety_boundary'])}")
+    lines.extend(["", "## Required clarification", ""])
+    unresolved = contract.get("unresolved_fields", [])
+    if unresolved:
+        lines.extend(f"- Resolve `{field}` before approval." for field in unresolved)
+    else:
+        lines.append("- None. This exact revision is ready for separate approval.")
+    lines.extend(["", "## Next action", "", f"- {payload['next']}", f"- Boundary: {payload['boundary']}", ""])
+    return "\n".join(lines)
+
+
 def render_feedback_template(payload: dict[str, Any]) -> str:
     """Render a small host-facing form instead of exposing implementation JSON."""
     lines = [
@@ -1203,6 +1299,9 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     if policy_check.get("blocking"):
         raise ValueError(f"Enterprise target policy blocks activation for run `{run_id}`: {policy_check.get('reason', '; '.join(policy_check.get('issues', [])))}")
     saved_report = active_start_report(root, run_id).get("report", {})
+    if isinstance(saved_report, dict) and isinstance(saved_report.get("debug_plan"), dict):
+        module = load_module("tailtrail_debug_reproduction_bridge", "debug-reproduction.py")
+        return module.approve_start_plan_and_draft(root, run_id)
     source = saved_report.get("spec_kit_source") if isinstance(saved_report, dict) else None
     if isinstance(source, dict):
         current_source = spec_kit_bridge().load(root, str(source.get("feature_id", "")))
@@ -1315,6 +1414,15 @@ def assert_write_allowed(root: Path, run_id: str) -> dict[str, Any]:
     return payload
 
 
+def assert_source_write_allowed(root: Path, run_id: str) -> dict[str, Any]:
+    payload = assert_write_allowed(root, run_id)
+    if payload.get("source_writes_allowed") is False or payload.get("authority_scope") == "debug-investigation-only":
+        raise ValueError(
+            f"Planning Lock for run `{run_id}` grants debug investigation only; source writes require a separately approved correction"
+        )
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1373,7 +1481,7 @@ def main() -> int:
     answer_source.add_argument("--answers", help="JSON list of complete question_id, choice, and optional detail answers.")
     answer_source.add_argument("--answers-base64", help="UTF-8 JSON answers encoded as Base64; use on Windows hosts where native argument quoting strips JSON quotes.")
     aidlc_cycle_parser.add_argument("--approved", action="store_true", help="Activate an already revised AIDLC boundary.")
-    for name in ("show", "assert-write"):
+    for name in ("show", "assert-write", "assert-source-write"):
         item = sub.add_parser(name)
         item.add_argument("--root", type=Path, default=Path.cwd())
         item.add_argument("--run-id", required=True)
@@ -1420,8 +1528,10 @@ def main() -> int:
             payload = aidlc_cycle(args.root, args.run_id, answers_json, args.approved)
         elif args.command == "show":
             payload = show(args.root, args.run_id)
-        else:
+        elif args.command == "assert-write":
             payload = assert_write_allowed(args.root, args.run_id)
+        else:
+            payload = assert_source_write_allowed(args.root, args.run_id)
         if args.command == "feedback-template" and args.format == "markdown":
             print(render_feedback_template(payload))
         elif args.command == "aidlc-requirements":
@@ -1438,6 +1548,8 @@ def main() -> int:
             print(render_aidlc_revision(payload))
         elif args.command == "aidlc-cycle":
             print(render_execution_handoff(payload))
+        elif args.command == "activate" and args.format == "markdown" and payload.get("state") == "reproduction-approval-required":
+            print(render_debug_reproduction_proposal(payload))
         elif args.command == "activate" and args.format == "markdown" and (payload.get("execution_handoff") or payload.get("state") == "execution-ready"):
             handoff = payload.get("execution_handoff") if isinstance(payload, dict) else None
             print(render_execution_handoff(handoff if isinstance(handoff, dict) else payload))

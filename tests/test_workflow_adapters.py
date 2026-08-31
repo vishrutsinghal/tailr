@@ -52,7 +52,7 @@ class WorkflowAdapterTests(unittest.TestCase):
 
     def test_catalog_maps_every_adapter_to_one_implemented_registry_capability(self) -> None:
         result = adapters.catalog()
-        self.assertTrue(result["valid"]); self.assertEqual(len(result["adapters"]), 11)
+        self.assertTrue(result["valid"]); self.assertEqual(len(result["adapters"]), 18)
         for row in result["adapters"]:
             contract = adapters.contract(row["adapter_id"])
             self.assertEqual(contract["capability_id"], row["capability_id"])

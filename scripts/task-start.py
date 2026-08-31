@@ -777,9 +777,110 @@ def build_report(
     aidlc_mode: str = "",
     official_manifest: str | None = None,
     spec_kit_feature: str | None = None,
+    workflow_override: str | None = None,
+    has_error_artifact: bool = False,
+    has_reproduction_command: bool = False,
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
-    plan = navigator.decide(goal, root, changed, command_prefix)
+    plan = navigator.decide(
+        goal,
+        root,
+        changed,
+        command_prefix,
+        workflow_override=workflow_override,
+        has_error_artifact=has_error_artifact,
+        has_reproduction_command=has_reproduction_command,
+    )
+    classification = plan.get("workflow_classification", {})
+    if classification.get("workflow_type") == "debug-investigation":
+        impacted = [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)]
+        estimated_tokens = int((plan.get("token_budget", {}) or {}).get("budget_tokens", 4000))
+        requirement = {
+            "display_id": "REQ-DEBUG-01",
+            "kind": "debug-investigation",
+            "statement": f"Prove the root cause of the reported symptom without redefining expected behaviour: {goal}",
+            "acceptance_criteria": [
+                "A deterministic or explicitly bounded intermittent reproduction is approved.",
+                "The proven cause is supported by saved experiment evidence and a competing hypothesis is eliminated.",
+                "No correction or source write occurs before separate approval.",
+            ],
+            "preserve_rules": [
+                "Preserve current successful behaviour outside the reproduced failure path.",
+                "Do not call production systems or external providers during planning.",
+            ],
+            "likely_paths": [str(item.get("path")) for item in impacted if item.get("path")],
+            "validation_contract": {"tiers": ["reproduction", "root-cause", "regression", "behaviour"]},
+            "confidence": "planning-evidence-only",
+        }
+        plan["requirement_matrix"] = [requirement]
+        delivery = {
+            "mode": "debug-investigation",
+            "selected": [
+                {"name": "Debug Harness", "why": "turn the saved symptom into reproduction and root-cause evidence before correction"},
+                {"name": "Reproduction Contract", "why": "freeze the expected failure, command boundary, and success criteria before experiments"},
+                {"name": "Token Harness", "why": "keep future logs and traces bounded while preserving exact failure evidence"},
+            ],
+            "activated_later": [
+                {"name": "Code Graph refresh", "when": "after approval when saved graph evidence is absent or stale"},
+                {"name": "Correction implementation", "when": "after root cause is proven and the bounded correction is separately approved"},
+                {"name": "Selected Harnesses and canonical closure", "when": "after correction implementation produces factual execution evidence"},
+                {"name": "Governed learning", "when": "after trusted acceptance of the canonical Completion Report"},
+            ],
+            "stages": ["approve debug plan", "draft reproduction contract", "approve reproduction", "run bounded experiments", "prove root cause", "propose correction"],
+            "execution_boundary": "This Start run creates planning metadata only. It does not open Debug Intake, inspect source, execute reproduction, approve experiments, edit code, or grant correction authority.",
+            "hands_free_program": None,
+        }
+        return {
+            "goal": goal,
+            "root": root.as_posix(),
+            "command_prefix": command_prefix,
+            "navigator": plan,
+            "guided_delivery": delivery,
+            "debug_plan": {
+                "workflow_type": "debug-investigation",
+                "classification_reason_code": classification.get("reason_code"),
+                "classification_reason": classification.get("reason"),
+                "known_symptom": classification.get("known_symptom") or goal,
+                "material_unknowns": list(classification.get("unknown_evidence", [])),
+                "classification_evidence": {
+                    "explicit_override": workflow_override == "debug",
+                    "error_artifact_supplied": has_error_artifact,
+                    "reproduction_command_supplied": has_reproduction_command,
+                },
+                "reproduction_questions": [
+                    "What exact observable result proves the failure, and what result represents restored behaviour?",
+                    "What is the smallest deterministic reproduction command or bounded intermittent reproduction procedure?",
+                    "Which successful behaviour and external-effect boundaries must remain unchanged during investigation?",
+                ],
+                "evidence_tiers": ["reproduction", "root-cause", "regression", "behaviour"],
+                "safety_boundary": "Planning is metadata-only. No source reads, tests, scanners, Git changes, external calls, reproduction approval, or correction authority are created.",
+                "exactness_posture": "The symptom, run identity, target identity, supplied evidence-presence flags, and future receipts remain exact. No raw error or command content is copied into this plan.",
+                "scope_source": "saved-code-graph" if plan.get("graph_cache") else "unresolved",
+            },
+            "architecture_plan": {"selected": False, "status": "deferred-until-reproduction"},
+            "behaviour_plan": {"selected": False, "status": "deferred-until-correction"},
+            "maintainability_plan": {"selected": False, "status": "deferred-until-correction"},
+            "ui_plan": {"selected": False, "surface_status": "not-selected"},
+            "ui_consistency": {"selected": False},
+            "aidlc_mode": {"mode": "off", "selection": "debug-investigation", "state": "not-selected", "boundary": "AIDLC is not selected by DI-2; requirement/reproduction authority is handled by later debug phases."},
+            "aidlc_mode_features": {"included": [], "not_included": ["AIDLC lifecycle during Debug Start planning"]},
+            "spec_kit_source": None,
+            "next_actions": [],
+            "token_posture": {
+                "used_tokens": estimated_tokens,
+                "baseline_tokens": estimated_tokens,
+                "avoided_tokens": 0,
+                "estimated_reduction_percent": 0,
+            },
+            "learning_quality": {},
+            "setup_posture": {},
+            "review_posture": {"selected": False, "scope": "debug correction only after implementation"},
+            "harness_posture": {},
+            "bootstrap_posture": {},
+            "evaluation_posture": {},
+            "code_intelligence": {"mode": "saved-only", "external_providers": "not-run"},
+            "next_step": "Review and approve this Debug Start Plan before drafting a reproduction contract.",
+        }
     plan["likely_impacted_files"] = architecture_planning.filter_weak_suggestions(
         goal,
         [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)],
@@ -1002,6 +1103,103 @@ def short_trigger(value: str) -> str:
     if "higher-tier" in lowered or "integration" in lowered or "contract" in lowered:
         return "When the approved proof needs integration, contract, behaviour, infrastructure, or release evidence."
     return value.split(";")[0].rstrip(".") + "."
+
+
+def debug_start_report(report: dict[str, Any], verbose: bool = False) -> str:
+    """Render one canonical, planning-only Debug Start report."""
+    plan = report["navigator"]
+    debug_plan = report["debug_plan"]
+    delivery = report["guided_delivery"]
+    lock = report.get("planning_lock")
+    impacted = [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)]
+    requirements = [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)]
+    lines = ["# TailTrail Debug Start Plan", ""]
+    lines.extend(["## Planning Lock", ""])
+    if lock:
+        lines.extend([
+            f"- Run ID: `{lock['run_id']}`",
+            f"- Target identity: `{lock.get('target_identity', {}).get('fingerprint', 'legacy lock')}`.",
+            f"- State: **{lock['status']}**; managed writes allowed: **{str(lock['writes_allowed']).lower()}**.",
+            f"- Saved plan: `{report.get('planning_report', {}).get('artifact', 'saved with this run')}`.",
+        ])
+    else:
+        lines.append("- No persisted Planning Lock is attached to this rendered report.")
+    lines.extend([
+        "",
+        "## Start Here",
+        "",
+        "- Review the symptom boundary, unknowns, proposed reproduction questions, and safety controls.",
+        "- Nothing in this report reproduces, diagnoses, or changes the project.",
+        "",
+        "## Navigator Decision",
+        "",
+        f"- Workflow type: `{debug_plan['workflow_type']}`",
+        f"- Reason: `{debug_plan.get('classification_reason_code')}` - {display_prose(debug_plan.get('classification_reason'))}",
+        f"- Known symptom: {display_prose(debug_plan.get('known_symptom'))}",
+        "- Material unknowns:",
+    ])
+    lines.extend(f"  - {display_prose(item)}" for item in debug_plan.get("material_unknowns", []))
+    evidence = debug_plan.get("classification_evidence", {})
+    lines.extend([
+        f"- Classification evidence: explicit override `{str(evidence.get('explicit_override', False)).lower()}`, error artifact supplied `{str(evidence.get('error_artifact_supplied', False)).lower()}`, reproduction command supplied `{str(evidence.get('reproduction_command_supplied', False)).lower()}`.",
+        f"- Approval posture: {plan.get('workflow_classification', {}).get('approval_posture')}",
+        "",
+        "## Scope",
+        "",
+        f"- Target repository: `{report['root']}`",
+        f"- Scope source: `{debug_plan.get('scope_source')}`; saved graph evidence is advisory and was not freshness-checked.",
+    ])
+    if impacted:
+        for item in impacted if verbose else impacted[:6]:
+            lines.append(f"- `{item.get('path')}` - {display_prose(item.get('reason'))}")
+    else:
+        lines.append("- Likely code scope is unresolved. Source discovery is deferred until approval.")
+    lines.extend(["", "## Requirements", ""])
+    for item in requirements:
+        lines.append(f"- **{item.get('display_id')}:** {display_prose(item.get('statement'))}")
+        if verbose:
+            lines.append("  - Preserve:")
+            lines.extend(f"    - {display_prose(rule)}" for rule in item.get("preserve_rules", []))
+            lines.append("  - Acceptance:")
+            lines.extend(f"    - {display_prose(rule)}" for rule in item.get("acceptance_criteria", []))
+    lines.extend(["", "## Selected TailTrail features", "", "| Feature | When | Why |", "| --- | --- | --- |", "| Navigator | Planning now | classified the symptom-first workflow and created the canonical Planning Lock |"])
+    for item in delivery.get("selected", []):
+        lines.append(f"| {item.get('name')} | Planning / after approval | {display_prose(item.get('why'))} |")
+    lines.extend(["", "## Deferred TailTrail features", ""])
+    for item in delivery.get("activated_later", []):
+        lines.append(f"- **{item.get('name')}:** {display_prose(item.get('when'))}")
+    lines.extend(["", "## Proposed reproduction questions", ""])
+    for index, question in enumerate(debug_plan.get("reproduction_questions", []), start=1):
+        lines.append(f"{index}. {display_prose(question)}")
+    lines.extend(["", "## Plan", ""])
+    for index, stage in enumerate(delivery.get("stages", []), start=1):
+        lines.append(f"{index}. {display_prose(stage)}")
+    lines.extend(["", "## Guided delivery", "", f"- Boundary: {delivery.get('execution_boundary')}", "- The Debug Intake artifact and reproduction contract are not created or approved by this Start command."])
+    lines.extend(["", "## Focused validation", "", "| Evidence tier | Planning status |", "| --- | --- |"])
+    for tier in debug_plan.get("evidence_tiers", []):
+        lines.append(f"| {tier} | deferred until the relevant approved debug stage |")
+    token = report["token_posture"]
+    lines.extend([
+        "",
+        "## Token estimate",
+        "",
+        f"- Estimated focused context budget: approximately `{token['used_tokens']}` tokens.",
+        "- Evidence: local planning estimate only; actual model tokens require run-linked host/provider telemetry.",
+        "",
+        "## Evidence posture",
+        "",
+        f"- Exactness: {debug_plan.get('exactness_posture')}",
+        f"- Safety: {debug_plan.get('safety_boundary')}",
+        "- External providers, tests, scanners, source inspection, Debug Intake, and correction execution: **not run**.",
+        "",
+        "## Approval",
+        "",
+        "- Approve this exact Debug Start Plan to allow DI-3 to draft a reproduction contract under the same run ID.",
+        "- Reject or revise the symptom, scope, questions, evidence tiers, or safety boundary while keeping this run awaiting approval.",
+        "- Use `--build` in a new Start request only if this should be treated as an implementation requirement instead of an unexplained symptom.",
+        "",
+    ])
+    return "\n".join(lines)
 
 
 def compact_start_report(report: dict[str, Any]) -> str:
@@ -1296,6 +1494,8 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
         return render_target_boundary_report(report)
     if report.get("target_fit_boundary"):
         return render_target_fit_boundary_report(report)
+    if report.get("debug_plan"):
+        return debug_start_report(report, verbose=verbose)
     plan = report["navigator"]
     lock = report.get("planning_lock")
     lock_lines = []
@@ -1666,6 +1866,11 @@ def main() -> int:
     parser.add_argument("--target-alias", help="Optional target alias from the supplied enterprise target policy.")
     parser.add_argument("--actor", help="Optional declared actor label for a policy that requires target ownership. This is not authentication.")
     parser.add_argument("--changed", action="append", default=[], help="Changed or target file path. Repeat for multiple files.")
+    workflow_group = parser.add_mutually_exclusive_group()
+    workflow_group.add_argument("--debug", action="store_true", help="Force Navigator to classify this Start run as a debug investigation.")
+    workflow_group.add_argument("--build", action="store_true", help="Force Navigator to classify this Start run as a normal build workflow.")
+    parser.add_argument("--error", help="Declare that a failure artifact is available. The path/content is not copied into the DI-2 plan.")
+    parser.add_argument("--command", dest="reproduction_command", help="Declare that a reproduction command is available. Its content is not copied into the DI-2 plan.")
     parser.add_argument("--run-id", help="Optional exact TailTrail run ID. Enables evidence-driven correction and recovery routing for that run only.")
     parser.add_argument("--planning-run-id", help="Optional new Planning Lock run ID. Defaults to a generated run ID.")
     parser.add_argument("--reference-root", action="append", default=[], help="Read-only reference repository path for this plan. Repeat for multiple references.")
@@ -1725,7 +1930,20 @@ def main() -> int:
         intent_requested = "intent bridge" in goal.lower() or "spec kit" in goal.lower()
         if intent_requested and not requested_spec_kit_feature:
             parser.error("Select an imported Intent Bridge feature with --intent-feature <feature>; TailTrail will not guess or auto-import a requirement source.")
-        report = build_report(goal, root, args.changed, args.command_prefix, args.run_id, args.aidlc or "", args.official_aidlc_manifest, requested_spec_kit_feature)
+        workflow_override = "debug" if args.debug else "build" if args.build else None
+        report = build_report(
+            goal,
+            root,
+            args.changed,
+            args.command_prefix,
+            args.run_id,
+            args.aidlc or "",
+            args.official_aidlc_manifest,
+            requested_spec_kit_feature,
+            workflow_override,
+            bool(args.error),
+            bool(args.reproduction_command),
+        )
         report["target_root"] = {key: value for key, value in target.items() if key != "root"}
         fit = target_workspace.assess_plan_fit(
             goal,
@@ -1749,7 +1967,18 @@ def main() -> int:
         effective_aidlc_mode = report["aidlc_mode"]["mode"]
         if not args.no_planning_lock:
             report["planning_lock"] = planning_lock.create(root, goal, args.planning_run_id, args.reference_root, input_roles=report["input_roles"], host_workspace=host_resolution, enterprise_policy=policy_result)
-            report["workflow_runtime"] = workflow_start_integration.draft(report, report["planning_lock"]["run_id"], disabled=args.no_workflow)
+            report["workflow_runtime"] = workflow_start_integration.draft(
+                report,
+                report["planning_lock"]["run_id"],
+                disabled=args.no_workflow or bool(report.get("debug_plan")),
+            )
+            if report.get("debug_plan") and not args.no_workflow:
+                report["workflow_runtime"] = {
+                    "enabled": False,
+                    "state": "deferred-to-di-4",
+                    "reason": "The canonical debug-investigation DWR template is introduced in DI-4.",
+                    "boundary": "DI-2 creates only the canonical Planning Lock and saved Debug Start report.",
+                }
             report["target_resolution_receipt"] = enterprise_target_policy.receipt(root, report["planning_lock"]["run_id"], target_identity=report["planning_lock"]["target_identity"], input_roles=report["input_roles"], policy_result=policy_result, host_workspace=host_resolution)
             if effective_aidlc_mode in {"standard", "full"}:
                 report["official_aidlc_bridge"] = official_aidlc_bridge.create(

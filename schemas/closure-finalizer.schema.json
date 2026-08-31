@@ -13,6 +13,7 @@
     "selected_harnesses": {"type": "array", "items": {"type": "string"}},
     "assessments": {"type": "object"},
     "higher_tier_evidence": {"type": "object"},
+    "debug_section": {"type": ["object", "null"]},
     "recovery": {"type": "object"},
     "context_continuity": {"type": "object"},
     "correction": {"type": ["object", "null"]},

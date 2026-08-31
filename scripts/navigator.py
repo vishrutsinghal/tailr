@@ -527,6 +527,42 @@ def choose_graph_cache_path(root: Path) -> tuple[Path, str]:
     return local, "local"
 
 
+def saved_graph_cache_evidence(root: Path, changed: list[str]) -> dict[str, Any] | None:
+    """Read saved graph guidance without checking source freshness or running discovery."""
+    cache_path, cache_source = choose_graph_cache_path(root)
+    if not cache_path.is_file():
+        return None
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    entries = cache_entries(payload)
+    requested = set(changed)
+    matching = []
+    for entry in entries:
+        scope = {str(item) for item in entry.get("scope", []) if isinstance(item, str)}
+        if not requested or requested.intersection(scope):
+            matching.append(entry)
+    if not matching:
+        return None
+    entry = matching[0]
+    graph = entry.get("graph", {}) if isinstance(entry.get("graph"), dict) else {}
+    read_order = [str(item) for item in graph.get("suggested_read_order", []) if isinstance(item, str)]
+    scope = [str(item) for item in entry.get("scope", []) if isinstance(item, str)]
+    return {
+        "status": "saved-unverified",
+        "path": cache_path.as_posix(),
+        "source": cache_source,
+        "scope": list(dict.fromkeys([*changed, *scope[:8]])),
+        "suggested_read_order": read_order[:8],
+        "confidence": graph.get("confidence", "unknown"),
+        "reasons": ["Read from saved Code Graph metadata only; current source freshness was not checked during Planning Lock."],
+        "recommended_action": "Confirm or refresh graph evidence only after the Debug Start Plan is approved.",
+    }
+
+
 def graph_cache_status(root: Path, changed: list[str], goal: str, tasks: list[str], risks: list[str]) -> dict[str, Any] | None:
     tiny = core.is_tiny(goal, risks, changed)
     if not graph_mapper_candidate(goal, tasks, risks, changed, tiny):
@@ -1111,7 +1147,16 @@ def decide(
     command_prefix: str,
     allow_explicit: bool = True,
     detect_git_changes: bool = True,
+    workflow_override: str | None = None,
+    has_error_artifact: bool = False,
+    has_reproduction_command: bool = False,
 ) -> dict[str, Any]:
+    workflow_classification = core.classify_workflow_intent(
+        goal,
+        override=workflow_override,
+        has_error_artifact=has_error_artifact,
+        has_reproduction_command=has_reproduction_command,
+    )
     if allow_explicit:
         request = core.explicit_navigator_request(goal)
         if request:
@@ -1121,9 +1166,16 @@ def decide(
     # silently adopting that work is misleading and can produce a completely
     # wrong implementation plan.
     tasks = core.task_types(goal)
+    debug_planning = workflow_classification.workflow_type == "debug-investigation"
+    saved_debug_graph = saved_graph_cache_evidence(root, changed_args) if debug_planning else None
     if changed_args:
         changed = changed_args
         target_origin = "provided"
+    elif debug_planning:
+        changed = list((saved_debug_graph or {}).get("suggested_read_order", []))[:6]
+        if not changed:
+            changed = list((saved_debug_graph or {}).get("scope", []))[:6]
+        target_origin = "saved-graph" if changed else "none"
     else:
         if core.ui_change_requested(goal, []):
             # A UI-first request must begin from repository-owned UI paths.
@@ -1339,7 +1391,7 @@ def decide(
         }
     test_precision_needed = core.test_precision_requested(goal, tasks, risks, changed)
     cross_repo_plan = core.cross_repo_reference_plan(goal, root, command_prefix)
-    graph_cache = graph_cache_status(root, changed, goal, tasks, risks)
+    graph_cache = saved_debug_graph if debug_planning else graph_cache_status(root, changed, goal, tasks, risks)
     focused_goal_discovery = (
         target_origin == "goal-discovery"
         and "bug" in tasks
@@ -1374,7 +1426,8 @@ def decide(
     harness_hints = meta_harness_hints(root, relevant_features)
     bootstrap_status = bootstrap_snapshot_status(
         root,
-        not tiny
+        not debug_planning
+        and not tiny
         and any(
             task in tasks
             for task in ("bug", "feature", "implementation", "refactor", "review", "ci-sonar", "qa", "security", "dependency", "release")
@@ -1383,7 +1436,8 @@ def decide(
     )
 
     needs_graph = (
-        not tiny
+        not debug_planning
+        and not tiny
         and not skip_graph
         and not aidlc_only
         and any(task in tasks for task in ("bug", "refactor", "review", "feature", "implementation", "ci-sonar", "qa", "security", "dependency"))
@@ -1666,6 +1720,7 @@ def decide(
         "provided": "user-provided target",
         "goal-discovery": "goal-matched target",
         "repository-discovery": "existing repository structure candidate; confirm feature boundary after approval",
+        "saved-graph": "saved Code Graph evidence; freshness not checked during Planning Lock",
         "git-changes": "detected Git change",
     }.get(target_origin, "target file")
     if graph and graph.get("changed"):
@@ -1698,17 +1753,50 @@ def decide(
         "Reply approve to proceed, or send an edited plan.",
     ]
 
+    display_tasks = tasks
+    if workflow_classification.workflow_type == "debug-investigation":
+        display_tasks = ["debug"]
+        workflow = [
+            "debug_intake",
+            "reproduction_contract",
+            "bounded_investigation",
+            "correction_proposal",
+        ]
+        implementation_plan = [
+            "Review the classified symptom and missing evidence without editing source.",
+            "Draft and separately approve a deterministic reproduction contract.",
+            "Map the failing path and record bounded experiments against ranked hypotheses.",
+            "Require root-cause proof before proposing a correction.",
+            "Keep correction implementation and canonical closure deferred to their own approved stages.",
+        ]
+
+    selected_rows = [decision.__dict__ for decision in selected]
+    skipped_rows = [decision.__dict__ for decision in skipped]
+    if workflow_classification.workflow_type == "debug-investigation":
+        known_selected = {str(item.get("name")) for item in selected_rows}
+        debug_rows = []
+        for name in workflow_classification.selected_features:
+            if name not in known_selected:
+                debug_rows.append({"name": name, "reason": workflow_classification.reason})
+                known_selected.add(name)
+        selected_rows = [*debug_rows, *selected_rows]
+        skipped_rows.extend(
+            {"name": item.split(" until ", 1)[0], "reason": item}
+            for item in workflow_classification.deferred_features
+        )
+
     return {
         "goal": goal,
         "root": root.as_posix(),
         "target_origin": target_origin,
-        "task_types": tasks,
+        "task_types": display_tasks,
         "risk_indicators": risks,
         "existing_state": state,
         "recommended_workflow": workflow,
         "registry_workflow": registry_projection,
-        "selected_features": [decision.__dict__ for decision in selected],
-        "skipped_features": [decision.__dict__ for decision in skipped],
+        "workflow_classification": workflow_classification.__dict__,
+        "selected_features": selected_rows,
+        "skipped_features": skipped_rows,
         "likely_impacted_files": deduplicated_impacted,
         "load": list(dict.fromkeys(load)),
         "avoid": list(dict.fromkeys(avoid)),

@@ -21,6 +21,129 @@ class NavigatorRequest:
     subject: str
 
 
+@dataclass(frozen=True)
+class WorkflowClassification:
+    workflow_type: str
+    reason_code: str
+    reason: str
+    known_symptom: str | None
+    unknown_evidence: tuple[str, ...]
+    selected_features: tuple[str, ...]
+    deferred_features: tuple[str, ...]
+    approval_posture: str
+    alternative: str | None
+
+
+DEBUG_INTENT_PHRASES = (
+    "double charge",
+    "double-charge",
+    "charged twice",
+    "charges twice",
+    "crashes when",
+    "throws an exception",
+    "raises an exception",
+    "fails when",
+    "failing when",
+    "intermittent failure",
+    "returns the wrong",
+    "returns wrong",
+    "produces the wrong",
+    "unexpected result",
+    "reproduce:",
+    "regression:",
+    "bug:",
+    "defect:",
+    "stopped working",
+    "no longer works",
+    "used to work",
+    "investigate why",
+    "diagnose why",
+    "find the root cause",
+)
+
+AMBIGUOUS_FAILURE_TERMS = ("bug", "defect", "failure", "failing", "fix", "issue", "problem")
+
+
+def classify_workflow_intent(
+    goal: str,
+    *,
+    override: str | None = None,
+    has_error_artifact: bool = False,
+    has_reproduction_command: bool = False,
+) -> WorkflowClassification:
+    """Classify build versus symptom-first debug work conservatively.
+
+    This is Navigator's canonical intent decision. Hosts and CLI adapters may
+    supply explicit authority/evidence signals, but must not duplicate these
+    heuristics. Ambiguity deliberately remains on the build path.
+    """
+    normalized_override = (override or "").strip().lower()
+    if normalized_override not in {"", "build", "debug"}:
+        raise ValueError("workflow override must be build or debug")
+    lowered = goal.lower().strip()
+    if normalized_override == "debug":
+        workflow_type, reason_code = "debug-investigation", "explicit-debug-override"
+        reason = "The user explicitly selected the Debug Harness workflow."
+    elif normalized_override == "build":
+        workflow_type, reason_code = "build", "explicit-build-override"
+        reason = "The user explicitly selected the normal build workflow."
+    elif has_error_artifact or has_reproduction_command:
+        workflow_type, reason_code = "debug-investigation", "supplied-debug-evidence"
+        reason = "A failure artifact or reproduction command makes this a symptom-first investigation."
+    elif any(phrase in lowered for phrase in DEBUG_INTENT_PHRASES):
+        workflow_type, reason_code = "debug-investigation", "symptom-first-phrase"
+        reason = "The goal reports an observed symptom or explicitly asks for root-cause investigation."
+    else:
+        workflow_type = "build"
+        ambiguous = any(keyword_found(lowered, term) for term in AMBIGUOUS_FAILURE_TERMS)
+        reason_code = "ambiguous-default-build" if ambiguous else "implementation-intent"
+        reason = (
+            "Failure wording is not specific enough to prove a symptom-first investigation; Navigator defaults safely to build."
+            if ambiguous
+            else "The goal states an implementation outcome rather than an observed unexplained symptom."
+        )
+
+    if workflow_type == "debug-investigation":
+        unknown = []
+        if not has_error_artifact:
+            unknown.append("exact sanitized failure output or receipt")
+        if not has_reproduction_command:
+            unknown.append("deterministic reproduction command and observed outcome")
+        unknown.extend(("confirmed failing path and callers", "approved expected-behaviour boundary"))
+        return WorkflowClassification(
+            workflow_type=workflow_type,
+            reason_code=reason_code,
+            reason=reason,
+            known_symptom=goal.strip() or None,
+            unknown_evidence=tuple(unknown),
+            selected_features=("Navigator", "Debug Harness", "Reproduction Contract"),
+            deferred_features=(
+                "Correction implementation until root cause is proven and approved",
+                "Canonical closure until implementation and validation evidence exist",
+                "Governed learning until trusted acceptance",
+            ),
+            approval_posture="planning-only; reproduction investigation requires its own approval before experiments",
+            alternative="Use --build to treat the same goal as an implementation request.",
+        )
+
+    ambiguous = reason_code == "ambiguous-default-build"
+    return WorkflowClassification(
+        workflow_type=workflow_type,
+        reason_code=reason_code,
+        reason=reason,
+        known_symptom=None,
+        unknown_evidence=(),
+        selected_features=("Navigator", "Planning Lock"),
+        deferred_features=("Debug Harness unless an unexplained symptom or debug evidence is supplied",),
+        approval_posture="normal Planning Lock approval before implementation",
+        alternative=(
+            "Use --debug or describe the observed symptom/reproduction to start a debug investigation."
+            if ambiguous
+            else None
+        ),
+    )
+
+
 def requirement_impact_matrix(requirements: list[dict[str, object]]) -> list[dict[str, object]]:
     """Normalize Navigator requirement rows without assigning durable run UIDs.
 

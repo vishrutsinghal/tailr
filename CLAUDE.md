@@ -110,9 +110,13 @@ Use only the active stage playbook from `aidlc/stages/`. Use `aidlc/stages/hando
 
 ## Debug Harness
 
-For a reported symptom, failing test, or bug report (not a build requirement), use `tailtrail debug "<symptom>"` or `tailtrail start "<symptom>"` — Navigator routes unambiguous bug-report phrasing to the Debug Harness automatically; force it with `--debug`, or force the normal build workflow with `--build`. The harness scripts (`scripts/debug-*.py`) ship only in the Extended profile; run `tailtrail update --profile extended` first if only Core is installed.
+<!-- tailtrail-debug-host:start -->
+For a reported symptom, failing test, or bug report, use `tailtrail start "<symptom>"`; Navigator routes unambiguous failure phrasing to the native Debug Harness. Use `--debug` to force Debug or `--build` to force delivery. Debug scripts ship in the Extended profile.
 
-The workflow is intake -> reproduction contract -> hypothesis ledger -> bounded experiments -> root-cause proof -> correction -> completion report. Never skip an approval turn: show the drafted reproduction contract and stop; only a separate, explicit user approval message may trigger `debug reproduction approve`. The same boundary applies before `debug correction approve`. Every experiment must reference a real, already-recorded `execution-evidence` event; a hypothesis is proven only once it has real supporting evidence and a competing hypothesis has actually been eliminated. "Tests pass" is never treated as "root cause proven." See `DEBUG-HARNESS.md` for the complete design and domain-ceiling model (Code/Architecture/Database/API-integration only; Cloud/Security/Network stay out of scope).
+Preserve this lifecycle and the same run, workflow, and requirement IDs: Start Plan approval -> reproduction draft/revise -> exact-revision approval -> DWR current/resume/replay -> project orientation -> hypotheses and ranking -> experiment proposal -> separately approved host execution -> factual execution-evidence record -> experiment result -> root-cause proof -> correction proposal -> separate correction approval -> bounded implementation -> scope and Harness convergence -> canonical closure finalize -> unified Completion Report. “Tests pass” is not root-cause proof.
+
+MCP operations only record supplied authority or factual evidence. They never secretly run project commands, inspect production systems, edit source, accept delivery, commit, push, or deploy. Reproduction approval grants investigation authority only; correction approval grants only its exact file/symbol scope. Apply precedence as host safety -> explicit user request -> approved reproduction/correction authority -> TailTrail evidence and closure rules. See `DEBUG-HARNESS.md` for domain ceilings and full boundaries.
+<!-- tailtrail-debug-host:end -->
 
 ## Guardrails
 

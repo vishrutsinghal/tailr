@@ -12,33 +12,77 @@
       "commands": [
         "tailtrail debug",
         "tailtrail debug reproduction",
+        "tailtrail debug orientation",
         "tailtrail debug hypothesis",
         "tailtrail debug correction",
+        "tailtrail debug convergence",
+        "tailtrail debug governance",
+        "tailtrail debug evaluation",
         "tailtrail debug completion-report"
       ],
       "docs": [
-        "DEBUG-HARNESS.md"
+        "DEBUG-HARNESS.md",
+        "benchmarks/debug-harness/scenarios-v1.json",
+        "schemas/debug-orientation.schema.json",
+        "schemas/debug-correction-packet.schema.json",
+        "schemas/debug-harness-convergence.schema.json",
+        "schemas/debug-completion-report.schema.json",
+        "schemas/debug-governance.schema.json",
+        "schemas/debug-experiment-proposal.schema.json",
+        "schemas/debug-hypothesis-ranking.schema.json",
+        "schemas/debug-evaluation-report.schema.json",
+        "schemas/debug-release-gate.schema.json"
       ],
       "scripts": [
         "scripts/debug-intake.py",
         "scripts/debug-reproduction.py",
+        "scripts/debug-orientation.py",
         "scripts/debug-hypothesis.py",
         "scripts/debug-correction.py",
-        "scripts/debug-completion.py"
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-privacy.py",
+        "scripts/debug-governance.py",
+        "scripts/debug-evaluation.py"
       ],
       "tests": [
         "tests/test_debug_harness.py",
-        "tests/test_navigator_debug_routing.py"
+        "tests/test_navigator_debug_routing.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_debug_orientation.py",
+        "tests/test_debug_hypothesis_integration.py",
+        "tests/test_debug_correction_integration.py",
+        "tests/test_debug_governance.py",
+        "tests/test_debug_host_integration.py",
+        "tests/test_debug_evaluation.py"
       ],
       "mcp_tools": [
         "debug_intake_show",
         "debug_reproduction_show",
+        "debug_orientation_show",
         "debug_hypothesis_ledger_show",
+        "debug_correction_show",
+        "debug_governance_show",
+        "debug_evaluation_report",
+        "debug_release_gate",
+        "debug_harness_convergence_show",
         "debug_completion_report_show",
         "debug_start",
+        "debug_reproduction_draft",
+        "debug_reproduction_revise",
         "debug_reproduction_approve",
+        "debug_orientation_create",
+        "debug_hypothesis_add",
+        "debug_hypothesis_reprioritize",
+        "debug_experiment_propose",
         "debug_experiment_record",
-        "debug_correction_approve"
+        "debug_root_cause_prove",
+        "debug_correction_propose",
+        "debug_correction_approve",
+        "debug_correction_scope_check",
+        "debug_harness_convergence_finalize",
+        "debug_closure_finalize",
+        "debug_evaluation_run"
       ],
       "requires_approval": true,
       "read_only": false,
@@ -47,7 +91,54 @@
         "planning-lock"
       ],
       "since_version": "0.6.0",
-      "deprecated_in_version": null
+      "deprecated_in_version": null,
+      "integration_contract": {
+        "status": "prototype-implemented",
+        "implemented_capabilities": [
+          "local failure intake and sanitized fingerprinting",
+          "reproduction approval artifacts",
+          "append-only hypothesis and experiment records",
+          "bounded correction approval",
+          "canonical Debug closure evidence consumed by the canonical Completion Report",
+          "complete approval-gated CLI and MCP control plane",
+          "native Navigator build-versus-debug classification with conservative overrides",
+          "canonical persisted Debug Start Plan and Planning Lock",
+          "revision-specific reproduction contract, immutable investigation anchor, and investigation-only handoff",
+          "native Durable Workflow Runtime debug-investigation template with ten named stages, replay, resume, freshness, and scoped investigation authority",
+          "versioned project orientation that reuses fresh Code Graph evidence, separates confirmed paths from heuristic relationships, and proposes rather than runs bounded refresh",
+          "three-cycle evidence-driven hypothesis loop with requirement and failure identity, duplicate-probe prevention, continuity reminders, and history-preserving Recovery/Replan",
+          "correction-to-implementation bridge with proven-cause evidence, immutable file/symbol scope, D-08 write authority, Git recovery posture, and requirement-linked drift comparison",
+          "typed per-requirement Harness convergence with deterministic feature selection, fail-closed missing evidence, and no arbitrary textual pass shortcut",
+          "canonical closure integration with one overall delivery result, separate domain-capped debug confidence, seven typed debug controls, and correction/replan routing for incomplete evidence",
+          "DI-10 run-local privacy classification, sanitized portable fingerprints, exactness-aware token posture, continuity deduplication, and acceptance-gated candidate-only Debug learning",
+          "DI-11 complete approval-gated MCP lifecycle, shared DWR resume/replay, canonical closure delegation, and equivalent Codex/Copilot/Claude host contract",
+          "DI-12 ten-scenario deterministic evaluation, calibrated metrics, sensitive-data negative assurance, genuine-host vertical-run validation, and fail-closed release gate"
+        ],
+        "remaining_integration": [
+          "genuine passing Codex, Copilot, and Claude runtime receipts linked to accepted evidence-complete Debug vertical runs"
+        ],
+        "deferred_domains": [
+          "cloud-infrastructure",
+          "security",
+          "network"
+        ],
+        "future_scope": [
+          "production telemetry ingestion",
+          "distributed tracing",
+          "live-service debugging",
+          "IDE protocol integration",
+          "autonomous multi-agent debugging"
+        ],
+        "canonical_owners": {
+          "intent_and_routing": "Navigator",
+          "approved_investigation_boundary": "Planning Lock and approved debug anchor",
+          "lifecycle_state": "Durable Workflow Runtime",
+          "execution_evidence": "Execution Evidence stream",
+          "requirement_and_drift_status": "Harness checkpoint and drift ledger",
+          "delivery_closure": "Canonical Completion Report",
+          "learning_and_evaluation": "Learning Governance and Evaluation Harness"
+        }
+      }
     },
     {
       "id": "self-contained-package",
@@ -376,7 +467,7 @@
       "governance_class": "governance",
       "commands": ["tailtrail harness testing-profile", "tailtrail harness validation-receipt", "tailtrail harness requirement-completion", "tailtrail harness tier-select", "tailtrail harness ci-ingest", "tailtrail harness flaky", "tailtrail harness evidence-metrics"],
       "docs": ["README.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "tailtrail-implementation-backlog.md", "schemas/testing-profile.schema.json", "schemas/validation-evidence-receipt.schema.json", "templates/testing-profile.example.yml"],
-      "scripts": ["scripts/testing-profile.py", "scripts/validation-receipt.py", "scripts/requirement-completion.py", "scripts/test-tier-selector.py", "scripts/ci-evidence-ingest.py", "scripts/flaky-test-tracker.py", "scripts/evidence-metrics.py"],
+      "scripts": ["scripts/testing-profile.py", "scripts/validation-receipt.py", "scripts/requirement-completion.py", "scripts/test-tier-selector.py", "scripts/ci-evidence-ingest.py", "scripts/flaky-test-tracker.py", "scripts/evidence-metrics.py", "scripts/evidence-tiers.py"],
       "tests": ["tests/test_testing_profile.py", "tests/test_validation_receipt.py", "tests/test_evidence_aware_testing_v2_v5.py"],
       "mcp_tools": [],
       "requires_approval": true,

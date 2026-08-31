@@ -222,6 +222,7 @@ class WorkflowDocumentationTests(unittest.TestCase):
             "review-only",
             "ci-scanner-remediation",
             "repository-discovery",
+            "debug-investigation",
         }
         self.assertEqual(set(templates.TEMPLATES), expected)
         for template in expected:

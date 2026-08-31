@@ -35,11 +35,11 @@ class WorkflowFreshnessRecoveryTests(unittest.TestCase):
         adapters.record(root, workflow_id, "bootstrap", "bootstrap", result_ref)
         executor.finish(root, workflow_id, "bootstrap")
 
-    def test_all_eight_freshness_types_are_automatic_and_dependency_scoped(self) -> None:
+    def test_all_freshness_types_are_automatic_and_dependency_scoped(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); workflow_id, _, _ = self._activate(root, "-freshness")
             before = freshness.snapshot(root, workflow_id)
-            key_by_type = {"source-edit":"scoped_sources", "manifest-change":"manifests", "policy-change":"policies", "graph-stale":"graph_fingerprint", "doc-only-edit":"scoped_docs", "branch-change":"repository_identity", "dependency-add":"dependencies", "security-finding":"security_fingerprint"}
+            key_by_type = {"source-edit":"scoped_sources", "manifest-change":"manifests", "policy-change":"policies", "graph-stale":"graph_fingerprint", "doc-only-edit":"scoped_docs", "branch-change":"repository_identity", "dependency-add":"dependencies", "security-finding":"security_fingerprint", "reproduction-change":"debug_reproduction_fingerprint"}
             results = {}
             for change_type, key in key_by_type.items():
                 after = json.loads(json.dumps(before))

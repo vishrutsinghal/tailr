@@ -173,6 +173,7 @@ def detect_content_type(path: Path | None, text: str, label: str | None) -> tupl
         "scanner-output",
         "documentation",
         "learning-history",
+        "debug-diagnostic",
         "unknown",
     }:
         return normalized, "high"
@@ -216,7 +217,7 @@ def detect_content_type(path: Path | None, text: str, label: str | None) -> tupl
 def classify_exactness(content_type: str, size_bytes: int, text: str) -> tuple[str, str]:
     if size_bytes <= 280 and content_type == "unknown":
         return "skip-reduction", "Content is tiny or ambiguous; routing overhead is not justified."
-    if content_type in {"source", "diff", "config", "security-policy", "dependency-manifest"}:
+    if content_type in {"source", "diff", "config", "security-policy", "dependency-manifest", "debug-diagnostic"}:
         return "must-be-exact", "This content affects implementation correctness, policy, configuration, dependencies, or review evidence."
     if content_type in {"json", "tool-output", "scanner-output"}:
         return "structure-exact", "Structured fields, IDs, paths, severities, and relationships must be preserved."

@@ -242,6 +242,9 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     boundary = read(boundary_path) if boundary_path.is_file() else None
     receipts = [read(path) for path in sorted((directory / "validation-receipts").glob("*.json"))]
     failures = failure_summary(directory)
+    debug_section_path = directory / "debug" / "completion" / "debug-closure-section-v1.json"
+    debug_section = read(debug_section_path) if debug_section_path.is_file() else None
+    debug_run = (directory / "debug" / "intake" / "debug-intake-v1.json").is_file()
 
     actual = {row.get("requirement_uid"): row for row in (checkpoint or {}).get("requirements", [])}
     findings_by_requirement: dict[str, list[dict[str, Any]]] = {}
@@ -380,6 +383,12 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "boundary": boundary,
         },
         "execution_failures": failures,
+        "debug": debug_section or {
+            "debug_status": "required-evidence-missing" if debug_run else "not-triggered",
+            "confidence_state": None, "domain_confidence_ceiling": None,
+            "controls": [], "gaps": ["Debug closure section has not been finalized."] if debug_run else [],
+            "authority": "section-only",
+        },
         "token_usage": token_usage_summary(root, run_id, directory),
         "official_aidlc": {
             "perspectives": (official_design or {}).get("perspectives", []),
@@ -411,6 +420,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "official_design": official_design_path,
             "official_evidence": official_evidence_path,
             "official_handoff": official_handoff_path,
+            "debug_closure_section": debug_section_path.relative_to(directory).as_posix() if debug_section else None,
         },
         "boundary": "The report aggregates saved local artifacts. Missing or failed evidence is not reported as a pass.",
     }
@@ -423,6 +433,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         and payload["architecture"]["status"] in {"pass", "not-assessed"}
         and payload["behaviour"]["status"] in {"pass", "not-assessed"}
         and payload["canonical_state"]["valid"]
+        and (not debug_run or payload["debug"]["debug_status"] == "pass")
     )
     payload["overall_status"] = "complete" if ready else "evidence-incomplete"
     execution_blockers: list[dict[str, Any]] = []
@@ -508,6 +519,11 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "detail": f"{failures['count']} saved failure record(s)",
         },
         {
+            "control": "Debug Harness closure",
+            "status": payload["debug"]["debug_status"],
+            "detail": (f"confidence {payload['debug'].get('confidence_state')} / ceiling {payload['debug'].get('domain_confidence_ceiling')}") if debug_run else "not a Debug Harness run",
+        },
+        {
             "control": "Gap learning",
             "status": "gap-recorded" if payload["completion_learning"]["status"] in {"captured", "reused"} else payload["completion_learning"]["status"],
             "detail": ("incomplete-delivery observation only; " + payload["completion_learning"]["artifact"]) if payload["completion_learning"]["artifact"] else payload["completion_learning"]["boundary"],
@@ -566,6 +582,10 @@ def render(payload: dict[str, Any]) -> str:
         proof = f"{len(requirement['evidence'])} saved item(s)"
         drift = ", ".join(sorted({str(item.get("classification")) for item in requirement["drift"] if item.get("classification")})) or ("not assessed" if payload["drift"]["status"] == "not-assessed" else "none recorded")
         lines.append(f"| {table_cell(requirement['display_id'])} - {table_cell(requirement['statement'])} | {table_cell(requirement['status'])} | {table_cell(proof)} | {table_cell(drift)} |")
+    if payload.get("debug", {}).get("debug_status") != "not-triggered":
+        lines.extend(["", "## Debug investigation status", "", f"Debug confidence: **{table_cell(payload['debug'].get('confidence_state'))}** (domain ceiling: **{table_cell(payload['debug'].get('domain_confidence_ceiling'))}**)", "", "| Debug control | Status | Evidence / boundary |", "| --- | --- | --- |"])
+        for control in payload["debug"].get("controls", []):
+            lines.append(f"| {table_cell(control.get('control'))} | {table_cell(control.get('status'))} | {table_cell(control.get('detail'))} |")
     if payload["implementation"]["blockers"]:
         lines.extend(["", "## Execution blockers", "", "| Outcome | Check | Boundary |", "| --- | --- | --- |"])
         for blocker in payload["implementation"]["blockers"]:

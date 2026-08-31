@@ -1,4 +1,4 @@
-"""Define and deterministically normalize all six Deferred Phase 5 workflow templates."""
+"""Define and deterministically normalize TailTrail workflow templates."""
 from __future__ import annotations
 
 from collections import defaultdict, deque
@@ -10,6 +10,18 @@ def _stage(stage_id: str, capability_id: str, prerequisites: list[str], evidence
 
 
 TEMPLATES: dict[str, list[dict[str, Any]]] = {
+    "debug-investigation": [
+        _stage("d-01-intake", "debug-harness", [], ["debug-intake"], display_name="D-01 Intake"),
+        _stage("d-02-reproduction", "debug-harness", ["d-01-intake"], ["approved-reproduction", "reproduction-evidence"], display_name="D-02 Reproduction"),
+        _stage("d-03-project-orientation", "code-graph-mapper", ["d-02-reproduction"], ["debug-orientation", "graph-freshness"], display_name="D-03 Project orientation"),
+        _stage("d-04-hypothesis-generation", "debug-harness", ["d-03-project-orientation"], ["hypothesis-ledger"], display_name="D-04 Hypothesis generation"),
+        _stage("d-05-experiment", "debug-harness", ["d-04-hypothesis-generation"], ["experiment-evidence"], display_name="D-05 Experiment"),
+        _stage("d-06-root-cause-proof", "debug-harness", ["d-05-experiment"], ["root-cause-proof", "eliminated-hypothesis"], display_name="D-06 Root-cause proof"),
+        _stage("d-07-correction-proposal", "debug-harness", ["d-06-root-cause-proof"], ["bounded-correction-proposal"], display_name="D-07 Correction proposal"),
+        _stage("d-08-correction-implementation", "requirement-completion-harness", ["d-07-correction-proposal"], ["approved-correction", "source-edit-receipt"], display_name="D-08 Correction implementation", control_kind="approval-gate"),
+        _stage("d-09-regression-validation", "evidence-aware-testing", ["d-08-correction-implementation"], ["regression-validation", "preservation-evidence"], display_name="D-09 Regression validation"),
+        _stage("d-10-closure", "debug-harness", ["d-09-regression-validation"], ["debug-completion-assessment"], display_name="D-10 Closure"),
+    ],
     "small-change": [
         _stage("bootstrap", "canonical-local-state", [], ["canonical-binding"]),
         _stage("discover", "code-graph-mapper", ["bootstrap"], ["local-graph"]),
@@ -72,6 +84,7 @@ TEMPLATES: dict[str, list[dict[str, Any]]] = {
 
 
 def select_template(feature_ids: set[str]) -> str:
+    if "debug-harness" in feature_ids: return "debug-investigation"
     if "security-vulnerability" in feature_ids: return "risk-sensitive"
     # QA planning also selects quality-signals, but that alone is not a saved
     # CI/scanner remediation intent. The graph overlay signal distinguishes the

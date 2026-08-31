@@ -442,13 +442,13 @@ def _read_receipts(root: Path, run_id: str) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def _write_state(root: Path, run_id: str, count: int) -> dict[str, Any]:
+def _write_state(root: Path, run_id: str, count: int, lock_status: str) -> dict[str, Any]:
     payload = {
         "schema_version": "1",
         "type": "tailtrail-interactive-plan-state",
         "run_id": run_id,
         "state": "discussing",
-        "planning_lock_status": "awaiting-approval",
+        "planning_lock_status": lock_status,
         "plan_revision": 1,
         "conversations_recorded": count,
         "boundary": BOUNDARY,
@@ -508,7 +508,7 @@ def discuss(root: Path, run_id: str, question: str) -> dict[str, Any]:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n")
-        state = _write_state(root, run_id, len(receipts) + 1)
+        state = _write_state(root, run_id, len(receipts) + 1, str(lock["status"]))
     LEDGER.append_event(root, run_id, "planning_discussion_recorded", {
         "conversation_id": receipt["conversation_id"],
         "classification": kind,

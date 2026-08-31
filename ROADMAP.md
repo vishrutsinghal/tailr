@@ -1,5 +1,90 @@
 # TailTrail Roadmap
 
+## Debug Harness native integration
+
+**Current status:** DI-0 through DI-12 implementation complete; release remains
+evidence-blocked pending genuine supported-host Debug receipts.
+
+DI-11 completes the approval-gated MCP lifecycle, reuses canonical DWR
+resume/replay and closure, and gives Codex, Copilot, and Claude the same Debug
+host contract. Experiment proposals and hypothesis rankings are versioned
+metadata and never execute hidden commands. See `DEBUG-HARNESS.md` for the
+exact tools, boundaries, graph, and proof.
+
+DI-12 adds the exact ten-scenario deterministic suite, honest metrics,
+sensitive-data negative assurance, Debug vertical-run probes, and a fail-closed
+release gate. Local evaluation can pass while release remains blocked; registry
+promotion requires genuine passing Codex, Copilot, and Claude evidence linked
+to accepted complete Debug runs.
+
+The Extended surface includes a locally tested Debug Harness prototype for
+sanitized failure intake, reproduction approval, hypothesis and experiment
+tracking, bounded correction approval, canonical closure convergence, and a
+complete local CLI/MCP control plane. The implementation remains a prototype
+until DI-12 supplies measured real-host runtime and release evidence.
+
+The canonical integration contract is documented in
+[DEBUG-HARNESS.md](DEBUG-HARNESS.md), Section 21. DI-0 is complete: the Feature
+Registry now distinguishes working prototype availability from native workflow
+integration and records one owner for routing, approval, lifecycle, evidence,
+drift, closure, and learning state. DI-1 is complete: Navigator core now owns a
+typed, conservative build-versus-debug decision, explicit overrides, reasons,
+evidence gaps, selected/deferred features, and approval posture; the CLI only
+projects that decision for compatibility. DI-2 is complete: symptom-first
+`tailtrail start` now creates the canonical persisted Debug Start Plan and
+Planning Lock, uses saved-only graph evidence, renders questions/evidence/token
+and safety posture, and creates no Debug Intake or execution authority. DI-3
+is implemented: plan approval drafts a versioned reproduction contract;
+exact-revision approval freezes a stable `debug-investigation` requirement UID
+and immutable anchor; and the handoff grants investigation/evidence authority
+while source correction remains blocked pending separate approval. DI-4 is
+implemented: exact reproduction approval now attaches the native ten-stage
+`debug-investigation` DWR template, exposes exact stage identity, supports the
+existing pause/resume/cancel/replay and correction controls, limits the initial
+authority to investigation through correction proposal, and invalidates
+downstream debug stages when reproduction or source evidence becomes stale.
+DI-5 is implemented: native project orientation reuses fresh shared/local Code
+Graph evidence, checks mapped hashes and the metadata-only repository inventory,
+labels confirmed paths separately from heuristic callers/tests/endpoints/data
+and service boundaries, versions its D-03 artifact, and proposes—but never
+automatically runs—incremental or bounded graph refresh. New and untracked
+relevant files therefore invalidate stale orientation without a full Planning
+Lock rescan. DI-6 is implemented: every deterministic experiment is linked to
+the approved requirement UID, stable failure fingerprint, expected signal, and
+real Execution Evidence receipt; repeated probes against unchanged failure
+identity are rejected; outcome states distinguish strengthened, eliminated,
+unchanged, regressed, and new drift; inconclusive/failing cycles create Context
+Continuity evidence; and the three-cycle limit creates a versioned
+history-preserving Recovery/Replan packet rather than restarting the run.
+DI-7 is implemented: a proven cause now becomes a closed, fingerprinted
+correction contract with bounded file/symbol scope, preservation and
+architecture rules, validation and behaviour evidence requirements, Git
+recovery posture, and unresolved-assumption gates. Explicit approval creates
+only exact D-08 `write_project` authority, while post-edit scope comparison
+records requirement-linked drift without reverting or validating code. DI-8
+is implemented: deterministic selection now converges Requirement
+Completion, Evidence-Aware Testing, Drift, and applicable Architecture,
+Behaviour, Maintainability, Context Continuity, and Safe Git Recovery evidence
+into one per-requirement typed table. Missing selected evidence fails closed,
+and arbitrary textual Harness labels can no longer advance debug confidence.
+DI-9 is implemented: Debug now produces a typed, non-authoritative closure
+section; `closure finalize` consumes it before the single canonical Completion
+Report; the unified report renders symptom, reproduction, root cause,
+correction, regression, behaviour, and drift controls; and incomplete Debug
+evidence routes to correction/replan instead of acceptance. Debug confidence
+is explicitly distinct from overall delivery completion. DI-10 is implemented:
+exact local diagnostics are separated from sanitized portable fingerprints,
+token posture preserves estimate-versus-measured boundaries, experiment
+fingerprints feed compact continuity/do-not-repeat state, and only an accepted
+canonical closure can create a sanitized candidate-only Debug learning profile.
+DI-11 through DI-12 cover complete host
+and MCP conformance, evaluation, and release proof.
+
+Cloud/infrastructure, security, and network diagnosis remain deferred domains.
+Production telemetry, distributed tracing, live-service debugging, IDE
+protocol integration, and autonomous multi-agent debugging remain future scope
+and must not be inferred from the local prototype.
+
 ## Durable Workflow Runtime — foundation through DWR-4 and documentation Phase 0 implemented
 
 DWR-A implements the **Canonical Ownership Contract** only. `tailtrail workflow

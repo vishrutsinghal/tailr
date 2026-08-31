@@ -1,18 +1,55 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "TailTrail Debug Correction Packet",
+  "title": "TailTrail DI-7 Debug Correction Packet",
   "type": "object",
-  "required": ["schema_version", "type", "run_id", "hypothesis_id", "domain", "root_cause_statement", "anchor_draft_path", "status"],
+  "required": ["schema_version", "type", "run_id", "workflow_id", "requirement_uid", "hypothesis_id", "failure_fingerprint", "domain", "root_cause", "approved_anchor_ref", "approved_anchor_fingerprint", "expected_changed_paths", "expected_changed_symbols", "preserve_rules", "architecture_constraints", "validation_plan", "behaviour_scenarios", "rollback_recovery_boundary", "impact_map_ref", "unresolved_assumptions", "status", "approved_at", "implementation_authority", "boundary", "correction_fingerprint"],
   "properties": {
-    "schema_version": {"const": "1"},
+    "schema_version": {"const": "2"},
     "type": {"const": "tailtrail-debug-correction-packet"},
     "run_id": {"type": "string", "minLength": 1},
+    "workflow_id": {"type": "string", "minLength": 1},
+    "requirement_uid": {"type": "string", "minLength": 1},
     "hypothesis_id": {"type": "string", "minLength": 1},
+    "failure_fingerprint": {"type": "string", "pattern": "^sha256:"},
     "domain": {"enum": ["code", "architecture", "database", "api-integration"]},
-    "root_cause_statement": {"type": "string", "minLength": 1},
-    "anchor_draft_path": {"type": "string", "minLength": 1},
+    "root_cause": {
+      "type": "object",
+      "required": ["hypothesis_id", "statement", "supporting_evidence", "eliminated_hypotheses"],
+      "properties": {
+        "hypothesis_id": {"type": "string"},
+        "statement": {"type": "string", "minLength": 1},
+        "supporting_evidence": {"type": "array", "items": {"type": "string"}},
+        "eliminated_hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["hypothesis_id", "evidence"],
+            "properties": {
+              "hypothesis_id": {"type": "string"},
+              "evidence": {"type": "array", "items": {"type": "string"}}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "approved_anchor_ref": {"type": "string", "minLength": 1},
+    "approved_anchor_fingerprint": {"type": "string"},
+    "expected_changed_paths": {"type": "array", "items": {"type": "string"}},
+    "expected_changed_symbols": {"type": "array", "items": {"type": "object", "required": ["path", "symbols"], "properties": {"path": {"type": "string"}, "symbols": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}},
+    "preserve_rules": {"type": "array", "items": {"type": "string"}},
+    "architecture_constraints": {"type": "array", "items": {"type": "string"}},
+    "validation_plan": {"type": "object", "required": ["tiers", "commands", "required_evidence"], "properties": {"tiers": {"type": "array", "items": {"type": "string"}}, "commands": {"type": "array", "items": {"type": "string"}}, "required_evidence": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false},
+    "behaviour_scenarios": {"type": "array", "items": {"type": "string"}},
+    "rollback_recovery_boundary": {"type": "object", "required": ["git_ready", "mode", "readiness_issues", "separate_approval_required"], "properties": {"git_ready": {"type": "boolean"}, "mode": {"enum": ["mode-a-local-checkpoint", "mode-b-task-scoped-recovery-required"]}, "readiness_issues": {"type": "array", "items": {"type": "string"}}, "separate_approval_required": {"const": true}}, "additionalProperties": false},
+    "impact_map_ref": {"type": ["string", "null"]},
+    "unresolved_assumptions": {"type": "array", "items": {"type": "string"}},
     "status": {"enum": ["proposed", "approved"]},
-    "approved_at": {"type": ["string", "null"]}
+    "approved_at": {"type": ["string", "null"]},
+    "implementation_authority": {"type": ["object", "null"]},
+    "boundary": {"type": "string", "minLength": 1},
+    "correction_fingerprint": {"type": "string", "pattern": "^sha256:"}
   },
   "additionalProperties": false
 }

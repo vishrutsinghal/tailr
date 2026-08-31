@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/debug-hypothesis-ranking.schema.json",
+  "title": "TailTrail Debug Hypothesis Ranking",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "revision", "requirement_uid", "failure_fingerprint", "previous_ranks", "rankings", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-hypothesis-ranking"},
+    "run_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "requirement_uid": {"type": "string", "minLength": 1},
+    "failure_fingerprint": {"type": "string", "pattern": "^sha256:"},
+    "previous_ranks": {"type": "object"},
+    "rankings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["hypothesis_id", "rank"],
+        "properties": {
+          "hypothesis_id": {"type": "string", "minLength": 1},
+          "rank": {"type": "integer", "minimum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": true
+}

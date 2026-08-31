@@ -60,10 +60,16 @@ DEFAULT_READ_ONLY_TOOLS = (
     "spec_kit_convergence_show",
     "debug_intake_show",
     "debug_reproduction_show",
+    "debug_orientation_show",
     "debug_hypothesis_ledger_show",
+    "debug_correction_show",
+    "debug_governance_show",
+    "debug_evaluation_report",
+    "debug_release_gate",
+    "debug_harness_convergence_show",
     "debug_completion_report_show",
 )
-LEGACY_CONTROLLED_TOOLS = ("harness_control_check", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest", "debug_start", "debug_reproduction_approve", "debug_experiment_record", "debug_correction_approve")
+LEGACY_CONTROLLED_TOOLS = ("harness_control_check", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest", "debug_start", "debug_reproduction_draft", "debug_reproduction_revise", "debug_reproduction_approve", "debug_orientation_create", "debug_hypothesis_add", "debug_hypothesis_reprioritize", "debug_experiment_propose", "debug_experiment_record", "debug_root_cause_prove", "debug_correction_propose", "debug_correction_approve", "debug_correction_scope_check", "debug_harness_convergence_finalize", "debug_closure_finalize", "debug_evaluation_run")
 WORKFLOW_READ_ONLY_TOOLS = ("workflow_list", "workflow_show", "workflow_status", "workflow_current", "workflow_compiler_show", "workflow_approvals_show", "workflow_freshness_show", "workflow_evidence_show", "workflow_resume", "workflow_doctor", "workflow_replay", "workflow_ci_show", "workflow_assurance_inspect", "workflow_denials_show", "workflow_retention_show", "workflow_retention_plan", "workflow_release_catalog", "workflow_release_show", "workflow_release_compatibility", "workflow_release_evaluate", "workflow_enterprise_entry", "workflow_enterprise_show", "workflow_enterprise_replay", "workflow_enterprise_observe", "workflow_enterprise_restore_validate", "workflow_enterprise_migration_plan", "workflow_enterprise_conformance")
 WORKFLOW_CONTROLLED_TOOLS = ("workflow_create", "workflow_approval_decide", "workflow_state_control", "workflow_adapter_record", "workflow_correction_request", "workflow_closure_finalize", "workflow_ci_ingest", "workflow_retention_cleanup", "workflow_release_scenario_record", "workflow_real_run_record", "workflow_release_retire", "workflow_enterprise_policy_record", "workflow_enterprise_activate", "workflow_enterprise_link", "workflow_enterprise_lease_acquire", "workflow_enterprise_lease_release", "workflow_enterprise_ingest", "workflow_enterprise_backup", "workflow_enterprise_migrate", "workflow_enterprise_rollback")
 WORKFLOW_MCP_TOOLS = (*WORKFLOW_READ_ONLY_TOOLS, *WORKFLOW_CONTROLLED_TOOLS)
@@ -270,8 +276,14 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "spec_kit_convergence_show": {"name": "spec_kit_convergence_show", "description": "Read the latest saved Spec Kit convergence report. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "debug_intake_show": {"name": "debug_intake_show", "description": "Read the saved Debug Harness intake report and failure fingerprint for a run. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "debug_reproduction_show": {"name": "debug_reproduction_show", "description": "Read the saved Debug Harness reproduction contract for a run. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "debug_orientation_show": {"name": "debug_orientation_show", "description": "Read the versioned Debug Harness project orientation, graph freshness, evidence labels, and refresh proposal. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "debug_hypothesis_ledger_show": {"name": "debug_hypothesis_ledger_show", "description": "Read the saved Debug Harness hypothesis ledger for a run, including cycle-limit and investigation-blocked state. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
-        "debug_completion_report_show": {"name": "debug_completion_report_show", "description": "Read the saved Debug Harness completion report for a run, including its domain-capped confidence_state. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "debug_correction_show": {"name": "debug_correction_show", "description": "Read the current proposed or approved Debug correction packet. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "debug_governance_show": {"name": "debug_governance_show", "description": "Read the current Debug privacy, token, continuity, and learning-governance receipt. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "debug_evaluation_report": {"name":"debug_evaluation_report","description":"Read the saved ten-scenario deterministic Debug evaluation report. Read-only.","inputSchema":json_schema({"root":{"type":"string"}})},
+        "debug_release_gate": {"name":"debug_release_gate","description":"Evaluate the fail-closed Debug release gate from saved deterministic and real-host evidence. Read-only.","inputSchema":json_schema({"root":{"type":"string"}})},
+        "debug_harness_convergence_show": {"name": "debug_harness_convergence_show", "description": "Read the saved DI-8 per-requirement selected Harness table, or preview deterministic Harness selection when no convergence exists. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
+        "debug_completion_report_show": {"name": "debug_completion_report_show", "description": "Read the non-authoritative Debug Harness closure section for a run, including its domain-capped confidence_state. The canonical Completion Report retains delivery and acceptance authority. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
         "planning_aidlc_question_challenge": {"name": "planning_aidlc_question_challenge", "description": "Create a sanitized proposal to correct one AIDLC question. It does not change the active question yet.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question_id": {"type": "string"}, "reason_code": {"type": "string", "enum": ["unclear", "incorrect-assumption", "missing-option", "unclear-reasoning", "other"]}, "approved": {"type": "boolean"}}, ["run_id", "question_id", "reason_code", "approved"])},
         "planning_aidlc_question_record": {"name": "planning_aidlc_question_record", "description": "Record one authority-generated replacement AIDLC question. User approval is still required before it becomes active.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "question", "approved"])},
@@ -284,7 +296,7 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "planning_aidlc_standard_propose": {"name": "planning_aidlc_standard_propose", "description": "Propose a versioned Lite-to-Standard AIDLC mode switch for an awaiting TailTrail run. Requires explicit approval and writes only local planning metadata; it does not begin questions, inspect source, or permit implementation.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "planning_aidlc_standard_approve": {"name": "planning_aidlc_standard_approve", "description": "Approve exactly one Lite-to-Standard mode-switch proposal and begin Standard AIDLC requirements under the same run. It does not approve implementation or run project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 2}, "approved": {"type": "boolean"}}, ["run_id", "revision", "approved"])},
         "planning_lock_approve": {"name": "planning_lock_approve", "description": "Explicitly approve one existing Planning Lock run for managed execution. For a saved TailTrail Start report, it also activates that exact plan's canonical requirement anchor. It never edits project source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
-        "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically create a Planning Lock and return the full TailTrail Start Report. Use only after the user explicitly asks to start TailTrail. It writes TailTrail local metadata only; it never implements, edits project source, runs project commands, scanners, tests, Terraform, or Git mutations.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]}, "official_aidlc_manifest": {"type": "string"}, "official_intent_id": {"type": "string"}, "official_session_id": {"type": "string"}, "official_stage": {"type": "string", "enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
+        "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically create a Planning Lock and return the full TailTrail Start or Debug Start Report. Use only after the user explicitly asks to start TailTrail. It writes TailTrail local metadata only; it never implements, opens Debug Intake, edits project source, runs project commands, scanners, tests, Terraform, or Git mutations.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "workflow": {"type": "string", "enum": ["build", "debug"]}, "error_artifact_supplied": {"type": "boolean"}, "reproduction_command_supplied": {"type": "boolean"}, "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]}, "official_aidlc_manifest": {"type": "string"}, "official_intent_id": {"type": "string"}, "official_session_id": {"type": "string"}, "official_stage": {"type": "string", "enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
         "execution_evidence_record": {"name": "execution_evidence_record", "description": "Record one factual, requirement-linked host execution event after explicit approval and an approved matching Planning Lock. The event is schema-validated and stored locally; this tool never executes, reinterprets, or invents command, test, CI, or Harness evidence.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "event": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "event", "approved"])},
         "spec_kit_import": {"name": "spec_kit_import", "description": "Import one selected local Spec Kit feature as normalized TailTrail metadata only. Requires explicit approval.", "inputSchema": json_schema({"root": {"type": "string"}, "feature": {"type": "string"}, "mode": {"type": "string", "enum": ["review", "planning"]}, "approved": {"type": "boolean"}}, ["feature", "approved"])},
         "spec_kit_amendment_propose": {"name": "spec_kit_amendment_propose", "description": "Write a versioned local amendment proposal from an imported Spec Kit source change. Requires explicit approval.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
@@ -292,9 +304,21 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "spec_kit_convergence_record": {"name": "spec_kit_convergence_record", "description": "Record a local Spec Kit convergence report after explicit approval. It does not edit Spec Kit files or run tests.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "spec_kit_ci_ingest": {"name": "spec_kit_ci_ingest", "description": "Ingest a supplied local CI receipt into a selected Spec Kit run. Requires explicit approval; it makes no CI network call.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "input": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "input", "approved"])},
         "debug_start": {"name": "debug_start", "description": "Open a Debug Harness intake for a reported symptom (or attach to an existing run). Requires explicit approval; it only captures intake/fingerprint/code-path data and never edits project source.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "symptom": {"type": "string"}, "error": {"type": "string"}, "command": {"type": "string"}, "attach": {"type": "boolean"}, "approved": {"type": "boolean"}}, ["symptom", "approved"])},
-        "debug_reproduction_approve": {"name": "debug_reproduction_approve", "description": "Approve the drafted Debug Harness reproduction contract for a run. Requires a separate, explicit approval message; nothing is changed in source until this is approved.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
-        "debug_experiment_record": {"name": "debug_experiment_record", "description": "Record one deterministic Debug Harness experiment against a hypothesis. Rejected unless it references a real, already-recorded execution-evidence fingerprint; blocked once the cycle limit is reached.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "hypothesis_id": {"type": "string"}, "action": {"type": "string"}, "outcome": {"type": "string", "enum": ["eliminates", "strengthens", "inconclusive"]}, "evidence_event_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "hypothesis_id", "action", "outcome", "evidence_event_id", "approved"])},
+        "debug_reproduction_draft": {"name": "debug_reproduction_draft", "description": "Create or revise the local reproduction contract for an approved Debug Start Plan. It writes metadata only and grants no investigation or source-write authority.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "contract": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "contract", "approved"])},
+        "debug_reproduction_revise": {"name": "debug_reproduction_revise", "description": "Create a new reproduction draft from one exact unapproved revision. Metadata-only and explicitly approved.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1}, "contract": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "revision", "contract", "approved"])},
+        "debug_reproduction_approve": {"name": "debug_reproduction_approve", "description": "Approve one exact reproduction revision and create its immutable investigation anchor and investigation-only handoff. It never approves a correction or source write.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 1}, "approved": {"type": "boolean"}}, ["run_id", "revision", "approved"])},
+        "debug_orientation_create": {"name": "debug_orientation_create", "description": "Create a local, versioned Debug Harness orientation from the existing Code Graph cache after reproduction approval. Requires explicit approval; never refreshes the graph, reads source bodies, runs project commands, or advances DWR by itself.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "debug_hypothesis_add": {"name": "debug_hypothesis_add", "description": "Add one bounded hypothesis to an approved Debug investigation. Metadata-only.", "inputSchema": json_schema({"root":{"type":"string"},"run_id":{"type":"string"},"domain":{"type":"string","enum":["code","architecture","database","api-integration"]},"statement":{"type":"string"},"rank":{"type":"integer","minimum":1},"approved":{"type":"boolean"}}, ["run_id","domain","statement","rank","approved"])},
+        "debug_hypothesis_reprioritize": {"name": "debug_hypothesis_reprioritize", "description": "Save and apply one complete ordering of open Debug hypotheses without deleting history. Metadata-only.", "inputSchema": json_schema({"root":{"type":"string"},"run_id":{"type":"string"},"rankings":{"type":"array","minItems":1,"items":{"type":"object"}},"approved":{"type":"boolean"}}, ["run_id","rankings","approved"])},
+        "debug_experiment_propose": {"name": "debug_experiment_propose", "description": "Save a deterministic experiment proposal and expected discriminating signal. It never executes the proposed command.", "inputSchema": json_schema({"root":{"type":"string"},"run_id":{"type":"string"},"hypothesis_id":{"type":"string"},"action":{"type":"string"},"expected_signal":{"type":"string"},"approved":{"type":"boolean"}}, ["run_id","hypothesis_id","action","expected_signal","approved"])},
+        "debug_experiment_record": {"name": "debug_experiment_record", "description": "Record one deterministic, requirement-linked Debug Harness experiment. Duplicate probes against an unchanged failure fingerprint are rejected and cycle exhaustion creates preserved Recovery/Replan evidence.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "hypothesis_id": {"type": "string"}, "action": {"type": "string"}, "expected_signal": {"type": "string"}, "outcome": {"type": "string", "enum": ["eliminates", "strengthens", "unchanged", "regressed", "new-drift", "inconclusive"]}, "evidence_event_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "hypothesis_id", "action", "expected_signal", "outcome", "evidence_event_id", "approved"])},
+        "debug_root_cause_prove": {"name": "debug_root_cause_prove", "description": "Mark one evidence-supported hypothesis as proven after a competing hypothesis was eliminated. Metadata-only.", "inputSchema": json_schema({"root":{"type":"string"},"run_id":{"type":"string"},"hypothesis_id":{"type":"string"},"approved":{"type":"boolean"}}, ["run_id","hypothesis_id","approved"])},
+        "debug_correction_propose": {"name": "debug_correction_propose", "description": "Create a DI-7 bounded correction proposal from one proven hypothesis and supplied file/symbol/validation scope. Requires approval and writes TailTrail metadata only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "hypothesis_id": {"type": "string"}, "statement": {"type": "string"}, "correction": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "hypothesis_id", "correction", "approved"])},
         "debug_correction_approve": {"name": "debug_correction_approve", "description": "Approve the proposed Debug Harness correction packet for a run. Requires a separate, explicit approval message before the fix is implemented.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "debug_correction_scope_check": {"name": "debug_correction_scope_check", "description": "Compare actual changed paths with the immutable DI-7 correction scope and record requirement-linked drift evidence. Never edits or reverts files.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}, "minItems": 1}, "approved": {"type": "boolean"}}, ["run_id", "changed", "approved"])},
+        "debug_harness_convergence_finalize": {"name": "debug_harness_convergence_finalize", "description": "Converge selected typed Debug Harness evidence after explicit approval. It may run existing deterministic local Architecture/Maintainability assessments but never project commands, source edits, recovery, Git, providers, publish, deploy, or closure acceptance.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
+        "debug_closure_finalize": {"name": "debug_closure_finalize", "description": "Finalize the canonical TailTrail closure for a Debug run from saved evidence. It never runs project commands or accepts delivery.", "inputSchema": json_schema({"root":{"type":"string"},"run_id":{"type":"string"},"approved":{"type":"boolean"}}, ["run_id","approved"])},
+        "debug_evaluation_run": {"name":"debug_evaluation_run","description":"Evaluate and save the committed ten-scenario Debug fixture suite. It performs no live host, model, project, network, or scanner execution.","inputSchema":json_schema({"root":{"type":"string"},"approved":{"type":"boolean"}}, ["approved"])},
         **workflow_tool_definitions(),
     }
 
@@ -500,9 +524,10 @@ def run_id(args: dict[str, Any]) -> str:
     return value
 
 
-def require_approved_planning_lock(root: Path, identifier: str, action: str) -> None:
+def require_approved_planning_lock(root: Path, identifier: str, action: str, *, source_write: bool = False) -> None:
+    command_name = "assert-source-write" if source_write else "assert-write"
     result = command_result(
-        [PYTHON, script("planning-lock.py").as_posix(), "assert-write", "--root", root.as_posix(), "--run-id", identifier],
+        [PYTHON, script("planning-lock.py").as_posix(), command_name, "--root", root.as_posix(), "--run-id", identifier],
         root,
     )
     if result["exit_code"] != 0:
@@ -620,7 +645,7 @@ def harness_control_check(args: dict[str, Any]) -> dict[str, Any]:
 def source_patch_apply(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True: raise ValueError("source_patch_apply requires approved: true")
     root = root_from(args); identifier = run_id(args); patch = str(args.get("patch", ""))
-    require_approved_planning_lock(root, identifier, "source_patch_apply")
+    require_approved_planning_lock(root, identifier, "source_patch_apply", source_write=True)
     if not patch.startswith("diff --git "): raise ValueError("patch must be a unified git diff")
     for line in patch.splitlines():
         if line.startswith(("+++ b/", "--- a/")):
@@ -860,6 +885,12 @@ def planning_lock_start(args: dict[str, Any]) -> dict[str, Any]:
         command.extend(["--run-id", run])
     for reference in as_string_list(args.get("reference_roots")):
         command.extend(["--reference-root", reference])
+    if args.get("workflow") in {"build", "debug"}:
+        command.append("--" + str(args["workflow"]))
+    if args.get("error_artifact_supplied") is True:
+        command.extend(["--error", "provided-via-mcp"])
+    if args.get("reproduction_command_supplied") is True:
+        command.extend(["--command", "provided-via-mcp"])
     result = command_result(command, root)
     result["read_only"] = False
     result["requires_approval"] = True
@@ -902,6 +933,12 @@ def tailtrail_start(args: dict[str, Any]) -> dict[str, Any]:
         command.extend(["--changed", item])
     for reference in as_string_list(args.get("reference_roots")):
         command.extend(["--reference-root", reference])
+    if args.get("workflow") in {"build", "debug"}:
+        command.append("--" + str(args["workflow"]))
+    if args.get("error_artifact_supplied") is True:
+        command.extend(["--error", "provided-via-mcp"])
+    if args.get("reproduction_command_supplied") is True:
+        command.extend(["--command", "provided-via-mcp"])
     if args.get("aidlc") in {"lite", "standard", "medium", "full", "off"}:
         command.extend(["--aidlc", str(args["aidlc"])])
     for argument, flag in (("official_aidlc_manifest", "--official-aidlc-manifest"), ("official_intent_id", "--official-intent-id"), ("official_session_id", "--official-session-id"), ("official_stage", "--official-stage")):
@@ -1046,9 +1083,41 @@ def debug_reproduction_show(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "debug_reproduction_show", "result": module.show(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
 
 
+def debug_orientation_show(args: dict[str, Any]) -> dict[str, Any]:
+    module = _load_debug_module("debug_orientation_mcp_show", "debug-orientation.py")
+    return {"tool": "debug_orientation_show", "result": module.show(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
 def debug_hypothesis_ledger_show(args: dict[str, Any]) -> dict[str, Any]:
     module = _load_debug_module("debug_hypothesis_mcp_show", "debug-hypothesis.py")
     return {"tool": "debug_hypothesis_ledger_show", "result": module.show(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def debug_correction_show(args: dict[str, Any]) -> dict[str, Any]:
+    module = _load_debug_module("debug_correction_mcp_show", "debug-correction.py")
+    return {"tool":"debug_correction_show", "result":module.show(root_from(args), run_id(args)), "execution":{"read_only":True,"exit_code":0}}
+
+
+def debug_governance_show(args: dict[str, Any]) -> dict[str, Any]:
+    module = _load_debug_module("debug_governance_mcp_show", "debug-governance.py")
+    return {"tool":"debug_governance_show", "result":module.show(root_from(args), run_id(args)), "execution":{"read_only":True,"exit_code":0}}
+
+
+def debug_evaluation_report(args: dict[str, Any]) -> dict[str, Any]:
+    module = _load_debug_module("debug_evaluation_mcp_report", "debug-evaluation.py")
+    root = root_from(args); path = module.results_path(root)
+    result = module.read(path) if path.is_file() else {"status":"missing","artifact":None}
+    return {"tool":"debug_evaluation_report","result":result,"execution":{"read_only":True,"exit_code":0}}
+
+
+def debug_release_gate(args: dict[str, Any]) -> dict[str, Any]:
+    module = _load_debug_module("debug_evaluation_mcp_gate", "debug-evaluation.py")
+    return {"tool":"debug_release_gate","result":module.release_gate(root_from(args)),"execution":{"read_only":True,"exit_code":0}}
+
+
+def debug_harness_convergence_show(args: dict[str, Any]) -> dict[str, Any]:
+    module = _load_debug_module("debug_convergence_mcp_show", "debug-harness-convergence.py")
+    return {"tool":"debug_harness_convergence_show", "result":module.show(root_from(args), run_id(args)), "execution":{"read_only":True, "exit_code":0}}
 
 
 def debug_completion_report_show(args: dict[str, Any]) -> dict[str, Any]:
@@ -1070,24 +1139,85 @@ def debug_start(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "debug_start", "result": result, "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "exit_code": 0}}
 
 
+def debug_reproduction_draft(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_reproduction_draft requires approved: true")
+    source = args.get("contract")
+    if not isinstance(source, dict): raise ValueError("debug_reproduction_draft requires a contract object")
+    module = _load_debug_module("debug_reproduction_mcp_draft", "debug-reproduction.py")
+    result = module.draft(root_from(args), run_id(args), source)
+    return {"tool": "debug_reproduction_draft", "result": result, "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "exit_code": 0}}
+
+
+def debug_reproduction_revise(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_reproduction_revise requires approved: true")
+    source = args.get("contract"); revision = args.get("revision")
+    if not isinstance(source, dict) or not isinstance(revision, int) or revision < 1:
+        raise ValueError("debug_reproduction_revise requires a contract object and positive revision")
+    module = _load_debug_module("debug_reproduction_mcp_revise", "debug-reproduction.py")
+    result = module.revise(root_from(args), run_id(args), revision, source)
+    return {"tool":"debug_reproduction_revise","result":result,"execution":{"read_only":False,"requires_approval":True,"local_metadata_only":True,"exit_code":0}}
+
+
 def debug_reproduction_approve(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True: raise ValueError("debug_reproduction_approve requires approved: true")
+    revision = args.get("revision")
+    if not isinstance(revision, int) or revision < 1: raise ValueError("debug_reproduction_approve requires a positive revision")
     module = _load_debug_module("debug_reproduction_mcp_approve", "debug-reproduction.py")
-    result = module.approve(root_from(args), run_id(args))
+    result = module.approve(root_from(args), run_id(args), revision)
     return {"tool": "debug_reproduction_approve", "result": result, "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "exit_code": 0}}
+
+
+def debug_orientation_create(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_orientation_create requires approved: true")
+    module = _load_debug_module("debug_orientation_mcp_create", "debug-orientation.py")
+    result = module.create(root_from(args), run_id(args))
+    return {"tool": "debug_orientation_create", "result": result, "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "project_commands_run": False, "exit_code": 0}}
+
+
+def debug_hypothesis_add(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_hypothesis_add requires approved: true")
+    rank = args.get("rank")
+    if not isinstance(rank, int) or rank < 1: raise ValueError("debug_hypothesis_add requires a positive rank")
+    module = _load_debug_module("debug_hypothesis_mcp_add", "debug-hypothesis.py")
+    result = module.add_hypothesis(root_from(args), run_id(args), str(args.get("domain", "")), str(args.get("statement", "")), rank)
+    return {"tool":"debug_hypothesis_add","result":result,"execution":{"read_only":False,"requires_approval":True,"local_metadata_only":True,"project_commands_run":False,"exit_code":0}}
+
+
+def debug_hypothesis_reprioritize(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_hypothesis_reprioritize requires approved: true")
+    rankings = args.get("rankings")
+    if not isinstance(rankings, list) or not rankings: raise ValueError("debug_hypothesis_reprioritize requires rankings")
+    module = _load_debug_module("debug_hypothesis_mcp_rank", "debug-hypothesis.py")
+    result = module.reprioritize(root_from(args), run_id(args), rankings)
+    return {"tool":"debug_hypothesis_reprioritize","result":result,"execution":{"read_only":False,"requires_approval":True,"local_metadata_only":True,"project_commands_run":False,"exit_code":0}}
+
+
+def debug_experiment_propose(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_experiment_propose requires approved: true")
+    module = _load_debug_module("debug_hypothesis_mcp_propose", "debug-hypothesis.py")
+    result = module.propose_experiment(root_from(args), run_id(args), str(args.get("hypothesis_id", "")), str(args.get("action", "")), str(args.get("expected_signal", "")))
+    return {"tool":"debug_experiment_propose","result":result,"execution":{"read_only":False,"requires_approval":True,"local_metadata_only":True,"project_commands_run":False,"exit_code":0}}
 
 
 def debug_experiment_record(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True: raise ValueError("debug_experiment_record requires approved: true")
     hypothesis_id = str(args.get("hypothesis_id", "")).strip()
     action = str(args.get("action", "")).strip()
+    expected_signal = str(args.get("expected_signal", "")).strip()
     outcome = args.get("outcome")
     evidence_event_id = str(args.get("evidence_event_id", "")).strip()
-    if not hypothesis_id or not action or not evidence_event_id: raise ValueError("debug_experiment_record requires hypothesis_id, action, and evidence_event_id")
-    if outcome not in {"eliminates", "strengthens", "inconclusive"}: raise ValueError("debug_experiment_record outcome must be eliminates, strengthens, or inconclusive")
+    if not hypothesis_id or not action or not expected_signal or not evidence_event_id: raise ValueError("debug_experiment_record requires hypothesis_id, action, expected_signal, and evidence_event_id")
+    if outcome not in {"eliminates", "strengthens", "unchanged", "regressed", "new-drift", "inconclusive"}: raise ValueError("debug_experiment_record outcome is unsupported")
     module = _load_debug_module("debug_hypothesis_mcp_experiment", "debug-hypothesis.py")
-    result = module.record_experiment(root_from(args), run_id(args), hypothesis_id, action, outcome, evidence_event_id, True)
+    result = module.record_experiment(root_from(args), run_id(args), hypothesis_id, action, outcome, evidence_event_id, True, expected_signal)
     return {"tool": "debug_experiment_record", "result": result, "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "exit_code": 0}}
+
+
+def debug_root_cause_prove(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_root_cause_prove requires approved: true")
+    module = _load_debug_module("debug_hypothesis_mcp_prove", "debug-hypothesis.py")
+    result = module.prove(root_from(args), run_id(args), str(args.get("hypothesis_id", "")))
+    return {"tool":"debug_root_cause_prove","result":result,"execution":{"read_only":False,"requires_approval":True,"local_metadata_only":True,"project_commands_run":False,"exit_code":0}}
 
 
 def debug_correction_approve(args: dict[str, Any]) -> dict[str, Any]:
@@ -1095,6 +1225,45 @@ def debug_correction_approve(args: dict[str, Any]) -> dict[str, Any]:
     module = _load_debug_module("debug_correction_mcp_approve", "debug-correction.py")
     result = module.approve(root_from(args), run_id(args), True)
     return {"tool": "debug_correction_approve", "result": result, "execution": {"read_only": False, "requires_approval": True, "local_metadata_only": True, "exit_code": 0}}
+
+
+def debug_correction_propose(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_correction_propose requires approved: true")
+    hypothesis_id = str(args.get("hypothesis_id", "")).strip(); source = args.get("correction")
+    if not hypothesis_id or not isinstance(source, dict): raise ValueError("debug_correction_propose requires hypothesis_id and a correction object")
+    module = _load_debug_module("debug_correction_mcp_propose", "debug-correction.py")
+    result = module.propose(root_from(args), run_id(args), hypothesis_id, str(args.get("statement", "")).strip() or None, source)
+    return {"tool":"debug_correction_propose", "result":result, "execution":{"read_only":False, "requires_approval":True, "local_metadata_only":True, "project_commands_run":False, "exit_code":0}}
+
+
+def debug_correction_scope_check(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_correction_scope_check requires approved: true")
+    changed = args.get("changed")
+    if not isinstance(changed, list) or not changed or not all(isinstance(item, str) for item in changed): raise ValueError("debug_correction_scope_check requires changed paths")
+    module = _load_debug_module("debug_correction_mcp_scope", "debug-correction.py")
+    result = module.scope_check(root_from(args), run_id(args), changed, True)
+    return {"tool":"debug_correction_scope_check", "result":result, "execution":{"read_only":False, "requires_approval":True, "local_metadata_only":True, "project_files_changed":False, "exit_code":0}}
+
+
+def debug_harness_convergence_finalize(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_harness_convergence_finalize requires approved: true")
+    module = _load_debug_module("debug_convergence_mcp_finalize", "debug-harness-convergence.py")
+    result = module.finalize(root_from(args), run_id(args), True)
+    return {"tool":"debug_harness_convergence_finalize", "result":result, "execution":{"read_only":False, "requires_approval":True, "local_metadata_only":True, "project_commands_run":False, "project_files_changed":False, "exit_code":0}}
+
+
+def debug_closure_finalize(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_closure_finalize requires approved: true")
+    module = _load_debug_module("debug_closure_mcp_finalize", "closure-finalizer.py")
+    result = module.finalize(root_from(args), run_id(args))
+    return {"tool":"debug_closure_finalize","result":result,"execution":{"read_only":False,"requires_approval":True,"local_metadata_only":True,"project_commands_run":False,"project_files_changed":False,"acceptance_recorded":False,"exit_code":0}}
+
+
+def debug_evaluation_run(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True: raise ValueError("debug_evaluation_run requires approved: true")
+    module = _load_debug_module("debug_evaluation_mcp_run", "debug-evaluation.py")
+    result = module.run(root_from(args), True)
+    return {"tool":"debug_evaluation_run","result":result,"execution":{"read_only":False,"requires_approval":True,"local_metadata_only":True,"project_commands_run":False,"model_calls":False,"network_calls":False,"exit_code":0}}
 
 
 def workflow_mcp(args: dict[str, Any], name: str) -> dict[str, Any]:
@@ -1116,8 +1285,8 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "recovery_boundary_show": recovery_boundary_show, "recovery_reconciliation_show": recovery_reconciliation_show, "architecture_assessment_show": architecture_assessment_show,
     "maintainability_assessment_show": maintainability_assessment_show, "context_continuity_show": context_continuity_show, "context_continuity_render": context_continuity_render, "context_continuity_advisory_show": context_continuity_advisory_show, "completion_report_show": completion_report_show, "execution_evidence_show": execution_evidence_show, "workflow_dashboard_show": workflow_dashboard_show, "planning_lock_show": planning_lock_show, "planning_decision_show": planning_decision_show, "planning_investigation_show": planning_investigation_show, "planning_revision_show": planning_revision_show, "planning_authority_show": planning_authority_show, "planning_aidlc_question_show": planning_aidlc_question_show, "planning_aidlc_question_clarify": planning_aidlc_question_clarify, "planning_question_context_show": planning_question_context_show, "aidlc_official_status": aidlc_official_status, "aidlc_official_bridge_show": aidlc_official_bridge_show, "aidlc_official_state_show": aidlc_official_state_show, "aidlc_official_sanitize_validate": aidlc_official_sanitize_validate, "aidlc_official_session_status": aidlc_official_session_status, "host_conformance_report": host_conformance_report, "enterprise_target_policy_inspect": enterprise_target_policy_inspect, "harness_control_check": harness_control_check, "source_patch_apply": source_patch_apply, "planning_lock_start": planning_lock_start, "planning_investigate": planning_investigate, "planning_revision_propose": planning_revision_propose, "planning_revision_approve": planning_revision_approve, "planning_aidlc_standard_propose": planning_aidlc_standard_propose, "planning_aidlc_standard_approve": planning_aidlc_standard_approve, "planning_aidlc_question_challenge": planning_aidlc_question_challenge, "planning_aidlc_question_record": planning_aidlc_question_record, "planning_aidlc_question_approve": planning_aidlc_question_approve, "planning_lock_approve": planning_lock_approve, "tailtrail_start": tailtrail_start, "execution_evidence_record": execution_evidence_record,
     "spec_kit_detect": spec_kit_detect, "spec_kit_mapping_show": spec_kit_mapping_show, "spec_kit_convergence_show": spec_kit_convergence_show, "spec_kit_import": spec_kit_import, "spec_kit_amendment_propose": spec_kit_amendment_propose, "spec_kit_anchor_approve": spec_kit_anchor_approve, "spec_kit_convergence_record": spec_kit_convergence_record, "spec_kit_ci_ingest": spec_kit_ci_ingest,
-    "debug_intake_show": debug_intake_show, "debug_reproduction_show": debug_reproduction_show, "debug_hypothesis_ledger_show": debug_hypothesis_ledger_show, "debug_completion_report_show": debug_completion_report_show,
-    "debug_start": debug_start, "debug_reproduction_approve": debug_reproduction_approve, "debug_experiment_record": debug_experiment_record, "debug_correction_approve": debug_correction_approve,
+    "debug_intake_show": debug_intake_show, "debug_reproduction_show": debug_reproduction_show, "debug_orientation_show": debug_orientation_show, "debug_hypothesis_ledger_show": debug_hypothesis_ledger_show, "debug_correction_show": debug_correction_show, "debug_governance_show": debug_governance_show, "debug_evaluation_report": debug_evaluation_report, "debug_release_gate": debug_release_gate, "debug_harness_convergence_show": debug_harness_convergence_show, "debug_completion_report_show": debug_completion_report_show,
+    "debug_start": debug_start, "debug_reproduction_draft": debug_reproduction_draft, "debug_reproduction_revise": debug_reproduction_revise, "debug_reproduction_approve": debug_reproduction_approve, "debug_orientation_create": debug_orientation_create, "debug_hypothesis_add": debug_hypothesis_add, "debug_hypothesis_reprioritize": debug_hypothesis_reprioritize, "debug_experiment_propose": debug_experiment_propose, "debug_experiment_record": debug_experiment_record, "debug_root_cause_prove": debug_root_cause_prove, "debug_correction_propose": debug_correction_propose, "debug_correction_approve": debug_correction_approve, "debug_correction_scope_check": debug_correction_scope_check, "debug_harness_convergence_finalize": debug_harness_convergence_finalize, "debug_closure_finalize": debug_closure_finalize, "debug_evaluation_run": debug_evaluation_run,
 }
 HANDLERS.update({name: (lambda args, tool=name: workflow_mcp(args, tool)) for name in WORKFLOW_MCP_TOOLS})
 

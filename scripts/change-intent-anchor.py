@@ -21,7 +21,7 @@ def load_ledger() -> Any:
 
 
 LEDGER = load_ledger()
-KINDS = {"change", "preserve", "constraint", "safety", "decision"}
+KINDS = {"change", "preserve", "constraint", "safety", "decision", "debug-investigation"}
 STATUSES = {"proposed", "approved", "revoked", "blocked", "validated"}
 MATERIAL_INVALIDATIONS = {"scope", "public-contract", "dependency", "data-model", "security", "acceptance-criteria", "preserve-rule"}
 

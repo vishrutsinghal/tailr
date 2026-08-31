@@ -330,7 +330,7 @@ return to running; a follow-up creates a linked workflow.
 
 ## Workflow Template Inventory
 
-The deterministic compiler and Deferred Phase 5 executor implement six frozen
+The deterministic compiler and executor implement seven frozen
 templates. Every stage resolves to an existing typed adapter or an explicit
 runtime approval gate.
 
@@ -342,9 +342,33 @@ runtime approval gate.
 | `review-only` | compiled and executable | `optional-fix-proposal` | no source-writing stage; a fix is a separate approved workflow |
 | `repository-discovery` | compiled and executable | `architecture-summary` | read-only; project changes require a follow-up workflow |
 | `ci-scanner-remediation` | compiled and executable | `fulfilment` | saved CI/scanner intake through focused recheck and fulfilment |
+| `debug-investigation` | compiled and resumable | `d-10-closure` | reproduction approval covers D-01 through D-07; source correction remains separately gated |
 
 The diagrams below describe the implemented graphs. The frozen compiler plan
 and replayed journal are authoritative for a particular workflow.
+
+### Debug Investigation
+
+```text
+d-01-intake -> d-02-reproduction -> d-03-project-orientation
+ -> d-04-hypothesis-generation -> d-05-experiment
+ -> d-06-root-cause-proof -> d-07-correction-proposal
+ -> d-08-correction-implementation -> d-09-regression-validation
+ -> d-10-closure
+```
+
+The `d-03-project-orientation` stage consumes TailTrail's versioned
+`debug-orientation` projection. It reuses a fresh shared or local Code Graph
+cache, labels path-and-hash confirmation separately from heuristic callers and
+tests, and emits an approval-gated bounded refresh proposal when repository
+inventory changed. It never refreshes the graph or inspects source bodies as a
+side effect of orientation.
+
+This native template is activated only after exact reproduction approval. It
+reuses the canonical DWR journal, replay, pause/resume/cancel, freshness,
+correction, and scoped-approval controls. The reproduction approval cannot
+authorize D-08 source correction. Operational freshness fingerprints the
+approved reproduction and invalidates its downstream stages when it changes.
 
 ### Small Change
 
@@ -2584,7 +2608,8 @@ Likely files:
 
 Exit gate:
 
-> Automatic eight-type freshness tests pass; unaffected work remains passed;
+> Automatic nine-type freshness tests pass, including approved debug
+> reproduction drift; unaffected work remains passed;
 > eligible deterministic retries are bounded and idempotent; code-changing and
 > publish actions never retry automatically; repeated failure routes to
 > preserved-state Recovery/Replan.
@@ -2597,7 +2622,7 @@ orchestrator or requirement authority.
 ```mermaid
 flowchart LR
     A["Approved frozen workflow"] --> B["Versioned operational checkpoint"]
-    B --> C["Automatic eight-type freshness comparison"]
+    B --> C["Automatic nine-type freshness comparison"]
     C -->|"fresh or docs-only"| D["Dispatch next dependency-ready stage"]
     C -->|"affected input changed"| E["Mark affected passed stages stale"]
     E --> F["Preserve unrelated passed stages and requirement IDs"]
@@ -3036,7 +3061,7 @@ ownership, journal, approvals, evidence, recovery, and closure stay canonical.
 | Review-Only template | Phase 5 | rejected-fix scenario |
 | CI/Scanner Remediation template | Phase 5 | ingest/recheck scenario |
 | Repository Discovery template | Phase 5 | read-only scenario |
-| Automatic eight-type freshness detection | Phase 6 | freshness matrix |
+| Automatic nine-type freshness detection, including debug reproduction drift | Phase 6 / DI-4 | freshness matrix |
 | Bounded eligible retry and prohibited write retry | Phase 6 | retry/action-class matrix |
 | Correction, continuity, recovery, and safe resume | Phase 6 | repeated-failure/recovery scenarios |
 | Per-stage Token Harness context and receipts | Phase 7 | estimated/measured boundary tests |

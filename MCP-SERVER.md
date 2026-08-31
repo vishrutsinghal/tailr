@@ -43,7 +43,36 @@ Use `mcp tools` to inspect the available tool contract. Use `mcp doctor` before 
 - `source_patch_apply`: an approval-gated source-change tool. It requires `approved: true` and an approved Planning Lock for the same `run_id`; it accepts one repository-safe unified Git patch only.
 - `planning_lock_start`: creates an `awaiting-approval` Planning Lock after the user explicitly asks to start TailTrail. It writes TailTrail metadata only; it does not edit project source or run project commands.
 - `planning_lock_approve`: records the separate explicit approval for one Planning Lock run. For a saved `tailtrail_start` run, it also activates that exact saved Start Report and creates the required immutable requirement anchor. It does not edit project source or run project commands.
-- `tailtrail_start`: the recommended atomic Start action. It creates the Planning Lock and returns the complete TailTrail Start Report in one call; it never implements or runs project commands.
+- `tailtrail_start`: the recommended atomic Start action. It creates the Planning Lock and returns the complete TailTrail Start or Debug Start Report in one call; it never implements, opens Debug Intake, or runs project commands. Optional `workflow: build|debug` and sanitized evidence-presence booleans select debug planning without transporting raw error or command content.
+- `debug_reproduction_draft`: creates or revises local reproduction metadata for an approved Debug Start Plan; it grants no investigation or source-write authority.
+- `debug_reproduction_approve`: requires the exact current revision, freezes the investigation anchor, and returns an investigation-only handoff; it never approves a correction or source edit.
+- `debug_orientation_show`: reads the saved D-03 project orientation, graph
+  freshness, evidence labels, and refresh proposal without creating state.
+- `debug_orientation_create`: requires `approved: true` and the native approved
+  debug handoff, then versions a local metadata projection over the existing
+  Code Graph cache. It never refreshes the graph, reads source bodies, runs
+  project commands, or advances DWR by itself.
+- `debug_experiment_record`: requires `approved: true`, an open hypothesis, an
+  explicit expected signal, and a real requirement-linked Execution Evidence
+  fingerprint. DI-6 binds the result to the failure fingerprint, rejects an
+  identical unchanged probe, records precise outcome classes, and blocks at
+  the three-experiment cycle limit. It records metadata only and never runs the
+  experiment or approves Recovery/Replan.
+- `debug_correction_propose`: creates the bounded DI-7 file/symbol,
+  preservation, architecture, validation, behaviour, and recovery contract
+  from a proven hypothesis. It writes metadata only.
+- `debug_correction_approve`: freezes that exact contract and records only D-08
+  `write_project` authority. Unresolved assumptions or missing scope block it.
+- `debug_correction_scope_check`: compares host-reported changed paths with the
+  approved correction and records requirement-linked drift or in-scope
+  evidence; it never edits, reverts, stages, tests, or commits files.
+- `debug_harness_convergence_show`: read-only selected-control preview or saved
+  DI-8 per-requirement Harness table.
+- `debug_harness_convergence_finalize`: approval-gated typed convergence. It
+  may invoke existing deterministic local Architecture/Maintainability
+  assessments and otherwise consumes saved evidence; it does not run project
+  commands, source changes, recovery, Git, providers, publish, deploy, or
+  closure acceptance.
 
 ## Safety Boundaries
 
@@ -111,3 +140,24 @@ python3 scripts/tailtrail.py start "goal"
 python3 scripts/tailtrail.py guard check
 python3 scripts/tailtrail.py graph --changed path/to/file
 ```
+## Debug Harness lifecycle (DI-11)
+
+The MCP server exposes the complete Debug control plane while leaving project
+execution with the host. Read-only tools show intake, reproduction,
+orientation, hypotheses, correction, governance, convergence, Debug closure,
+the shared DWR current/resume/replay state, and the unified Completion Report.
+
+Controlled tools cover reproduction revision/approval, hypothesis
+add/reprioritize, experiment propose/record, root-cause proof, correction,
+convergence, and canonical closure. They require `approved: true`, write only
+TailTrail metadata/evidence, preserve the same run/workflow/requirement IDs,
+and do not run arbitrary commands, edit source, accept delivery, commit, push,
+or deploy. `debug_closure_finalize` delegates to the canonical Closure
+Finalizer; use `completion_report_show` to read its unified result.
+
+DI-12 adds `debug_evaluation_report` and `debug_release_gate` as read-only
+inspection tools. `debug_evaluation_run` requires explicit approval and saves
+only a deterministic report from committed fixtures. It performs no model,
+host, network, test, scanner, or project execution. The release gate remains
+blocked until the existing host-runtime validator supplies genuine passing
+Codex, Copilot, and Claude receipts linked to accepted complete Debug runs.

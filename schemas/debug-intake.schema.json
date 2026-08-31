@@ -27,7 +27,10 @@
     },
     "domains_eliminated": {"type": "array", "items": {"type": "string"}},
     "domains_not_investigated": {"type": "array", "items": {"type": "string"}},
-    "created_at": {"type": "string"}
+    "created_at": {"type": "string"},
+    "privacy": {"type": "object"},
+    "evidence_class": {"const": "local-sensitive-exact"},
+    "portable": {"const": false}
   },
   "additionalProperties": false
 }

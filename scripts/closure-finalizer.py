@@ -39,6 +39,7 @@ ARCHITECTURE = load("closure_finalizer_architecture", "architecture-fitness.py")
 BEHAVIOUR = load("closure_finalizer_behaviour", "behavior-harness.py")
 MAINTAINABILITY = load("closure_finalizer_maintainability", "maintainability-harness.py")
 REPORT = load("closure_finalizer_report", "completion-report.py")
+DEBUG_SECTION = load("closure_finalizer_debug_section", "debug-completion.py")
 CORRECTION = load("closure_finalizer_correction", "closure-correction.py")
 WORKFLOW_EVIDENCE = load("closure_finalizer_workflow_evidence", "workflow_runtime/evidence.py")
 
@@ -73,6 +74,17 @@ def latest_record(root: Path, run_id: str) -> dict[str, Any]:
 def selected_harnesses(root: Path, run_id: str) -> list[str]:
     path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
     if not path.is_file():
+        debug_root = L.state_dir(root, run_id) / "debug"
+        convergence = debug_root / "convergence" / "harness-convergence-v1.json"
+        if (debug_root / "intake" / "debug-intake-v1.json").is_file():
+            if convergence.is_file():
+                return [
+                    str(row.get("control")) for row in read(convergence).get("selected_controls", [])
+                    if isinstance(row, dict) and row.get("control") in {
+                        "Architecture Fitness Harness", "Behaviour Harness", "Maintainability Harness"
+                    }
+                ]
+            return []
         raise ValueError("execution handoff is required; activate the approved Planning Lock first")
     closure = read(path).get("closure", {})
     values = closure.get("selected_harnesses", []) if isinstance(closure, dict) else []
@@ -169,9 +181,12 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
             closure = RECORDER.record(root, run_id=run_id)
     LOCK.assert_write_allowed(root, run_id)
     selected = selected_harnesses(root, run_id)
+    debug_intake = L.state_dir(root, run_id) / "debug" / "intake" / "debug-intake-v1.json"
+    debug_convergence = L.state_dir(root, run_id) / "debug" / "convergence" / "harness-convergence-v1.json"
     key = {
         "closure_record_id": closure["record_id"], "selected_harnesses": selected,
         "scenarios": relative(root, scenarios_path.resolve()) if scenarios_path else "approved-anchor",
+        "debug_convergence": hashlib.sha256(debug_convergence.read_bytes()).hexdigest() if debug_convergence.is_file() else None,
     }
     finalizer_id = "finalizer-" + hashlib.sha256(canonical(key).encode("utf-8")).hexdigest()[:16]
     directory = L.state_dir(root, run_id)
@@ -189,13 +204,28 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         assessments["Maintainability Harness"] = MAINTAINABILITY.assess(root, run_id, changed)
 
     higher = higher_tier_status(root, run_id)
+    debug_section = DEBUG_SECTION.generate(root, run_id) if debug_intake.is_file() else None
     report = REPORT.build(root, run_id)
-    correction = CORRECTION.handoff(root, run_id) if report["overall_status"] != "complete" else None
+    correction = None
+    if report["overall_status"] != "complete":
+        if debug_section and debug_section.get("debug_status") != "pass":
+            correction = {
+                "type": "tailtrail-debug-correction-replan-handoff",
+                "run_id": run_id,
+                "requirement_uid": debug_section.get("requirement_uid"),
+                "status": "correction-required",
+                "gaps": debug_section.get("gaps", []),
+                "next": "Resolve only the listed Debug closure gaps under the existing approved run, then rerun Debug Harness convergence and closure finalize.",
+                "boundary": "This handoff preserves the approved reproduction, hypothesis history, correction scope, and evidence stream. It grants no new source, Git, test, provider, deployment, or acceptance authority.",
+            }
+        else:
+            correction = CORRECTION.handoff(root, run_id)
     payload = {
         "schema_version": "1", "type": "tailtrail-closure-finalizer", "finalizer_id": finalizer_id,
         "run_id": run_id, "closure_record_id": closure["record_id"], "selected_harnesses": selected,
         "assessments": {name: {"complete": item.get("complete"), "artifact": item.get("run_artifact")} for name, item in assessments.items()},
         "higher_tier_evidence": higher,
+        "debug_section": {"status": debug_section.get("debug_status"), "artifact": DEBUG_SECTION.report_path(root, run_id).relative_to(root).as_posix()} if debug_section else None,
         "recovery": report["recovery_checkpoint"],
         "context_continuity": report["drift_learning"],
         "correction": correction,

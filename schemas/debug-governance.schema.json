@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug DI-10 Governance Receipt",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "privacy", "token_posture", "continuity", "learning", "governance_fingerprint", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-governance"},
+    "run_id": {"type": "string", "minLength": 1},
+    "privacy": {"type": "object", "required": ["status", "exact_local_refs", "portable_fingerprint_ref", "portable_values"]},
+    "token_posture": {"type": "object", "required": ["estimate_tokens", "actual_status", "exactness", "boundary"]},
+    "continuity": {"type": "object", "required": ["experiment_count", "unique_experiment_fingerprints", "do_not_repeat_fingerprints"]},
+    "learning": {"type": "object", "required": ["eligible", "promotion", "allowed_fields", "forbidden_fields"]},
+    "governance_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

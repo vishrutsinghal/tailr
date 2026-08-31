@@ -48,7 +48,7 @@ append `--verbose` to the CLI invocation); do not leave the flag inside the
 goal text.
 
 **The complete and only normal assistant response must be the exact Start Report
-stdout (starting `# TailTrail Start Plan` and including its returned run ID). Copy the
+stdout (starting `# TailTrail Start Plan` or `# TailTrail Debug Start Plan` and including its returned run ID). Copy the
 complete Start Report verbatim outside any collapsible terminal/tool-result panel.
 Stop immediately after it.
 Never synthesize a substitute plan or task list. Do not write `Steps`, `in-progress`,
@@ -60,6 +60,13 @@ Before sending the report, verify it includes every required heading: `Planning 
 `Scope`, `Requirements`, `Selected TailTrail features`, `Plan`, `Focused validation`,
 and `Approval`. The selected-features table is mandatory. Do not shorten, rename, or
 replace it with `Next step`; paste the CLI stdout again if any section is missing.
+
+For a symptom-first request, Start returns the canonical Debug Start Plan under
+the same Planning Lock machinery. It may persist only planning metadata; it
+must not create Debug Intake, approve a reproduction contract, inspect source,
+run tests/scanners, or grant correction authority. The debug report also shows
+the Navigator decision, material unknowns, proposed reproduction questions,
+evidence tiers, exactness/safety posture, and deferred controls.
 
 Return the complete Start Report and its Planning Lock run ID. For `hands-free`
 or `end-to-end`, include the Program Delivery plan: proposed requirements,

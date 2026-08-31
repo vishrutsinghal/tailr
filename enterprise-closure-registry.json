@@ -22,11 +22,11 @@
   },
   "candidate_baseline": {
     "captured_at": "2026-08-29",
-    "git_commit": "af6d62071ccd363232a204e474278a82398a0cc8",
+    "git_commit": "ab18b350d387229e11dadee4164695dc7aef3fbc",
     "branch": "master",
     "worktree_state": "dirty-explicitly-classified",
     "release_candidate_state": "blocked",
-    "declaration": "E0-E4 are closed. E5 and E6 implementations are present and locally verified. E5 remains evidence-blocked until one commit has six hosted Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations; because E6 depends on E5, E6 implementation is complete but its program requirement remains in progress. Configured workflows and local evidence are not represented as hosted support; the enterprise candidate remains blocked by E5 evidence and E7-E12. A repository-owner-approved, named exception ('debug-harness-exception') to the E6-E12 feature freeze was granted on 2026-08-29 to merge the Debug Harness prototype (Code/Architecture/Database/API-integration domains; see DEBUG-HARNESS.md); this is a scoped exception for that one feature, not a general lift of the freeze.",
+    "declaration": "E0-E4 are closed. E5 and E6 implementations are present and locally verified. E5 remains evidence-blocked until one commit has six hosted Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations; because E6 depends on E5, E6 implementation is complete but its program requirement remains in progress. Configured workflows and local evidence are not represented as hosted support; the enterprise candidate remains blocked by E5 evidence and E7-E12. A repository-owner-approved, named exception ('debug-harness-exception') to the E6-E12 feature freeze was granted on 2026-08-29 to merge the Debug Harness prototype (Code/Architecture/Database/API-integration domains; see DEBUG-HARNESS.md). The exception covers a locally tested prototype, not native Navigator/DWR/Harness/canonical-closure integration, hosted conformance, or production debugging, and is not a general lift of the freeze.",
     "untracked_dispositions": [
       {
         "path": ".idea/",
@@ -45,6 +45,72 @@
         "disposition": "include",
         "owner": "workspace-user",
         "reason": "Debug Harness design doc; merged to master under the debug-harness-exception feature-freeze exception granted 2026-08-29 (see program.feature_freeze and candidate_baseline.declaration)."
+      },
+      {
+        "path": "tests/test_debug_start_planning.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-2 through DI-4 focused proof for canonical Debug Start persistence, versioned reproduction approval, immutable investigation anchors, native DWR stage identity/replay/resume, and investigation-only source-write boundaries."
+      },
+      {
+        "path": "tests/fixtures/workflow_runtime/templates/debug-investigation.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-4 deterministic fixture for the native ten-stage debug-investigation workflow template."
+      },
+      {
+        "path": "tests/test_debug_orientation.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-5 focused proof for fresh Code Graph reuse, new/untracked-file staleness, refresh proposals, versioned orientation, and native debug handoff enforcement."
+      },
+      {
+        "path": "tests/test_debug_hypothesis_integration.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-6 focused proof for requirement/failure-linked experiments, duplicate-loop prevention, three-cycle exhaustion, continuity evidence, and history-preserving Recovery/Replan."
+      },
+      {
+        "path": "tests/test_debug_correction_integration.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-7 focused proof for incomplete-scope blocking, exact D-08 implementation authority, correction contract validation, and requirement-linked scope drift evidence."
+      },
+      {
+        "path": "scripts/debug-harness-convergence.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-8 deterministic selected-Harness convergence with per-requirement status and fail-closed typed evidence boundaries."
+      },
+      {
+        "path": "schemas/debug-harness-convergence.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-8 closed contract for selected controls, typed results, requirement status, and evidence-incomplete convergence."
+      },
+      {
+        "path": "schemas/debug-reproduction-contract.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-3 canonical contract for versioned, exact-revision Debug Harness reproduction approval."
+      },
+      {
+        "path": "schemas/debug-investigation-handoff.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-3 canonical investigation-only authority and handoff boundary."
+      },
+      {
+        "path": "schemas/debug-orientation.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-5 closed local project-orientation contract with evidence labels and non-executing refresh proposal."
+      },
+      {
+        "path": "scripts/debug-orientation.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "DI-5 native project-orientation projection over the existing Code Graph Mapper cache and DWR identity."
       },
       {
         "path": "DURABLE-WORKFLOW-RUNTIME.local-backup.md",

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from workflow_runtime import approvals, capabilities, compiler, ownership, state
+from workflow_runtime import approvals, capabilities, compiler, ownership, state, task_scope
 
 
 LEDGER = ownership.LEDGER
@@ -107,6 +107,58 @@ def activate(root: Path, run_id: str, saved_report: dict[str, Any], anchor_artif
     plan_grant = approvals.grant_approved_plan(root, workflow_id) if authority["route"] == "approved-plan-auto-grant" else None
     LEDGER.append_event(root, run_id, "workflow_runtime_activated", {"workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "compiler_plan": compiled["artifact"], "compiler_plan_fingerprint": compiled["plan_fingerprint"]})
     return {"state": "compiled", "workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "state_view": {"status": lifecycle["status"], "lifecycle_state": lifecycle["lifecycle_state"]}, "compiler": {"artifact": compiled["artifact"], "revision": compiled["revision"], "plan_fingerprint": compiled["plan_fingerprint"], "template_id": compiled["template_id"]}, "initial_plan_approval": initial_approval.get("record"), "policy_preapproval": policy_approval, "execution_authority": {**authority, "approval_id": (plan_grant or {}).get("record", {}).get("approval_id")}, "next": "The compiled graph is ready for its host adapter. Safe local stages may reuse the plan-derived grant only when execution_authority says so; no stage was dispatched during activation.", "boundary": "Activation persists TailTrail workflow metadata and bounded authority only; it does not run project work."}
+
+
+def activate_debug(root: Path, run_id: str, reproduction_contract_ref: str) -> dict[str, Any]:
+    """Attach an approved reproduction contract to the native debug template.
+
+    Reproduction approval authorizes investigation through correction proposal.
+    It deliberately does not authorize correction implementation, regression
+    validation, or closure; those stages retain their own evidence/approval
+    boundaries.
+    """
+    root = root.resolve(); workflow_id = ownership.suggested_id(run_id)
+    feature_ids = ["debug-harness", "code-graph-mapper", "requirement-completion-harness", "evidence-aware-testing"]
+    binding = _existing_or_bind(root, run_id, workflow_id)
+    declared = _existing_or_declare(root, workflow_id, feature_ids)
+    compiled = compiler.compile(root, workflow_id)
+    if compiled["template_id"] != "debug-investigation":
+        raise ValueError("approved debug reproduction did not compile to the debug-investigation template")
+    try:
+        scope = task_scope.show(root, workflow_id)
+    except ValueError as error:
+        if "does not exist" not in str(error): raise
+        scope = task_scope.initialize(root, workflow_id)
+    lifecycle = state.create(root, run_id, workflow_id)
+    initial_approval = approvals.record_initial(root, workflow_id)
+    investigation = approvals.decide(
+        root, workflow_id,
+        stage_ids=[f"d-{index:02d}-{name}" for index, name in (
+            (1, "intake"), (2, "reproduction"), (3, "project-orientation"),
+            (4, "hypothesis-generation"), (5, "experiment"),
+            (6, "root-cause-proof"), (7, "correction-proposal"),
+        )],
+        action_classes=["read_local", "write_tailtrail_state", "execute_project"],
+        operation_kind="broad-test-build", operation_ref=reproduction_contract_ref,
+        decision="approved",
+        rationale="The user approved this exact reproduction revision. Authority is limited to bounded local investigation and evidence recording through correction proposal; project source correction remains separately gated.",
+    )
+    LEDGER.append_event(root, run_id, "workflow_runtime_activated", {
+        "workflow_id": workflow_id, "template_id": compiled["template_id"],
+        "compiler_plan_fingerprint": compiled["plan_fingerprint"],
+        "investigation_approval_id": investigation["record"]["approval_id"],
+    })
+    view = state.show(root, workflow_id)
+    return {
+        "state": "compiled", "workflow_id": workflow_id,
+        "binding": binding["artifact"], "capability_plan": declared["artifact"], "task_scope": scope["artifact"],
+        "compiler": {"artifact": compiled["artifact"], "revision": compiled["revision"], "plan_fingerprint": compiled["plan_fingerprint"], "template_id": compiled["template_id"]},
+        "current_stage": view["current_stage"], "current_stage_display": view.get("current_stage_display"),
+        "initial_plan_approval": initial_approval.get("record"),
+        "investigation_approval": investigation["record"],
+        "next": "Begin at D-01 Intake or resume the shortest dependency-ready debug stage.",
+        "boundary": "Reproduction approval covers only D-01 through D-07. D-08 source correction requires a separate exact correction approval; later validation and closure require factual stage evidence.",
+    }
 
 
 def show_approvals(root: Path, workflow_id: str) -> dict[str, Any]:

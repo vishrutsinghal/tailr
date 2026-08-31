@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Project Orientation",
+  "type": "object",
+  "required": ["schema_version", "type", "revision", "run_id", "workflow_id", "stage_id", "requirement_uids", "reproduction_revision", "reproduction_stage_status", "status", "target_paths", "cache", "confirmed_paths", "heuristic_candidates", "refresh_proposal", "unsupported_domains", "evidence_labels", "adapter_handoff", "boundary", "orientation_fingerprint"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-debug-orientation"}, "revision": {"type": "integer", "minimum": 1},
+    "run_id": {"type": "string", "minLength": 1}, "workflow_id": {"type": "string", "pattern": "^ttw-"}, "stage_id": {"const": "d-03-project-orientation"},
+    "requirement_uids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}, "reproduction_revision": {"type": "integer", "minimum": 1},
+    "reproduction_stage_status": {"type": "string"}, "status": {"enum": ["awaiting-reproduction-evidence", "refresh-required", "ready"]},
+    "target_paths": {"type": "array", "items": {"type": "string"}},
+    "cache": {"type": "object", "required": ["status", "artifact_ref", "schema_version", "inventory_fingerprint", "confidence", "reasons"], "properties": {
+      "status": {"enum": ["fresh", "stale", "missing", "invalid"]}, "artifact_ref": {"type": ["string", "null"]}, "schema_version": {"type": ["string", "null"]},
+      "inventory_fingerprint": {"type": ["string", "null"]}, "confidence": {"type": ["string", "null"]}, "reasons": {"type": "array", "items": {"type": "string"}}
+    }, "additionalProperties": false},
+    "confirmed_paths": {"type": "array", "items": {"type": "object", "required": ["path", "evidence", "sha256"], "properties": {"path": {"type": "string"}, "evidence": {"const": "confirmed-local-path-and-hash"}, "sha256": {"type": "string"}}, "additionalProperties": false}},
+    "heuristic_candidates": {"type": "object", "required": ["suggested_read_order", "likely_callers", "likely_tests", "nearby_manifests", "endpoints", "database_boundaries", "service_edges"], "properties": {
+      "suggested_read_order": {"$ref": "#/$defs/stringList"}, "likely_callers": {"$ref": "#/$defs/stringList"}, "likely_tests": {"$ref": "#/$defs/stringList"}, "nearby_manifests": {"$ref": "#/$defs/stringList"},
+      "endpoints": {"type": "array", "items": {"$ref": "#/$defs/endpoint"}}, "database_boundaries": {"type": "array", "items": {"$ref": "#/$defs/table"}}, "service_edges": {"type": "array", "items": {"$ref": "#/$defs/service"}}
+    }, "additionalProperties": false},
+    "refresh_proposal": {"type": "object", "required": ["state", "kind", "command", "reasons"], "properties": {"state": {"enum": ["not-needed", "approval-required"]}, "kind": {"enum": ["reuse", "incremental", "bounded-refresh"]}, "command": {"type": ["string", "null"]}, "reasons": {"$ref": "#/$defs/stringList"}}, "additionalProperties": false},
+    "unsupported_domains": {"type": "array", "items": {"enum": ["cloud-infrastructure", "network", "security"]}, "uniqueItems": true},
+    "evidence_labels": {"type": "object", "required": ["confirmed-local-path-and-hash", "heuristic"], "properties": {"confirmed-local-path-and-hash": {"type": "string"}, "heuristic": {"type": "string"}}, "additionalProperties": false},
+    "adapter_handoff": {"type": "object", "required": ["stage_id", "adapter_id", "graph_ref", "graph_version", "inventory_fingerprint", "freshness", "likely_callers", "likely_tests", "read_order", "evidence_label"], "properties": {
+      "stage_id": {"const": "d-03-project-orientation"}, "adapter_id": {"const": "graph-discovery"}, "graph_ref": {"type": "string"}, "graph_version": {"type": "string"}, "inventory_fingerprint": {"type": "string"}, "freshness": {"enum": ["fresh", "stale", "missing", "invalid"]}, "likely_callers": {"$ref": "#/$defs/stringList"}, "likely_tests": {"$ref": "#/$defs/stringList"}, "read_order": {"$ref": "#/$defs/stringList"}, "evidence_label": {"const": "local-evidence"}
+    }, "additionalProperties": false},
+    "boundary": {"type": "string", "minLength": 1}, "orientation_fingerprint": {"type": "string", "pattern": "^sha256:"}
+  },
+  "$defs": {
+    "stringList": {"type": "array", "items": {"type": "string"}},
+    "endpoint": {"type": "object", "required": ["file", "line", "method", "route", "evidence"], "properties": {"file": {"type": "string"}, "line": {"type": "string"}, "method": {"type": "string"}, "route": {"type": "string"}, "evidence": {"const": "heuristic"}}, "additionalProperties": false},
+    "table": {"type": "object", "required": ["file", "line", "table", "evidence"], "properties": {"file": {"type": "string"}, "line": {"type": "string"}, "table": {"type": "string"}, "evidence": {"const": "heuristic"}}, "additionalProperties": false},
+    "service": {"type": "object", "required": ["file", "line", "target", "evidence"], "properties": {"file": {"type": "string"}, "line": {"type": "string"}, "target": {"type": "string"}, "evidence": {"const": "heuristic"}}, "additionalProperties": false}
+  },
+  "additionalProperties": false
+}

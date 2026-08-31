@@ -11,7 +11,7 @@ from workflow_runtime import adapters, compiler, contracts, ownership, storage, 
 
 
 LEDGER = ownership.LEDGER
-CHANGE_TYPES = {"source-edit", "manifest-change", "policy-change", "graph-stale", "doc-only-edit", "branch-change", "dependency-add", "security-finding"}
+CHANGE_TYPES = {"source-edit", "manifest-change", "policy-change", "graph-stale", "doc-only-edit", "branch-change", "dependency-add", "security-finding", "reproduction-change"}
 DOC_SUFFIXES = {".md", ".rst", ".txt", ".adoc"}
 DEPENDENCY_NAMES = {"pyproject.toml", "requirements.txt", "poetry.lock", "pdm.lock", "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "go.mod", "go.sum", "cargo.toml", "cargo.lock", "pom.xml", "build.gradle", "gradle.lockfile"}
 MANIFEST_SUFFIXES = {".tf", ".tfvars", ".yaml", ".yml", ".toml", ".ini", ".cfg"}
@@ -86,7 +86,9 @@ def snapshot(root: Path, workflow_id: str) -> dict[str, Any]:
     dependencies, manifests, policies, repository_inventory = _repository_inventories(root)
     docs = {path: value for path, value in scoped.items() if Path(path).suffix.lower() in DOC_SUFFIXES}
     sources = {path: value for path, value in scoped.items() if Path(path).suffix.lower() not in DOC_SUFFIXES}
-    return {"scoped_sources": sources, "scoped_docs": docs, "path_owners": owners, "manifests": manifests, "dependencies": dependencies, "policies": policies, "repository_identity": compiler._repository_identity_fingerprint(root, ownership.show(root, workflow_id)), "graph_fingerprint": _hash({"inventory":repository_inventory,"provider":_adapter_fingerprint(root, workflow_id, {"graph-discovery"})}), "security_fingerprint": _adapter_fingerprint(root, workflow_id, {"security", "quality"}), "plan_fingerprint": plan["plan_fingerprint"]}
+    binding = ownership.show(root, workflow_id)
+    reproduction = root / ".tailtrail" / "runs" / str(binding["tailtrail_run_id"]) / "debug" / "reproduction" / "approved-v1.json"
+    return {"scoped_sources": sources, "scoped_docs": docs, "path_owners": owners, "manifests": manifests, "dependencies": dependencies, "policies": policies, "repository_identity": compiler._repository_identity_fingerprint(root, binding), "graph_fingerprint": _hash({"inventory":repository_inventory,"provider":_adapter_fingerprint(root, workflow_id, {"graph-discovery"})}), "security_fingerprint": _adapter_fingerprint(root, workflow_id, {"security", "quality"}), "debug_reproduction_fingerprint": _file(reproduction) if reproduction.is_file() else _hash(None), "plan_fingerprint": plan["plan_fingerprint"]}
 
 
 def checkpoint(root: Path, workflow_id: str, reason: str) -> dict[str, Any]:
@@ -135,8 +137,9 @@ def _roots(stages: list[dict[str, Any]], change_type: str) -> set[str]:
     names = {row["stage_id"] for row in stages}
     if change_type == "doc-only-edit": return set()
     if change_type in {"branch-change", "policy-change"}: return names
-    if change_type in {"manifest-change", "dependency-add", "graph-stale"}: return names & {"bootstrap","discover","graph-impact","graph-freshness","bounded-discovery","graph-overlay"}
-    if change_type == "source-edit": return names & {"implement"}
+    if change_type == "reproduction-change": return names & {"d-02-reproduction"}
+    if change_type in {"manifest-change", "dependency-add", "graph-stale"}: return names & {"bootstrap","discover","graph-impact","graph-freshness","bounded-discovery","graph-overlay","d-03-project-orientation"}
+    if change_type == "source-edit": return names & {"implement", "d-03-project-orientation", "d-08-correction-implementation"}
     if change_type == "security-finding": return names & ({"security"} if "security" in names else {"review","root-cause"})
     return set()
 
@@ -152,7 +155,7 @@ def _downstream(stages: list[dict[str, Any]], roots: set[str]) -> set[str]:
 def assess(root: Path, workflow_id: str) -> dict[str, Any]:
     root = root.resolve(); baseline = ensure(root, workflow_id); before = baseline["snapshot"]; after = snapshot(root, workflow_id); plan = compiler.show(root, workflow_id)
     detected: list[str] = []
-    mapping = (("source-edit","scoped_sources"),("manifest-change","manifests"),("policy-change","policies"),("graph-stale","graph_fingerprint"),("branch-change","repository_identity"),("dependency-add","dependencies"),("security-finding","security_fingerprint"))
+    mapping = (("source-edit","scoped_sources"),("manifest-change","manifests"),("policy-change","policies"),("graph-stale","graph_fingerprint"),("branch-change","repository_identity"),("dependency-add","dependencies"),("security-finding","security_fingerprint"),("reproduction-change","debug_reproduction_fingerprint"))
     for change_type, key in mapping:
         if _changed(before, after, key): detected.append(change_type)
     if _changed(before, after, "scoped_docs") and not detected: detected.append("doc-only-edit")

@@ -42,7 +42,7 @@ CONTEXT_FIELDS = {
     "requirements": {"stage", "authority", "official_stage", "official_references", "official_intent_id", "official_session_id", "goal", "requirements", "questions", "question_markdown", "stage_gate"},
     "requirements-revision": {"goal", "requirements", "official_decisions", "official_stage", "authority", "approval_summary"},
     "closure": COMMON | {"official_intent_id", "official_session_id", "official_revision", "completion_report", "official_handoff_reference", "official_operations_references", "official_runtime_session", "official_current_stage", "official_transition_count", "acceptance_state"},
-    "learning": COMMON | {"candidate_id", "acceptance", "requirements_completed", "evidence_tiers", "selected_harnesses", "pattern", "promotion", "sanitization", "source_report"},
+    "learning": COMMON | {"candidate_id", "acceptance", "requirements_completed", "evidence_tiers", "selected_harnesses", "pattern", "promotion", "sanitization", "source_report", "debug_profile"},
     "evaluation": COMMON | {"evaluation_id", "evidence_label", "mode", "baseline", "tailtrail_outcome", "comparison"},
     "runtime-session": COMMON | {"runtime_adapter_version", "bridge_artifact", "compatibility_manifest", "official_source", "official_revision", "official_intent_id", "official_session_id", "initial_stage", "host_adapter", "state", "approved_anchor_fingerprint"},
     "runtime-transition": COMMON | {"receipt_id", "official_session_id", "official_revision", "sequence", "action", "from_stage", "to_stage", "authority", "runtime_adapter_version", "approved_anchor_fingerprint", "reason_code", "requirement_uids", "evidence_references", "integrity"},

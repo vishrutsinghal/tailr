@@ -2205,3 +2205,111 @@ adapter files and host surfaces, persisted `.tailtrail` artifact literals, CI
 workflow controls, install profiles and surfaces, release-file presence,
 support claims, and normalized feature maturity. It is read-only and does not
 convert local validation into enterprise support or release eligibility.
+
+## Debug Harness prototype
+
+```bash
+python3 scripts/tailtrail.py start "investigate why checkout fails after timeout" --debug --verbose
+python3 scripts/tailtrail.py debug "describe the observed failure" --root .
+python3 scripts/tailtrail.py debug reproduction show --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug reproduction draft --root . --run-id <debug-run-id> --input reproduction.json
+python3 scripts/tailtrail.py debug reproduction revise --root . --run-id <debug-run-id> --revision <N> --input reproduction.json --approved
+python3 scripts/tailtrail.py debug reproduction approve --root . --run-id <debug-run-id> --revision <N> --approved
+python3 scripts/tailtrail.py debug orientation create --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug orientation show --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py workflow state show --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow resume --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py workflow state replay --root . --workflow-id <workflow-id>
+python3 scripts/tailtrail.py debug hypothesis show --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug hypothesis reprioritize --root . --run-id <debug-run-id> --input ranking.json --approved
+python3 scripts/tailtrail.py debug hypothesis propose --root . --run-id <debug-run-id> --hypothesis-id <id> --experiment-action "compare retry keys" --expected-signal "keys differ only on retry" --approved
+
+# DI-12 deterministic evaluation and fail-closed release proof
+python3 scripts/tailtrail.py debug evaluation catalog
+python3 scripts/tailtrail.py debug evaluation run --root .
+python3 scripts/tailtrail.py debug evaluation run --root . --approved
+python3 scripts/tailtrail.py debug evaluation report --root .
+python3 scripts/tailtrail.py debug evaluation release-gate --root .
+python3 scripts/tailtrail.py debug hypothesis experiment --root . --run-id <debug-run-id> --hypothesis-id <id> --experiment-action "inspect retry keys" --expected-signal "keys differ on the duplicate effect" --outcome strengthens --evidence-event-id <fingerprint> --deterministic
+python3 scripts/tailtrail.py debug hypothesis replan --root . --run-id <debug-run-id> --approved
+python3 scripts/tailtrail.py debug correction propose --root . --run-id <debug-run-id> --hypothesis-id <proven-id> --input correction-scope.json
+python3 scripts/tailtrail.py debug correction approve --root . --run-id <debug-run-id> --approved
+python3 scripts/tailtrail.py debug correction scope-check --root . --run-id <debug-run-id> --changed src/payment.py --changed tests/test_payment.py --approved
+python3 scripts/tailtrail.py debug convergence select --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug convergence finalize --root . --run-id <debug-run-id> --approved
+python3 scripts/tailtrail.py debug convergence show --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug governance build --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug governance show --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug correction show --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug completion-report show --root . --run-id <debug-run-id>
+```
+
+Use `tailtrail start` for the canonical entry point. Symptom-first wording (or
+`--debug`) creates a persisted, planning-only `# TailTrail Debug Start Plan`
+with the normal Planning Lock. It does not create Debug Intake, run a
+reproduction, inspect source, or grant correction authority. Use the separate
+`tailtrail debug` command only when intentionally exercising the prototype
+intake lifecycle directly.
+
+Approving a canonical Debug Start Plan creates a versioned reproduction
+proposal only. Resolve its explicit unknowns with `reproduction draft`, then
+approve exactly the revision returned by `reproduction show`. That approval
+creates an immutable `debug-investigation` anchor and investigation-only
+handoff. DI-4 also attaches the native ten-stage Durable Workflow Runtime
+template. The handoff returns its workflow ID; `workflow state show` reports
+both the exact machine stage and display name, `workflow resume` returns the
+shortest dependency-ready continuation, and `workflow state replay`
+reconstructs state from the canonical journal. Project source writes remain
+blocked until a later correction is proven and separately approved.
+
+`debug orientation create` is a local metadata action after reproduction
+approval. It reuses the existing Code Graph cache when hashes and repository
+inventory remain fresh, labels relationship hints as heuristic, detects new or
+untracked relevant files, and writes a versioned D-03 orientation. When the
+cache is stale or missing it returns an approval-required refresh command; it
+does not execute the refresh, parse source bodies, or advance the workflow.
+
+DI-6 binds every experiment to the approved requirement UID, stable failure
+fingerprint, expected discriminating signal, and a real saved Execution
+Evidence fingerprint. Identical probes against unchanged failure identity are
+rejected. Three experiments exhaust a cycle; TailTrail then records a
+history-preserving Recovery/Replan packet and requires `replan --approved`
+before the same run can continue. `unchanged`, `regressed`, and `new-drift`
+outcomes also create a bounded Context Continuity reminder.
+
+DI-7 correction input declares `expected_changed_paths`, optional
+`expected_changed_symbols`, preservation and architecture constraints,
+validation tiers, behaviour scenarios, and unresolved assumptions. Approval is
+rejected until file scope and validation are concrete and assumptions are
+resolved. A successful approval creates exact D-08 source-write authority only;
+dependency, Git, test, scanner, publish, and deployment operations remain
+separately controlled. `scope-check` records drift evidence after the host
+reports changed paths and never edits or reverts those paths.
+
+DI-8 `convergence select` previews the applicable Harnesses without running
+them. `finalize --approved` runs only existing deterministic local Architecture
+and Maintainability assessments and consumes saved requirement-linked source,
+test, scope, Behaviour, Continuity, and Recovery evidence. The result contains
+one status row per selected control and requirement. Missing evidence remains
+`evidence-incomplete`; arbitrary textual claims cannot create a pass.
+
+DI-9 routes Debug evidence through the canonical closure finalizer and one
+Completion Report. DI-10 separates exact local diagnostics from sanitized
+portable fingerprints, records estimate-versus-measured token posture, exposes
+compact experiment continuity, and permits only acceptance-gated,
+candidate-only sanitized Debug learning. `debug governance show` is read-only.
+
+These commands expose the implemented local Debug Harness prototype. They can
+capture sanitized intake/fingerprint data, manage reproduction approval,
+record hypotheses and bounded experiments, approve a correction proposal, and
+render the section-only debug closure evidence. Exact subcommand arguments and
+approval flags are available through `--help`.
+
+**Integration boundary:** Navigator, Planning Lock, reproduction approval, DWR,
+selected-Harness convergence, canonical closure, and DI-10 governance are now
+connected. Complete hosted conformance, release evaluation, production
+telemetry, and live-system debugging remain later work. Use the
+`integration_contract` for `debug-harness` in
+`tailtrail-registry.json` and Section 21 of `DEBUG-HARNESS.md` as the status
+authority. DI-1 through DI-12 close those gaps without replacing these
+prototype artifacts.

@@ -26,13 +26,23 @@ def markdown(report: dict[str, Any], view: str = "full") -> str:
         "",
         "## Classification",
         "",
+        "- Workflow type: " + report.get("workflow_classification", {}).get("workflow_type", "build"),
+        "- Classification reason: " + report.get("workflow_classification", {}).get("reason", "normal implementation planning"),
         "- Task types: " + ", ".join(report["task_types"]),
         "- Risk indicators: " + (", ".join(report["risk_indicators"]) if report["risk_indicators"] else "none detected"),
         "- Workflow: " + " -> ".join(report["recommended_workflow"]),
-        "",
-        "## Selected Features",
-        "",
     ]
+    classification = report.get("workflow_classification", {})
+    if classification.get("known_symptom"):
+        lines.extend(["- Known symptom: " + classification["known_symptom"]])
+    if classification.get("unknown_evidence"):
+        lines.append("- Unknown evidence:")
+        lines.extend(f"  - {item}" for item in classification["unknown_evidence"])
+    if classification.get("alternative"):
+        lines.append("- Alternative: " + classification["alternative"])
+    if classification.get("approval_posture"):
+        lines.append("- Approval posture: " + classification["approval_posture"])
+    lines.extend(["", "## Selected Features", ""])
     lines.extend(f"- {item['name']}: {item['reason']}" for item in report["selected_features"])
     lines.extend(["", "## Skipped Features", ""])
     lines.extend(f"- {item['name']}: {item['reason']}" for item in report["skipped_features"])

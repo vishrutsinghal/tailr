@@ -2,12 +2,19 @@
 
 ## Document status and reading guide
 
-**Status:** design proposal, expanded from the working notes captured in
-[debug-intial.md](debug-intial.md). This document describes a future TailTrail
-capability; it does not claim that the commands, schemas, event kinds, or
-runtime states below already exist. Where it reuses an existing TailTrail
-mechanism, the mechanism and its current file are named explicitly so the gap
-between "exists today" and "proposed" stays visible.
+**Status:** native implementation phases DI-0 through DI-12 are implemented;
+release remains evidence-blocked pending genuine supported-host receipts.
+The local CLI/MCP control plane, schemas, focused tests, failure intake,
+reproduction approval, hypothesis/experiment ledger, correction approval, and
+canonical Debug closure evidence exists. Native Navigator routing, canonical
+Planning Lock/reproduction ownership, and the DWR `debug-investigation`
+workflow, selected-Harness convergence, and canonical closure are implemented.
+Token/privacy/continuity, candidate-only learning, and equivalent Codex,
+Copilot, and Claude host instruction contracts are complete. DI-12 now provides
+deterministic evaluation and a fail-closed release gate; genuine hosted runtime
+receipts are external evidence and remain absent. Section 21
+is the authoritative integration plan. Earlier sections describe the target
+design unless they explicitly say **implemented prototype**.
 
 This document is the source of truth for: the problem the Debug Harness
 solves, how it fits the existing nine-layer TailTrail model, the run
@@ -70,8 +77,8 @@ path. TailTrail must never let those two states collapse into each other.
 
 TailTrail's architecture is a nine-layer stack from developer intent to
 distribution (see [ARCHITECTURE.md](ARCHITECTURE.md), [DESIGN.md](DESIGN.md)).
-The Debug Harness is not a tenth, disconnected layer — it is a **workflow
-type** that reuses seven of the nine layers directly and introduces two new
+The Debug Harness is designed not to become a tenth, disconnected layer. Its
+target form is a **workflow type** that reuses seven of the nine layers and introduces two new
 artifacts (a failure fingerprint and a hypothesis ledger) that plug into the
 existing evidence/requirement/drift machinery.
 
@@ -129,10 +136,10 @@ flowchart TB
 | Completion Report / Closure | `scripts/completion-report.py`, `closure-*.py` | Debug runs close through the same fail-closed Completion Report, with a debug-specific evidence section |
 
 **Conclusion of the fit assessment:** the Debug Harness is additive, not
-parallel. Two genuinely new artifacts are required (failure fingerprint,
-hypothesis ledger); everything else is composition of existing, already-shipped
-mechanisms. This lowers implementation risk considerably compared with a
-from-scratch debugging product.
+parallel. DI-1 through DI-9 removed the parallel routing and completion
+authority. Two genuinely new artifacts are
+required (failure fingerprint and hypothesis ledger); the remaining target
+behavior composes existing TailTrail mechanisms.
 
 ## 4. Vocabulary
 
@@ -150,11 +157,11 @@ from-scratch debugging product.
 
 ## 5. Debug run lifecycle
 
-The Debug Harness runs as a **workflow type** inside the existing Durable
-Workflow Runtime (`scripts/workflow_runtime/`), analogous to today's
+The native Debug Harness will run as a **workflow type** inside the existing
+Durable Workflow Runtime (`scripts/workflow_runtime/`), analogous to today's
 `template_id` values (`small-change`, `delivery`, `risk-sensitive`,
 `review-only`, `ci-scanner-remediation`, `repository-discovery`). It adds a
-new template: **`debug-investigation`**.
+new template: **`debug-investigation`**, implemented by DI-4.
 
 ```mermaid
 stateDiagram-v2
@@ -515,7 +522,7 @@ distinction is the harness's central value proposition and must be visible in
 every report the harness produces (never collapse "tests pass" and "root
 cause proven" into one status field).
 
-## 9. Data model (proposed schemas)
+## 9. Data model (native through DI-9; later-phase schemas remain planned)
 
 All new schemas follow the existing TailTrail schema conventions found across
 `schemas/*.schema.json`: a `$schema` draft reference, a `schema_version`
@@ -633,12 +640,12 @@ reimplemented.
 }
 ```
 
-### 9.6 `debug-completion-report.schema.json` (extends `completion-report.schema.json`)
+### 9.6 `debug-completion-report.schema.json` (section consumed by `completion-report.schema.json`)
 
 ```json
 {
   "schema_version": "1",
-  "type": "tailtrail-debug-completion-report",
+  "type": "tailtrail-debug-closure-section",
   "run_id": "string",
   "domain_confidence_ceiling": "string",
   "confidence_state": "symptom-captured|reproduction-confirmed|hypothesis-supported|root-cause-proven|correction-proposed|correction-implemented|regression-validated|behavior-restored",
@@ -649,12 +656,14 @@ reimplemented.
   "domains_investigated": ["string"],
   "domains_eliminated": ["string"],
   "domains_not_investigated": ["string"],
-  "acceptance_state": "accept-user|wait-ci|reopen|evidence-incomplete"
+  "debug_status": "pass|evidence-incomplete",
+  "authority": "section-only"
 }
 ```
 
-Reuses the existing `acceptance_state` vocabulary so downstream tooling
-(closure, learning) does not need a second code path.
+The section deliberately has no `acceptance_state`. Canonical closure embeds
+it and retains the existing acceptance vocabulary and learning gates, avoiding
+a second delivery authority.
 
 ### 9.7 `diagnosis-domain-profile.schema.json`
 
@@ -697,7 +706,7 @@ Follows the existing `.tailtrail/runs/<run-id>/` convention, adding a
     correction/
       correction-packet-v1.json
     completion/
-      debug-completion-report-v1.json
+      debug-closure-section-v1.json
 ```
 
 The debug run reuses the existing `run_id` identity and the same
@@ -705,14 +714,14 @@ The debug run reuses the existing `run_id` identity and the same
 `debug-investigation` workflow template, so pause/resume/cancel/replay work
 without new runtime code.
 
-## 11. CLI and MCP surface (proposed)
+## 11. CLI and MCP surface (native local CLI; full host convergence pending DI-11)
 
 ### CLI
 
 ```bash
 tailtrail debug "<symptom>" [--error <file>] [--command "<cmd>"] [--run-id <id>] [--recent-change]
-tailtrail debug reproduction approve --run-id <id>
-tailtrail debug reproduction reject  --run-id <id> --reason "<reason>"
+tailtrail debug reproduction approve --run-id <id> --revision <N> --approved
+tailtrail debug reproduction reject  --run-id <id> --feedback '{"expected":"<reason>"}'
 tailtrail debug hypothesis show      --run-id <id>
 tailtrail debug experiment record    --run-id <id> --hypothesis-id <hid> --result <file> --approved
 tailtrail debug replan               --run-id <id>            # after cycle-limit block
@@ -835,7 +844,7 @@ sequenceDiagram
     PDH->>BH: validate restored user journey
     BH-->>PDH: behavior restored
     PDH->>CL: closure finalize + debug completion report
-    CL-->>User: Completion Report (acceptance_state)
+    CL-->>User: Canonical Completion Report (acceptance_state)
     CL->>CL: (optional) sanitized learning candidate, confidence-gated
 ```
 
@@ -844,22 +853,22 @@ sequenceDiagram
 Following the same committed-slice / conditional-phase pattern used in
 [EVALUATION-HARNESS.md](EVALUATION-HARNESS.md):
 
-| Phase | Scope | Gate |
+| Phase | Scope | Status / gate |
 | --- | --- | --- |
-| **DH-0** | Debug Intake artifact + failure fingerprint; `tailtrail debug` read-only intake, no code changes | None — pure capture |
-| **DH-1** | Reproduction contract + approval gate; bounded reproduction attempts | Requires DH-0 |
-| **DH-2** | Code-path map reuse (Code Graph Mapper wiring, no new analysis engine) | Requires DH-0 |
-| **DH-3** | Hypothesis ledger + bounded experiment loop + cycle-limit replan | Requires DH-1, DH-2 |
-| **DH-4** | Root-cause proof gate + correction packet handoff to Program Delivery Harness | Requires DH-3 |
-| **DH-5** | Debug-specific Completion Report + confidence-state reporting | Requires DH-4 |
-| **DH-6 (conditional)** | Learning Governance integration (recurring failure-pattern capture) | Evidence-gated: only after DH-5 shows real trusted closures |
-| **DH-7 (conditional)** | MCP tool surface (`debug_*` R0/R2 tools) for host adapters | Evidence-gated: after CLI path (DH-0..DH-5) is stable |
+| **DH-0** | Debug Intake artifact + failure fingerprint; `tailtrail debug` read-only intake, no code changes | Prototype implemented |
+| **DH-1** | Reproduction contract + approval gate; bounded reproduction attempts | Prototype implemented |
+| **DH-2** | Code-path map reuse (Code Graph Mapper wiring, no new analysis engine) | Native DI-5 integration implemented |
+| **DH-3** | Hypothesis ledger + bounded experiment loop + cycle-limit replan | Native DI-6 evidence, continuity, and Recovery/Replan integration implemented |
+| **DH-4** | Root-cause proof gate + correction packet handoff to Program Delivery Harness | Native DI-7 scoped D-08 implementation handoff implemented |
+| **DH-5** | Debug-specific closure section + confidence-state reporting | Native DI-9 canonical closure integration implemented |
+| **DH-6 (conditional)** | Learning Governance integration (recurring failure-pattern capture) | Not connected; evidence-gated DI-10 |
+| **DH-7 (conditional)** | MCP tool surface (`debug_*` R0/R2 tools) for host adapters | Partial prototype; host convergence pending DI-11 |
 | **DH-8 (deferred)** | Production telemetry ingestion, distributed tracing, live-service debugging, IDE protocol integration, autonomous multi-agent debugging | Separate design doc/RFC — different risk class (live systems, secrets, blast radius), must not be folded into the committed slice |
 
-Committed V1 slice: **DH-0 through DH-5**. This delivers the full local-failure
-debugging loop (intake -> reproduction -> hypothesis -> experiment ->
-root-cause proof -> correction handoff -> debug completion report) without
-touching production systems, live telemetry, or multi-agent orchestration.
+Prototype V1 slice: **DH-0 through DH-5**. It demonstrates the local artifact
+sequence without touching production systems, live telemetry, or multi-agent
+orchestration. DI-1 through DI-9 now connect routing, authority, DWR, Harness
+evidence, and canonical closure into one native delivery loop.
 
 ## 17. Testing and validation strategy for the harness itself
 
@@ -961,9 +970,1210 @@ Correction packet -> Program Delivery Harness (small-change template)
 
 Debug Completion Report
   confidence_state: behavior-restored
+  debug_status: pass
+  authority: section-only
+Canonical Completion Report
+  overall_status: complete
   acceptance_state: accept-user
   learning candidate: "idempotency key required on retried payment calls" (confidence 84, trusted)
 ```
+
+## 21. Native TailTrail integration plan
+
+### 21.1 What is integrated and what remains
+
+The current Debug Harness is a working local prototype. Its intake,
+fingerprint, reproduction contract, hypothesis ledger, bounded experiments,
+correction packet, confidence ceilings, CLI commands, MCP foundations, and
+focused tests are implemented. That does **not** yet make it a fully blended
+TailTrail workflow.
+
+DI-0 through DI-10 now provide registry ownership, native Navigator routing,
+the canonical Debug Start Plan, versioned reproduction approval and anchor,
+the ten-stage `debug-investigation` Durable Workflow Runtime, and versioned
+D-03 project orientation backed by freshness-checked Code Graph evidence.
+The hypothesis loop now binds deterministic probes to exact saved evidence,
+prevents unchanged repeats, and preserves exhausted cycles for replan.
+DI-7 through DI-9 now provide the scoped implementation handoff, typed selected
+Harness convergence, and the canonical closure bridge. `debug-completion.py`
+is a section-only evidence producer and cannot approve delivery. DI-10 adds the
+exact/local versus sanitized/portable privacy split, canonical Token Harness
+exactness, continuity deduplication, and acceptance-gated candidate learning.
+Remaining gaps begin with DI-11/DI-12 host and release conformance.
+
+The integration must preserve the working domain engine and connect it to the
+existing control plane. It must not create a second Navigator, requirements
+system, execution authority model, workflow runtime, drift system, closure
+authority, or learning pipeline.
+
+### 21.2 Target end-to-end workflow
+
+```mermaid
+flowchart TD
+    U["User reports symptom or error"] --> N["Navigator classifies intent"]
+    N -->|"Build request"| B["Normal TailTrail Start"]
+    N -->|"Debug investigation"| DSP["TailTrail Debug Start Plan"]
+
+    DSP --> PL["Planning Lock<br/>awaiting approval"]
+    PL --> RC["Reproduction contract draft"]
+    RC -->|"Approved"| DW["DWR debug-investigation workflow"]
+
+    DW --> O["Project orientation<br/>Code Graph + saved evidence"]
+    O --> HL["Hypothesis ledger"]
+    HL --> EX["Bounded deterministic experiments"]
+    EX --> RP{"Root cause proven?"}
+
+    RP -->|"No"| CC["Context Continuity packet"]
+    CC --> CL{"Cycle limit reached?"}
+    CL -->|"No"| HL
+    CL -->|"Yes"| RE["Recovery / Replan"]
+    RE --> HL
+
+    RP -->|"Yes"| CP["Correction packet"]
+    CP --> IA["Scoped implementation authority"]
+    IA --> IMP["Bounded correction implementation"]
+
+    IMP --> RH["Requirement Completion Harness"]
+    RH --> AH["Architecture Fitness Harness"]
+    AH --> BH["Behaviour Harness"]
+    BH --> ET["Evidence-Aware Testing"]
+    ET --> DC{"Unresolved drift or failure?"}
+    DC -->|"Yes"| CC
+    DC -->|"No"| CF["Canonical Closure Finalizer"]
+    CF --> CR["Unified Completion Report"]
+    CR --> AC["User or CI acceptance"]
+    AC --> LG["Guarded Learning + Evaluation"]
+```
+
+### 21.3 Canonical ownership contract
+
+| Information or decision | Canonical owner | Debug Harness responsibility |
+| --- | --- | --- |
+| Build-versus-debug classification | Navigator | Supplies debug-specific classification signals only |
+| Target identity and planning state | Planning Lock | Supplies symptom, unknowns, and reproduction proposal |
+| Reproduction boundary | Debug Harness | Owns the versioned reproduction contract |
+| Workflow stages and resume state | Durable Workflow Runtime | Supplies the `debug-investigation` template and stage inputs |
+| Hypotheses and experiments | Debug Harness | Owns hypothesis state and evidence-linked experiment results |
+| Command and Harness receipts | Execution Evidence | References existing exact saved events; never fabricates results |
+| Correction scope | Requirement Completion Harness | Converts a proven cause into a bounded correction proposal |
+| Architecture/behaviour/maintainability checks | Existing Harness lenses | Supplies root-cause and correction context |
+| Drift and correction cycles | Harness checkpoint + Context Continuity | Supplies debug-cycle deltas and eliminated hypotheses |
+| Final delivery status | Canonical Completion Report | Contributes a debug investigation section |
+| Learning and evaluation | Learning Governance + Evaluation Harness | Contributes sanitized candidate evidence after trusted acceptance |
+
+### 21.4 Implementation phases
+
+#### Phase DI-0 — Contract and status reconciliation — implemented
+
+**Goal:** make the repository state honest before runtime integration.
+
+Implementation:
+
+- Mark the registry feature `prototype-implemented` until the canonical
+  closure path is complete.
+- Record the ownership table above in the registry/design contract.
+- Separate implemented prototype capabilities, integration work, deferred
+  diagnosis domains, and live-system future scope.
+- Remove or qualify statements that currently imply DWR, canonical closure,
+  Token Harness, recovery, or governed learning are already connected.
+
+Likely files:
+
+- `DEBUG-HARNESS.md`
+- `tailtrail-registry.json`
+- `ROADMAP.md`
+- `TAILTRAIL-COMMANDS.md`
+- `enterprise-closure-registry.json`
+
+Completion proof:
+
+- Documentation and registry status agree with executable behavior.
+- Each authoritative field has exactly one owner.
+
+Implementation record (2026-08-29):
+
+- Kept the Feature Registry's packaging status as `implemented` so the working
+  prototype remains installable, and added the orthogonal integration status
+  `prototype-implemented` so packaging availability is not confused with
+  native workflow completion.
+- Added a machine-readable integration contract containing implemented local
+  capabilities, remaining integration, deferred diagnosis domains, future
+  live-system scope, and one canonical owner for each authoritative state.
+- Reconciled this document, the Roadmap, command catalog, and enterprise
+  exception declaration with that boundary.
+- Added focused contract tests that fail if the Debug Harness returns to an
+  unqualified integrated claim or loses a canonical owner.
+
+#### Phase DI-1 — Native Navigator classification — implemented
+
+**Goal:** make Navigator—not the CLI wrapper—the workflow router.
+
+Implementation:
+
+- Add `debug-investigation` to Navigator's typed workflow decisions.
+- Distinguish a symptom-first investigation from an already-understood
+  implementation request.
+- Preserve explicit `--debug` and `--build` overrides.
+- Default ambiguous requests to the normal build workflow while showing the
+  debug alternative.
+- Return the classification reason, known symptom, unknown evidence, selected
+  features, deferred features, and approval posture in Navigator output.
+- Reduce `scripts/tailtrail.py` to delegation; it must not maintain a competing
+  intent classifier.
+
+Examples:
+
+| User wording | Expected route |
+| --- | --- |
+| `Fix payment retry logic` | Build workflow |
+| `Payments are sometimes charged twice after timeout` | Debug investigation |
+| `Investigate why cancellation publishes two events` | Debug investigation |
+| `Add cancellation validation` | Build workflow |
+| Ambiguous failure wording | Build by default; show debug alternative |
+
+Implementation record (2026-08-29):
+
+- Added the immutable `WorkflowClassification` decision contract to
+  `scripts/navigator_core.py`; it owns workflow type, reason code and prose,
+  known symptom, missing evidence, selected/deferred feature posture,
+  approval posture, and the optional alternative route.
+- Moved all phrase and ambiguity rules into Navigator core. The CLI retains a
+  compatibility projection only and delegates explicit `--debug`, explicit
+  `--build`, `--error`, and `--command` signals to the native classifier.
+- Added `debug-investigation` to normal `navigator.decide()` output and made
+  debug-specific selected/deferred controls visible in Navigator Markdown.
+- Kept ambiguous `fix`, `issue`, `bug`, `failure`, and `problem` wording on the
+  normal build route unless a concrete symptom, reproduction command, failure
+  artifact, or explicit debug override exists.
+- Added focused regression coverage for strong symptom routing, ordinary build
+  work, ambiguous build fallback, investigation wording, evidence flags,
+  explicit overrides, compatibility forwarding, and typed Navigator output.
+
+Files changed for DI-1:
+
+- `scripts/navigator_core.py`
+- `scripts/navigator.py`
+- `scripts/navigator_render.py`
+- `scripts/tailtrail.py`
+- `tests/test_navigator_debug_routing.py`
+- `tailtrail-registry.json`
+- `DEBUG-HARNESS.md`
+- `ROADMAP.md`
+
+Boundary retained: DI-1 decides the workflow but does not yet replace the
+prototype Debug Intake response with the canonical Debug Start Plan. Planning
+Lock rendering and persistence remain DI-2.
+
+Likely files:
+
+- `scripts/navigator.py`
+- `scripts/navigator_core.py`
+- `scripts/navigator_render.py`
+- `scripts/task-start.py`
+- `scripts/tailtrail.py`
+- `tests/test_navigator_debug_routing.py`
+- new `tests/test_debug_start_planning.py`
+
+Completion proof:
+
+- CLI, MCP, and host adapters receive the same saved Navigator decision.
+- No debug routing logic can disagree with Navigator.
+
+#### Phase DI-2 — Canonical Debug Start Plan — implemented
+
+**Goal:** keep `tailtrail start` planning-only for debug requests.
+
+The report must include:
+
+- Planning Lock and run ID;
+- workflow type and classification evidence;
+- known symptom and material unknowns;
+- target identity and likely scope from saved Code Graph evidence;
+- selected and deferred TailTrail features;
+- proposed reproduction questions;
+- intended evidence tiers and safety boundary;
+- token estimate and exactness posture; and
+- explicit approval options.
+
+Opening the plan may create only run-local planning metadata. It must not run
+tests, scan the repository, approve a reproduction contract, approve source
+writes, or edit code.
+
+Likely files:
+
+- `scripts/task-start.py`
+- `scripts/planning-lock.py`
+- `scripts/debug-intake.py`
+- `scripts/navigator_render.py`
+- `schemas/debug-intake.schema.json`
+- host Start instructions and `skills/tailtrail-start/SKILL.md`
+
+Completion proof:
+
+- The report satisfies the same mandatory Start sections as build planning.
+- The complete report is rendered outside host tool-result dropdowns.
+- No implementation authority exists before a later explicit approval.
+
+Implementation record (2026-08-29):
+
+- `tailtrail start` now always delegates to `task-start.py`; the CLI no longer
+  opens Debug Intake as a classification side effect.
+- Added `--debug`, `--build`, `--error`, and `--command` planning inputs to the
+  canonical Start parser. Error/command values are not copied into the saved
+  plan; only their presence is retained as sanitized classification evidence.
+- Added a persisted debug planning payload and renderer with Planning Lock/run
+  ID, target identity, classification reason, symptom, unknowns, saved-only
+  Code Graph scope, one investigation requirement, selected/deferred controls,
+  reproduction questions, evidence tiers, token estimate, exactness/safety
+  posture, guided-delivery boundary, and approval options.
+- Debug Start reads only an existing graph-cache artifact when available and
+  labels it `saved-unverified`; it does not hash current source, refresh the
+  cache, execute the mapper, or infer freshness during Planning Lock.
+- DWR is explicitly `deferred-to-di-4`; approval authority for reproduction
+  remains DI-3. DI-2 creates neither workflow execution authority nor
+  `.tailtrail/runs/<run-id>/debug/` artifacts.
+- Generic `planning activate` fails closed for a saved Debug Start Plan until
+  DI-3 supplies the reproduction-contract transition; it cannot accidentally
+  convert Debug Start approval into normal implementation authority.
+- Updated Codex, Copilot, Claude, and TailTrail Start skill instructions to
+  require the complete `# TailTrail Debug Start Plan` outside collapsed output.
+- Extended the atomic MCP `tailtrail_start` schema with one build/debug override
+  and sanitized evidence-presence booleans; it delegates to the same
+  `task-start.py` path and never transports raw error or command content.
+- Added focused tests for plan-only construction, canonical persistence,
+  mandatory headings, sanitized evidence flags, explicit build override,
+  saved graph reuse, public CLI output, and absence of Debug Intake.
+
+Files changed for DI-2:
+
+- `scripts/task-start.py`
+- `scripts/tailtrail.py`
+- `scripts/navigator.py`
+- `scripts/planning-lock.py`
+- `scripts/mcp-server.py`
+- `MCP-SERVER.md`
+- `tests/test_debug_start_planning.py`
+- `skills/tailtrail-start/SKILL.md`
+- `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and
+  `adapters/copilot-instructions.md`
+- `tailtrail-registry.json`
+- `DEBUG-HARNESS.md`
+- `ROADMAP.md`
+
+#### Phase DI-3 — Reproduction approval and anchor bridge — implemented
+
+**Goal:** make the reproduction contract the debug analogue of an approved
+requirement anchor without conflating investigation approval with correction
+approval.
+
+Flow:
+
+1. Approve the Debug Start Plan.
+2. Draft the reproduction contract from approved planning evidence.
+3. Allow read-only discussion, clarification, and revision through Interactive
+   Plan Mode.
+4. Approve a specific reproduction revision.
+5. Freeze an investigation requirement UID and validation contract.
+6. Create the DWR workflow proposal and execution handoff for investigation
+   actions only.
+
+Example approved investigation requirement:
+
+```json
+{
+  "requirement_uid": "req-debug-<stable-id>",
+  "kind": "debug-investigation",
+  "statement": "Prove the root cause of duplicate payment effects after timeout.",
+  "preserve_rules": [
+    "Successful single-attempt payment remains unchanged.",
+    "No real payment provider may be called."
+  ],
+  "validation_contract": {
+    "tiers": ["integration", "behaviour"]
+  }
+}
+```
+
+Likely files:
+
+- `scripts/debug-reproduction.py`
+- `scripts/planning-lock.py`
+- `scripts/change-intent-anchor.py`
+- `scripts/planning-discussion.py`
+- `scripts/planning-revision.py`
+- reproduction and anchor schemas
+
+Completion proof:
+
+- Reproduction rejection preserves the same run and collects field-specific
+  feedback.
+- Reproduction approval never silently approves a future correction.
+- The approved revision, requirement UID, and evidence contract remain stable.
+
+**Implemented design:**
+
+- Activating a canonical Debug Start Plan records `debug-plan-only` approval,
+  keeps `writes_allowed: false`, and drafts reproduction revision 1 from saved
+  planning evidence only. Unknown expected behaviour and reproduction steps
+  remain explicitly unresolved instead of being guessed.
+- Every revision is saved under
+  `.tailtrail/runs/<run-id>/debug/reproduction/draft-v<N>.json`. Approval names
+  the exact current revision and fails when any field is unresolved or stale.
+- The requirement UID is created with the first draft and remains stable across
+  revisions, the immutable approved reproduction, approved anchor,
+  investigation handoff, evidence, drift, and closure.
+- The approved anchor uses kind `debug-investigation` and retains the approved
+  reproduction, root-cause, regression, and behaviour evidence tiers.
+- The Planning Lock becomes `debug-investigation-only`: evidence may be
+  recorded, but `source_writes_allowed` remains false. MCP patch enforcement
+  checks this narrower authority and fails closed.
+- The handoff allows approved-scope reading, the exact reproduction, evidence
+  recording, and hypothesis management. It forbids source edits, corrections,
+  commits, pushes, deployments, production calls, and implied correction
+  approval.
+
+```mermaid
+flowchart LR
+    A["DI-2 Debug Start Plan"] -->|"approve plan"| B["Plan-only approval<br/>writes blocked"]
+    B --> C["Draft reproduction revision"]
+    C --> D{"All fields resolved?"}
+    D -->|"No"| E["Discuss or revise<br/>same run + stable UID"]
+    E --> C
+    D -->|"Yes"| F["Approve exact revision"]
+    F --> G["Immutable debug anchor"]
+    G --> H["Investigation-only handoff"]
+    H --> I["Reproduce + record evidence"]
+    H -. "source correction blocked" .-> J["Later correction approval"]
+```
+
+Implemented files include `scripts/debug-reproduction.py`,
+`scripts/planning-lock.py`, `scripts/change-intent-anchor.py`,
+`scripts/mcp-server.py`, both DI-3 schemas, and focused Debug Start/Harness
+tests.
+
+#### Phase DI-4 — Durable Workflow Runtime template
+
+**Status: implemented.**
+
+**Goal:** implement debugging as a native resumable workflow.
+
+Required `debug-investigation` stages:
+
+```text
+D-01 Intake
+D-02 Reproduction
+D-03 Project orientation
+D-04 Hypothesis generation
+D-05 Experiment
+D-06 Root-cause proof
+D-07 Correction proposal
+D-08 Correction implementation
+D-09 Regression validation
+D-10 Closure
+```
+
+The workflow must support pause, resume, cancel, replay, freshness checks,
+cycle tracking, scoped approvals, and task-specific execution authority. The
+workflow journal is canonical; debug artifacts are projections linked to its
+stage and requirement identifiers.
+
+Likely files:
+
+- `scripts/workflow_runtime/templates.py`
+- `scripts/workflow_runtime/compiler.py`
+- `scripts/workflow_runtime/state.py`
+- `scripts/workflow_runtime/approvals.py`
+- `scripts/workflow_runtime/resume.py`
+- `scripts/workflow_runtime/correction.py`
+- workflow schemas and tests
+
+Completion proof:
+
+- `tailtrail workflow current` displays the exact debug stage.
+- Resume returns the shortest safe next action.
+- Replay reconstructs the same state from the journal.
+- Stale reproduction/source evidence blocks further experiments.
+
+Implementation reuses the existing DWR journal as the only lifecycle owner.
+Approval of an exact reproduction revision now compiles and activates the
+`debug-investigation` template automatically. It grants one hash-bound
+investigation approval for D-01 through D-07; D-08 remains a separate
+correction gate, and D-09/D-10 require factual validation and closure evidence.
+
+```mermaid
+flowchart LR
+    A["Approved reproduction revision"] --> B["Compile debug-investigation"]
+    B --> C["D-01..D-07 investigation authority"]
+    C --> D["D-07 bounded correction proposal"]
+    D --> E{"Correction approved?"}
+    E -->|No| D
+    E -->|Yes| F["D-08 correction implementation"]
+    F --> G["D-09 regression validation"]
+    G --> H["D-10 closure"]
+```
+
+The runtime exposes both the stable machine stage ID and its exact display
+name, for example `d-05-experiment` / `D-05 Experiment`. Pause, resume, cancel,
+replay, correction-cycle tracking, and shortest-safe resume use the existing
+DWR controls. Operational checkpoints now fingerprint the approved debug
+reproduction artifact. A changed reproduction contract invalidates D-02 and
+all downstream stages; changed approved source scope invalidates orientation
+and downstream work. Typed debug adapters refuse preparation when their stage
+is affected by stale operational evidence.
+
+Implemented files:
+
+- `scripts/workflow_runtime/templates.py` — deterministic ten-stage graph.
+- `scripts/workflow_runtime/adapter_catalog.py` — typed debug stage adapters.
+- `scripts/workflow_runtime/start_integration.py` — reproduction-to-DWR bridge
+  and D-01..D-07 investigation authority.
+- `scripts/debug-reproduction.py` — automatic runtime activation in the
+  canonical investigation handoff.
+- `scripts/workflow_runtime/state.py` — exact stage display projection.
+- `scripts/workflow_runtime/freshness.py` and freshness schemas — reproduction
+  and debug-stage invalidation.
+- compiler/handoff schemas, deterministic fixture, and focused runtime tests.
+
+This phase does not implement DI-6 hypothesis-loop convergence, source
+correction itself, or canonical debug closure. It supplies
+their durable stages and authority boundaries without claiming those later
+capabilities are complete.
+
+#### Phase DI-5 — Project orientation and Code Graph integration
+
+**Status: implemented.**
+
+**Goal:** reuse fresh graph evidence and avoid silent broad rescans.
+
+```mermaid
+flowchart LR
+    I["Debug intake"] --> C{"Fresh graph cache?"}
+    C -->|"Yes"| R["Reuse cached relationships"]
+    C -->|"Metadata-only change"| U["Incremental inventory refresh"]
+    C -->|"Missing/materially stale"| P["Propose graph refresh"]
+    P --> A["Run only after authority exists"]
+    R --> M["Map symptom to entry points, callers, state and tests"]
+    U --> M
+    A --> M
+```
+
+The orientation artifact must distinguish confirmed paths, heuristic
+candidates, stale graph evidence, missing callers, tests, endpoints, database
+boundaries, external dependencies, and unsupported domains.
+
+Likely files:
+
+- `scripts/debug-intake.py`
+- `scripts/code-graph-mapper.py`
+- `scripts/code_graph_inventory.py`
+- `scripts/graph-learning.py`
+- new `schemas/debug-orientation.schema.json`
+
+Completion proof:
+
+- A fresh cache is reused automatically.
+- New/untracked files update or invalidate relevant relationships.
+- No full graph refresh happens during the Planning Lock.
+
+DI-5 reuses `code-graph-mapper.py` and `code_graph_inventory.py`; it does not
+introduce another repository scanner. After the reproduction revision and
+native debug handoff exist, `debug orientation create` writes a versioned local
+projection linked to the same run ID, workflow ID, D-03 stage ID, reproduction
+revision, and stable requirement UID.
+
+```mermaid
+flowchart TD
+    A["Approved native debug handoff"] --> B["Load saved shared/local graph cache"]
+    B --> C["Run existing hash + metadata inventory freshness check"]
+    C -->|Fresh| D["Reuse confirmed paths and heuristic relationships"]
+    C -->|New/untracked metadata only| E["Propose bounded incremental refresh"]
+    C -->|Missing, invalid, or materially stale| F["Propose bounded graph refresh"]
+    D --> G["Versioned D-03 orientation artifact"]
+    E --> G
+    F --> G
+    G --> H{"D-02 reproduction evidence passed?"}
+    H -->|No| I["awaiting-reproduction-evidence"]
+    H -->|Yes and fresh| J["ready for typed D-03 adapter recording"]
+    H -->|Yes and stale| K["refresh-required"]
+```
+
+The artifact separates evidence deliberately:
+
+| Orientation data | Evidence label | Meaning |
+| --- | --- | --- |
+| Existing cache path plus matching saved SHA-256 | `confirmed-local-path-and-hash` | The exact local file still matches the graph cache; behavior is not proven. |
+| Read order, callers, tests, endpoints, tables, service edges, manifests | `heuristic` | Local mapper relationship hints that must be confirmed against exact source. |
+| Unsupported domain list | explicit boundary | Cloud infrastructure, network, and security diagnosis remain outside this release. |
+| Refresh proposal | approval required | TailTrail provides the exact bounded command but never executes it during orientation. |
+
+New and untracked relevant files are detected through the existing
+`path-size-mtime-ns-v1` repository inventory. An inventory-only mismatch yields
+an `incremental` refresh proposal; changed/missing hashed files, incompatible
+cache data, or absent scope yields a bounded refresh proposal. Re-running
+orientation after an approved external graph refresh creates the next artifact
+revision and retains the earlier orientation for review.
+
+Implemented files:
+
+- `scripts/debug-orientation.py` — cache selection, freshness reuse,
+  evidence-labelled normalization, versioning, and adapter handoff.
+- `schemas/debug-orientation.schema.json` — closed orientation contract.
+- `scripts/tailtrail.py` — `debug orientation create|show` CLI route.
+- `scripts/mcp-server.py` — `debug_orientation_show` and approval-gated
+  `debug_orientation_create` tools.
+- `scripts/run-ledger.py` — append-only `debug_orientation_recorded` event.
+- `tests/test_debug_orientation.py` — fresh reuse, new/untracked-file
+  invalidation, versioning, schema, and missing-handoff coverage.
+- Feature Registry, enterprise closure registry, command reference, roadmap,
+  and MCP documentation.
+
+The D-03 adapter handoff is prepared but not self-recorded: the host/runtime
+must still record the factual typed adapter result and advance the stage under
+existing DWR controls. DI-5 does not parse source bodies, execute the proposed
+refresh, prove a caller relationship, generate hypotheses, or claim root cause.
+
+#### Phase DI-6 — Evidence-driven bounded hypothesis loop
+
+**Implementation status:** implemented.
+
+**Goal:** connect hypotheses to exact execution evidence, continuity, drift,
+and recovery controls.
+
+Every experiment must carry:
+
+```json
+{
+  "hypothesis_id": "HYP-02",
+  "requirement_uid": "req-debug-<stable-id>",
+  "action": "Run timeout-after-acceptance adapter test",
+  "expected_signal": "Two calls use different idempotency keys",
+  "outcome": "strengthens",
+  "evidence_event_id": "evt-<id>",
+  "failure_fingerprint": "sha256:<digest>",
+  "cycle": 2
+}
+```
+
+Loop rules:
+
+- Default to three experiment cycles, configurable within bounded policy.
+- Reject an identical experiment against the same unchanged failure
+  fingerprint.
+- Record strengthened, eliminated, unchanged, regressed, and new-drift states.
+- Update Context Continuity after inconclusive or failed experiments.
+- On cycle exhaustion, enter Recovery/Replan while preserving the reproduction
+  contract, evidence, eliminated hypotheses, and prior mistakes.
+- Never let a hypothesis silently redefine expected behavior.
+
+Likely files:
+
+- `scripts/debug-hypothesis.py`
+- `scripts/execution-evidence.py`
+- `scripts/context-continuity.py`
+- `scripts/execution-failure.py`
+- `scripts/harness-checkpoint.py`
+- `scripts/workflow_runtime/correction.py`
+
+Completion proof:
+
+- Every outcome points to a real saved execution event.
+- Duplicate loops are prevented deterministically.
+- Replan resumes the same investigation rather than erasing history.
+
+DI-6 upgrades the original local hypothesis prototype without creating another
+debug engine. The canonical experiment record now carries the reproduction's
+stable `requirement_uid` and sanitized failure fingerprint, a discriminating
+`expected_signal`, the exact Execution Evidence fingerprint, and the active
+cycle number. The default budget is three experiments per cycle. The old
+`inconclusive` input remains a compatibility alias but is persisted as the
+more precise `unchanged` state.
+
+```mermaid
+flowchart TB
+    H["Ranked open hypothesis"] --> E["One deterministic experiment"]
+    E --> V{"Real requirement-linked\nExecution Evidence?"}
+    V -->|No| X["Reject record"]
+    V -->|Yes| D{"Same action + expected signal +\nunchanged failure fingerprint?"}
+    D -->|Yes| X
+    D -->|No| O["Record strengthened / eliminated /\nunchanged / regressed / new-drift"]
+    O --> C{"Cycle budget exhausted?"}
+    C -->|No| H
+    C -->|Yes| R["Versioned Recovery/Replan packet"]
+    R --> P["Preserve reproduction, evidence,\neliminations, and prior mistakes"]
+    P --> A{"Explicit replan approval"}
+    A -->|Approved| N["Next cycle, same run and anchor"]
+```
+
+For `unchanged`, `regressed`, and `new-drift` outcomes, TailTrail also renders
+a bounded Context Continuity packet. Failure to render that supporting packet
+is reported as unavailable and never changes the factual experiment outcome.
+On exhaustion, `recovery-replan-vN.json` retains all hypothesis states,
+experiment references, and failed/repeated approaches. Replan increments the
+cycle but does not delete the ledger, reset the approved reproduction, clear
+eliminated alternatives, or manufacture new evidence.
+
+Implemented files and surfaces:
+
+- `scripts/debug-hypothesis.py` — requirement/failure identity, precise
+  outcomes, duplicate fingerprints, continuity, three-cycle gate, and replan.
+- `schemas/hypothesis-ledger.schema.json` and
+  `schemas/debug-experiment.schema.json` — closed DI-6 contracts.
+- `scripts/mcp-server.py` — controlled experiment input includes an explicit
+  expected signal and all DI-6 outcome classes.
+- `tests/test_debug_hypothesis_integration.py` — duplicate, identity,
+  continuity, exhaustion, preservation, and same-run resume proof.
+
+#### Phase DI-7 — Correction-to-implementation bridge
+
+**Implementation status:** implemented.
+
+**Goal:** turn a proven cause into the smallest normal TailTrail implementation
+slice.
+
+A correction packet must contain:
+
+- the proven root cause and supporting/eliminating evidence;
+- affected requirement UID;
+- expected changed files and symbols;
+- preservation rules and architecture constraints;
+- focused validation tiers and behaviour scenarios;
+- rollback/recovery boundary; and
+- unresolved assumptions.
+
+Correction approval creates scoped implementation authority. It must not claim
+that implementation, tests, Harnesses, or closure have already happened.
+
+Likely files:
+
+- `scripts/debug-correction.py`
+- `scripts/requirement-impact-map.py`
+- `scripts/requirement-completion.py`
+- `scripts/workflow_runtime/task_scope.py`
+- `scripts/workflow_runtime/approvals.py`
+- `scripts/git-readiness.py`
+- `schemas/debug-correction-packet.schema.json`
+
+Completion proof:
+
+- Actual changed files are compared with the approved correction scope.
+- Unjustified expansion is recorded as drift.
+- Dependencies, recovery, publishing, and deployment retain separate authority.
+
+DI-7 replaces the prototype's sentence-only correction approval with a closed,
+fingerprinted implementation contract. A proposal is linked to the same run,
+workflow, requirement UID, failure fingerprint, proven hypothesis, supporting
+evidence, and eliminated alternatives. It carries approved file and symbol
+scope, preservation rules, architecture constraints, validation tiers,
+behaviour scenarios, Git readiness posture, and unresolved assumptions.
+
+```mermaid
+flowchart TB
+    P["D-06 proven cause"] --> C["DI-7 correction proposal"]
+    C --> G{"Paths + validation +\nassumptions resolved?"}
+    G -->|No| B["Blocked: no write authority"]
+    G -->|Yes| A{"Explicit correction approval"}
+    A --> D["Exact D-08 write_project approval"]
+    D --> H["Scoped implementation handoff"]
+    H --> E["Host records actual changed paths"]
+    E --> S{"Actual subset of approved scope?"}
+    S -->|Yes| V["Continue to source receipts and D-09 validation"]
+    S -->|No| R["Requirement-linked drift evidence\nthen correction/replan"]
+```
+
+Approval does not edit a file or imply that implementation occurred. The DWR
+approval ledger records only `d-08-correction-implementation`, action class
+`write_project`, and operation kind `fix-application` against the exact packet.
+It does not authorize a dependency, test/build, scanner, Git mutation,
+publishing, deployment, merge, or closure. Git readiness is read-only: a clean
+repository selects Mode A posture; otherwise the packet requires the existing
+task-scoped Mode B recovery boundary.
+
+After edits, `debug correction scope-check --changed ... --approved` compares
+actual paths with the immutable correction scope. Unexpected paths produce a
+requirement-linked `drift-finding`; an in-scope result produces a factual
+Harness receipt. Neither result edits, reverts, stages, or validates code.
+
+Implemented surfaces:
+
+- `scripts/debug-correction.py` — proposal, exact approval/handoff, recovery
+  posture, requirement impact map reuse, and scope/drift comparison.
+- `schemas/debug-correction-packet.schema.json` — closed DI-7 packet contract.
+- `scripts/mcp-server.py` — controlled proposal, approval, and scope-check
+  tools; none executes project work.
+- `tests/test_debug_correction_integration.py` — authority, schema, incomplete
+  scope, preservation boundary, and drift coverage.
+
+#### Phase DI-8 — Harness convergence
+
+**Implementation status:** implemented.
+
+**Goal:** use existing TailTrail Harnesses to judge the correction.
+
+| Trigger | Selected control |
+| --- | --- |
+| Every approved correction | Requirement Completion Harness |
+| Caller, layer, API, schema, or database impact | Architecture Fitness Harness |
+| User-visible journey or externally observable effect | Behaviour Harness |
+| Refactor, duplication, workaround, or scope growth | Maintainability Harness |
+| Unit/integration/contract/E2E proof | Evidence-Aware Testing |
+| Unexpected files, symbols, requirements, or behavior | Drift Control |
+| Repeated failure or inconclusive loop | Context Continuity Harness |
+| Unsafe rollback or overlapping work | Safe Git Recovery |
+
+The current string check for a `harness-result` containing `restored` must be
+replaced by typed, requirement-linked Harness assessments. Missing selected
+Harness evidence must remain `evidence-incomplete`.
+
+Likely files:
+
+- `scripts/harness-review.py`
+- `scripts/architecture-fitness.py`
+- `scripts/behavior-harness.py`
+- `scripts/maintainability-harness.py`
+- `scripts/testing-profile.py`
+- `scripts/closure-finalizer.py`
+
+Completion proof:
+
+- Debug confidence cannot advance from an arbitrary textual label.
+- Requirement and Harness statuses are visible per requirement ID.
+
+DI-8 adds one debug-specific convergence projection over existing Harness
+owners. It does not duplicate their analysis. Selection is deterministic:
+Requirement Completion, Evidence-Aware Testing, and Drift are always required;
+Architecture, Behaviour, Maintainability, Context Continuity, and Safe Git
+Recovery are selected from the approved correction's domain, scope, scenarios,
+intent, loop history, and recovery posture.
+
+```mermaid
+flowchart TB
+    C["Approved DI-7 correction"] --> S["Deterministic Harness selection"]
+    S --> R["Requirement Completion"]
+    S --> T["Evidence-Aware Testing"]
+    S --> D["Drift Control"]
+    S --> A["Architecture when applicable"]
+    S --> B["Behaviour when applicable"]
+    S --> M["Maintainability when applicable"]
+    S --> X["Continuity / Recovery when triggered"]
+    R & T & D & A & B & M & X --> G{"Every selected typed result passes?"}
+    G -->|No| E["evidence-incomplete\nlist exact missing control"]
+    G -->|Yes| P["per-requirement convergence pass"]
+```
+
+The finalizer runs only the existing deterministic local Architecture Fitness
+and Maintainability assessments. It consumes saved Execution Evidence,
+DI-7 scope checks, typed Behaviour assessments, Continuity state, and Recovery
+Boundary artifacts. It never runs a project command or invents a behaviour
+scenario. A plain `harness-result` string containing words such as `restored`
+is ignored for Behaviour confidence.
+
+The convergence artifact exposes `selected_controls`, `control_results`, and
+`requirement_results`. Missing evidence remains `required-evidence-missing`;
+unexpected scope remains `drift-unresolved`; overall state stays
+`evidence-incomplete`. Debug completion now requires this typed convergence and
+a requirement-linked Behaviour pass before reaching `behavior-restored`.
+
+Implemented surfaces:
+
+- `scripts/debug-harness-convergence.py` — selection, typed evidence
+  convergence, per-requirement results, and bounded next action.
+- `schemas/debug-harness-convergence.schema.json` — closed DI-8 contract.
+- `scripts/debug-completion.py` — consumes convergence instead of textual
+  `restored` matching.
+- CLI `debug convergence select|finalize|show` and corresponding read-only /
+  approval-gated MCP tools.
+- `tests/test_debug_correction_integration.py` and `test_debug_harness.py` —
+  arbitrary-text rejection, incomplete evidence, typed behaviour, and complete
+  convergence coverage.
+
+#### Phase DI-9 — Canonical closure and Completion Report
+
+**Status: implemented (2026-08-30).**
+
+**Goal:** remove parallel closure authority.
+
+`tailtrail closure finalize` must consume the debug intake, reproduction,
+hypotheses, experiments, correction, changed scope, Harness results, drift,
+failures, and token posture. `debug-completion.py` becomes a debug-section
+producer, not the final delivery authority.
+
+The unified report must show:
+
+| Debug control | Example status | Required evidence |
+| --- | --- | --- |
+| Symptom captured | pass | intake + sanitized fingerprint |
+| Reproduction | pass | approved reproduction revision |
+| Root cause | proven | supported hypothesis + eliminated competitor |
+| Correction | implemented | approved scope + source-edit receipts |
+| Regression | pass | requirement-linked computational receipts |
+| Behaviour restored | pass | typed Behaviour Harness result |
+| Drift | none unresolved | final checkpoint |
+
+It must also retain normal TailTrail requirement completion, architecture,
+maintainability, recovery, token, learning, acceptance, and evidence-boundary
+sections.
+
+Likely files:
+
+- `scripts/debug-completion.py`
+- `scripts/closure-finalizer.py`
+- `scripts/completion-report.py`
+- `scripts/closure-recorder.py`
+- completion schemas and tests
+
+Completion proof:
+
+- One canonical overall result exists.
+- Incomplete evidence routes to correction/replan instead of acceptance.
+- Debug confidence and delivery completion remain distinct fields.
+
+Implemented design:
+
+```mermaid
+flowchart LR
+    A["Debug intake + approved reproduction"] --> B["Hypothesis / experiment ledger"]
+    B --> C["Approved correction + source receipts"]
+    C --> D["DI-8 typed Harness convergence"]
+    D --> E["debug-completion.py<br/>section-only producer"]
+    E --> F["closure finalize<br/>single finalizer authority"]
+    F --> G["Canonical Completion Report"]
+    G --> H{"All delivery and debug evidence complete?"}
+    H -->|Yes| I["Normal acceptance choices"]
+    H -->|No| J["Correction / replan handoff"]
+```
+
+`scripts/debug-completion.py` now writes
+`debug/completion/debug-closure-section-v1.json`. It reports domain-capped
+debug confidence, evidence gaps, eliminated competitors, and the seven typed
+debug controls. It deliberately has `authority: section-only` and contains no
+acceptance state. This prevents a proven diagnosis from being confused with a
+fully delivered, tested, drift-free correction.
+
+`scripts/closure-finalizer.py` detects a Debug run from its saved intake,
+generates that section before building the normal report, and includes the
+DI-8 convergence fingerprint in finalizer identity so new convergence evidence
+cannot accidentally reuse a stale closure. `scripts/completion-report.py`
+then embeds the section, renders its control table, and requires
+`debug_status: pass` in addition to the existing requirements, scope, tests,
+architecture, behaviour, drift, failures, and canonical-state checks.
+
+Fail-closed example:
+
+```text
+Root cause: proven
+Correction: implemented
+Regression: pass
+Behaviour restored: required-evidence-missing
+
+Debug confidence: regression-validated
+Canonical overall: evidence-incomplete
+Next authority: correction/replan; acceptance is not offered
+```
+
+Implemented files:
+
+- `scripts/debug-completion.py` — non-authoritative debug section producer.
+- `scripts/closure-finalizer.py` — automatic debug-section convergence before
+  the canonical report.
+- `scripts/completion-report.py` — unified debug table and single overall
+  delivery result.
+- `schemas/debug-completion-report.schema.json` — section-only contract.
+- `schemas/completion-report.schema.json` and
+  `schemas/closure-finalizer.schema.json` — canonical integration contracts.
+- `tests/test_debug_harness.py` plus canonical closure suites — confidence,
+  authority separation, and closure regression coverage.
+
+#### Phase DI-10 — Token, privacy, continuity, and learning
+
+**Status: implemented (2026-08-31).**
+
+**Goal:** make long investigations bounded, safe, and useful to future runs.
+
+Exactness classes:
+
+| Content | Handling |
+| --- | --- |
+| Failing stack frame, command, code, diff, config, IDs | `must-be-exact` |
+| Repeated surrounding log noise | reducer allowed with retrieval pointer |
+| Unknown or security-sensitive content | exact local evidence; never summarized into learning |
+| Token savings | estimated unless linked provider telemetry exists |
+
+Privacy controls must sanitize secrets, credentials, authorization headers,
+PII, and unsafe payloads before creating portable fingerprints or learning
+candidates. Exact local diagnostic evidence and the sanitized signature must be
+separate artifacts.
+
+Only a trusted accepted closure may create a candidate-only learning record.
+It may store a sanitized failure pattern, proven cause class, validation tiers,
+acceptance source, and confidence. Raw prompts, logs, source, customer data,
+repository identity, and credentials must never enter curated learning.
+
+Likely files:
+
+- `scripts/debug-intake.py`
+- `scripts/token-harness.py`
+- `scripts/token-harness-ledger.py`
+- `scripts/context-continuity.py`
+- `scripts/closure-learning.py`
+- `scripts/learning-agent.py`
+- `LEARNING-GOVERNANCE.md`
+
+Completion proof:
+
+- Repeated evidence is deduplicated without losing exact retrieval.
+- Actual token usage is shown only when telemetry is linked to the run.
+- Debug learning remains candidate-only until normal governance promotion.
+
+Implemented design:
+
+```mermaid
+flowchart LR
+    A["Exact run-local intake"] --> B["Privacy classification"]
+    B --> C["Portable fingerprint<br/>hashes + categories only"]
+    A --> D["Exactness-aware token posture"]
+    E["Evidence-linked experiments"] --> F["Fingerprint deduplication"]
+    F --> G["Context Continuity + do-not-repeat set"]
+    C --> H["DI-10 governance receipt"]
+    D --> H
+    G --> H
+    H --> I["DI-9 Debug closure section"]
+    I --> J["Canonical accepted closure"]
+    J --> K["Sanitized candidate-only learning"]
+    K --> L["Existing explicit learning review"]
+```
+
+Privacy is a two-artifact contract. Exact symptom, supplied command, and error
+stay in `debug/intake/debug-intake-v1.json`, marked
+`local-sensitive-exact` and non-portable. The portable failure fingerprint
+contains the symptom hash, hashes of non-empty stack lines, entry-point
+metadata, and detected sensitivity categories. It contains no raw stack line,
+secret, email, prompt, command, or symptom value.
+
+`scripts/debug-governance.py` writes
+`debug/governance/governance-v1.json` and can be inspected with:
+
+```bash
+tailtrail debug governance build --root . --run-id <run-id>
+tailtrail debug governance show --root . --run-id <run-id>
+```
+
+| Area | Saved result | Authority boundary |
+| --- | --- | --- |
+| Privacy | categories, exact local references, sanitized fingerprint reference | never copies exact values |
+| Tokens | byte-derived estimate, exactness classes, linked measured telemetry when present | estimate never becomes measured |
+| Continuity | unique experiment fingerprints, eliminated hypothesis IDs, continuity/replan references | metadata only; no source or command execution |
+| Learning | allowed/forbidden field contract and candidate-only rule | canonical accepted closure remains mandatory |
+
+Repeated experiments continue to be rejected against the unchanged failure
+fingerprint. DI-10 exposes that history as a compact do-not-repeat set while
+retaining exact retrieval references to the local experiment stream. Failed,
+unchanged, regressed, and new-drift outcomes still invoke existing Context
+Continuity; the three-cycle Recovery/Replan history is not cleared.
+
+At closure, `debug-completion.py` refreshes and embeds the governance receipt.
+Actual token usage remains `unavailable` unless `.tailtrail/token-usage.jsonl`
+contains provider/host telemetry whose `task_id` exactly equals the run ID.
+No monetary cost is calculated and no estimated saving is presented as exact.
+
+After canonical acceptance, the existing `closure-learning.py` path may add a
+Debug profile to the normal positive-learning candidate. It is limited to the
+sanitized failure fingerprint, proven cause domain, domain-capped confidence,
+validation tiers, and acceptance source. It remains candidate-only and cannot
+alter future behavior until explicit Learning Governance review promotes it.
+
+Implemented files:
+
+- `scripts/debug-privacy.py` and `scripts/debug-governance.py`.
+- Automatic refreshes in Debug intake, experiment, and closure paths.
+- Accepted sanitized candidate integration in `scripts/closure-learning.py`.
+- `schemas/debug-governance.schema.json`, updated Debug schemas, CLI/install/
+  registry surfaces, and `tests/test_debug_governance.py`.
+
+#### Phase DI-11 — Complete MCP and host integration
+
+**Status:** implemented on 2026-08-31. DI-12 measured runtime conformance and
+release evaluation remain separate; DI-11 does not promote the feature from
+prototype to released/integrated status by itself.
+
+**Goal:** expose one equivalent lifecycle across Codex, Copilot, and Claude.
+
+Required MCP coverage:
+
+- Start and intake inspection;
+- reproduction draft/show/revise/approve;
+- project orientation show;
+- hypothesis add/show/reprioritize;
+- experiment propose/record;
+- root-cause proof;
+- correction propose/show/approve;
+- workflow current/resume/replay;
+- closure finalize and unified report show.
+
+Controlled MCP operations record authority and supplied truthful receipts;
+they do not secretly execute project commands. CLI and MCP artifacts must be
+schema-equivalent and linked to the same run/workflow/requirement IDs.
+
+Likely files:
+
+- `scripts/mcp-server.py`
+- `MCP-SERVER.md`
+- `AGENTS.md`, `CLAUDE.md`, Copilot instructions, and generated adapters
+- `scripts/install-copilot.py`
+- `scripts/install_surfaces.py`
+- MCP and host-conformance tests
+
+Completion proof:
+
+- Every supported host renders the same Debug Start/approval/closure contract.
+- Installation and update packs contain every required script, schema, skill,
+  instruction, and registry entry.
+
+Implementation delivered:
+
+- Completed the read-only MCP view with intake, reproduction, orientation,
+  hypothesis ledger, correction, governance, convergence, Debug section, the
+  shared DWR `workflow_current`/`workflow_resume`/`workflow_replay` tools, and
+  the canonical `completion_report_show` surface.
+- Completed the controlled MCP lifecycle with reproduction revision,
+  hypothesis add/reprioritize, experiment propose/record, root-cause proof,
+  correction proposal/approval/scope comparison, Harness convergence, and
+  canonical closure finalization. Every controlled tool requires
+  `approved: true`.
+- Added versioned `tailtrail-debug-experiment-proposal` and
+  `tailtrail-debug-hypothesis-ranking` artifacts. A proposal records an action
+  and discriminating signal but never executes it; a ranking must name every
+  open hypothesis exactly once and preserves the previous order.
+- `debug_closure_finalize` delegates to the existing Closure Finalizer. It
+  gathers saved evidence and emits the unified report reference; it does not
+  run project commands or record acceptance.
+- Codex (`AGENTS.md`), Copilot, and Claude now carry an identical marked host
+  contract. The precedence is host safety, explicit user request, approved
+  reproduction/correction authority, then TailTrail evidence/closure rules.
+- Extended installation/update packs already copy the complete `schemas/`
+  directory and all Debug scripts. Registry projection now includes every
+  DI-11 tool and both new schemas, so installed MCP discovery matches source.
+
+```mermaid
+flowchart LR
+    H["Codex / Copilot / Claude"] --> S["Debug Start + same run ID"]
+    S --> R["Reproduction revise / approve"]
+    R --> W["Shared DWR current / resume / replay"]
+    W --> O["Orientation + hypotheses + ranking"]
+    O --> P["Experiment proposal"]
+    P --> X["Host executes separately approved probe"]
+    X --> E["Factual evidence + outcome"]
+    E --> C["Root cause + bounded correction"]
+    C --> V["Scope + Harness convergence"]
+    V --> F["Canonical closure finalize"]
+    F --> U["Unified Completion Report"]
+```
+
+The MCP/host equivalence tests verify that controlled tools are approval-gated,
+the three primary hosts publish the same marked contract, schemas validate the
+new artifacts, and registry/MCP ordering remains exact. These tests are local
+conformance evidence, not proof of real hosted runtime behavior; that proof is
+owned by DI-12.
+
+#### Phase DI-12 — Evaluation, governance, and release
+
+**Status:** implementation complete on 2026-08-31; release gate currently
+blocked until genuine Codex, Copilot, and Claude runtime receipts are linked to
+accepted, evidence-complete Debug vertical runs.
+
+**Goal:** prove that the integrated feature works and does not overclaim.
+
+Minimum deterministic scenarios:
+
+1. code-level reproducible defect;
+2. missed service caller or wrong-layer cause;
+3. database transaction failure;
+4. API contract mismatch;
+5. repeated inconclusive experiment;
+6. correction introduces scope drift;
+7. regression test passes but the user journey remains broken;
+8. sensitive data appears in a supplied error log;
+9. debug run pauses and resumes after interruption;
+10. an approved build run receives an in-scope post-implementation failure.
+
+Measure reproduction success, proven-cause rate, false hypothesis rate,
+correction cycles, duplicate experiment prevention, unresolved drift, false
+debug routing, review time, evidence completeness, and token-estimate
+calibration. Do not publish quality, time, or token-saving claims without
+measured artifacts.
+
+The registry status may move from `prototype-implemented` to `integrated` only
+after the full vertical scenario passes through Navigator, Planning Lock, DWR,
+correction implementation, selected Harnesses, canonical closure, and
+acceptance on the supported host matrix.
+
+Implementation delivered:
+
+- Added `benchmarks/debug-harness/scenarios-v1.json` with the exact ten
+  deterministic scenarios named above. Each fixture declares observable
+  control outcomes rather than raw prompts, source, logs, secrets, or model
+  transcripts.
+- Added `scripts/debug-evaluation.py` with `catalog`, `run`, `report`, and
+  `release-gate`. Preview evaluation is read-only; saving a report requires
+  `--approved`.
+- Added deterministic metrics for reproduction, proven cause, false
+  hypotheses, correction cycles, duplicate-probe prevention, unresolved
+  drift, false Debug routing, fixture review duration, evidence completeness,
+  and token-estimate calibration.
+- Token calibration remains `unavailable` when no exact paired model telemetry
+  exists. Fixture review duration is explicitly not represented as measured
+  developer-time savings.
+- Added a sensitive-log negative scenario which fails if any sensitive value
+  is retained. The evaluation contract stores only the count `0`; it does not
+  contain example credentials or raw error content.
+- Reused `host-runtime-conformance.py` for real-host identity and receipt
+  validation. The Debug release gate then adds a stronger vertical probe: each
+  host needs a passed receipt linked to a run with an approved reproduction,
+  project orientation, proven root cause, approved correction, passing Harness
+  convergence, complete canonical report, and explicit acceptance.
+- Added read-only MCP `debug_evaluation_report` and `debug_release_gate`, plus
+  approval-gated `debug_evaluation_run`. None makes model calls, network calls,
+  or project-command executions.
+- Added schemas for the deterministic report and release gate, registry and
+  Extended installer coverage, and focused governance/release tests.
+
+```mermaid
+flowchart TB
+    F["10 committed deterministic scenarios"] --> E["Debug evaluation report"]
+    E --> M["Calibrated local metrics"]
+    H["Existing host runtime validator"] --> C["Codex / Copilot / Claude receipts"]
+    C --> V["Accepted complete Debug vertical-run probes"]
+    M --> G{"Fail-closed release gate"}
+    V --> G
+    G -->|Missing or failed evidence| B["blocked; remain prototype-implemented"]
+    G -->|All genuine evidence passes| P["eligible for reviewed registry promotion"]
+```
+
+Passing local scenarios therefore means the deterministic controls behave as
+specified. It does not mean TailTrail improved agent quality, reduced review
+time, saved tokens, or works on a hosted product. Those claims require measured
+external evidence and remain prohibited until supplied.
+
+### 21.5 Recommended delivery order and release gates
+
+```text
+DI-0 Contract
+  -> DI-1 Navigator
+  -> DI-2 Debug Start Plan
+  -> DI-3 Reproduction approval
+  -> DI-4 DWR workflow
+  -> DI-5 Project orientation
+  -> DI-6 Hypothesis loop
+  -> DI-7 Correction handoff
+  -> DI-8 Harness convergence
+  -> DI-9 Canonical closure
+  -> DI-10 Token/privacy/learning
+  -> DI-11 MCP/hosts
+  -> DI-12 Evaluation/release
+```
+
+DI-0 through DI-10 produce the evidence-converged, privacy-bounded native local
+implementation slice. DI-11 and DI-12 make it host-portable, measured, and
+releasable rather than functional on one local CLI path only.
 
 ---
 

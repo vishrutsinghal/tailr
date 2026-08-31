@@ -30,6 +30,8 @@ def load(name: str, filename: str) -> Any:
 L = load("debug_intake_ledger", "run-ledger.py")
 GRAPH = load("debug_intake_graph", "code-graph-mapper.py")
 PLANNING = load("debug_intake_planning", "planning-lock.py")
+PRIVACY = load("debug_intake_privacy", "debug-privacy.py")
+GOVERNANCE = load("debug_intake_governance", "debug-governance.py")
 
 
 def debug_dir(root: Path, run_id: str) -> Path:
@@ -104,6 +106,7 @@ def open_intake(root: Path, run_id: str | None, symptom: str, error_text: str | 
     graph = code_graph_evidence(root)
     candidate_domains = classify_domains(symptom, error_text or "", graph)
     not_investigated = sorted(ALL_DOMAINS - SUPPORTED_DOMAINS)
+    privacy = PRIVACY.inspect({"reported_symptom": symptom, "attached_error": error_text, "attached_command": command_text})
     intake = {
         "schema_version": "1",
         "type": "tailtrail-debug-intake",
@@ -119,12 +122,17 @@ def open_intake(root: Path, run_id: str | None, symptom: str, error_text: str | 
         "domains_eliminated": [],
         "domains_not_investigated": not_investigated,
         "created_at": L.utc_now(),
+        "privacy": privacy,
+        "evidence_class": "local-sensitive-exact",
+        "portable": False,
     }
     L.atomic_json(intake_path(root, run_id), intake)
     symptom_hash = hashlib.sha256(symptom.encode("utf-8")).hexdigest()
-    stack_signature = [line.strip() for line in (error_text or "").splitlines() if line.strip()][:10]
+    stack_signature = PRIVACY.hashed_lines(error_text)
     entry_point = graph["likely_path"][0] if graph["likely_path"] else None
-    fingerprint = hashlib.sha256(canonical({"run_id": run_id, "symptom_hash": symptom_hash, "stack_signature": stack_signature, "entry_point": entry_point}).encode("utf-8")).hexdigest()
+    # Deliberately exclude run_id: the sanitized identity must match the same
+    # failure across runs while every artifact still carries its owning run.
+    fingerprint = hashlib.sha256(canonical({"symptom_hash": symptom_hash, "stack_signature_hashes": stack_signature, "entry_point": entry_point}).encode("utf-8")).hexdigest()
     fingerprint_record = {
         "schema_version": "1",
         "type": "tailtrail-failure-fingerprint",
@@ -132,17 +140,21 @@ def open_intake(root: Path, run_id: str | None, symptom: str, error_text: str | 
         "domain": candidate_domains[0] if candidate_domains else "unknown",
         "fingerprint": fingerprint,
         "symptom_hash": symptom_hash,
-        "stack_signature": stack_signature,
+        "stack_signature_hashes": stack_signature,
         "entry_point": entry_point,
         "first_seen_at": L.utc_now(),
         "matched_learning_ids": [],
+        "portable": True,
+        "privacy": {"status": "sanitized", "raw_values": False, "detected_categories": privacy["categories"]},
     }
     L.atomic_json(fingerprint_path(root, run_id), fingerprint_record)
     L.append_event(root, run_id, "debug_intake_recorded", {"fingerprint": fingerprint, "candidate_domains": candidate_domains, "code_graph_available": graph["available"]})
+    governance = GOVERNANCE.build(root, run_id)
     return {
         "intake": intake,
         "fingerprint": fingerprint_record,
         "code_graph_note": graph["reason"],
+        "governance": governance,
         "next_investigation": "Approve a reproduction contract before any code changes (tailtrail debug reproduction draft/approve).",
     }
 

@@ -354,9 +354,14 @@ PACK_SCRIPTS = [
     "scripts/workflow-dashboard.py",
     "scripts/debug-intake.py",
     "scripts/debug-reproduction.py",
+    "scripts/debug-orientation.py",
     "scripts/debug-hypothesis.py",
     "scripts/debug-correction.py",
+    "scripts/debug-harness-convergence.py",
     "scripts/debug-completion.py",
+    "scripts/debug-privacy.py",
+    "scripts/debug-governance.py",
+    "scripts/debug-evaluation.py",
 ]
 
 MANIFEST_NAME = ".tailtrail-install.json"

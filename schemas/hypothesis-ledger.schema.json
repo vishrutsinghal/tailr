@@ -2,14 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TailTrail Debug Hypothesis Ledger",
   "type": "object",
-  "required": ["schema_version", "type", "run_id", "hypotheses", "sequence"],
+  "required": ["schema_version", "type", "run_id", "requirement_uid", "failure_fingerprint", "cycle_limit", "cycle", "experiments_since_reset", "investigation_blocked", "recovery_replan_ref", "hypotheses", "sequence"],
   "properties": {
     "schema_version": {"const": "1"},
     "type": {"const": "tailtrail-hypothesis-ledger"},
     "run_id": {"type": "string", "minLength": 1},
+    "requirement_uid": {"type": ["string", "null"]},
+    "failure_fingerprint": {"type": ["string", "null"]},
     "cycle_limit": {"type": "integer", "minimum": 1},
+    "cycle": {"type": "integer", "minimum": 1},
     "experiments_since_reset": {"type": "integer", "minimum": 0},
     "investigation_blocked": {"type": "boolean"},
+    "recovery_replan_ref": {"type": ["string", "null"]},
     "hypotheses": {
       "type": "array",
       "items": {

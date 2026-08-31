@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from workflow_runtime import approvals, capabilities, evidence, ownership, storage, task_scope, transitions
+from workflow_runtime import approvals, capabilities, compiler, evidence, ownership, storage, task_scope, transitions
 
 
 LEDGER = ownership.LEDGER
@@ -115,6 +115,8 @@ def show(root: Path, workflow_id: str) -> dict[str, Any]:
     current_stage = projection.get("current_stage_id")
     current_stage = current_stage or next((stage_id for stage_id, row in stage_states.items() if row.get("status") in {"ready", "running", "stale", "blocked"}), None)
     current_stage = current_stage or next((stage_id for stage_id, row in stage_states.items() if row.get("status") == "pending"), "not-executing")
+    compiled, _compiled_issue = _optional(lambda: compiler.show(root, workflow_id))
+    display_names = {str(row["stage_id"]): str(row.get("display_name", row["stage_id"])) for row in (compiled or {}).get("stages", [])}
     return {
         "type": "tailtrail-workflow-state-view", "workflow_id": workflow_id,
         "tailtrail_run_id": binding["tailtrail_run_id"], "status": status,
@@ -122,7 +124,7 @@ def show(root: Path, workflow_id: str) -> dict[str, Any]:
         "canonical_run": {"planning_lock_ref": binding["planning_lock_ref"], "approved_anchor_ref": binding["approved_anchor_ref"], "requirement_matrix_ref": binding["requirement_matrix_ref"]},
         "requirements": [{"requirement_uid": row.get("requirement_uid"), "statement": row.get("statement", "")} for row in requirements],
         "current_requirement": {"requirement_uid": current.get("requirement_uid"), "statement": current.get("statement", "")} if current else None,
-        "current_stage": current_stage, "stage_states": stage_states,
+        "current_stage": current_stage, "current_stage_display": display_names.get(current_stage, current_stage), "stage_states": stage_states,
         "parent_workflow_id": projection.get("parent_workflow_id"),
         "successor_workflow_id": projection.get("successor_workflow_id"),
         "evidence_refs": (evidence_state or {}).get("artifact_refs", projection.get("artifact_refs", {})),

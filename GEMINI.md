@@ -80,6 +80,8 @@ For a reported symptom, failing test, or bug report (not a build requirement), u
 
 The workflow is intake -> reproduction contract -> hypothesis ledger -> bounded experiments -> root-cause proof -> correction -> completion report. Never skip an approval turn: show the drafted reproduction contract and stop; only a separate, explicit user approval message may trigger `debug reproduction approve`. The same boundary applies before `debug correction approve`. Every experiment must reference a real, already-recorded `execution-evidence` event; a hypothesis is proven only once it has real supporting evidence and a competing hypothesis has actually been eliminated. "Tests pass" is never treated as "root cause proven." See `DEBUG-HARNESS.md` for the complete design and domain-ceiling model (Code/Architecture/Database/API-integration only; Cloud/Security/Network stay out of scope).
 
+For canonical Debug Start, plan approval creates only a versioned reproduction proposal and keeps managed writes blocked. Approve only the exact current revision after all fields are resolved. The resulting handoff is investigation-only: source edits and correction implementation remain blocked until root cause is proven and correction is separately approved.
+
 ## Guardrails
 
 Use only relevant sections from `GUARDRAILS.md` and only the relevant layer from `context/guardrail-layers.md`. Preserve exact code, diffs, configs, commands, dependency versions, IDs, paths, hashes, security rules, policy text, and logs being debugged. For non-trivial work, include evidence, assumptions, skipped areas, and residual risk.

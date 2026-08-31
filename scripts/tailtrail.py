@@ -15,6 +15,7 @@ if SCRIPTS.as_posix() not in sys.path:
     sys.path.insert(0, SCRIPTS.as_posix())
 
 from install_surfaces import CORE_CONTEXT, CORE_FILES, CORE_SCRIPTS, CORE_TEMPLATES
+import navigator_core
 
 PYTHON = sys.executable
 
@@ -533,31 +534,16 @@ def print_start_overview() -> None:
     print("the normal build workflow. Force one or the other with --debug / --build.")
 
 
-DEBUG_INTENT_PHRASES = (
-    "double charge", "double-charge", "charged twice", "charges twice",
-    "crashes when", "throws an exception", "raises an exception",
-    "fails when", "failing when", "intermittent failure", "returns the wrong",
-    "returns wrong", "produces the wrong", "unexpected result",
-    "reproduce:", "regression:", "bug:", "defect:", "stopped working",
-    "no longer works", "used to work",
-)
-
-
 def classify_start_intent(goal: str, args: list[str]) -> str:
-    """Best-effort, conservative classification of a `tailtrail start` goal as
-    a debug investigation vs. a normal build workflow. Ambiguous goals default
-    to build (unchanged behavior); only explicit flags or unambiguous
-    bug-report phrasing route to the Debug Harness (DEBUG-HARNESS.md Section 3)."""
-    if "--debug" in args:
-        return "debug"
-    if "--build" in args:
-        return "build"
-    if "--error" in args or "--command" in args:
-        return "debug"
-    lowered = goal.lower()
-    if any(phrase in lowered for phrase in DEBUG_INTENT_PHRASES):
-        return "debug"
-    return "build"
+    """Compatibility projection of Navigator's canonical typed decision."""
+    override = "debug" if "--debug" in args else "build" if "--build" in args else None
+    decision = navigator_core.classify_workflow_intent(
+        goal,
+        override=override,
+        has_error_artifact="--error" in args,
+        has_reproduction_command="--command" in args,
+    )
+    return "debug" if decision.workflow_type == "debug-investigation" else "build"
 
 
 def filter_debug_forward_args(args: list[str]) -> list[str]:
@@ -597,18 +583,17 @@ def start(args: list[str]) -> int:
         print_start_overview()
         return 0
     goal = next((value for value in args if not value.startswith("--")), "")
-    intent = classify_start_intent(goal, args)
     if not quiet_enabled(args) and not json_output_requested(args):
         print_startup_banner()
         # The delegated Start process writes directly to the same stream.
         # Flush first so redirected/Copilot/Codex output cannot place the
         # parent banner after the child report.
         sys.stdout.flush()
-    if intent == "debug":
-        print("Navigator: classified this goal as a debug investigation (not a build workflow).")
-        print("Routing to the Debug Harness. Re-run with --build to force the normal build workflow instead.")
-        return debug(filter_debug_forward_args(args))
-    return run_script("task-start.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
+    # Start always delegates to the canonical Planning Lock renderer. Navigator
+    # inside task-start owns build/debug classification; Debug Intake is a later
+    # approved transition, never a Start side effect.
+    forwarded = [item for item in args if item != "--quiet"]
+    return run_script("task-start.py", [*forwarded, "--command-prefix", invocation()])
 
 
 def doctor(args: list[str] | None = None) -> int:
@@ -784,18 +769,30 @@ def aidlc(args: list[str]) -> int:
 def debug(args: list[str]) -> int:
     if not args:
         print("Usage: tailtrail debug \"<symptom>\" [--error <file>] [--command \"<cmd>\"] [--run-id <id>] [--attach]")
-        print("       tailtrail debug reproduction draft|approve|reject|show ...")
-        print("       tailtrail debug hypothesis add|experiment|replan|prove|domain-status|show ...")
+        print("       tailtrail debug reproduction draft|revise|approve|reject|show ...")
+        print("       tailtrail debug orientation create|show ...")
+        print("       tailtrail debug hypothesis add|reprioritize|propose|experiment|replan|prove|domain-status|show ...")
         print("       tailtrail debug correction propose|approve|show ...")
-        print("       tailtrail debug completion-report generate|show ...")
+        print("       tailtrail debug convergence select|finalize|show ...")
+        print("       tailtrail debug governance build|show ...")
+        print("       tailtrail debug evaluation catalog|run|report|release-gate ...")
+        print("       tailtrail debug completion-report generate|show ...  # debug section; canonical closure remains authoritative")
         return 2
     action, rest = args[0], strip_wrapper_flags(args[1:])
     if action == "reproduction":
         return run_script("debug-reproduction.py", rest)
+    if action == "orientation":
+        return run_script("debug-orientation.py", rest)
     if action == "hypothesis":
         return run_script("debug-hypothesis.py", rest)
     if action == "correction":
         return run_script("debug-correction.py", rest)
+    if action == "convergence":
+        return run_script("debug-harness-convergence.py", rest)
+    if action == "governance":
+        return run_script("debug-governance.py", rest)
+    if action == "evaluation":
+        return run_script("debug-evaluation.py", rest)
     if action == "completion-report":
         return run_script("debug-completion.py", rest)
     if action in {"open", "show"}:

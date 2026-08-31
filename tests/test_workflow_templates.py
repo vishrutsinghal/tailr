@@ -16,9 +16,9 @@ FIXTURES = ROOT / "tests" / "fixtures" / "workflow_runtime" / "templates"
 
 
 class WorkflowTemplateTests(unittest.TestCase):
-    def test_six_fixtures_select_exact_deterministic_acyclic_graphs(self) -> None:
+    def test_fixtures_select_exact_deterministic_acyclic_graphs(self) -> None:
         files = sorted(FIXTURES.glob("*.json"))
-        self.assertEqual(len(files), 6)
+        self.assertEqual(len(files), 7)
         self.assertEqual({path.stem for path in files}, set(templates.TEMPLATES))
         for path in files:
             fixture = json.loads(path.read_text(encoding="utf-8"))

@@ -42,6 +42,43 @@ class TailTrailRegistryTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_debug_harness_status_separates_prototype_from_native_integration(self) -> None:
+        registry = self.load_registry()
+        feature = next(item for item in registry["features"] if item["id"] == "debug-harness")
+        contract = feature["integration_contract"]
+
+        self.assertEqual(feature["status"], "implemented")
+        self.assertEqual(contract["status"], "prototype-implemented")
+        self.assertTrue(contract["implemented_capabilities"])
+        self.assertTrue(contract["remaining_integration"])
+        self.assertTrue(any("native Navigator" in item for item in contract["implemented_capabilities"]))
+        self.assertTrue(any("canonical persisted Debug Start Plan" in item for item in contract["implemented_capabilities"]))
+        self.assertFalse(any("native Navigator workflow routing" == item for item in contract["remaining_integration"]))
+        self.assertFalse(any("canonical TailTrail Start Plan and Planning Lock" == item for item in contract["remaining_integration"]))
+        self.assertIn("cloud-infrastructure", contract["deferred_domains"])
+        self.assertIn("live-service debugging", contract["future_scope"])
+        self.assertEqual(
+            set(contract["canonical_owners"]),
+            {
+                "intent_and_routing",
+                "approved_investigation_boundary",
+                "lifecycle_state",
+                "execution_evidence",
+                "requirement_and_drift_status",
+                "delivery_closure",
+                "learning_and_evaluation",
+            },
+        )
+
+    def test_validator_rejects_incomplete_debug_integration_contract(self) -> None:
+        registry = self.load_registry()
+        feature = next(item for item in registry["features"] if item["id"] == "debug-harness")
+        del feature["integration_contract"]["canonical_owners"]["delivery_closure"]
+
+        issues = tailtrail_registry.validate_registry(registry)
+
+        self.assertTrue(any("canonical_owners must define exactly" in issue for issue in issues))
+
     def test_explicit_public_control_plane_commands_are_discoverable(self) -> None:
         commands = tailtrail_registry.discover_tailtrail_commands(ROOT)
 
