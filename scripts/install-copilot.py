@@ -67,6 +67,7 @@ PACK_FILES = [
     "README.md",
     "RELEASE-CHECKLIST.md",
     "release-build-lock.json",
+    "release-channel-v1.json",
     "ROADMAP.md",
     "SECURITY.md",
     "SUPPORT.md",
@@ -134,6 +135,8 @@ PACK_FILES = [
     "aidlc-docs/phase-pm-l4-requirements.md",
     "aidlc-docs/phase-pm-l5-design.md",
     "aidlc-docs/phase-pm-l5-requirements.md",
+    "aidlc-docs/phase-installation-experience-design.md",
+    "aidlc-docs/phase-installation-experience-requirements.md",
 ]
 
 PACK_DIRS = [
@@ -234,6 +237,7 @@ PACK_SCRIPTS = [
     "scripts/higher-tier-testing.py",
     "scripts/guardrail-check.py",
     "scripts/install-copilot.py",
+    "scripts/installation-qualification.py",
     "scripts/install-launcher.py",
     "scripts/install-local.py",
     "scripts/installer.py",
@@ -300,6 +304,8 @@ PACK_SCRIPTS = [
     "scripts/recovery-diagnostician.py",
     "scripts/release-confidence.py",
     "scripts/release-check.py",
+    "scripts/release-info.py",
+    "scripts/release-publication.py",
     "scripts/release_manifest.py",
     "scripts/route-context.py",
     "scripts/requirement_discovery.py",
@@ -375,6 +381,7 @@ PACK_SCRIPTS = [
     "scripts/token_telemetry.py",
     "scripts/token-savings.py",
     "scripts/update-copilot.py",
+    "scripts/upgrade-tailtrail.py",
     "scripts/team-init.py",
     "scripts/update-tailtrail.py",
     "scripts/validation-summary.py",

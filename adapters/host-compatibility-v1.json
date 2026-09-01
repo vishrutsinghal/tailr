@@ -29,6 +29,7 @@
       ],
       "composition_markers": {"AGENTS.md": ["TailTrail Project Guidance", "Current-turn Start boundary"], ".codex-plugin/plugin.json": ["\"name\": \"tailtrail\""], "skills/tailtrail-start/SKILL.md": ["TailTrail Start", "Approved-run closure"]},
       "first_action": {"surface": "Codex chat", "invocation": "tailtrail start \"<your task>\"", "result": "Return the complete persisted Start Report and stop before implementation."},
+      "reload": {"required": true, "after": ["install", "update", "repair", "upgrade"], "instruction": "Start a new Codex task after installation or update so AGENTS.md and TailTrail skills are reloaded.", "fallback": "If the new task still shows old guidance, close and reopen the project before starting another task."},
       "version_detection": {"kind": "command", "command": ["codex", "--version"], "qualified_versions": [], "limitation": "No Codex version is release-supported until E5 platform and E10 real-host matrices pass; detected versions are diagnostic metadata only."},
       "capabilities": {"instruction_loading": "host-assisted", "workflow_execution": "host-assisted", "policy_enforcement": "ci-authoritative", "global_settings": "approval-required", "network_activity": "approval-required", "account_changes": "approval-required"},
       "migration": {"strategy": "transactional-replace-owned-files", "compatible_from": ["v2", "v3"], "rollback": "E3 transaction backup"}
@@ -50,6 +51,7 @@
       ],
       "composition_markers": {".github/copilot-instructions.md": ["TailTrail For GitHub Copilot", "Current-turn Start boundary"], ".github/prompts/tailtrail-start.prompt.md": ["Planning Lock", "complete and only normal assistant response"]},
       "first_action": {"surface": "GitHub Copilot Chat", "invocation": "/tailtrail-start <your task>", "result": "Return the complete persisted Start Report; repository CI remains authoritative for enforceable policy."},
+      "reload": {"required": true, "after": ["install", "update", "repair", "upgrade"], "instruction": "Start a new GitHub Copilot Chat after installation or update so repository instructions and prompts are reloaded.", "fallback": "If Copilot still uses old instructions, reload the IDE window and start a new chat."},
       "version_detection": {"kind": "host-reported", "command": [], "qualified_versions": [], "limitation": "Copilot spans IDE and service versions, so the adapter never guesses a version. A real-run receipt must record the exact host-reported version."},
       "capabilities": {"instruction_loading": "host-assisted", "workflow_execution": "host-assisted", "policy_enforcement": "ci-authoritative", "global_settings": "approval-required", "network_activity": "approval-required", "account_changes": "approval-required"},
       "migration": {"strategy": "transactional-replace-owned-files", "compatible_from": ["v2", "v3"], "rollback": "E3 transaction backup"}
@@ -71,6 +73,7 @@
       ],
       "composition_markers": {"CLAUDE.md": ["TailTrail For Claude", "Current-turn Start boundary"], ".claude/commands/tailtrail-start.md": ["Planning Lock", "Copy the complete Start Report verbatim"]},
       "first_action": {"surface": "Claude Code", "invocation": "/tailtrail-start <your task>", "result": "Return the complete persisted Start Report and stop before implementation."},
+      "reload": {"required": true, "after": ["install", "update", "repair", "upgrade"], "instruction": "Exit the current Claude Code session and start a new session in this project after installation or update.", "fallback": "If the command or CLAUDE.md remains stale, restart Claude Code before opening the project again."},
       "version_detection": {"kind": "command", "command": ["claude", "--version"], "qualified_versions": [], "limitation": "No Claude Code version is release-supported until E5 platform and E10 real-host matrices pass; detected versions are diagnostic metadata only."},
       "capabilities": {"instruction_loading": "host-assisted", "workflow_execution": "host-assisted", "policy_enforcement": "ci-authoritative", "global_settings": "approval-required", "network_activity": "approval-required", "account_changes": "approval-required"},
       "migration": {"strategy": "transactional-replace-owned-files", "compatible_from": ["v2", "v3"], "rollback": "E3 transaction backup"}

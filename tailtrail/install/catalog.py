@@ -10,6 +10,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .. import __version__
 from ..hosts.contracts import HOSTS, core_files
 
 
@@ -34,6 +35,19 @@ def _safe_relative(value: str) -> str:
     return path.as_posix()
 
 
+def payload_version(root: Path) -> str:
+    path = root / "release-manifest.json"
+    if not path.is_file():
+        # Focused test/migration roots may override only the changed payload
+        # sources. They retain the running package version by contract.
+        return __version__
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    version = manifest.get("product", {}).get("version")
+    if not isinstance(version, str) or not version:
+        raise ValueError("release manifest does not contain a product version")
+    return version
+
+
 def payloads(host: str, profile: str, root: Path | None = None) -> tuple[Payload, ...]:
     if host not in HOSTS:
         raise ValueError(f"unsupported host: {host}")
@@ -47,7 +61,7 @@ def payloads(host: str, profile: str, root: Path | None = None) -> tuple[Payload
     }
     if profile == "extended":
         manifest = json.loads((root / "package-manifest.json").read_text(encoding="utf-8"))
-        prefix = Path(".tailtrail/install/payload") / host
+        prefix = Path(".tailtrail/install/payload/common") / payload_version(root)
         for relative in manifest["required_files"]:
             safe = _safe_relative(relative)
             selected[(prefix / safe).as_posix()] = root / safe
@@ -58,6 +72,7 @@ def payloads(host: str, profile: str, root: Path | None = None) -> tuple[Payload
                 if path.is_file() and "__pycache__" not in path.parts and path.suffix not in {".pyc", ".pyo"} and path.name != ".DS_Store":
                     relative = path.relative_to(root)
                     selected[(prefix / relative).as_posix()] = path
+        selected[(Path(".tailtrail/install/payload") / host / "scripts/tailtrail.py").as_posix()] = root / "tailtrail/install/host_launcher.py"
     missing = [path.as_posix() for path in selected.values() if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"installer payload is incomplete: {', '.join(missing)}")

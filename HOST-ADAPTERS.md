@@ -5,6 +5,10 @@ adapter contract over the E3 transactional installer. The machine-readable
 authority is `adapters/host-compatibility-v1.json`; its closed schema is
 `schemas/host-adapter-contract.schema.json`.
 
+Validation: `python3 scripts/tailtrail.py adapters conformance` checks the
+versioned local composition contract; real-host and support evidence remain the
+separate gates below.
+
 ## Qualification truth
 
 Each E4 adapter is `contract-tested`: local tests cover its exact Core files,
@@ -28,9 +32,14 @@ mean `runtime-observed` or `supported`.
 | GitHub Copilot | `.github/copilot-instructions.md`, `.github/prompts/tailtrail-start.prompt.md` | `/tailtrail-start <your task>` in Copilot Chat |
 | Claude | `CLAUDE.md`, `.claude/commands/tailtrail-start.md` | `/tailtrail-start <your task>` in Claude Code |
 
-Core is the default. Extended adds the complete managed TailTrail payload under
-`.tailtrail/install/payload/<host>/` without changing the host-native entry
-surface.
+Core is the default. Extended adds one complete versioned runtime under
+`.tailtrail/install/payload/common/<version>/` and a small compatible launcher
+under `.tailtrail/install/payload/<host>/` without changing the host-native
+entry surface.
+
+Every contract includes mandatory reload guidance. Codex starts a new task,
+Copilot starts a new chat, and Claude starts a new Code session; each contract
+also defines the stronger restart fallback when the first refresh is stale.
 
 ## Composition and enforcement
 
@@ -49,6 +58,7 @@ doctor; all remain separately approval-required.
 
 ```text
 tailtrail install --host <codex|copilot|claude> --profile core --target .
+tailtrail setup --host <codex|copilot|claude> --profile core --target .
 tailtrail verify --host <host> --target .
 tailtrail doctor --host <host> --target . --format json
 tailtrail update --host <host> --target .
@@ -72,6 +82,13 @@ tailtrail adapters runtime prepare --host <host> --root .
 Recording remains separate. Receipts contain sanitized observations and local
 artifact references; they cannot replace canonical state or turn missing,
 failed, stale, or incompatible evidence into success.
+
+`tailtrail qualify report` is the single support gate. It requires instruction
+conformance, six current real-host receipts for every selected host, the exact
+hosted OS/Python matrix report, and an observed identity-verified publication
+receipt. The aggregate verifies GitHub attestations for the report, wheel, and
+publication receipt. Any missing input is `evidence-incomplete` with a nonzero
+exit.
 
 ## E4/E5/E10 boundary
 

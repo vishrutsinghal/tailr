@@ -70,6 +70,15 @@ def _validate_entry(entry: dict[str, Any]) -> None:
     action = entry.get("first_action")
     if not isinstance(action, dict) or set(action) != {"surface", "invocation", "result"} or not all(isinstance(value, str) and value for value in action.values()):
         raise ValueError(f"{host}: first action is invalid")
+    reload = entry.get("reload")
+    if (
+        not isinstance(reload, dict)
+        or set(reload) != {"required", "after", "instruction", "fallback"}
+        or reload.get("required") is not True
+        or reload.get("after") != ["install", "update", "repair", "upgrade"]
+        or not all(isinstance(reload.get(key), str) and reload[key] for key in ("instruction", "fallback"))
+    ):
+        raise ValueError(f"{host}: reload guidance is invalid")
     detection = entry.get("version_detection")
     if not isinstance(detection, dict) or detection.get("kind") not in {"command", "host-reported"}:
         raise ValueError(f"{host}: version detection is invalid")
@@ -103,3 +112,7 @@ def core_files(host: str, root: Path | None = None) -> tuple[tuple[str, str], ..
 
 def first_action(host: str, root: Path | None = None) -> dict[str, str]:
     return dict(contract(host, root)["first_action"])
+
+
+def reload_guidance(host: str, root: Path | None = None) -> dict[str, Any]:
+    return dict(contract(host, root)["reload"])

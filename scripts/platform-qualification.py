@@ -67,26 +67,26 @@ def lifecycle(executable: Path, sandbox: Path, route: str, checks: dict[str, str
         target.mkdir(parents=True)
         sentinel = target / "user-crlf.txt"
         sentinel.write_bytes(b"alpha\r\nbeta\r\n")
-        install = json.loads(run([str(executable), "install", "--host", host, "--profile", "core", "--target", str(target), "--format", "json"], cwd=sandbox).stdout)
+        install = json.loads(run([str(executable), "install", "--host", host, "--profile", "core", "--target", str(target), "--format", "json", "--compact"], cwd=sandbox).stdout)
         if not install.get("ok"):
             raise RuntimeError(f"{route}/{host} install failed: {install}")
         checks[f"{route}:{host}:install"] = "pass"
         checks[f"{route}:{host}:space-and-unicode-path"] = "pass"
         checks[f"{route}:{host}:line-ending-preservation"] = "pass" if sentinel.read_bytes() == b"alpha\r\nbeta\r\n" else "fail"
-        verify = json.loads(run([str(executable), "verify", "--host", host, "--target", str(target), "--format", "json"], cwd=sandbox).stdout)
+        verify = json.loads(run([str(executable), "verify", "--host", host, "--target", str(target), "--format", "json", "--compact"], cwd=sandbox).stdout)
         if not verify.get("ok"):
             raise RuntimeError(f"{route}/{host} verify failed: {verify}")
         checks[f"{route}:{host}:verify"] = "pass"
-        update = json.loads(run([str(executable), "update", "--host", host, "--profile", "extended", "--target", str(target), "--format", "json"], cwd=sandbox).stdout)
+        update = json.loads(run([str(executable), "update", "--host", host, "--profile", "extended", "--target", str(target), "--format", "json", "--compact"], cwd=sandbox).stdout)
         if not update.get("ok"):
             raise RuntimeError(f"{route}/{host} update failed: {update}")
         checks[f"{route}:{host}:update"] = "pass"
         if update.get("transaction_id"):
-            rollback = json.loads(run([str(executable), "rollback", "--to", str(update["transaction_id"]), "--target", str(target), "--format", "json"], cwd=sandbox).stdout)
+            rollback = json.loads(run([str(executable), "rollback", "--to", str(update["transaction_id"]), "--target", str(target), "--format", "json", "--compact"], cwd=sandbox).stdout)
             if not rollback.get("ok"):
                 raise RuntimeError(f"{route}/{host} rollback failed: {rollback}")
         checks[f"{route}:{host}:rollback"] = "pass"
-        uninstall = json.loads(run([str(executable), "uninstall", "--host", host, "--target", str(target), "--force", "--format", "json"], cwd=sandbox).stdout)
+        uninstall = json.loads(run([str(executable), "uninstall", "--host", host, "--target", str(target), "--force", "--format", "json", "--compact"], cwd=sandbox).stdout)
         if not uninstall.get("ok"):
             raise RuntimeError(f"{route}/{host} uninstall failed: {uninstall}")
         checks[f"{route}:{host}:uninstall"] = "pass"
@@ -192,7 +192,7 @@ def report(receipt_dir: Path, contract_path: Path, commit: str, wheel: Path, sdi
         for check in ("permission-model", "symlink-boundary"):
             if item.get("checks", {}).get(check) not in {"pass", "not-applicable"}:
                 issues.append(f"{label} missing platform boundary check {check}")
-    return {"schema_version": "1", "type": "tailtrail-platform-qualification-report", "commit": commit, "expected_cells": len(expected), "observed_cells": len(receipts), "valid": not issues, "issues": issues}
+    return {"schema_version": "1", "type": "tailtrail-platform-qualification-report", "commit": commit, "artifacts": {"wheel": {"filename": wheel.name, "sha256": wanted_hashes["wheel"]}, "sdist_to_wheel": {"filename": sdist_wheel.name, "sha256": wanted_hashes["sdist_to_wheel"]}}, "expected_cells": len(expected), "observed_cells": len(receipts), "valid": not issues, "issues": issues}
 
 
 def main() -> int:

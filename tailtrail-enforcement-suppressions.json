@@ -2,5 +2,86 @@
   "schema_version": "1",
   "type": "tailtrail-enforcement-suppressions",
   "policy_version": 1,
-  "suppressions": []
+  "suppressions": [
+    {
+      "fingerprint": "417a424414675f4bb109c2baa659cd25480ec7699f10fdffd2d55bc5fbf7f0d7",
+      "rule_id": "safeguard-preservation",
+      "path": "scripts/platform-qualification.py",
+      "owner": "tailtrail-release",
+      "reason": "Reviewed line replacement only adds compact JSON rendering; the rollback call, transaction ID, result parsing, and assertions remain present.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "263a2319b9bbf9b98cc994757636d52a1dca35c9dfe7a2fc07fed58d81ce89ea",
+      "rule_id": "safeguard-preservation",
+      "path": "scripts/release-check.py",
+      "owner": "tailtrail-release",
+      "reason": "The lexical signal is the log substring in CHANGELOG; the replacement only adds the new public workflow document to the same claim-audit tuple.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "ef65062ecd06446e79b33b71dcf503a3282cfc650739f9cd3ec5b9e65b722bf9",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/cli.py",
+      "owner": "tailtrail-install",
+      "reason": "The parser replacement adds setup and auto host selection while retaining rollback in the allowed lifecycle operation list.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "dc0fdd9191a7beb6004778447df97f39d4ab887dcc61bbb7ce00ef85e6e5ca9e",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/cli.py",
+      "owner": "tailtrail-install",
+      "reason": "The recover-result replacement preserves transaction metadata and adds package version plus compact result counts.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "0bec29ace109cca48682ddbd7d550d19b21d33921503eb9050062666619ee004",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/engine.py",
+      "owner": "tailtrail-install",
+      "reason": "The lexical signal is the log substring in catalog; the import replacement adds payload source helpers without removing logging.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "fec1dddef20c04f2803d5eb9e908eaae6f223bb2bcdcc552eed238924ff99e5e",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/engine.py",
+      "owner": "tailtrail-install",
+      "reason": "The result replacement changes version lookup to the selected payload version and preserves recovered transaction reporting.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "4611c18488cef3b644bb220d6c39b54a4d4aa3eb70793e684714f5a59e9dc16e",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/engine.py",
+      "owner": "tailtrail-install",
+      "reason": "The result replacement uses the selected payload version while preserving recovered transaction and deterministic plan fields.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "1aad2d89ce18d7fd37aa21b9bae8db3a6a42528d4b7f38ec4d1f9de89fb6909b",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/engine.py",
+      "owner": "tailtrail-install",
+      "reason": "The manifest replacement uses the selected payload version and preserves transaction ID, ownership, migrations, backups, and hashes.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "b354a512d253d5ccd12a0b5b66ddb83e4fae53a654e7010672bc7cc9ba12859c",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/engine.py",
+      "owner": "tailtrail-install",
+      "reason": "The rollback result replacement changes only package-version resolution and preserves the rollback operation and transaction ID.",
+      "expires": "2026-10-01"
+    },
+    {
+      "fingerprint": "0e47db1236e1b356b2a809a545adffccabe4b086df1e7b0cebedf9fca4cb6a3d",
+      "rule_id": "safeguard-preservation",
+      "path": "tailtrail/install/engine.py",
+      "owner": "tailtrail-install",
+      "reason": "The uninstall result replacement changes only package-version resolution and preserves recovered transaction reporting.",
+      "expires": "2026-10-01"
+    }
+  ]
 }

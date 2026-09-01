@@ -57,5 +57,26 @@ class InstallResult:
             self.status == "not-installed" and self.operation in {"status", "uninstall"}
         )
 
-    def as_dict(self) -> dict[str, Any]:
-        return {"schema_version": "1", "type": "tailtrail-install-result", "ok": self.ok, **asdict(self)}
+    def as_dict(self, *, details: bool = True) -> dict[str, Any]:
+        payload = {"schema_version": "1", "type": "tailtrail-install-result", "ok": self.ok, **asdict(self)}
+        payload["counts"] = {
+            "changed": len(self.changed),
+            "removed": len(self.removed),
+            "preserved": len(self.preserved),
+            "issues": len(self.issues),
+            "recovered_transactions": len(self.recovered_transactions),
+        }
+        if details:
+            payload["detail_level"] = "full"
+            return payload
+        plan = payload.pop("plan", None)
+        payload["plan_summary"] = None if not isinstance(plan, dict) else {
+            "plan_id": plan.get("plan_id"),
+            "entry_count": len(plan.get("entries", [])) if isinstance(plan.get("entries"), list) else 0,
+            "conflict_count": len(plan.get("conflicts", [])) if isinstance(plan.get("conflicts"), list) else 0,
+            "removal_count": len(plan.get("removals", [])) if isinstance(plan.get("removals"), list) else 0,
+        }
+        for key in ("changed", "removed", "preserved", "recovered_transactions"):
+            payload.pop(key, None)
+        payload["detail_level"] = "summary"
+        return payload

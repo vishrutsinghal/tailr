@@ -10,6 +10,12 @@ daily flow, [CHEATSHEET.md](CHEATSHEET.md) for a one-page command map, and
 update instructions are canonical in `INSTALL.md`; this document explains the
 advanced behavior after that setup is complete.
 
+For one visual map that connects every product layer—from trusted release and
+transactional host setup through Planning Lock, Durable Workflow Runtime,
+Harness convergence, Learning V3, enterprise operation, and release
+qualification—use
+[COMPLETE-END-TO-END-WORKFLOW.md](COMPLETE-END-TO-END-WORKFLOW.md).
+
 ## 1. Get TailTrail
 
 Clone the TailTrail repository, then follow [INSTALL.md](INSTALL.md). It is the
@@ -2969,6 +2975,11 @@ These are local/generated and should stay ignored:
 - `aidlc-rules/`
 
 ## 17. Recommended Daily Workflow
+
+The complete lifecycle, architecture diagrams, host-specific setup, enterprise
+path, and release-proof loop are in
+[COMPLETE-END-TO-END-WORKFLOW.md](COMPLETE-END-TO-END-WORKFLOW.md). The compact
+daily path is:
 
 1. Start with the assistant adapter for your tool.
 2. For small work, use TailTrail `steady` or `lean`.

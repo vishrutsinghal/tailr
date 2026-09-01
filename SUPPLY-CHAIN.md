@@ -45,6 +45,17 @@ Detached checksums detect changed bytes but do not establish publisher
 identity. Verify both the identity attestation and the checksum. Never treat a
 locally edited `release-evidence.json` as signed proof.
 
+The trusted discovery metadata is `release-channel-v1.json`; inspect it with
+`tailtrail release info`. A qualifying `v*` tag runs platform qualification,
+creates GitHub identity attestations, verifies tag/package version agreement,
+and publishes the already-built canonical wheel, sdist, checksums, SBOM, and
+release evidence to GitHub Releases. Publication never rebuilds an artifact.
+The workflow definition is not proof that a release ran; support aggregation
+requires a separate observed publication receipt.
+The hosted platform aggregate and the post-publication observation receipt are
+also identity-attested. `tailtrail qualify report` verifies those attestations
+and the canonical wheel before it can return `supported: true`.
+
 ## Platform receipts
 
 Each hosted runner installs the canonical wheel and the wheel built from the

@@ -7,6 +7,7 @@ CHANGELOG.md
 CHEATSHEET.md
 CLAUDE.md
 CODE_OF_CONDUCT.md
+COMPLETE-END-TO-END-WORKFLOW.md
 CONTRIBUTING.md
 DEMO.md
 DEPENDENCY-GATE.md
@@ -78,6 +79,7 @@ platform-release-contract.json
 program-delivery-harness.md
 pyproject.toml
 release-build-lock.json
+release-channel-v1.json
 release-manifest.json
 release-manifest.schema.json
 setup.py
@@ -141,6 +143,8 @@ aidlc-docs/phase-e5-design.md
 aidlc-docs/phase-e5-requirements.md
 aidlc-docs/phase-e6-design.md
 aidlc-docs/phase-e6-requirements.md
+aidlc-docs/phase-installation-experience-design.md
+aidlc-docs/phase-installation-experience-requirements.md
 aidlc-docs/phase-pm-7-design.md
 aidlc-docs/phase-pm-7-requirements.md
 aidlc-docs/phase-pm-l0-design.md
@@ -303,7 +307,9 @@ schemas/program-state.schema.json
 schemas/question-context.schema.json
 schemas/real-evaluation-portfolio.schema.json
 schemas/recovery-reconciliation.schema.json
+schemas/release-channel.schema.json
 schemas/release-evidence.schema.json
+schemas/release-publication-receipt.schema.json
 schemas/repository-enforcement-policy.schema.json
 schemas/repository-enforcement-report.schema.json
 schemas/repository-enforcement-suppression.schema.json
@@ -472,6 +478,7 @@ scripts/install-copilot.py
 scripts/install-launcher.py
 scripts/install-local.py
 scripts/install_surfaces.py
+scripts/installation-qualification.py
 scripts/installer.py
 scripts/learning-agent.py
 scripts/learning-calibration.py
@@ -528,6 +535,8 @@ scripts/recovery-reconcile.py
 scripts/registry-drift.py
 scripts/release-check.py
 scripts/release-confidence.py
+scripts/release-info.py
+scripts/release-publication.py
 scripts/release_manifest.py
 scripts/repository-enforcement.py
 scripts/requirement-completion.py
@@ -586,6 +595,7 @@ scripts/ui-consistency.py
 scripts/ui_planning.py
 scripts/update-copilot.py
 scripts/update-tailtrail.py
+scripts/upgrade-tailtrail.py
 scripts/validation-receipt.py
 scripts/validation-summary.py
 scripts/vulnerability-run.py
@@ -635,11 +645,13 @@ skills/tailtrail/SKILL.md
 skills/tailtrail-review/SKILL.md
 skills/tailtrail-start/SKILL.md
 tailtrail/__init__.py
+tailtrail/__main__.py
 tailtrail/api.py
 tailtrail/cli.py
 tailtrail/errors.py
 tailtrail/kernel.py
 tailtrail/resources.py
+tailtrail/upgrade.py
 tailtrail-meta/document-owners-v1.json
 tailtrail-meta/maintainability-inventory-v1.json
 tailtrail-meta/product-maturity-baseline-v1.json
@@ -657,6 +669,7 @@ tailtrail/install/__init__.py
 tailtrail/install/catalog.py
 tailtrail/install/cli.py
 tailtrail/install/engine.py
+tailtrail/install/host_launcher.py
 tailtrail/install/models.py
 tailtrail/migrations/__init__.py
 templates/aidlc-audit.md

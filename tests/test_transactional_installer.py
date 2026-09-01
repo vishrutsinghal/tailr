@@ -284,7 +284,9 @@ class TransactionalInstallerTests(unittest.TestCase):
             payload = json.loads(status.stdout)
             self.assertTrue(payload["ok"], payload)
             self.assertEqual(payload["profile"], "extended")
-            self.assertTrue((launcher.parents[1] / "tailtrail" / "install" / "cli.py").is_file())
+            common = launcher.parents[2] / "common" / installed.version
+            self.assertTrue((common / "tailtrail" / "install" / "cli.py").is_file())
+            self.assertFalse((launcher.parents[1] / "tailtrail" / "install" / "cli.py").exists())
 
     def test_retention_keeps_only_five_completed_transactions_per_host(self) -> None:
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as sources:

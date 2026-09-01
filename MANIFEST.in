@@ -5,6 +5,7 @@ include package-manifest.json
 include package-manifest.schema.json
 include platform-release-contract.json
 include release-build-lock.json
+include release-channel-v1.json
 include release-manifest.json
 include release-manifest.schema.json
 include enterprise-closure-registry.json
@@ -25,6 +26,7 @@ include AIDLC.md
 include ARCHITECTURE.md
 include ASSISTANT-COMPATIBILITY.md
 include CLAUDE.md
+include COMPLETE-END-TO-END-WORKFLOW.md
 include DEPENDENCY-GATE.md
 include EVALUATION-HARNESS.md
 include GOVERNANCE.md

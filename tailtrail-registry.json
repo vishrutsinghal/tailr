@@ -188,6 +188,7 @@
       "owner": "tailtrail-install",
       "governance_class": "product",
       "commands": [
+        "tailtrail setup",
         "tailtrail install",
         "tailtrail verify",
         "tailtrail doctor --host",
@@ -196,7 +197,8 @@
         "tailtrail repair",
         "tailtrail recover",
         "tailtrail rollback",
-        "tailtrail uninstall"
+        "tailtrail uninstall",
+        "tailtrail upgrade"
       ],
       "docs": [
         "INSTALLER-LIFECYCLE.md",
@@ -207,11 +209,13 @@
         "schemas/install-journal-event.schema.json"
       ],
       "scripts": [
-        "scripts/installer.py"
+        "scripts/installer.py",
+        "scripts/upgrade-tailtrail.py"
       ],
       "tests": [
         "tests/test_transactional_installer.py",
-        "tests/test_install_profiles.py"
+        "tests/test_install_profiles.py",
+        "tests/test_installation_experience.py"
       ],
       "mcp_tools": [],
       "requires_approval": true,
@@ -231,7 +235,10 @@
       "roadmap_ref": "Enterprise Stabilization E5",
       "owner": "tailtrail-release",
       "governance_class": "product",
-      "commands": [],
+      "commands": [
+        "tailtrail release",
+        "tailtrail qualify"
+      ],
       "docs": [
         "SUPPLY-CHAIN.md",
         "INSTALL.md",
@@ -240,15 +247,22 @@
         "PUBLIC-RELEASE-METADATA.md",
         "platform-release-contract.json",
         "release-build-lock.json",
+        "release-channel-v1.json",
         "schemas/platform-qualification-receipt.schema.json",
-        "schemas/release-evidence.schema.json"
+        "schemas/release-evidence.schema.json",
+        "schemas/release-channel.schema.json",
+        "schemas/release-publication-receipt.schema.json"
       ],
       "scripts": [
         "scripts/platform-qualification.py",
-        "scripts/supply-chain.py"
+        "scripts/supply-chain.py",
+        "scripts/release-info.py",
+        "scripts/release-publication.py",
+        "scripts/installation-qualification.py"
       ],
       "tests": [
-        "tests/test_cross_platform_supply_chain.py"
+        "tests/test_cross_platform_supply_chain.py",
+        "tests/test_installation_experience.py"
       ],
       "mcp_tools": [],
       "requires_approval": true,

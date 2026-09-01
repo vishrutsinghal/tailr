@@ -14,11 +14,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterator
 
-from .. import __version__
 from ..hosts.contracts import adapter_version
 from ..hosts.diagnostics import diagnose
 
-from .catalog import HOSTS, PROFILES, payloads, source_root
+from .catalog import HOSTS, PROFILES, payload_version, payloads, source_root
 from .models import InstallPlan, InstallResult, PlanEntry
 
 
@@ -69,6 +68,7 @@ class InstallEngine:
     def __init__(self, target: Path, *, package_root: Path | None = None, fault: Callable[[str], None] | None = None):
         self.requested_target = Path(target)
         self.package_root = package_root or source_root()
+        self.version = payload_version(self.package_root)
         self.fault = fault or (lambda _checkpoint: None)
         self.target = self._validate_target(self.requested_target)
         self.state_root = self.target / ".tailtrail" / "install"
@@ -102,6 +102,17 @@ class InstallEngine:
 
     def installed_hosts(self) -> tuple[str, ...]:
         return tuple(host for host in HOSTS if self._manifest_path(host).is_file())
+
+    def _references_by_other_hosts(self, host: str) -> set[str]:
+        references: set[str] = set()
+        for other in HOSTS:
+            if other == host:
+                continue
+            manifest = self._load_manifest(other)
+            files = (manifest or {}).get("files", {})
+            if isinstance(files, dict):
+                references.update(files)
+        return references
 
     def _load_manifest(self, host: str) -> dict[str, object] | None:
         path = self._manifest_path(host)
@@ -199,9 +210,10 @@ class InstallEngine:
                 conflicts.append(relative)
                 action = "conflict"
             entries.append(PlanEntry(relative, source_hash, payload.source.stat().st_size, action, payload.source.as_posix(), current_hash))
-        removals = tuple(sorted(set(previous_files) - desired))
+        other_references = self._references_by_other_hosts(host)
+        removals = tuple(sorted(set(previous_files) - desired - other_references))
         plan_material = json.dumps({"operation": operation, "host": host, "profile": selected_profile, "target": self.target.as_posix(), "entries": [entry.__dict__ for entry in entries], "removals": removals}, sort_keys=True).encode()
-        return InstallPlan(STATE_SCHEMA, _hash_bytes(plan_material)[:24], operation, __version__, host, selected_profile, self.target.as_posix(), str(manifest.get("version")) if manifest else None, tuple(entries), tuple(sorted(conflicts)), removals)
+        return InstallPlan(STATE_SCHEMA, _hash_bytes(plan_material)[:24], operation, self.version, host, selected_profile, self.target.as_posix(), str(manifest.get("version")) if manifest else None, tuple(entries), tuple(sorted(conflicts)), removals)
 
     def _transaction_paths(self, transaction_id: str) -> tuple[Path, Path, Path]:
         root = self.transactions_root / transaction_id
@@ -238,6 +250,7 @@ class InstallEngine:
         conflicts: list[str] = []
         restored: list[str] = []
         touched = set(state.get("created", [])) | set(state.get("backups", {}))
+        other_references = self._references_by_other_hosts(host)
         for relative in sorted(touched):
             destination = self._destination(relative)
             expected_after = after_files.get(relative, {}).get("sha256") if isinstance(after_files.get(relative), dict) else None
@@ -250,6 +263,8 @@ class InstallEngine:
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(backed_up, destination)
                 restored.append(relative)
+            elif relative in other_references:
+                continue
             elif destination.is_file() or destination.is_symlink():
                 destination.unlink()
                 restored.append(relative)
@@ -286,9 +301,9 @@ class InstallEngine:
     def apply(self, operation: str, host: str, profile: str | None = None, *, dry_run: bool = False, force: bool = False) -> InstallResult:
         if dry_run:
             if operation in {"update", "repair"} and self._load_manifest(host) is None:
-                return InstallResult(operation, "not-installed", self.target.as_posix(), host, profile or "unknown", __version__, issues=[f"{host} is not installed"])
+                return InstallResult(operation, "not-installed", self.target.as_posix(), host, profile or "unknown", self.version, issues=[f"{host} is not installed"])
             plan = self.plan(operation, host, profile, force=force)
-            result = InstallResult(operation, "dry-run", self.target.as_posix(), host, plan.profile, __version__, plan=plan.as_dict())
+            result = InstallResult(operation, "dry-run", self.target.as_posix(), host, plan.profile, self.version, plan=plan.as_dict())
             if plan.conflicts:
                 result.status = "conflict"
                 result.preserved.extend(plan.conflicts)
@@ -297,9 +312,9 @@ class InstallEngine:
         with self._lock():
             recovered = self.recover()
             if operation in {"update", "repair"} and self._load_manifest(host) is None:
-                return InstallResult(operation, "not-installed", self.target.as_posix(), host, profile or "unknown", __version__, recovered_transactions=recovered, issues=[f"{host} is not installed"])
+                return InstallResult(operation, "not-installed", self.target.as_posix(), host, profile or "unknown", self.version, recovered_transactions=recovered, issues=[f"{host} is not installed"])
             plan = self.plan(operation, host, profile, force=force)
-            result = InstallResult(operation, "dry-run" if dry_run else "passed", self.target.as_posix(), host, plan.profile, __version__, recovered_transactions=recovered, plan=plan.as_dict())
+            result = InstallResult(operation, "dry-run" if dry_run else "passed", self.target.as_posix(), host, plan.profile, self.version, recovered_transactions=recovered, plan=plan.as_dict())
             if plan.conflicts:
                 result.status = "conflict"
                 result.preserved.extend(plan.conflicts)
@@ -355,7 +370,7 @@ class InstallEngine:
                 migrations = list((manifest_before or {}).get("migrations", []))
                 if previous_adapter != current_adapter:
                     migrations.append(f"adapter:{previous_adapter or 'unrecorded'}->{current_adapter}")
-                manifest = {"schema_version": MANIFEST_SCHEMA, "tool": "tailtrail", "version": __version__, "adapter_version": current_adapter, "host": host, "profile": plan.profile, "target": self.target.as_posix(), "installed_at": int(time.time()), "transaction_id": transaction_id, "files": files, "migrations": migrations, "ownership": "tailtrail-managed", "backups": sorted(state["backups"])}
+                manifest = {"schema_version": MANIFEST_SCHEMA, "tool": "tailtrail", "version": self.version, "adapter_version": current_adapter, "host": host, "profile": plan.profile, "target": self.target.as_posix(), "installed_at": int(time.time()), "transaction_id": transaction_id, "files": files, "migrations": migrations, "ownership": "tailtrail-managed", "backups": sorted(state["backups"])}
                 _atomic_json(root / "after-manifest.json", manifest)
                 _atomic_json(self._manifest_path(host), manifest)
                 state["state"] = "verifying"
@@ -386,7 +401,7 @@ class InstallEngine:
 
     def verify(self, host: str) -> InstallResult:
         manifest = self._load_manifest(host)
-        result = InstallResult("verify", "passed", self.target.as_posix(), host, str((manifest or {}).get("profile", "unknown")), str((manifest or {}).get("version", __version__)))
+        result = InstallResult("verify", "passed", self.target.as_posix(), host, str((manifest or {}).get("profile", "unknown")), str((manifest or {}).get("version", self.version)))
         if manifest is None:
             result.status = "not-installed"
             return result
@@ -407,7 +422,7 @@ class InstallEngine:
         result = self.verify(host)
         result.operation = "status"
         if result.status == "passed":
-            result.status = "current" if result.version == __version__ else "update-available"
+            result.status = "current" if result.version == self.version else "update-available"
         return result
 
     def doctor(self, host: str) -> InstallResult:
@@ -429,7 +444,7 @@ class InstallEngine:
             raise InstallFailure("unknown-transaction", f"transaction is not available: {transaction_id}")
         plan = json.loads((root / "plan.json").read_text(encoding="utf-8"))
         host = str(plan["host"])
-        result = InstallResult("rollback", "dry-run" if dry_run else "passed", self.target.as_posix(), host, str(plan["profile"]), __version__, transaction_id=transaction_id)
+        result = InstallResult("rollback", "dry-run" if dry_run else "passed", self.target.as_posix(), host, str(plan["profile"]), str(plan["version"]), transaction_id=transaction_id)
         if dry_run:
             result.plan = plan
             return result
@@ -446,15 +461,18 @@ class InstallEngine:
     def uninstall(self, host: str, *, force: bool = False, dry_run: bool = False) -> InstallResult:
         if dry_run:
             manifest = self._load_manifest(host)
-            result = InstallResult("uninstall", "dry-run", self.target.as_posix(), host, str((manifest or {}).get("profile", "unknown")), str((manifest or {}).get("version", __version__)))
+            result = InstallResult("uninstall", "dry-run", self.target.as_posix(), host, str((manifest or {}).get("profile", "unknown")), str((manifest or {}).get("version", self.version)))
             if manifest is None:
                 result.status = "not-installed"
                 return result
             files = manifest["files"]
             assert isinstance(files, dict)
+            other_references = self._references_by_other_hosts(host)
             for relative, entry in sorted(files.items()):
                 destination = self._destination(relative)
                 expected = entry.get("sha256") if isinstance(entry, dict) else None
+                if relative in other_references:
+                    continue
                 if destination.is_file() and not destination.is_symlink() and expected and _hash_file(destination) == expected:
                     result.removed.append(relative)
                 elif destination.exists():
@@ -466,16 +484,19 @@ class InstallEngine:
         with self._lock():
             recovered = self.recover()
             manifest = self._load_manifest(host)
-            result = InstallResult("uninstall", "dry-run" if dry_run else "passed", self.target.as_posix(), host, str((manifest or {}).get("profile", "unknown")), str((manifest or {}).get("version", __version__)), recovered_transactions=recovered)
+            result = InstallResult("uninstall", "dry-run" if dry_run else "passed", self.target.as_posix(), host, str((manifest or {}).get("profile", "unknown")), str((manifest or {}).get("version", self.version)), recovered_transactions=recovered)
             if manifest is None:
                 result.status = "not-installed"
                 return result
             files = manifest["files"]
             assert isinstance(files, dict)
+            other_references = self._references_by_other_hosts(host)
             candidates: list[str] = []
             for relative, entry in sorted(files.items()):
                 destination = self._destination(relative)
                 expected = entry.get("sha256") if isinstance(entry, dict) else None
+                if relative in other_references:
+                    continue
                 if destination.is_file() and not destination.is_symlink() and expected and _hash_file(destination) == expected:
                     candidates.append(relative)
                 elif destination.exists():
@@ -490,7 +511,7 @@ class InstallEngine:
             # A forced uninstall still preserves user bytes in a transaction backup.
             transaction_id = f"{int(time.time())}-{uuid.uuid4().hex[:12]}"
             result.transaction_id = transaction_id
-            entries = tuple(PlanEntry(path, str(entry.get("sha256", "")), int(entry.get("size", 0)), "replace", "", str(entry.get("sha256", ""))) for path, entry in sorted(files.items()) if isinstance(entry, dict))
+            entries = tuple(PlanEntry(path, str(entry.get("sha256", "")), int(entry.get("size", 0)), "replace", "", str(entry.get("sha256", ""))) for path, entry in sorted(files.items()) if isinstance(entry, dict) and path not in other_references)
             plan = InstallPlan(STATE_SCHEMA, transaction_id, "uninstall", result.version, host, result.profile, self.target.as_posix(), result.version, entries)
             self._snapshot(transaction_id, plan, manifest)
             root, backup, state_path = self._transaction_paths(transaction_id)
@@ -498,6 +519,9 @@ class InstallEngine:
             state["state"] = "applying"
             _atomic_json(state_path, state)
             for relative in sorted(files):
+                if relative in other_references:
+                    result.preserved.append(relative)
+                    continue
                 destination = self._destination(relative)
                 if destination.is_file() or destination.is_symlink():
                     if relative in result.preserved and force:

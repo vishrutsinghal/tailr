@@ -185,6 +185,7 @@ Navigator decides what matters
 ## Use the right page
 
 - [INSTALL.md](INSTALL.md) — the only installation, update, and verification guide.
+- [COMPLETE-END-TO-END-WORKFLOW.md](COMPLETE-END-TO-END-WORKFLOW.md) — the complete visual workflow from trusted artifact through task closure, learning, enterprise operation, and release qualification.
 - [QUICKSTART.md](QUICKSTART.md) — shortest command path and common workflows.
 - [CHEATSHEET.md](CHEATSHEET.md) — problem-to-command map.
 - [USEFUL-PROMPTS.md](USEFUL-PROMPTS.md) — copyable assistant prompts.

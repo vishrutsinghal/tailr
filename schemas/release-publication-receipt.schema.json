@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/release-publication-receipt.schema.json",
+  "title": "TailTrail observed release publication receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "observed", "provider", "repository", "version", "commit", "release_url", "artifact", "artifact_sha256", "identity_verified", "workflow_run_url"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-release-publication-receipt"},
+    "observed": {"const": true},
+    "provider": {"const": "github"},
+    "repository": {"const": "vishrutsinghal/tailr"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "commit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "release_url": {"type": "string", "pattern": "^https://github.com/vishrutsinghal/tailr/releases/tag/v"},
+    "artifact": {"type": "string", "pattern": "^tailtrail-[0-9]+\\.[0-9]+\\.[0-9]+-py3-none-any\\.whl$"},
+    "artifact_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "identity_verified": {"const": true},
+    "workflow_run_url": {"type": "string", "pattern": "^https://github.com/vishrutsinghal/tailr/actions/runs/[0-9]+$"}
+  }
+}

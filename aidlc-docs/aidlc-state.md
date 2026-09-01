@@ -4,15 +4,42 @@ Project: TailTrail
 
 Lifecycle depth: comprehensive
 
-Current phase: Product Maturity PM-7 implementation complete and protocol-ready; genuine adoption evidence and Enterprise E5 hosted evidence remain open
+Current phase: Installation experience seven-part local implementation complete; genuine host/platform/publication evidence remains externally open
 
-Current stage: PM-7 local contracts, runtime, distribution, and assurance complete; real usability trials and E5 hosted dependency evidence remain pending
+Current stage: guided setup, verified upgrade, compatibility-safe compact output, shared Extended payload, release publication configuration, aggregate qualification, and reload contracts implemented and locally validated
 
 Status: Enterprise Phases E0-E4 are closed; E5 and E6 implementation, contracts, workflows, local proofs, and negatives are present. E5 hosted receipts/tag attestations remain externally unobserved, so dependency-ordered E6 stays in progress and E7-E12 remain open; the enterprise release candidate remains blocked
 
-Next step: collect genuine observer-attested PM-7 new-user and experienced-user trials and run the fail-closed adoption gate; separately run the pinned E5 workflow for one commit, ingest all six hosted receipts, and identity-attest a qualifying release tag. Do not turn protocol fixtures, local tests, configured workflows, or offline evidence into either claim.
+Next step: collect genuine host receipts, hosted matrix evidence, and an observed identity-attested publication receipt through the implemented qualification path. Do not turn configured workflow or local proof into external evidence.
 
 Last updated: 2026-09-01
+
+- Goal: Implement all seven installation and distribution improvements.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-installation-experience-requirements.md`.
+- Design: `aidlc-docs/phase-installation-experience-design.md`.
+- Dependencies: none added or changed; standard-library and existing E2-E5
+  package, transaction, adapter, runtime-receipt, and supply-chain controls are
+  reused.
+- Evidence boundary: external host runs, hosted platform receipts, tag
+  execution, identity attestation, and GitHub release publication remain
+  evidence-gated and are never inferred from configuration.
+- Implementation: guided auto/explicit setup; offline hash-pinned, integrity-
+  checked and approval-gated upgrade with project rollback; compact text/new
+  setup JSON plus 0.6-compatible full lifecycle JSON and `--compact`; one
+  versioned shared Extended runtime with reference-safe host launchers;
+  trusted release discovery and no-rebuild tagged publication; four-gate real
+  qualification aggregate; and mandatory host-specific reload/fallback rules.
+- Validation: the repository-wide serial suite passed all 1,034 tests in
+  1,105.241 seconds. A subsequently added focused real-wheel upgrade preflight
+  proof passed in 34.821 seconds. Integrated installer/profile/host/runtime/
+  supply-chain/release tests, enterprise registry, strict feature registry,
+  Product Maturity freeze, host contract conformance, release manifest, public
+  docs, repository checker, compilation, JSON parsing, and diff checks are
+  separately exercised in the final validation handoff. After the final
+  identity-attestation hardening, 25 installation/supply-chain/release/real-
+  wheel tests passed in 33.840 seconds and every named final gate passed again.
 
 - Goal: Implement Product Maturity PM-7 — Adoption Validation.
 - Requirements/workflow/implementation gates: approved by the user's explicit

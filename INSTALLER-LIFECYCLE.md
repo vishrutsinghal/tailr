@@ -27,6 +27,9 @@ qualification and real-host observations remain separate E4-E5 gates.
 - The latest five completed/recovered transactions per host are retained.
   Staging is removed after success. Unrelated target files are never included
   in cleanup.
+- Extended payloads use one immutable versioned common runtime and one small
+  launcher per host. A common path referenced by another current host manifest
+  is preserved during update, uninstall, and rollback.
 
 ## State layout
 
@@ -35,6 +38,8 @@ qualification and real-host observations remain separate E4-E5 gates.
   lifecycle.lock
   journal-v1.jsonl
   manifests/<host>.json
+  payload/common/<version>/...
+  payload/<host>/scripts/tailtrail.py
   transactions/<transaction-id>/
     plan.json
     state.json
@@ -51,6 +56,7 @@ their verification or uninstall status.
 
 ```bash
 tailtrail install --host codex --profile core --target . --dry-run
+tailtrail setup --host codex --profile core --target .
 tailtrail install --host codex --profile core --target .
 tailtrail verify --host codex --target .
 tailtrail doctor --host codex --target .
@@ -67,4 +73,6 @@ tailtrail recover --target .
 Use `--format json` for the stable `tailtrail-install-result`,
 `tailtrail-install-results`, or `tailtrail-install-error` envelope. Success is
 exit `0`, CLI usage is exit `2`, and validation/conflict/unavailability is exit
-`3`.
+`3`. Text is compact by default. Compatibility-controlled lifecycle JSON stays
+full; `--compact` returns counts and `plan_summary`. Guided setup JSON is compact
+by default and `--verbose` restores exact path lists and the full plan.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-release-channel",
+  "repository": "https://github.com/vishrutsinghal/tailr",
+  "latest_release": "https://github.com/vishrutsinghal/tailr/releases/latest",
+  "current_source_version": "0.6.0",
+  "publication": "tag-gated",
+  "artifact": "tailtrail-{version}-py3-none-any.whl",
+  "verification": {
+    "identity": "gh attestation verify {artifact} --repo vishrutsinghal/tailr",
+    "checksum": "Compare the downloaded artifact with SHA256SUMS from the same release.",
+    "install": "python3 -m pip install --no-deps {artifact}"
+  },
+  "boundary": "This metadata identifies the trusted channel. It does not claim a release exists; only a successfully completed tagged publication workflow creates one."
+}

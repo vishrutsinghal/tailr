@@ -103,7 +103,14 @@ jobs:
           path: observed-receipts
           merge-multiple: true
       - name: Require exact OS, Python, artifact, and host coverage
-        run: python scripts/platform-qualification.py report --receipts observed-receipts --commit ${{ github.sha }} --wheel release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl --sdist-wheel release-inputs/sdist-wheel/tailtrail-0.6.0-py3-none-any.whl
+        run: python scripts/platform-qualification.py report --receipts observed-receipts --commit ${{ github.sha }} --wheel release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl --sdist-wheel release-inputs/sdist-wheel/tailtrail-0.6.0-py3-none-any.whl > platform-qualification-report.json
+      - name: Upload the exact hosted aggregate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-qualification-report
+          if-no-files-found: error
+          retention-days: 14
+          path: platform-qualification-report.json
 
   identity-attestation:
     name: Identity-attest tagged artifacts
@@ -120,9 +127,64 @@ jobs:
         with:
           name: canonical-release-inputs
           path: release-inputs
+      - name: Download the hosted platform aggregate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: platform-qualification-report
+          path: qualification
       - name: Create GitHub/Sigstore build provenance attestations
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:
           subject-path: |
             release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl
             release-inputs/dist/tailtrail-0.6.0.tar.gz
+            qualification/platform-qualification-report.json
+
+  release-publication:
+    name: Publish qualified tagged artifacts
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: identity-attestation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Require tag and package version agreement
+        run: test "v$(python -c 'import json; print(json.load(open("release-manifest.json"))["product"]["version"])')" = "$GITHUB_REF_NAME"
+      - name: Download the qualified canonical artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: canonical-release-inputs
+          path: release-inputs
+      - name: Download the identity-attested platform aggregate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: platform-qualification-report
+          path: qualification
+      - name: Publish once without rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl
+          release-inputs/dist/tailtrail-0.6.0.tar.gz
+          release-inputs/release-evidence/SHA256SUMS
+          release-inputs/release-evidence/tailtrail.cdx.json
+          release-inputs/release-evidence/release-evidence.json
+          --repo "$GITHUB_REPOSITORY"
+          --verify-tag
+          --generate-notes
+      - name: Observe the published wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/release-publication.py observe --version 0.6.0 --commit "$GITHUB_SHA" --artifact release-inputs/dist/tailtrail-0.6.0-py3-none-any.whl --output release-publication-receipt.json
+      - name: Identity-attest the observed publication receipt
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: release-publication-receipt.json
+      - name: Publish the hosted and publication receipts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" qualification/platform-qualification-report.json release-publication-receipt.json --repo "$GITHUB_REPOSITORY" --clobber

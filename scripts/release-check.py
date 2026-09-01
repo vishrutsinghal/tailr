@@ -12,7 +12,7 @@ import release_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_BLOCKERS = ("REPLACE_WITH_PUBLIC_" + "SECURITY_CONTACT",)
-PUBLIC_CLAIM_FILES = ("ARCHITECTURE.md", "CHANGELOG.md", "DEMO.md", "PUBLIC-ROADMAP.md", "README.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "RELEASE-CHECKLIST.md", "SECURITY.md", "SUPPORT.md", "CONTRIBUTING.md", "VERSIONING.md")
+PUBLIC_CLAIM_FILES = ("ARCHITECTURE.md", "CHANGELOG.md", "DEMO.md", "PUBLIC-ROADMAP.md", "README.md", "USER-GUIDE.md", "COMPLETE-END-TO-END-WORKFLOW.md", "TAILTRAIL-COMMANDS.md", "RELEASE-CHECKLIST.md", "SECURITY.md", "SUPPORT.md", "CONTRIBUTING.md", "VERSIONING.md")
 RISKY_CLAIM_PATTERNS = (
     ("guaranteed token savings", re.compile(r"\bguarantee(?:d|s)?\s+token\s+savings?\b", re.IGNORECASE)),
     ("guaranteed code quality", re.compile(r"\bguarantee(?:d|s)?\s+code\s+quality\b", re.IGNORECASE)),

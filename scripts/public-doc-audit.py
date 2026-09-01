@@ -27,7 +27,7 @@ RISKY_CLAIMS = (
     ("fully automatic compliance", re.compile(r"\bfully\s+automatic\s+compliance\b", re.IGNORECASE)),
     ("self healing claim", re.compile(r"\bself[- ]heals?\b|\bself[- ]healing\b", re.IGNORECASE)),
 )
-USER_FACING_DOCS = {"README.md", "QUICKSTART.md", "TAILTRAIL-COMMANDS.md", "USER-GUIDE.md", "USEFUL-PROMPTS.md", "demo-project-layout/tailtrail-demo-workspace/tailtrail/USER-GUIDE.md"}
+USER_FACING_DOCS = {"README.md", "QUICKSTART.md", "TAILTRAIL-COMMANDS.md", "USER-GUIDE.md", "COMPLETE-END-TO-END-WORKFLOW.md", "USEFUL-PROMPTS.md", "demo-project-layout/tailtrail-demo-workspace/tailtrail/USER-GUIDE.md"}
 UNDERSCORE_MODULE_PATHS = ("scripts/context_receipt.py", "scripts/prompt_profile.py", "scripts/token_budget_coach.py", "scripts/token_telemetry.py")
 CAUTION_TERMS = ("not ", "does not", "do not", "never", "without", "unsupported", "disallowed", "only when", "unless", "measured", "evidence", "risky", "avoid", "confirm no")
 

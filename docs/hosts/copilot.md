@@ -4,16 +4,17 @@ Install the self-contained package, then project the Core adapter into the
 target repository:
 
 ```powershell
-tailtrail install --host copilot --profile core --target "D:\path\to\project"
+tailtrail setup --host copilot --profile core --target "D:\path\to\project"
 ```
 
 On macOS/Linux:
 
 ```bash
-tailtrail install --host copilot --profile core --target "/absolute/path/to/project"
+tailtrail setup --host copilot --profile core --target "/absolute/path/to/project"
 ```
 
-Open the target repository in Copilot and start a new chat. Use:
+Open the target repository and start a new Copilot Chat. If repository
+instructions remain stale, reload the IDE window and start another chat. Use:
 
 ```text
 /tailtrail-start "fix the zero quantity validation defect"

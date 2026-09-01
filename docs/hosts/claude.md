@@ -4,16 +4,18 @@ Install the self-contained package, then project the Core adapter into the
 target repository:
 
 ```powershell
-tailtrail install --host claude --profile core --target "D:\path\to\project"
+tailtrail setup --host claude --profile core --target "D:\path\to\project"
 ```
 
 On macOS/Linux:
 
 ```bash
-tailtrail install --host claude --profile core --target "/absolute/path/to/project"
+tailtrail setup --host claude --profile core --target "/absolute/path/to/project"
 ```
 
-Start Claude Code in the target project, then run:
+Exit any existing Claude Code session and start a new session in the target
+project. If it remains stale, restart Claude Code before reopening the project.
+Then run:
 
 ```text
 /tailtrail-start fix the zero quantity validation defect

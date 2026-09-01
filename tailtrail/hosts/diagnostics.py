@@ -71,6 +71,7 @@ def diagnose(target: Path, host: str, *, manifest: dict[str, Any] | None, root: 
         "composition": "passed" if not marker_failures else "failed",
         "issues": issues,
         "first_action": dict(entry["first_action"]),
+        "reload": dict(entry["reload"]),
         "version_detection": detect_version(host, root=root, runner=runner),
         "capabilities": dict(entry["capabilities"]),
         "runtime_status": entry["runtime_status"],

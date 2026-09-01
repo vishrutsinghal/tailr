@@ -92,6 +92,7 @@ COMMANDS = {
     "enterprise-readiness": "Inspect and validate the enterprise stabilization baseline and closure registry.",
     "policy": "Initialize or validate local TailTrail policy files.",
     "install": "Install a host profile through the transactional lifecycle.",
+    "setup": "Detect or select a host, install/update it, verify it, and show reload guidance.",
     "verify": "Verify manifest-owned host files.",
     "status": "Show installed host lifecycle status.",
     "rollback": "Restore a prior installer transaction.",
@@ -99,7 +100,10 @@ COMMANDS = {
     "repair": "Repair missing or corrupt managed host files transactionally.",
     "recover": "Recover an interrupted installer transaction.",
     "first-run": "Verify a local TailTrail install and show one simple first action.",
-    "update": "Run update-tailtrail.py.",
+    "update": "Update installed project payloads from the current TailTrail package.",
+    "upgrade": "Verify a local release wheel, upgrade the package, and update installed project payloads.",
+    "release": "Show trusted release discovery and verification metadata.",
+    "qualify": "Aggregate instruction, real-host, platform, and publication evidence.",
     "team-init": "Run team-init.py.",
     "adapters": "Check or sync assistant adapter files and required adapter behavior.",
     "learn": "Use Learning V3 capture, retrieval, use receipts, closure attribution, governance, migration, and compatibility commands.",
@@ -1395,6 +1399,8 @@ def main() -> int:
         return run_script("policy-check.py", args)
     if command == "install":
         return install(args)
+    if command == "setup":
+        return run_script("installer.py", ["setup", *args])
     if command == "status" and any(item == "--run-id" or item.startswith("--run-id=") for item in args):
         return run_script("orchestration_facade.py", ["status", *args])
     if command in {"verify", "status", "rollback", "uninstall", "repair", "recover"}:
@@ -1403,6 +1409,12 @@ def main() -> int:
         return run_script("first-run.py", args)
     if command == "update":
         return run_script("installer.py", ["update", *args])
+    if command == "upgrade":
+        return run_script("upgrade-tailtrail.py", args)
+    if command == "release":
+        return run_script("release-info.py", args)
+    if command == "qualify":
+        return run_script("installation-qualification.py", args)
     if command == "team-init":
         return run_script("team-init.py", args)
     if command == "adapters":

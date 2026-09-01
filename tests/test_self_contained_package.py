@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 import shutil
@@ -231,6 +232,18 @@ class SelfContainedPackageTests(unittest.TestCase):
                 self.assertTrue(json.loads(run([str(executable), "verify", "--host", host, "--target", str(target), "--format", "json"], cwd=sandbox).stdout)["ok"])
         finally:
             temp.cleanup()
+
+    def test_upgrade_dry_run_verifies_the_real_wheel_and_preflights_an_installed_host(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            installed = run([sys.executable, "scripts/tailtrail.py", "install", "--host", "claude", "--profile", "core", "--target", str(project), "--format", "json"], cwd=ROOT)
+            self.assertTrue(json.loads(installed.stdout)["ok"])
+            digest = hashlib.sha256(self.wheel.read_bytes()).hexdigest()
+            preview = json.loads(run([sys.executable, "scripts/tailtrail.py", "upgrade", "--artifact", str(self.wheel), "--sha256", digest, "--host", "claude", "--target", str(project), "--dry-run", "--format", "json"], cwd=ROOT).stdout)
+            self.assertTrue(preview["ok"], preview)
+            self.assertEqual(preview["status"], "dry-run")
+            self.assertEqual(preview["hosts"], ["claude"])
+            self.assertEqual(preview["preflight"][0]["profile"], "core")
 
 
 if __name__ == "__main__":

@@ -31,6 +31,14 @@ Machine requests use JSON objects. Package errors use `tailtrail-error`; a
 legacy command that cannot emit native JSON is contained in a
 `tailtrail-command-result` envelope.
 
+Guided-setup JSON is compact by default: it retains identity, status,
+diagnostics, issue text, counts, and `plan_summary`, while omitting bulk path
+arrays and plan entries. Existing lifecycle JSON remains full in the 0.6 line;
+`--compact` selects the summary and `--verbose` selects full setup detail.
+`tailtrail setup`, `upgrade`, `release info`, and `qualify`
+are additive 0.6 command surfaces; upgrade accepts only a local hash-pinned
+wheel and requires `--approved` before changing the active environment.
+
 ## Resources, integrity, and migrations
 
 `package-manifest.json` is the source inventory contract. Wheel construction

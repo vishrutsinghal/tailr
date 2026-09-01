@@ -4,16 +4,17 @@ Install the self-contained package, then project the Core adapter into the
 repository you will open in Codex:
 
 ```powershell
-tailtrail install --host codex --profile core --target "D:\path\to\project"
+tailtrail setup --host codex --profile core --target "D:\path\to\project"
 ```
 
 On macOS/Linux:
 
 ```bash
-tailtrail install --host codex --profile core --target "/absolute/path/to/project"
+tailtrail setup --host codex --profile core --target "/absolute/path/to/project"
 ```
 
-Open the target project in Codex, start a new chat, then say:
+Start a new Codex task so the installed guidance is loaded. If it remains
+stale, close and reopen the project before starting another task. Then say:
 
 ```text
 tailtrail start "fix the zero quantity validation defect"

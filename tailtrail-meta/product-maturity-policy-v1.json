@@ -29,7 +29,11 @@
         {"id":"approve","approved_by":"PM-2 implementation authority","reason":"Direct context-aware approval through the canonical facade."},
         {"id":"continue","approved_by":"PM-2 implementation authority","reason":"Direct dependency-ready continuation through the durable runtime."},
         {"id":"close","approved_by":"PM-2 implementation authority","reason":"Direct canonical evidence closure through the facade."}
-        ,{"id":"presentation","approved_by":"PM-3 implementation authority","reason":"Expose deterministic canonical report validation, rendering, and host presentation conformance."}
+        ,{"id":"presentation","approved_by":"PM-3 implementation authority","reason":"Expose deterministic canonical report validation, rendering, and host presentation conformance."},
+        {"id":"setup","approved_by":"User-approved installation experience implementation","reason":"Consolidate host selection, install/update, verification, diagnostics, and reload guidance behind the existing transactional lifecycle."},
+        {"id":"upgrade","approved_by":"User-approved installation experience implementation","reason":"Provide one hash-pinned offline package and transactional project-payload upgrade path."},
+        {"id":"release","approved_by":"User-approved installation experience implementation","reason":"Expose package-owned trusted release discovery without inferring publication."},
+        {"id":"qualify","approved_by":"User-approved installation experience implementation","reason":"Expose one fail-closed aggregate of host, platform, and signed-publication evidence. Validation: python3 -m unittest tests.test_installation_experience."}
       ],
       "mcp_tools": [
         {"id":"presentation_conformance","approved_by":"PM-3 implementation authority","reason":"Expose read-only semantic presentation conformance to MCP hosts."},
@@ -123,6 +127,16 @@
           "id": "schemas/adoption-improvement-decision.schema.json",
           "approved_by": "PM-7 implementation authority",
           "reason": "PM-7 requires approved, evidence-linked wording/default proposal and decision records without automatic source mutation."
+        },
+        {
+          "id": "schemas/release-channel.schema.json",
+          "approved_by": "User-approved installation experience implementation",
+          "reason": "Trusted release discovery requires a closed repository and verification-command contract without a publication claim."
+        },
+        {
+          "id": "schemas/release-publication-receipt.schema.json",
+          "approved_by": "User-approved installation experience implementation",
+          "reason": "The support gate requires a closed observed identity-verified publication receipt rather than workflow inference."
         }
       ],
       "hosts": [],

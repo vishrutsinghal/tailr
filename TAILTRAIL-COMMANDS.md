@@ -89,6 +89,8 @@ stable API, JSON, exit-code, Python, integrity, and migration contracts.
 Transactional host lifecycle:
 
 ```bash
+tailtrail setup --host auto --profile core --target .
+tailtrail setup --host codex --profile core --target .
 tailtrail install --host codex --profile core --target . --dry-run
 tailtrail install --host codex --profile core --target .
 tailtrail doctor --host codex --target . --format json
@@ -100,11 +102,21 @@ tailtrail repair --host codex --target .
 tailtrail recover --target .
 tailtrail rollback --to <transaction-id> --target .
 tailtrail uninstall --host codex --target . --dry-run
+tailtrail upgrade --artifact <wheel> --sha256 <digest> --target . --dry-run
+tailtrail upgrade --artifact <wheel> --sha256 <digest> --target . --approved
+tailtrail release info
+tailtrail qualify prepare --host all --root .
+tailtrail qualify report --host all --root . --platform-report <report> --publication-receipt <receipt> --artifact <wheel>
 ```
 
 Replace `codex` with `copilot` or `claude`. Every command uses the same E3
 plan, ownership manifest, staging, backup, verification, rollback, and JSON
 contract described in `INSTALLER-LIFECYCLE.md`.
+Installer text and guided-setup JSON are compact by default; existing lifecycle
+JSON stays full for 0.6 compatibility and supports `--compact`. Add `--verbose`
+to setup for exact paths and the full plan. `setup --host auto` mutates only
+when detection yields exactly one host. `upgrade` accepts a local hash-pinned
+wheel and never contacts an index.
 
 Repository-projected pack entry point:
 

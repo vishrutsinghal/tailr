@@ -4,6 +4,7 @@
   "owners": [
     {"path": "README.md", "owner": "tailtrail-product", "purpose": "public product entry point"},
     {"path": "ROADMAP.md", "owner": "tailtrail-product", "purpose": "canonical implementation roadmap"},
+    {"path": "COMPLETE-END-TO-END-WORKFLOW.md", "owner": "tailtrail-product", "purpose": "canonical complete product workflow map"},
     {"path": "TAILTRAIL-COMMANDS.md", "owner": "tailtrail-core", "purpose": "canonical command reference"},
     {"path": "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md", "owner": "tailtrail-core", "purpose": "product maturity phase contract"},
     {"path": "MCP-SERVER.md", "owner": "tailtrail-core", "purpose": "canonical MCP boundary"},
