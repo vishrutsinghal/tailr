@@ -57,6 +57,49 @@ def read_existing(root: Path, run_id: str) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
 
 
+def saved_canonical_requirement_uid(root: Path, run_id: str) -> str | None:
+    """Read the first requirement identity ever saved for this lifecycle."""
+    folder = L.state_dir(root, run_id) / "debug" / "reproduction"
+    drafts = sorted(
+        folder.glob("draft-v*.json"),
+        key=lambda path: int(path.stem.rsplit("v", 1)[-1]),
+    ) if folder.is_dir() else []
+    if drafts:
+        value = str(json.loads(drafts[0].read_text(encoding="utf-8")).get("requirement_uid", "")).strip()
+        if value:
+            return value
+    existing = read_existing(root, run_id)
+    value = str(existing.get("requirement_uid", "")).strip() if existing else ""
+    return value or None
+
+
+def canonical_requirement_uid(root: Path, run_id: str, source: dict[str, Any]) -> str:
+    """Return the first identity assigned to this reproduction lifecycle.
+
+    Rewording a trigger is a contract revision, not a new requirement.  Read
+    the earliest saved draft so even a previously malformed later revision
+    cannot accidentally become the canonical identity.
+    """
+    canonical = saved_canonical_requirement_uid(root, run_id)
+    supplied = str(source.get("requirement_uid", "")).strip()
+    if canonical and supplied and supplied != canonical:
+        raise ValueError(
+            f"requirement UID mismatch: `{supplied}` cannot replace canonical `{canonical}` during reproduction revision"
+        )
+    return canonical or supplied or stable_requirement_uid(run_id, str(source["trigger"]))
+
+
+def normalized_validation_contract(source: dict[str, Any]) -> dict[str, Any]:
+    supplied = source.get("validation_contract", {})
+    if not isinstance(supplied, dict):
+        raise ValueError("validation_contract must be a JSON object")
+    return {
+        "state": "required",
+        "tiers": ["reproduction", "root-cause", "regression", "behaviour"],
+        **supplied,
+    }
+
+
 def draft(root: Path, run_id: str, source: dict[str, Any]) -> dict[str, Any]:
     root = root.resolve()
     if approved_contract_path(root, run_id).is_file():
@@ -71,7 +114,7 @@ def draft(root: Path, run_id: str, source: dict[str, Any]) -> dict[str, Any]:
     existing = read_existing(root, run_id)
     revision = (existing["revision"] + 1) if existing else 1
     unresolved_fields = [str(item) for item in source.get("unresolved_fields", []) if str(item).strip()]
-    requirement_uid = str(source.get("requirement_uid", "")).strip() or stable_requirement_uid(run_id, str(source["trigger"]))
+    requirement_uid = canonical_requirement_uid(root, run_id, source)
     contract = {
         "schema_version": "1",
         "type": "tailtrail-reproduction-contract",
@@ -86,7 +129,7 @@ def draft(root: Path, run_id: str, source: dict[str, Any]) -> dict[str, Any]:
         "reproduction_method": str(source["reproduction_method"]),
         "preserve_rules": [str(item) for item in source.get("preserve_rules", [])],
         "safety_boundary": str(source["safety_boundary"]),
-        "validation_contract": source.get("validation_contract", {"state": "required", "tiers": ["reproduction", "root-cause", "regression", "behaviour"]}),
+        "validation_contract": normalized_validation_contract(source),
         "unresolved_fields": unresolved_fields,
         "field_feedback": source.get("field_feedback", {}),
         "reject_reason": None,
@@ -235,6 +278,12 @@ def approve(root: Path, run_id: str, expected_revision: int | None = None) -> di
         raise ValueError("reproduction contract is already approved")
     if contract.get("unresolved_fields"):
         raise ValueError("reproduction contract cannot be approved while fields are unresolved: " + ", ".join(contract["unresolved_fields"]))
+    canonical_uid = saved_canonical_requirement_uid(root, run_id)
+    if canonical_uid and contract.get("requirement_uid") != canonical_uid:
+        raise ValueError(
+            "reproduction contract has legacy requirement identity drift; create a corrected revision before approval "
+            f"(canonical `{canonical_uid}`, current `{contract.get('requirement_uid')}`)"
+        )
     lock_before = PLANNING.show(root, run_id)
     if lock_before.get("status") == "awaiting-approval":
         # Compatibility for the explicit prototype `tailtrail debug` intake.
@@ -277,6 +326,83 @@ def show(root: Path, run_id: str) -> dict[str, Any]:
     return contract
 
 
+def render_markdown(contract: dict[str, Any], canonical_uid: str | None = None) -> str:
+    validation = contract.get("validation_contract", {})
+    before_exit = validation.get("expected_exit_code_before_fix", "not specified")
+    after_exit = validation.get("expected_exit_code_after_fix", "not specified")
+    before_output = ", ".join(validation.get("required_output", [])) or "not specified"
+    after_output = ", ".join(validation.get("required_output_after_fix", [])) or "not specified"
+    unresolved = contract.get("unresolved_fields", [])
+    identity_drift = bool(canonical_uid and canonical_uid != contract.get("requirement_uid"))
+    if unresolved:
+        approval_state = "blocked by unresolved fields: " + ", ".join(unresolved)
+    elif identity_drift:
+        approval_state = f"blocked by legacy identity drift; revise with canonical UID `{canonical_uid}`"
+    else:
+        approval_state = "ready for explicit reproduction approval"
+    lines = [
+        "# TailTrail Reproduction Contract",
+        "",
+        "## Contract identity",
+        "",
+        "| Field | Value |",
+        "| --- | --- |",
+        f"| Run ID | `{contract['run_id']}` |",
+        f"| Revision | `{contract['revision']}` |",
+        f"| Requirement UID | `{contract['requirement_uid']}` |",
+        f"| Status | **{contract['status']}** |",
+        f"| Domain | `{contract['domain']}` |",
+        "",
+        (f"Identity drift detected: the first saved UID is `{canonical_uid}`. This draft must be revised before approval."
+         if identity_drift else
+         "The requirement UID remains stable across wording and procedure revisions. The revision identifies this exact draft."),
+        "",
+        "## Reproduction boundary",
+        "",
+        "| Field | Approved meaning |",
+        "| --- | --- |",
+        f"| Trigger | {contract['trigger']} |",
+        f"| Expected behavior | {contract['expected']} |",
+        f"| Observed failure | {contract['actual']} |",
+        f"| Reproduction command / method | `{contract['reproduction_method']}` |",
+        "",
+        "## Validation expectations",
+        "",
+        "| Checkpoint | Expected exit | Required observable output | Current evidence |",
+        "| --- | --- | --- | --- |",
+        f"| Before fix: failure reproduced | `{before_exit}` | {before_output} | not run |",
+        "| Root cause proven | n/a | causal evidence plus an eliminated competing hypothesis | not run |",
+        f"| After fix: behavior restored | `{after_exit}` | {after_output} | not run |",
+        "",
+        "These states are independent: reproducing the failure does not prove its cause, and proving the cause does not prove the corrected behavior.",
+        "",
+        "## Preserve and safety boundaries",
+        "",
+    ]
+    preserve = contract.get("preserve_rules", [])
+    lines.extend([f"- {item}" for item in preserve] or ["- No preserve rule was supplied."])
+    lines.extend([
+        f"- Safety: {contract['safety_boundary']}",
+        "",
+        "## Approval",
+        "",
+        f"State: **{approval_state}**.",
+        "",
+    ])
+    if unresolved or identity_drift:
+        lines.extend([
+            "Approval is unavailable until a corrected revision resolves the blocking condition.",
+            "",
+        ])
+    else:
+        lines.extend([
+            f"To approve this exact contract: `Approve reproduction revision {contract['revision']} for run {contract['run_id']}`",
+            "",
+        ])
+    lines.append("Approval authorizes only the bounded reproduction and investigation. It does not authorize source edits or a correction.")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
@@ -284,12 +410,14 @@ def main() -> int:
     draft_parser.add_argument("--root", type=Path, default=Path.cwd())
     draft_parser.add_argument("--run-id", required=True)
     draft_parser.add_argument("--input", type=Path, required=True, help="JSON file with domain/trigger/expected/actual/reproduction_method/preserve_rules/safety_boundary")
+    draft_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     revise_parser = sub.add_parser("revise")
     revise_parser.add_argument("--root", type=Path, default=Path.cwd())
     revise_parser.add_argument("--run-id", required=True)
     revise_parser.add_argument("--revision", type=int, required=True)
     revise_parser.add_argument("--input", type=Path, required=True)
     revise_parser.add_argument("--approved", action="store_true")
+    revise_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     approve_parser = sub.add_parser("approve")
     approve_parser.add_argument("--root", type=Path, default=Path.cwd())
     approve_parser.add_argument("--run-id", required=True)
@@ -304,6 +432,7 @@ def main() -> int:
     show_parser = sub.add_parser("show")
     show_parser.add_argument("--root", type=Path, default=Path.cwd())
     show_parser.add_argument("--run-id", required=True)
+    show_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     args = parser.parse_args()
     try:
         if args.action == "draft":
@@ -324,7 +453,9 @@ def main() -> int:
             result = reject(args.root, args.run_id, args.reason, feedback)
         else:
             result = show(args.root, args.run_id)
-        print(json.dumps(result, indent=2, sort_keys=True))
+        output_format = getattr(args, "format", "json")
+        canonical_uid = saved_canonical_requirement_uid(args.root.resolve(), args.run_id)
+        print(json.dumps(result, indent=2, sort_keys=True) if output_format == "json" else render_markdown(result, canonical_uid))
         return 0
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Debug reproduction error: {error}")

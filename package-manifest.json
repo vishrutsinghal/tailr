@@ -17,6 +17,7 @@
     "INSTALLER-LIFECYCLE.md",
     "MCP-SERVER.md",
     "PACKAGE-CONTRACT.md",
+    "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md",
     "REPOSITORY-ENFORCEMENT.md",
     "platform-release-contract.json",
     "PUBLIC-CLAIMS.md",
@@ -41,7 +42,10 @@
     "tailtrail-enforcement-policy.json",
     "tailtrail-enforcement-suppressions.json",
     "tailtrail-registry.json",
-    "tailtrail-registry.schema.json"
+    "tailtrail-registry.schema.json",
+    "tailtrail-meta/product-maturity-baseline-v1.json",
+    "tailtrail-meta/product-maturity-policy-v1.json",
+    "benchmarks/product-maturity/pm0-scenarios-v1.json"
   ],
   "required_directories": [
     ".claude",
@@ -92,10 +96,31 @@
     "scripts/maintainability_planning.py",
     "scripts/maintainability-harness.py",
     "scripts/planning-lock.py",
+    "scripts/product-maturity.py",
+    "scripts/product-maintainability.py",
+    "scripts/enterprise-conformance.py",
+    "scripts/real-evaluation-portfolio.py",
+    "scripts/orchestration/__init__.py",
+    "scripts/orchestration/run_resolution.py",
     "scripts/execution-evidence.py",
     "scripts/closure-finalizer.py",
     "scripts/task-recovery.py",
     "scripts/workflow-runtime.py",
-    "tailtrail-registry.json"
+    "scripts/orchestration_facade.py",
+    "scripts/presentation.py",
+    "tailtrail-registry.json",
+    "schemas/product-maturity-baseline.schema.json",
+    "schemas/workflow-stage-result.schema.json",
+    "schemas/presentation-report.schema.json",
+    "schemas/maintainability-inventory.schema.json",
+    "schemas/real-evaluation-portfolio.schema.json",
+    "schemas/enterprise-conformance-report.schema.json",
+    "tailtrail-meta/document-owners-v1.json",
+    "tailtrail-meta/maintainability-inventory-v1.json",
+    "tailtrail-meta/product-maturity-baseline-v1.json",
+    "tailtrail-meta/product-maturity-policy-v1.json",
+    "benchmarks/product-maturity/pm0-scenarios-v1.json",
+    "benchmarks/evaluation/real-portfolio/v1.json",
+    "benchmarks/enterprise-conformance/v1.json"
   ]
 }

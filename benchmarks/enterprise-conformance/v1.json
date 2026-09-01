@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-enterprise-conformance-catalog",
+  "catalog_id": "pm6-enterprise-conformance-v1",
+  "evidence_label": "local-conformance-protocol",
+  "controls": [
+    {"id": "compatibility", "required_paths": ["platform-release-contract.json", "adapters/host-compatibility-v1.json", "scripts/host-adapter-conformance.py"]},
+    {"id": "installer", "required_paths": ["scripts/installer.py", "scripts/install-local.py", "scripts/install-copilot.py", "scripts/check-tailtrail.py"]},
+    {"id": "update-rollback", "required_paths": ["scripts/update-tailtrail.py", "scripts/installer.py", "INSTALLER-LIFECYCLE.md"]},
+    {"id": "policy", "required_paths": ["GOVERNANCE.md", "GUARDRAILS.md", "scripts/enterprise-target-policy.py", "scripts/repository-enforcement.py"]},
+    {"id": "ci-receipts", "required_paths": ["scripts/ci-evidence-ingest.py", "scripts/workflow_runtime/ci.py", "schemas/workflow-ci-receipt.schema.json", ".github/workflows/trust.yml"]},
+    {"id": "retention-export", "required_paths": ["scripts/workflow_runtime/retention.py", "scripts/export-release.py", "schemas/workflow-retention-policy.schema.json"]},
+    {"id": "migration-rollback", "required_paths": ["scripts/workflow_runtime/enterprise_recovery.py", "docs/workflow-release-migration.md", "schemas/workflow-enterprise-migration.schema.json"]},
+    {"id": "threat-model", "required_paths": ["SECURITY.md", "scripts/official-aidlc-sanitize.py", "scripts/package-release-proof.py", "tests/test_repository_enforcement.py", "tests/test_official_aidlc_sanitize.py"]},
+    {"id": "support-versioning", "required_paths": ["SUPPORT.md", "VERSIONING.md", "ASSISTANT-COMPATIBILITY.md", "PUBLIC-CLAIMS.md"]},
+    {"id": "offline-verification", "required_paths": ["scripts/enterprise-conformance.py", "schemas/enterprise-conformance-report.schema.json", "benchmarks/enterprise-conformance/v1.json"]}
+  ],
+  "local_probes": [
+    {"id": "enterprise-registry", "arguments": ["scripts/enterprise-readiness.py", "--root", "{root}", "validate"]},
+    {"id": "feature-registry", "arguments": ["scripts/tailtrail.py", "registry", "validate"]},
+    {"id": "maturity-integrity", "arguments": ["scripts/tailtrail.py", "maturity", "validate", "--root", "{root}"]},
+    {"id": "host-adapters", "arguments": ["scripts/host-adapter-conformance.py", "--root", "{root}"]},
+    {"id": "mcp-boundary", "arguments": ["scripts/mcp-server.py", "doctor"]}
+  ],
+  "threat_cases": ["path-traversal", "symlink-escape", "command-injection", "untrusted-provider-json", "sensitive-data-leakage"],
+  "boundary": "Offline local verification only. Hosted OS/runtime receipts, identity attestation, CI acceptance, deployment, and enterprise support are never inferred."
+}

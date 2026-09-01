@@ -1,5 +1,17 @@
 # TailTrail Evaluation Scenarios
 
+## PM-5 real evaluation portfolio
+
+`real-portfolio/v1.json` is a protocol catalog, not evidence that TailTrail is
+better. It contains 18 task classes across five sanitized repository fixtures.
+Use `tailtrail eval real-portfolio validate|prepare|grade|unblind|report` to
+collect blind paired observations. Three repetitions per task are required;
+positive, neutral, and negative outcomes remain visible, and provider-token
+metrics may be null when telemetry is unavailable.
+
+The deterministic scenarios below remain saved fixtures and must not be
+described as live-model evidence.
+
 Evaluation scenarios are deterministic saved-artifact fixtures for proving TailTrail behavior without live agent runs.
 
 Use:

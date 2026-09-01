@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-document-owners",
+  "owners": [
+    {"path": "README.md", "owner": "tailtrail-product", "purpose": "public product entry point"},
+    {"path": "ROADMAP.md", "owner": "tailtrail-product", "purpose": "canonical implementation roadmap"},
+    {"path": "TAILTRAIL-COMMANDS.md", "owner": "tailtrail-core", "purpose": "canonical command reference"},
+    {"path": "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md", "owner": "tailtrail-core", "purpose": "product maturity phase contract"},
+    {"path": "MCP-SERVER.md", "owner": "tailtrail-core", "purpose": "canonical MCP boundary"},
+    {"path": "INSTALL.md", "owner": "tailtrail-install", "purpose": "canonical installation guide"}
+  ],
+  "boundary": "Primary documentation ownership only. Features may reference a document without becoming its canonical owner."
+}

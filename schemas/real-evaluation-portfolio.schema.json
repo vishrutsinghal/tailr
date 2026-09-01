@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail PM-5 Real Evaluation Portfolio",
+  "type": "object",
+  "required": ["schema_version", "type", "portfolio_id", "minimum_repetitions", "evidence_label", "repository_boundary", "required_metrics", "tasks"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-real-evaluation-portfolio"},
+    "portfolio_id": {"type": "string", "minLength": 1},
+    "minimum_repetitions": {"type": "integer", "minimum": 2},
+    "evidence_label": {"const": "evaluation-protocol"},
+    "repository_boundary": {"type": "string", "minLength": 1},
+    "required_metrics": {"type": "array", "minItems": 9, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "tasks": {
+      "type": "array",
+      "minItems": 15,
+      "items": {
+        "type": "object",
+        "required": ["task_id", "task_class", "repository_fixture", "requirements"],
+        "properties": {
+          "task_id": {"type": "string", "minLength": 1},
+          "task_class": {"type": "string", "minLength": 1},
+          "repository_fixture": {"type": "string", "minLength": 1},
+          "requirements": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

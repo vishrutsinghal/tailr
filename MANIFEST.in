@@ -11,6 +11,11 @@ include enterprise-closure-registry.json
 include enterprise-closure-registry.schema.json
 include tailtrail-registry.json
 include tailtrail-registry.schema.json
+include tailtrail-meta/product-maturity-baseline-v1.json
+include tailtrail-meta/product-maturity-policy-v1.json
+include benchmarks/product-maturity/pm0-scenarios-v1.json
+include benchmarks/evaluation/real-portfolio/v1.json
+include benchmarks/enterprise-conformance/v1.json
 include AGENTS.md
 include AIDLC.md
 include ARCHITECTURE.md
@@ -25,6 +30,7 @@ include INSTALL.md
 include INSTALLER-LIFECYCLE.md
 include MCP-SERVER.md
 include PACKAGE-CONTRACT.md
+include PRODUCT-MATURITY-IMPROVEMENT-PLAN.md
 include REPOSITORY-ENFORCEMENT.md
 include PUBLIC-CLAIMS.md
 include README.md

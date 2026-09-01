@@ -51,6 +51,15 @@ class EvaluationHarnessRouterTests(unittest.TestCase):
         self.assertEqual(report["type"], "tailtrail-delivery-evaluation-report")
         self.assertEqual(report["task_count"], 12)
 
+    def test_real_portfolio_route_reports_protocol_without_claiming_results(self) -> None:
+        result = self.run_tailtrail("eval", "real-portfolio", "report", "--root", str(ROOT))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["task_count"], 18)
+        self.assertEqual(report["status"], "protocol-ready")
+        self.assertEqual(report["claim_status"], "no-performance-claim")
+
     def test_eval_portfolio_run_delegates_to_efficacy_runner(self) -> None:
         result = self.run_tailtrail("eval", "portfolio", "run", "--help")
 

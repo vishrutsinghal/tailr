@@ -1,0 +1,1427 @@
+{
+  "baseline_version": "1.0.0",
+  "boundaries": {
+    "inventory_scope": "Public names and canonical ownership are frozen; implementation contents may change.",
+    "signature": "SHA-256 integrity seal detects artifact modification. It is not an organizational identity signature.",
+    "telemetry": "No network, model, scanner, source execution, or hidden telemetry is used."
+  },
+  "captured_at": "2026-09-01T02:41:53+00:00",
+  "captured_revision": "21510e647af4b30bba2b86bb01417ec12ef8aaff",
+  "compatibility": {
+    "deprecations": [],
+    "minimum_release_window": 2,
+    "rules": [
+      "Keep existing public commands as aliases while a canonical facade replaces them.",
+      "Announce deprecation before removal and name a replacement.",
+      "Preserve schema readers or provide a deterministic migration.",
+      "Do not change approval, evidence, privacy, or safety meaning through an alias.",
+      "Treat undocumented removals as freeze violations."
+    ]
+  },
+  "freeze": {
+    "allowed_change_classes": [
+      "correctness",
+      "security",
+      "consolidation",
+      "compatibility",
+      "maintainability",
+      "evidence",
+      "documentation"
+    ],
+    "approved_additions": {
+      "feature_ids": [],
+      "hosts": [],
+      "mcp_tools": [
+        {
+          "approved_by": "PM-3 implementation authority",
+          "id": "presentation_conformance",
+          "reason": "Expose read-only semantic presentation conformance to MCP hosts."
+        },
+        {
+          "approved_by": "PM-4 implementation authority",
+          "id": "maintainability_inventory",
+          "reason": "Expose the same deterministic maintainability inventory through CLI and MCP."
+        },
+        {
+          "approved_by": "PM-5 implementation authority",
+          "id": "real_evaluation_portfolio_report",
+          "reason": "Expose read-only coverage and claim-boundary reporting for the real evaluation portfolio."
+        }
+      ],
+      "ownership_domains": [],
+      "schema_paths": [
+        {
+          "approved_by": "PM-1 implementation authority",
+          "id": "schemas/workflow-stage-result.schema.json",
+          "reason": "PM-1 requires one closed common result contract for transitions and explicit non-transitions."
+        },
+        {
+          "approved_by": "PM-3 implementation authority",
+          "id": "schemas/presentation-report.schema.json",
+          "reason": "PM-3 requires one canonical presentation contract shared by terminal, Markdown, host, and MCP surfaces."
+        },
+        {
+          "approved_by": "PM-4 implementation authority",
+          "id": "schemas/maintainability-inventory.schema.json",
+          "reason": "PM-4 requires a deterministic registry, module-direction, budget, and documentation-owner inventory contract."
+        },
+        {
+          "approved_by": "PM-5 implementation authority",
+          "id": "schemas/real-evaluation-portfolio.schema.json",
+          "reason": "PM-5 requires a versioned multi-repository task and repetition protocol without representing fixtures as measured outcomes."
+        }
+      ],
+      "top_level_commands": [
+        {
+          "approved_by": "PM-2 implementation authority",
+          "id": "flow",
+          "reason": "Expose the canonical six-verb orchestration facade without removing advanced commands."
+        },
+        {
+          "approved_by": "PM-2 implementation authority",
+          "id": "discuss",
+          "reason": "Direct compatibility alias for saved-plan discussion through the facade."
+        },
+        {
+          "approved_by": "PM-2 implementation authority",
+          "id": "approve",
+          "reason": "Direct context-aware approval through the canonical facade."
+        },
+        {
+          "approved_by": "PM-2 implementation authority",
+          "id": "continue",
+          "reason": "Direct dependency-ready continuation through the durable runtime."
+        },
+        {
+          "approved_by": "PM-2 implementation authority",
+          "id": "close",
+          "reason": "Direct canonical evidence closure through the facade."
+        },
+        {
+          "approved_by": "PM-3 implementation authority",
+          "id": "presentation",
+          "reason": "Expose deterministic canonical report validation, rendering, and host presentation conformance."
+        }
+      ]
+    },
+    "categories": [
+      "top_level_commands",
+      "mcp_tools",
+      "schema_paths",
+      "hosts",
+      "feature_ids",
+      "ownership_domains"
+    ],
+    "program": "PM-0 through PM-7 and PM-L0 through PM-L5",
+    "reason": "Consolidate, prove, and simplify the existing product before adding another top-level subsystem.",
+    "state": "active"
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "sorted compact JSON excluding integrity",
+    "digest": "ec765342d23e8b5f7a133a0d09d17c5c4f4faea368143218514766e66524c914"
+  },
+  "inventory": {
+    "features": [
+      {
+        "id": "advanced-runtime-boundaries",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "aidlc",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "architecture-fitness-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "assistant-adapters",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "behavior-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "benchmark-efficacy",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "bootstrap-snapshot",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "canonical-local-state",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "code-graph-mapper",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "command-surface",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "context-continuity-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "context-engine",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "cross-platform-supply-chain",
+        "owner": "tailtrail-release",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "cross-repo-reference",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "debug-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "durable-workflow-capability-bridge-dwr-b",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-compiler-dwr-1-5",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-contract-dwr-0",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-10",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-11",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-12",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-2",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-3",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-4",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-5",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-6",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-7",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-8",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-deferred-phase-9",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-documentation-phase-0",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-evidence-closure-dwr-3",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-ownership-dwr-a",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-proven-vertical-dwr-4",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-start-integration-dwr-2",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-state-engine-dwr-1",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-storage-dwr-minus",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "durable-workflow-task-scope-dwr-c",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "enterprise-host-adapters",
+        "owner": "tailtrail-hosts",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "enterprise-readiness-program",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "evaluation-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "evidence-aware-testing",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "governance",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "guardrails",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "higher-tier-testing-release-confidence",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "host-runtime-conformance",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "install-surfaces",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "interactive-plan-mode-ip0",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "learning",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "maintainability-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "mcp",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "meta-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "mode-b-recovery-and-diagnosis",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "navigator",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "official-aidlc-bridge",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "official-aidlc-compatibility",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "planning-lock",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "product-maturity-pm0",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "program-delivery-orchestrator",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "public-evidence-portfolio",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "quality-signals",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "question-orchestrator",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "registry",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "release-admin",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "reporting",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "repository-ci-enforcement",
+        "owner": "tailtrail-governance",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "requirement-completion-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "review",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "safe-git-checkpoints-and-recovery",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "security-vulnerability",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "self-contained-package",
+        "owner": "tailtrail-packaging",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-amendment-drift-recovery",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-anchor-task-slice-bridge",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-bridge-contract",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-canonical-import",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-closure-convergence",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-evaluation-governance-release",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "spec-kit-harness-evidence-integration",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-mcp-host-ci-integration",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "spec-kit-navigator-integration",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "spec-kit-read-only-detection",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "target-workspace-resolver",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "testing",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "token-harness",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "extended"
+      },
+      {
+        "id": "transactional-installer-lifecycle",
+        "owner": "tailtrail-install",
+        "status": "implemented",
+        "surface": "core"
+      },
+      {
+        "id": "ui-consistency-guardrail",
+        "owner": "tailtrail-core",
+        "status": "implemented",
+        "surface": "core"
+      }
+    ],
+    "hosts": [
+      {
+        "adapter_version": "v3",
+        "id": "claude",
+        "qualification": "contract-tested",
+        "runtime_status": "not-validated",
+        "supported": false
+      },
+      {
+        "adapter_version": "v3",
+        "id": "codex",
+        "qualification": "contract-tested",
+        "runtime_status": "not-validated",
+        "supported": false
+      },
+      {
+        "adapter_version": "v3",
+        "id": "copilot",
+        "qualification": "contract-tested",
+        "runtime_status": "not-validated",
+        "supported": false
+      }
+    ],
+    "mcp_tools": [
+      "aidlc_official_bridge_show",
+      "aidlc_official_sanitize_validate",
+      "aidlc_official_session_status",
+      "aidlc_official_state_show",
+      "aidlc_official_status",
+      "anchor_show",
+      "architecture_assessment_show",
+      "completion_feedback_show",
+      "completion_report_show",
+      "context_continuity_advisory_show",
+      "context_continuity_render",
+      "context_continuity_show",
+      "debug_closure_finalize",
+      "debug_completion_report_show",
+      "debug_correction_approve",
+      "debug_correction_propose",
+      "debug_correction_scope_check",
+      "debug_correction_show",
+      "debug_evaluation_report",
+      "debug_evaluation_run",
+      "debug_experiment_propose",
+      "debug_experiment_record",
+      "debug_governance_show",
+      "debug_harness_convergence_finalize",
+      "debug_harness_convergence_show",
+      "debug_hypothesis_add",
+      "debug_hypothesis_ledger_show",
+      "debug_hypothesis_reprioritize",
+      "debug_intake_show",
+      "debug_orientation_create",
+      "debug_orientation_show",
+      "debug_release_gate",
+      "debug_reproduction_approve",
+      "debug_reproduction_draft",
+      "debug_reproduction_revise",
+      "debug_reproduction_show",
+      "debug_root_cause_prove",
+      "debug_start",
+      "enterprise_target_policy_inspect",
+      "eval_scenario_list",
+      "eval_scenario_report",
+      "execution_evidence_record",
+      "execution_evidence_show",
+      "git_readiness",
+      "graph_map",
+      "guardrail_check",
+      "harness_checkpoint_show",
+      "harness_control_check",
+      "host_conformance_report",
+      "install_status",
+      "ledger_state",
+      "maintainability_assessment_show",
+      "maintainability_inventory",
+      "navigator_plan",
+      "planning_aidlc_question_approve",
+      "planning_aidlc_question_challenge",
+      "planning_aidlc_question_clarify",
+      "planning_aidlc_question_record",
+      "planning_aidlc_question_show",
+      "planning_aidlc_standard_approve",
+      "planning_aidlc_standard_propose",
+      "planning_authority_show",
+      "planning_decision_show",
+      "planning_investigate",
+      "planning_investigation_show",
+      "planning_lock_approve",
+      "planning_lock_show",
+      "planning_lock_start",
+      "planning_question_context_show",
+      "planning_revision_approve",
+      "planning_revision_propose",
+      "planning_revision_show",
+      "presentation_conformance",
+      "profile_view",
+      "real_evaluation_portfolio_report",
+      "recovery_boundary_show",
+      "recovery_reconciliation_show",
+      "release_confidence_show",
+      "source_patch_apply",
+      "spec_kit_amendment_propose",
+      "spec_kit_anchor_approve",
+      "spec_kit_ci_ingest",
+      "spec_kit_convergence_record",
+      "spec_kit_convergence_show",
+      "spec_kit_detect",
+      "spec_kit_import",
+      "spec_kit_mapping_show",
+      "start_report",
+      "tailtrail_start",
+      "validation_receipt_show",
+      "workflow_adapter_record",
+      "workflow_approval_decide",
+      "workflow_approvals_show",
+      "workflow_assurance_inspect",
+      "workflow_ci_ingest",
+      "workflow_ci_show",
+      "workflow_closure_finalize",
+      "workflow_compiler_show",
+      "workflow_correction_request",
+      "workflow_create",
+      "workflow_current",
+      "workflow_dashboard_show",
+      "workflow_denials_show",
+      "workflow_doctor",
+      "workflow_enterprise_activate",
+      "workflow_enterprise_backup",
+      "workflow_enterprise_conformance",
+      "workflow_enterprise_entry",
+      "workflow_enterprise_ingest",
+      "workflow_enterprise_lease_acquire",
+      "workflow_enterprise_lease_release",
+      "workflow_enterprise_link",
+      "workflow_enterprise_migrate",
+      "workflow_enterprise_migration_plan",
+      "workflow_enterprise_observe",
+      "workflow_enterprise_policy_record",
+      "workflow_enterprise_replay",
+      "workflow_enterprise_restore_validate",
+      "workflow_enterprise_rollback",
+      "workflow_enterprise_show",
+      "workflow_evidence_show",
+      "workflow_freshness_show",
+      "workflow_list",
+      "workflow_real_run_record",
+      "workflow_release_catalog",
+      "workflow_release_compatibility",
+      "workflow_release_evaluate",
+      "workflow_release_retire",
+      "workflow_release_scenario_record",
+      "workflow_release_show",
+      "workflow_replay",
+      "workflow_resume",
+      "workflow_retention_cleanup",
+      "workflow_retention_plan",
+      "workflow_retention_show",
+      "workflow_show",
+      "workflow_state_control",
+      "workflow_status"
+    ],
+    "ownership": [
+      {
+        "canonical_artifact": "Planning Lock",
+        "domain": "task-intent",
+        "owner": "Navigator",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "approved anchor",
+        "domain": "requirements",
+        "owner": "active requirement authority",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "approval decision event",
+        "domain": "approval",
+        "owner": "Durable Workflow Runtime",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "workflow state projection",
+        "domain": "workflow-stage",
+        "owner": "Durable Workflow Runtime",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "run-local evidence stream",
+        "domain": "execution-evidence",
+        "owner": "Execution Evidence Bridge",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "requirement checkpoint",
+        "domain": "requirement-status",
+        "owner": "Requirement Completion Harness",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "requirement-linked drift finding",
+        "domain": "drift",
+        "owner": "Harness checkpoint",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "recovery plan and reconciliation",
+        "domain": "recovery",
+        "owner": "Task Recovery Boundary",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "debug run artifacts",
+        "domain": "debug-investigation",
+        "owner": "Debug Harness",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "Completion Report",
+        "domain": "closure",
+        "owner": "Closure Finalizer",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "token ledger and linked telemetry",
+        "domain": "tokens",
+        "owner": "Token Harness",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "candidate and curated learning records",
+        "domain": "learning",
+        "owner": "Learning Governance",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "normalized evaluation event",
+        "domain": "evaluation",
+        "owner": "Evaluation Harness",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      },
+      {
+        "canonical_artifact": "approved improvement proposal",
+        "domain": "product-improvement",
+        "owner": "Meta-Harness",
+        "projection": "canonical artifact referenced by the workflow stage result",
+        "transition_authority": "Durable Workflow Runtime"
+      }
+    ],
+    "schema_paths": [
+      "schemas/architecture-fitness.schema.json",
+      "schemas/behavior-harness.schema.json",
+      "schemas/change-intent-anchor.schema.json",
+      "schemas/closure-correction.schema.json",
+      "schemas/closure-evaluation.schema.json",
+      "schemas/closure-finalizer.schema.json",
+      "schemas/closure-positive-learning.schema.json",
+      "schemas/closure-record.schema.json",
+      "schemas/completion-report.schema.json",
+      "schemas/context-continuity-advisory.schema.json",
+      "schemas/context-continuity-calibration.schema.json",
+      "schemas/context-continuity-intervention.schema.json",
+      "schemas/context-continuity-policy.schema.json",
+      "schemas/context-continuity-selector-policy.schema.json",
+      "schemas/context-continuity-state.schema.json",
+      "schemas/debug-completion-report.schema.json",
+      "schemas/debug-correction-packet.schema.json",
+      "schemas/debug-evaluation-report.schema.json",
+      "schemas/debug-experiment-proposal.schema.json",
+      "schemas/debug-experiment.schema.json",
+      "schemas/debug-governance.schema.json",
+      "schemas/debug-harness-convergence.schema.json",
+      "schemas/debug-hypothesis-ranking.schema.json",
+      "schemas/debug-intake.schema.json",
+      "schemas/debug-investigation-handoff.schema.json",
+      "schemas/debug-orientation.schema.json",
+      "schemas/debug-release-gate.schema.json",
+      "schemas/debug-reproduction-contract.schema.json",
+      "schemas/dependency-decision.schema.json",
+      "schemas/enterprise-target-policy.schema.json",
+      "schemas/evaluation-delivery-dataset.schema.json",
+      "schemas/evaluation-harness-event.schema.json",
+      "schemas/execution-evidence.schema.json",
+      "schemas/execution-failure.schema.json",
+      "schemas/execution-receipt.schema.json",
+      "schemas/failure-fingerprint.schema.json",
+      "schemas/git-readiness.schema.json",
+      "schemas/harness-checkpoint.schema.json",
+      "schemas/harness-control.schema.json",
+      "schemas/harness-convergence.schema.json",
+      "schemas/harness-result.schema.json",
+      "schemas/harness-template-selection.schema.json",
+      "schemas/host-adapter-contract.schema.json",
+      "schemas/host-runtime-receipt.schema.json",
+      "schemas/host-workspace-resolution.schema.json",
+      "schemas/hypothesis-ledger.schema.json",
+      "schemas/input-role-registry.schema.json",
+      "schemas/install-journal-event.schema.json",
+      "schemas/install-ownership-manifest.schema.json",
+      "schemas/install-plan.schema.json",
+      "schemas/maintainability-baseline.schema.json",
+      "schemas/maintainability-harness.schema.json",
+      "schemas/maintainability-inventory.schema.json",
+      "schemas/official-aidlc-bridge.schema.json",
+      "schemas/official-aidlc-pack.schema.json",
+      "schemas/official-aidlc-run-state.schema.json",
+      "schemas/official-aidlc-sanitized-reference.schema.json",
+      "schemas/official-aidlc-session.schema.json",
+      "schemas/official-aidlc-transition-receipt.schema.json",
+      "schemas/orchestrated-question-set.schema.json",
+      "schemas/planning-aidlc-mode-switch.schema.json",
+      "schemas/planning-authority-route.schema.json",
+      "schemas/planning-conversation.schema.json",
+      "schemas/planning-investigation.schema.json",
+      "schemas/planning-lock.schema.json",
+      "schemas/planning-revision.schema.json",
+      "schemas/platform-qualification-receipt.schema.json",
+      "schemas/presentation-report.schema.json",
+      "schemas/product-maturity-baseline.schema.json",
+      "schemas/program-plan.schema.json",
+      "schemas/program-state.schema.json",
+      "schemas/question-context.schema.json",
+      "schemas/real-evaluation-portfolio.schema.json",
+      "schemas/recovery-reconciliation.schema.json",
+      "schemas/release-evidence.schema.json",
+      "schemas/repository-enforcement-policy.schema.json",
+      "schemas/repository-enforcement-report.schema.json",
+      "schemas/repository-enforcement-suppression.schema.json",
+      "schemas/reproduction-contract.schema.json",
+      "schemas/requirement-evidence.schema.json",
+      "schemas/requirement-impact-map.schema.json",
+      "schemas/requirement-recovery-manifest.schema.json",
+      "schemas/run-event.schema.json",
+      "schemas/spec-kit-amendment.schema.json",
+      "schemas/spec-kit-convergence.schema.json",
+      "schemas/spec-kit-import.schema.json",
+      "schemas/spec-kit-mapping.schema.json",
+      "schemas/spec-kit-source.schema.json",
+      "schemas/target-resolution-receipt.schema.json",
+      "schemas/task-recovery-boundary.schema.json",
+      "schemas/task-recovery-plan.schema.json",
+      "schemas/testing-profile.schema.json",
+      "schemas/token-harness-bridge-input.schema.json",
+      "schemas/token-harness-bridge-output.schema.json",
+      "schemas/validation-evidence-receipt.schema.json",
+      "schemas/workflow-action.schema.json",
+      "schemas/workflow-adapter-input.schema.json",
+      "schemas/workflow-adapter-output.schema.json",
+      "schemas/workflow-approval-record.schema.json",
+      "schemas/workflow-assurance-report.schema.json",
+      "schemas/workflow-capability-plan.schema.json",
+      "schemas/workflow-ci-continuation.schema.json",
+      "schemas/workflow-ci-policy.schema.json",
+      "schemas/workflow-ci-receipt.schema.json",
+      "schemas/workflow-code-change-reservation.schema.json",
+      "schemas/workflow-compatibility-report.schema.json",
+      "schemas/workflow-compiler-plan.schema.json",
+      "schemas/workflow-compiler-policy.schema.json",
+      "schemas/workflow-completion-contract.schema.json",
+      "schemas/workflow-completion-receipt.schema.json",
+      "schemas/workflow-context-receipt.schema.json",
+      "schemas/workflow-correction-packet.schema.json",
+      "schemas/workflow-dashboard.schema.json",
+      "schemas/workflow-denial-audit.schema.json",
+      "schemas/workflow-enterprise-access-review.schema.json",
+      "schemas/workflow-enterprise-backup.schema.json",
+      "schemas/workflow-enterprise-binding.schema.json",
+      "schemas/workflow-enterprise-conformance.schema.json",
+      "schemas/workflow-enterprise-entry.schema.json",
+      "schemas/workflow-enterprise-event.schema.json",
+      "schemas/workflow-enterprise-lease.schema.json",
+      "schemas/workflow-enterprise-link.schema.json",
+      "schemas/workflow-enterprise-migration.schema.json",
+      "schemas/workflow-enterprise-observability.schema.json",
+      "schemas/workflow-enterprise-policy.schema.json",
+      "schemas/workflow-enterprise-replay.schema.json",
+      "schemas/workflow-enterprise-restore-validation.schema.json",
+      "schemas/workflow-enterprise-support-bundle-verification.schema.json",
+      "schemas/workflow-enterprise-support-bundle.schema.json",
+      "schemas/workflow-evaluation-event.schema.json",
+      "schemas/workflow-evidence-record.schema.json",
+      "schemas/workflow-evidence.schema.json",
+      "schemas/workflow-freshness-assessment.schema.json",
+      "schemas/workflow-instance.schema.json",
+      "schemas/workflow-learning-link.schema.json",
+      "schemas/workflow-meta-harness-signal.schema.json",
+      "schemas/workflow-operational-checkpoint.schema.json",
+      "schemas/workflow-ownership.schema.json",
+      "schemas/workflow-preapproval.schema.json",
+      "schemas/workflow-projection.schema.json",
+      "schemas/workflow-real-run-proof.schema.json",
+      "schemas/workflow-release-gate.schema.json",
+      "schemas/workflow-release-scenario.schema.json",
+      "schemas/workflow-retention-cleanup.schema.json",
+      "schemas/workflow-retention-plan.schema.json",
+      "schemas/workflow-retention-policy.schema.json",
+      "schemas/workflow-retirement-decision.schema.json",
+      "schemas/workflow-retry-attempts.schema.json",
+      "schemas/workflow-risk-authority.schema.json",
+      "schemas/workflow-runtime-event.schema.json",
+      "schemas/workflow-stage-approvals.schema.json",
+      "schemas/workflow-stage-result.schema.json",
+      "schemas/workflow-stage.schema.json",
+      "schemas/workflow-storage-event.schema.json",
+      "schemas/workflow-task-scope.schema.json",
+      "schemas/workflow-template-execution.schema.json",
+      "schemas/workflow-token-telemetry.schema.json",
+      "schemas/workflow-transition.schema.json"
+    ],
+    "state_schema_paths": [
+      "schemas/change-intent-anchor.schema.json",
+      "schemas/closure-correction.schema.json",
+      "schemas/closure-evaluation.schema.json",
+      "schemas/closure-finalizer.schema.json",
+      "schemas/closure-positive-learning.schema.json",
+      "schemas/closure-record.schema.json",
+      "schemas/context-continuity-state.schema.json",
+      "schemas/debug-completion-report.schema.json",
+      "schemas/debug-correction-packet.schema.json",
+      "schemas/debug-evaluation-report.schema.json",
+      "schemas/debug-experiment-proposal.schema.json",
+      "schemas/debug-experiment.schema.json",
+      "schemas/debug-governance.schema.json",
+      "schemas/debug-harness-convergence.schema.json",
+      "schemas/debug-hypothesis-ranking.schema.json",
+      "schemas/debug-intake.schema.json",
+      "schemas/debug-investigation-handoff.schema.json",
+      "schemas/debug-orientation.schema.json",
+      "schemas/debug-release-gate.schema.json",
+      "schemas/debug-reproduction-contract.schema.json",
+      "schemas/execution-evidence.schema.json",
+      "schemas/harness-checkpoint.schema.json",
+      "schemas/official-aidlc-run-state.schema.json",
+      "schemas/program-state.schema.json",
+      "schemas/recovery-reconciliation.schema.json",
+      "schemas/release-evidence.schema.json",
+      "schemas/requirement-evidence.schema.json",
+      "schemas/requirement-recovery-manifest.schema.json",
+      "schemas/run-event.schema.json",
+      "schemas/task-recovery-boundary.schema.json",
+      "schemas/task-recovery-plan.schema.json",
+      "schemas/validation-evidence-receipt.schema.json",
+      "schemas/workflow-action.schema.json",
+      "schemas/workflow-adapter-input.schema.json",
+      "schemas/workflow-adapter-output.schema.json",
+      "schemas/workflow-approval-record.schema.json",
+      "schemas/workflow-assurance-report.schema.json",
+      "schemas/workflow-capability-plan.schema.json",
+      "schemas/workflow-ci-continuation.schema.json",
+      "schemas/workflow-ci-policy.schema.json",
+      "schemas/workflow-ci-receipt.schema.json",
+      "schemas/workflow-code-change-reservation.schema.json",
+      "schemas/workflow-compatibility-report.schema.json",
+      "schemas/workflow-compiler-plan.schema.json",
+      "schemas/workflow-compiler-policy.schema.json",
+      "schemas/workflow-completion-contract.schema.json",
+      "schemas/workflow-completion-receipt.schema.json",
+      "schemas/workflow-context-receipt.schema.json",
+      "schemas/workflow-correction-packet.schema.json",
+      "schemas/workflow-dashboard.schema.json",
+      "schemas/workflow-denial-audit.schema.json",
+      "schemas/workflow-enterprise-access-review.schema.json",
+      "schemas/workflow-enterprise-backup.schema.json",
+      "schemas/workflow-enterprise-binding.schema.json",
+      "schemas/workflow-enterprise-conformance.schema.json",
+      "schemas/workflow-enterprise-entry.schema.json",
+      "schemas/workflow-enterprise-event.schema.json",
+      "schemas/workflow-enterprise-lease.schema.json",
+      "schemas/workflow-enterprise-link.schema.json",
+      "schemas/workflow-enterprise-migration.schema.json",
+      "schemas/workflow-enterprise-observability.schema.json",
+      "schemas/workflow-enterprise-policy.schema.json",
+      "schemas/workflow-enterprise-replay.schema.json",
+      "schemas/workflow-enterprise-restore-validation.schema.json",
+      "schemas/workflow-enterprise-support-bundle-verification.schema.json",
+      "schemas/workflow-enterprise-support-bundle.schema.json",
+      "schemas/workflow-evaluation-event.schema.json",
+      "schemas/workflow-evidence-record.schema.json",
+      "schemas/workflow-evidence.schema.json",
+      "schemas/workflow-freshness-assessment.schema.json",
+      "schemas/workflow-instance.schema.json",
+      "schemas/workflow-learning-link.schema.json",
+      "schemas/workflow-meta-harness-signal.schema.json",
+      "schemas/workflow-operational-checkpoint.schema.json",
+      "schemas/workflow-ownership.schema.json",
+      "schemas/workflow-preapproval.schema.json",
+      "schemas/workflow-projection.schema.json",
+      "schemas/workflow-real-run-proof.schema.json",
+      "schemas/workflow-release-gate.schema.json",
+      "schemas/workflow-release-scenario.schema.json",
+      "schemas/workflow-retention-cleanup.schema.json",
+      "schemas/workflow-retention-plan.schema.json",
+      "schemas/workflow-retention-policy.schema.json",
+      "schemas/workflow-retirement-decision.schema.json",
+      "schemas/workflow-retry-attempts.schema.json",
+      "schemas/workflow-risk-authority.schema.json",
+      "schemas/workflow-runtime-event.schema.json",
+      "schemas/workflow-stage-approvals.schema.json",
+      "schemas/workflow-stage-result.schema.json",
+      "schemas/workflow-stage.schema.json",
+      "schemas/workflow-storage-event.schema.json",
+      "schemas/workflow-task-scope.schema.json",
+      "schemas/workflow-template-execution.schema.json",
+      "schemas/workflow-token-telemetry.schema.json",
+      "schemas/workflow-transition.schema.json"
+    ],
+    "top_level_commands": [
+      "adapters",
+      "admin",
+      "aidlc",
+      "analyze",
+      "anchor",
+      "approve",
+      "benchmark",
+      "bootstrap",
+      "budget",
+      "ci",
+      "close",
+      "closure",
+      "commands",
+      "completion-report",
+      "continue",
+      "debug",
+      "dependency",
+      "discuss",
+      "do",
+      "doctor",
+      "efficacy",
+      "enforce",
+      "engine",
+      "enterprise-readiness",
+      "eval",
+      "expand",
+      "failure",
+      "first-run",
+      "flow",
+      "governance",
+      "graph",
+      "guard",
+      "guardrail",
+      "guide",
+      "harness",
+      "hello",
+      "help",
+      "install",
+      "intent",
+      "intent-bridge",
+      "learn",
+      "learnings",
+      "ledger",
+      "maturity",
+      "mcp",
+      "navigator",
+      "next",
+      "outcome",
+      "package-info",
+      "planning",
+      "policy",
+      "presentation",
+      "profile",
+      "quality",
+      "quality-loop",
+      "receipt",
+      "recover",
+      "reference",
+      "registry",
+      "release-check",
+      "repair",
+      "report",
+      "review",
+      "rollback",
+      "route",
+      "run",
+      "savings",
+      "setup-scan",
+      "sonar",
+      "start",
+      "status",
+      "target",
+      "team-init",
+      "telemetry",
+      "test",
+      "token",
+      "token-harness",
+      "ui",
+      "uninstall",
+      "update",
+      "validation",
+      "verify",
+      "version",
+      "vulnerability"
+    ]
+  },
+  "program_phase": "PM-0",
+  "ratings": [
+    {
+      "area": "product-adoption-readiness",
+      "current": 6.3,
+      "evidence": [
+        "README.md",
+        "USER-GUIDE.md",
+        "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md"
+      ],
+      "target": 8.2
+    },
+    {
+      "area": "developer-experience",
+      "current": 5.9,
+      "evidence": [
+        "TAILTRAIL-COMMANDS.md",
+        "scripts/tailtrail.py",
+        "tests/test_cli_dispatch.py"
+      ],
+      "target": 8.5
+    },
+    {
+      "area": "demonstrated-efficacy",
+      "current": 5.8,
+      "evidence": [
+        "benchmarks/evaluation",
+        "benchmarks/efficacy",
+        "EVALUATION-HARNESS.md"
+      ],
+      "target": 8.3
+    },
+    {
+      "area": "maintainability",
+      "current": 6.2,
+      "evidence": [
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "tailtrail-registry.json"
+      ],
+      "target": 8.2
+    },
+    {
+      "area": "host-consistency",
+      "current": 6.5,
+      "evidence": [
+        "adapters/host-compatibility-v1.json",
+        "tests/test_host_runtime_conformance.py"
+      ],
+      "target": 8.5
+    },
+    {
+      "area": "enterprise-readiness",
+      "current": 6.7,
+      "evidence": [
+        "ENTERPRISE-READINESS-ASSESSMENT.md",
+        "enterprise-closure-registry.json"
+      ],
+      "target": 8.2
+    },
+    {
+      "area": "learning-effectiveness",
+      "current": 7.0,
+      "evidence": [
+        "LEARNING-GOVERNANCE.md",
+        "scripts/learning-agent.py",
+        "tailtrail-closure-learning-automation-plan.md"
+      ],
+      "target": 8.3
+    }
+  ],
+  "schema_version": "1",
+  "type": "tailtrail-product-maturity-baseline",
+  "usability_scenarios": [
+    {
+      "expected_surface": "Start plan with bifurcated requirements, Lite/off mode decision, focused proof, token posture, and approval.",
+      "id": "quick-small-fix",
+      "level": "quick",
+      "prompt": "Fix a focused validation defect and preserve the valid path.",
+      "required_assertions": [
+        "planning-lock",
+        "requirements",
+        "aidlc-mode",
+        "selected-features",
+        "validation",
+        "tokens",
+        "approval"
+      ]
+    },
+    {
+      "expected_surface": "Requirement-to-impact matrix, architecture and behavior posture, evidence tiers, and delivery slices.",
+      "id": "guided-multi-file-feature",
+      "level": "guided",
+      "prompt": "Add a multi-file API and service behavior while preserving callers.",
+      "required_assertions": [
+        "impact-matrix",
+        "architecture",
+        "behaviour",
+        "evidence-tiers",
+        "delivery-slices"
+      ]
+    },
+    {
+      "expected_surface": "The complete canonical plan at Quick, Guided, and Expert layers with explicit unavailable/not-applicable reasons.",
+      "id": "verbose-completeness",
+      "level": "all",
+      "prompt": "Run any Start request with --verbose.",
+      "required_assertions": [
+        "no-missing-sections",
+        "requirements",
+        "aidlc",
+        "harnesses",
+        "validation",
+        "drift-recovery",
+        "tokens",
+        "approval"
+      ]
+    },
+    {
+      "expected_surface": "Pinned official authority, relevant questions/options/recommendations/reasons, then a canonical TailTrail plan after answers.",
+      "id": "official-aidlc-standard",
+      "level": "guided",
+      "prompt": "Use AIDLC Standard for a cross-layer requirement.",
+      "required_assertions": [
+        "official-authority",
+        "questions",
+        "recommendations",
+        "separate-approval"
+      ]
+    },
+    {
+      "expected_surface": "Same-run continuity, requirement-linked drift, bounded correction, and no premature closure.",
+      "id": "hands-free-correction",
+      "level": "guided",
+      "prompt": "Run a hands-free feature where one requirement fails after the first implementation cycle.",
+      "required_assertions": [
+        "same-run",
+        "drift",
+        "continuity",
+        "bounded-correction",
+        "closure-blocked"
+      ]
+    },
+    {
+      "expected_surface": "Reproduction approval, orientation, falsifiable hypotheses, experiment evidence, proven root cause, and bounded correction.",
+      "id": "debug-investigation",
+      "level": "guided",
+      "prompt": "Debug a duplicate side effect after an accepted timeout.",
+      "required_assertions": [
+        "reproduction",
+        "orientation",
+        "hypotheses",
+        "experiment",
+        "root-cause",
+        "correction"
+      ]
+    },
+    {
+      "expected_surface": "Evidence-incomplete Completion Report and a requirement-linked correction path rather than success.",
+      "id": "closure-evidence-gap",
+      "level": "quick",
+      "prompt": "Close a run with a missing required behavior receipt.",
+      "required_assertions": [
+        "evidence-incomplete",
+        "requirement-status",
+        "harness-status",
+        "next-correction"
+      ]
+    },
+    {
+      "expected_surface": "Semantically identical canonical sections and authority across hosts.",
+      "id": "host-conformance",
+      "level": "expert",
+      "prompt": "Render the same verbose Start plan through CLI, MCP, Codex, Copilot, and Claude.",
+      "required_assertions": [
+        "same-run",
+        "same-requirements",
+        "same-aidlc",
+        "same-controls",
+        "same-approval"
+      ]
+    }
+  ]
+}

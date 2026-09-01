@@ -1,5 +1,71 @@
 # TailTrail Commands
 
+## Normal six-verb workflow
+
+The PM-2 façade is the recommended path for ordinary delivery:
+
+```powershell
+tailtrail start "your goal"
+tailtrail discuss --run-id <run-id> --question "Why was this scope selected?"
+tailtrail approve --run-id <run-id>
+tailtrail continue --run-id <run-id>
+tailtrail status --run-id <run-id>
+tailtrail close --run-id <run-id>
+```
+
+The same commands are available under `tailtrail flow <verb>`. Omit `--run-id`
+only when exactly one eligible run exists. If multiple runs exist, TailTrail
+lists them and asks for the exact ID instead of guessing.
+
+`continue` prepares one dependency-ready stage. After the host performs the
+typed handoff, record the factual result without manual adapter/executor calls:
+
+```powershell
+tailtrail continue --run-id <run-id> --result-ref .tailtrail/results/result.json
+```
+
+Bare `tailtrail status` retains its installer-lifecycle meaning for backwards
+compatibility. Use `tailtrail status --run-id <run-id>` for task status.
+
+## Presentation and host conformance
+
+TailTrail validates report semantics before projecting them to Markdown,
+narrow terminals, MCP JSON, or host chat surfaces:
+
+```bash
+tailtrail presentation conformance
+tailtrail presentation validate --input report.json
+tailtrail presentation render --input report.json --surface markdown
+tailtrail presentation render --input report.json --surface narrow --width 44
+tailtrail presentation render --input report.json --surface json
+```
+
+Collapsed output deliberately returns an explicit display-required message. It
+does not silently shorten a plan, Debug report, or Completion Report. In
+verbose mode, every required section must contain full data or show an explicit
+`unavailable` / `inapplicable` reason.
+
+## Product maintainability inspection
+
+Generate or validate the PM-4 registry, documentation-owner, module-budget,
+and dependency-direction inventory:
+
+```bash
+tailtrail maturity maintainability inventory
+tailtrail maturity maintainability validate
+tailtrail maturity maintainability status
+```
+
+Maintainers may refresh the committed fingerprinted artifact only explicitly:
+
+```bash
+tailtrail maturity maintainability inventory --write --approved
+```
+
+Module-size budgets are warnings. Missing registry paths, feature dependency
+cycles, duplicate primary documentation owners, and inward domain dependencies
+are failures.
+
 Use this file as the daily command catalog. The commands below keep TailTrail usable through one local entry point while preserving the original scripts.
 
 Main entry point:
@@ -412,6 +478,36 @@ python3 scripts/tailtrail.py registry drift --strict
 Use this when adding or changing TailTrail features, commands, scripts, docs, tests, install surfaces, MCP exposure, approval posture, or evidence labels. The registry is read-only in V1: maintainers edit `tailtrail-registry.json` directly, then run `registry validate --strict`.
 
 Default `registry validate` is advisory and exits `0` with a drift report. `registry validate --strict` exits non-zero when the registry drifts from the source tree, such as an unowned command, orphan script, missing file, duplicate script claim, unresolved dependency, implemented feature without tests, or invalid evidence label.
+
+## Product maturity baseline
+
+```bash
+python3 scripts/tailtrail.py maturity baseline
+python3 scripts/tailtrail.py maturity inventory --format json
+python3 scripts/tailtrail.py maturity validate
+python3 scripts/tailtrail.py maturity status
+```
+
+PM-0 freezes additions to top-level commands, MCP tools, schemas, hosts,
+Feature Registry IDs, and canonical ownership domains while the product is
+being consolidated. `maturity validate` is read-only and reports unapproved
+additions, unannounced removals, integrity failure, incomplete scenarios, or
+ambiguous ownership.
+
+The committed baseline is versioned and SHA-256 integrity-sealed. The seal
+detects artifact changes; it is not an organizational identity signature.
+
+Replacing the committed baseline requires explicit approval:
+
+```bash
+python3 scripts/tailtrail.py maturity baseline --write --approved
+```
+
+An intended new public surface must first be recorded under the matching
+`approved_additions` category in
+`tailtrail-meta/product-maturity-policy-v1.json`, with its ID, approving owner,
+and reason. Public removals require a declared replacement and compatibility
+window.
 
 Use `registry drift` after feature changes to catch release hygiene drift that pure registry validation cannot see: missing command docs, stale roadmap wording, missing changelog updates, and unsupported public-claim wording. Default mode is advisory. Use `--strict` after the false-positive rate is acceptable for release gating.
 
@@ -2100,6 +2196,20 @@ See `ASSISTANT-COMPATIBILITY.md` for support levels and limitations. Assistant-s
 
 ## Evaluation Harness
 
+Real evaluation portfolio:
+
+```text
+tailtrail eval real-portfolio validate --root .
+tailtrail eval real-portfolio prepare --root . --task <task-id> --repetition <n> --baseline-hash <sha256> --tailtrail-hash <sha256> --approved
+tailtrail eval real-portfolio grade --root . --packet <packet-ref> --input <sanitized-metrics.json> --approved
+tailtrail eval real-portfolio unblind --root . --grade <grade-ref> --assignment <assignment-ref> --approved
+tailtrail eval real-portfolio report --root .
+```
+
+Preparation, grading, and unblinding are separate approval-gated stages. The
+read-only report never runs a model or turns incomplete coverage into an
+efficacy claim.
+
 ```bash
 python3 scripts/tailtrail.py eval audit
 python3 scripts/tailtrail.py eval audit --format json
@@ -2192,6 +2302,9 @@ python3 scripts/tailtrail.py enterprise-readiness validate
 python3 scripts/tailtrail.py enterprise-readiness status
 python3 scripts/tailtrail.py enterprise-readiness status --format json
 python3 scripts/tailtrail.py enterprise-readiness inventory --format json
+python3 scripts/tailtrail.py enterprise-readiness --root . conformance
+python3 scripts/tailtrail.py enterprise-readiness --root . conformance --platform-report path/to/hosted-report.json
+python3 scripts/tailtrail.py enterprise-readiness --root . offline-bundle --target tailtrail-enterprise-offline.zip --approved
 ```
 
 `enterprise-readiness validate` is the strict Phase E0 gate for the versioned
@@ -2205,6 +2318,12 @@ adapter files and host surfaces, persisted `.tailtrail` artifact literals, CI
 workflow controls, install profiles and surfaces, release-file presence,
 support claims, and normalized feature maturity. It is read-only and does not
 convert local validation into enterprise support or release eligibility.
+
+`enterprise-readiness conformance` runs the PM-6 offline control suite and
+keeps local implementation separate from hosted release qualification.
+`offline-bundle` creates a deterministic self-contained verifier ZIP and
+requires explicit approval; it includes no project evidence or `.tailtrail`
+state.
 
 ## Debug Harness prototype
 

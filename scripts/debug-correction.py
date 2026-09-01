@@ -121,7 +121,16 @@ def scope_check(root: Path, run_id: str, changed: list[str], approved: bool) -> 
 
 
 def show(root: Path, run_id: str) -> dict[str, Any]:
-    root = root.resolve(); path = approved_path(root, run_id) if approved_path(root, run_id).is_file() else packet_path(root, run_id); return _read(path, "tailtrail-debug-correction-packet")
+    root = root.resolve(); approved = approved_path(root, run_id); proposed = packet_path(root, run_id)
+    path = approved if approved.is_file() else proposed
+    if not path.is_file():
+        return {"schema_version":"1", "type":"tailtrail-debug-correction-status", "run_id":run_id,
+            "status":"not-created", "lifecycle_classification":"not-yet-expected",
+            "expected_after_stage":"d-06-root-cause-proof",
+            "reason":"A correction packet is created only after one hypothesis has formal supporting evidence and a competing hypothesis is eliminated.",
+            "next":"Complete bounded reproduction and root-cause proof before proposing a correction.",
+            "boundary":"Read-only absence receipt. No correction was proposed, approved, or implemented."}
+    return _read(path, "tailtrail-debug-correction-packet")
 
 
 def main() -> int:

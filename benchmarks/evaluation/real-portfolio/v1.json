@@ -1,0 +1,25 @@
+{
+  "schema_version":"1","type":"tailtrail-real-evaluation-portfolio","portfolio_id":"pm5-real-portfolio-v1","minimum_repetitions":3,
+  "evidence_label":"evaluation-protocol","repository_boundary":"Sanitized repository fixtures or pinned public revisions only; catalog entries are tasks, not outcomes.",
+  "required_metrics":["requirements_completed","requirements_total","missed_callers","missed_tests","correction_cycles","scope_drift_paths","false_interventions","developer_review_seconds","provider_total_tokens"],
+  "tasks":[
+    {"task_id":"focused-validation","task_class":"focused-bug-fix","repository_fixture":"python-service-a","requirements":["reject invalid boundary","preserve valid path","focused proof"]},
+    {"task_id":"multi-file-cancellation","task_class":"multi-file-feature","repository_fixture":"python-service-a","requirements":["eligibility","inventory","payment","notification","audit"]},
+    {"task_id":"cursor-contract","task_class":"api-contract-change","repository_fixture":"typescript-api-b","requirements":["cursor contract","caller compatibility","contract proof"]},
+    {"task_id":"status-journey","task_class":"behaviour-journey","repository_fixture":"web-app-c","requirements":["visible states","single notification","journey proof"]},
+    {"task_id":"orchestration-refactor","task_class":"preserving-refactor","repository_fixture":"python-service-a","requirements":["remove duplication","preserve public behaviour","avoid new abstraction"]},
+    {"task_id":"dependency-choice","task_class":"dependency-decision","repository_fixture":"typescript-api-b","requirements":["reuse assessment","security ownership","decision evidence"]},
+    {"task_id":"ci-contract-failure","task_class":"ci-release-failure","repository_fixture":"java-service-d","requirements":["classify failure","preserve safeguards","bounded correction"]},
+    {"task_id":"terraform-policy","task_class":"infrastructure-config","repository_fixture":"infra-stack-e","requirements":["policy change","plan-only proof","rollback posture"]},
+    {"task_id":"ambiguous-address","task_class":"requirement-clarification","repository_fixture":"python-service-a","requirements":["normalization decision","compatibility decision","evidence tier"]},
+    {"task_id":"duplicate-effect-debug","task_class":"debug-investigation","repository_fixture":"python-service-a","requirements":["reproduce","prove root cause","bounded correction"]},
+    {"task_id":"authorization-flow","task_class":"security-flow","repository_fixture":"web-app-c","requirements":["API authorization","UI visibility","negative proof"]},
+    {"task_id":"migration-compatibility","task_class":"data-migration","repository_fixture":"java-service-d","requirements":["forward compatibility","rollback","migration proof"]},
+    {"task_id":"concurrent-reservation","task_class":"concurrency","repository_fixture":"python-service-a","requirements":["atomic reservation","idempotency","concurrency proof"]},
+    {"task_id":"webhook-validation","task_class":"security-validation","repository_fixture":"typescript-api-b","requirements":["signature verification","failure contract","handler preservation"]},
+    {"task_id":"ui-consistency","task_class":"ui-change","repository_fixture":"web-app-c","requirements":["reuse components","accessibility","responsive proof"]},
+    {"task_id":"release-rollout","task_class":"release-confidence","repository_fixture":"java-service-d","requirements":["canary criteria","rollback","CI receipt"]},
+    {"task_id":"intent-source-amendment","task_class":"source-owned-requirement","repository_fixture":"python-service-a","requirements":["source mapping","amendment drift","convergence"]},
+    {"task_id":"recovery-boundary","task_class":"safe-recovery","repository_fixture":"typescript-api-b","requirements":["preserve prior task","revert owned delta","recovery proof"]}
+  ]
+}

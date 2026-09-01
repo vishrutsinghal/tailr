@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Canonical Presentation Report",
+  "type": "object",
+  "required": ["schema_version", "type", "report_kind", "mode", "verbose", "title", "required_section_ids", "sections"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-presentation-report"},
+    "report_kind": {"enum": ["plan", "debug", "closure", "orchestration"]},
+    "mode": {"enum": ["quick", "guided", "expert"]},
+    "verbose": {"type": "boolean"},
+    "title": {"type": "string", "minLength": 1},
+    "run_id": {"type": ["string", "null"]},
+    "state": {"type": ["string", "null"]},
+    "required_section_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "sections": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "status", "required", "content", "reason"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1}, "title": {"type": "string", "minLength": 1},
+          "status": {"enum": ["available", "unavailable", "inapplicable"]}, "required": {"type": "boolean"},
+          "content": {}, "reason": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

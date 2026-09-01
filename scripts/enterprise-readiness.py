@@ -697,12 +697,44 @@ def build_parser() -> argparse.ArgumentParser:
     ga_gate.add_argument("--write", type=Path, default=None)
     ga_verify = subparsers.add_parser("ga-verify")
     ga_verify.add_argument("--bundle", type=Path, required=True)
+    conformance = subparsers.add_parser("conformance")
+    conformance.add_argument("--catalog", type=Path, default=ROOT / "benchmarks/enterprise-conformance/v1.json")
+    conformance.add_argument("--platform-report", type=Path)
+    conformance.add_argument("--skip-probes", action="store_true")
+    offline = subparsers.add_parser("offline-bundle")
+    offline.add_argument("--target", type=Path, required=True)
+    offline.add_argument("--approved", action="store_true")
     return parser
+
+
+def load_conformance_module():
+    path = ROOT / "scripts/enterprise-conformance.py"
+    spec = importlib.util.spec_from_file_location("tailtrail_enterprise_conformance", path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"unable to load enterprise conformance runner from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     root = args.root.resolve()
+    if args.command in {"conformance", "offline-bundle"}:
+        module = load_conformance_module()
+        try:
+            if args.command == "conformance":
+                value = module.inspect(root, args.catalog, args.platform_report, not args.skip_probes)
+                code = 0 if value["status"] == "passed" else 2
+            else:
+                value = module.create_bundle(root, args.target, args.approved)
+                code = 0
+            print(json.dumps(value, indent=2, sort_keys=True))
+            return code
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            print(f"TailTrail enterprise conformance error: {error}")
+            return 2
     registry = load_registry(args.registry.resolve())
     issues = validate_registry(registry, root)
     if args.command == "inventory":

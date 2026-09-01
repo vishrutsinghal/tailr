@@ -26,6 +26,22 @@
           "rank": {"type": "integer", "minimum": 1},
           "supporting_evidence": {"type": "array", "items": {"type": "string"}},
           "contradicting_evidence": {"type": "array", "items": {"type": "string"}},
+          "advisory_evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["direction", "label", "summary", "artifact_ref"],
+              "properties": {
+                "direction": {"enum": ["supports", "contradicts"]},
+                "label": {"enum": ["local-source-observation", "orientation", "heuristic"]},
+                "summary": {"type": "string", "minLength": 1},
+                "artifact_ref": {"type": "string", "minLength": 1}
+              },
+              "additionalProperties": false
+            }
+          },
+          "evidence_gaps": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "discriminating_signal": {"type": ["string", "null"]},
           "next_experiment": {"type": ["string", "null"]},
           "status": {"enum": ["open", "eliminated", "proven"]}
         },

@@ -21,7 +21,11 @@
       "required": ["state", "tiers"],
       "properties": {
         "state": {"enum": ["required"]},
-        "tiers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["reproduction", "root-cause", "regression", "behaviour"]}}
+        "tiers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["reproduction", "root-cause", "regression", "behaviour"]}},
+        "expected_exit_code_before_fix": {"type": "integer"},
+        "required_output": {"type": "array", "items": {"type": "string"}},
+        "expected_exit_code_after_fix": {"type": "integer"},
+        "required_output_after_fix": {"type": "array", "items": {"type": "string"}}
       }
     },
     "unresolved_fields": {"type": "array", "uniqueItems": true, "items": {"enum": ["domain", "trigger", "expected", "actual", "reproduction_method", "preserve_rules", "safety_boundary"]}},

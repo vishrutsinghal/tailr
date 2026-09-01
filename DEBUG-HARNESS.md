@@ -149,6 +149,28 @@ behavior composes existing TailTrail mechanisms.
 | **Failure fingerprint** | A normalized, deduplicated identity for a reported failure (symptom text hash + stack signature + affected entry point), used to detect "have we seen this before" via Learning Governance and Context Continuity |
 | **Reproduction contract** | The debug analogue of an approved anchor: trigger, expected, actual, reproduction method, preserve rules, safety boundary — approved before any code is touched |
 | **Hypothesis ledger** | An append-only, ranked list of candidate causes, each with supporting evidence, contradicting evidence, and the next discriminating experiment |
+
+The ledger keeps two evidence classes separate. `supporting_evidence` and
+`contradicting_evidence` contain only experiment-linked evidence that can
+change proof state. `advisory_evidence` contains labeled source, orientation,
+or heuristic observations used to choose the next experiment. Each advisory
+item preserves its direction, label, summary, and artifact reference. It may
+explain a ranking recommendation but cannot prove or eliminate a hypothesis.
+The ledger also saves evidence gaps and the expected discriminating signal.
+
+`tailtrail debug hypothesis show` renders this distinction as a stable
+four-column Markdown table by default. `--format json` returns the exact
+machine contract. Empty formal evidence is displayed as `none recorded`, not
+`null`, and does not hide any saved advisory observation.
+
+Read-only MCP lifecycle inspection treats an artifact that is not yet expected
+as state, not an exception. Correction, convergence, governance, and completion
+show tools return `status: not-created`, the lifecycle stage after which the
+artifact is expected, a reason, and the safest next action. Convergence returns
+the three unconditional controls as a preview and defers conditional lenses
+until correction scope exists. `workflow_current` also explains that projected
+Debug artifacts do not advance the canonical DWR stage without a linked,
+authorized stage result.
 | **Experiment** | A single bounded, deterministic action whose sole purpose is to eliminate or strengthen one hypothesis (not to fix anything) |
 | **Root-cause proof** | The evidence artifact that a specific, named defect — not merely "the test now passes" — explains the reproduction |
 | **Correction packet** | The bounded fix proposal handed to the existing Program Delivery / Harness pipeline once root cause is proven |
@@ -1320,8 +1342,23 @@ Completion proof:
   `.tailtrail/runs/<run-id>/debug/reproduction/draft-v<N>.json`. Approval names
   the exact current revision and fails when any field is unresolved or stale.
 - The requirement UID is created with the first draft and remains stable across
-  revisions, the immutable approved reproduction, approved anchor,
+  revisions, including revisions that refine the trigger or reproduction
+  command. A caller cannot replace that identity by supplying a different UID.
+  The immutable identity continues through the approved reproduction, anchor,
   investigation handoff, evidence, drift, and closure.
+- `tailtrail debug reproduction show` renders a concise approval report by
+  default. It shows run/revision identity, the observable failure boundary,
+  before-fix and after-fix expectations, preserve rules, and the exact
+  approval phrase. Automation can request the unchanged machine contract with
+  `tailtrail debug reproduction show --format json`.
+- The report deliberately separates three proof states: **failure
+  reproduced**, **root cause proven**, and **behavior restored**. A failing
+  reproduction is not causal proof, and causal proof is not post-correction
+  validation. Before investigation all three remain `not run`.
+- Validation contracts may record deterministic pre-fix and post-fix exit
+  codes and observable output. For example, a duplicate-effect fixture can
+  require exit `1` plus `charge_count=2` before correction, then exit `0` plus
+  `charge_count=1` after correction.
 - The approved anchor uses kind `debug-investigation` and retains the approved
   reproduction, root-cause, regression, and behaviour evidence tiers.
 - The Planning Lock becomes `debug-investigation-only`: evidence may be

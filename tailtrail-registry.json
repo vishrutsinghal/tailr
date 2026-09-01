@@ -961,7 +961,8 @@
       "commands": [
         "tailtrail adapters runtime prepare",
         "tailtrail adapters runtime record",
-        "tailtrail adapters runtime report"
+        "tailtrail adapters runtime report",
+        "tailtrail presentation"
       ],
       "docs": [
         "tailtrail-aidlc-integration.md",
@@ -972,17 +973,20 @@
         "adapters/README.md"
       ],
       "scripts": [
-        "scripts/host-runtime-conformance.py"
+        "scripts/host-runtime-conformance.py",
+        "scripts/presentation.py"
       ],
       "tests": [
         "tests/test_host_adapter_conformance.py",
         "tests/test_host_runtime_conformance.py",
+        "tests/test_presentation_conformance.py",
         "tests/test_mcp_server.py",
         "tests/test_cli_dispatch.py",
         "tests/test_install_profiles.py"
       ],
       "mcp_tools": [
-        "host_conformance_report"
+        "host_conformance_report",
+        "presentation_conformance"
       ],
       "requires_approval": false,
       "read_only": false,
@@ -1634,7 +1638,12 @@
         "tailtrail commands",
         "tailtrail hello",
         "tailtrail version",
-        "tailtrail doctor"
+        "tailtrail doctor",
+        "tailtrail flow",
+        "tailtrail discuss",
+        "tailtrail approve",
+        "tailtrail continue",
+        "tailtrail close"
       ],
       "docs": [
         "README.md",
@@ -1644,7 +1653,8 @@
       "scripts": [
         "scripts/tailtrail.py",
         "scripts/check-tailtrail.py",
-        "scripts/sync-adapters.py"
+        "scripts/sync-adapters.py",
+        "scripts/orchestration_facade.py"
       ],
       "tests": [
         "tests/test_cli_dispatch.py"
@@ -1736,7 +1746,8 @@
         "tailtrail eval scenario report",
         "tailtrail eval normalize",
         "tailtrail eval validate-events",
-        "tailtrail eval dataset list|validate|report"
+        "tailtrail eval dataset list|validate|report",
+        "tailtrail eval real-portfolio validate|prepare|grade|unblind|report"
       ],
       "docs": [
         "EVALUATION-HARNESS.md",
@@ -1747,22 +1758,27 @@
         "benchmarks/evaluation/delivery-dataset/v1.json",
         "schemas/evaluation-harness-event.schema.json",
         "schemas/evaluation-delivery-dataset.schema.json",
+        "schemas/real-evaluation-portfolio.schema.json",
+        "benchmarks/evaluation/real-portfolio/v1.json",
         "templates/evaluation-result.md"
       ],
       "scripts": [
         "scripts/evaluation-audit.py",
         "scripts/evaluation-harness.py",
-        "scripts/evaluation-dataset.py"
+        "scripts/evaluation-dataset.py",
+        "scripts/real-evaluation-portfolio.py"
       ],
       "tests": [
         "tests/test_evaluation_audit.py",
         "tests/test_evaluation_harness_router.py",
         "tests/test_evaluation_harness_scenarios.py",
-        "tests/test_evaluation_dataset.py"
+        "tests/test_evaluation_dataset.py",
+        "tests/test_real_evaluation_portfolio.py"
       ],
       "mcp_tools": [
         "eval_scenario_list",
-        "eval_scenario_report"
+        "eval_scenario_report",
+        "real_evaluation_portfolio_report"
       ],
       "requires_approval": false,
       "read_only": true,
@@ -2918,7 +2934,9 @@
       "commands": [
         "tailtrail enterprise-readiness validate",
         "tailtrail enterprise-readiness status",
-        "tailtrail enterprise-readiness inventory --format json"
+        "tailtrail enterprise-readiness inventory --format json",
+        "tailtrail enterprise-readiness conformance",
+        "tailtrail enterprise-readiness offline-bundle --approved"
       ],
       "docs": [
         "ENTERPRISE-READINESS-ASSESSMENT.md",
@@ -2927,22 +2945,76 @@
         "TAILTRAIL-COMMANDS.md",
         "CHANGELOG.md",
         "aidlc-docs/phase-e0-requirements.md",
-        "aidlc-docs/phase-e0-design.md"
+        "aidlc-docs/phase-e0-design.md",
+        "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md",
+        "benchmarks/enterprise-conformance/v1.json",
+        "schemas/enterprise-conformance-report.schema.json"
       ],
       "scripts": [
-        "scripts/enterprise-readiness.py"
+        "scripts/enterprise-readiness.py",
+        "scripts/enterprise-conformance.py"
       ],
       "tests": [
-        "tests/test_enterprise_readiness.py"
+        "tests/test_enterprise_readiness.py",
+        "tests/test_enterprise_conformance.py"
       ],
-      "mcp_tools": [],
+      "mcp_tools": ["enterprise_conformance_report"],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "registry"
+      ],
+      "since_version": "enterprise-e0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "product-maturity-pm0",
+      "title": "Product Maturity PM-0 Baseline And Freeze",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Product Maturity Improvement Track / PM-0",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [
+        "tailtrail maturity baseline",
+        "tailtrail maturity inventory",
+        "tailtrail maturity maintainability inventory",
+        "tailtrail maturity maintainability validate",
+        "tailtrail maturity maintainability status",
+        "tailtrail maturity validate",
+        "tailtrail maturity status"
+      ],
+      "docs": [
+        "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md",
+        "ROADMAP.md",
+        "tailtrail-meta/product-maturity-policy-v1.json",
+        "tailtrail-meta/product-maturity-baseline-v1.json",
+        "benchmarks/product-maturity/pm0-scenarios-v1.json",
+        "schemas/product-maturity-baseline.schema.json",
+        "schemas/maintainability-inventory.schema.json",
+        "tailtrail-meta/document-owners-v1.json",
+        "tailtrail-meta/maintainability-inventory-v1.json"
+      ],
+      "scripts": [
+        "scripts/product-maturity.py",
+        "scripts/product-maintainability.py",
+        "scripts/orchestration/__init__.py",
+        "scripts/orchestration/run_resolution.py"
+      ],
+      "tests": [
+        "tests/test_product_maturity.py",
+        "tests/test_product_maintainability.py",
+        "tests/test_orchestration_facade.py"
+      ],
+      "mcp_tools": ["maintainability_inventory"],
       "requires_approval": false,
       "read_only": true,
       "evidence_label": "local-evidence",
       "depends_on": [
         "registry"
       ],
-      "since_version": "enterprise-e0",
+      "since_version": "pm-0",
       "deprecated_in_version": null
     },
     {

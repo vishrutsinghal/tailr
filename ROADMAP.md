@@ -11830,3 +11830,71 @@ Success criteria:
 - BL-4 and BL-7 are cheap UX and quality wins that de-risk BL-5.
 - BL-10 slots after BL-5/BL-7 because Token Harness proof (Feature 12 holdout gate, Feature 5 evidence labels) reuses the guardrail enforcement and precision baseline from BL-5/BL-7 to keep `measured` claims honest.
 - BL-5, BL-8, BL-9, and BL-10 are larger and should follow the precision baseline and consolidation work.
+
+## Product Maturity Improvement Track
+
+Status: implementation in progress. PM-0 through PM-4 are implemented and
+validated; later phases retain their explicit planned status below.
+
+Purpose: raise every current TailTrail product rating below `8/10` without
+adding another overlapping subsystem. The track focuses on a single
+orchestration facade, canonical state transitions, host-neutral presentation,
+incremental maintainability extraction, real-repository efficacy evidence,
+enterprise conformance, and measured adoption friction.
+
+Detailed design, diagrams, examples, phase dependencies, exit evidence, and
+rating gates are documented in
+[`PRODUCT-MATURITY-IMPROVEMENT-PLAN.md`](PRODUCT-MATURITY-IMPROVEMENT-PLAN.md).
+
+Implementation order:
+
+1. **PM-0 — Baseline And Freeze — Implemented**: `tailtrail maturity
+   baseline|inventory|validate|status` now inventories commands, MCP tools,
+   schemas, state schemas, hosts, features, ratings, scenarios, and canonical
+   owners. A committed SHA-256 integrity-sealed baseline, active freeze policy,
+   two-release compatibility/deprecation contract, scenario fixture, schema,
+   Feature Registry entry, install surface, and focused tests are included.
+   New public surfaces require a named policy approval with a reason; the seal
+   is not misrepresented as an organizational identity signature.
+2. **PM-1 — Canonical Ownership And Stage Results — Implemented**: the complete
+   owner matrix names the Durable Workflow Runtime as transition authority.
+   Adapter outcomes, approval-gate completion, approved skips, and stale
+   dispatch attempts create one closed, immutable, requirement-linked stage
+   result. Transition results reference the exact append-only event ID/hash;
+   stale attempts are explicit non-transitions, and deterministic idempotency
+   suppresses duplicate recording without inventing state movement.
+3. **PM-2 — One Orchestration Facade — Implemented**: `tailtrail flow` and
+   direct compatibility aliases expose `start`, `discuss`, `approve`,
+   `continue`, `status`, and `close` through one application service. Active
+   run resolution fails closed on ambiguity; approval is context-aware for an
+   exact Planning Lock or frozen workflow stage; continuation advances only
+   one dependency-ready stage and requires a factual typed host result before
+   completion. Existing advanced commands remain available.
+4. **PM-3 — Presentation And Host Conformance — Implemented**: render the same canonical
+   semantics across CLI, MCP, Codex, Copilot, and Claude. `--verbose` is a
+   complete-plan contract at every presentation layer: applicable sections
+   must contain their full data, and unavailable/inapplicable sections must
+   show an explicit status and reason instead of disappearing. The canonical
+   presentation schema, shared Markdown/narrow/JSON renderers, explicit
+   collapsed-output refusal, PM-2 façade integration, read-only MCP inspection,
+   and deterministic plan/debug/closure host matrix are now implemented.
+5. **PM-4 — Maintainability Extraction — Implemented**: active-run resolution
+   is extracted behind a bounded orchestration service; PM-3 rendering remains
+   shared; registry-derived command/MCP/path/dependency inventories,
+   documentation ownership, AST dependency-direction checks, advisory module
+   budgets, CLI/MCP parity, packaging, and characterization tests are in place.
+6. **PM-5 — Real Evaluation Portfolio — Implemented (protocol-ready)**: a versioned 18-task, five-repository portfolio now supports approval-gated blind packet preparation, sanitized grading, separate unblinding, immutable outcome retention, three-run coverage, CLI routing, and a read-only MCP report. It requires 54 observations before scoped claims and currently reports `no-performance-claim`. Run blinded paired evaluation on at
+   least 15 realistic tasks across multiple repositories.
+7. **PM-6 — Enterprise Conformance And Operations — Implemented (local/offline passed; hosted evidence pending)**: a ten-domain versioned catalog and offline verifier consolidate compatibility, install/update/rollback, policy, linked CI, retention/export, migration/recovery, threat controls, support/versioning, and offline packaging. Five local probes pass; a read-only MCP report exposes the same boundary; and an approval-gated deterministic ZIP contains only the verifier contracts and hashes. Release qualification stays `not-observed` until genuine Windows/macOS/Linux × Python 3.12/3.13 hosted receipts and required identity attestation are supplied. Verify install, update,
+   rollback, policy, CI receipt, retention, export, migration, and threat-model
+   boundaries offline.
+8. **PM-7 — Adoption Validation**: measure time-to-plan, approval burden,
+   abandoned runs, false interventions, and completion comprehension.
+9. **PM-L0 through PM-L5 — Learning Effectiveness**: consolidate learning
+   ownership, introduce a versioned provenance/applicability contract, add
+   Navigator retrieval and contradiction gates, record requirement-linked use
+   receipts, attribute observed closure outcomes, version amendments and
+   revocations, and calibrate learning through learning-on/off evaluation.
+
+Rating rule: completing code is insufficient. A rating moves above `8/10` only
+after the corresponding evidence gate in the detailed plan passes.

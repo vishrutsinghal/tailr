@@ -1,11 +1,12 @@
 """Advance Deferred Phase 5 template stages only from approved typed adapter evidence."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
-from workflow_runtime import adapters, approvals, compiler, contracts, correction, freshness, ownership, retry, state, storage, task_scope, transitions
+from workflow_runtime import adapters, approvals, compiler, contracts, correction, freshness, ownership, retry, stage_results, state, storage, task_scope, transitions
 
 
 LEDGER = ownership.LEDGER
@@ -119,7 +120,19 @@ def start(root: Path, workflow_id: str, stage_id: str | None, approval_id: str |
     root = root.resolve(); _ensure_scope(root, workflow_id); freshness_result = freshness.apply(root, workflow_id)
     if freshness_result["status"] == "stale":
         next_action = freshness_result.get("terminal_boundary", "Use workflow resume plan; do not dispatch against changed inputs.")
-        return {"execution":status(root, workflow_id),"status":"freshness-stale","freshness":freshness_result,"next":next_action}
+        selected = stage_id or status(root, workflow_id).get("next_stage_id")
+        result = None
+        if selected:
+            stale_key = hashlib.sha256(json.dumps({
+                "workflow_id": workflow_id, "stage_id": selected,
+                "checkpoint_fingerprint": freshness_result.get("checkpoint_fingerprint"),
+                "change_types": freshness_result.get("change_types", []),
+                "affected_stage_ids": freshness_result.get("affected_stage_ids", []),
+            }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            result = stage_results.record(root, workflow_id, selected, outcome="stale", reason_code="input-stale",
+                idempotency_key="wfidem-" + stale_key,
+                transition_event=None, evidence_refs=[freshness_result["artifact"]] if freshness_result.get("artifact") else [])
+        return {"execution":status(root, workflow_id),"status":"freshness-stale","freshness":freshness_result,"stage_result":result,"next":next_action}
     plan = compiler.show(root, workflow_id); current = status(root, workflow_id)
     selected = stage_id or current["next_stage_id"]
     if not selected: return current
@@ -133,7 +146,10 @@ def start(root: Path, workflow_id: str, stage_id: str | None, approval_id: str |
         return {"execution": _write_receipt(root, workflow_id), "status": "awaiting-approval", "required_action_class": stage["adapter_action_class"]}
     if stage.get("control_kind") == "approval-gate":
         transitions.stage(root, workflow_id, selected, "running", "approval-granted", approval_id)
-        transitions.stage(root, workflow_id, selected, "passed", "stage-passed")
+        transition = transitions.stage(root, workflow_id, selected, "passed", "stage-passed")
+        stage_results.record(root, workflow_id, selected, outcome="pass", reason_code="stage-passed",
+            idempotency_key="wfidem-" + hashlib.sha256(f"{workflow_id}:{selected}:{approval_id}:control".encode()).hexdigest(),
+            transition_event=transition, evidence_refs=[])
         return _complete_or_status(root, workflow_id)
     if plan["template_id"] == "repository-discovery" and stage["adapter_action_class"] not in {"read_local", "write_tailtrail_state"}:
         raise ValueError("repository-discovery is read-only; project action requires a separately approved follow-up workflow")
@@ -185,12 +201,17 @@ def finish(root: Path, workflow_id: str, stage_id: str) -> dict[str, Any]:
         raise
     outcome = output["outcome"]
     retry.record_initial_outcome(root, workflow_id, stage_id, outcome, output["artifact"])
-    if outcome == "pass": transitions.stage(root, workflow_id, stage_id, "passed", "stage-passed")
+    transition = None
+    reason_code = "stage-passed"
+    if outcome == "pass": transition = transitions.stage(root, workflow_id, stage_id, "passed", "stage-passed")
     elif outcome == "fail":
-        transitions.stage(root, workflow_id, stage_id, "failed", "stage-failed"); transitions.workflow(root, workflow_id, "failed", "stage-failed")
+        reason_code = "stage-failed"; transition = transitions.stage(root, workflow_id, stage_id, "failed", reason_code); transitions.workflow(root, workflow_id, "failed", reason_code)
     elif outcome in {"blocked", "timeout", "unavailable"}:
-        transitions.stage(root, workflow_id, stage_id, "blocked", "blocked-missing-evidence"); transitions.workflow(root, workflow_id, "blocked", "blocked-missing-evidence")
+        reason_code = "blocked-missing-evidence"; transition = transitions.stage(root, workflow_id, stage_id, "blocked", reason_code); transitions.workflow(root, workflow_id, "blocked", reason_code)
     else: raise ValueError("skipped results cannot bypass the explicit approved skip transition")
+    stage_results.record(root, workflow_id, stage_id, outcome=outcome, reason_code=reason_code,
+        idempotency_key=output["idempotency_key"], transition_event=transition,
+        evidence_refs=[output["artifact"], *output.get("evidence_refs", [])])
     binding = ownership.show(root, workflow_id); LEDGER.append_event(root, binding["tailtrail_run_id"], "workflow_template_stage_advanced", {"workflow_id":workflow_id, "template_id":plan["template_id"], "stage_id":stage_id, "outcome":outcome, "adapter_output_ref":output["artifact"]})
     if outcome == "pass": freshness.checkpoint(root, workflow_id, f"stage-passed:{stage_id}")
     else: correction.route(root, workflow_id, stage_id)
@@ -201,5 +222,8 @@ def skip(root: Path, workflow_id: str, stage_id: str, approval_id: str) -> dict[
     root = root.resolve(); _ensure_scope(root, workflow_id); _plan, _stage = _plan_stage(root, workflow_id, stage_id); _start_workflow(root, workflow_id)
     current = _projection(root, workflow_id)["stages"][stage_id]["status"]
     if current == "pending": transitions.stage(root, workflow_id, stage_id, "ready", "stage-ready")
-    transitions.stage(root, workflow_id, stage_id, "skipped", "stage-skipped-approved", approval_id)
+    transition = transitions.stage(root, workflow_id, stage_id, "skipped", "stage-skipped-approved", approval_id)
+    stage_results.record(root, workflow_id, stage_id, outcome="skipped", reason_code="stage-skipped-approved",
+        idempotency_key="wfidem-" + hashlib.sha256(f"{workflow_id}:{stage_id}:{approval_id}:skip".encode()).hexdigest(),
+        transition_event=transition, evidence_refs=[])
     return _complete_or_status(root, workflow_id)

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail PM-1 Canonical Stage Result",
+  "type": "object",
+  "required": [
+    "schema_version", "type", "result_id", "workflow_id", "tailtrail_run_id",
+    "stage_id", "capability_id", "requirement_uids", "result_kind", "outcome",
+    "reason_code", "idempotency_key", "freshness", "transition", "evidence_refs",
+    "recorded_at", "boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-workflow-stage-result"},
+    "result_id": {"type": "string", "pattern": "^wfsr-"},
+    "workflow_id": {"type": "string", "pattern": "^ttw-"},
+    "tailtrail_run_id": {"type": "string", "minLength": 1},
+    "stage_id": {"type": "string", "minLength": 1},
+    "capability_id": {"type": "string", "minLength": 1},
+    "requirement_uids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "result_kind": {"enum": ["transition", "non-transition"]},
+    "outcome": {"enum": ["pass", "fail", "blocked", "skipped", "timeout", "unavailable", "stale", "duplicate"]},
+    "reason_code": {"type": "string", "minLength": 1},
+    "idempotency_key": {"type": "string", "pattern": "^wfidem-"},
+    "freshness": {
+      "type": "object",
+      "required": ["status", "scope_fingerprint"],
+      "properties": {
+        "status": {"enum": ["fresh", "stale", "not-required"]},
+        "scope_fingerprint": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "transition": {
+      "type": ["object", "null"],
+      "properties": {
+        "event_id": {"type": "string", "pattern": "^wfe-"},
+        "event_hash": {"type": "string", "pattern": "^sha256:"},
+        "event_type": {"type": "string", "minLength": 1},
+        "from_state": {"type": "string", "minLength": 1},
+        "to_state": {"type": "string", "minLength": 1}
+      },
+      "required": ["event_id", "event_hash", "event_type", "from_state", "to_state"],
+      "additionalProperties": false
+    },
+    "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "recorded_at": {"type": "string", "minLength": 1},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

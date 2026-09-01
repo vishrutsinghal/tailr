@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -39,6 +40,49 @@ TAILTRAIL_DISPATCH = {
 
 
 class CliDispatchTests(unittest.TestCase):
+    def test_startup_banner_is_ascii_aligned_and_names_current_feature_groups(self) -> None:
+        result = subprocess.run(
+            [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "hello"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("```", result.stdout)
+        output_lines = result.stdout.splitlines()
+        banner_end = next(index for index, line in enumerate(output_lines[1:], start=1) if line.startswith("+") and line.endswith("+"))
+        banner_lines = output_lines[: banner_end + 1]
+        self.assertEqual({len(line) for line in banner_lines}, {len(banner_lines[0])})
+        self.assertLessEqual(len(banner_lines[0]), 46)
+        self.assertTrue(all(ord(character) < 128 for line in banner_lines for character in line))
+        for term in ("Intent Bridge", "UI Guard", "Arch", "Behaviour", "Maintain", "Repro", "Causes", "Workflow", "Recovery", "Closure", "Tokens", "Learn", "Eval", "MCP"):
+            with self.subTest(term=term):
+                self.assertIn(term, result.stdout)
+
+    def test_startup_banner_adapts_to_supported_narrow_and_wide_widths(self) -> None:
+        for width in (32, 40, 48, 72):
+            with self.subTest(width=width):
+                environment = os.environ.copy()
+                environment["TAILTRAIL_BANNER_WIDTH"] = str(width)
+                result = subprocess.run(
+                    [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "hello"],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    env=environment,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                output_lines = result.stdout.splitlines()
+                banner_end = next(index for index, line in enumerate(output_lines[1:], start=1) if line.startswith("+") and line.endswith("+"))
+                banner_lines = output_lines[: banner_end + 1]
+                self.assertEqual({max(46, width)}, {len(line) for line in banner_lines})
+                self.assertTrue(all(ord(character) < 128 for line in banner_lines for character in line))
+                category_lines = [line for line in banner_lines if any(f"| {label}" in line for label in ("PLAN", "MAP", "VERIFY", "DEBUG", "CONTROL", "IMPROVE"))]
+                self.assertEqual(6, len(category_lines))
+
     def test_start_without_a_goal_shows_feature_overview(self) -> None:
         result = subprocess.run(
             [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "start"],
@@ -49,6 +93,8 @@ class CliDispatchTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.startswith("```text\n+"))
+        self.assertIn("\n```\n\n# TailTrail Start", result.stdout)
         self.assertIn("# TailTrail Start", result.stdout)
         self.assertIn("## Main Feature Groups", result.stdout)
         self.assertIn("Navigator", result.stdout)
@@ -72,9 +118,11 @@ class CliDispatchTests(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.count("Navigator online. Context stays lean."), 1)
+        self.assertTrue(result.stdout.startswith("```text\n+"))
+        self.assertIn("\n```\n\n# TailTrail Pre-Target Start Plan", result.stdout)
+        self.assertEqual(result.stdout.count("TAILTRAIL"), 1)
         self.assertLess(
-            result.stdout.index("Navigator online. Context stays lean."),
+            result.stdout.index("TAILTRAIL"),
             result.stdout.index("# TailTrail Pre-Target Start Plan"),
         )
 

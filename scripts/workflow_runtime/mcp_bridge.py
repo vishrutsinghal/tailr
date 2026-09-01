@@ -180,7 +180,10 @@ def _read(name: str, args: dict[str, Any]) -> dict[str, Any]:
     if name == "workflow_enterprise_conformance": return enterprise_recovery.conformance(root,workflow_id)
     projection = storage.status(root, workflow_id)["last_valid_projection"]
     current = next((stage_id for stage_id,row in projection.get("stages",{}).items() if row.get("status") not in {"passed","skipped"}), None)
-    return {"workflow_id":workflow_id,"workflow_status":projection["workflow_status"],"current_stage_id":current,"requirement_uids":ownership.show(root,workflow_id)["requirement_uids"],"boundary":"Read-only canonical workflow state."}
+    return {"workflow_id":workflow_id,"workflow_status":projection["workflow_status"],"current_stage_id":current,"requirement_uids":ownership.show(root,workflow_id)["requirement_uids"],
+        "advancement_posture":"artifact-projection-only",
+        "advancement_explanation":"Debug artifacts may be drafted ahead of the canonical stage. The stage advances only from a linked workflow adapter/stage result recorded with matching authority; read-only inspection never advances it.",
+        "boundary":"Read-only canonical workflow state. No artifact presence was treated as stage-transition evidence."}
 
 
 def _controlled(name: str, args: dict[str, Any]) -> dict[str, Any]:

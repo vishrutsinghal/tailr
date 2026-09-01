@@ -798,7 +798,7 @@ def build_report(
         requirement = {
             "display_id": "REQ-DEBUG-01",
             "kind": "debug-investigation",
-            "statement": f"Prove the root cause of the reported symptom without redefining expected behaviour: {goal}",
+            "statement": "Prove the reported symptom's root cause while preserving the approved successful path and blocking correction until separately approved.",
             "acceptance_criteria": [
                 "A deterministic or explicitly bounded intermittent reproduction is approved.",
                 "The proven cause is supported by saved experiment evidence and a competing hypothesis is eliminated.",
@@ -812,21 +812,57 @@ def build_report(
             "validation_contract": {"tiers": ["reproduction", "root-cause", "regression", "behaviour"]},
             "confidence": "planning-evidence-only",
         }
+        requirement_facets = [
+            {"id": "REQ-DEBUG-01.A", "objective": "Reproduce the reported failure under an approved, bounded procedure.", "proof": "A saved command-result receipt matches the approved actual outcome."},
+            {"id": "REQ-DEBUG-01.B", "objective": "Preserve successful behaviour outside the reproduced failure path.", "proof": "Focused preservation evidence passes after the correction."},
+            {"id": "REQ-DEBUG-01.C", "objective": "Prove one root cause and eliminate a relevant competing hypothesis.", "proof": "Requirement-linked experiment receipts support the root-cause decision."},
+            {"id": "REQ-DEBUG-01.D", "objective": "Keep any correction within separately approved file and symbol scope.", "proof": "The post-edit scope check reports no unresolved unexpected path."},
+        ]
         plan["requirement_matrix"] = [requirement]
+        validation_rows = [
+            {"tier": "Reproduction", "proof_target": "The approved trigger produces the saved failure signature.", "candidate_evidence": "Approved reproduction command plus exact command-result receipt.", "activation_gate": "After reproduction-contract approval.", "pass_condition": "Observed actual outcome matches the approved contract repeatably or within its bounded intermittent rule."},
+            {"tier": "Root cause", "proof_target": "One hypothesis explains the failure and a relevant alternative is eliminated.", "candidate_evidence": "Approved experiment result linked to an Execution Evidence fingerprint.", "activation_gate": "After hypothesis ranking and experiment approval.", "pass_condition": "Saved evidence strengthens the selected cause and eliminates a competing hypothesis."},
+            {"tier": "Regression", "proof_target": "The corrected path no longer produces the duplicate effect.", "candidate_evidence": "Reproduction rerun plus a focused regression-test receipt.", "activation_gate": "After separate correction approval and implementation.", "pass_condition": "The original failure is absent and the focused regression check passes."},
+            {"tier": "Behaviour", "proof_target": "Successful first-attempt behaviour and approved external-effect invariants remain intact.", "candidate_evidence": "Approved behaviour scenario and requirement-linked receipt.", "activation_gate": "During selected-Harness convergence.", "pass_condition": "Preservation scenario passes with no unresolved behaviour drift."},
+        ]
+        token_parts = {
+            "planning_and_reproduction": round(estimated_tokens * 0.20),
+            "orientation_and_hypotheses": round(estimated_tokens * 0.20),
+            "bounded_experiments": round(estimated_tokens * 0.25),
+            "correction_and_scope_check": round(estimated_tokens * 0.15),
+        }
+        token_parts["validation_and_closure"] = estimated_tokens - sum(token_parts.values())
         delivery = {
             "mode": "debug-investigation",
             "selected": [
                 {"name": "Debug Harness", "why": "turn the saved symptom into reproduction and root-cause evidence before correction"},
                 {"name": "Reproduction Contract", "why": "freeze the expected failure, command boundary, and success criteria before experiments"},
+                {"name": "Durable Workflow Runtime", "why": "preserve investigation state, approvals, evidence, retries, and resume position under one run"},
+                {"name": "Hypothesis Ledger and Bounded Experiment Loop", "why": "rank falsifiable causes and reject unsupported or repeated probes"},
+                {"name": "Execution Evidence", "why": "link real command outcomes to the active requirement and experiment"},
                 {"name": "Token Harness", "why": "keep future logs and traces bounded while preserving exact failure evidence"},
             ],
             "activated_later": [
-                {"name": "Code Graph refresh", "when": "after approval when saved graph evidence is absent or stale"},
-                {"name": "Correction implementation", "when": "after root cause is proven and the bounded correction is separately approved"},
-                {"name": "Selected Harnesses and canonical closure", "when": "after correction implementation produces factual execution evidence"},
-                {"name": "Governed learning", "when": "after trusted acceptance of the canonical Completion Report"},
+                {"name": "Code Graph orientation", "when": "after reproduction approval; refresh only when saved graph evidence is absent or stale"},
+                {"name": "Context Continuity", "when": "after an unchanged, regressed, repeated, or cycle-exhausting experiment"},
+                {"name": "Correction Scope and Drift Check", "when": "after root cause proof and separate correction approval"},
+                {"name": "Requirement Completion, Architecture, Behaviour, Maintainability, and Evidence-Aware Testing", "when": "after correction implementation produces factual execution evidence"},
+                {"name": "Canonical Closure and Debug Governance", "when": "after selected Harness convergence"},
+                {"name": "Evaluation and governed learning", "when": "after Completion Report generation and trusted acceptance"},
             ],
-            "stages": ["approve debug plan", "draft reproduction contract", "approve reproduction", "run bounded experiments", "prove root cause", "propose correction"],
+            "stages": [
+                "approve the Debug Planning Lock",
+                "draft and approve the versioned reproduction contract",
+                "create project orientation and assess Code Graph freshness",
+                "record competing hypotheses and approve their ranking",
+                "propose and approve one bounded discriminating experiment",
+                "run the approved probe and record exact Execution Evidence",
+                "prove or reject root cause from saved evidence",
+                "propose and separately approve file and symbol correction scope",
+                "implement the bounded correction and compare actual scope for drift",
+                "run regression and preservation evidence, then selected Harness convergence",
+                "finalize canonical closure, token posture, governance, and learning eligibility",
+            ],
             "execution_boundary": "This Start run creates planning metadata only. It does not open Debug Intake, inspect source, execute reproduction, approve experiments, edit code, or grant correction authority.",
             "hands_free_program": None,
         }
@@ -848,14 +884,17 @@ def build_report(
                     "reproduction_command_supplied": has_reproduction_command,
                 },
                 "reproduction_questions": [
-                    "What exact observable result proves the failure, and what result represents restored behaviour?",
-                    "What is the smallest deterministic reproduction command or bounded intermittent reproduction procedure?",
-                    "Which successful behaviour and external-effect boundaries must remain unchanged during investigation?",
+                    "Confirm the exact failure signature and restored-behaviour result, including relevant effect counts, status, or error boundary.",
+                    ("Confirm that the supplied reproduction procedure is the smallest safe discriminating probe and define its expected exit status or bounded outcome." if has_reproduction_command else "Provide or approve the smallest deterministic reproduction command, fixture, or bounded intermittent procedure."),
+                    "Confirm the successful path, external-effect invariants, safety limits, and data that must remain unchanged during investigation.",
                 ],
+                "requirement_facets": requirement_facets,
                 "evidence_tiers": ["reproduction", "root-cause", "regression", "behaviour"],
+                "validation_rows": validation_rows,
+                "token_breakdown": token_parts,
                 "safety_boundary": "Planning is metadata-only. No source reads, tests, scanners, Git changes, external calls, reproduction approval, or correction authority are created.",
                 "exactness_posture": "The symptom, run identity, target identity, supplied evidence-presence flags, and future receipts remain exact. No raw error or command content is copied into this plan.",
-                "scope_source": "saved-code-graph" if plan.get("graph_cache") else "unresolved",
+                "scope_source": "user-supplied-candidates" if changed else "saved-code-graph" if plan.get("graph_cache") else "unresolved",
             },
             "architecture_plan": {"selected": False, "status": "deferred-until-reproduction"},
             "behaviour_plan": {"selected": False, "status": "deferred-until-correction"},
@@ -1147,9 +1186,13 @@ def debug_start_report(report: dict[str, Any], verbose: bool = False) -> str:
         "## Scope",
         "",
         f"- Target repository: `{report['root']}`",
-        f"- Scope source: `{debug_plan.get('scope_source')}`; saved graph evidence is advisory and was not freshness-checked.",
+        f"- Scope source: `{debug_plan.get('scope_source')}`.",
     ])
     if impacted:
+        if debug_plan.get("scope_source") == "user-supplied-candidates":
+            lines.append("- The paths below were supplied by the user as inspection candidates; orientation must confirm their roles before correction scope is approved.")
+        elif debug_plan.get("scope_source") == "saved-code-graph":
+            lines.append("- Saved graph evidence is advisory and was not freshness-checked during Planning Lock.")
         for item in impacted if verbose else impacted[:6]:
             lines.append(f"- `{item.get('path')}` - {display_prose(item.get('reason'))}")
     else:
@@ -1162,6 +1205,11 @@ def debug_start_report(report: dict[str, Any], verbose: bool = False) -> str:
             lines.extend(f"    - {display_prose(rule)}" for rule in item.get("preserve_rules", []))
             lines.append("  - Acceptance:")
             lines.extend(f"    - {display_prose(rule)}" for rule in item.get("acceptance_criteria", []))
+    facets = [item for item in debug_plan.get("requirement_facets", []) if isinstance(item, dict)]
+    if facets:
+        lines.extend(["", "### Requirement facets", "", "| ID | Investigation objective | Required proof |", "| --- | --- | --- |"])
+        for facet in facets:
+            lines.append(f"| {facet.get('id')} | {display_prose(facet.get('objective'))} | {display_prose(facet.get('proof'))} |")
     lines.extend(["", "## Selected TailTrail features", "", "| Feature | When | Why |", "| --- | --- | --- |", "| Navigator | Planning now | classified the symptom-first workflow and created the canonical Planning Lock |"])
     for item in delivery.get("selected", []):
         lines.append(f"| {item.get('name')} | Planning / after approval | {display_prose(item.get('why'))} |")
@@ -1175,9 +1223,18 @@ def debug_start_report(report: dict[str, Any], verbose: bool = False) -> str:
     for index, stage in enumerate(delivery.get("stages", []), start=1):
         lines.append(f"{index}. {display_prose(stage)}")
     lines.extend(["", "## Guided delivery", "", f"- Boundary: {delivery.get('execution_boundary')}", "- The Debug Intake artifact and reproduction contract are not created or approved by this Start command."])
-    lines.extend(["", "## Focused validation", "", "| Evidence tier | Planning status |", "| --- | --- |"])
-    for tier in debug_plan.get("evidence_tiers", []):
-        lines.append(f"| {tier} | deferred until the relevant approved debug stage |")
+    lines.extend([
+        "", "## Focused validation", "",
+        "No validation has run during Planning Lock. The table defines the approved evidence path instead of implying a result.", "",
+        "| Evidence tier | What it must prove | Candidate evidence | Activation gate | Pass condition |",
+        "| --- | --- | --- | --- | --- |",
+    ])
+    for row in debug_plan.get("validation_rows", []):
+        lines.append(
+            f"| {display_prose(row.get('tier'))} | {display_prose(row.get('proof_target'))} | "
+            f"{display_prose(row.get('candidate_evidence'))} | {display_prose(row.get('activation_gate'))} | "
+            f"{display_prose(row.get('pass_condition'))} |"
+        )
     token = report["token_posture"]
     lines.extend([
         "",
@@ -1185,6 +1242,18 @@ def debug_start_report(report: dict[str, Any], verbose: bool = False) -> str:
         "",
         f"- Estimated focused context budget: approximately `{token['used_tokens']}` tokens.",
         "- Evidence: local planning estimate only; actual model tokens require run-linked host/provider telemetry.",
+    ])
+    breakdown = debug_plan.get("token_breakdown", {})
+    if breakdown:
+        lines.extend([
+            "", "| Stage group | Estimated tokens |", "| --- | ---: |",
+            f"| Planning and reproduction | {breakdown.get('planning_and_reproduction', 0)} |",
+            f"| Orientation and hypotheses | {breakdown.get('orientation_and_hypotheses', 0)} |",
+            f"| Bounded experiments | {breakdown.get('bounded_experiments', 0)} |",
+            f"| Correction and scope check | {breakdown.get('correction_and_scope_check', 0)} |",
+            f"| Validation and closure | {breakdown.get('validation_and_closure', 0)} |",
+        ])
+    lines.extend([
         "",
         "## Evidence posture",
         "",

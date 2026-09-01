@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/product-maturity-baseline.schema.json",
+  "title": "TailTrail Product Maturity PM-0 Baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "baseline_version", "program_phase", "captured_at", "captured_revision", "freeze", "compatibility", "inventory", "ratings", "usability_scenarios", "boundaries", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-product-maturity-baseline"},
+    "baseline_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "program_phase": {"const": "PM-0"},
+    "captured_at": {"type": "string", "minLength": 1},
+    "captured_revision": {"type": "string", "minLength": 1},
+    "freeze": {"type": "object"},
+    "compatibility": {"type": "object"},
+    "inventory": {
+      "type": "object",
+      "required": ["top_level_commands", "mcp_tools", "schema_paths", "state_schema_paths", "hosts", "features", "ownership"],
+      "properties": {
+        "top_level_commands": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "mcp_tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "schema_paths": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "state_schema_paths": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "hosts": {"type": "array", "items": {"type": "object"}},
+        "features": {"type": "array", "items": {"type": "object"}},
+        "ownership": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "ratings": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "usability_scenarios": {"type": "array", "minItems": 6, "items": {"type": "object"}},
+    "boundaries": {"type": "object"},
+    "integrity": {
+      "type": "object",
+      "required": ["algorithm", "canonicalization", "digest"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "canonicalization": {"type": "string"},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

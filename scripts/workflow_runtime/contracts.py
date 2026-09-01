@@ -75,6 +75,7 @@ SCHEMA_BY_TYPE = {
     "tailtrail-workflow-completion-receipt": "workflow-completion-receipt.schema.json",
     "tailtrail-workflow-adapter-input": "workflow-adapter-input.schema.json",
     "tailtrail-workflow-adapter-output": "workflow-adapter-output.schema.json",
+    "tailtrail-workflow-stage-result": "workflow-stage-result.schema.json",
     "tailtrail-workflow-template-execution": "workflow-template-execution.schema.json",
     "tailtrail-workflow-risk-authority": "workflow-risk-authority.schema.json",
     "tailtrail-workflow-operational-checkpoint": "workflow-operational-checkpoint.schema.json",

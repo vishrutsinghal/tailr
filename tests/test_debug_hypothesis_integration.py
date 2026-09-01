@@ -70,6 +70,28 @@ class DebugHypothesisIntegrationTests(unittest.TestCase):
             self.assertEqual(contracts.validate_document({key:value for key,value in proposal.items() if key != "artifact"}, proposal_schema), [])
             self.assertEqual(contracts.validate_document({key:value for key,value in ranking.items() if key != "artifact"}, ranking_schema), [])
 
+    def test_advisory_observations_are_saved_and_rendered_without_becoming_proof(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); _, _, hypothesis_id = self._run(root)
+            result = hypothesis.annotate_hypothesis(root, "di6", hypothesis_id, {
+                "advisory_evidence": [{
+                    "direction": "supports", "label": "local-source-observation",
+                    "summary": "Retry request keys differ by attempt.",
+                    "artifact_ref": "src/payment.py#retry",
+                }],
+                "evidence_gaps": ["No request-key experiment has run."],
+                "discriminating_signal": "Two different request keys strengthen this hypothesis.",
+            })
+            row = result["hypotheses"][0]
+            self.assertEqual(row["supporting_evidence"], [])
+            self.assertEqual(row["advisory_evidence"][0]["direction"], "supports")
+            markdown = hypothesis.render_markdown(result)
+            self.assertIn("| Hypothesis | Supporting evidence | Contradicting evidence | Saved rank |", markdown)
+            self.assertIn("[local-source-observation]", markdown)
+            self.assertIn("Two different request keys", markdown)
+            ledger_schema = json.loads((ROOT / "schemas" / "hypothesis-ledger.schema.json").read_text(encoding="utf-8"))
+            self.assertEqual(contracts.validate_document(result, ledger_schema), [])
+
     def test_cycle_exhaustion_preserves_recovery_and_continuity_evidence(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); _, event_id, hypothesis_id = self._run(root)

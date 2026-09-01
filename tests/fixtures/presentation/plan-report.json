@@ -1,0 +1,15 @@
+{
+  "schema_version": "1", "type": "tailtrail-presentation-report", "report_kind": "plan", "mode": "expert", "verbose": true,
+  "title": "TailTrail Start Plan", "run_id": "start-fixture-plan", "state": "awaiting-approval",
+  "required_section_ids": ["planning-lock", "scope", "requirements", "selected-features", "plan", "validation", "evidence", "approval"],
+  "sections": [
+    {"id":"planning-lock","title":"Planning Lock","status":"available","required":true,"content":{"State":"awaiting-approval"},"reason":null},
+    {"id":"scope","title":"Scope","status":"available","required":true,"content":["service.py","focused tests"],"reason":null},
+    {"id":"requirements","title":"Requirements","status":"available","required":true,"content":["REQ-01 preserve behavior","REQ-02 add focused proof"],"reason":null},
+    {"id":"selected-features","title":"Selected TailTrail features","status":"available","required":true,"content":["Navigator","Evidence-Aware Testing"],"reason":null},
+    {"id":"plan","title":"Plan","status":"available","required":true,"content":["Inspect","Implement","Verify"],"reason":null},
+    {"id":"validation","title":"Focused validation","status":"available","required":true,"content":"py -3 -m unittest tests.test_example","reason":null},
+    {"id":"evidence","title":"Evidence posture","status":"unavailable","required":true,"content":null,"reason":"Planning does not run project validation."},
+    {"id":"approval","title":"Approval","status":"available","required":true,"content":"Approve this exact run before implementation.","reason":null}
+  ]
+}

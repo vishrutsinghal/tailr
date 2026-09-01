@@ -21,13 +21,77 @@
     }
   },
   "candidate_baseline": {
-    "captured_at": "2026-08-29",
-    "git_commit": "ab18b350d387229e11dadee4164695dc7aef3fbc",
+    "captured_at": "2026-09-01",
+    "git_commit": "21510e647af4b30bba2b86bb01417ec12ef8aaff",
     "branch": "master",
     "worktree_state": "dirty-explicitly-classified",
     "release_candidate_state": "blocked",
-    "declaration": "E0-E4 are closed. E5 and E6 implementations are present and locally verified. E5 remains evidence-blocked until one commit has six hosted Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations; because E6 depends on E5, E6 implementation is complete but its program requirement remains in progress. Configured workflows and local evidence are not represented as hosted support; the enterprise candidate remains blocked by E5 evidence and E7-E12. A repository-owner-approved, named exception ('debug-harness-exception') to the E6-E12 feature freeze was granted on 2026-08-29 to merge the Debug Harness prototype (Code/Architecture/Database/API-integration domains; see DEBUG-HARNESS.md). The exception covers a locally tested prototype, not native Navigator/DWR/Harness/canonical-closure integration, hosted conformance, or production debugging, and is not a general lift of the freeze.",
+    "declaration": "E0-E4 are closed. E5 and the PM-6 enterprise conformance implementation are locally verified. Hosted support remains evidence-blocked until one commit has all six Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations. Configured workflows, offline verification, and local evidence are not represented as hosted support. Product-maturity PM-0 through PM-6 files are explicitly included in this dirty candidate and remain subject to the active feature freeze.",
     "untracked_dispositions": [
+      {"path": "benchmarks/enterprise-conformance/", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-6 versioned offline enterprise conformance catalog."},
+      {"path": "benchmarks/evaluation/real-portfolio/", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-5 real evaluation protocol catalog."},
+      {"path": "schemas/enterprise-conformance-report.schema.json", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-6 closed enterprise conformance report contract."},
+      {"path": "schemas/maintainability-inventory.schema.json", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-4 maintainability inventory contract."},
+      {"path": "schemas/presentation-report.schema.json", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-3 presentation report contract."},
+      {"path": "schemas/real-evaluation-portfolio.schema.json", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-5 portfolio contract."},
+      {"path": "schemas/workflow-stage-result.schema.json", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-1 canonical stage result contract."},
+      {"path": "scripts/enterprise-conformance.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-6 offline conformance runner and bundle builder."},
+      {"path": "scripts/orchestration/", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-1 through PM-4 canonical orchestration extraction."},
+      {"path": "scripts/orchestration_facade.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-2 orchestration facade."},
+      {"path": "scripts/presentation.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-3 canonical presentation layer."},
+      {"path": "scripts/product-maintainability.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-4 maintainability inventory runtime."},
+      {"path": "scripts/real-evaluation-portfolio.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-5 blind real-evaluation protocol runtime."},
+      {"path": "scripts/workflow_runtime/stage_results.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-1 canonical workflow stage results."},
+      {"path": "tailtrail-meta/document-owners-v1.json", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-4 documentation ownership contract."},
+      {"path": "tailtrail-meta/maintainability-inventory-v1.json", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-4 generated maintainability inventory."},
+      {"path": "tests/fixtures/presentation/", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-3 canonical presentation fixtures."},
+      {"path": "tests/test_enterprise_conformance.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-6 offline conformance focused proof."},
+      {"path": "tests/test_orchestration_facade.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-2 orchestration facade proof."},
+      {"path": "tests/test_presentation_conformance.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-3 presentation conformance proof."},
+      {"path": "tests/test_product_maintainability.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-4 maintainability proof."},
+      {"path": "tests/test_real_evaluation_portfolio.py", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-5 portfolio protocol proof."},
+      {
+        "path": "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-0 authority and implementation plan for the product-maturity consolidation program."
+      },
+      {
+        "path": "benchmarks/product-maturity/",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-0 versioned usability and regression baseline scenarios."
+      },
+      {
+        "path": "schemas/product-maturity-baseline.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-0 closed contract for the integrity-sealed baseline artifact."
+      },
+      {
+        "path": "scripts/product-maturity.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-0 deterministic inventory, freeze, ownership, and baseline validator."
+      },
+      {
+        "path": "tailtrail-meta/product-maturity-baseline-v1.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-0 committed versioned and SHA-256 integrity-sealed baseline."
+      },
+      {
+        "path": "tailtrail-meta/product-maturity-policy-v1.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-0 active feature-freeze and compatibility policy."
+      },
+      {
+        "path": "tests/test_product_maturity.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-0 focused validation for integrity, freeze drift, ownership, scenarios, CLI, and approval boundaries."
+      },
       {
         "path": ".idea/",
         "disposition": "exclude",

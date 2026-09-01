@@ -1,0 +1,13 @@
+{
+  "schema_version":"1","type":"tailtrail-presentation-report","report_kind":"debug","mode":"guided","verbose":true,
+  "title":"TailTrail Debug Start Plan","run_id":"start-fixture-debug","state":"awaiting-approval",
+  "required_section_ids":["symptom","reproduction","scope","hypotheses","validation","approval"],
+  "sections":[
+    {"id":"symptom","title":"Symptom","status":"available","required":true,"content":"Duplicate effect after accepted timeout.","reason":null},
+    {"id":"reproduction","title":"Reproduction contract","status":"available","required":true,"content":"Draft deterministic reproduction, then require exact-revision approval.","reason":null},
+    {"id":"scope","title":"Investigation scope","status":"available","required":true,"content":["retry path","effect ledger"],"reason":null},
+    {"id":"hypotheses","title":"Hypotheses","status":"unavailable","required":true,"content":null,"reason":"Hypotheses are created after reproduction approval and orientation."},
+    {"id":"validation","title":"Focused validation","status":"available","required":true,"content":["reproduction","root-cause","regression","behaviour"],"reason":null},
+    {"id":"approval","title":"Approval","status":"available","required":true,"content":"Approve investigation only; correction remains separately gated.","reason":null}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail PM-4 Maintainability Inventory",
+  "type": "object",
+  "required": ["schema_version", "type", "registry", "documentation", "modules", "validation", "boundary", "fingerprint"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-maintainability-inventory"},
+    "registry": {"type": "object"},
+    "documentation": {"type": "object"},
+    "modules": {"type": "object"},
+    "validation": {"type": "object"},
+    "boundary": {"type": "string", "minLength": 1},
+    "fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": false
+}

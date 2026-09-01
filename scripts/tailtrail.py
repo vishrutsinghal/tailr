@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -81,6 +82,13 @@ COMMANDS = {
     "enforce": "Run versioned repository and CI policy enforcement with JSON/SARIF output.",
     "governance": "Check or sync repeated governance text.",
     "registry": "Inspect and validate the TailTrail feature registry.",
+    "maturity": "Capture or validate the frozen PM-0 product-maturity baseline.",
+    "presentation": "Validate or render canonical reports and run PM-3 host presentation conformance.",
+    "flow": "Use the PM-2 start, discuss, approve, continue, status, and close façade.",
+    "discuss": "Discuss one awaiting TailTrail plan from saved evidence.",
+    "approve": "Approve the active plan or exact next durable stage.",
+    "continue": "Advance one dependency-ready durable workflow stage.",
+    "close": "Finalize closure and show evidence-backed acceptance choices.",
     "enterprise-readiness": "Inspect and validate the enterprise stabilization baseline and closure registry.",
     "policy": "Initialize or validate local TailTrail policy files.",
     "install": "Install a host profile through the transactional lifecycle.",
@@ -171,31 +179,52 @@ def json_output_requested(args: list[str]) -> bool:
     return False
 
 
-def print_startup_banner() -> None:
-    try:
-        print("╭────────────────────────────────────────────╮")
-        print("│ TailTrail                                  │")
-        print("│ Navigator online. Context stays lean.      │")
-        print("│                                            │")
-        print("│ Navigator • Code Graph • Guardrails        │")
-        print("│ AIDLC • Review Lenses • Test Precision     │")
-        print("│ Token Budget • CI/Sonar • Security         │")
-        print("│ Learning • Handoff • Value Reports         │")
-        print("│ Meta-Harness • Shared Metadata             │")
-        print("╰────────────────────────────────────────────╯")
-        print("")
-    except UnicodeEncodeError:
-        print("+--------------------------------------------+")
-        print("| TailTrail                                  |")
-        print("| Navigator online. Context stays lean.      |")
-        print("|                                            |")
-        print("| Navigator * Code Graph * Guardrails        |")
-        print("| AIDLC * Review Lenses * Test Precision     |")
-        print("| Token Budget * CI/Sonar * Security         |")
-        print("| Learning * Handoff * Value Reports         |")
-        print("| Meta-Harness * Shared Metadata             |")
-        print("+--------------------------------------------+")
-        print("")
+def startup_banner_lines(columns: int | None = None) -> list[str]:
+    """Render a terminal-safe banner without assuming the host panel width."""
+    feature_rows = (
+        "PLAN     Navigator | AIDLC | Intent Bridge",
+        "MAP      Code Graph | Req Map | UI Guard",
+        "VERIFY   Req | Arch | Behaviour | Maintain",
+        "DEBUG    Repro | Causes | Evidence | Fix",
+        "CONTROL  Workflow | Recovery | Closure",
+        "IMPROVE  Tokens | Learn | Eval | MCP",
+    )
+    if columns is None:
+        configured = os.environ.get("TAILTRAIL_BANNER_WIDTH", "").strip()
+        if configured.isdigit():
+            columns = int(configured)
+        elif sys.stdout.isatty():
+            columns = shutil.get_terminal_size(fallback=(48, 24)).columns
+        else:
+            # Captured output is commonly pasted into a narrower chat panel.
+            columns = 46
+    # Category rows remain single-line. Markdown-fenced Start output scrolls on
+    # panels narrower than this minimum instead of reflowing the ASCII design.
+    outer_width = max(46, min(int(columns), 72))
+    content_width = outer_width - 4
+    rendered_rows = ["TAILTRAIL"]
+    description_words = "Requirement completion and drift control for AI-assisted delivery".split()
+    description_line = ""
+    for word in description_words:
+        candidate = f"{description_line} {word}".strip()
+        if description_line and len(candidate) > content_width:
+            rendered_rows.append(description_line)
+            description_line = word
+        else:
+            description_line = candidate
+    rendered_rows.extend([description_line, "", *feature_rows])
+    border = "+" + ("-" * (outer_width - 2)) + "+"
+    return [border, *(f"| {row.ljust(content_width)} |" for row in rendered_rows), border]
+
+
+def print_startup_banner(markdown_fence: bool = False) -> None:
+    if markdown_fence:
+        print("```text")
+    for line in startup_banner_lines():
+        print(line)
+    if markdown_fence:
+        print("```")
+    print("")
 
 
 def script(name: str) -> Path:
@@ -515,10 +544,13 @@ def print_start_overview() -> None:
     print("- Navigator: plans the next safe step before implementation.")
     print("- Code Graph: maps relevant symbols, callers, and focused tests.")
     print("- Guardrails and policy: preserve validation, dependency, and safety rules.")
-    print("- AIDLC and review lenses: add structure for broad or risky work.")
-    print("- Test Precision, CI/Sonar, and security: guide focused validation when approved.")
+    print("- AIDLC, Intent Bridge, and Interactive Plan: clarify and approve requirements.")
+    print("- Completion, Architecture, Behaviour, and Maintainability Harnesses: verify intent and drift.")
+    print("- Debug Harness: controls reproduction, hypotheses, experiments, and bounded correction.")
+    print("- Durable Workflow, recovery, and closure: preserve resumable state and evidence.")
+    print("- Test Precision, CI/Sonar, security, and UI Consistency: guide focused validation when approved.")
     print("- Token tools: keep context lean and label estimates honestly.")
-    print("- Learning, handoff, value reports, Meta-Harness, and Evaluation Harness: preserve useful evidence after work.")
+    print("- Learning, MCP, handoff, value reports, Meta-Harness, and Evaluation Harness: preserve and expose useful evidence.")
     print()
     print("## Start A Task")
     print()
@@ -579,12 +611,12 @@ def filter_debug_forward_args(args: list[str]) -> list[str]:
 
 def start(args: list[str]) -> int:
     if not args:
-        print_startup_banner()
+        print_startup_banner(markdown_fence=True)
         print_start_overview()
         return 0
     goal = next((value for value in args if not value.startswith("--")), "")
     if not quiet_enabled(args) and not json_output_requested(args):
-        print_startup_banner()
+        print_startup_banner(markdown_fence=True)
         # The delegated Start process writes directly to the same stream.
         # Flush first so redirected/Copilot/Codex output cannot place the
         # parent banner after the child report.
@@ -593,7 +625,7 @@ def start(args: list[str]) -> int:
     # inside task-start owns build/debug classification; Debug Intake is a later
     # approved transition, never a Start side effect.
     forwarded = [item for item in args if item != "--quiet"]
-    return run_script("task-start.py", [*forwarded, "--command-prefix", invocation()])
+    return run_script("orchestration_facade.py", ["start", *forwarded, "--command-prefix", invocation()])
 
 
 def doctor(args: list[str] | None = None) -> int:
@@ -1101,8 +1133,8 @@ def mcp(args: list[str]) -> int:
 
 
 def workflow(args: list[str]) -> int:
-    if not args or args[0] not in {"bind", "show", "validate", "capabilities", "task", "storage", "state", "compile", "approvals", "evidence", "vertical", "adapters", "execute", "freshness", "retry", "resume", "correction", "context", "outcomes", "ci", "assurance", "retention", "release", "enterprise"}:
-        print("Usage: tailtrail workflow bind|show|validate|capabilities|task|storage|state|compile|approvals|evidence|vertical|adapters|execute|freshness|retry|resume|correction|context|outcomes|ci|assurance|retention|release|enterprise --root . [--run-id <run-id>] [--workflow-id <workflow-id>]")
+    if not args or args[0] not in {"bind", "show", "validate", "capabilities", "task", "storage", "state", "compile", "approvals", "evidence", "vertical", "adapters", "stage-results", "execute", "freshness", "retry", "resume", "correction", "context", "outcomes", "ci", "assurance", "retention", "release", "enterprise"}:
+        print("Usage: tailtrail workflow bind|show|validate|capabilities|task|storage|state|compile|approvals|evidence|vertical|adapters|stage-results|execute|freshness|retry|resume|correction|context|outcomes|ci|assurance|retention|release|enterprise --root . [--run-id <run-id>] [--workflow-id <workflow-id>]")
         return 2
     return run_script("workflow-runtime.py", args)
 
@@ -1188,6 +1220,14 @@ def main() -> int:
         return package_info(args)
     if command in {"start", "do", "run"}:
         return start(args)
+    if command == "flow":
+        if args[:1] == ["start"]:
+            return start(args[1:])
+        return run_script("orchestration_facade.py", args)
+    if command == "presentation":
+        return run_script("presentation.py", args)
+    if command in {"discuss", "approve", "continue", "close"}:
+        return run_script("orchestration_facade.py", [command, *args])
     if command == "planning":
         if args and args[0] == "question-context":
             return run_script("question-orchestrator.py", ["show", *args[1:]])
@@ -1327,12 +1367,18 @@ def main() -> int:
         return run_script("sync-governance.py", args)
     if command == "registry":
         return registry(args)
+    if command == "maturity":
+        if args[:1] == ["maintainability"]:
+            return run_script("product-maintainability.py", args[1:])
+        return run_script("product-maturity.py", args)
     if command == "enterprise-readiness":
         return run_script("enterprise-readiness.py", args)
     if command == "policy":
         return run_script("policy-check.py", args)
     if command == "install":
         return install(args)
+    if command == "status" and any(item == "--run-id" or item.startswith("--run-id=") for item in args):
+        return run_script("orchestration_facade.py", ["status", *args])
     if command in {"verify", "status", "rollback", "uninstall", "repair", "recover"}:
         return run_script("installer.py", [command, *args])
     if command == "first-run":

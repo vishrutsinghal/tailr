@@ -108,6 +108,16 @@ Use `AIDLC.md` for broad, risky, ambiguous, multi-team, regulated, or long-runni
 
 Use only the active stage playbook from `aidlc/stages/`. Use `aidlc/stages/handoff.md` when transferring work to review, validation, operations, or another agent.
 
+## Debug Harness
+
+<!-- tailtrail-debug-host:start -->
+For a reported symptom, failing test, or bug report, use `tailtrail start "<symptom>"`; Navigator routes unambiguous failure phrasing to the native Debug Harness. Use `--debug` to force Debug or `--build` to force delivery. Debug scripts ship in the Extended profile.
+
+Preserve this lifecycle and the same run, workflow, and requirement IDs: Start Plan approval -> reproduction draft/revise -> exact-revision approval -> DWR current/resume/replay -> project orientation -> hypotheses and ranking -> experiment proposal -> separately approved host execution -> factual execution-evidence record -> experiment result -> root-cause proof -> correction proposal -> separate correction approval -> bounded implementation -> scope and Harness convergence -> canonical closure finalize -> unified Completion Report. “Tests pass” is not root-cause proof.
+
+MCP operations only record supplied authority or factual evidence. They never secretly run project commands, inspect production systems, edit source, accept delivery, commit, push, or deploy. Reproduction approval grants investigation authority only; correction approval grants only its exact file/symbol scope. Apply precedence as host safety -> explicit user request -> approved reproduction/correction authority -> TailTrail evidence and closure rules. See `DEBUG-HARNESS.md` for domain ceilings and full boundaries.
+<!-- tailtrail-debug-host:end -->
+
 ## Guardrails
 
 Use only relevant sections from `GUARDRAILS.md` and only the relevant layer from `context/guardrail-layers.md`. Preserve exact code, diffs, configs, commands, dependency versions, IDs, paths, hashes, security rules, policy text, and logs being debugged. For non-trivial work, note files read, commands run, checks performed, assumptions, skipped areas, and residual risk.

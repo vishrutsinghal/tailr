@@ -175,6 +175,63 @@ class DebugStartPlanningTests(unittest.TestCase):
                     "reproduction_method": "c", "safety_boundary": "d",
                 })
 
+    def test_reproduction_revision_preserves_uid_and_renders_approval_report(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            reproduction.L.init_run(root, "debug-stable", "debug stable identity")
+            first = reproduction.draft(root, "debug-stable", {
+                "domain": "code", "trigger": "retry duplicates an effect", "expected": "one effect",
+                "actual": "two effects", "reproduction_method": "run first command",
+                "preserve_rules": ["successful path remains valid"], "safety_boundary": "local only",
+            })
+            second = reproduction.revise(root, "debug-stable", 1, {
+                "domain": "code", "trigger": "run the precise retry fixture", "expected": "one effect",
+                "actual": "two effects", "reproduction_method": "python retry_fixture.py",
+                "preserve_rules": ["successful path remains valid"], "safety_boundary": "local only",
+                "validation_contract": {
+                    "expected_exit_code_before_fix": 1,
+                    "required_output": ["effects=2"],
+                    "expected_exit_code_after_fix": 0,
+                    "required_output_after_fix": ["effects=1"],
+                },
+            })
+            self.assertEqual(second["requirement_uid"], first["requirement_uid"])
+            markdown = reproduction.render_markdown(second)
+            self.assertIn("# TailTrail Reproduction Contract", markdown)
+            self.assertIn("Before fix: failure reproduced", markdown)
+            self.assertIn("Root cause proven", markdown)
+            self.assertIn("After fix: behavior restored", markdown)
+            self.assertIn("Approve reproduction revision 2", markdown)
+
+            with self.assertRaisesRegex(ValueError, "requirement UID mismatch"):
+                reproduction.revise(root, "debug-stable", 2, {
+                    "requirement_uid": "req-000000000000", "domain": "code", "trigger": "other",
+                    "expected": "one", "actual": "two", "reproduction_method": "command",
+                    "safety_boundary": "local only",
+                })
+
+    def test_legacy_identity_drift_is_visible_and_cannot_be_approved(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            reproduction.L.init_run(root, "debug-drift", "debug identity drift")
+            first = reproduction.draft(root, "debug-drift", {
+                "domain": "code", "trigger": "original", "expected": "one", "actual": "two",
+                "reproduction_method": "command", "safety_boundary": "local only",
+            })
+            drifted = {**first, "revision": 2, "requirement_uid": "req-000000000000", "trigger": "refined"}
+            reproduction.L.atomic_json(reproduction.revision_path(root, "debug-drift", 2), drifted)
+            reproduction.L.atomic_json(reproduction.contract_path(root, "debug-drift"), drifted)
+
+            markdown = reproduction.render_markdown(
+                drifted, reproduction.saved_canonical_requirement_uid(root, "debug-drift")
+            )
+            self.assertIn("Identity drift detected", markdown)
+            self.assertIn("blocked by legacy identity drift", markdown)
+            self.assertIn("Approval is unavailable", markdown)
+            self.assertNotIn("To approve this exact contract", markdown)
+            with self.assertRaisesRegex(ValueError, "legacy requirement identity drift"):
+                reproduction.approve(root, "debug-drift", 2)
+
     def test_debug_start_records_presence_flags_without_raw_values(self):
         with tempfile.TemporaryDirectory() as temp:
             report = self.build(
@@ -220,6 +277,22 @@ class DebugStartPlanningTests(unittest.TestCase):
                 ["src/payments.py", "tests/test_payments.py"],
             )
 
+    def test_debug_start_labels_user_paths_and_supplied_reproduction_without_claiming_validation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = self.build(
+                root,
+                changed=["debug_lab/retry_race.py", "debug_lab/run_duplicate_effect_failure.py"],
+                has_reproduction_command=True,
+            )
+            markdown = task_start.render_markdown(report, verbose=True)
+
+            self.assertEqual(report["debug_plan"]["scope_source"], "user-supplied-candidates")
+            self.assertIn("supplied by the user as inspection candidates", markdown)
+            self.assertIn("Confirm that the supplied reproduction procedure", markdown)
+            self.assertIn("No validation has run during Planning Lock", markdown)
+            self.assertNotIn("saved graph evidence is advisory", markdown)
+
     def test_public_start_cli_persists_and_prints_canonical_debug_plan(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -245,6 +318,15 @@ class DebugStartPlanningTests(unittest.TestCase):
             self.assertIn("# TailTrail Debug Start Plan", result.stdout)
             self.assertIn("Run ID: `debug-cli-1`", result.stdout)
             self.assertIn("## Proposed reproduction questions", result.stdout)
+            self.assertIn("### Requirement facets", result.stdout)
+            self.assertIn("REQ-DEBUG-01.D", result.stdout)
+            self.assertIn("| Evidence tier | What it must prove | Candidate evidence | Activation gate | Pass condition |", result.stdout)
+            self.assertIn("Approved reproduction command plus exact command-result receipt.", result.stdout)
+            self.assertIn("## Token estimate", result.stdout)
+            self.assertIn("| Planning and reproduction |", result.stdout)
+            self.assertIn("Hypothesis Ledger and Bounded Experiment Loop", result.stdout)
+            self.assertIn("Canonical Closure and Debug Governance", result.stdout)
+            self.assertNotIn("deferred until the relevant approved debug stage", result.stdout)
             self.assertTrue((root / ".tailtrail" / "runs" / "debug-cli-1" / "planning" / "start-report-v1.json").is_file())
             self.assertFalse((root / ".tailtrail" / "runs" / "debug-cli-1" / "debug").exists())
 

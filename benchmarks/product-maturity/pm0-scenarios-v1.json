@@ -1,0 +1,62 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-product-maturity-baseline-scenarios",
+  "scenarios": [
+    {
+      "id": "quick-small-fix",
+      "level": "quick",
+      "prompt": "Fix a focused validation defect and preserve the valid path.",
+      "expected_surface": "Start plan with bifurcated requirements, Lite/off mode decision, focused proof, token posture, and approval.",
+      "required_assertions": ["planning-lock", "requirements", "aidlc-mode", "selected-features", "validation", "tokens", "approval"]
+    },
+    {
+      "id": "guided-multi-file-feature",
+      "level": "guided",
+      "prompt": "Add a multi-file API and service behavior while preserving callers.",
+      "expected_surface": "Requirement-to-impact matrix, architecture and behavior posture, evidence tiers, and delivery slices.",
+      "required_assertions": ["impact-matrix", "architecture", "behaviour", "evidence-tiers", "delivery-slices"]
+    },
+    {
+      "id": "verbose-completeness",
+      "level": "all",
+      "prompt": "Run any Start request with --verbose.",
+      "expected_surface": "The complete canonical plan at Quick, Guided, and Expert layers with explicit unavailable/not-applicable reasons.",
+      "required_assertions": ["no-missing-sections", "requirements", "aidlc", "harnesses", "validation", "drift-recovery", "tokens", "approval"]
+    },
+    {
+      "id": "official-aidlc-standard",
+      "level": "guided",
+      "prompt": "Use AIDLC Standard for a cross-layer requirement.",
+      "expected_surface": "Pinned official authority, relevant questions/options/recommendations/reasons, then a canonical TailTrail plan after answers.",
+      "required_assertions": ["official-authority", "questions", "recommendations", "separate-approval"]
+    },
+    {
+      "id": "hands-free-correction",
+      "level": "guided",
+      "prompt": "Run a hands-free feature where one requirement fails after the first implementation cycle.",
+      "expected_surface": "Same-run continuity, requirement-linked drift, bounded correction, and no premature closure.",
+      "required_assertions": ["same-run", "drift", "continuity", "bounded-correction", "closure-blocked"]
+    },
+    {
+      "id": "debug-investigation",
+      "level": "guided",
+      "prompt": "Debug a duplicate side effect after an accepted timeout.",
+      "expected_surface": "Reproduction approval, orientation, falsifiable hypotheses, experiment evidence, proven root cause, and bounded correction.",
+      "required_assertions": ["reproduction", "orientation", "hypotheses", "experiment", "root-cause", "correction"]
+    },
+    {
+      "id": "closure-evidence-gap",
+      "level": "quick",
+      "prompt": "Close a run with a missing required behavior receipt.",
+      "expected_surface": "Evidence-incomplete Completion Report and a requirement-linked correction path rather than success.",
+      "required_assertions": ["evidence-incomplete", "requirement-status", "harness-status", "next-correction"]
+    },
+    {
+      "id": "host-conformance",
+      "level": "expert",
+      "prompt": "Render the same verbose Start plan through CLI, MCP, Codex, Copilot, and Claude.",
+      "expected_surface": "Semantically identical canonical sections and authority across hosts.",
+      "required_assertions": ["same-run", "same-requirements", "same-aidlc", "same-controls", "same-approval"]
+    }
+  ]
+}

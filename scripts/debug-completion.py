@@ -159,7 +159,12 @@ def generate(root: Path, run_id: str) -> dict[str, Any]:
 def show(root: Path, run_id: str) -> dict[str, Any]:
     path = report_path(root.resolve(), run_id)
     if not path.is_file():
-        raise ValueError("no debug closure section has been generated for this run")
+        return {"schema_version":"1", "type":"tailtrail-debug-closure-status", "run_id":run_id,
+            "status":"not-created", "lifecycle_classification":"not-yet-expected",
+            "expected_after_stage":"d-10-closure",
+            "reason":"Completion requires root-cause proof, correction posture, selected-Harness convergence, and governance evidence.",
+            "next":"Continue the approved investigation; do not infer completion from planning or advisory evidence.",
+            "boundary":"Read-only absence receipt. Delivery completion or acceptance was not inferred."}
     return json.loads(path.read_text(encoding="utf-8"))
 
 

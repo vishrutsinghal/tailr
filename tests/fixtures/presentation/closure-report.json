@@ -1,0 +1,12 @@
+{
+  "schema_version":"1","type":"tailtrail-presentation-report","report_kind":"closure","mode":"quick","verbose":true,
+  "title":"TailTrail Completion Report","run_id":"start-fixture-closure","state":"awaiting-acceptance",
+  "required_section_ids":["requirements","controls","drift","tokens","acceptance"],
+  "sections":[
+    {"id":"requirements","title":"Requirement delivery","status":"available","required":true,"content":{"Complete":"2/2"},"reason":null},
+    {"id":"controls","title":"TailTrail controls","status":"available","required":true,"content":["Completion Harness: pass","Testing: pass"],"reason":null},
+    {"id":"drift","title":"Drift","status":"available","required":true,"content":"None unresolved.","reason":null},
+    {"id":"tokens","title":"Token posture","status":"unavailable","required":true,"content":null,"reason":"Host telemetry was not linked to this run."},
+    {"id":"acceptance","title":"Acceptance","status":"available","required":true,"content":["Accept as user","Wait for CI","Reopen"],"reason":null}
+  ]
+}

@@ -64,8 +64,33 @@ class McpServerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "requires approved: true"):
                 mcp.call_tool(name, {"root": ".", "run_id": "missing", "approved": False})
 
+    def test_missing_debug_lifecycle_artifacts_return_structured_read_only_states(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for tool in ("debug_correction_show", "debug_governance_show", "debug_completion_report_show"):
+                result = mcp.call_tool(tool, {"root": root.as_posix(), "run_id": "missing"})["result"]
+                self.assertEqual(result["status"], "not-created", tool)
+                self.assertEqual(result["lifecycle_classification"], "not-yet-expected", tool)
+            convergence = mcp.call_tool("debug_harness_convergence_show", {"root": root.as_posix(), "run_id": "missing"})["result"]
+            self.assertEqual(convergence["status"], "not-created")
+            self.assertEqual(convergence["selected"][0]["control"], "Requirement Completion Harness")
+            self.assertFalse((root / ".tailtrail").exists())
+
     def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
         self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "planning_decision_show", "planning_investigation_show", "planning_revision_show", "planning_authority_show", "planning_question_context_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report", "execution_evidence_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
+
+    def test_real_evaluation_portfolio_report_is_read_only_and_honest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            report = mcp.call_tool("real_evaluation_portfolio_report", {"root": temp})
+        self.assertEqual("protocol-ready", report["status"])
+        self.assertEqual("no-performance-claim", report["claim_status"])
+        self.assertEqual(18, report["task_count"])
+
+    def test_enterprise_conformance_report_is_static_and_read_only(self):
+        report = mcp.call_tool("enterprise_conformance_report", {"root": str(ROOT)})
+        self.assertEqual("passed", report["status"])
+        self.assertEqual([], report["probes"])
+        self.assertFalse(report["release_qualification"]["qualified"])
         self.assertTrue({"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest"}.issubset(set(mcp.CONTROLLED_TOOLS)))
         self.assertEqual(set(mcp.HANDLERS), set((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         self.assertEqual(mcp.ensure_safe_tools(), [])

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail PM-6 Enterprise Conformance Report",
+  "type": "object",
+  "required": ["schema_version", "type", "catalog_id", "status", "controls", "probes", "compatibility", "release_qualification", "issues", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-enterprise-conformance-report"},
+    "catalog_id": {"type": "string"},
+    "status": {"enum": ["passed", "blocked"]},
+    "controls": {"type": "array"},
+    "probes": {"type": "array"},
+    "compatibility": {"type": "object"},
+    "release_qualification": {"type": "object"},
+    "issues": {"type": "array", "items": {"type": "string"}},
+    "boundary": {"type": "string"}
+  },
+  "additionalProperties": false
+}

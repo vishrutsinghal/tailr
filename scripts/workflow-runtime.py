@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from workflow_runtime import adapters, approvals, assurance, capabilities, ci, compiler, context, correction, denials, enterprise, enterprise_recovery, enterprise_transport, evidence, executor, freshness, outcomes, ownership, release, resume, retention, retry, start_integration, state, storage, task_scope, vertical
+from workflow_runtime import adapters, approvals, assurance, capabilities, ci, compiler, context, correction, denials, enterprise, enterprise_recovery, enterprise_transport, evidence, executor, freshness, outcomes, ownership, release, resume, retention, retry, stage_results, start_integration, state, storage, task_scope, vertical
 
 
 def main() -> int:
@@ -89,6 +89,8 @@ def main() -> int:
     adapter_parser = sub.add_parser("adapters", help="Deferred Phase 4 typed capability-adapter contracts.")
     adapter_sub = adapter_parser.add_subparsers(dest="adapter_command", required=True)
     adapter_sub.add_parser("list", help="List and validate the closed core adapter catalog.")
+    results_parser = sub.add_parser("stage-results", help="Inspect PM-1 canonical stage results.")
+    results_parser.add_argument("--root", type=Path, default=Path.cwd()); results_parser.add_argument("--workflow-id", required=True); results_parser.add_argument("--stage-id", required=True)
     contract = adapter_sub.add_parser("contract", help="Show one typed adapter contract without running it.")
     contract.add_argument("--adapter-id", required=True)
     prepare = adapter_sub.add_parser("prepare", help="Prepare one idempotent typed stage handoff; does not execute it.")
@@ -229,6 +231,7 @@ def main() -> int:
             elif args.adapter_command == "record": result = adapters.record(args.root, args.workflow_id, args.stage_id, args.adapter_id, args.result_ref)
             elif args.adapter_command == "show": result = adapters.show(args.root, args.workflow_id, args.stage_id)
             else: result = adapters.validate(args.root, args.workflow_id, args.stage_id)
+        elif args.command == "stage-results": result = stage_results.show(args.root, args.workflow_id, args.stage_id)
         elif args.command == "execute":
             if args.execute_command == "status": result = executor.status(args.root, args.workflow_id)
             elif args.execute_command == "start": result = executor.start(args.root, args.workflow_id, args.stage_id, args.approval_id)

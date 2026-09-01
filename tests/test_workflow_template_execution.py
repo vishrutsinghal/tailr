@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import subprocess
 import sys
@@ -25,7 +26,7 @@ def load(name: str, relative: str):
 
 
 LOCK = load("workflow_template_execution_lock", "scripts/planning-lock.py")
-from workflow_runtime import adapter_catalog, adapters, approvals, compiler, executor, ownership, start_integration, storage, task_scope
+from workflow_runtime import adapter_catalog, adapters, approvals, compiler, executor, ownership, stage_results, start_integration, storage, task_scope
 
 
 class WorkflowTemplateExecutionTests(unittest.TestCase):
@@ -53,6 +54,13 @@ class WorkflowTemplateExecutionTests(unittest.TestCase):
 
     def _result(self, adapter_id: str, uid: str, stage_id: str, root: Path, workflow_id: str) -> dict[str, Any]:
         samples: dict[str, dict[str, Any]] = {
+            "debug-intake": {"outcome":"pass","reproduction_contract_ref":".tailtrail/debug/reproduction.json","requirement_uid":uid,"safety_boundary":"local deterministic reproduction only","status":"captured"},
+            "debug-reproduction": {"outcome":"pass","exact_command":"python -m unittest tests.test_reproduction","reproduction_fingerprint":"sha256:reproduction","artifact_ref":".tailtrail/debug/reproduction-result.json","status":"reproduced"},
+            "debug-hypothesis": {"outcome":"pass","hypothesis_refs":[".tailtrail/debug/hypothesis.json"],"requirement_uid":uid,"evidence_gaps":[],"cycle":1,"status":"ranked"},
+            "debug-experiment": {"outcome":"pass","hypothesis_id":"H1","exact_command":"python -m unittest tests.test_experiment","expected_signal":"deterministic discriminating signal","artifact_ref":".tailtrail/debug/experiment.json","cycle":1},
+            "debug-root-cause": {"outcome":"pass","proven_hypothesis":"H1","supporting_evidence_refs":[".tailtrail/debug/experiment.json"],"eliminated_hypothesis_refs":[],"status":"proven"},
+            "debug-correction-proposal": {"outcome":"pass","requirement_uid":uid,"root_cause_ref":".tailtrail/debug/root-cause.json","bounded_changed_paths":["src/service.py"],"preserve_rules":["Existing behavior remains"],"validation_plan":["focused regression"],"status":"proposed"},
+            "debug-closure": {"outcome":"pass","requirement_results":[{"requirement_uid":uid,"status":"complete"}],"root_cause_ref":".tailtrail/debug/root-cause.json","correction_ref":".tailtrail/debug/correction.json","regression_refs":[".tailtrail/debug/regression.json"],"drift_status":"none","status":"complete"},
             "bootstrap": {"outcome":"pass","target_identity_ref":".tailtrail/target.json","repository_readiness":"ready","policy_refs":[],"manifest_refs":[],"languages":["python"],"host":"local","canonical_state_refs":[".tailtrail/state.json"]},
             "graph-discovery": {"outcome":"pass","graph_ref":".tailtrail/graph.json","graph_version":"v1","inventory_fingerprint":"sha256:graph","freshness":"fresh","likely_callers":[],"likely_tests":[],"read_order":[],"evidence_label":"local-evidence"},
             "clarification-aidlc": {"outcome":"pass","aidlc_mode":"lite","lifecycle_stage":"requirements","approved_requirement_refs":[".tailtrail/anchor.json"],"authority_source":"tailtrail-lite","status":"approved"},
@@ -90,6 +98,10 @@ class WorkflowTemplateExecutionTests(unittest.TestCase):
             destination.write_text(json.dumps(self._result(stage["adapter_id"], uid, stage["stage_id"], root, workflow_id)), encoding="utf-8")
             adapters.record(root, workflow_id, stage["stage_id"], stage["adapter_id"], result_ref)
             executor.finish(root, workflow_id, stage["stage_id"])
+            canonical = stage_results.show(root, workflow_id, stage["stage_id"])["results"]
+            self.assertEqual(len(canonical), 1)
+            self.assertEqual(canonical[0]["result_kind"], "transition")
+            self.assertEqual(canonical[0]["outcome"], "pass")
         completed = executor.status(root, workflow_id)
         self.assertEqual(completed["workflow_status"], "completed")
         self.assertTrue(completed["terminal"])
@@ -155,6 +167,28 @@ class WorkflowTemplateExecutionTests(unittest.TestCase):
             approval = json.loads(recorded.stdout)["record"]
             result = executor.skip(root, workflow_id, "bootstrap", approval["approval_id"])
             self.assertEqual(next(row for row in result["stages"] if row["stage_id"] == "bootstrap")["status"], "skipped")
+            saved = stage_results.show(root, workflow_id, "bootstrap")["results"][0]
+            self.assertEqual(saved["outcome"], "skipped")
+            transition = next(row for row in reversed(storage.events(root, workflow_id)["events"]) if row["event_type"] == "stage-skipped")
+            duplicate = stage_results.record(root, workflow_id, "bootstrap", outcome="skipped", reason_code="stage-skipped-approved",
+                idempotency_key="wfidem-" + hashlib.sha256(f"{workflow_id}:bootstrap:{approval['approval_id']}:skip".encode()).hexdigest(),
+                transition_event=transition, evidence_refs=[])
+            self.assertEqual(duplicate["record_status"], "duplicate-suppressed")
+            self.assertEqual(len(stage_results.show(root, workflow_id, "bootstrap")["results"]), 1)
+
+    def test_stale_dispatch_records_explicit_non_transition(self) -> None:
+        fixture = json.loads((FIXTURES / "small-change.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); (root / "src").mkdir(); owned = root / "src" / "service.py"; owned.write_text("VALUE = 1\n", encoding="utf-8")
+            workflow_id, _ = self._activate(root, fixture, "-stale-result")
+            executor.start(root, workflow_id, "bootstrap", None)
+            owned.write_text("VALUE = 2\n", encoding="utf-8")
+            result = executor.start(root, workflow_id, "bootstrap", None)
+            rows = stage_results.show(root, workflow_id, "bootstrap")["results"]
+
+        self.assertEqual(result["status"], "freshness-stale")
+        self.assertEqual(rows[-1]["result_kind"], "non-transition")
+        self.assertEqual(rows[-1]["outcome"], "stale")
 
 
 if __name__ == "__main__":

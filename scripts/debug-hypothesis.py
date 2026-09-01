@@ -115,7 +115,7 @@ def add_hypothesis(root: Path, run_id: str, domain: str, statement: str, rank: i
     hypothesis_id = "h-" + hashlib.sha256(f"{run_id}:{statement.strip()}".encode("utf-8")).hexdigest()[:12]
     if any(row["hypothesis_id"] == hypothesis_id for row in ledger["hypotheses"]):
         raise ValueError("an identical hypothesis already exists for this run")
-    ledger["hypotheses"].append({"hypothesis_id": hypothesis_id, "domain": domain, "statement": statement.strip(), "rank": rank, "supporting_evidence": [], "contradicting_evidence": [], "next_experiment": None, "status": "open"})
+    ledger["hypotheses"].append({"hypothesis_id": hypothesis_id, "domain": domain, "statement": statement.strip(), "rank": rank, "supporting_evidence": [], "contradicting_evidence": [], "advisory_evidence": [], "evidence_gaps": ["No experiment-backed evidence has been recorded."], "discriminating_signal": None, "next_experiment": None, "status": "open"})
     L.atomic_json(ledger_path(root, run_id), ledger)
     L.append_event(root, run_id, "debug_hypothesis_added", {"hypothesis_id": hypothesis_id, "domain": domain})
     return ledger
@@ -206,6 +206,38 @@ def record_experiment(root: Path, run_id: str, hypothesis_id: str, action: str, 
     return ledger
 
 
+def annotate_hypothesis(root: Path, run_id: str, hypothesis_id: str, source: dict[str, Any]) -> dict[str, Any]:
+    """Save bounded pre-experiment observations without treating them as proof."""
+    root = root.resolve(); require_reproduction_approved(root, run_id)
+    ledger = read_ledger(root, run_id); row = _find(ledger, hypothesis_id)
+    observations = source.get("advisory_evidence", [])
+    if not isinstance(observations, list) or not observations:
+        raise ValueError("hypothesis annotation requires at least one advisory_evidence item")
+    normalized = []
+    for item in observations:
+        if not isinstance(item, dict):
+            raise ValueError("each advisory_evidence item must be an object")
+        direction = str(item.get("direction", "")).strip()
+        label = str(item.get("label", "")).strip()
+        summary = str(item.get("summary", "")).strip()
+        artifact_ref = str(item.get("artifact_ref", "")).strip()
+        if direction not in {"supports", "contradicts"} or label not in {"local-source-observation", "orientation", "heuristic"} or not summary or not artifact_ref:
+            raise ValueError("advisory evidence requires direction, supported label, summary, and artifact_ref")
+        normalized.append({"direction": direction, "label": label, "summary": summary, "artifact_ref": artifact_ref})
+    signal = str(source.get("discriminating_signal", "")).strip()
+    if not signal:
+        raise ValueError("hypothesis annotation requires a discriminating_signal")
+    gaps = source.get("evidence_gaps", [])
+    if not isinstance(gaps, list) or any(not str(item).strip() for item in gaps):
+        raise ValueError("evidence_gaps must be an array of non-empty strings")
+    row["advisory_evidence"] = normalized
+    row["evidence_gaps"] = [str(item).strip() for item in gaps]
+    row["discriminating_signal"] = signal
+    L.atomic_json(ledger_path(root, run_id), ledger)
+    L.append_event(root, run_id, "debug_hypothesis_annotated", {"hypothesis_id": hypothesis_id, "evidence_items": len(normalized)})
+    return ledger
+
+
 def reprioritize(root: Path, run_id: str, rankings: list[dict[str, Any]]) -> dict[str, Any]:
     """Save and apply an explicit complete ordering without erasing ledger history."""
     root = root.resolve(); require_reproduction_approved(root, run_id)
@@ -292,6 +324,44 @@ def show(root: Path, run_id: str) -> dict[str, Any]:
     return read_ledger(root.resolve(), run_id)
 
 
+def _cell(value: Any) -> str:
+    return str(value).replace("|", "\\|").replace("\r", " ").replace("\n", "<br>")
+
+
+def render_markdown(ledger: dict[str, Any]) -> str:
+    lines = [
+        "# TailTrail Debug Hypothesis Ledger", "",
+        "| Field | Value |", "| --- | --- |",
+        f"| Run ID | `{_cell(ledger['run_id'])}` |",
+        f"| Requirement UID | `{_cell(ledger.get('requirement_uid'))}` |",
+        f"| Failure fingerprint | `{_cell(ledger.get('failure_fingerprint'))}` |",
+        f"| Cycle | `{ledger.get('cycle', 1)} / {ledger.get('cycle_limit', DEFAULT_CYCLE_LIMIT)}` |", "",
+        "## Hypotheses", "",
+        "| Hypothesis | Supporting evidence | Contradicting evidence | Saved rank |",
+        "| --- | --- | --- | --- |",
+    ]
+    hypotheses = ledger.get("hypotheses", [])
+    for row in hypotheses:
+        formal_for = [f"[experiment] {item}" for item in row.get("supporting_evidence", [])]
+        formal_against = [f"[experiment] {item}" for item in row.get("contradicting_evidence", [])]
+        advisory_for = [f"[{item['label']}] {item['summary']} ({item['artifact_ref']})" for item in row.get("advisory_evidence", []) if item.get("direction") == "supports"]
+        advisory_against = [f"[{item['label']}] {item['summary']} ({item['artifact_ref']})" for item in row.get("advisory_evidence", []) if item.get("direction") == "contradicts"]
+        supporting = "<br>".join(_cell(item) for item in formal_for + advisory_for) or "none recorded"
+        contradicting = "<br>".join(_cell(item) for item in formal_against + advisory_against) or "none recorded"
+        lines.append(f"| `{_cell(row['hypothesis_id'])}` - {_cell(row['statement'])} | {supporting} | {contradicting} | {row['rank']} |")
+    for row in hypotheses:
+        lines.extend(["", f"### `{row['hypothesis_id']}` discriminating signal", "", _cell(row.get("discriminating_signal") or "not recorded"), ""])
+        gaps = row.get("evidence_gaps", [])
+        if gaps:
+            lines.extend(["Evidence gaps:", *[f"- {_cell(item)}" for item in gaps], ""])
+    lines.extend([
+        "Advisory observations guide experiment selection but cannot prove or eliminate a hypothesis. Only linked experiment evidence changes formal evidence state.",
+        "",
+        "No ranking or experiment is changed by this read-only view.",
+    ])
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
@@ -302,6 +372,13 @@ def main() -> int:
     add_parser.add_argument("--domain", required=True)
     add_parser.add_argument("--statement", required=True)
     add_parser.add_argument("--rank", type=int, default=1)
+
+    annotate_parser = sub.add_parser("annotate")
+    annotate_parser.add_argument("--root", type=Path, default=Path.cwd())
+    annotate_parser.add_argument("--run-id", required=True)
+    annotate_parser.add_argument("--hypothesis-id", required=True)
+    annotate_parser.add_argument("--input", type=Path, required=True)
+    annotate_parser.add_argument("--approved", action="store_true")
 
     experiment_parser = sub.add_parser("experiment")
     experiment_parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -343,11 +420,17 @@ def main() -> int:
     show_parser = sub.add_parser("show")
     show_parser.add_argument("--root", type=Path, default=Path.cwd())
     show_parser.add_argument("--run-id", required=True)
+    show_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
     args = parser.parse_args()
     try:
         if args.action == "add":
             result = add_hypothesis(args.root, args.run_id, args.domain, args.statement, args.rank)
+        elif args.action == "annotate":
+            if not args.approved: raise ValueError("annotating a hypothesis requires --approved")
+            source = json.loads(args.input.read_text(encoding="utf-8"))
+            if not isinstance(source, dict): raise ValueError("--input must contain a JSON object")
+            result = annotate_hypothesis(args.root, args.run_id, args.hypothesis_id, source)
         elif args.action == "experiment":
             result = record_experiment(args.root, args.run_id, args.hypothesis_id, args.experiment_action, args.outcome, args.evidence_event_id, args.deterministic, args.expected_signal)
         elif args.action == "propose":
@@ -366,7 +449,8 @@ def main() -> int:
             result = domain_evidence_status(args.domain)
         else:
             result = show(args.root, args.run_id)
-        print(json.dumps(result, indent=2, sort_keys=True))
+        output_format = getattr(args, "format", "json")
+        print(json.dumps(result, indent=2, sort_keys=True) if output_format == "json" else render_markdown(result))
         return 0
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Debug hypothesis error: {error}")

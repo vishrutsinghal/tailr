@@ -1,0 +1,87 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-product-maturity-policy",
+  "freeze": {
+    "state": "active",
+    "program": "PM-0 through PM-7 and PM-L0 through PM-L5",
+    "reason": "Consolidate, prove, and simplify the existing product before adding another top-level subsystem.",
+    "categories": [
+      "top_level_commands",
+      "mcp_tools",
+      "schema_paths",
+      "hosts",
+      "feature_ids",
+      "ownership_domains"
+    ],
+    "allowed_change_classes": [
+      "correctness",
+      "security",
+      "consolidation",
+      "compatibility",
+      "maintainability",
+      "evidence",
+      "documentation"
+    ],
+    "approved_additions": {
+      "top_level_commands": [
+        {"id":"flow","approved_by":"PM-2 implementation authority","reason":"Expose the canonical six-verb orchestration facade without removing advanced commands."},
+        {"id":"discuss","approved_by":"PM-2 implementation authority","reason":"Direct compatibility alias for saved-plan discussion through the facade."},
+        {"id":"approve","approved_by":"PM-2 implementation authority","reason":"Direct context-aware approval through the canonical facade."},
+        {"id":"continue","approved_by":"PM-2 implementation authority","reason":"Direct dependency-ready continuation through the durable runtime."},
+        {"id":"close","approved_by":"PM-2 implementation authority","reason":"Direct canonical evidence closure through the facade."}
+        ,{"id":"presentation","approved_by":"PM-3 implementation authority","reason":"Expose deterministic canonical report validation, rendering, and host presentation conformance."}
+      ],
+      "mcp_tools": [
+        {"id":"presentation_conformance","approved_by":"PM-3 implementation authority","reason":"Expose read-only semantic presentation conformance to MCP hosts."},
+        {"id":"maintainability_inventory","approved_by":"PM-4 implementation authority","reason":"Expose the same deterministic maintainability inventory through CLI and MCP."},
+        {"id":"real_evaluation_portfolio_report","approved_by":"PM-5 implementation authority","reason":"Expose read-only coverage and claim-boundary reporting for the real evaluation portfolio."},
+        {"id":"enterprise_conformance_report","approved_by":"PM-6 implementation authority","reason":"Expose a read-only consolidated enterprise control and evidence-boundary report."}
+      ],
+      "schema_paths": [
+        {
+          "id": "schemas/workflow-stage-result.schema.json",
+          "approved_by": "PM-1 implementation authority",
+          "reason": "PM-1 requires one closed common result contract for transitions and explicit non-transitions."
+        },
+        {
+          "id": "schemas/presentation-report.schema.json",
+          "approved_by": "PM-3 implementation authority",
+          "reason": "PM-3 requires one canonical presentation contract shared by terminal, Markdown, host, and MCP surfaces."
+        },
+        {
+          "id": "schemas/maintainability-inventory.schema.json",
+          "approved_by": "PM-4 implementation authority",
+          "reason": "PM-4 requires a deterministic registry, module-direction, budget, and documentation-owner inventory contract."
+        },
+        {
+          "id": "schemas/real-evaluation-portfolio.schema.json",
+          "approved_by": "PM-5 implementation authority",
+          "reason": "PM-5 requires a versioned multi-repository task and repetition protocol without representing fixtures as measured outcomes."
+        },
+        {
+          "id": "schemas/enterprise-conformance-report.schema.json",
+          "approved_by": "PM-6 implementation authority",
+          "reason": "PM-6 requires one offline-verifiable enterprise control report with explicit hosted-evidence boundaries."
+        }
+      ],
+      "hosts": [],
+      "feature_ids": [],
+      "ownership_domains": []
+    }
+  },
+  "compatibility": {
+    "minimum_release_window": 2,
+    "rules": [
+      "Keep existing public commands as aliases while a canonical facade replaces them.",
+      "Announce deprecation before removal and name a replacement.",
+      "Preserve schema readers or provide a deterministic migration.",
+      "Do not change approval, evidence, privacy, or safety meaning through an alias.",
+      "Treat undocumented removals as freeze violations."
+    ],
+    "deprecations": []
+  },
+  "attestation": {
+    "current": "sha256-integrity-seal",
+    "boundary": "The committed baseline is integrity-sealed, not identity-signed. Organizational signing belongs to configured enterprise release attestation."
+  }
+}

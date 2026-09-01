@@ -41,6 +41,7 @@ PITCH-DECK-OUTLINE.md
 PITCH-ONE-PAGER.md
 PITCH-PLAN.md
 PITCH-SCRIPT.md
+PRODUCT-MATURITY-IMPROVEMENT-PLAN.md
 PUBLIC-CLAIMS.md
 PUBLIC-RELEASE-METADATA.md
 PUBLIC-ROADMAP.md
@@ -134,6 +135,8 @@ aidlc/stages/requirements.md
 aidlc/stages/reverse-engineering.md
 aidlc/stages/workflow-planning.md
 aidlc/stages/workspace-detection.md
+benchmarks/evaluation/real-portfolio/v1.json
+benchmarks/product-maturity/pm0-scenarios-v1.json
 context/TailTrail.map.md
 context/cache-index.md
 context/change-impact.md
@@ -183,6 +186,19 @@ schemas/context-continuity-intervention.schema.json
 schemas/context-continuity-policy.schema.json
 schemas/context-continuity-selector-policy.schema.json
 schemas/context-continuity-state.schema.json
+schemas/debug-completion-report.schema.json
+schemas/debug-correction-packet.schema.json
+schemas/debug-evaluation-report.schema.json
+schemas/debug-experiment-proposal.schema.json
+schemas/debug-experiment.schema.json
+schemas/debug-governance.schema.json
+schemas/debug-harness-convergence.schema.json
+schemas/debug-hypothesis-ranking.schema.json
+schemas/debug-intake.schema.json
+schemas/debug-investigation-handoff.schema.json
+schemas/debug-orientation.schema.json
+schemas/debug-release-gate.schema.json
+schemas/debug-reproduction-contract.schema.json
 schemas/dependency-decision.schema.json
 schemas/enterprise-target-policy.schema.json
 schemas/evaluation-delivery-dataset.schema.json
@@ -190,6 +206,7 @@ schemas/evaluation-harness-event.schema.json
 schemas/execution-evidence.schema.json
 schemas/execution-failure.schema.json
 schemas/execution-receipt.schema.json
+schemas/failure-fingerprint.schema.json
 schemas/git-readiness.schema.json
 schemas/harness-checkpoint.schema.json
 schemas/harness-control.schema.json
@@ -199,6 +216,7 @@ schemas/harness-template-selection.schema.json
 schemas/host-adapter-contract.schema.json
 schemas/host-runtime-receipt.schema.json
 schemas/host-workspace-resolution.schema.json
+schemas/hypothesis-ledger.schema.json
 schemas/input-role-registry.schema.json
 schemas/install-journal-event.schema.json
 schemas/install-ownership-manifest.schema.json
@@ -219,6 +237,8 @@ schemas/planning-investigation.schema.json
 schemas/planning-lock.schema.json
 schemas/planning-revision.schema.json
 schemas/platform-qualification-receipt.schema.json
+schemas/product-maturity-baseline.schema.json
+schemas/real-evaluation-portfolio.schema.json
 schemas/program-plan.schema.json
 schemas/program-state.schema.json
 schemas/question-context.schema.json
@@ -227,6 +247,7 @@ schemas/release-evidence.schema.json
 schemas/repository-enforcement-policy.schema.json
 schemas/repository-enforcement-report.schema.json
 schemas/repository-enforcement-suppression.schema.json
+schemas/reproduction-contract.schema.json
 schemas/requirement-evidence.schema.json
 schemas/requirement-impact-map.schema.json
 schemas/requirement-recovery-manifest.schema.json
@@ -343,6 +364,16 @@ scripts/context-continuity.py
 scripts/context-receipt.py
 scripts/context_receipt.py
 scripts/cross-repo-reference.py
+scripts/debug-completion.py
+scripts/debug-correction.py
+scripts/debug-evaluation.py
+scripts/debug-governance.py
+scripts/debug-harness-convergence.py
+scripts/debug-hypothesis.py
+scripts/debug-intake.py
+scripts/debug-orientation.py
+scripts/debug-privacy.py
+scripts/debug-reproduction.py
 scripts/delivery-orchestrator.py
 scripts/dependency-decision.py
 scripts/efficacy-benchmark.py
@@ -352,7 +383,9 @@ scripts/enterprise-target-policy.py
 scripts/evaluation-audit.py
 scripts/evaluation-dataset.py
 scripts/evaluation-harness.py
+scripts/real-evaluation-portfolio.py
 scripts/evidence-metrics.py
+scripts/evidence-tiers.py
 scripts/execution-evidence.py
 scripts/execution-failure.py
 scripts/expand-intent.py
@@ -407,6 +440,7 @@ scripts/planning-lock.py
 scripts/planning-revision.py
 scripts/platform-qualification.py
 scripts/policy-check.py
+scripts/product-maturity.py
 scripts/program-checkpoint.py
 scripts/program-plan.py
 scripts/prompt-profile.py
@@ -532,6 +566,8 @@ tailtrail/cli.py
 tailtrail/errors.py
 tailtrail/kernel.py
 tailtrail/resources.py
+tailtrail-meta/product-maturity-baseline-v1.json
+tailtrail-meta/product-maturity-policy-v1.json
 tailtrail.egg-info/PKG-INFO
 tailtrail.egg-info/SOURCES.txt
 tailtrail.egg-info/dependency_links.txt

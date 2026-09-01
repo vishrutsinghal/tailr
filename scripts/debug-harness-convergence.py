@@ -39,7 +39,21 @@ def _rel(root: Path, path: Path | None) -> str | None: return path.relative_to(r
 
 
 def selection(root: Path, run_id: str) -> dict[str, Any]:
-    root = root.resolve(); packet = CORRECTION.show(root, run_id); text = " ".join([packet.get("root_cause", {}).get("statement", ""), *packet.get("architecture_constraints", [])]).lower()
+    root = root.resolve(); packet = CORRECTION.show(root, run_id)
+    if packet.get("status") == "not-created":
+        hypothesis = load("debug_convergence_hypothesis_preview", "debug-hypothesis.py").read_ledger(root, run_id)
+        return {"schema_version":"1", "type":"tailtrail-debug-harness-selection-preview", "run_id":run_id,
+            "requirement_uid":hypothesis.get("requirement_uid"), "status":"not-created",
+            "lifecycle_classification":"not-yet-expected", "expected_after_stage":"d-09-regression-validation",
+            "selected":[
+                {"control":"Requirement Completion Harness","reason":"Every approved correction must satisfy its approved requirement."},
+                {"control":"Evidence-Aware Testing","reason":"Every correction requires passing requirement-linked computational receipts."},
+                {"control":"Drift Control","reason":"Every correction must compare actual paths with immutable correction scope."}],
+            "conditional_controls":["Architecture Fitness Harness","Behaviour Harness","Maintainability Harness","Context Continuity Harness","Safe Git Recovery"],
+            "reason":"Conditional Harness selection cannot be finalized until an approved correction defines paths, symbols, behavior scenarios, and recovery posture.",
+            "next":"Prove a root cause and approve a bounded correction before convergence.",
+            "boundary":"Read-only deterministic preview. No Harness, test, correction, or project command ran."}
+    text = " ".join([packet.get("root_cause", {}).get("statement", ""), *packet.get("architecture_constraints", [])]).lower()
     selected = [
         {"control":"Requirement Completion Harness", "reason":"Every approved correction must satisfy its approved requirement."},
         {"control":"Evidence-Aware Testing", "reason":"Every correction requires passing requirement-linked computational receipts for its selected tiers."},

@@ -63,7 +63,13 @@ def build(root: Path, run_id: str) -> dict[str, Any]:
 
 def show(root: Path, run_id: str) -> dict[str, Any]:
     path=artifact_path(root.resolve(),run_id)
-    if not path.is_file(): raise ValueError("no Debug governance receipt exists; run debug governance build")
+    if not path.is_file():
+        return {"schema_version":"1", "type":"tailtrail-debug-governance-status", "run_id":run_id,
+            "status":"not-created", "lifecycle_classification":"not-yet-expected",
+            "expected_after_stage":"d-09-regression-validation",
+            "reason":"Governance is finalized from saved diagnostic evidence, token posture, continuity, and correction outcomes near closure.",
+            "next":"Record factual experiment and correction evidence before building governance.",
+            "boundary":"Read-only absence receipt. No governance, learning, or token telemetry was inferred."}
     return _read(path)
 
 
