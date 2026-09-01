@@ -380,6 +380,36 @@ python3 scripts/tailtrail.py spec-kit governance --root . --run-id <run-id>
 python3 scripts/tailtrail.py spec-kit evaluate --root . --run-id <run-id> --baseline baseline.json
 ```
 
+`intent-bridge` is the canonical product name for this compatibility surface;
+`spec-kit` remains a supported alias. The equivalent canonical commands are:
+
+```bash
+tailtrail intent-bridge policy check
+tailtrail intent-bridge policy init
+tailtrail intent-bridge policy contracts
+tailtrail intent-bridge detect
+tailtrail intent-bridge status
+tailtrail intent-bridge inspect
+tailtrail intent-bridge import
+tailtrail intent-bridge bridge
+tailtrail intent-bridge slices show
+tailtrail intent-bridge slices assert-active
+tailtrail intent-bridge slices advance
+tailtrail intent-bridge evidence plan
+tailtrail intent-bridge evidence record
+tailtrail intent-bridge amendment check
+tailtrail intent-bridge amendment propose
+tailtrail intent-bridge amendment approve
+tailtrail intent-bridge amendment recovery
+tailtrail intent-bridge converge
+tailtrail intent-bridge ci-ingest
+tailtrail intent-bridge ci-gate
+tailtrail intent-bridge observe
+tailtrail intent-bridge release
+tailtrail intent-bridge governance
+tailtrail intent-bridge evaluate
+```
+
 `policy check` uses the committed safe template when a project policy is absent.
 `policy init` copies that template to `.tailtrail/spec-kit-policy.json` without
 overwriting an existing file. The policy requires source locks, versioned
@@ -484,6 +514,7 @@ Default `registry validate` is advisory and exits `0` with a drift report. `regi
 ```bash
 python3 scripts/tailtrail.py maturity baseline
 python3 scripts/tailtrail.py maturity inventory --format json
+python3 scripts/tailtrail.py maturity learning-inventory
 python3 scripts/tailtrail.py maturity validate
 python3 scripts/tailtrail.py maturity status
 ```
@@ -493,6 +524,102 @@ Feature Registry IDs, and canonical ownership domains while the product is
 being consolidated. `maturity validate` is read-only and reports unapproved
 additions, unannounced removals, integrity failure, incomplete scenarios, or
 ambiguous ownership.
+
+PM-L0 adds the sealed learning inventory without adding another top-level
+command. `maturity learning-inventory` reports the canonical owner for each
+learning fact, all inventoried learning/evidence stores, compatibility aliases,
+and preservation-first migration boundaries. `maturity validate` also rejects
+missing learning writers, ownership conflicts, shortened compatibility windows,
+silent artifact discard, and inventory drift.
+
+PM-L1 uses the existing `learn` command for the canonical append-only V3 store:
+
+```bash
+python3 scripts/tailtrail.py learn v3 validate --root .
+python3 scripts/tailtrail.py learn v3 state --root .
+python3 scripts/tailtrail.py learn v3 migrate --root . --dry-run
+python3 scripts/tailtrail.py learn v3 migrate --root . --approved
+python3 scripts/tailtrail.py learn v3 amend --root . --learning-id <id> --reason "clarify scope" --advice "..." --approved
+python3 scripts/tailtrail.py learn v3 revalidate --root . --learning-id <id> --reason "current evidence confirms it" --evidence-ref <relative-path> --approved
+python3 scripts/tailtrail.py learn v3 supersede --root . --learning-id <id> --replacement-id <id> --reason "new evidence" --approved
+python3 scripts/tailtrail.py learn v3 revoke --root . --learning-id <id> --reason "policy conflict" --approved
+```
+
+Migration retains legacy bytes and requires approval unless `--dry-run` is
+used. Amendment and revalidation are approval-gated; supersession and
+revocation are approval-gated and terminal.
+
+PM-L2 adds read-only, project-framed retrieval under the same `learn` command:
+
+```bash
+python3 scripts/tailtrail.py learn retrieve --root . --task-types qa --tags validation --path tests/test_service.py
+python3 scripts/tailtrail.py learn retrieve --root . --task-types implementation --tags feature --path src/service.py --mode lite --format json
+```
+
+Retrieval requires a task frame, ranks only current normal-sensitivity V3
+records, explains every match and invalidator check, and returns at most three
+candidates. The default is `do-not-use`; Navigator presents advice only as a
+use proposal. Stale, suppressed, excluded, provenance-invalid, missing-source,
+or explicitly contradictory advice is blocked before it can become an
+implementation instruction. Lite produces no learning section when no
+high-value candidate exists.
+
+PM-L3 records the explicit decision separately from the proposal and joins it
+to later canonical closure evidence:
+
+```bash
+python3 scripts/tailtrail.py learn receipt record --root . --run-id <run-id> --learning-id <learning-id> --decision applied --decision-type validation --requirement-uid <requirement-uid> --rationale "Selected for focused validation" --approved
+python3 scripts/tailtrail.py learn receipt show --root . --run-id <run-id>
+python3 scripts/tailtrail.py learn receipt validate --root . --run-id <run-id>
+python3 scripts/tailtrail.py learn receipt attribute --root . --run-id <run-id> --completion-report .tailtrail/runs/<run-id>/completion-reports/report-1.json --approved
+```
+
+`record` accepts `applied`, `advisory`, `ignored`, `rejected`, or `stale` and
+requires the saved PM-L2 proposal, approved Planning Lock, and approved
+requirement UID. Applied/advisory additionally require the exact current V3
+record and cannot use a blocked proposal row. Normal `completion-report`
+execution appends or reuses attribution automatically; manual `attribute` is a
+recovery interface for an already saved report. The report joins requirements,
+drift, Harnesses, failures, and validation into a categorical observed
+association. Utility is domain-capped, feeds future retrieval, and is never a
+causal claim.
+
+PM-L4 records conflicts and negative learning without overwriting V3 history:
+
+```bash
+python3 scripts/tailtrail.py learn governance state --root .
+python3 scripts/tailtrail.py learn governance challenge --root . --learning-id <id> --reason "contradicted" --evidence-ref <relative-path> --approved
+python3 scripts/tailtrail.py learn governance conflict --root . --learning-id <id-a> --learning-id <id-b> --reason "contradictory advice" --evidence-ref <relative-path> --approved
+python3 scripts/tailtrail.py learn governance revalidate --root . --learning-id <id> --reason "current evidence confirms it" --evidence-ref <relative-path> --approved
+python3 scripts/tailtrail.py learn governance negative-scan --root .
+python3 scripts/tailtrail.py learn governance negative-scan --root . --approved
+```
+
+Open challenges, conflicts, repeated adverse receipts, changed invalidator
+fingerprints, and corrupt governance evidence block Navigator retrieval.
+Negative candidates retain only sanitized categorical evidence references and
+require explicit promotion or dismissal.
+
+PM-L5 measures the learning system and permits only evidence-backed,
+project-local class calibration:
+
+```bash
+python3 scripts/tailtrail.py eval learning evaluate --format json
+python3 scripts/tailtrail.py eval learning evaluate --root . --include-receipts --write --format json
+python3 scripts/tailtrail.py learn calibration apply --root . --report .tailtrail/evaluation/learning-calibration/report.json --approved
+python3 scripts/tailtrail.py eval learning meta-feed --root .
+python3 scripts/tailtrail.py eval meta analyze --summary .tailtrail/evaluation/learning-calibration/meta-signals.jsonl --threshold 2
+```
+
+The committed catalog is deterministic fixture evidence, so its report cannot
+publish performance claims. Project confidence changes require an integrity-
+valid report with at least four later receipts for a class and both positive
+and adverse observed associations. Adjustments are capped at ten confidence
+points, stay inside the repository frame, and never approve learning use.
+Missing, changed, corrupt, or cross-project calibration evidence blocks
+retrieval until repaired or removed. Meta-Harness input contains only repeated
+allowlisted categorical evidence; it never contains prompts, source, paths,
+identities, receipt IDs, exact token use, or exact review time.
 
 The committed baseline is versioned and SHA-256 integrity-sealed. The seal
 detects artifact changes; it is not an organizational identity signature.
@@ -2123,6 +2250,8 @@ python3 scripts/tailtrail.py learn graph validate --root .
 python3 scripts/tailtrail.py learn refresh recommend --root .
 python3 scripts/tailtrail.py learn refresh stale --root . --days 90
 python3 scripts/tailtrail.py learn refresh apply --root . --learning-id 20260712-abc12345 --action mark-stale --approved
+python3 scripts/tailtrail.py learn governance state --root .
+python3 scripts/tailtrail.py learn governance negative-scan --root .
 python3 hooks/learning-capture-hook.py "Fixed Sonar validator complexity" --candidate "Extract named guard methods while preserving validation order."
 python3 hooks/learning-capture-hook.py "Fixed Sonar validator complexity" --candidate "Extract named guard methods while preserving validation order." --approved
 ```
@@ -2209,6 +2338,27 @@ tailtrail eval real-portfolio report --root .
 Preparation, grading, and unblinding are separate approval-gated stages. The
 read-only report never runs a model or turns incomplete coverage into an
 efficacy claim.
+
+PM-7 adoption validation:
+
+```text
+tailtrail eval adoption validate
+tailtrail eval adoption template --cohort new-user
+tailtrail eval adoption record --root . --input <sanitized-trial.json> --approved
+tailtrail eval adoption report --root .
+tailtrail eval adoption gate --root .
+tailtrail eval adoption propose --root . --recommendation-id <id> --approved
+tailtrail eval adoption decide --root . --proposal <proposal-ref> --decision applied --reason-code evidence-supported --change-ref <ref> --validation-ref <ref> --approved
+```
+
+`record`, `propose`, and `decide` write only approval-gated local evidence.
+`report` is read-only. Protocol fixtures never count as users, incomplete
+coverage remains `collecting`, and any tampered receipt or weakened safety
+boundary prevents qualification. The gate requires both cohorts, independent
+participants, scenario coverage, time-to-plan, approval burden, abandonment,
+false-intervention, comprehension, and zero safety-weakening thresholds.
+Recommendations need repeated independent observations and never edit wording
+or defaults automatically.
 
 ```bash
 python3 scripts/tailtrail.py eval audit

@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 SCHEMA_VERSION = "1"
+ROOT = Path(__file__).resolve().parents[1]
 TAILTRAIL_DIR = Path(".tailtrail")
 EVENTS = TAILTRAIL_DIR / "learning-events.jsonl"
 GRAPH_CACHE = TAILTRAIL_DIR / "code-graph-cache.json"
@@ -67,21 +70,16 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def read_events(root: Path) -> list[dict[str, Any]]:
-    path = root / EVENTS
-    if not path.exists():
-        return []
-    events: list[dict[str, Any]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            value = json.loads(line)
-        except json.JSONDecodeError as error:
-            raise SystemExit(f"Invalid learning event JSON on line {line_number}: {error}") from error
-        if isinstance(value, dict):
-            events.append(value)
-    return events
+    spec = importlib.util.spec_from_file_location("tailtrail_graph_learning_v3", ROOT / "scripts" / "learning-v3.py")
+    if spec is None or spec.loader is None:
+        raise SystemExit("Unable to load Learning V3 compatibility reader")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    try:
+        return module.compatible_events(root)
+    except module.LearningV3Error as error:
+        raise SystemExit(str(error)) from error
 
 
 def read_refresh_actions(root: Path) -> dict[str, str]:

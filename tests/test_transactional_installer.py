@@ -264,6 +264,28 @@ class TransactionalInstallerTests(unittest.TestCase):
             missing = run("scripts/tailtrail.py", "verify", "--host", "claude", "--target", target.as_posix(), "--format", "json", expected=3)
             self.assertFalse(json.loads(missing.stdout)["ok"])
 
+    def test_extended_payload_runs_its_own_lifecycle_cli(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp)
+            installed = InstallEngine(target).apply("install", "codex", "extended")
+            self.assertTrue(installed.ok, installed.issues)
+            launcher = target / ".tailtrail" / "install" / "payload" / "codex" / "scripts" / "tailtrail.py"
+            status = run(
+                launcher.as_posix(),
+                "status",
+                "--host",
+                "codex",
+                "--target",
+                target.as_posix(),
+                "--format",
+                "json",
+                cwd=target,
+            )
+            payload = json.loads(status.stdout)
+            self.assertTrue(payload["ok"], payload)
+            self.assertEqual(payload["profile"], "extended")
+            self.assertTrue((launcher.parents[1] / "tailtrail" / "install" / "cli.py").is_file())
+
     def test_retention_keeps_only_five_completed_transactions_per_host(self) -> None:
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as sources:
             target = Path(temp)

@@ -54,7 +54,7 @@ def run_script(name: str, args: list[str]) -> int:
 
 
 def usage() -> int:
-    print("Usage: tailtrail eval audit|normalize|validate-events|dataset|real-portfolio|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
+    print("Usage: tailtrail eval audit|normalize|validate-events|dataset|real-portfolio|adoption|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
     print("")
     print("Implemented in EH-2 aliases:")
     print("- eval audit")
@@ -71,6 +71,7 @@ def usage() -> int:
     print("- eval scenario list|run|compare|report")
     print("- eval dataset list|validate|report")
     print("- eval real-portfolio validate|prepare|grade|unblind|report")
+    print("- eval adoption validate|template|record|report|gate|propose|decide")
     print("- eval normalize --source <kind> --input <path>")
     print("- eval validate-events [path]")
     print("")
@@ -722,6 +723,8 @@ def main(argv: list[str] | None = None) -> int:
         return dataset(rest)
     if action == "real-portfolio":
         return run_script("real-evaluation-portfolio.py", rest)
+    if action == "adoption":
+        return run_script("adoption-validation.py", rest)
     if action == "portfolio":
         return portfolio(rest)
     if action == "guardrails":
@@ -739,7 +742,7 @@ def main(argv: list[str] | None = None) -> int:
     if action == "artifact":
         return artifact(rest)
 
-    print("Usage: tailtrail eval audit|dataset|real-portfolio|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
+    print("Usage: tailtrail eval audit|dataset|real-portfolio|adoption|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
     return 2
 
 

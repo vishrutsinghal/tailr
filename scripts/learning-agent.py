@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +23,19 @@ SCORES = TAILTRAIL_DIR / "learning-scores.jsonl"
 POLICY = TAILTRAIL_DIR / "learning-policy.json"
 REFRESH_ACTIONS = TAILTRAIL_DIR / "learning-refresh-actions.json"
 TEMPLATE = ROOT / "templates" / "learnings.md"
+
+
+def load_v3():
+    spec = importlib.util.spec_from_file_location("tailtrail_learning_v3", ROOT / "scripts" / "learning-v3.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load Learning V3")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+V3 = load_v3()
 
 SENSITIVE_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|secret|token|password|passwd|authorization)\s*[:=]\s*\S+"),
@@ -136,21 +151,10 @@ def append_jsonl(path: Path, value: dict[str, Any]) -> None:
 
 
 def read_events(root: Path) -> list[dict[str, Any]]:
-    path = root / EVENTS
-    if not path.exists():
-        return []
-    events: list[dict[str, Any]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            value = json.loads(line)
-        except json.JSONDecodeError as error:
-            raise SystemExit(f"Invalid learning event JSON on line {line_number}: {error}") from error
-        if isinstance(value, dict):
-            events.append(value)
-    return events
+    try:
+        return V3.compatible_events(root)
+    except V3.LearningV3Error as error:
+        raise SystemExit(str(error)) from error
 
 
 def read_refresh_actions(root: Path) -> dict[str, str]:
@@ -436,6 +440,10 @@ def append_curated_learning(root: Path, event: dict[str, Any], score: Score) -> 
     candidate = str(event.get("learning_candidate", "")).strip()
     if not candidate:
         raise SystemExit("Cannot promote event without a learning candidate.")
+    v3_id = event.get("learning_v3_id")
+    if not v3_id:
+        v3_id = V3.capture_legacy_event(root, event)["learning_id"]
+    V3.amend(root, str(v3_id), reason="explicit curated promotion", curated=True)
     entry = [
         "",
         f"## Learning: {event.get('task_type', 'general')} / {event.get('id')}",
@@ -619,7 +627,9 @@ def main() -> int:
 
     if args.command == "capture":
         event = event_from_args(args, root)
+        v3_record = V3.capture_legacy_event(root, event)
         append_jsonl(root / EVENTS, event)
+        event = {**event, "learning_v3_id": v3_record["learning_id"], "learning_v3_record_id": v3_record["record_id"]}
         append_jsonl(root / SCORES, {"event_id": event["id"], "timestamp": now(), **event["learning_confidence"]})
         rebuild_index(root)
         promoted = None

@@ -121,10 +121,12 @@ revision, scope, and policy/guardrail drift fail closed. Runtime authority never
 replaces Planning Lock, AIDLC, Dependency Gate, recovery, closure acceptance,
 or host safety approval.
 
-The compiler exposes six templates: `small-change`, `delivery`,
-`risk-sensitive`, `review-only`, `ci-scanner-remediation`, and
-`repository-discovery`. Deferred Phase 5 attaches those frozen graphs to a
-typed lifecycle executor. Existing capabilities or the host still perform
+The compiler exposes seven templates: `small-change`, `delivery`,
+`risk-sensitive`, `review-only`, `ci-scanner-remediation`,
+`repository-discovery`, and the later native `debug-investigation` graph.
+Deferred Phase 5 attached the original six frozen graphs to a typed lifecycle
+executor; the Debug Harness subsequently added the seventh through the same
+runtime contract. Existing capabilities or the host still perform
 source edits, tests, scans, and handoff work and must return factual typed
 receipts; the executor owns ordering, authority checks, stage outcomes, replay,
 and completion. `tailtrail workflow ...` is the canonical CLI family; exact

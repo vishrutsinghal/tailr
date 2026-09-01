@@ -48,6 +48,17 @@ def load_bootstrap_module() -> Any | None:
     return module
 
 
+def load_learning_retrieval_module() -> Any | None:
+    path = ROOT / "scripts" / "learning-retrieval.py"
+    spec = importlib.util.spec_from_file_location("tailtrail_learning_retrieval_for_navigator", path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def registry_workflow(task: str) -> dict[str, Any] | None:
     module = load_registry_module()
     if module is None:
@@ -151,6 +162,7 @@ def existing_state(root: Path) -> dict[str, bool]:
         "aidlc_docs": (root / "aidlc-docs").exists(),
         "learnings": (root / ".tailtrail" / "learnings.md").exists(),
         "learning_index": (root / ".tailtrail" / "learning-index.md").exists(),
+        "learning_v3": (root / ".tailtrail" / "learning-v3" / "events.jsonl").exists(),
         "installed_pack_manifest": any(root.glob("**/.tailtrail-install.json")),
         "tailtrail_policy": (root / "tailtrail-policy.md").exists(),
         "code_graph_cache": graph_cache_candidates(root)[0].exists() or graph_cache_candidates(root)[1].exists(),
@@ -167,7 +179,58 @@ def run_graph_learning(root: Path, changed: list[str], tasks: list[str], risks: 
 
 
 def graph_learning_index_exists(root: Path, state: dict[str, bool]) -> bool:
-    return state["learning_index"] or (root / ".tailtrail" / "graph-learning-index.json").exists()
+    return state.get("learning_v3", False) or state["learning_index"] or (root / ".tailtrail" / "graph-learning-index.json").exists()
+
+
+def learning_retrieval_mode(goal: str) -> str:
+    lowered = goal.lower()
+    if "--aidlc full" in lowered or "aidlc full" in lowered:
+        return "full"
+    if "--aidlc standard" in lowered or "aidlc standard" in lowered:
+        return "standard"
+    return "lite"
+
+
+def learning_use_proposal(root: Path, goal: str, changed: list[str], tasks: list[str], risks: list[str]) -> dict[str, Any] | None:
+    if not (root / ".tailtrail" / "learning-v3" / "events.jsonl").is_file():
+        return None
+    mode = learning_retrieval_mode(goal)
+
+    def blocked(reason: str) -> dict[str, Any]:
+        return {
+            "schema_version": "1",
+            "type": "tailtrail-learning-use-proposal",
+            "state": "blocked",
+            "task_frame": {
+                "project_frame": {"kind": "repository", "id": "sha256:" + hashlib.sha256(root.resolve().as_posix().encode("utf-8")).hexdigest()},
+                "task_types": sorted(set(task.lower() for task in tasks)),
+                "tags": sorted(set(tag.lower() for tag in normalized_learning_tags(tasks, risks))),
+                "paths": sorted(set(Path(path).as_posix().lower() for path in changed)),
+                "requirement_ids": [],
+                "mode": mode,
+            },
+            "threshold": {"lite": 60, "standard": 50, "full": 45}[mode],
+            "result_cap": 3,
+            "matches": [],
+            "blocked": [{"learning_id": "store", "record_id": "unknown", "reasons": [reason], "invalidator_checks": []}],
+            "approval": {"required": False, "default": "do-not-use", "choices": ["ignore all learnings"]},
+            "boundary": "Fail closed: invalid, stale, conflicting, or unreadable learning state cannot influence implementation.",
+        }
+
+    module = load_learning_retrieval_module()
+    if module is None:
+        return blocked("Learning retrieval gate is unavailable")
+    try:
+        return module.build_proposal(
+            root,
+            task_types=tasks,
+            tags=normalized_learning_tags(tasks, risks),
+            paths=changed,
+            requirement_ids=[],
+            mode=mode,
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        return blocked(f"Learning V3 retrieval failed closed: {error}")
 
 
 def normalized_learning_tags(tasks: list[str], risks: list[str]) -> list[str]:
@@ -697,7 +760,7 @@ def context_strategy(goal: str, root: Path, changed: list[str], tasks: list[str]
         "load_order": [
             "Navigator plan and token budget",
             "Code Graph Mapper cache or graph command output when selected",
-            "top matching graph-aware learnings only when surfaced",
+            "top project-framed Learning V3 use proposal only when explicitly surfaced",
             "exact changed or target files",
             "likely tests/helpers/policy only when needed",
         ],
@@ -1409,6 +1472,7 @@ def decide(
     graph_learning_matches: list[dict[str, Any]] = []
     graph_learning_skip_reason = ""
     approval_for_learnings = None
+    use_proposal = None
     refresh_awareness = None
     capture_suggestion = learning_capture_suggestion(goal, root, tiny, tasks, risks)
     review_plan = review_scope_plan(goal, root, changed, tasks, command_prefix)
@@ -1627,13 +1691,25 @@ def decide(
     if not tiny and graph_learning_index_exists(root, state):
         graph_learning = run_graph_learning(root, changed, tasks, risks)
         graph_learning_matches = graph_learning.get("matches", []) if isinstance(graph_learning, dict) else []
-        if graph_learning_matches:
-            selected.append(FeatureDecision("Graph-Aware Learning", "matching curated learnings found for the current tags, files, or graph scope; user must choose use, ignore, or edit"))
-            load.append(".tailtrail/graph-learning-index.json or .tailtrail/learning-index.md metadata only")
-            approval_for_learnings = learning_approval(graph_learning_matches)
-            commands.append(f"{command_prefix} learn graph search --root {core.quoted(root.as_posix())} " + (" ".join(f"--changed {path}" for path in changed[:5]) if changed else "--tags " + ",".join(core.normalized_learning_tags(tasks, risks)[:3])))
+        use_proposal = learning_use_proposal(root, goal, changed, tasks, risks)
+        proposal_matches = use_proposal.get("matches", []) if isinstance(use_proposal, dict) else []
+        proposal_state = use_proposal.get("state") if isinstance(use_proposal, dict) else None
+        if proposal_matches:
+            selected.append(FeatureDecision("Graph-Aware Learning", "project-framed V3 learnings passed applicability, privacy, freshness, invalidator, and contradiction gates; explicit use choice is still required"))
+            load.append("Learning V3 use proposal only; never raw history or unapproved advice")
+            mode = learning_retrieval_mode(goal)
+            command = f"{command_prefix} learn retrieve --root {core.quoted(root.as_posix())} --mode {mode} --task-types {core.quoted(','.join(tasks))}"
+            if changed:
+                command += " " + " ".join(f"--path {core.quoted(path)}" for path in changed[:5])
+            tags = normalized_learning_tags(tasks, risks)
+            if tags:
+                command += f" --tags {core.quoted(','.join(tags))}"
+            commands.append(command)
+        elif proposal_state == "blocked":
+            graph_learning_skip_reason = "all applicable V3 learnings were blocked by freshness, invalidator, exclusion, privacy, threshold, or contradiction checks"
+            skipped.append(FeatureDecision("Graph-Aware Learning", graph_learning_skip_reason))
         else:
-            graph_learning_skip_reason = learning_skip_reason(root, tiny, state, graph_learning)
+            graph_learning_skip_reason = "no high-value project-framed V3 learning matched; Lite remains quiet"
             skipped.append(FeatureDecision("Graph-Aware Learning", graph_learning_skip_reason))
     else:
         graph_learning_skip_reason = learning_skip_reason(root, tiny, state, graph_learning)
@@ -1812,6 +1888,7 @@ def decide(
         "graph_learning": graph_learning,
         "graph_learning_skip_reason": graph_learning_skip_reason,
         "learning_approval": approval_for_learnings,
+        "learning_use_proposal": use_proposal,
         "learning_refresh_awareness": refresh_awareness,
         "meta_harness_hints": harness_hints,
         "evaluation_harness": evaluation_plan,

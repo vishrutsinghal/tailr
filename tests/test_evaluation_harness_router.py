@@ -28,6 +28,7 @@ class EvaluationHarnessRouterTests(unittest.TestCase):
         self.assertIn("Implemented in EH-2", result.stdout)
         self.assertIn("eval tokens route|reduce|receipt|ledger|proof|telemetry|savings|budget|bridge", result.stdout)
         self.assertIn("eval scenario list|run|compare|report", result.stdout)
+        self.assertIn("eval adoption validate|template|record|report|gate|propose|decide", result.stdout)
 
     def test_eval_audit_delegates_to_audit_script(self) -> None:
         result = self.run_tailtrail("eval", "audit", "--format", "json", "--strict")
@@ -59,6 +60,22 @@ class EvaluationHarnessRouterTests(unittest.TestCase):
         self.assertEqual(report["task_count"], 18)
         self.assertEqual(report["status"], "protocol-ready")
         self.assertEqual(report["claim_status"], "no-performance-claim")
+
+    def test_adoption_route_reports_protocol_without_claiming_results(self) -> None:
+        result = self.run_tailtrail("eval", "adoption", "report", "--root", str(ROOT))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual("protocol-ready", report["status"])
+        self.assertEqual("no-adoption-claim", report["claim_status"])
+
+    def test_adoption_gate_fails_closed_without_real_trials(self) -> None:
+        result = self.run_tailtrail("eval", "adoption", "gate", "--root", str(ROOT))
+
+        self.assertEqual(2, result.returncode)
+        report = json.loads(result.stdout)
+        self.assertEqual("protocol-ready", report["status"])
+        self.assertFalse(all(row["passed"] for row in report["gates"]))
 
     def test_eval_portfolio_run_delegates_to_efficacy_runner(self) -> None:
         result = self.run_tailtrail("eval", "portfolio", "run", "--help")

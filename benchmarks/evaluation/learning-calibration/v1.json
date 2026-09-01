@@ -1,0 +1,80 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-learning-calibration-catalog",
+  "catalog_version": "1.0.0",
+  "evidence_label": "fixture-observed",
+  "minimum_class_samples": 4,
+  "meta_repeat_threshold": 2,
+  "classes": [
+    {
+      "learning_class": "positive-pattern",
+      "observations": [
+        {"scenario_id": "positive-pattern-help-1", "confidence_score": 82, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-01T00:00:00Z", "observed_at": "2026-08-02T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 140, "input_tokens": 100}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 95, "input_tokens": 126}},
+        {"scenario_id": "positive-pattern-help-2", "confidence_score": 76, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-03T00:00:00Z", "observed_at": "2026-08-04T00:00:00Z", "control": {"correction_cycles": 3, "review_time_ms": 165, "input_tokens": 112}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 105, "input_tokens": 138}},
+        {"scenario_id": "positive-pattern-quiet", "confidence_score": 28, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-05T00:00:00Z", "observed_at": "2026-08-06T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 55, "input_tokens": 72}, "learning": {"intervened": false, "correction_cycles": 0, "review_time_ms": 58, "input_tokens": 78}},
+        {"scenario_id": "positive-pattern-false", "confidence_score": 66, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-07T00:00:00Z", "observed_at": "2026-08-08T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 52, "input_tokens": 70}, "learning": {"intervened": true, "correction_cycles": 2, "review_time_ms": 132, "input_tokens": 121}}
+      ]
+    },
+    {
+      "learning_class": "avoid-history",
+      "observations": [
+        {"scenario_id": "avoid-history-help-1", "confidence_score": 84, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-01T00:00:00Z", "observed_at": "2026-08-02T00:00:00Z", "control": {"correction_cycles": 3, "review_time_ms": 155, "input_tokens": 105}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 90, "input_tokens": 129}},
+        {"scenario_id": "avoid-history-help-2", "confidence_score": 79, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-03T00:00:00Z", "observed_at": "2026-08-04T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 148, "input_tokens": 108}, "learning": {"intervened": true, "correction_cycles": 0, "review_time_ms": 88, "input_tokens": 134}},
+        {"scenario_id": "avoid-history-quiet", "confidence_score": 24, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-05T00:00:00Z", "observed_at": "2026-08-06T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 50, "input_tokens": 68}, "learning": {"intervened": false, "correction_cycles": 0, "review_time_ms": 54, "input_tokens": 74}},
+        {"scenario_id": "avoid-history-false", "confidence_score": 62, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-07T00:00:00Z", "observed_at": "2026-08-08T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 48, "input_tokens": 66}, "learning": {"intervened": true, "correction_cycles": 2, "review_time_ms": 126, "input_tokens": 117}}
+      ]
+    },
+    {
+      "learning_class": "validation-command",
+      "observations": [
+        {"scenario_id": "validation-command-help-1", "confidence_score": 88, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-01T00:00:00Z", "observed_at": "2026-08-02T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 136, "input_tokens": 98}, "learning": {"intervened": true, "correction_cycles": 0, "review_time_ms": 82, "input_tokens": 124}},
+        {"scenario_id": "validation-command-help-2", "confidence_score": 81, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-03T00:00:00Z", "observed_at": "2026-08-04T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 142, "input_tokens": 104}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 86, "input_tokens": 130}},
+        {"scenario_id": "validation-command-quiet", "confidence_score": 20, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-05T00:00:00Z", "observed_at": "2026-08-06T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 47, "input_tokens": 65}, "learning": {"intervened": false, "correction_cycles": 0, "review_time_ms": 50, "input_tokens": 70}},
+        {"scenario_id": "validation-command-false", "confidence_score": 64, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-07T00:00:00Z", "observed_at": "2026-08-08T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 45, "input_tokens": 64}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 118, "input_tokens": 112}}
+      ]
+    },
+    {
+      "learning_class": "project-convention",
+      "observations": [
+        {"scenario_id": "project-convention-help-1", "confidence_score": 80, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-01T00:00:00Z", "observed_at": "2026-08-02T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 150, "input_tokens": 102}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 92, "input_tokens": 128}},
+        {"scenario_id": "project-convention-help-2", "confidence_score": 74, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-03T00:00:00Z", "observed_at": "2026-08-04T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 158, "input_tokens": 109}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 101, "input_tokens": 136}},
+        {"scenario_id": "project-convention-quiet", "confidence_score": 26, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-05T00:00:00Z", "observed_at": "2026-08-06T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 53, "input_tokens": 69}, "learning": {"intervened": false, "correction_cycles": 0, "review_time_ms": 56, "input_tokens": 75}},
+        {"scenario_id": "project-convention-false", "confidence_score": 68, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-07T00:00:00Z", "observed_at": "2026-08-08T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 50, "input_tokens": 67}, "learning": {"intervened": true, "correction_cycles": 2, "review_time_ms": 129, "input_tokens": 119}}
+      ]
+    },
+    {
+      "learning_class": "dependency-decision",
+      "observations": [
+        {"scenario_id": "dependency-decision-help-1", "confidence_score": 86, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-01T00:00:00Z", "observed_at": "2026-08-02T00:00:00Z", "control": {"correction_cycles": 3, "review_time_ms": 180, "input_tokens": 118}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 112, "input_tokens": 146}},
+        {"scenario_id": "dependency-decision-help-2", "confidence_score": 78, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-03T00:00:00Z", "observed_at": "2026-08-04T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 172, "input_tokens": 116}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 108, "input_tokens": 143}},
+        {"scenario_id": "dependency-decision-quiet", "confidence_score": 22, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-05T00:00:00Z", "observed_at": "2026-08-06T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 64, "input_tokens": 78}, "learning": {"intervened": false, "correction_cycles": 0, "review_time_ms": 68, "input_tokens": 84}},
+        {"scenario_id": "dependency-decision-false", "confidence_score": 61, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-07T00:00:00Z", "observed_at": "2026-08-08T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 62, "input_tokens": 76}, "learning": {"intervened": true, "correction_cycles": 2, "review_time_ms": 146, "input_tokens": 132}}
+      ]
+    },
+    {
+      "learning_class": "debug-cause",
+      "observations": [
+        {"scenario_id": "debug-cause-help-1", "confidence_score": 83, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-01T00:00:00Z", "observed_at": "2026-08-02T00:00:00Z", "control": {"correction_cycles": 3, "review_time_ms": 175, "input_tokens": 114}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 106, "input_tokens": 140}},
+        {"scenario_id": "debug-cause-help-2", "confidence_score": 77, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-03T00:00:00Z", "observed_at": "2026-08-04T00:00:00Z", "control": {"correction_cycles": 3, "review_time_ms": 168, "input_tokens": 111}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 102, "input_tokens": 138}},
+        {"scenario_id": "debug-cause-quiet", "confidence_score": 25, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-05T00:00:00Z", "observed_at": "2026-08-06T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 59, "input_tokens": 74}, "learning": {"intervened": false, "correction_cycles": 0, "review_time_ms": 62, "input_tokens": 80}},
+        {"scenario_id": "debug-cause-false", "confidence_score": 63, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-07T00:00:00Z", "observed_at": "2026-08-08T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 57, "input_tokens": 72}, "learning": {"intervened": true, "correction_cycles": 2, "review_time_ms": 139, "input_tokens": 126}}
+      ]
+    },
+    {
+      "learning_class": "general",
+      "observations": [
+        {"scenario_id": "general-help-1", "confidence_score": 78, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-01T00:00:00Z", "observed_at": "2026-08-02T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 145, "input_tokens": 101}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 96, "input_tokens": 127}},
+        {"scenario_id": "general-help-2", "confidence_score": 72, "expected_intervention": true, "observed_usefulness": true, "captured_at": "2026-08-03T00:00:00Z", "observed_at": "2026-08-04T00:00:00Z", "control": {"correction_cycles": 2, "review_time_ms": 152, "input_tokens": 107}, "learning": {"intervened": true, "correction_cycles": 1, "review_time_ms": 100, "input_tokens": 133}},
+        {"scenario_id": "general-quiet", "confidence_score": 29, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-05T00:00:00Z", "observed_at": "2026-08-06T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 54, "input_tokens": 71}, "learning": {"intervened": false, "correction_cycles": 0, "review_time_ms": 57, "input_tokens": 77}},
+        {"scenario_id": "general-false", "confidence_score": 67, "expected_intervention": false, "observed_usefulness": false, "captured_at": "2026-08-07T00:00:00Z", "observed_at": "2026-08-08T00:00:00Z", "control": {"correction_cycles": 0, "review_time_ms": 51, "input_tokens": 68}, "learning": {"intervened": true, "correction_cycles": 2, "review_time_ms": 130, "input_tokens": 120}}
+      ]
+    }
+  ],
+  "claim_boundaries": [
+    "Catalog observations are deterministic fixture evidence only, not live model or project performance.",
+    "Review time and token counts are supplied fixture measurements and cannot support generalized savings claims.",
+    "Only later validated project receipts may change a project's retrieval confidence calibration."
+  ],
+  "privacy": {"sanitized": true, "raw_prompt": false, "raw_source": false, "raw_log": false, "identity_fields": false},
+  "integrity": {"algorithm": "sha256", "canonicalization": "sorted compact JSON excluding integrity", "digest": "f3e74890e86fa425ac32135b443be0598796d378e45c81607f59cc3592ca6c19"}
+}

@@ -125,6 +125,7 @@ def capture(root: Path, run_id: str, accepted_by: str) -> dict[str, Any]:
         score = LEARNER.score_event(event)
         event["learning_confidence"] = score.__dict__
         event["promotion_decision"] = "candidate-only"
+        LEARNER.V3.capture_legacy_event(root, event, captured_by="Closure Learning")
         LEARNER.append_jsonl(root / LEARNER.EVENTS, event)
         LEARNER.append_jsonl(root / LEARNER.SCORES, {"event_id": event_id, "timestamp": L.utc_now(), **score.__dict__})
         LEARNER.rebuild_index(root)

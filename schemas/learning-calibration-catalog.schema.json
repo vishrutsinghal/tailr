@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/learning-calibration-catalog.schema.json",
+  "title": "TailTrail Learning Calibration Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "catalog_version", "evidence_label", "minimum_class_samples", "meta_repeat_threshold", "classes", "claim_boundaries", "privacy", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-learning-calibration-catalog"},
+    "catalog_version": {"type": "string", "minLength": 1},
+    "evidence_label": {"enum": ["fixture-observed", "measured"]},
+    "minimum_class_samples": {"const": 4},
+    "meta_repeat_threshold": {"type": "integer", "minimum": 2},
+    "classes": {
+      "type": "array", "minItems": 7, "maxItems": 7,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["learning_class", "observations"],
+        "properties": {
+          "learning_class": {"enum": ["positive-pattern", "avoid-history", "validation-command", "project-convention", "dependency-decision", "debug-cause", "general"]},
+          "observations": {
+            "type": "array", "minItems": 4,
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["scenario_id", "confidence_score", "expected_intervention", "observed_usefulness", "captured_at", "observed_at", "control", "learning"],
+              "properties": {
+                "scenario_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+                "confidence_score": {"type": "integer", "minimum": 0, "maximum": 100},
+                "expected_intervention": {"type": "boolean"},
+                "observed_usefulness": {"type": "boolean"},
+                "captured_at": {"type": "string", "format": "date-time"},
+                "observed_at": {"type": "string", "format": "date-time"},
+                "control": {"$ref": "#/$defs/metrics"},
+                "learning": {
+                  "allOf": [
+                    {"$ref": "#/$defs/metrics"},
+                    {"type": "object", "required": ["intervened"], "properties": {"intervened": {"type": "boolean"}}}
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "claim_boundaries": {"type": "array", "minItems": 3, "items": {"type": "string", "minLength": 1}},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "integrity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["algorithm", "canonicalization", "digest"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "canonicalization": {"const": "sorted compact JSON excluding integrity"},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["correction_cycles", "review_time_ms", "input_tokens"],
+      "properties": {
+        "correction_cycles": {"type": "integer", "minimum": 0},
+        "review_time_ms": {"type": "integer", "minimum": 0},
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "intervened": {"type": "boolean"}
+      }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"],
+      "properties": {
+        "sanitized": {"const": true}, "raw_prompt": {"const": false}, "raw_source": {"const": false}, "raw_log": {"const": false}, "identity_fields": {"const": false}
+      }
+    }
+  }
+}

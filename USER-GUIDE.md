@@ -1438,6 +1438,9 @@ python3 scripts/tailtrail.py eval scenario report --scenario buildweek-validatio
 python3 scripts/tailtrail.py eval normalize --source token-proof --input token-proof.json --format json
 python3 scripts/tailtrail.py eval normalize --source outcome --input outcome.json --write-event --approved
 python3 scripts/tailtrail.py eval validate-events .tailtrail/evaluation/events.jsonl
+python3 scripts/tailtrail.py eval adoption validate
+python3 scripts/tailtrail.py eval adoption template --cohort new-user
+python3 scripts/tailtrail.py eval adoption report --root .
 ```
 
 EH-2 routes existing evidence features through `eval ...` as thin aliases. It does not add new scoring, does not run hidden telemetry, and does not weaken any approval flags from the original commands.
@@ -1460,6 +1463,15 @@ python3 scripts/tailtrail.py eval scenario report --scenario buildweek-validatio
 ```
 
 Scenario scoring reads committed artifacts under `benchmarks/evaluation/scenarios/`. It does not run live agents, tests, CI, scanners, package managers, model/API calls, or hidden telemetry.
+
+PM-7 adoption validation is an explicit usability-study workflow, not hidden
+telemetry. Start from `eval adoption template`, replace its study-local
+`anon-...` participant alias and timestamps, and record the sanitized receipt
+only after approval. TailTrail stores no raw prompt, source, log, or identity
+mapping. New-user and experienced-user observations are evaluated separately,
+then joined for abandonment, redundant approval, false intervention,
+completion-comprehension, and zero-safety-weakening gates. A fixture-only or
+under-sampled report always says `no-adoption-claim`.
 
 Use `eval audit` before adding or changing Evaluation Harness aliases. It inventories the current evidence features and decides whether each one should be exposed as `alias`, `merge`, `needs-decision`, or `retire`.
 

@@ -11,7 +11,7 @@ from workflow_runtime import assurance, compiler, contracts, evidence, ownership
 
 LEDGER=ownership.LEDGER
 PROJECT=Path(__file__).resolve().parents[2]
-TEMPLATES={"small-change","delivery","risk-sensitive","review-only","ci-scanner-remediation","repository-discovery"}
+TEMPLATES={"small-change","delivery","risk-sensitive","review-only","ci-scanner-remediation","repository-discovery","debug-investigation"}
 SCENARIOS={
     "small-bug-focused-proof":("focused-unit-proof",),
     "delivery-aidlc-handoff":("aidlc-clarification","handoff-recorded"),

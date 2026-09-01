@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/learning-governance-event.schema.json",
+  "title": "TailTrail PM-L4 Learning Governance Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "event_id", "sequence", "entity_id", "event_kind", "action", "learning_ids", "record_ids", "project_frame", "reason", "evidence_refs", "created_at", "actor", "approved", "previous_event_id", "invalidator_snapshot", "negative_signal", "promoted_learning_id", "privacy", "chain", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-learning-governance-event"},
+    "event_id": {"type": "string", "pattern": "^lgov-[0-9a-f]{20}$"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "entity_id": {"type": "string", "pattern": "^(chg|cnf|rvl|neg)-[0-9a-f]{20}$"},
+    "event_kind": {"enum": ["challenge", "conflict", "revalidation", "negative-learning"]},
+    "action": {"enum": ["challenge", "confirm", "amend", "supersede", "revoke", "conflict", "learning-a-wins", "learning-b-wins", "both-revoked", "scoped-coexistence", "revalidate", "negative-candidate", "promote", "dismiss"]},
+    "learning_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^lrn-"}, "uniqueItems": true},
+    "record_ids": {"type": "array", "items": {"type": "string", "pattern": "^lrnrec-"}, "uniqueItems": true},
+    "project_frame": {"type": "object", "additionalProperties": false, "required": ["kind", "id"], "properties": {"kind": {"const": "repository"}, "id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}},
+    "reason": {"type": "string", "minLength": 1, "maxLength": 500},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "created_at": {"type": "string", "minLength": 1},
+    "actor": {"type": "string", "minLength": 1},
+    "approved": {"const": true},
+    "previous_event_id": {"type": ["string", "null"]},
+    "invalidator_snapshot": {"oneOf": [{"type": "null"}, {"$ref": "learning-v3-record.schema.json#/$defs/freshness/properties/invalidator_snapshot"}]},
+    "negative_signal": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["count", "categories", "receipt_refs", "threshold"], "properties": {"count": {"type": "integer", "minimum": 2}, "categories": {"type": "array", "items": {"enum": ["rejected", "stale", "possible-harm", "rejected-by-evidence"]}, "uniqueItems": true}, "receipt_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}, "threshold": {"const": 2}}}]},
+    "promoted_learning_id": {"type": ["string", "null"], "pattern": "^lrn-"},
+    "privacy": {"type": "object", "additionalProperties": false, "required": ["sanitized", "raw_failure", "raw_log", "raw_prompt", "identity_fields"], "properties": {"sanitized": {"const": true}, "raw_failure": {"const": false}, "raw_log": {"const": false}, "raw_prompt": {"const": false}, "identity_fields": {"const": false}}},
+    "chain": {"type": "object", "additionalProperties": false, "required": ["previous_digest", "digest"], "properties": {"previous_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "boundary": {"type": "string", "minLength": 1}
+  }
+}

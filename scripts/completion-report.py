@@ -39,8 +39,18 @@ def canonical_state_module() -> Any:
     return module
 
 
+def learning_receipts_module() -> Any:
+    spec = importlib.util.spec_from_file_location("completion_report_learning_receipts", ROOT / "scripts" / "learning-use-receipt.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 L = ledger()
 STATE = canonical_state_module()
+RECEIPTS = learning_receipts_module()
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -209,6 +219,7 @@ def completion_learning_intake(root: Path, directory: Path, payload: dict[str, A
         score = learner.score_event(event)
         event["learning_confidence"] = score.__dict__
         event["promotion_decision"] = "candidate-only"
+        learner.V3.capture_legacy_event(root, event, captured_by="Completion Report")
         learner.append_jsonl(root / learner.EVENTS, event)
         learner.append_jsonl(root / learner.SCORES, {"event_id": event_id, "timestamp": L.utc_now(), **score.__dict__})
         learner.rebuild_index(root)
@@ -240,7 +251,9 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     maintainability, maintainability_path = latest(directory / "maintainability", "assessment-*.json")
     boundary_path = directory / "recovery" / "boundary.json"
     boundary = read(boundary_path) if boundary_path.is_file() else None
-    receipts = [read(path) for path in sorted((directory / "validation-receipts").glob("*.json"))]
+    receipt_paths = sorted((directory / "validation-receipts").glob("*.json"))
+    receipts = [read(path) for path in receipt_paths]
+    receipt_refs = [path.relative_to(root).as_posix() for path in receipt_paths]
     failures = failure_summary(directory)
     debug_section_path = directory / "debug" / "completion" / "debug-closure-section-v1.json"
     debug_section = read(debug_section_path) if debug_section_path.is_file() else None
@@ -371,6 +384,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         "tests": {
             "status": test_status,
             "passed_tiers": passed_tiers,
+            "receipt_refs": receipt_refs,
             "failed_or_unavailable_receipts": failed_receipts,
             "findings": (gate or {}).get("findings", []),
         },
@@ -453,11 +467,18 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         "blockers": execution_blockers,
         "boundary": "Implementation status is derived from saved changed paths, requirement checkpoints, and factual command receipts; it is not inferred from chat narration.",
     }
+    reports = directory / "completion-reports"
+    report_path = reports / f"report-{len(list(reports.glob('report-*.json'))) + 1}.json"
+    report_ref = report_path.relative_to(root).as_posix()
+    payload["learning_use"] = RECEIPTS.attribute_completion(
+        root, run_id, payload, record=record, completion_ref=report_ref,
+    )
     payload["drift_learning"] = drift_learning_observation(directory, payload, record)
     payload["completion_learning"] = completion_learning_intake(root, directory, payload, record)
     payload["positive_learning"] = positive_learning_status(directory, payload)
     payload["source_artifacts"]["completion_learning"] = payload["completion_learning"]["artifact"]
     payload["source_artifacts"]["positive_learning"] = payload["positive_learning"]["artifact"]
+    payload["source_artifacts"]["learning_use_receipts"] = "learning/use-receipts.jsonl" if payload["learning_use"]["artifact"] else None
     token_usage = payload["token_usage"]
     payload["tailtrail_status"] = [
         {
@@ -534,6 +555,11 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "detail": payload["positive_learning"]["artifact"] or payload["positive_learning"]["boundary"],
         },
         {
+            "control": "Learning use attribution",
+            "status": payload["learning_use"]["status"],
+            "detail": f"{payload['learning_use']['attributed']} requirement-linked receipt(s); observed association only",
+        },
+        {
             "control": "Token estimate",
             "status": "estimated" if token_usage["planning_estimate_tokens"] is not None else "unavailable",
             "detail": f"{token_usage['planning_estimate_tokens']} focused tokens" if token_usage["planning_estimate_tokens"] is not None else "the Start plan did not save an estimate",
@@ -545,17 +571,16 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         },
     ]
     if record:
-        reports = directory / "completion-reports"
         reports.mkdir(parents=True, exist_ok=True)
-        path = reports / f"report-{len(list(reports.glob('report-*.json'))) + 1}.json"
-        L.atomic_json(path, payload)
+        L.atomic_json(report_path, payload)
         L.append_event(root, run_id, "completion_report_created", {
-            "artifact": path.relative_to(directory).as_posix(),
+            "artifact": report_path.relative_to(directory).as_posix(),
             "overall_status": payload["overall_status"],
             "harnesses": [{"name": item["name"], "used": item["used"], "status": item["status"]} for item in harnesses],
             "completion_learning": payload["completion_learning"]["status"],
+            "learning_use": payload["learning_use"]["status"],
         })
-        payload["run_artifact"] = path.as_posix()
+        payload["run_artifact"] = report_path.as_posix()
     return payload
 
 
@@ -590,6 +615,26 @@ def render(payload: dict[str, Any]) -> str:
         lines.extend(["", "## Execution blockers", "", "| Outcome | Check | Boundary |", "| --- | --- | --- |"])
         for blocker in payload["implementation"]["blockers"]:
             lines.append(f"| {table_cell(blocker['outcome'])} | {table_cell(blocker['command_label'])} | {table_cell(blocker['asserted_behavior'])} |")
+    learning_use = payload["learning_use"]
+    lines.extend([
+        "",
+        "## Learning use and closure attribution",
+        "",
+        f"Status: **{table_cell(learning_use['status'])}**; decisions: **{learning_use['decisions']}**; attributed: **{learning_use['attributed']}**.",
+        "",
+        "| Learning | Requirements | Decision | Evidence association | Utility |",
+        "| --- | --- | --- | --- | --- |",
+    ])
+    for receipt in learning_use.get("receipts", []):
+        utility_delta = f"{receipt['utility_delta']:+d}" if isinstance(receipt.get("utility_delta"), int) else "-"
+        lines.append(
+            f"| {table_cell(receipt['learning_id'])} | {table_cell(', '.join(receipt['requirement_uids']))} | "
+            f"{table_cell(receipt['decision_type'] + ': ' + receipt['decision'])} | {table_cell(receipt['association'])} | "
+            f"{table_cell(utility_delta)} |"
+        )
+    if not learning_use.get("receipts"):
+        lines.append("| - | - | - | no recorded learning influence | 0 |")
+    lines.extend(["", f"Boundary: {learning_use['boundary']}"])
     lines.extend([
         "",
         "## TailTrail control status",

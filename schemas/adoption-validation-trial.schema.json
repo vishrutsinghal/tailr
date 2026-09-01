@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/adoption-validation-trial.schema.json",
+  "title": "TailTrail Adoption Validation Trial Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "trial_id", "catalog", "cohort", "scenario_id", "participant_ref", "evidence_kind", "observer_attested", "started_at", "valid_plan_at", "completed_at", "outcome", "time_to_plan_ms", "approval_count", "redundant_approval_count", "intervention_count", "false_intervention_count", "completion_comprehension", "safety_checks", "feedback_signals", "evidence_refs", "created_at", "privacy", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-adoption-trial-receipt"},
+    "trial_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{7,63}$"},
+    "catalog": {"type": "object", "additionalProperties": false, "required": ["version", "digest"], "properties": {"version": {"type": "string"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "cohort": {"enum": ["new-user", "experienced-user"]},
+    "scenario_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "participant_ref": {"type": "string", "pattern": "^anon-[a-z0-9-]{4,48}$"},
+    "evidence_kind": {"enum": ["protocol-fixture", "moderated-observation", "unmoderated-observation"]},
+    "observer_attested": {"type": "boolean"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "valid_plan_at": {"type": ["string", "null"], "format": "date-time"},
+    "completed_at": {"type": ["string", "null"], "format": "date-time"},
+    "outcome": {"enum": ["completed", "abandoned"]},
+    "time_to_plan_ms": {"type": ["integer", "null"], "minimum": 0},
+    "approval_count": {"type": "integer", "minimum": 0},
+    "redundant_approval_count": {"type": "integer", "minimum": 0},
+    "intervention_count": {"type": "integer", "minimum": 0},
+    "false_intervention_count": {"type": "integer", "minimum": 0},
+    "completion_comprehension": {"type": "object", "additionalProperties": false, "required": ["correct", "total"], "properties": {"correct": {"type": "integer", "minimum": 0}, "total": {"type": "integer", "minimum": 0}}},
+    "safety_checks": {"type": "object", "minProperties": 5, "additionalProperties": {"type": "boolean"}},
+    "feedback_signals": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}},
+    "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9._:/#-]{1,160}$"}},
+    "created_at": {"type": "string", "format": "date-time"},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "integrity": {"$ref": "#/$defs/integrity"}
+  },
+  "$defs": {
+    "privacy": {"type": "object", "additionalProperties": false, "required": ["sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"], "properties": {"sanitized": {"const": true}, "raw_prompt": {"const": false}, "raw_source": {"const": false}, "raw_log": {"const": false}, "identity_fields": {"const": false}}},
+    "integrity": {"type": "object", "additionalProperties": false, "required": ["algorithm", "canonicalization", "digest"], "properties": {"algorithm": {"const": "sha256"}, "canonicalization": {"const": "sorted compact JSON excluding integrity"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}
+  }
+}

@@ -36,6 +36,7 @@ class EvaluationAuditTests(unittest.TestCase):
         self.assertIn("meta-harness", groups)
         self.assertIn("token-evidence", groups)
         self.assertIn("enterprise-reporting", groups)
+        self.assertIn("adoption-validation", groups)
         self.assertIn("buildweek-demo-evidence", groups)
         self.assertEqual(report["summary"]["needs_decision"], 0)
 

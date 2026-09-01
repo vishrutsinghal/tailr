@@ -152,11 +152,17 @@ def branch_matches_base(branch: str | None, base: str | None) -> bool:
     return branch == base or branch == base.split("/")[-1]
 
 
+def learning_approval_pending(plan: dict[str, Any]) -> bool:
+    use_proposal = plan.get("learning_use_proposal")
+    proposal_approval = use_proposal.get("approval", {}) if isinstance(use_proposal, dict) else {}
+    return bool(plan.get("learning_approval") or proposal_approval.get("required"))
+
+
 def choose_primary(root: Path, command_prefix: str, plan_path: Path | None, plan: dict[str, Any], git: dict[str, Any]) -> dict[str, str]:
     refresh = learning_refresh_status(root)
     review_artifact = artifact_newer(root, plan_path, ["review-*.md", "review-*.json"])
     scan_artifact = artifact_newer(root, plan_path, ["sonar-*.md", "quality-*.md", "vulnerability-*.md", "validation-*.md"])
-    learning_artifact = artifact_newer(root, plan_path, ["learning-*.md", "learning-*.json", "outcome-events.jsonl"])
+    learning_artifact = artifact_newer(root, plan_path, ["learning-*.md", "learning-*.json", "outcome-events.jsonl", "runs/*/learning/use-receipts.jsonl"])
     has_plan = bool(plan_path)
     uncommitted = git.get("uncommitted") or []
 
@@ -166,7 +172,8 @@ def choose_primary(root: Path, command_prefix: str, plan_path: Path | None, plan
         return primary("review", f"{command_prefix} review", "Prior Start plan exists and uncommitted changes are present with no newer review artifact.", "high")
     if has_plan and uncommitted and review_artifact and review_finding_count(review_artifact) > 0:
         return primary("review-finding", f"{command_prefix} review", "A review artifact newer than the Start plan has findings; address the top-severity finding first.", "high")
-    approvals_pending = bool(plan.get("scan_approval") or plan.get("learning_approval"))
+    learning_pending = learning_approval_pending(plan)
+    approvals_pending = bool(plan.get("scan_approval") or learning_pending)
     if has_plan and git.get("clean") and not approvals_pending and not branch_matches_base(git.get("branch"), git.get("base")):
         base = git.get("base") or "main"
         return primary("branch-review", f"{command_prefix} review --scope branch --base {base}", "Working tree is clean and the current branch differs from the base branch.", "high")
@@ -177,8 +184,8 @@ def choose_primary(root: Path, command_prefix: str, plan_path: Path | None, plan
         return primary("value-report", f"{command_prefix} report value --month YYYY-MM", "The last plan exists, the working tree is clean, and the branch matches the base.", "medium")
     if has_plan and plan.get("scan_approval") and not scan_artifact:
         return primary("scan-approval", "Review the Scan Approval section of the last Start report.", "The last plan has pending scan approval and no newer scan artifact was found.", "medium")
-    if has_plan and plan.get("learning_approval") and not learning_artifact:
-        return primary("learning-approval", "Review the Learning Approval section of the last Start report.", "The last plan surfaced learning approval and no newer learning event was found.", "medium")
+    if has_plan and learning_pending and not learning_artifact:
+        return primary("learning-approval", "Review the Learning Use Proposal section of the last Start report.", "The last plan surfaced a default-deny learning use proposal and no newer learning decision evidence was found.", "medium")
     if refresh["exists"] and (refresh["stale"] or refresh["unresolved"]):
         return primary("learning-review", f"{command_prefix} learn review --root {json.dumps(root.as_posix())}", "Learning refresh actions exist and are stale or unresolved.", "medium")
     return primary("start", f'{command_prefix} start "<new goal>"', "No higher-confidence continuation signal matched.", "low")
@@ -210,7 +217,7 @@ def build_report(root: Path, command_prefix: str) -> dict[str, Any]:
         "review_artifact_newer_than_plan": bool(review_artifact),
         "review_findings": review_finding_count(review_artifact),
         "scan_approval_pending": bool(plan.get("scan_approval")),
-        "learning_approval_pending": bool(plan.get("learning_approval")),
+        "learning_approval_pending": learning_approval_pending(plan),
         "learning_refresh_stale": bool(refresh["exists"] and refresh["stale"]),
         "learning_refresh_unresolved": bool(refresh["exists"] and refresh["unresolved"]),
         "code_graph_cache": (resolved / "tailtrail-meta" / "code-graph-cache.json").is_file(),

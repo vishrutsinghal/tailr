@@ -35,7 +35,8 @@
         {"id":"presentation_conformance","approved_by":"PM-3 implementation authority","reason":"Expose read-only semantic presentation conformance to MCP hosts."},
         {"id":"maintainability_inventory","approved_by":"PM-4 implementation authority","reason":"Expose the same deterministic maintainability inventory through CLI and MCP."},
         {"id":"real_evaluation_portfolio_report","approved_by":"PM-5 implementation authority","reason":"Expose read-only coverage and claim-boundary reporting for the real evaluation portfolio."},
-        {"id":"enterprise_conformance_report","approved_by":"PM-6 implementation authority","reason":"Expose a read-only consolidated enterprise control and evidence-boundary report."}
+        {"id":"enterprise_conformance_report","approved_by":"PM-6 implementation authority","reason":"Expose a read-only consolidated enterprise control and evidence-boundary report."},
+        {"id":"adoption_validation_report","approved_by":"PM-7 implementation authority","reason":"Expose read-only usability coverage, friction gates, safety posture, and evidence-backed wording/default recommendations without recording trials or changing product behavior."}
       ],
       "schema_paths": [
         {
@@ -62,6 +63,66 @@
           "id": "schemas/enterprise-conformance-report.schema.json",
           "approved_by": "PM-6 implementation authority",
           "reason": "PM-6 requires one offline-verifiable enterprise control report with explicit hosted-evidence boundaries."
+        },
+        {
+          "id": "schemas/product-maturity-learning-inventory.schema.json",
+          "approved_by": "PM-L0 implementation authority",
+          "reason": "PM-L0 requires a closed, sealed inventory for canonical learning ownership, compatibility aliases, and non-destructive migration boundaries."
+        },
+        {
+          "id": "schemas/learning-v3-record.schema.json",
+          "approved_by": "PM-L1 implementation authority",
+          "reason": "PM-L1 requires a closed append-only class, provenance, applicability, freshness, utility, privacy, and lifecycle contract."
+        },
+        {
+          "id": "schemas/learning-use-proposal.schema.json",
+          "approved_by": "PM-L2 implementation authority",
+          "reason": "PM-L2 requires a closed project-framed retrieval, applicability ranking, three-result cap, invalidator, contradiction, and explicit-use proposal contract."
+        },
+        {
+          "id": "schemas/learning-use-receipt-event.schema.json",
+          "approved_by": "PM-L3 implementation authority",
+          "reason": "PM-L3 requires a closed append-only use-decision, requirement attribution, evidence join, privacy, digest-chain, and capped observed-utility contract."
+        },
+        {
+          "id": "schemas/learning-governance-event.schema.json",
+          "approved_by": "PM-L4 implementation authority",
+          "reason": "PM-L4 requires a closed append-only challenge, conflict, revalidation, repeated-rejection, privacy, and digest-chain governance contract."
+        },
+        {
+          "id": "schemas/learning-calibration-catalog.schema.json",
+          "approved_by": "PM-L5 implementation authority",
+          "reason": "PM-L5 requires a closed paired learning-on/control scenario catalog with later outcomes and claim boundaries."
+        },
+        {
+          "id": "schemas/learning-calibration-report.schema.json",
+          "approved_by": "PM-L5 implementation authority",
+          "reason": "PM-L5 requires a closed class-specific effectiveness, calibration, overhead, privacy, and claim report."
+        },
+        {
+          "id": "schemas/learning-calibration-projection.schema.json",
+          "approved_by": "PM-L5 implementation authority",
+          "reason": "PM-L5 requires a closed project-framed, report-linked, bounded confidence projection."
+        },
+        {
+          "id": "schemas/adoption-validation-catalog.schema.json",
+          "approved_by": "PM-7 implementation authority",
+          "reason": "PM-7 requires versioned cohorts, scenarios, numeric usability thresholds, safety boundaries, and evidence-based feedback signals."
+        },
+        {
+          "id": "schemas/adoption-validation-trial.schema.json",
+          "approved_by": "PM-7 implementation authority",
+          "reason": "PM-7 requires a closed privacy-safe, tamper-evident trial receipt for observed and fixture evidence."
+        },
+        {
+          "id": "schemas/adoption-validation-report.schema.json",
+          "approved_by": "PM-7 implementation authority",
+          "reason": "PM-7 requires a closed aggregate report that fails closed on missing, insufficient, unsafe, or tampered evidence."
+        },
+        {
+          "id": "schemas/adoption-improvement-decision.schema.json",
+          "approved_by": "PM-7 implementation authority",
+          "reason": "PM-7 requires approved, evidence-linked wording/default proposal and decision records without automatic source mutation."
         }
       ],
       "hosts": [],

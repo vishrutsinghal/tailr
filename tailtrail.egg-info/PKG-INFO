@@ -92,13 +92,51 @@ tailtrail start "fix the zero quantity validation defect"
 ```
 
 ```text
-Approve the plan. Implement the smallest maintainable change and run the focused validation.
+tailtrail discuss --run-id <run-id> --question "Why was this scope selected?"
+tailtrail approve --run-id <run-id>
+tailtrail continue --run-id <run-id>
+tailtrail status --run-id <run-id>
+tailtrail close --run-id <run-id>
+```
+
+These six verbs use one orchestration façade. TailTrail resolves a run only
+when it is unambiguous, approves only the exact plan or next frozen stage, and
+keeps advanced workflow commands available for diagnostics. Bare `tailtrail
+status` still means installer status; task status includes `--run-id`.
+
+Reports use one canonical presentation contract across CLI, MCP, Codex,
+Copilot, and Claude. Narrow terminals wrap without dropping sections, verbose
+mode keeps all applicable sections, and a collapsed host surface must tell the
+user to open the complete report instead of presenting a partial substitute.
+Maintainers can verify the deterministic plan/debug/closure matrix with:
+
+```bash
+tailtrail presentation conformance
+```
+
+Maintainers can also check whether registered commands, MCP tools, files,
+documentation ownership, and core module dependencies remain consistent:
+
+```bash
+tailtrail maturity maintainability validate
 ```
 
 Use `hands-free:` or `end-to-end:` only when you deliberately want TailTrail
 to break a larger delivery into approved slices.
 
 ## What TailTrail packs
+
+The Evaluation Harness includes a real-evaluation portfolio protocol: 18 task
+classes across five repository fixtures, blinded A/B grading, repeated runs,
+immutable positive/neutral/negative observations, and an honest claim gate.
+Run `tailtrail eval real-portfolio report --root .` to inspect coverage. Until
+all required observations exist, it reports `no-performance-claim`.
+
+Enterprise operations include an offline conformance suite for compatibility,
+transactional installation/update/rollback, policy, linked CI,
+retention/export, migration/recovery, threat controls, and support boundaries.
+Run `tailtrail enterprise-readiness --root . conformance`; local success stays
+separate from hosted Windows/macOS/Linux release qualification.
 
 TailTrail does not run every feature for every task. Navigator selects the
 smallest useful workflow during planning; other controls remain armed and

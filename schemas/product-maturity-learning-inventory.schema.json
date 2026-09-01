@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/product-maturity-learning-inventory.schema.json",
+  "title": "TailTrail Product Maturity PM-L0 Learning Inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "inventory_version", "program_phase", "fact_ownership", "systems", "artifacts", "aliases", "migrations", "boundaries", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-product-maturity-learning-inventory"},
+    "inventory_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "program_phase": {"const": "PM-L0"},
+    "fact_ownership": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fact", "owner", "canonical_artifact", "state"],
+        "properties": {
+          "fact": {"enum": ["candidate", "curated-learning", "use-receipt", "freshness-action", "conflict", "observed-outcome"]},
+          "owner": {"type": "string", "minLength": 1},
+          "canonical_artifact": {"type": "string", "minLength": 1},
+          "state": {"enum": ["current", "planned-pm-l3", "planned-pm-l4"]}
+        }
+      }
+    },
+    "systems": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/system"}},
+    "artifacts": {"type": "array", "minItems": 8, "items": {"$ref": "#/$defs/artifact"}},
+    "aliases": {"type": "array", "items": {"$ref": "#/$defs/alias"}},
+    "migrations": {"type": "array", "items": {"$ref": "#/$defs/migration"}},
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "preservation", "privacy", "ownership"],
+      "properties": {
+        "authority": {"type": "string", "minLength": 1},
+        "preservation": {"type": "string", "minLength": 1},
+        "privacy": {"type": "string", "minLength": 1},
+        "ownership": {"type": "string", "minLength": 1}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "canonicalization", "digest"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "canonicalization": {"type": "string", "minLength": 1},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "system": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "scripts", "commands"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1},
+        "scripts": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "commands": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "system", "path", "role", "mutable", "owner", "writers"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "system": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "role": {"enum": ["canonical", "compatibility-projection", "source-by-reference", "derived", "configuration", "domain-evidence"]},
+        "mutable": {"type": "boolean"},
+        "owner": {"type": "string", "minLength": 1},
+        "writers": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "migration": {"type": "string", "minLength": 1}
+      }
+    },
+    "alias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alias", "canonical", "state", "minimum_release_window", "preserves"],
+      "properties": {
+        "alias": {"type": "string", "minLength": 1},
+        "canonical": {"type": "string", "minLength": 1},
+        "state": {"enum": ["compatibility", "delegating-route"]},
+        "minimum_release_window": {"type": "integer", "minimum": 2},
+        "preserves": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"enum": ["approval", "privacy", "safety", "data"]}, "uniqueItems": true}
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "target", "phase", "strategy", "preserve_existing", "minimum_release_window"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "phase": {"type": "string", "minLength": 1},
+        "strategy": {"type": "string", "minLength": 1},
+        "preserve_existing": {"const": true},
+        "minimum_release_window": {"type": "integer", "minimum": 2}
+      }
+    }
+  }
+}

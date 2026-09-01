@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/adoption-validation-report.schema.json",
+  "title": "TailTrail Adoption Validation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "catalog", "status", "claim_status", "evidence", "overall", "cohorts", "gates", "recommendations", "improvement_decisions", "issues", "claim_boundaries", "privacy", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-adoption-validation-report"},
+    "catalog": {"type": "object", "additionalProperties": false, "required": ["version", "digest"], "properties": {"version": {"type": "string", "minLength": 1}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "status": {"enum": ["protocol-ready", "fixture-only", "collecting", "thresholds-not-met", "qualified", "invalid"]},
+    "claim_status": {"enum": ["no-adoption-claim", "scenario-scoped-adoption-evidence"]},
+    "evidence": {"type": "object", "additionalProperties": false, "required": ["total_receipts", "qualifying_observations", "protocol_fixtures", "moderated_observations", "unmoderated_observations"], "properties": {"total_receipts": {"type": "integer", "minimum": 0}, "qualifying_observations": {"type": "integer", "minimum": 0}, "protocol_fixtures": {"type": "integer", "minimum": 0}, "moderated_observations": {"type": "integer", "minimum": 0}, "unmoderated_observations": {"type": "integer", "minimum": 0}}},
+    "overall": {"allOf": [{"$ref": "#/$defs/metrics"}], "unevaluatedProperties": false},
+    "cohorts": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/cohort"}},
+    "gates": {"type": "array", "minItems": 17, "maxItems": 17, "items": {"$ref": "#/$defs/gate"}},
+    "recommendations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/recommendation"}},
+    "improvement_decisions": {"type": "array", "items": {"$ref": "#/$defs/decision"}},
+    "issues": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "claim_boundaries": {"type": "array", "minItems": 5, "items": {"type": "string", "minLength": 1}},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "integrity": {"$ref": "#/$defs/integrity"}
+  },
+  "$defs": {
+    "nullableRate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "nullableInteger": {"type": ["integer", "null"], "minimum": 0},
+    "metrics": {
+      "type": "object",
+      "required": ["trial_count", "unique_participants", "scenario_count", "completed_count", "abandoned_count", "abandonment_rate", "time_to_plan_p75_ms", "approval_count_p75", "approval_count", "redundant_approval_count", "redundant_approval_rate", "intervention_count", "false_intervention_count", "false_intervention_rate", "completion_comprehension_correct", "completion_comprehension_total", "completion_comprehension_rate", "safety_boundary_weakening_count"],
+      "properties": {
+        "trial_count": {"type": "integer", "minimum": 0}, "unique_participants": {"type": "integer", "minimum": 0}, "scenario_count": {"type": "integer", "minimum": 0}, "completed_count": {"type": "integer", "minimum": 0}, "abandoned_count": {"type": "integer", "minimum": 0},
+        "abandonment_rate": {"$ref": "#/$defs/nullableRate"}, "time_to_plan_p75_ms": {"$ref": "#/$defs/nullableInteger"}, "approval_count_p75": {"$ref": "#/$defs/nullableInteger"}, "approval_count": {"type": "integer", "minimum": 0}, "redundant_approval_count": {"type": "integer", "minimum": 0}, "redundant_approval_rate": {"$ref": "#/$defs/nullableRate"},
+        "intervention_count": {"type": "integer", "minimum": 0}, "false_intervention_count": {"type": "integer", "minimum": 0}, "false_intervention_rate": {"$ref": "#/$defs/nullableRate"}, "completion_comprehension_correct": {"type": "integer", "minimum": 0}, "completion_comprehension_total": {"type": "integer", "minimum": 0}, "completion_comprehension_rate": {"$ref": "#/$defs/nullableRate"}, "safety_boundary_weakening_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "cohort": {
+      "allOf": [
+        {"$ref": "#/$defs/metrics"},
+        {"type": "object", "required": ["cohort", "gates_passed"], "properties": {"cohort": {"enum": ["new-user", "experienced-user"]}, "gates_passed": {"type": "boolean"}}}
+      ],
+      "unevaluatedProperties": false
+    },
+    "gate": {"type": "object", "additionalProperties": false, "required": ["id", "passed", "observed", "threshold"], "properties": {"id": {"type": "string", "pattern": "^[a-z0-9.-]+$"}, "passed": {"type": "boolean"}, "observed": {"type": ["number", "null"]}, "threshold": {"type": "number"}}},
+    "recommendation": {"type": "object", "additionalProperties": false, "required": ["recommendation_id", "signal_id", "kind", "target", "action", "trial_count", "participant_count", "supporting_trial_ids", "eligible", "boundary"], "properties": {"recommendation_id": {"type": "string", "pattern": "^adopt-rec-[0-9a-f]{16}$"}, "signal_id": {"type": "string", "pattern": "^[a-z0-9-]+$"}, "kind": {"enum": ["wording", "default"]}, "target": {"type": "string", "pattern": "^[a-z0-9.-]+$"}, "action": {"type": "string", "pattern": "^[a-z0-9-]+$"}, "trial_count": {"type": "integer", "minimum": 0}, "participant_count": {"type": "integer", "minimum": 0}, "supporting_trial_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "eligible": {"type": "boolean"}, "boundary": {"type": "string", "minLength": 1}}},
+    "decision": {"type": "object", "additionalProperties": false, "required": ["schema_version", "type", "proposal_id", "recommendation_id", "report_digest", "signal_id", "kind", "target", "action", "supporting_trial_ids", "participant_count", "created_at", "authority", "decision", "reason_code", "change_ref", "validation_ref", "boundary", "integrity"], "properties": {"schema_version": {"const": "1"}, "type": {"const": "tailtrail-adoption-improvement-decision"}, "proposal_id": {"type": "string"}, "recommendation_id": {"type": "string"}, "report_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "signal_id": {"type": "string"}, "kind": {"enum": ["wording", "default"]}, "target": {"type": "string"}, "action": {"type": "string"}, "supporting_trial_ids": {"type": "array", "minItems": 3, "items": {"type": "string"}}, "participant_count": {"type": "integer", "minimum": 3}, "created_at": {"type": "string", "format": "date-time"}, "authority": {"const": "human-approved-adoption-improvement-record"}, "decision": {"enum": ["proposed", "applied", "rejected", "deferred"]}, "reason_code": {"type": ["string", "null"]}, "change_ref": {"type": ["string", "null"]}, "validation_ref": {"type": ["string", "null"]}, "boundary": {"type": "string"}, "integrity": {"$ref": "#/$defs/integrity"}}},
+    "privacy": {"type": "object", "additionalProperties": false, "required": ["sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"], "properties": {"sanitized": {"const": true}, "raw_prompt": {"const": false}, "raw_source": {"const": false}, "raw_log": {"const": false}, "identity_fields": {"const": false}}},
+    "integrity": {"type": "object", "additionalProperties": false, "required": ["algorithm", "canonicalization", "digest"], "properties": {"algorithm": {"const": "sha256"}, "canonicalization": {"const": "sorted compact JSON excluding integrity"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}
+  }
+}

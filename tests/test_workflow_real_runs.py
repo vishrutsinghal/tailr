@@ -15,7 +15,7 @@ FIXTURES=template_support.FIXTURES
 
 
 class WorkflowRealRunTests(unittest.TestCase):
-    def test_all_six_templates_accept_sanitized_completed_local_run_proof(self) -> None:
+    def test_all_supported_templates_accept_sanitized_completed_local_run_proof(self) -> None:
         helper=template_support.WorkflowTemplateExecutionTests(); accepted=set()
         for fixture_path in sorted(FIXTURES.glob("*.json")):
             fixture=json.loads(fixture_path.read_text())

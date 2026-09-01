@@ -52,6 +52,7 @@ class ProductMaturityTests(unittest.TestCase):
         self.assertEqual(result["status"], "passed", result["issues"])
         self.assertEqual(result["feature_freeze"], "passed")
         self.assertEqual(result["ownership"], "passed")
+        self.assertEqual(result["adoption_validation_contract"], "passed")
 
     def test_unapproved_public_command_is_freeze_drift(self) -> None:
         original = product_maturity.discover_commands
@@ -95,7 +96,7 @@ class ProductMaturityTests(unittest.TestCase):
         self.assertEqual(product_maturity.validate_scenarios(fixture), [])
 
     def test_public_cli_baseline_inventory_validate_and_status(self) -> None:
-        for command in ("baseline", "inventory", "validate", "status"):
+        for command in ("baseline", "inventory", "learning-inventory", "validate", "status"):
             with self.subTest(command=command):
                 result = self.run_cli(command, "--format", "json")
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -106,6 +107,50 @@ class ProductMaturityTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("--write requires --approved", result.stderr)
+
+    def test_pm_l0_inventory_is_sealed_complete_and_matches_code(self) -> None:
+        inventory = json.loads((ROOT / "tailtrail-meta" / "product-maturity-learning-inventory-v1.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(inventory, product_maturity.build_learning_inventory(ROOT))
+        self.assertEqual(product_maturity.validate_learning_inventory(ROOT, inventory), [])
+        self.assertEqual(
+            {item["fact"] for item in inventory["fact_ownership"]},
+            {"candidate", "curated-learning", "use-receipt", "freshness-action", "conflict", "class-confidence-calibration", "observed-outcome"},
+        )
+        self.assertTrue({"learning-agent", "learning-receipts", "closure-learning", "debug-candidates", "graph-learning", "learning-refresh", "learning-calibration", "quality-loop", "evaluation-harness", "meta-harness"} <= {item["id"] for item in inventory["systems"]})
+
+    def test_pm_l3_receipt_contract_is_closed_owned_and_closure_integrated(self) -> None:
+        inventory = product_maturity.build_learning_inventory(ROOT)
+        validation = product_maturity.validate(ROOT)
+
+        self.assertEqual(product_maturity.validate_learning_receipt_contract(ROOT, inventory), [])
+        self.assertEqual(validation["learning_receipt_contract"], "passed")
+        receipt = next(item for item in inventory["fact_ownership"] if item["fact"] == "use-receipt")
+        self.assertEqual(receipt["state"], "current")
+        self.assertEqual(receipt["owner"], "Durable Workflow Runtime")
+
+    def test_pm_l0_rejects_multiple_mutable_owners(self) -> None:
+        inventory = product_maturity.build_learning_inventory(ROOT)
+        duplicate = copy.deepcopy(inventory["artifacts"][0])
+        duplicate["id"] = "conflicting-owner"
+        duplicate["owner"] = "Another Owner"
+        inventory["artifacts"].append(duplicate)
+        inventory["integrity"]["digest"] = product_maturity.seal_payload(inventory)
+
+        issues = product_maturity.validate_learning_inventory(ROOT, inventory)
+
+        self.assertTrue(any("multiple canonical owners" in issue for issue in issues))
+
+    def test_pm_l0_rejects_silent_discard_or_short_alias_window(self) -> None:
+        inventory = product_maturity.build_learning_inventory(ROOT)
+        inventory["migrations"][0]["preserve_existing"] = False
+        inventory["aliases"][0]["minimum_release_window"] = 1
+        inventory["integrity"]["digest"] = product_maturity.seal_payload(inventory)
+
+        issues = product_maturity.validate_learning_inventory(ROOT, inventory)
+
+        self.assertTrue(any("silently discard" in issue for issue in issues))
+        self.assertTrue(any("two-release compatibility window" in issue for issue in issues))
 
 
 if __name__ == "__main__":

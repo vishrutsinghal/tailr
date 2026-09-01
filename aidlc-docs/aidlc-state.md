@@ -4,15 +4,202 @@ Project: TailTrail
 
 Lifecycle depth: comprehensive
 
-Current phase: Enterprise Phase E6 implementation complete; E5 dependency evidence gate open
+Current phase: Product Maturity PM-7 implementation complete and protocol-ready; genuine adoption evidence and Enterprise E5 hosted evidence remain open
 
-Current stage: E6 local implementation and assurance complete; E5 dependency evidence pending
+Current stage: PM-7 local contracts, runtime, distribution, and assurance complete; real usability trials and E5 hosted dependency evidence remain pending
 
 Status: Enterprise Phases E0-E4 are closed; E5 and E6 implementation, contracts, workflows, local proofs, and negatives are present. E5 hosted receipts/tag attestations remain externally unobserved, so dependency-ordered E6 stays in progress and E7-E12 remain open; the enterprise release candidate remains blocked
 
-Next step: run the pinned E5 workflow for one commit, ingest all six hosted receipts, and identity-attest a qualifying release tag; do not close ENT-E5-001/002, ENT-E6-001, or DEF-011 from configured/local evidence alone
+Next step: collect genuine observer-attested PM-7 new-user and experienced-user trials and run the fail-closed adoption gate; separately run the pinned E5 workflow for one commit, ingest all six hosted receipts, and identity-attest a qualifying release tag. Do not turn protocol fixtures, local tests, configured workflows, or offline evidence into either claim.
 
-Last updated: 2026-08-24
+Last updated: 2026-09-01
+
+- Goal: Implement Product Maturity PM-7 — Adoption Validation.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  end-to-end PM-7 implementation request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-pm-7-requirements.md`.
+- Design: `aidlc-docs/phase-pm-7-design.md`.
+- Dependencies: none added or changed; Python standard-library JSON, hashing,
+  time, paths, immutable-create semantics, Evaluation Harness, product-maturity
+  freeze, registry, MCP, package, installer, release, and enterprise inventory
+  controls are reused.
+- Implementation: sealed two-cohort/eight-scenario usability protocol; explicit
+  participant/coverage and numeric time, approval, abandonment, intervention,
+  comprehension, and zero-safety-weakening gates; approval-gated sanitized
+  immutable trial receipts; derived timing; fixture/real evidence separation;
+  tamper/stale-catalog/path/privacy rejection; deterministic reports and nonzero
+  gate; repeated independent wording/default recommendations; approval-gated
+  proposal and single-decision lineage; canonical CLI and read-only MCP report;
+  host-pack, wheel/sdist, release, enterprise candidate, docs, and policy-freeze
+  integration.
+- Evidence boundary: no real participant was fabricated or inferred. The live
+  repository report is `protocol-ready` with `no-adoption-claim`; fixture-only,
+  collecting, missed-threshold, safety-weakened, and invalid evidence all remain
+  non-qualifying. Recommendations never edit source or weaken safeguards.
+- Validation: nine focused PM-7 tests and 81 final PM-7/Evaluation/MCP/maturity
+  tests pass; 37 installer/self-contained-package/release-truth tests pass; all
+  176 schemas compile; strict registry, Product Maturity, enterprise candidate,
+  public docs, release manifest, host adapter conformance, MCP doctor, Python
+  compilation, and `git diff --check` pass. The repository-wide run executed
+  1,025 tests: 1,023 passed, with only the same two pre-existing unrelated
+  baselines remaining (`debug-investigation` is absent from the DWR template
+  schema, and one CLI test expects a nonzero Start result for a goal that now
+  resolves). The broad checker remains blocked only by the pre-existing
+  `debug-intial.md contains tab indentation` finding. Registry drift separately
+  reports 24 older undocumented Intent Bridge command entries and no PM-7 drift.
+
+- Goal: Implement Product Maturity PM-L5 — Learning Calibration And Proof.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  PM-L5 implementation request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-pm-l5-requirements.md`.
+- Design: `aidlc-docs/phase-pm-l5-design.md`.
+- Dependencies: none added or changed; Python standard-library JSON, hashing,
+  time, statistics, path, and existing Learning V3, PM-L3 receipt, Evaluation
+  Harness, Meta-Harness, registry, package, and installer controls are reused.
+- Implementation: closed and sealed paired learning-on/control catalog for all
+  seven V3 classes; deterministic precision, false-intervention, Brier,
+  confidence-gap, correction-cycle, review-time, and token-overhead metrics;
+  real later-receipt joins; four-sample mixed-outcome gate; approval-gated,
+  report-linked, repository-framed plus/minus-ten confidence projection;
+  fail-closed Navigator ranking; repeated categorical sanitizer-valid
+  Meta-Harness evidence and proposal integration; CLI, ownership, host pack,
+  wheel/sdist, release, enterprise registry, and documentation integration.
+- Evidence boundary: fixture observations are regression evidence only and
+  publish no performance claim. Project calibration consumes only applied,
+  chain-valid PM-L3 receipts with a later positive/adverse attribution and an
+  existing completion-report reference. It does not infer causality or grant
+  advice-use, source, command, Git, release, deployment, or acceptance
+  authority. Shared evidence excludes raw content, paths, identity, receipt or
+  scenario IDs, exact tokens, and exact timings.
+- Validation: seven focused PM-L5 tests and 41 final calibration/maturity/
+  retrieval/Meta-Harness tests pass; 20 Codex/Copilot/Claude installer-profile
+  tests pass; isolated wheel/sdist inventory and sdist-install proofs pass; all
+  167 schemas compile; strict registry, Product Maturity, release manifest,
+  enterprise candidate, Python compilation, and `git diff --check` pass. The
+  repository-wide run executed 1,013 tests: 1,011 passed, with only the two
+  pre-existing unrelated baselines remaining (`debug-investigation` is absent
+  from the DWR template schema, and one CLI test expects a nonzero Start result
+  for a goal that now resolves). The broad checker remains blocked only by the
+  pre-existing `debug-intial.md contains tab indentation` finding.
+
+- Goal: Implement Product Maturity PM-L4 — Refresh, Conflict, And Negative
+  Learning.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  PM-L4 implementation request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-pm-l4-requirements.md`.
+- Design: `aidlc-docs/phase-pm-l4-design.md`.
+- Dependencies: none added or changed; standard-library JSON, hashing, paths,
+  timestamps, existing cross-platform locks, Learning V3/retrieval, PM-L3
+  receipts, refresh, review, inventory, registry, and package controls are
+  reused.
+- Implementation: approval-gated challenge/conflict/revalidation/negative
+  lifecycles; V3 revalidation; repository fingerprints for policy, graph,
+  symbol, manifest, ownership, source, and validation invalidators; fail-closed
+  Navigator integration; pairwise scope resolution; repeated adverse receipt
+  aggregation; sanitized avoid-history promotion; source-learning revocation;
+  refresh/review, CLI, ownership, registry, host pack, package, release, and
+  enterprise candidate integration.
+- Evidence boundary: negative candidates retain categorical counts and
+  project-relative evidence references only. They never copy raw failures,
+  prompts, logs, source, stack traces, identity fields, or secrets. Association
+  remains non-causal, and current evidence always wins.
+- Validation: 45 focused Learning V3/retrieval/receipt/governance tests pass;
+  113 integrated learning/maturity/registry/install/enterprise tests pass; and
+  nine isolated wheel/sdist tests pass. Strict registry, Product Maturity,
+  public release, JSON-schema meta-validation, Python compilation, and `git
+  diff --check` pass. The 1006-test repository run exposed six PM-L4 release
+  integration gaps, all fixed and rerun in their affected modules. Its two
+  remaining unrelated failures are the pre-existing CLI Start fixture
+  assumption and Debug `debug-investigation` real-run schema mismatch. The
+  broad checker remains blocked only by the pre-existing `debug-intial.md`
+  tab-indentation finding.
+
+- Goal: Implement Product Maturity PM-L3 — Use Receipts And Closure
+  Attribution.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  PM-L3 implementation request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-pm-l3-requirements.md`.
+- Design: `aidlc-docs/phase-pm-l3-design.md`.
+- Dependencies: none added or changed; standard-library JSON, hashing, paths,
+  locking, existing Planning Lock/anchor, Learning V3/retrieval, run ledger,
+  and Completion Report controls are reused.
+- Implementation: approval-gated append-only applied/advisory/ignored/rejected/
+  stale decisions; exact saved-proposal/current-V3 checks; requirement and
+  decision-type links; closure joins to requirement, drift, Harness, failure,
+  validation, and report evidence; non-causal categorical associations;
+  latest-attribution projection; domain/project utility caps; retrieval
+  feedback; Completion Report, CLI, ownership, registry, package, installer,
+  and documentation integration.
+- Evidence boundary: observed association never proves causality, grants
+  authority, promotes learning, or overrides current source, policy, test, CI,
+  scanner, guardrail, or user evidence. Existing workflow candidate links and
+  legacy learning stores remain unchanged.
+- Validation: 266 integrated learning/Navigator/closure/workflow/maturity/
+  registry/install/package/release tests pass on the final tree, including 14
+  focused PM-L3 negative, concurrency, cap, attribution, retrieval-feedback,
+  CLI, report, and tamper tests plus nine reproducible isolated wheel/sdist
+  tests. Strict registry validation, Product Maturity validation, release
+  manifest validation, JSON parsing, Python compilation, and `git diff
+  --check` pass. The broad legacy checker and `doctor` remain blocked only by
+  the pre-existing `debug-intial.md contains tab indentation` finding; PM-L3
+  does not edit that unrelated file. One unrelated CLI-dispatch assertion also
+  expects a pre-target error for a goal that the current repository now
+  resolves successfully; it is not represented as PM-L3 evidence.
+
+- Goal: Implement Product Maturity PM-L2 — Navigator Retrieval And Conflict Gate.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  PM-L2 implementation request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-pm-l2-requirements.md`.
+- Design: `aidlc-docs/phase-pm-l2-design.md`.
+- Dependencies: none added or changed; standard-library framing, matching,
+  time, path, JSON, and existing Learning V3 compatibility controls are reused.
+- Implementation: project/task-framed read-only retrieval, deterministic
+  applicability ranking, three-result cap, match and invalidator explanations,
+  default-deny use proposal, quiet Lite behavior, and fail-closed stale,
+  suppressed, private, excluded, missing-source, and contradiction handling;
+  Start and Next preserve the pending proposal choice.
+- Evidence boundary: PM-L2 creates no use receipt or conflict ledger. PM-L3
+  owns receipts/closure attribution and PM-L4 owns durable conflict and negative
+  learning transitions.
+- Validation: 11 focused PM-L2 tests and 169 integrated
+  learning/Navigator/closure/maturity/install/registry/package/release tests
+  pass on the final tree. Strict registry validation, PM maturity validation,
+  JSON parsing, and `git diff --check` pass. The broad legacy check remains
+  blocked only by the pre-existing `debug-intial.md contains tab indentation`
+  finding; PM-L2 does not edit that unrelated file.
+
+- Goal: Implement Product Maturity PM-L1 — Learning V3 Contract And Migration.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  PM-L1 implementation request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-pm-l1-requirements.md`.
+- Design: `aidlc-docs/phase-pm-l1-design.md`.
+- Dependencies: none added or changed; standard-library JSON, hashing, paths,
+  and existing Learning Agent compatibility surfaces are reused.
+- Implementation: closed V3 record, append-only digest chain, amendment,
+  supersession, revocation, project-frame/privacy validation, canonical writer
+  delegation, deterministic combined readers, and approval-gated idempotent
+  legacy reference migration.
+- Evidence boundary: V3 stores sanitized advice and references only; PM-L2 owns
+  retrieval/conflict gating, PM-L3 owns use receipts, and PM-L4 owns first-class
+  conflict and negative-learning transitions.
+- Validation: 26 Learning V3/closure/completion tests, 97 integrated
+  V3/maturity/install/registry/release/host tests, and nine isolated wheel/sdist
+  tests pass. Strict registry and PM maturity validation pass with no freeze
+  drift.
+
+- Goal: Implement Product Maturity PM-L0 — Learning Inventory And Ownership.
+- Requirements/workflow/implementation gates: approved by the user's explicit
+  PM-L0 implementation request on 2026-09-01.
+- Requirements: `aidlc-docs/phase-pm-l0-requirements.md`.
+- Design: `aidlc-docs/phase-pm-l0-design.md`.
+- Dependencies: none added or changed; the standard library and existing
+  maturity, package, registry, and learning controls are reused.
+- Implementation: sealed ten-system inventory, six canonical fact owners,
+  physical artifact ownership, exact compatibility routes, non-destructive
+  migration boundaries, CLI rendering, package inclusion, and freeze approval.
+- Validation: 12 focused PM-L0/PM-0 tests, 36 maturity/registry tests, and nine
+  isolated wheel/sdist tests pass. The repository-wide checker still stops on
+  the pre-existing tab in `debug-intial.md`; no claim is made that it passed.
 
 - Goal: Implement Enterprise Phase E6 — repository and CI enforcement product end to end.
 - Requirements/workflow/implementation gates: approved by the user's explicit end-to-end E6 implementation request on 2026-08-24.
@@ -168,3 +355,29 @@ Phase 10 must prove hostile or malformed runtime input cannot mutate project
 files, contact providers, weaken authority, falsify evidence/completion, leak
 private material, break Planning Lock stop rules, or delete/upload retained data
 without an explicit manual cleanup contract.
+
+- Goal: Audit every Product Maturity phase PM-0 through PM-7 and PM-L0 through
+  PM-L5 against its implementation, owning tests, CLI/MCP projection,
+  packaging, release controls, and honest evidence boundary; repair every
+  locally reproducible gap.
+- Authority: the user's explicit phase-by-phase validation and fix request on
+  2026-09-01 and `PRODUCT-MATURITY-IMPROVEMENT-PLAN.md`.
+- Dependencies: none added or changed.
+- Corrected gaps: added `debug-investigation` to the canonical workflow
+  instance and real-run proof template sets; made the pre-target banner test
+  deterministic in an empty workspace; documented all 24 canonical
+  `intent-bridge` commands; replaced tab-separated Markdown with valid tables.
+- Focused proof: 169 phase-owned maturity/runtime/facade/presentation/
+  maintainability/evaluation/enterprise/adoption/learning/CLI tests passed in
+  175.599 seconds. A separate 63-test package, installer, supply-chain, release,
+  and continuous-governance slice passed in 74.844 seconds.
+- Repository-wide proof: all 1,025 tests passed in 756.746 seconds with no
+  failures, errors, skips promoted as passes, or exception list.
+- Static gates: Product Maturity validation, strict Feature Registry,
+  repository check, registry drift, public documentation audit, release check,
+  enterprise closure validation, host adapter conformance, MCP doctor, all 171
+  JSON Schema meta-validations, and Git diff hygiene passed.
+- Evidence truth: PM-5 remains protocol-ready with 0/54 genuine observations;
+  PM-6 has local/offline conformance but no hosted six-cell platform report;
+  PM-7 has no genuine usability observations; PM-L5 is fixture-only. Those
+  evidence exits cannot be closed by local implementation or synthetic data.

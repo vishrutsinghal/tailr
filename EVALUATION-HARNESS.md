@@ -1,5 +1,43 @@
 # TailTrail Evaluation Harness
 
+## PM-7 Adoption Validation
+
+The implemented `eval adoption` surface measures genuine new-user and
+experienced-user usability trials without hidden telemetry. Its sealed protocol
+fixes cohort coverage and numeric time-to-plan, approval, abandonment,
+false-intervention, comprehension, and safety thresholds. Approved trial
+receipts are sanitized, immutable, and tamper-evident. Fixture receipts exercise
+the machinery but never count as users or support an adoption claim.
+
+`eval adoption report` is read-only; `eval adoption gate` fails unless every
+cohort and safety gate passes. Repeated categorical evidence may create an
+approval-gated wording/default proposal and decision record, but the evaluator
+does not edit product source or tune safeguards. The repository currently has
+the completed protocol and no genuine trial receipts, so its honest state is
+`protocol-ready` and `no-adoption-claim`.
+
+## Learning Calibration Scenarios
+
+PM-L5 adds a sealed paired learning-on/control catalog for all seven Learning
+V3 classes. It measures precision, false interventions, confidence calibration,
+correction cycles, review time, and token overhead while keeping fixture claims
+strictly scenario-local:
+
+```bash
+python3 scripts/tailtrail.py eval learning evaluate --format json
+python3 scripts/tailtrail.py eval learning evaluate --root . --include-receipts --write --format json
+```
+
+Fixture evidence never changes project retrieval confidence. Only later,
+validated PM-L3 use-receipt outcomes can support an approval-gated, bounded,
+repository-framed projection. The evaluator and retrieval gate rejoin current
+receipt evidence, validate report/projection integrity, and fail closed on
+tamper, drift, missing evidence, or cross-project reuse.
+
+`eval learning meta-feed` produces only repeated categorical events accepted by
+the existing shared Harness sanitizer. It excludes raw prompts, source, logs,
+paths, identities, scenario/receipt IDs, exact token counts, and exact timings.
+
 TailTrail Evaluation Harness is the planned umbrella for proving whether TailTrail improves AI-assisted development outcomes.
 
 It consolidates the evidence-related features that currently exist as separate surfaces:

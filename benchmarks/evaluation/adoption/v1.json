@@ -1,0 +1,87 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-adoption-validation-catalog",
+  "catalog_version": "1.0.0",
+  "evidence_label": "evaluation-protocol",
+  "cohorts": [
+    {
+      "id": "new-user",
+      "minimum_trials": 6,
+      "minimum_unique_participants": 5,
+      "minimum_scenarios": 3,
+      "time_to_plan_p75_ms_max": 300000,
+      "approval_count_p75_max": 2,
+      "scenarios": [
+        "clean-install-first-plan",
+        "small-fix-first-plan",
+        "planning-approval-comprehension",
+        "completion-report-comprehension"
+      ]
+    },
+    {
+      "id": "experienced-user",
+      "minimum_trials": 6,
+      "minimum_unique_participants": 5,
+      "minimum_scenarios": 3,
+      "time_to_plan_p75_ms_max": 180000,
+      "approval_count_p75_max": 2,
+      "scenarios": [
+        "routine-change-plan",
+        "correction-boundary",
+        "completion-evidence-review",
+        "false-intervention-review"
+      ]
+    }
+  ],
+  "thresholds": {
+    "overall_abandonment_rate_max": 0.1,
+    "redundant_approval_rate_max": 0.1,
+    "false_intervention_rate_max": 0.1,
+    "overall_completion_comprehension_rate_min": 0.9,
+    "cohort_completion_comprehension_rate_min": 0.8,
+    "safety_boundary_weakening_count_max": 0,
+    "recommendation_minimum_unique_participants": 3
+  },
+  "safety_boundaries": [
+    "planning-approval-preserved",
+    "execution-authority-preserved",
+    "evidence-boundary-preserved",
+    "privacy-boundary-preserved",
+    "closure-boundary-preserved"
+  ],
+  "feedback_signals": [
+    {"id": "planning-lock-wording-unclear", "kind": "wording", "target": "start-plan.planning-lock", "action": "clarify-boundary-copy"},
+    {"id": "approval-wording-unclear", "kind": "wording", "target": "start-plan.approval", "action": "clarify-approved-scope-copy"},
+    {"id": "completion-wording-unclear", "kind": "wording", "target": "completion-report.summary", "action": "clarify-completion-copy"},
+    {"id": "quick-default-too-heavy", "kind": "default", "target": "navigator.quick-mode", "action": "review-quick-mode-default"},
+    {"id": "guided-default-too-light", "kind": "default", "target": "navigator.guided-mode", "action": "review-guided-mode-default"},
+    {"id": "redundant-approval-observed", "kind": "default", "target": "approval-routing", "action": "review-redundant-approval-route"},
+    {"id": "false-intervention-observed", "kind": "default", "target": "navigator.feature-selection", "action": "review-intervention-default"}
+  ],
+  "decision_reason_codes": [
+    "evidence-supported",
+    "insufficient-evidence",
+    "safety-risk",
+    "superseded",
+    "validation-failed"
+  ],
+  "claim_boundaries": [
+    "Protocol fixtures validate mechanics only and never qualify adoption or developer-experience claims.",
+    "Only sanitized, observer-attested usability observations count toward thresholds.",
+    "Participant references are random study-local aliases with no identity mapping in TailTrail artifacts.",
+    "Wording and default recommendations require repeated independent evidence and never edit source automatically.",
+    "No metric can compensate for a weakened planning, authority, evidence, privacy, or closure boundary."
+  ],
+  "privacy": {
+    "sanitized": true,
+    "raw_prompt": false,
+    "raw_source": false,
+    "raw_log": false,
+    "identity_fields": false
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "sorted compact JSON excluding integrity",
+    "digest": "5ff4776cb143f8b1317029392f161aa755a97e08e8c183bf1f8a2431bf7764d7"
+  }
+}

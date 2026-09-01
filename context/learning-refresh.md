@@ -23,6 +23,12 @@ It looks for:
 - Current source, CI, scanner, policy, and guardrail evidence wins over old learning.
 - Keep raw prompts and raw event history out of normal implementation context.
 - Use refresh to reduce noisy retrieval, not to create another large memory file.
+- Treat policy, graph, symbol, manifest, ownership, source, and validation
+  fingerprints as deterministic invalidators for new or revalidated V3 records.
+- Use `tailtrail learn governance` for append-only challenges, conflicts,
+  revalidation decisions, and repeated-rejection candidates.
+- Block every affected learning while a governance entity is open or the
+  governance ledger is invalid; never render blocked advice.
 
 ## Actions
 

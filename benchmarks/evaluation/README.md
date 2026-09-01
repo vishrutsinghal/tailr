@@ -9,6 +9,15 @@ collect blind paired observations. Three repetitions per task are required;
 positive, neutral, and negative outcomes remain visible, and provider-token
 metrics may be null when telemetry is unavailable.
 
+## PM-7 adoption validation
+
+`adoption/v1.json` is the sealed usability protocol for new-user and
+experienced-user trials. It defines eight scenarios, independent-participant
+minimums, explicit numeric friction/comprehension thresholds, five immutable
+safety boundaries, and a closed feedback taxonomy. Use `tailtrail eval adoption
+validate|template|record|report|gate|propose|decide`. Protocol fixtures prove
+the mechanics only; they never satisfy the real-user gate.
+
 The deterministic scenarios below remain saved fixtures and must not be
 described as live-model evidence.
 

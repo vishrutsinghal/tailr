@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/learning-use-proposal.schema.json",
+  "title": "TailTrail Project-Framed Learning Use Proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "state", "task_frame", "threshold", "result_cap", "matches", "blocked", "approval", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-learning-use-proposal"},
+    "state": {"enum": ["proposed", "quiet", "blocked"]},
+    "task_frame": {"$ref": "#/$defs/taskFrame"},
+    "threshold": {"type": "integer", "minimum": 0, "maximum": 100},
+    "result_cap": {"const": 3},
+    "matches": {"type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/match"}},
+    "blocked": {"type": "array", "items": {"$ref": "#/$defs/blocked"}},
+    "approval": {"$ref": "#/$defs/approval"},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "stringArray": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "projectFrame": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "id"],
+      "properties": {"kind": {"const": "repository"}, "id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+    },
+    "taskFrame": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project_frame", "task_types", "tags", "paths", "requirement_ids", "mode"],
+      "properties": {
+        "project_frame": {"$ref": "#/$defs/projectFrame"},
+        "task_types": {"$ref": "#/$defs/stringArray"},
+        "tags": {"$ref": "#/$defs/stringArray"},
+        "paths": {"$ref": "#/$defs/stringArray"},
+        "requirement_ids": {"$ref": "#/$defs/stringArray"},
+        "mode": {"enum": ["lite", "standard", "full"]}
+      }
+    },
+    "invalidatorCheck": {
+      "type": "object", "additionalProperties": false, "required": ["invalidator", "state", "evidence"],
+      "properties": {
+        "invalidator": {"type": "string", "minLength": 1},
+        "state": {"enum": ["not-triggered", "triggered", "unresolved"]},
+        "evidence": {"type": "string", "minLength": 1}
+      }
+    },
+    "match": {
+      "type": "object", "additionalProperties": false,
+      "required": ["learning_id", "record_id", "learning_class", "applicability_score", "confidence_score", "observed_utility_delta", "attribution_count", "match_explanations", "invalidator_checks", "summary", "proposed_advice"],
+      "properties": {
+        "learning_id": {"type": "string", "pattern": "^lrn-"},
+        "record_id": {"type": "string", "pattern": "^lrnrec-"},
+        "learning_class": {"type": "string", "minLength": 1},
+        "applicability_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "confidence_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "observed_utility_delta": {"type": "integer", "minimum": -20, "maximum": 20},
+        "attribution_count": {"type": "integer", "minimum": 0},
+        "match_explanations": {"$ref": "#/$defs/stringArray"},
+        "invalidator_checks": {"type": "array", "items": {"$ref": "#/$defs/invalidatorCheck"}},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 500},
+        "proposed_advice": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "blocked": {
+      "type": "object", "additionalProperties": false, "required": ["learning_id", "record_id", "reasons", "invalidator_checks"],
+      "properties": {
+        "learning_id": {"type": "string", "minLength": 1},
+        "record_id": {"type": "string", "minLength": 1},
+        "reasons": {"$ref": "#/$defs/stringArray"},
+        "invalidator_checks": {"type": "array", "items": {"$ref": "#/$defs/invalidatorCheck"}}
+      }
+    },
+    "approval": {
+      "type": "object", "additionalProperties": false, "required": ["required", "default", "choices"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "default": {"const": "do-not-use"},
+        "choices": {"$ref": "#/$defs/stringArray"}
+      }
+    }
+  }
+}

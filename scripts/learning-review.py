@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import sys
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +13,7 @@ from typing import Any
 
 
 TAILTRAIL_DIR = Path(".tailtrail")
+ROOT = Path(__file__).resolve().parents[1]
 EVENTS = TAILTRAIL_DIR / "learning-events.jsonl"
 INDEX = TAILTRAIL_DIR / "learning-index.md"
 LEARNINGS = TAILTRAIL_DIR / "learnings.md"
@@ -49,6 +52,32 @@ def read_json(path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError):
         return None
     return value if isinstance(value, dict) else None
+
+
+def read_events(root: Path) -> list[dict[str, Any]]:
+    spec = importlib.util.spec_from_file_location("tailtrail_review_learning_v3", ROOT / "scripts" / "learning-v3.py")
+    if spec is None or spec.loader is None:
+        raise SystemExit("Unable to load Learning V3 compatibility reader")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    try:
+        return module.compatible_events(root)
+    except module.LearningV3Error as error:
+        raise SystemExit(str(error)) from error
+
+
+def governance_state(root: Path) -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("tailtrail_review_learning_governance", ROOT / "scripts" / "learning-governance.py")
+    if spec is None or spec.loader is None:
+        return {"open": [], "blocking": {"*": ["learning governance implementation is unavailable"]}}
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    try:
+        return module.state(root)
+    except (OSError, ValueError, module.V3.LearningV3Error) as error:
+        return {"open": [], "blocking": {"*": [f"learning governance evidence is invalid: {error}"]}}
 
 
 def score(event: dict[str, Any]) -> int:
@@ -154,7 +183,7 @@ def stale_pattern_conflicts(events: list[dict[str, Any]], actions: list[dict[str
 
 
 def build_report(root: Path, weak_threshold: int, rejected_threshold: int, missing_validation_threshold: int) -> dict[str, Any]:
-    events = read_jsonl(root / EVENTS)
+    events = read_events(root)
     actions = action_items(root)
     bands = Counter(band(event) for event in events)
     acceptances = Counter(str(event.get("acceptance", "unknown")) for event in events)
@@ -162,6 +191,7 @@ def build_report(root: Path, weak_threshold: int, rejected_threshold: int, missi
     refresh_counts = Counter(str(action.get("action", "unknown")) for action in actions)
     duplicates = duplicate_candidates(events)
     conflicts = [*conflicting_candidates(events), *stale_pattern_conflicts(events, actions)]
+    governance = governance_state(root)
 
     weak_events = [event for event in events if band(event) in {"weak-note", "do-not-use"}]
     rejected_events = [event for event in events if event.get("acceptance") == "rejected"]
@@ -205,6 +235,15 @@ def build_report(root: Path, weak_threshold: int, rejected_threshold: int, missi
                 "severity": "high",
                 "finding": f"{len(conflicts)} candidate learning conflicts detected.",
                 "next_step": "Review conflicts and record an approved refresh action for stale or rejected candidates.",
+            }
+        )
+    if governance.get("open") or governance.get("blocking", {}).get("*"):
+        recommendations.append(
+            {
+                "area": "canonical-learning-governance",
+                "severity": "high",
+                "finding": f"{len(governance.get('open', []))} open canonical challenge, conflict, or negative-learning facts exist.",
+                "next_step": "Resolve the exact governance entity with evidence and explicit approval before reuse.",
             }
         )
     if guardrail_risk:
@@ -266,6 +305,7 @@ def build_report(root: Path, weak_threshold: int, rejected_threshold: int, missi
             "override_risk_events": len(override_risk),
             "duplicate_candidate_groups": len(duplicates),
             "conflicting_candidate_groups": len(conflicts),
+            "open_governance_entities": len(governance.get("open", [])),
         },
         "confidence_bands": dict(bands.most_common()),
         "acceptance": dict(acceptances.most_common()),
@@ -273,6 +313,7 @@ def build_report(root: Path, weak_threshold: int, rejected_threshold: int, missi
         "refresh_action_counts": dict(refresh_counts.most_common()),
         "duplicates": duplicates,
         "conflicts": conflicts,
+        "governance": governance,
         "recommendations": recommendations,
         "decision_boundary": "Learning review is advisory. Do not edit, suppress, promote, or delete learnings without explicit approval.",
         "privacy_note": "This report reads compact local learning metadata. It does not need raw prompts, raw logs, secrets, PII, PHI, customer data, or source snippets.",

@@ -27,12 +27,28 @@ def load_script_module(name: str, relative: str):
 
 
 task_start = load_script_module("tailtrail_task_start_test", "scripts/task-start.py")
+task_next = load_script_module("tailtrail_task_next_test", "scripts/task-next.py")
 review_graph = load_script_module("tailtrail_review_graph_test", "scripts/review-graph.py")
 ast_map = load_script_module("tailtrail_ast_map_test", "scripts/ast-map.py")
 code_graph_mapper = load_script_module("tailtrail_code_graph_mapper_test", "scripts/code-graph-mapper.py")
 
 
 class NavigatorCoreTests(unittest.TestCase):
+    def test_learning_use_proposal_propagates_to_start_and_next_approval_gates(self) -> None:
+        proposal = {
+            "matches": [{"learning_id": "lrn-proposed"}],
+            "approval": {"required": True, "default": "do-not-use"},
+        }
+        plan = {"learning_use_proposal": proposal, "graph_learning": {"matches": [{"event": {"id": "legacy"}}]}}
+        with tempfile.TemporaryDirectory() as temp:
+            quality = task_start.learning_quality(Path(temp), plan)
+        actions = task_start.next_actions(plan)
+
+        self.assertEqual(quality["surfaced_matches"], 1)
+        self.assertTrue(quality["approval_required"])
+        self.assertTrue(task_next.learning_approval_pending(plan))
+        self.assertTrue(any(item["action"] == "learning-approval" and "default" in item["prompt"].lower() for item in actions))
+
     def test_tailtrail_hello_smoke_check(self) -> None:
         result = subprocess.run(
             [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "hello"],

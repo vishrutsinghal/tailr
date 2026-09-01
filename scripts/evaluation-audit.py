@@ -146,6 +146,21 @@ FEATURE_GROUPS: tuple[dict[str, Any], ...] = (
         "reason": "value reporting is the public-facing rollup for Evaluation Harness evidence",
     },
     {
+        "feature_group": "adoption-validation",
+        "current_commands": ["tailtrail eval adoption"],
+        "scripts": ["scripts/adoption-validation.py"],
+        "docs": ["EVALUATION-HARNESS.md", "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md", "TAILTRAIL-COMMANDS.md", "USER-GUIDE.md"],
+        "tests": ["tests/test_adoption_validation.py"],
+        "registry_ids": ["evaluation-harness"],
+        "evidence_labels": ["evaluation-protocol", "protocol-fixture", "moderated-observation", "unmoderated-observation"],
+        "writes_require_approval": True,
+        "raw_data_storage": "sanitized",
+        "overlaps": ["outcome-telemetry", "quality-loop", "meta-harness"],
+        "decision": "alias",
+        "canonical_eval_surface": "eval adoption",
+        "reason": "PM-7 usability receipts and friction gates are an Evaluation Harness evidence domain with explicit real-user claim boundaries",
+    },
+    {
         "feature_group": "buildweek-demo-evidence",
         "current_commands": ["tailtrail start", "tailtrail graph ast", "tailtrail ci summarize", "tailtrail report value"],
         "scripts": ["scripts/task-start.py", "scripts/ast-map.py", "scripts/ci-summary.py", "scripts/tailtrail-report.py"],
@@ -372,4 +387,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

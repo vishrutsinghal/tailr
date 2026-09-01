@@ -1,0 +1,48 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-pm-l2-retrieval-fixtures",
+  "cases": [
+    {
+      "id": "exact-project-path-high-value",
+      "input": {"task_types": ["qa"], "tags": ["validation"], "paths": ["tests/test_service.py"], "mode": "lite"},
+      "records": [
+        {"learning_id": "lrn-fixture-exact", "task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "confidence": 90, "sensitivity": "normal"}
+      ],
+      "expected": {"state": "proposed", "matches": ["lrn-fixture-exact"], "blocked": []}
+    },
+    {
+      "id": "irrelevant-lite-quiet",
+      "input": {"task_types": ["qa"], "tags": ["validation"], "paths": ["tests/test_service.py"], "mode": "lite"},
+      "records": [
+        {"learning_id": "lrn-fixture-unrelated", "task_types": ["release"], "tags": ["supply-chain"], "paths": ["release/proof.json"], "confidence": 95, "sensitivity": "normal"}
+      ],
+      "expected": {"state": "quiet", "matches": [], "blocked": []}
+    },
+    {
+      "id": "expired-record-blocked",
+      "input": {"task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "mode": "lite"},
+      "records": [
+        {"learning_id": "lrn-fixture-expired", "task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "confidence": 95, "sensitivity": "normal", "revalidate_after": "2020-01-01T00:00:00+00:00"}
+      ],
+      "expected": {"state": "blocked", "matches": [], "blocked": ["lrn-fixture-expired"]}
+    },
+    {
+      "id": "private-record-blocked",
+      "input": {"task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "mode": "lite"},
+      "records": [
+        {"learning_id": "lrn-fixture-private", "task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "confidence": 95, "sensitivity": "internal"}
+      ],
+      "expected": {"state": "blocked", "matches": [], "blocked": ["lrn-fixture-private"]}
+    },
+    {
+      "id": "explicit-contradiction-blocks-both",
+      "input": {"task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "mode": "lite"},
+      "records": [
+        {"learning_id": "lrn-fixture-conflict-a", "task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "confidence": 95, "sensitivity": "normal", "exclusions": ["learning:lrn-fixture-conflict-b"]},
+        {"learning_id": "lrn-fixture-conflict-b", "task_types": ["test"], "tags": ["validation"], "paths": ["tests/test_service.py"], "confidence": 95, "sensitivity": "normal"}
+      ],
+      "expected": {"state": "blocked", "matches": [], "blocked": ["lrn-fixture-conflict-a", "lrn-fixture-conflict-b"]}
+    }
+  ],
+  "boundary": "Deterministic local fixtures only; no model, network, hidden telemetry, or causal efficacy claim."
+}

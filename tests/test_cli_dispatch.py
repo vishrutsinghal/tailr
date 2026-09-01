@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -101,21 +102,24 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn("Evaluation Harness", result.stdout)
 
     def test_start_flushes_banner_before_a_delegated_boundary_report(self) -> None:
-        result = subprocess.run(
-            [
-                sys.executable,
-                (ROOT / "scripts" / "tailtrail.py").as_posix(),
-                "start",
-                "add an order-amendment API and customer journey",
-                "--aidlc",
-                "off",
-                "--no-planning-lock",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        # Use an empty workspace so later repository additions cannot turn this
+        # pre-target boundary test into a valid goal-discovery result.
+        with tempfile.TemporaryDirectory(dir=ROOT) as temp:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                    "start",
+                    "add an order-amendment API and customer journey",
+                    "--aidlc",
+                    "off",
+                    "--no-planning-lock",
+                ],
+                cwd=Path(temp),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
 
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(result.stdout.startswith("```text\n+"))

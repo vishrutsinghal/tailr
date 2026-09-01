@@ -22,11 +22,11 @@
   },
   "candidate_baseline": {
     "captured_at": "2026-09-01",
-    "git_commit": "21510e647af4b30bba2b86bb01417ec12ef8aaff",
+    "git_commit": "1151fbfd1973eba6122c74183c5d4e1ff7d37b59",
     "branch": "master",
     "worktree_state": "dirty-explicitly-classified",
     "release_candidate_state": "blocked",
-    "declaration": "E0-E4 are closed. E5 and the PM-6 enterprise conformance implementation are locally verified. Hosted support remains evidence-blocked until one commit has all six Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations. Configured workflows, offline verification, and local evidence are not represented as hosted support. Product-maturity PM-0 through PM-6 files are explicitly included in this dirty candidate and remain subject to the active feature freeze.",
+    "declaration": "E0-E4 are closed. E5 and the PM-6 enterprise conformance implementation are locally verified. Hosted support remains evidence-blocked until one commit has all six Linux/macOS/Windows x CPython 3.12/3.13 receipts and tagged artifacts have identity-backed attestations. Configured workflows, offline verification, and local evidence are not represented as hosted support. Product-maturity PM-0 through PM-7 and learning PM-L0 through PM-L5 files are explicitly included in this dirty candidate and remain subject to the active feature freeze. PM-7 implementation is protocol-ready; genuine usability evidence remains unobserved and no adoption claim is made.",
     "untracked_dispositions": [
       {"path": "benchmarks/enterprise-conformance/", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-6 versioned offline enterprise conformance catalog."},
       {"path": "benchmarks/evaluation/real-portfolio/", "disposition": "include", "owner": "tailtrail-core", "reason": "PM-5 real evaluation protocol catalog."},
@@ -93,7 +93,253 @@
         "reason": "PM-0 focused validation for integrity, freeze drift, ownership, scenarios, CLI, and approval boundaries."
       },
       {
-        "path": ".idea/",
+        "path": "aidlc-docs/phase-pm-l0-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L0 learning inventory and ownership design."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l0-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L0 learning inventory and ownership requirements."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l1-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L1 Learning V3 contract and migration design."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l1-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L1 Learning V3 contract and migration requirements."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l2-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L2 Navigator retrieval and conflict-gate design."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l2-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L2 Navigator retrieval and conflict-gate requirements."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l3-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L3 learning receipt and closure attribution design."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l3-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L3 learning receipt and closure attribution requirements."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l4-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L4 refresh, conflict, revalidation, and negative-learning design."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l4-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L4 refresh, conflict, revalidation, and negative-learning requirements."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l5-design.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L5 paired calibration, project projection, claim, and Meta-Harness design."
+      },
+      {
+        "path": "aidlc-docs/phase-pm-l5-requirements.md",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L5 learning calibration and proof requirements."
+      },
+      {
+        "path": "benchmarks/evaluation/learning-calibration/",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L5 sealed paired learning-on and control calibration catalog."
+      },
+      {
+        "path": "schemas/product-maturity-learning-inventory.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L0 learning ownership inventory contract."
+      },
+      {
+        "path": "schemas/learning-v3-record.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L1 append-only Learning V3 contract."
+      },
+      {
+        "path": "schemas/learning-use-proposal.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L2 project-framed learning proposal contract."
+      },
+      {
+        "path": "schemas/learning-use-receipt-event.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L3 use receipt and closure attribution contract."
+      },
+      {
+        "path": "schemas/learning-governance-event.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L4 challenge, conflict, revalidation, and negative-learning contract."
+      },
+      {
+        "path": "schemas/learning-calibration-catalog.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L5 paired calibration catalog contract."
+      },
+      {
+        "path": "schemas/learning-calibration-report.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L5 metric, class calibration, privacy, and claim report contract."
+      },
+      {
+        "path": "schemas/learning-calibration-projection.schema.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Closed PM-L5 project-framed bounded confidence projection contract."
+      },
+      {
+        "path": "scripts/learning-v3.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L1 and PM-L4 canonical Learning V3 lifecycle and deterministic invalidators."
+      },
+      {
+        "path": "scripts/learning-retrieval.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L2 project-framed retrieval and PM-L4 governance gate."
+      },
+      {
+        "path": "scripts/learning-use-receipt.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L3 append-only learning decision and closure attribution stream."
+      },
+      {
+        "path": "scripts/learning-governance.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L4 canonical challenge, conflict, revalidation, and negative-learning owner."
+      },
+      {
+        "path": "scripts/learning-calibration.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L5 deterministic paired evaluator, receipt calibration, projection gate, and sanitized Meta-Harness feed."
+      },
+      {
+        "path": "tailtrail-meta/product-maturity-learning-inventory-v1.json",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "Sealed PM-L0 through PM-L4 learning ownership and migration inventory."
+      },
+      {
+        "path": "tests/test_learning_v3.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L1 Learning V3 contract, migration, privacy, and compatibility proof."
+      },
+      {
+        "path": "tests/test_learning_calibration.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L5 positive, negative, privacy, tamper, projection, CLI, and Meta-Harness proof."
+      },
+      {
+        "path": "tests/test_learning_retrieval.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L2 retrieval ranking, conflict, invalidator, and negative assurance proof."
+      },
+      {
+        "path": "tests/test_learning_use_receipt.py",
+        "disposition": "include",
+        "owner": "tailtrail-core",
+        "reason": "PM-L3 decision, attribution, utility-cap, privacy, and concurrency proof."
+      },
+    {
+      "path": "tests/test_learning_governance.py",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "PM-L4 lifecycle, invalidator, conflict, negative-learning, privacy, and concurrency proof."
+    },
+    {
+      "path": "aidlc-docs/phase-pm-7-design.md",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "PM-7 cohort, metric, safety, evidence, and improvement-decision design."
+    },
+    {
+      "path": "aidlc-docs/phase-pm-7-requirements.md",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "PM-7 adoption validation requirements and honest real-evidence boundary."
+    },
+    {
+      "path": "benchmarks/evaluation/adoption/",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "PM-7 sealed two-cohort usability protocol and numeric gates."
+    },
+    {
+      "path": "schemas/adoption-improvement-decision.schema.json",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "Closed PM-7 evidence-backed wording/default proposal and decision contract."
+    },
+    {
+      "path": "schemas/adoption-validation-catalog.schema.json",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "Closed PM-7 cohort, scenario, threshold, signal, privacy, and safety catalog contract."
+    },
+    {
+      "path": "schemas/adoption-validation-report.schema.json",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "Closed PM-7 metric, gate, recommendation, claim, privacy, and integrity report contract."
+    },
+    {
+      "path": "schemas/adoption-validation-trial.schema.json",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "Closed PM-7 immutable sanitized usability receipt contract."
+    },
+    {
+      "path": "scripts/adoption-validation.py",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "PM-7 trial recorder, aggregate evaluator, fail-closed gate, and evidence-backed improvement decision runtime."
+    },
+    {
+      "path": "tests/test_adoption_validation.py",
+      "disposition": "include",
+      "owner": "tailtrail-core",
+      "reason": "PM-7 positive, negative, privacy, tamper, safety, proposal, decision, and path-boundary proof."
+    },
+    {
+      "path": ".idea/",
         "disposition": "exclude",
         "owner": "workspace-user",
         "reason": "Local IDE metadata is preserved but excluded from TailTrail release and enterprise evidence."

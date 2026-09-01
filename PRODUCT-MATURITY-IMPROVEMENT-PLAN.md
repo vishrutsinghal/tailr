@@ -1325,6 +1325,9 @@ and local simulation never become hosted-support evidence.
 Priority: P2  
 Target ratings: adoption readiness, developer experience
 
+Status: **Implemented (2026-09-01) — protocol-ready; genuine usability evidence
+not yet collected**
+
 - Run new-user and experienced-user usability trials.
 - Measure time-to-plan, approvals, abandoned runs, false interventions, and
   completion comprehension.
@@ -1333,10 +1336,60 @@ Target ratings: adoption readiness, developer experience
 Exit: usability metrics meet the thresholds in this document and no safety
 boundary was weakened to reach them.
 
+#### Implemented design and thresholds
+
+The sealed `benchmarks/evaluation/adoption/v1.json` contract defines four
+new-user and four experienced-user scenarios. Qualification requires at least
+six observed trials, five independent study-local participants, and three
+covered scenarios per cohort. New-user time-to-valid-plan p75 must be at most
+five minutes; experienced-user p75 must be at most three minutes; approval-count
+p75 must be at most two in each cohort. Overall abandoned, redundant-approval,
+and false-intervention rates must each be at most 10 percent. Overall completion
+comprehension must be at least 90 percent and each cohort at least 80 percent.
+Planning approval, execution authority, evidence, privacy, and closure may have
+zero weakened observations.
+
+```text
+tailtrail eval adoption validate
+tailtrail eval adoption template --cohort new-user|experienced-user
+tailtrail eval adoption record --root . --input <sanitized-trial.json> --approved
+tailtrail eval adoption report --root .
+tailtrail eval adoption gate --root .
+tailtrail eval adoption propose --root . --recommendation-id <id> --approved
+tailtrail eval adoption decide --root . --proposal <ref> --decision <applied|rejected|deferred> --reason-code <code> --approved
+```
+
+Trial receipts are closed, immutable, SHA-256 sealed, and reject raw prompt,
+source, log, identity, traversal, stale-catalog, and malformed evidence.
+Protocol fixtures are excluded from all qualification metrics. Tampering makes
+the entire report invalid, and one safety weakening prevents a claim regardless
+of the other scores. Wording/default recommendations require the same signal
+from at least three independent observed participants; proposal and decision
+records require approval and never mutate product source automatically. The
+read-only MCP report exposes exactly the same status and claim boundary.
+
+Implementation completeness and adoption proof are intentionally distinct:
+the capability, contracts, distribution, host surface, and regression proof are
+complete, while the exit remains undemonstrated until genuine participants are
+observed. No fixture or self-authored repository record is promoted into that
+missing real-world evidence.
+
 ### PM-L0 — Learning Inventory And Ownership
 
 Priority: P1  
 Target rating: learning effectiveness
+
+Status: **Implemented (2026-09-01).** The sealed
+`tailtrail-meta/product-maturity-learning-inventory-v1.json` inventories twelve
+learning and evidence-producing systems and their persistent artifacts. The
+existing `tailtrail maturity learning-inventory` control assigns the six
+canonical fact owners, while `tailtrail maturity validate` enforces integrity,
+source and writer presence, unique mutable ownership, semantic compatibility
+windows, and non-destructive migrations. The Learning V3 record, use-receipt
+stream, and conflict ledger remain explicitly owned by PM-L1, PM-L3, and PM-L4;
+only implemented stores are represented as current. See
+`aidlc-docs/phase-pm-l0-requirements.md` and
+`aidlc-docs/phase-pm-l0-design.md`.
 
 - Inventory Learning Agent, closure learning, Debug candidates, graph learning,
   refresh, Quality Loop, Evaluation Harness, and Meta-Harness artifacts.
@@ -1352,6 +1405,17 @@ silently discarded.
 Priority: P1  
 Target rating: learning effectiveness
 
+Status: **Implemented (2026-09-01).** The closed
+`schemas/learning-v3-record.schema.json` and `scripts/learning-v3.py` provide
+the canonical append-only class, provenance, applicability, freshness,
+utility, privacy, lifecycle, and SHA-256 chain contract. Learning Agent,
+closure candidates, explicit promotion, and the legacy curated writer now
+write V3 first. Approval-gated migration retains legacy bytes and imports only
+sanitized candidate fields by line reference and fingerprint; deterministic
+compatibility readers combine active V3 facts with unmigrated legacy records.
+See `aidlc-docs/phase-pm-l1-requirements.md` and
+`aidlc-docs/phase-pm-l1-design.md`.
+
 - Add the versioned class/provenance/applicability/freshness/utility contract.
 - Add append-only amendments, supersession, and revocation.
 - Migrate existing sanitized candidates by reference; retain legacy readers
@@ -1365,6 +1429,22 @@ writes use the canonical contract.
 
 Priority: P1  
 Target ratings: learning effectiveness, developer experience
+
+Status: **Implemented (2026-09-01).** Navigator now waits for a repository
+project frame and classified task frame, then asks the read-only
+`scripts/learning-retrieval.py` gate for a closed
+`tailtrail-learning-use-proposal`. Deterministic applicability scoring combines
+task, tag, path, requirement, confidence, and curation evidence; Lite requires
+a high-value score and otherwise renders nothing. Results are sorted
+deterministically and hard-capped at three. Every surfaced candidate includes
+match explanations and invalidator checks. Terminal state, elapsed revalidation,
+approved refresh suppression, provenance drift, missing explicitly scoped
+source, applicability exclusions, non-normal sensitivity, and explicit
+`learning:<id>` contradictions block the candidate before advice is exposed.
+Navigator renders eligible advice only as an explicit default-deny proposal and
+never adds it to requirements, plan steps, implementation instructions, source,
+or task state. See `aidlc-docs/phase-pm-l2-requirements.md` and
+`aidlc-docs/phase-pm-l2-design.md`.
 
 - Retrieve only after task/project framing.
 - Add applicability ranking, three-result cap, match explanations, invalidator
@@ -1380,6 +1460,21 @@ cannot become an implementation instruction.
 Priority: P1  
 Target ratings: learning effectiveness, demonstrated efficacy
 
+Status: **Implemented (2026-09-01).** The closed
+`schemas/learning-use-receipt-event.schema.json` and single writer
+`scripts/learning-use-receipt.py` add an approval-gated, requirement-linked,
+append-only decision and attribution stream. Applied/advisory advice must still
+be the exact current eligible V3 record from the saved PM-L2 proposal. Canonical
+closure joins the latest decision to requirement, drift, Harness, failure,
+validation, and Completion Report evidence, then records one categorical
+observed association with `causal_claim: false`. Revised evidence supersedes
+the prior active attribution; identical evidence is idempotent. Domain and
+project caps bound utility before PM-L2 retrieval consumes it. The canonical
+Completion Report shows exactly which learning, requirements, and decision led
+to which later evidence association. Existing workflow candidate links and
+legacy stores remain intact. See `aidlc-docs/phase-pm-l3-requirements.md` and
+`aidlc-docs/phase-pm-l3-design.md`.
+
 - Record applied/advisory/ignored/rejected/stale decisions.
 - Link use to requirement IDs and decision types.
 - Join receipts to closure, drift, Harness, failure, and validation evidence.
@@ -1392,6 +1487,21 @@ and what later evidence occurred, without claiming causality.
 
 Priority: P2  
 Target ratings: learning effectiveness, enterprise readiness
+
+Status: **Implemented (2026-09-01).** The closed, repository-framed,
+digest-chained `schemas/learning-governance-event.schema.json` and single writer
+`scripts/learning-governance.py` now own challenge, conflict, revalidation, and
+negative-learning facts. Learning V3 adds an append-only `revalidate`
+transition and deterministic policy, graph, symbol, manifest, ownership,
+source, and validation snapshots while retaining readers for pre-PM-L4 V3
+records. Navigator blocks open governance entities, repeated adverse receipts,
+corrupt governance evidence, terminal advice, and changed fingerprints without
+rendering the blocked advice. Repeated rejection is aggregated by receipt and
+run, sanitized to references and categories, and can become `avoid-history`
+only through explicit promotion; promotion revokes the contradicted source
+learning. Existing refresh actions and reports remain compatible. See
+`aidlc-docs/phase-pm-l4-requirements.md` and
+`aidlc-docs/phase-pm-l4-design.md`.
 
 - Implement first-class challenge, amend, supersede, revoke, and revalidate
   transitions.
@@ -1408,6 +1518,20 @@ versioned rather than overwritten.
 Priority: P2  
 Target ratings: learning effectiveness, demonstrated efficacy
 
+Status: **Implemented (2026-09-01).** A SHA-256-sealed, closed paired catalog
+covers all seven Learning V3 classes with later observed outcomes and explicit
+learning-on/control measurements. `scripts/learning-calibration.py` reports
+class and overall precision, false-intervention rate, calibration gap, Brier
+score, correction-cycle delta, review-time delta, and token overhead. Only
+validated later PM-L3 receipt outcomes can create bounded project-local class
+adjustments; application requires approval, at least four independent mixed
+outcomes for a class, the exact project frame, and an unchanged source report.
+Navigator verifies the projection and fails closed on tamper, missing evidence,
+or cross-project reuse. Fixture reports prohibit public performance claims.
+Only repeated, sanitizer-valid categorical observations can enter the existing
+Meta-Harness proposal path. See `aidlc-docs/phase-pm-l5-requirements.md` and
+`aidlc-docs/phase-pm-l5-design.md`.
+
 - Add learning-on/off Evaluation Harness scenarios.
 - Calibrate class-specific confidence against later observed outcomes.
 - Measure precision, false interventions, correction cycles, review time, and
@@ -1416,6 +1540,36 @@ Target ratings: learning effectiveness, demonstrated efficacy
 
 Exit: the learning score is evidence-calibrated for its class, and published
 claims are limited to measured scenarios.
+
+## Phase-by-phase implementation audit — 2026-09-01
+
+This audit distinguishes a shipped, locally validated capability from an exit
+gate that requires genuine external observations. A phase is not described as
+evidence-proven merely because its code and fixtures pass.
+
+| Phase | Implementation validation | Evidence/exit posture |
+| --- | --- | --- |
+| PM-0 | Baseline integrity, public-surface freeze, ownership uniqueness, and all maturity subcontracts pass. | Locally closed. The SHA-256 seal is integrity evidence, not an organization identity signature. |
+| PM-1 | Canonical ownership, closed stage results, freshness, stale-result, replay, and idempotency tests pass. The workflow-instance contract now includes the native Debug template. | Locally closed. Every tested mutation has a transition or explicit non-transition result. |
+| PM-2 | The six-verb façade and active-run ambiguity boundaries pass. The delegated pre-target test now uses an isolated empty workspace so repository growth cannot change its route. | Locally closed. |
+| PM-3 | Plan, Debug, and closure fixtures pass the same semantic-section matrix for CLI, MCP, Codex, Copilot, and Claude projections, including narrow and collapsed surfaces. | Locally closed for deterministic conformance. This is not a claim that a live host displayed the report. |
+| PM-4 | Registry projection, document ownership, dependency direction, bounded-module inventory, CLI/MCP reuse, and packaging checks pass. Canonical Intent Bridge commands are now documented alongside the `spec-kit` compatibility alias. | Locally closed. |
+| PM-5 | The sealed 18-task/five-fixture portfolio, blind packet lifecycle, privacy checks, and report logic pass. | Protocol-ready only: `0/54` required genuine paired observations exist, so the report correctly says `no-performance-claim`. |
+| PM-6 | All ten offline control domains, five executable probes, registry/release checks, host contracts, MCP doctor, package lifecycle, and offline verifier pass. | Local/offline conformance passed. Hosted Windows/macOS/Linux × Python 3.12/3.13 qualification evidence is still absent and must not be simulated. |
+| PM-7 | The sealed trial catalog, receipt integrity/privacy controls, thresholds, recommendation quorum, decision lifecycle, CLI/MCP parity, packaging, and negative tests pass. | Protocol-ready only: no genuine new-user or experienced-user trial receipts exist, so the adoption gate correctly exits nonzero with `no-adoption-claim`. |
+| PM-L0 | The sealed system/artifact inventory, canonical owners, aliases, and non-destructive migrations pass. | Locally closed. |
+| PM-L1 | V3 append-only records, privacy/project frames, provenance, amendments, migration-by-reference, and compatibility readers pass. | Locally closed. |
+| PM-L2 | Framed retrieval, deterministic ranking, three-item cap, invalidators, conflicts, and default-deny proposals pass labeled fixtures. | Locally closed for the committed fixture domain; no generalized retrieval claim is made. |
+| PM-L3 | Approval-gated use decisions, immutable receipts, requirement links, evidence attribution, supersession, idempotency, and utility caps pass. | Locally closed; attribution remains categorical association, never causality. |
+| PM-L4 | Challenge/conflict/revalidation facts, deterministic invalidators, adverse-use aggregation, avoid-history promotion, and revocation pass. | Locally closed. |
+| PM-L5 | All seven classes have 28 paired fixture observations; calibration, bounded projection, tamper/cross-project rejection, and Meta-Harness feed gates pass. | Fixture-only proof: the current fixture result is not a public performance claim, and project-local adjustments still require qualifying later receipts. |
+
+The audit also closed four integration defects: Debug real-run proof now shares
+the active seven-template contract; the pre-target CLI assertion is isolated
+from repository discovery; Feature Registry command documentation has zero
+drift; and the repository-wide Markdown indentation check is clean. No external
+trial, hosted-platform, live-host, identity-attestation, or customer evidence
+was invented to make an exit appear complete.
 
 ## Phase Dependency Graph
 

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/learning-v3-record.schema.json",
+  "title": "TailTrail Learning V3 Append-Only Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "record_id", "sequence", "learning_id", "learning_class", "created_at", "lifecycle", "provenance", "applicability", "freshness", "utility", "content", "privacy", "chain"],
+  "properties": {
+    "schema_version": {"const": "3"},
+    "type": {"const": "tailtrail-learning-v3-record"},
+    "record_id": {"type": "string", "pattern": "^lrnrec-[0-9a-f]{16}$"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "learning_id": {"type": "string", "pattern": "^lrn-[a-z0-9][a-z0-9._-]{2,95}$"},
+    "learning_class": {"enum": ["positive-pattern", "avoid-history", "validation-command", "project-convention", "dependency-decision", "debug-cause", "general"]},
+    "created_at": {"type": "string", "minLength": 1},
+    "lifecycle": {"$ref": "#/$defs/lifecycle"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "applicability": {"$ref": "#/$defs/applicability"},
+    "freshness": {"$ref": "#/$defs/freshness"},
+    "utility": {"$ref": "#/$defs/utility"},
+    "content": {"$ref": "#/$defs/content"},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "chain": {"$ref": "#/$defs/chain"}
+  },
+  "$defs": {
+    "nullableString": {"type": ["string", "null"]},
+    "stringArray": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "lifecycle": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation", "previous_record_id", "reason", "replacement_learning_id"],
+      "properties": {
+        "operation": {"enum": ["create", "amend", "revalidate", "supersede", "revoke"]},
+        "previous_record_id": {"$ref": "#/$defs/nullableString"},
+        "reason": {"type": "string", "minLength": 1},
+        "replacement_learning_id": {"$ref": "#/$defs/nullableString"}
+      }
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_kind", "source_ref", "source_fingerprint", "captured_by", "evidence_refs", "sanitized"],
+      "properties": {
+        "source_kind": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "captured_by": {"type": "string", "minLength": 1},
+        "evidence_refs": {"$ref": "#/$defs/stringArray"},
+        "sanitized": {"const": true}
+      }
+    },
+    "applicability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project_frame", "task_types", "tags", "path_patterns", "requirement_ids", "exclusions"],
+      "properties": {
+        "project_frame": {
+          "type": "object", "additionalProperties": false, "required": ["kind", "id"],
+          "properties": {"kind": {"const": "repository"}, "id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+        },
+        "task_types": {"$ref": "#/$defs/stringArray"},
+        "tags": {"$ref": "#/$defs/stringArray"},
+        "path_patterns": {"$ref": "#/$defs/stringArray"},
+        "requirement_ids": {"$ref": "#/$defs/stringArray"},
+        "exclusions": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "freshness": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "captured_at", "revalidate_after", "invalidators", "stale_when"],
+      "properties": {
+        "status": {"enum": ["current", "superseded", "revoked"]},
+        "captured_at": {"type": "string", "minLength": 1},
+        "revalidate_after": {"$ref": "#/$defs/nullableString"},
+        "invalidators": {"$ref": "#/$defs/stringArray"},
+        "stale_when": {"type": "string", "minLength": 1},
+        "invalidator_snapshot": {
+          "type": "object", "additionalProperties": false,
+          "required": ["source-change", "policy-change", "graph-change", "symbol-change", "manifest-change", "ownership-change", "validation-change"],
+          "properties": {
+            "source-change": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "policy-change": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "graph-change": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "symbol-change": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "manifest-change": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "ownership-change": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+            "validation-change": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+          }
+        }
+      }
+    },
+    "utility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["confidence_score", "confidence_band", "observation_count", "use_count", "curated", "causal_claim"],
+      "properties": {
+        "confidence_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "confidence_band": {"enum": ["do-not-use", "weak-note", "candidate", "trusted"]},
+        "observation_count": {"type": "integer", "minimum": 0},
+        "use_count": {"type": "integer", "minimum": 0},
+        "curated": {"type": "boolean"},
+        "causal_claim": {"const": false}
+      }
+    },
+    "content": {
+      "type": "object", "additionalProperties": false, "required": ["summary", "advice"],
+      "properties": {"summary": {"type": "string", "minLength": 1, "maxLength": 500}, "advice": {"type": "string", "minLength": 1, "maxLength": 500}}
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sensitivity", "sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"],
+      "properties": {
+        "sensitivity": {"enum": ["normal", "internal"]},
+        "sanitized": {"const": true},
+        "raw_prompt": {"const": false},
+        "raw_source": {"const": false},
+        "raw_log": {"const": false},
+        "identity_fields": {"const": false}
+      }
+    },
+    "chain": {
+      "type": "object", "additionalProperties": false, "required": ["previous_digest", "digest"],
+      "properties": {"previous_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    }
+  }
+}

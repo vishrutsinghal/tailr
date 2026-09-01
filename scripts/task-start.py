@@ -613,14 +613,20 @@ def token_posture(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
 def learning_quality(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
     tailtrail = root / ".tailtrail"
     events = tailtrail / "learning-events.jsonl"
+    v3_events = tailtrail / "learning-v3" / "events.jsonl"
     index = tailtrail / "learning-index.md"
     refresh_actions = tailtrail / "learning-refresh-actions.json"
     matches = []
-    graph_learning = plan.get("graph_learning")
-    if isinstance(graph_learning, dict):
-        raw_matches = graph_learning.get("matches", [])
+    use_proposal = plan.get("learning_use_proposal")
+    if isinstance(use_proposal, dict):
+        raw_matches = use_proposal.get("matches", [])
         if isinstance(raw_matches, list):
             matches = raw_matches[:3]
+    elif isinstance(plan.get("graph_learning"), dict):
+        raw_matches = plan["graph_learning"].get("matches", [])
+        if isinstance(raw_matches, list):
+            matches = raw_matches[:3]
+    proposal_approval = use_proposal.get("approval", {}) if isinstance(use_proposal, dict) else {}
     action_count = 0
     blocking_actions = 0
     if refresh_actions.is_file():
@@ -638,7 +644,7 @@ def learning_quality(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
             )
     review_recommended = False
     review_reason = "no learning index or events detected"
-    if index.is_file() and events.is_file() and not refresh_actions.is_file():
+    if index.is_file() and (events.is_file() or v3_events.is_file()) and not refresh_actions.is_file():
         review_recommended = True
         review_reason = "learning index and events exist but no refresh actions have been recorded"
     elif blocking_actions:
@@ -649,12 +655,12 @@ def learning_quality(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
         review_reason = "learning matches surfaced without a refresh-action history"
     return {
         "index_exists": index.is_file(),
-        "events_exist": events.is_file(),
+        "events_exist": events.is_file() or v3_events.is_file(),
         "refresh_actions_exist": refresh_actions.is_file(),
         "refresh_action_count": action_count,
         "blocking_refresh_actions": blocking_actions,
         "surfaced_matches": len(matches),
-        "approval_required": bool(plan.get("learning_approval")),
+        "approval_required": bool(proposal_approval.get("required") or plan.get("learning_approval")),
         "review_recommended": review_recommended,
         "review_reason": review_reason,
         "review_command": "python3 scripts/tailtrail.py learn review --root .",
@@ -738,13 +744,15 @@ def next_actions(plan: dict[str, Any]) -> list[dict[str, str]]:
                 "prompt": "Approve only this command: REPLACE_WITH_EXACT_COMMAND. Do not run any other scanner, audit, build, or networked command.",
             }
         )
-    if plan.get("learning_approval"):
+    use_proposal = plan.get("learning_use_proposal")
+    proposal_approval = use_proposal.get("approval", {}) if isinstance(use_proposal, dict) else {}
+    if plan.get("learning_approval") or proposal_approval.get("required"):
         actions.append(
             {
                 "action": "learning-approval",
-                "label": "Choose how to handle surfaced learnings.",
-                "when": "Use when Graph-Aware Learning matches appear.",
-                "prompt": "Use learnings as advisory context only. Current source, tests, scanner evidence, policy, and guardrails win.",
+                "label": "Choose whether the surfaced Learning V3 proposal may influence the plan.",
+                "when": "Use only when a project-framed Learning Use Proposal has eligible matches.",
+                "prompt": "Choose use selected learnings, ignore all learnings, or edit selected learning IDs. Default to do-not-use. Current source, tests, scanner evidence, policy, and guardrails win.",
             }
         )
     if plan.get("review_plan"):

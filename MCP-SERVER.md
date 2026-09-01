@@ -21,6 +21,9 @@ Use `mcp tools` to inspect the available tool contract. Use `mcp doctor` before 
 - `install_status`: reads `.tailtrail-install.json` when present and reports Core, Extended, or unknown status.
 - `eval_scenario_list`: lists committed Evaluation Harness scenarios.
 - `eval_scenario_report`: returns a deterministic scenario report from committed fixtures. It does not write result files.
+- `adoption_validation_report`: returns the PM-7 usability coverage, friction
+  metrics, safety gates, and repeated-evidence recommendations. It is read-only,
+  records no participants, and never changes wording or defaults.
 - `ledger_state`, `anchor_show`, `harness_checkpoint_show`, `completion_feedback_show`, and `planning_lock_show`: inspect the local run trail and the approval state for a Start run.
 - `profile_view`, `validation_receipt_show`, and `release_confidence_show`: inspect declared testing tiers, requirement-linked proof, and the latest receipt-based release-confidence view.
 - `git_readiness`, `recovery_boundary_show`, and `recovery_reconciliation_show`: inspect Phase 4 Mode A readiness, boundary state, and the latest no-write conflict classification.

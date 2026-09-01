@@ -13,7 +13,11 @@ include tailtrail-registry.json
 include tailtrail-registry.schema.json
 include tailtrail-meta/product-maturity-baseline-v1.json
 include tailtrail-meta/product-maturity-policy-v1.json
+include tailtrail-meta/product-maturity-learning-inventory-v1.json
+include tailtrail-meta/document-owners-v1.json
+include tailtrail-meta/maintainability-inventory-v1.json
 include benchmarks/product-maturity/pm0-scenarios-v1.json
+include benchmarks/product-maturity/pm-l2-retrieval-fixtures-v1.json
 include benchmarks/evaluation/real-portfolio/v1.json
 include benchmarks/enterprise-conformance/v1.json
 include AGENTS.md
@@ -58,6 +62,9 @@ recursive-include examples *
 recursive-include hooks *
 recursive-include skills *
 recursive-include aidlc *
+recursive-include aidlc-docs *.md
+recursive-include benchmarks/evaluation/learning-calibration *.json
+recursive-include benchmarks/evaluation/adoption *.json
 recursive-include .claude *
 recursive-include .codex-plugin *
 recursive-include .cursor *

@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/learning-use-receipt-event.schema.json",
+  "title": "TailTrail Learning Use Receipt Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "type", "event_id", "sequence", "receipt_id", "run_id",
+    "event_kind", "learning_id", "learning_record_id", "project_frame",
+    "requirement_uids", "decision_type", "decision", "recorded_at",
+    "previous_event_id", "proposal", "evidence_refs", "rationale", "outcome",
+    "utility", "privacy", "chain", "boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-learning-use-receipt-event"},
+    "event_id": {"type": "string", "pattern": "^lusevt-[0-9a-f]{20}$"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "receipt_id": {"type": "string", "pattern": "^luse-[0-9a-f]{20}$"},
+    "run_id": {"type": "string", "minLength": 1},
+    "event_kind": {"enum": ["decision", "attribution"]},
+    "learning_id": {"type": "string", "pattern": "^lrn-"},
+    "learning_record_id": {"type": "string", "pattern": "^lrnrec-"},
+    "project_frame": {"$ref": "#/$defs/projectFrame"},
+    "requirement_uids": {"$ref": "#/$defs/stringArray"},
+    "decision_type": {
+      "enum": ["implementation", "validation", "architecture", "behavior", "maintainability", "dependency", "security", "release", "data-migration", "debugging", "review", "other"]
+    },
+    "decision": {"enum": ["applied", "advisory", "ignored", "rejected", "stale"]},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "previous_event_id": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^lusevt-[0-9a-f]{20}$"}]},
+    "proposal": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/proposal"}]},
+    "evidence_refs": {"$ref": "#/$defs/stringArray"},
+    "rationale": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "outcome": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/outcome"}]},
+    "utility": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/utility"}]},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "chain": {"$ref": "#/$defs/chain"},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"event_kind": {"const": "decision"}}},
+      "then": {
+        "properties": {
+          "proposal": {"$ref": "#/$defs/proposal"},
+          "outcome": {"type": "null"},
+          "utility": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"event_kind": {"const": "attribution"}}},
+      "then": {
+        "properties": {
+          "proposal": {"type": "null"},
+          "outcome": {"$ref": "#/$defs/outcome"},
+          "utility": {"$ref": "#/$defs/utility"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "stringArray": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "projectFrame": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "id"],
+      "properties": {"kind": {"const": "repository"}, "id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+    },
+    "proposal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["fingerprint", "task_frame_fingerprint", "applicability_score", "confidence_score"],
+      "properties": {
+        "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "task_frame_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "applicability_score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "confidence_score": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "requirementOutcome": {
+      "type": "object", "additionalProperties": false, "required": ["requirement_uid", "status"],
+      "properties": {"requirement_uid": {"type": "string", "minLength": 1}, "status": {"enum": ["complete", "incomplete", "not-evidenced"]}}
+    },
+    "harnessOutcome": {
+      "type": "object", "additionalProperties": false, "required": ["name", "status", "artifact"],
+      "properties": {"name": {"type": "string", "minLength": 1}, "status": {"type": "string", "minLength": 1}, "artifact": {"type": ["string", "null"]}}
+    },
+    "driftFinding": {
+      "type": "object", "additionalProperties": false, "required": ["requirement_uid", "classification"],
+      "properties": {"requirement_uid": {"type": "string", "minLength": 1}, "classification": {"type": "string", "minLength": 1}}
+    },
+    "failure": {
+      "type": "object", "additionalProperties": false, "required": ["failure_id", "requirement_uid", "classification"],
+      "properties": {"failure_id": {"type": "string", "minLength": 1}, "requirement_uid": {"type": "string", "minLength": 1}, "classification": {"type": "string", "minLength": 1}}
+    },
+    "outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["completion_report_ref", "completion_fingerprint", "closure_status", "requirements", "drift_status", "drift_findings", "harnesses", "failure_status", "failures", "validation_status", "validation_refs", "association"],
+      "properties": {
+        "completion_report_ref": {"type": "string", "minLength": 1},
+        "completion_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "closure_status": {"enum": ["complete", "evidence-incomplete"]},
+        "requirements": {"type": "array", "items": {"$ref": "#/$defs/requirementOutcome"}},
+        "drift_status": {"enum": ["present", "none", "not-assessed"]},
+        "drift_findings": {"type": "array", "items": {"$ref": "#/$defs/driftFinding"}},
+        "harnesses": {"type": "array", "items": {"$ref": "#/$defs/harnessOutcome"}},
+        "failure_status": {"enum": ["present", "none", "unrelated"]},
+        "failures": {"type": "array", "items": {"$ref": "#/$defs/failure"}},
+        "validation_status": {"enum": ["pass", "fail", "blocked", "unavailable", "not-evidenced"]},
+        "validation_refs": {"$ref": "#/$defs/stringArray"},
+        "association": {"enum": ["potentially-helped", "neutral", "insufficient", "possible-harm", "rejected-by-evidence", "stale", "inconclusive"]}
+      }
+    },
+    "utility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["association", "base_delta", "applied_delta", "domain_cap", "cumulative_domain_delta", "causal_claim", "basis"],
+      "properties": {
+        "association": {"enum": ["potentially-helped", "neutral", "insufficient", "possible-harm", "rejected-by-evidence", "stale", "inconclusive"]},
+        "base_delta": {"type": "integer", "minimum": -6, "maximum": 2},
+        "applied_delta": {"type": "integer", "minimum": -10, "maximum": 10},
+        "domain_cap": {"enum": [5, 10]},
+        "cumulative_domain_delta": {"type": "integer", "minimum": -10, "maximum": 10},
+        "causal_claim": {"const": false},
+        "basis": {"type": "string", "minLength": 1}
+      }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"],
+      "properties": {
+        "sanitized": {"const": true}, "raw_prompt": {"const": false}, "raw_source": {"const": false},
+        "raw_log": {"const": false}, "identity_fields": {"const": false}
+      }
+    },
+    "chain": {
+      "type": "object", "additionalProperties": false, "required": ["previous_digest", "digest"],
+      "properties": {
+        "previous_digest": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^[0-9a-f]{64}$"}]},
+        "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

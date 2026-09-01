@@ -2,6 +2,12 @@
 
 Purpose: keep TailTrail's public wording accurate, evidence-based, and enterprise-credible.
 
+PM-7 adoption qualification is evidence-gated. A coded usability protocol,
+fixture receipt, local test, configured workflow, or read-only report is not a
+new-user or experienced-user outcome. Adoption and developer-experience claims
+require genuine observer-attested receipts that meet every cohort, friction,
+comprehension, and zero-safety-weakening gate in the sealed PM-7 catalog.
+
 TailTrail should be described as a local-first AI coding governance helper. It helps agents plan, preserve safeguards, reduce noisy context, summarize provided evidence, and choose smaller reviewable workflows. It does not replace source inspection, tests, CI, scanners, reviewers, legal review, or security review.
 
 ## Allowed Claims

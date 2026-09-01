@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/learning-calibration-projection.schema.json",
+  "title": "TailTrail Project Learning Calibration Projection",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "type", "project_frame", "source_report", "minimum_class_samples", "adjustments", "boundary", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-learning-calibration-projection"},
+    "project_frame": {"type": "string", "minLength": 1},
+    "source_report": {"type": "object", "additionalProperties": false, "required": ["path", "digest"], "properties": {"path": {"type": "string", "pattern": "^[^/\\\\].*$"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "minimum_class_samples": {"type": "integer", "minimum": 4},
+    "adjustments": {"type": "object", "additionalProperties": {"type": "integer", "minimum": -10, "maximum": 10}},
+    "boundary": {"type": "string", "minLength": 1},
+    "integrity": {"type": "object", "additionalProperties": false, "required": ["algorithm", "canonicalization", "digest"], "properties": {"algorithm": {"const": "sha256"}, "canonicalization": {"const": "sorted compact JSON excluding integrity"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}
+  }
+}

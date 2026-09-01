@@ -11888,13 +11888,33 @@ Implementation order:
 7. **PM-6 — Enterprise Conformance And Operations — Implemented (local/offline passed; hosted evidence pending)**: a ten-domain versioned catalog and offline verifier consolidate compatibility, install/update/rollback, policy, linked CI, retention/export, migration/recovery, threat controls, support/versioning, and offline packaging. Five local probes pass; a read-only MCP report exposes the same boundary; and an approval-gated deterministic ZIP contains only the verifier contracts and hashes. Release qualification stays `not-observed` until genuine Windows/macOS/Linux × Python 3.12/3.13 hosted receipts and required identity attestation are supplied. Verify install, update,
    rollback, policy, CI receipt, retention, export, migration, and threat-model
    boundaries offline.
-8. **PM-7 — Adoption Validation**: measure time-to-plan, approval burden,
-   abandoned runs, false interventions, and completion comprehension.
-9. **PM-L0 through PM-L5 — Learning Effectiveness**: consolidate learning
-   ownership, introduce a versioned provenance/applicability contract, add
-   Navigator retrieval and contradiction gates, record requirement-linked use
-   receipts, attribute observed closure outcomes, version amendments and
-   revocations, and calibrate learning through learning-on/off evaluation.
+8. **PM-7 — Adoption Validation — Implemented (protocol-ready; real trials
+   pending)**: the sealed two-cohort protocol, eight trial scenarios, immutable
+   privacy-safe receipts, numeric time/approval/abandonment/intervention/
+   comprehension gates, zero-safety-weakening rule, repeated-evidence product
+   recommendations, approval-gated decisions, CLI/MCP surfaces, packaging, and
+   regression tests are complete. The current repository correctly remains
+   `no-adoption-claim` until genuine observer-attested trials meet every gate.
+9. **PM-L0 — Learning Inventory And Ownership — Implemented**: sealed ownership
+   inventory, compatibility routes, and non-destructive migration boundaries;
+   **PM-L1 — Learning V3 Contract And Migration — Implemented**: append-only
+   provenance/applicability/freshness/utility records, privacy-bound reference
+   migration, and deterministic legacy compatibility; **PM-L2 — Navigator
+   Retrieval And Conflict Gate — Implemented**: project/task-framed retrieval,
+   deterministic applicability ranking, three-result cap, match/invalidator
+   explanations, default-deny use proposals, quiet Lite behavior, and stale,
+   private, excluded, or conflicting-advice blocking; **PM-L3 — Use Receipts
+   And Closure Attribution — Implemented**: approval-gated, requirement-linked,
+   append-only decisions, canonical closure evidence joins, explicit non-causal
+   associations, superseding attribution, bounded utility, report rendering,
+   and retrieval feedback; **PM-L4 — Refresh, Conflict, And Negative Learning
+   — Implemented**: versioned challenges, conflicts, revalidation, deterministic
+   invalidators, repeated adverse-receipt gating, and sanitized avoid-history;
+   **PM-L5 — Learning Calibration And Proof — Implemented**: sealed paired
+   learning-on/off scenarios, class calibration against later PM-L3 receipts,
+   precision/false-intervention/correction/review-time/token metrics, bounded
+   project projections, claim limits, and repeated sanitized Meta-Harness
+   evidence.
 
 Rating rule: completing code is insufficient. A rating moves above `8/10` only
 after the corresponding evidence gate in the detailed plan passes.

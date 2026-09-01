@@ -59,6 +59,12 @@ LIKELY_FILES: dict[str, list[str]] = {
         "LEARNING-GOVERNANCE.md",
         "tests/test_deterministic_tools.py",
     ],
+    "learning-calibration": [
+        "scripts/learning-calibration.py",
+        "scripts/learning-retrieval.py",
+        "benchmarks/evaluation/learning-calibration/v1.json",
+        "tests/test_learning_calibration.py",
+    ],
     "metric-evidence": [
         "scripts/tailtrail-report.py",
         "scripts/token-telemetry.py",
@@ -236,6 +242,34 @@ def finding(
 
 def build_findings(events: list[dict[str, Any]], threshold: int) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
+
+    calibration_counts = Counter(
+        normalize(event.get("issue_type"))
+        for event in events
+        if normalize(event.get("learning_signal")) == "calibration-gap"
+        and normalize(event.get("task_type")) == "learning-calibration"
+    )
+    for issue_type, count in calibration_counts.most_common():
+        if issue_type != "unknown" and count >= threshold:
+            learning_class = issue_type.removeprefix("learning-class-")
+            findings.append(
+                finding(
+                    f"MH-F-{len(findings) + 1:03d}",
+                    "learning-calibration-gap",
+                    "medium",
+                    count,
+                    threshold,
+                    f"Learning class `{learning_class}` had {count} repeated sanitized calibration-gap observation(s).",
+                    f"calibrate-learning-class-{learning_class}",
+                    "Review the class-specific confidence threshold against later observed outcomes without changing project confidence from fixture evidence.",
+                    "learning-calibration",
+                    [
+                        "Run the committed Learning Calibration paired scenarios.",
+                        "Verify any project adjustment is backed by sufficient mixed later use receipts.",
+                    ],
+                    "Remove the project-local projection if retrieval becomes noisier or contradicts current source evidence.",
+                )
+            )
 
     recommendation_counts: Counter[str] = Counter()
     for event in events:

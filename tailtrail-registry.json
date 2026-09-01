@@ -1233,10 +1233,10 @@
     },
     {
       "id": "learning",
-      "title": "Learning Agent V2",
+      "title": "Learning V3 Governance, Retrieval, Receipts, Calibration, And Negative Assurance",
       "status": "implemented",
       "surface": "extended",
-      "roadmap_ref": "Phase 9",
+      "roadmap_ref": "Product Maturity Improvement Track / PM-L5",
       "owner": "tailtrail-core",
       "governance_class": "product",
       "commands": [
@@ -1245,21 +1245,56 @@
         "tailtrail learn govern",
         "tailtrail learn graph",
         "tailtrail learn refresh",
+        "tailtrail learn retrieve",
+        "tailtrail learn receipt record|attribute|show|validate",
+        "tailtrail learn governance state|validate|challenge|challenge-resolve|conflict|conflict-resolve|revalidate|negative-scan|negative-resolve",
+        "tailtrail learn calibration evaluate|validate|apply|meta-feed",
+        "tailtrail eval learning evaluate|validate|apply|meta-feed",
+        "tailtrail learn v3 validate|state|migrate|amend|revalidate|supersede|revoke",
         "tailtrail learnings"
       ],
       "docs": [
         "LEARNING-GOVERNANCE.md",
+        "PRODUCT-MATURITY-IMPROVEMENT-PLAN.md",
+        "schemas/learning-v3-record.schema.json",
+        "schemas/learning-use-proposal.schema.json",
+        "schemas/learning-use-receipt-event.schema.json",
+        "schemas/learning-governance-event.schema.json",
+        "schemas/learning-calibration-catalog.schema.json",
+        "schemas/learning-calibration-report.schema.json",
+        "schemas/learning-calibration-projection.schema.json",
+        "aidlc-docs/phase-pm-l1-requirements.md",
+        "aidlc-docs/phase-pm-l1-design.md",
+        "aidlc-docs/phase-pm-l2-requirements.md",
+        "aidlc-docs/phase-pm-l2-design.md",
+        "aidlc-docs/phase-pm-l3-requirements.md",
+        "aidlc-docs/phase-pm-l3-design.md",
+        "aidlc-docs/phase-pm-l4-requirements.md",
+        "aidlc-docs/phase-pm-l4-design.md",
+        "aidlc-docs/phase-pm-l5-requirements.md",
+        "aidlc-docs/phase-pm-l5-design.md",
         "context/learning-agent.md",
         "context/learning-refresh.md"
       ],
       "scripts": [
         "scripts/learning-agent.py",
+        "scripts/learning-v3.py",
+        "scripts/learning-retrieval.py",
+        "scripts/learning-use-receipt.py",
+        "scripts/learning-governance.py",
+        "scripts/learning-calibration.py",
         "scripts/learning-review.py",
         "scripts/learning-refresh.py",
         "scripts/learnings.py"
       ],
       "tests": [
-        "tests/test_navigator_core.py"
+        "tests/test_navigator_core.py",
+        "tests/test_learning_v3.py",
+        "tests/test_learning_retrieval.py",
+        "tests/test_learning_use_receipt.py",
+        "tests/test_learning_governance.py",
+        "tests/test_learning_calibration.py",
+        "tests/test_closure_learning.py"
       ],
       "mcp_tools": [],
       "requires_approval": true,
@@ -1747,7 +1782,8 @@
         "tailtrail eval normalize",
         "tailtrail eval validate-events",
         "tailtrail eval dataset list|validate|report",
-        "tailtrail eval real-portfolio validate|prepare|grade|unblind|report"
+        "tailtrail eval real-portfolio validate|prepare|grade|unblind|report",
+        "tailtrail eval adoption validate|template|record|report|gate|propose|decide"
       ],
       "docs": [
         "EVALUATION-HARNESS.md",
@@ -1760,25 +1796,35 @@
         "schemas/evaluation-delivery-dataset.schema.json",
         "schemas/real-evaluation-portfolio.schema.json",
         "benchmarks/evaluation/real-portfolio/v1.json",
+        "benchmarks/evaluation/adoption/v1.json",
+        "schemas/adoption-validation-catalog.schema.json",
+        "schemas/adoption-validation-trial.schema.json",
+        "schemas/adoption-validation-report.schema.json",
+        "schemas/adoption-improvement-decision.schema.json",
+        "aidlc-docs/phase-pm-7-requirements.md",
+        "aidlc-docs/phase-pm-7-design.md",
         "templates/evaluation-result.md"
       ],
       "scripts": [
         "scripts/evaluation-audit.py",
         "scripts/evaluation-harness.py",
         "scripts/evaluation-dataset.py",
-        "scripts/real-evaluation-portfolio.py"
+        "scripts/real-evaluation-portfolio.py",
+        "scripts/adoption-validation.py"
       ],
       "tests": [
         "tests/test_evaluation_audit.py",
         "tests/test_evaluation_harness_router.py",
         "tests/test_evaluation_harness_scenarios.py",
         "tests/test_evaluation_dataset.py",
-        "tests/test_real_evaluation_portfolio.py"
+        "tests/test_real_evaluation_portfolio.py",
+        "tests/test_adoption_validation.py"
       ],
       "mcp_tools": [
         "eval_scenario_list",
         "eval_scenario_report",
-        "real_evaluation_portfolio_report"
+        "real_evaluation_portfolio_report",
+        "adoption_validation_report"
       ],
       "requires_approval": false,
       "read_only": true,
@@ -2970,15 +3016,16 @@
     },
     {
       "id": "product-maturity-pm0",
-      "title": "Product Maturity PM-0 Baseline And Freeze",
+      "title": "Product Maturity Baseline, Freeze, And Ownership Controls",
       "status": "implemented",
       "surface": "core",
-      "roadmap_ref": "Product Maturity Improvement Track / PM-0",
+      "roadmap_ref": "Product Maturity Improvement Track / PM-0 through PM-L0",
       "owner": "tailtrail-core",
       "governance_class": "governance",
       "commands": [
         "tailtrail maturity baseline",
         "tailtrail maturity inventory",
+        "tailtrail maturity learning-inventory",
         "tailtrail maturity maintainability inventory",
         "tailtrail maturity maintainability validate",
         "tailtrail maturity maintainability status",
@@ -2992,9 +3039,13 @@
         "tailtrail-meta/product-maturity-baseline-v1.json",
         "benchmarks/product-maturity/pm0-scenarios-v1.json",
         "schemas/product-maturity-baseline.schema.json",
+        "schemas/product-maturity-learning-inventory.schema.json",
         "schemas/maintainability-inventory.schema.json",
         "tailtrail-meta/document-owners-v1.json",
-        "tailtrail-meta/maintainability-inventory-v1.json"
+        "tailtrail-meta/maintainability-inventory-v1.json",
+        "tailtrail-meta/product-maturity-learning-inventory-v1.json",
+        "aidlc-docs/phase-pm-l0-requirements.md",
+        "aidlc-docs/phase-pm-l0-design.md"
       ],
       "scripts": [
         "scripts/product-maturity.py",

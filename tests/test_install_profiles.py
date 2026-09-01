@@ -122,6 +122,8 @@ class InstallProfileTests(unittest.TestCase):
         core_entries = set(copilot.pack_entries_for(core_files, core_dirs, core_scripts))
         extended_only = {
             "scripts/learning-agent.py",
+            "scripts/learning-v3.py",
+            "scripts/learning-retrieval.py",
             "scripts/quality-loop.py",
             "scripts/meta-harness-analyze.py",
             "scripts/tailtrail-report.py",
@@ -273,6 +275,8 @@ class InstallProfileTests(unittest.TestCase):
         self.assertFalse(report.conflicts)
         self.assertEqual(manifest["surface"], "extended")
         self.assertIn("scripts/completion-report.py", manifest["files"])
+        self.assertIn("scripts/learning-use-receipt.py", manifest["files"])
+        self.assertIn("schemas/learning-use-receipt-event.schema.json", manifest["files"])
         self.assertIn("scripts/official-aidlc-runtime.py", manifest["files"])
         self.assertIn("scripts/aidlc-official-install.py", manifest["files"])
         self.assertIn("scripts/host-runtime-conformance.py", manifest["files"])

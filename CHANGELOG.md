@@ -127,6 +127,12 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
 - Evaluation Harness EH-3 shared event schema, `eval normalize`, and `eval validate-events` for approval-gated local evidence JSONL.
 - Evaluation Harness EH-4 Scenario Harness V1 through `eval scenario list|run|compare|report`, with deterministic committed fixtures, rubric-backed scoring, and approval-gated report writes.
 - Evaluation Harness EH-8 Build Week demo scenario through `eval scenario report --scenario buildweek-validation`, with deterministic fixture evidence linked to the live demo story and no live execution.
+- Product Maturity PM-7 adoption validation through `eval adoption
+  validate|template|record|report|gate|propose|decide`: sealed new/experienced
+  user protocols, privacy-safe immutable receipts, explicit friction and
+  comprehension gates, safety non-regression, evidence-backed wording/default
+  decisions, packaging, and read-only MCP reporting. Genuine trial evidence is
+  still required before an adoption claim.
 - Navigator-default task routing through `python3 scripts/tailtrail.py do "task"`, `python3 scripts/tailtrail.py run "task"`, and free-form `python3 scripts/tailtrail.py "task"` input.
 - Semantic V3 code intelligence through `graph ast --depth v3 --provider-output ...`, ingesting approved local provider JSON for Java/JDT or language-server style exports, .NET/Roslyn-derived exports, richer Python analyzer output, SQL/Terraform parser output, SCIP-derived JSON, or repo-owned extractors.
 - Start reports now include a compact Code Intelligence section explaining `lite`, `v1`, `v2`, V3 opt-in provider metadata, Navigator recommendation rules, and provider auto-run boundaries.

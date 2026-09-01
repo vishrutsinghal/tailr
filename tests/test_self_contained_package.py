@@ -140,6 +140,9 @@ class SelfContainedPackageTests(unittest.TestCase):
             self.assertTrue(version["python_supported"])
             self.assertTrue(hello["installed"])
             self.assertIn("installed-package doctor passed", run([str(executable), "doctor"], cwd=sandbox).stdout)
+            learning_receipts = json.loads(run([str(executable), "learn", "receipt", "validate", "--root", str(project)], cwd=sandbox).stdout)
+            self.assertEqual(learning_receipts["status"], "passed")
+            self.assertEqual(learning_receipts["events"], 0)
 
             started = json.loads(run([str(executable), "start", "fix README documentation validation and add a regression test", "--root", str(project), "--changed", "README.md", "--format", "json"], cwd=sandbox).stdout)
             run_id = started["planning_lock"]["run_id"]

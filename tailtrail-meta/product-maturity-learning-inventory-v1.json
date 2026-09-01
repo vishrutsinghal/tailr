@@ -1,0 +1,784 @@
+{
+  "aliases": [
+    {
+      "alias": "tailtrail learn capture|promote",
+      "canonical": "Learning V3 canonical write plus legacy compatibility projection",
+      "minimum_release_window": 2,
+      "preserves": [
+        "approval",
+        "privacy",
+        "safety",
+        "data"
+      ],
+      "state": "delegating-route"
+    },
+    {
+      "alias": "tailtrail learn agent <action>",
+      "canonical": "tailtrail learn <action>",
+      "minimum_release_window": 2,
+      "preserves": [
+        "approval",
+        "privacy",
+        "safety",
+        "data"
+      ],
+      "state": "compatibility"
+    },
+    {
+      "alias": "tailtrail learnings <action>",
+      "canonical": "tailtrail learn init|add|show",
+      "minimum_release_window": 2,
+      "preserves": [
+        "approval",
+        "privacy",
+        "safety",
+        "data"
+      ],
+      "state": "compatibility"
+    },
+    {
+      "alias": "tailtrail learn govern",
+      "canonical": "tailtrail learn review",
+      "minimum_release_window": 2,
+      "preserves": [
+        "approval",
+        "privacy",
+        "safety",
+        "data"
+      ],
+      "state": "compatibility"
+    },
+    {
+      "alias": "tailtrail eval outcome <action>",
+      "canonical": "Outcome Telemetry via Evaluation Harness",
+      "minimum_release_window": 2,
+      "preserves": [
+        "approval",
+        "privacy",
+        "safety",
+        "data"
+      ],
+      "state": "delegating-route"
+    },
+    {
+      "alias": "tailtrail eval learning <action>",
+      "canonical": "tailtrail learn calibration <action>",
+      "minimum_release_window": 2,
+      "preserves": [
+        "approval",
+        "privacy",
+        "safety",
+        "data"
+      ],
+      "state": "delegating-route"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "learning-v3-records",
+      "mutable": true,
+      "owner": "Learning Governance",
+      "path": ".tailtrail/learning-v3/events.jsonl",
+      "role": "canonical",
+      "system": "learning-agent",
+      "writers": [
+        "scripts/learning-v3.py"
+      ]
+    },
+    {
+      "id": "learning-v3-project-frame",
+      "mutable": true,
+      "owner": "Learning Governance",
+      "path": ".tailtrail/learning-v3/project-frame.json",
+      "role": "configuration",
+      "system": "learning-agent",
+      "writers": [
+        "scripts/learning-v3.py"
+      ]
+    },
+    {
+      "id": "learning-use-receipts",
+      "migration": "use-receipt-introduction",
+      "mutable": true,
+      "owner": "Durable Workflow Runtime",
+      "path": ".tailtrail/runs/<run-id>/learning/use-receipts.jsonl",
+      "role": "canonical",
+      "system": "learning-receipts",
+      "writers": [
+        "scripts/learning-use-receipt.py"
+      ]
+    },
+    {
+      "id": "learning-candidates",
+      "migration": "legacy-candidate-v3-reference",
+      "mutable": true,
+      "owner": "Learning Agent",
+      "path": ".tailtrail/learning-events.jsonl",
+      "role": "compatibility-projection",
+      "system": "learning-agent",
+      "writers": [
+        "scripts/learning-agent.py",
+        "scripts/closure-learning.py"
+      ]
+    },
+    {
+      "id": "curated-learnings",
+      "migration": "legacy-curated-writer",
+      "mutable": true,
+      "owner": "Learning Governance",
+      "path": ".tailtrail/learnings.md",
+      "role": "compatibility-projection",
+      "system": "learning-agent",
+      "writers": [
+        "scripts/learning-agent.py",
+        "scripts/learnings.py"
+      ]
+    },
+    {
+      "id": "learning-scores",
+      "mutable": true,
+      "owner": "Learning Agent",
+      "path": ".tailtrail/learning-scores.jsonl",
+      "role": "derived",
+      "system": "learning-agent",
+      "writers": [
+        "scripts/learning-agent.py",
+        "scripts/closure-learning.py"
+      ]
+    },
+    {
+      "id": "learning-index",
+      "mutable": true,
+      "owner": "Learning Agent",
+      "path": ".tailtrail/learning-index.md",
+      "role": "derived",
+      "system": "learning-agent",
+      "writers": [
+        "scripts/learning-agent.py",
+        "scripts/closure-learning.py"
+      ]
+    },
+    {
+      "id": "learning-policy",
+      "mutable": true,
+      "owner": "Learning Governance",
+      "path": ".tailtrail/learning-policy.json",
+      "role": "configuration",
+      "system": "learning-agent",
+      "writers": [
+        "scripts/learning-agent.py"
+      ]
+    },
+    {
+      "id": "closure-candidate",
+      "migration": "closure-candidate-reference",
+      "mutable": false,
+      "owner": "Closure Finalizer",
+      "path": ".tailtrail/runs/<run-id>/positive-learning/<candidate-id>.json",
+      "role": "source-by-reference",
+      "system": "closure-learning",
+      "writers": [
+        "scripts/closure-learning.py"
+      ]
+    },
+    {
+      "id": "debug-candidate-evidence",
+      "migration": "debug-candidate-reference",
+      "mutable": false,
+      "owner": "Debug Harness",
+      "path": ".tailtrail/runs/<run-id>/debug/**",
+      "role": "source-by-reference",
+      "system": "debug-candidates",
+      "writers": [
+        "scripts/debug-intake.py",
+        "scripts/debug-reproduction.py",
+        "scripts/debug-orientation.py",
+        "scripts/debug-hypothesis.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-governance.py",
+        "scripts/debug-completion.py"
+      ]
+    },
+    {
+      "id": "debug-evaluation-report",
+      "mutable": true,
+      "owner": "Debug Harness",
+      "path": ".tailtrail/evaluation/debug-harness/report-v1.json",
+      "role": "domain-evidence",
+      "system": "debug-candidates",
+      "writers": [
+        "scripts/debug-evaluation.py"
+      ]
+    },
+    {
+      "id": "code-graph-cache",
+      "mutable": true,
+      "owner": "Code Graph Mapper",
+      "path": ".tailtrail/code-graph-cache.json",
+      "role": "source-by-reference",
+      "system": "graph-learning",
+      "writers": [
+        "scripts/code-graph-mapper.py"
+      ]
+    },
+    {
+      "id": "graph-learning-index",
+      "mutable": true,
+      "owner": "Code Graph Mapper",
+      "path": ".tailtrail/graph-learning-index.json",
+      "role": "derived",
+      "system": "graph-learning",
+      "writers": [
+        "scripts/graph-learning.py"
+      ]
+    },
+    {
+      "id": "learning-refresh-actions",
+      "mutable": true,
+      "owner": "Learning Refresh",
+      "path": ".tailtrail/learning-refresh-actions.json",
+      "role": "canonical",
+      "system": "learning-refresh",
+      "writers": [
+        "scripts/learning-refresh.py"
+      ]
+    },
+    {
+      "id": "learning-refresh-report",
+      "mutable": true,
+      "owner": "Learning Refresh",
+      "path": ".tailtrail/learning-refresh-report.md",
+      "role": "derived",
+      "system": "learning-refresh",
+      "writers": [
+        "scripts/learning-refresh.py"
+      ]
+    },
+    {
+      "id": "learning-governance-review",
+      "mutable": true,
+      "owner": "Learning Governance",
+      "path": ".tailtrail/learning-governance-review.md",
+      "role": "derived",
+      "system": "learning-refresh",
+      "writers": [
+        "scripts/learning-review.py"
+      ]
+    },
+    {
+      "id": "learning-conflicts",
+      "migration": "conflict-ledger-introduction",
+      "mutable": true,
+      "owner": "Learning Governance",
+      "path": ".tailtrail/learning-conflicts.jsonl",
+      "role": "canonical",
+      "system": "learning-refresh",
+      "writers": [
+        "scripts/learning-governance.py"
+      ]
+    },
+    {
+      "id": "learning-calibration-catalog",
+      "mutable": false,
+      "owner": "Evaluation Harness",
+      "path": "benchmarks/evaluation/learning-calibration/v1.json",
+      "role": "domain-evidence",
+      "system": "learning-calibration",
+      "writers": []
+    },
+    {
+      "id": "learning-calibration-report",
+      "mutable": true,
+      "owner": "Evaluation Harness",
+      "path": ".tailtrail/evaluation/learning-calibration/report.json",
+      "role": "derived",
+      "system": "learning-calibration",
+      "writers": [
+        "scripts/learning-calibration.py"
+      ]
+    },
+    {
+      "id": "learning-calibration-projection",
+      "migration": "class-calibration-introduction",
+      "mutable": true,
+      "owner": "Evaluation Harness",
+      "path": ".tailtrail/learning-calibration.json",
+      "role": "configuration",
+      "system": "learning-calibration",
+      "writers": [
+        "scripts/learning-calibration.py"
+      ]
+    },
+    {
+      "id": "learning-calibration-meta-signals",
+      "mutable": true,
+      "owner": "Evaluation Harness",
+      "path": ".tailtrail/evaluation/learning-calibration/meta-signals.jsonl",
+      "role": "derived",
+      "system": "learning-calibration",
+      "writers": [
+        "scripts/learning-calibration.py"
+      ]
+    },
+    {
+      "id": "quality-events",
+      "mutable": true,
+      "owner": "Quality Loop",
+      "path": ".tailtrail/quality-events.jsonl",
+      "role": "domain-evidence",
+      "system": "quality-loop",
+      "writers": [
+        "scripts/quality-loop.py"
+      ]
+    },
+    {
+      "id": "quality-summary",
+      "mutable": true,
+      "owner": "Quality Loop",
+      "path": ".tailtrail/quality-summary.md",
+      "role": "derived",
+      "system": "quality-loop",
+      "writers": [
+        "scripts/quality-loop.py"
+      ]
+    },
+    {
+      "id": "quality-decisions",
+      "mutable": true,
+      "owner": "Quality Loop",
+      "path": ".tailtrail/quality-decisions.md",
+      "role": "domain-evidence",
+      "system": "quality-loop",
+      "writers": [
+        "scripts/quality-loop.py"
+      ]
+    },
+    {
+      "id": "evaluation-events",
+      "mutable": true,
+      "owner": "Evaluation Harness",
+      "path": ".tailtrail/evaluation/events.jsonl",
+      "role": "domain-evidence",
+      "system": "evaluation-harness",
+      "writers": [
+        "scripts/evaluation-harness.py"
+      ]
+    },
+    {
+      "id": "evaluation-scenario-results",
+      "mutable": true,
+      "owner": "Evaluation Harness",
+      "path": "benchmarks/evaluation/results/<scenario-id>-scenario-report.{json,md}",
+      "role": "domain-evidence",
+      "system": "evaluation-harness",
+      "writers": [
+        "scripts/evaluation-harness.py"
+      ]
+    },
+    {
+      "id": "harness-summary-source",
+      "mutable": true,
+      "owner": "Harness Review",
+      "path": "tailtrail-meta/harness-summary.jsonl",
+      "role": "source-by-reference",
+      "system": "meta-harness",
+      "writers": [
+        "scripts/harness-review.py"
+      ]
+    },
+    {
+      "id": "meta-analysis",
+      "mutable": true,
+      "owner": "Meta-Harness",
+      "path": ".tailtrail/meta-harness-analysis.json",
+      "role": "derived",
+      "system": "meta-harness",
+      "writers": [
+        "scripts/meta-harness-analyze.py"
+      ]
+    },
+    {
+      "id": "meta-analysis-markdown",
+      "mutable": true,
+      "owner": "Meta-Harness",
+      "path": ".tailtrail/meta-harness-analysis.md",
+      "role": "derived",
+      "system": "meta-harness",
+      "writers": [
+        "scripts/meta-harness-analyze.py"
+      ]
+    },
+    {
+      "id": "meta-readiness",
+      "mutable": true,
+      "owner": "Meta-Harness",
+      "path": ".tailtrail/meta-harness-readiness.json",
+      "role": "derived",
+      "system": "meta-harness",
+      "writers": [
+        "scripts/meta-harness-analyze.py"
+      ]
+    },
+    {
+      "id": "meta-readiness-markdown",
+      "mutable": true,
+      "owner": "Meta-Harness",
+      "path": ".tailtrail/meta-harness-readiness.md",
+      "role": "derived",
+      "system": "meta-harness",
+      "writers": [
+        "scripts/meta-harness-analyze.py"
+      ]
+    },
+    {
+      "id": "meta-proposals",
+      "mutable": true,
+      "owner": "Meta-Harness",
+      "path": ".tailtrail/meta-harness-proposals.jsonl",
+      "role": "domain-evidence",
+      "system": "meta-harness",
+      "writers": [
+        "scripts/meta-harness-propose.py"
+      ]
+    },
+    {
+      "id": "meta-latest-proposal",
+      "mutable": true,
+      "owner": "Meta-Harness",
+      "path": ".tailtrail/meta-harness-proposal.md",
+      "role": "derived",
+      "system": "meta-harness",
+      "writers": [
+        "scripts/meta-harness-propose.py"
+      ]
+    },
+    {
+      "id": "outcome-events",
+      "mutable": true,
+      "owner": "Outcome Telemetry",
+      "path": ".tailtrail/outcome-events.jsonl",
+      "role": "canonical",
+      "system": "outcome-telemetry",
+      "writers": [
+        "scripts/outcome-telemetry.py"
+      ]
+    },
+    {
+      "id": "outcome-summary",
+      "mutable": true,
+      "owner": "Outcome Telemetry",
+      "path": ".tailtrail/outcome-summary.md",
+      "role": "derived",
+      "system": "outcome-telemetry",
+      "writers": [
+        "scripts/outcome-telemetry.py"
+      ]
+    },
+    {
+      "id": "workflow-learning-link",
+      "mutable": false,
+      "owner": "Durable Workflow Runtime",
+      "path": ".tailtrail/runs/<run-id>/workflows/<workflow-id>/outcomes/<outcome-id>/learning-link-v1.json",
+      "role": "source-by-reference",
+      "system": "workflow-learning-links",
+      "writers": [
+        "scripts/workflow_runtime/outcomes.py"
+      ]
+    }
+  ],
+  "boundaries": {
+    "authority": "PM-L0 inventories and assigns ownership; PM-L1 through PM-L5 own contract, governance, calibration, and data migrations.",
+    "ownership": "A script may delegate writes, but each fact and mutable artifact has exactly one canonical owner.",
+    "preservation": "Existing stores remain in place and migration is by reference or compatibility routing; no artifact is silently discarded.",
+    "privacy": "This committed inventory names paths and controls only; it never reads learning content, prompts, source, logs, or user data."
+  },
+  "fact_ownership": [
+    {
+      "canonical_artifact": ".tailtrail/learning-v3/events.jsonl",
+      "fact": "candidate",
+      "owner": "Learning Agent",
+      "state": "current"
+    },
+    {
+      "canonical_artifact": ".tailtrail/learning-v3/events.jsonl",
+      "fact": "curated-learning",
+      "owner": "Learning Governance",
+      "state": "current"
+    },
+    {
+      "canonical_artifact": ".tailtrail/runs/<run-id>/learning/use-receipts.jsonl",
+      "fact": "use-receipt",
+      "owner": "Durable Workflow Runtime",
+      "state": "current"
+    },
+    {
+      "canonical_artifact": ".tailtrail/learning-refresh-actions.json",
+      "fact": "freshness-action",
+      "owner": "Learning Refresh",
+      "state": "current"
+    },
+    {
+      "canonical_artifact": ".tailtrail/learning-conflicts.jsonl",
+      "fact": "conflict",
+      "owner": "Learning Governance",
+      "state": "current"
+    },
+    {
+      "canonical_artifact": ".tailtrail/learning-calibration.json",
+      "fact": "class-confidence-calibration",
+      "owner": "Evaluation Harness",
+      "state": "current"
+    },
+    {
+      "canonical_artifact": ".tailtrail/outcome-events.jsonl",
+      "fact": "observed-outcome",
+      "owner": "Outcome Telemetry",
+      "state": "current"
+    }
+  ],
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "sorted compact JSON excluding integrity",
+    "digest": "2c918f4088ccf6a2632b6100c9ea56ae20807d41fee7fca52b6e5a73425ea5be"
+  },
+  "inventory_version": "1.5.0",
+  "migrations": [
+    {
+      "id": "legacy-candidate-v3-reference",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": ".tailtrail/learning-events.jsonl",
+      "strategy": "retain the legacy store; append only sanitized candidate fields, project frame, source line reference, and source fingerprint",
+      "target": ".tailtrail/learning-v3/events.jsonl"
+    },
+    {
+      "id": "legacy-curated-writer",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": ".tailtrail/learnings.md via scripts/learnings.py",
+      "strategy": "write the canonical V3 record first and retain the Markdown compatibility projection",
+      "target": ".tailtrail/learning-v3/events.jsonl via Learning Governance"
+    },
+    {
+      "id": "closure-candidate-reference",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": ".tailtrail/runs/<run-id>/positive-learning/<candidate-id>.json",
+      "strategy": "retain immutable run-local source and append a sanitized reference event",
+      "target": ".tailtrail/learning-events.jsonl"
+    },
+    {
+      "id": "debug-candidate-reference",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": ".tailtrail/runs/<run-id>/debug/**",
+      "strategy": "retain run evidence and migrate only sanitized candidate references",
+      "target": ".tailtrail/learning-v3/events.jsonl"
+    },
+    {
+      "id": "domain-evidence-join",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": "Quality Loop, Evaluation Harness, Meta-Harness, graph, and outcome artifacts",
+      "strategy": "join by reference; do not copy, overwrite, or reclassify source evidence",
+      "target": "Learning V3 provenance references"
+    },
+    {
+      "id": "use-receipt-introduction",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": "workflow learning-link-v1.json",
+      "strategy": "retain workflow candidate links and introduce a distinct append-only decision and closure-attribution receipt contract",
+      "target": ".tailtrail/runs/<run-id>/learning/use-receipts.jsonl"
+    },
+    {
+      "id": "conflict-ledger-introduction",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": ".tailtrail/learning-governance-review.md and freshness actions",
+      "strategy": "introduce append-only challenge, conflict, revalidation, and negative-learning facts; preserve reports and actions as evidence",
+      "target": ".tailtrail/learning-conflicts.jsonl"
+    },
+    {
+      "id": "class-calibration-introduction",
+      "minimum_release_window": 2,
+      "phase": "current",
+      "preserve_existing": true,
+      "source": "validated later PM-L3 use receipt attributions",
+      "strategy": "derive a bounded project-framed class adjustment without changing V3 history or raw receipt evidence",
+      "target": ".tailtrail/learning-calibration.json"
+    }
+  ],
+  "program_phase": "PM-L0",
+  "schema_version": "1",
+  "systems": [
+    {
+      "commands": [
+        "tailtrail learn v3 validate|state|migrate|amend|revalidate|supersede|revoke",
+        "tailtrail learn capture|score|search|promote|summarize|prune|rebuild-index",
+        "tailtrail learn init|add|show"
+      ],
+      "id": "learning-agent",
+      "owner": "Learning Agent",
+      "scripts": [
+        "scripts/learning-v3.py",
+        "scripts/learning-agent.py",
+        "scripts/learnings.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail learn retrieve",
+        "tailtrail navigator",
+        "tailtrail start",
+        "tailtrail next"
+      ],
+      "id": "learning-retrieval",
+      "owner": "Navigator",
+      "scripts": [
+        "scripts/learning-retrieval.py",
+        "scripts/navigator.py",
+        "scripts/navigator_render.py",
+        "scripts/task-start.py",
+        "scripts/task-next.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail learn receipt record|attribute|show|validate",
+        "tailtrail completion-report"
+      ],
+      "id": "learning-receipts",
+      "owner": "Durable Workflow Runtime",
+      "scripts": [
+        "scripts/learning-use-receipt.py",
+        "scripts/completion-report.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail closure learn"
+      ],
+      "id": "closure-learning",
+      "owner": "Closure Finalizer",
+      "scripts": [
+        "scripts/closure-learning.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail debug"
+      ],
+      "id": "debug-candidates",
+      "owner": "Debug Harness",
+      "scripts": [
+        "scripts/debug-intake.py",
+        "scripts/debug-reproduction.py",
+        "scripts/debug-orientation.py",
+        "scripts/debug-hypothesis.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-governance.py",
+        "scripts/debug-evaluation.py",
+        "scripts/debug-completion.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail learn graph"
+      ],
+      "id": "graph-learning",
+      "owner": "Code Graph Mapper",
+      "scripts": [
+        "scripts/graph-learning.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail learn refresh",
+        "tailtrail learn review",
+        "tailtrail learn govern",
+        "tailtrail learn governance"
+      ],
+      "id": "learning-refresh",
+      "owner": "Learning Refresh",
+      "scripts": [
+        "scripts/learning-refresh.py",
+        "scripts/learning-review.py",
+        "scripts/learning-governance.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail learn calibration evaluate|validate|apply|meta-feed",
+        "tailtrail eval learning evaluate|validate|apply|meta-feed"
+      ],
+      "id": "learning-calibration",
+      "owner": "Evaluation Harness",
+      "scripts": [
+        "scripts/learning-calibration.py",
+        "scripts/learning-retrieval.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail quality-loop"
+      ],
+      "id": "quality-loop",
+      "owner": "Quality Loop",
+      "scripts": [
+        "scripts/quality-loop.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail eval"
+      ],
+      "id": "evaluation-harness",
+      "owner": "Evaluation Harness",
+      "scripts": [
+        "scripts/evaluation-harness.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail eval meta"
+      ],
+      "id": "meta-harness",
+      "owner": "Meta-Harness",
+      "scripts": [
+        "scripts/meta-harness-analyze.py",
+        "scripts/meta-harness-propose.py"
+      ]
+    },
+    {
+      "commands": [
+        "tailtrail eval outcome"
+      ],
+      "id": "outcome-telemetry",
+      "owner": "Outcome Telemetry",
+      "scripts": [
+        "scripts/outcome-telemetry.py"
+      ]
+    },
+    {
+      "commands": [
+        "workflow outcome transitions"
+      ],
+      "id": "workflow-learning-links",
+      "owner": "Durable Workflow Runtime",
+      "scripts": [
+        "scripts/workflow_runtime/outcomes.py"
+      ]
+    }
+  ],
+  "type": "tailtrail-product-maturity-learning-inventory"
+}

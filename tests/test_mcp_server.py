@@ -86,6 +86,13 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual("no-performance-claim", report["claim_status"])
         self.assertEqual(18, report["task_count"])
 
+    def test_adoption_validation_report_is_read_only_and_honest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            report = mcp.call_tool("adoption_validation_report", {"root": temp})
+        self.assertEqual("protocol-ready", report["status"])
+        self.assertEqual("no-adoption-claim", report["claim_status"])
+        self.assertFalse(Path(temp, ".tailtrail").exists())
+
     def test_enterprise_conformance_report_is_static_and_read_only(self):
         report = mcp.call_tool("enterprise_conformance_report", {"root": str(ROOT)})
         self.assertEqual("passed", report["status"])

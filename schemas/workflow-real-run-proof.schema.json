@@ -6,7 +6,7 @@
   "properties": {
     "schema_version": {"const": "1"}, "type": {"const": "tailtrail-workflow-real-run-proof"}, "proof_id": {"type": "string", "pattern": "^wfrp-[a-z0-9-]+$"},
     "workflow_id": {"type": "string", "pattern": "^ttw-"}, "tailtrail_run_id": {"type": "string", "minLength": 1},
-    "template_id": {"enum": ["small-change", "delivery", "risk-sensitive", "review-only", "ci-scanner-remediation", "repository-discovery"]},
+    "template_id": {"enum": ["small-change", "delivery", "risk-sensitive", "review-only", "ci-scanner-remediation", "repository-discovery", "debug-investigation"]},
     "target_identity_fingerprint": {"type": "string", "pattern": "^sha256:"}, "compiler_plan_fingerprint": {"type": "string", "pattern": "^sha256:"},
     "completion_receipt_ref": {"type": "string"}, "completion_receipt_hash": {"type": "string", "pattern": "^sha256:"}, "host_receipt_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}, "host_receipt_hashes": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^sha256:"}},
     "requirements": {"type": "object", "required": ["complete", "preserved", "unresolved_drift"], "properties": {"complete": {"const": true}, "preserved": {"const": true}, "unresolved_drift": {"type": "integer", "minimum": 0}}, "additionalProperties": false},

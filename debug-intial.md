@@ -71,22 +71,24 @@ Navigator and Code Graph Mapper would identify:
 The user receives a small “how this path works” explanation instead of being forced to understand the whole repository.
 3. Reproduction contract
 Before changing code, TailTrail should define what proves the bug exists:
-Item	Example
-Trigger	Payment gateway times out after accepting charge
-Expected	One charge and one order
-Actual	Retry creates a second charge
-Reproduction	Integration test with timeout-after-acceptance adapter
-Preserve	Successful order creation remains unchanged
-Safety	Do not call a real payment provider
+| Item | Example |
+| --- | --- |
+| Trigger | Payment gateway times out after accepting charge |
+| Expected | One charge and one order |
+| Actual | Retry creates a second charge |
+| Reproduction | Integration test with timeout-after-acceptance adapter |
+| Preserve | Successful order creation remains unchanged |
+| Safety | Do not call a real payment provider |
 
 
 A reproducible failure becomes the debugging anchor.
 4. Hypothesis ledger
 The agent should not jump from an error directly to a fix. It records ranked hypotheses:
-Hypothesis	Supporting evidence	Contradicting evidence	Next experiment
-Retry lacks idempotency key	Duplicate charge occurs after timeout	Not yet confirmed at adapter boundary	Trace both payment calls
-Repository saves too late	Order state absent during retry	Successful path saves normally	Inspect timeout ordering
-API retries twice	Two service calls may be present	No request receipt yet	Add request correlation evidence
+| Hypothesis | Supporting evidence | Contradicting evidence | Next experiment |
+| --- | --- | --- | --- |
+| Retry lacks idempotency key | Duplicate charge occurs after timeout | Not yet confirmed at adapter boundary | Trace both payment calls |
+| Repository saves too late | Order state absent during retry | Successful path saves normally | Inspect timeout ordering |
+| API retries twice | Two service calls may be present | No request receipt yet | Add request correlation evidence |
 
 
 Each experiment should be bounded, deterministic where possible, and designed to eliminate hypotheses.
@@ -105,20 +107,21 @@ The loop should be computational-first:
 This avoids the common agent pattern of repeatedly editing code and rerunning tests without learning anything.
 Existing TailTrail capabilities it can reuse
 A large part of the foundation already exists:
-Existing capability	Debugging role
-Navigator	Selects the investigation path
-Code Graph Mapper	Maps failing callers, symbols and tests
-Failure Intake	Captures and classifies reported failures
-Context Continuity	Remembers failed attempts and prevents repeated mistakes
-Requirement Completion	Converts expected behavior into the correction contract
-Architecture Fitness	Detects wrong-layer fixes and missed callers
-Behaviour Harness	Proves the real user journey is repaired
-Evidence-Aware Testing	Selects reproduction and regression tiers
-Drift Control	Detects investigation or fix scope expansion
-Safe Git Recovery	Recovers failed correction attempts
-Token Harness	Keeps logs and traces manageable without losing exact evidence
-Learning	Records sanitized recurring failure patterns after trusted closure
-Durable Workflow	Supports pause, resume, correction and long investigations
+| Existing capability | Debugging role |
+| --- | --- |
+| Navigator | Selects the investigation path |
+| Code Graph Mapper | Maps failing callers, symbols and tests |
+| Failure Intake | Captures and classifies reported failures |
+| Context Continuity | Remembers failed attempts and prevents repeated mistakes |
+| Requirement Completion | Converts expected behavior into the correction contract |
+| Architecture Fitness | Detects wrong-layer fixes and missed callers |
+| Behaviour Harness | Proves the real user journey is repaired |
+| Evidence-Aware Testing | Selects reproduction and regression tiers |
+| Drift Control | Detects investigation or fix scope expansion |
+| Safe Git Recovery | Recovers failed correction attempts |
+| Token Harness | Keeps logs and traces manageable without losing exact evidence |
+| Learning | Records sanitized recurring failure patterns after trusted closure |
+| Durable Workflow | Supports pause, resume, correction and long investigations |
 
 
 So this is not a disconnected feature. It is a new workflow that composes TailTrail’s existing machinery around root-cause discovery.

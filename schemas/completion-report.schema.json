@@ -3,7 +3,7 @@
   "$id": "https://tailtrail.local/schemas/completion-report.schema.json",
   "title": "TailTrail Completion Report",
   "type": "object",
-  "required": ["schema_version", "type", "run_id", "requirement_status", "harnesses", "changed_scope", "architecture", "behaviour", "tests", "drift", "recovery_checkpoint", "token_usage", "debug", "drift_learning", "completion_learning", "positive_learning", "tailtrail_status", "overall_status", "source_artifacts", "boundary"],
+  "required": ["schema_version", "type", "run_id", "requirement_status", "harnesses", "changed_scope", "architecture", "behaviour", "tests", "drift", "recovery_checkpoint", "token_usage", "debug", "learning_use", "drift_learning", "completion_learning", "positive_learning", "tailtrail_status", "overall_status", "source_artifacts", "boundary"],
   "properties": {
     "schema_version": {"const": "1"},
     "type": {"const": "tailtrail-completion-report"},
@@ -18,6 +18,41 @@
     "recovery_checkpoint": {"type": "object"},
     "token_usage": {"type": "object"},
     "debug": {"type": "object", "required": ["debug_status", "authority"]},
+    "learning_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "decisions", "attributed", "associations", "artifact", "boundary"],
+      "properties": {
+        "status": {"enum": ["no-receipts", "preview", "attributed"]},
+        "decisions": {"type": "integer", "minimum": 0},
+        "attributed": {"type": "integer", "minimum": 0},
+        "associations": {
+          "type": "object",
+          "propertyNames": {"enum": ["potentially-helped", "neutral", "insufficient", "possible-harm", "rejected-by-evidence", "stale", "inconclusive"]},
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["receipt_id", "event_id", "learning_id", "requirement_uids", "decision_type", "decision", "association", "utility_delta", "reused"],
+            "properties": {
+              "receipt_id": {"type": "string", "pattern": "^luse-"},
+              "event_id": {"type": ["string", "null"]},
+              "learning_id": {"type": "string", "pattern": "^lrn-"},
+              "requirement_uids": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+              "decision_type": {"enum": ["implementation", "validation", "architecture", "behavior", "maintainability", "dependency", "security", "release", "data-migration", "debugging", "review", "other"]},
+              "decision": {"enum": ["applied", "advisory", "ignored", "rejected", "stale"]},
+              "association": {"enum": ["potentially-helped", "neutral", "insufficient", "possible-harm", "rejected-by-evidence", "stale", "inconclusive"]},
+              "utility_delta": {"type": "integer", "minimum": -10, "maximum": 10},
+              "reused": {"type": "boolean"}
+            }
+          }
+        },
+        "artifact": {"type": ["string", "null"]},
+        "boundary": {"type": "string", "minLength": 1}
+      }
+    },
     "drift_learning": {"type": "object"},
     "completion_learning": {"type": "object"},
     "positive_learning": {"type": "object"},

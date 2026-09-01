@@ -160,32 +160,49 @@ def markdown(report: dict[str, Any], view: str = "full") -> str:
                 f"- Optional normalization command: `{evaluation['normalize_command']}`",
             ]
         )
-    if report.get("graph_learning"):
-        graph_learning = report["graph_learning"]
-        graph_status = graph_learning.get("graph_status", {})
-        matches = graph_learning.get("matches", [])
-        lines.extend(["", "## Graph-Aware Learnings", ""])
+    proposal = report.get("learning_use_proposal")
+    if isinstance(proposal, dict) and proposal.get("state") == "proposed":
+        lines.extend(["", "## Learning Use Proposal", ""])
         lines.extend(
             [
-                f"- Graph status: `{graph_status.get('status', 'unknown')}`",
-                "- Rule: use these as prior repo patterns only after reading current exact source.",
+                f"- State: `{proposal['state']}`",
+                f"- Applicability threshold: `{proposal['threshold']}`",
+                f"- Hard result cap: `{proposal['result_cap']}`",
+                "- Boundary: candidate advice is a proposal, not a requirement, plan step, or implementation instruction.",
             ]
         )
-        if matches:
-            for item in matches[:3]:
-                event = item.get("event", {})
-                confidence = event.get("learning_confidence", {}) if isinstance(event, dict) else {}
-                reasons = item.get("match_reasons", [])
-                lines.extend(
-                    [
-                        f"- `{event.get('id', 'unknown')}` score `{confidence.get('score', 0)}/100`, match `{item.get('match_score', 0)}`: {event.get('learning_candidate', 'not recorded')}",
-                    ]
-                )
-                for reason in reasons[:4]:
-                    lines.append(f"  - Match reason: {reason}")
-        else:
-            lines.append("- No matching reusable learnings found.")
-    elif report.get("graph_learning_skip_reason"):
+        for item in proposal.get("matches", [])[:3]:
+            lines.extend(
+                [
+                    f"- `{item['learning_id']}` applicability `{item['applicability_score']}/100`, confidence `{item['confidence_score']}/100`: {item['summary']}",
+                    f"  - Observed closure utility: `{item.get('observed_utility_delta', 0):+d}` across `{item.get('attribution_count', 0)}` attribution(s); association only, not causality.",
+                    f"  - Proposed advice (not instruction): {item['proposed_advice']}",
+                ]
+            )
+            for reason in item.get("match_explanations", []):
+                lines.append(f"  - Match explanation: {reason}")
+        lines.extend(
+            [
+                f"- Default: `{proposal['approval']['default']}`",
+                "- Choices: " + ", ".join(proposal["approval"]["choices"]),
+                f"- Rule: {proposal['boundary']}",
+            ]
+        )
+        conflicts = [
+            item for item in proposal.get("blocked", [])
+            if any("contradiction" in reason for reason in item.get("reasons", []))
+        ]
+        if conflicts:
+            lines.extend(["", "## Learning Conflict Gate", "", "- Conflicting advice was withheld from the use proposal."])
+            for item in conflicts:
+                lines.append(f"- `{item['learning_id']}` blocked: {'; '.join(item.get('reasons', []))}")
+    elif isinstance(proposal, dict) and proposal.get("state") == "blocked":
+        lines.extend(["", "## Learning Conflict Gate", ""])
+        lines.append("- No learning advice was surfaced or injected.")
+        for item in proposal.get("blocked", []):
+            lines.append(f"- `{item['learning_id']}` blocked: {'; '.join(item.get('reasons', []))}")
+        lines.append(f"- Rule: {proposal['boundary']}")
+    elif report.get("graph_learning_skip_reason") and not isinstance(proposal, dict):
         lines.extend(["", "## Graph-Aware Learnings", ""])
         lines.append(f"- Skipped: {report['graph_learning_skip_reason']}")
     if report.get("learning_approval"):

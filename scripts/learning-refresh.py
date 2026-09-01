@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 TAILTRAIL_DIR = Path(".tailtrail")
+ROOT = Path(__file__).resolve().parents[1]
 EVENTS = TAILTRAIL_DIR / "learning-events.jsonl"
 GRAPH_LEARNING_INDEX = TAILTRAIL_DIR / "graph-learning-index.json"
 REFRESH_ACTIONS = TAILTRAIL_DIR / "learning-refresh-actions.json"
@@ -69,21 +72,37 @@ def file_sha256(path: Path) -> str | None:
 
 
 def read_events(root: Path) -> list[dict[str, Any]]:
-    path = root / EVENTS
-    if not path.exists():
+    spec = importlib.util.spec_from_file_location("tailtrail_refresh_learning_v3", ROOT / "scripts" / "learning-v3.py")
+    if spec is None or spec.loader is None:
+        raise SystemExit("Unable to load Learning V3 compatibility reader")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    try:
+        return module.compatible_events(root)
+    except module.LearningV3Error as error:
+        raise SystemExit(str(error)) from error
+
+
+def deterministic_stale_reasons(root: Path, event: dict[str, Any]) -> list[str]:
+    spec = importlib.util.spec_from_file_location("tailtrail_refresh_v3_state", ROOT / "scripts" / "learning-v3.py")
+    if spec is None or spec.loader is None:
+        return ["Learning V3 invalidator state is unavailable"]
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    try:
+        latest = module.latest_records(module.read_records(root))
+    except module.LearningV3Error as error:
+        return [f"Learning V3 invalidator state is invalid: {error}"]
+    record = latest.get(str(event.get("learning_v3_id") or event.get("id")))
+    if not record or record["freshness"]["status"] != "current":
         return []
-    events: list[dict[str, Any]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            value = json.loads(line)
-        except json.JSONDecodeError as error:
-            raise SystemExit(f"Invalid learning event JSON on line {line_number}: {error}") from error
-        if isinstance(value, dict):
-            events.append(value)
-    return events
+    saved = record["freshness"].get("invalidator_snapshot")
+    if not isinstance(saved, dict):
+        return []
+    current = module.invalidator_snapshot(root, path_patterns=record["applicability"]["path_patterns"], source_ref=record["provenance"]["source_ref"])
+    return [f"{name} content fingerprint changed" for name in record["freshness"]["invalidators"] if saved.get(name) != current.get(name)]
 
 
 def load_graph_links(root: Path) -> list[dict[str, Any]]:
@@ -218,6 +237,11 @@ def recommend_event(
     if graph_reasons:
         action = "mark-stale"
         reasons.extend(graph_reasons)
+
+    deterministic_reasons = deterministic_stale_reasons(root, event)
+    if deterministic_reasons:
+        action = "mark-stale"
+        reasons.extend(deterministic_reasons)
 
     policy_reasons = policy_changed_after(root, timestamp)
     if policy_reasons and action not in BLOCKING_ACTIONS:

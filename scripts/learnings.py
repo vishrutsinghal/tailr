@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.util
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -10,6 +13,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "templates" / "learnings.md"
 DEFAULT_PATH = Path(".tailtrail") / "learnings.md"
+
+
+def load_v3():
+    spec = importlib.util.spec_from_file_location("tailtrail_legacy_learning_v3", ROOT / "scripts" / "learning-v3.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load Learning V3")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+V3 = load_v3()
 
 
 def target_path(root: Path, path: Path) -> Path:
@@ -29,7 +45,26 @@ def init_learnings(root: Path, path: Path, force: bool) -> Path:
 
 def add_learning(root: Path, path: Path, section: str, text: str) -> Path:
     destination = init_learnings(root, path, force=False)
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    timestamp_value = datetime.now(timezone.utc)
+    timestamp = timestamp_value.strftime("%Y-%m-%d")
+    normalized = V3.clean_text(text)
+    learning_id = "lrn-" + hashlib.sha256(f"{timestamp_value.isoformat()}:{section}:{normalized}".encode("utf-8")).hexdigest()[:16]
+    record = V3.build_record(
+        root,
+        learning_id=learning_id,
+        learning_class="project-convention",
+        summary=f"Explicit curated learning in section {V3.clean_text(section, limit=80)}",
+        advice=normalized,
+        source_kind="legacy-curated-command",
+        source_ref=path.as_posix(),
+        source_fingerprint="sha256:" + hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
+        captured_by="Learning Governance compatibility writer",
+        tags=[V3.clean_text(section, limit=80)],
+        confidence_score=80,
+        reason="explicit curated learning add",
+        curated=True,
+    )
+    V3.append_record(root, record)
     entry = f"\n## Learning: {section}\n\n- Date: {timestamp}\n- Note: {text}\n"
     with destination.open("a", encoding="utf-8") as handle:
         handle.write(entry)

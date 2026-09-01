@@ -62,11 +62,13 @@ class ClosureLearningTests(unittest.TestCase):
             first = learning.capture(root, "run", "trusted-ci")
             second = learning.capture(root, "run", "trusted-ci")
             activity = ledger.projection(root, "run")["activity"]
+            v3_exists = (root / ".tailtrail" / "learning-v3" / "events.jsonl").is_file()
         self.assertFalse(first["reused"])
         self.assertTrue(second["reused"])
         self.assertEqual(first["promotion"], "candidate-only; explicit learning review required")
         self.assertNotIn("service.py", json.dumps(first))
         self.assertEqual(activity["closure_positive_learning_captured"], 1)
+        self.assertTrue(v3_exists)
 
     def test_incomplete_run_cannot_become_positive_learning(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

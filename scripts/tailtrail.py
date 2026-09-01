@@ -82,7 +82,7 @@ COMMANDS = {
     "enforce": "Run versioned repository and CI policy enforcement with JSON/SARIF output.",
     "governance": "Check or sync repeated governance text.",
     "registry": "Inspect and validate the TailTrail feature registry.",
-    "maturity": "Capture or validate the frozen PM-0 product-maturity baseline.",
+    "maturity": "Inspect or validate product-maturity baselines, ownership, and controls.",
     "presentation": "Validate or render canonical reports and run PM-3 host presentation conformance.",
     "flow": "Use the PM-2 start, discuss, approve, continue, status, and close façade.",
     "discuss": "Discuss one awaiting TailTrail plan from saved evidence.",
@@ -102,7 +102,7 @@ COMMANDS = {
     "update": "Run update-tailtrail.py.",
     "team-init": "Run team-init.py.",
     "adapters": "Check or sync assistant adapter files and required adapter behavior.",
-    "learn": "Run simple learnings or Learning Agent V2.",
+    "learn": "Use Learning V3 capture, retrieval, use receipts, closure attribution, governance, migration, and compatibility commands.",
     "learnings": "Alias for learn.",
     "admin": "Run admin-only release packaging commands.",
 }
@@ -688,6 +688,7 @@ def doctor(args: list[str] | None = None) -> int:
             "scripts/efficacy-run.py",
             "scripts/evaluation-audit.py",
             "scripts/evaluation-harness.py",
+            "scripts/adoption-validation.py",
             "scripts/review-graph.py",
             "scripts/ci-summary.py",
             "scripts/sonar-summary.py",
@@ -711,6 +712,11 @@ def doctor(args: list[str] | None = None) -> int:
             "scripts/guardrail-check.py",
             "scripts/guardrail-precision.py",
             "scripts/learning-agent.py",
+            "scripts/learning-v3.py",
+            "scripts/learning-retrieval.py",
+            "scripts/learning-use-receipt.py",
+            "scripts/learning-governance.py",
+            "scripts/learning-calibration.py",
             "scripts/learning-review.py",
             "scripts/learning-refresh.py",
             "scripts/learnings.py",
@@ -934,6 +940,16 @@ def engine(args: list[str]) -> int:
 
 
 def learn(args: list[str]) -> int:
+    if args and args[0] == "v3":
+        return run_script("learning-v3.py", args[1:])
+    if args and args[0] == "retrieve":
+        return run_script("learning-retrieval.py", args[1:])
+    if args and args[0] == "receipt":
+        return run_script("learning-use-receipt.py", args[1:])
+    if args and args[0] == "governance":
+        return run_script("learning-governance.py", args[1:])
+    if args and args[0] in {"calibrate", "calibration"}:
+        return run_script("learning-calibration.py", args[1:])
     if args and args[0] == "graph":
         return run_script("graph-learning.py", args[1:])
     if args and args[0] == "refresh":
@@ -1183,6 +1199,8 @@ def token(args: list[str]) -> int:
 
 
 def evaluation(args: list[str]) -> int:
+    if args and args[0] in {"learning", "learning-calibration"}:
+        return run_script("learning-calibration.py", args[1:])
     return run_script("evaluation-harness.py", args)
 
 

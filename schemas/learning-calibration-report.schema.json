@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/learning-calibration-report.schema.json",
+  "title": "TailTrail Learning Calibration Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "catalog", "project_frame", "overall", "classes", "project_calibration", "claims", "privacy", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-learning-calibration-report"},
+    "catalog": {"type": "object", "additionalProperties": false, "required": ["version", "digest", "evidence_label"], "properties": {"version": {"type": "string"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "evidence_label": {"enum": ["fixture-observed", "measured"]}}},
+    "project_frame": {"type": ["string", "null"]},
+    "overall": {"$ref": "#/$defs/metrics"},
+    "classes": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"$ref": "#/$defs/classMetrics"}},
+    "project_calibration": {"type": "array", "items": {"$ref": "#/$defs/projectMetrics"}},
+    "claims": {"type": "object", "additionalProperties": false, "required": ["posture", "publishable", "boundaries"], "properties": {"posture": {"enum": ["fixture-only-no-public-performance-claim", "scenario-scoped-measured"]}, "publishable": {"type": "array", "items": {"type": "string"}}, "boundaries": {"type": "array", "minItems": 1, "items": {"type": "string"}}}},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "integrity": {"$ref": "#/$defs/integrity"}
+  },
+  "$defs": {
+    "metrics": {"type": "object", "additionalProperties": false, "required": ["sample_count", "intervention_count", "useful_interventions", "false_interventions", "precision", "false_intervention_rate", "mean_confidence", "observed_usefulness_rate", "calibration_gap", "brier_score", "correction_cycle_delta", "review_time_delta_ms", "token_overhead"], "properties": {"sample_count": {"type": "integer"}, "intervention_count": {"type": "integer"}, "useful_interventions": {"type": "integer"}, "false_interventions": {"type": "integer"}, "precision": {"type": "number"}, "false_intervention_rate": {"type": "number"}, "mean_confidence": {"type": "number"}, "observed_usefulness_rate": {"type": "number"}, "calibration_gap": {"type": "number"}, "brier_score": {"type": "number"}, "correction_cycle_delta": {"type": "number"}, "review_time_delta_ms": {"type": "number"}, "token_overhead": {"type": "number"}}},
+    "classMetrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["learning_class", "sample_count", "intervention_count", "useful_interventions", "false_interventions", "precision", "false_intervention_rate", "mean_confidence", "observed_usefulness_rate", "calibration_gap", "brier_score", "correction_cycle_delta", "review_time_delta_ms", "token_overhead"],
+      "properties": {
+        "learning_class": {"type": "string"}, "sample_count": {"type": "integer"}, "intervention_count": {"type": "integer"}, "useful_interventions": {"type": "integer"}, "false_interventions": {"type": "integer"}, "precision": {"type": "number"}, "false_intervention_rate": {"type": "number"}, "mean_confidence": {"type": "number"}, "observed_usefulness_rate": {"type": "number"}, "calibration_gap": {"type": "number"}, "brier_score": {"type": "number"}, "correction_cycle_delta": {"type": "number"}, "review_time_delta_ms": {"type": "number"}, "token_overhead": {"type": "number"}
+      }
+    },
+    "projectMetrics": {"type": "object", "additionalProperties": false, "required": ["learning_class", "sample_count", "positive_count", "negative_count", "mean_confidence", "observed_usefulness_rate", "calibration_gap", "suggested_adjustment", "eligible"], "properties": {"learning_class": {"type": "string"}, "sample_count": {"type": "integer"}, "positive_count": {"type": "integer"}, "negative_count": {"type": "integer"}, "mean_confidence": {"type": "number"}, "observed_usefulness_rate": {"type": "number"}, "calibration_gap": {"type": "number"}, "suggested_adjustment": {"type": "integer", "minimum": -10, "maximum": 10}, "eligible": {"type": "boolean"}}},
+    "privacy": {"type": "object", "additionalProperties": false, "required": ["sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"], "properties": {"sanitized": {"const": true}, "raw_prompt": {"const": false}, "raw_source": {"const": false}, "raw_log": {"const": false}, "identity_fields": {"const": false}}},
+    "integrity": {"type": "object", "additionalProperties": false, "required": ["algorithm", "canonicalization", "digest"], "properties": {"algorithm": {"const": "sha256"}, "canonicalization": {"const": "sorted compact JSON excluding integrity"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}
+  }
+}
