@@ -44,12 +44,12 @@ def _workflow(root: Path, run_id: str) -> str | None:
 
 
 def _next(value: dict[str, Any]) -> str:
-    if value.get("state") == "awaiting-approval": return "Review the saved plan, then run `tailtrail approve --run-id <run-id>`."
-    if value.get("state") == "stage-awaiting-approval": return "Run `tailtrail approve --run-id <run-id>` for the exact displayed stage."
-    if value.get("state") == "stage-running": return "Execute the typed host handoff, save its result JSON, then run `tailtrail continue --run-id <run-id> --result-ref <path>`."
+    if value.get("state") == "awaiting-approval": return "Review the saved plan, then run `tailtrail approve`."
+    if value.get("state") == "stage-awaiting-approval": return "Run `tailtrail approve` for the exact displayed stage."
+    if value.get("state") == "stage-running": return "Execute the typed host handoff, save its result JSON, then run `tailtrail continue --result-ref <path>`."
     if value.get("state") in {"failed", "blocked", "stale"}: return "Use the displayed correction or recovery route; the façade will not guess past failed evidence."
-    if value.get("state") == "completed": return "Run `tailtrail close --run-id <run-id>` to finalize evidence and show acceptance choices."
-    return "Run `tailtrail continue --run-id <run-id>` to advance the next dependency-ready control step."
+    if value.get("state") == "completed": return "Run `tailtrail close` to finalize evidence and show acceptance choices."
+    return "Run `tailtrail continue` to advance the next dependency-ready control step."
 
 
 def start(args: list[str]) -> int:
@@ -155,8 +155,8 @@ def close(root: Path, run_id: str | None, decision: str | None, input_path: Path
             "boundary":"Closure uses the canonical finalizer and saved evidence. It does not infer missing proof or promote learning without acceptance."}
 
 
-def render(value: dict[str, Any]) -> str:
-    return PRESENTATION.render_markdown(PRESENTATION.from_orchestration(value))
+def render(value: dict[str, Any], *, mode: str = "guided", verbose: bool = False) -> str:
+    return PRESENTATION.render_markdown(PRESENTATION.from_orchestration(value, mode=mode, verbose=verbose))
 
 
 def main() -> int:
@@ -164,6 +164,8 @@ def main() -> int:
     start_p = sub.add_parser("start"); start_p.add_argument("args", nargs=argparse.REMAINDER)
     for verb in ("discuss", "approve", "continue", "status", "close"):
         item = sub.add_parser(verb); item.add_argument("--root", type=Path, default=Path.cwd()); item.add_argument("--run-id"); item.add_argument("--format", choices=("markdown","json"), default="markdown")
+        item.add_argument("--presentation", "--presentation-mode", choices=("quick", "guided", "expert"), default="guided")
+        item.add_argument("--verbose", action="store_true", help="Render the complete canonical projection without changing workflow authority.")
         if verb == "discuss": item.add_argument("--question", required=True)
         if verb == "continue": item.add_argument("--result-ref")
         if verb == "close":
@@ -172,7 +174,7 @@ def main() -> int:
     if args.verb == "start": return start(args.args)
     try:
         value = discuss(args.root,args.run_id,args.question) if args.verb == "discuss" else approve(args.root,args.run_id) if args.verb == "approve" else continue_run(args.root,args.run_id,args.result_ref) if args.verb == "continue" else status(args.root,args.run_id) if args.verb == "status" else close(args.root,args.run_id,args.decision,args.input,args.scenarios,args.ci_receipt)
-        print(json.dumps(value,indent=2,sort_keys=True) if args.format == "json" else render(value)); return 0
+        print(json.dumps(value,indent=2,sort_keys=True) if args.format == "json" else render(value, mode=args.presentation, verbose=args.verbose)); return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         print(f"TailTrail {args.verb} error: {error}", file=sys.stderr); return 2
 

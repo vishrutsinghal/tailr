@@ -15,7 +15,7 @@ The resolver is `scripts/expand-intent.py`. It converts phrases such as `use AID
 
 | Flow | Common User Phrases | Purpose |
 |---|---|---|
-| `hello` | `hello tailtrail`, `hello TailTrail`, `hello taitrail`, `tailtrail hello`, `hi tailtrail`, `ping tailtrail` | Run the TailTrail install smoke check and show the banner/status output. |
+| `hello` | `hello tailtrail`, `hello TailTrail`, `hello taitrail`, `tailtrail hello`, `hi tailtrail`, `ping tailtrail` | Run the TailTrail install smoke check and return its banner/status output exactly, preserving the command-emitted `text` fence in chat. |
 | `implementation` | `use tailtrail`, `implement`, `small change`, `fix this` | Normal TailTrail coding discipline. |
 | `delivery` | `use delivery flow`, `feature flow`, `end-to-end flow` | Plan, implement, validate, review, and hand off meaningful feature work. |
 | `risk` | `use risk flow`, `risk review`, `production risk` | Review dependency, security, validation, data integrity, rollout, and ownership risk. |

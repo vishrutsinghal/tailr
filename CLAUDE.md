@@ -94,7 +94,7 @@ If local scripts are available, use `python3 scripts/token-auto.py "<prompt>"` o
 
 When the user says `hello tailtrail`, `tailtrail hello`, `use TailTrail`, `use review`, `use dependency gate`, `use AIDLC`, `use AIDLC and review`, `review then AIDLC`, `use handoff`, or `save tokens`, expand the intent before acting.
 
-For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`, run `tailtrail hello` when the launcher is installed, otherwise run `python3 scripts/tailtrail.py hello`. Return the ASCII TailTrail banner and installation result **verbatim as the complete response**; do not preface it with narration, summarize it, add a todo/status update, omit the banner, or suggest `doctor` after it. If the command fails, return its actual error output verbatim instead.
+For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`, run `tailtrail hello` when the launcher is installed, otherwise run `python3 scripts/tailtrail.py hello`. Return the ASCII TailTrail banner and installation result **verbatim as the complete response**. Preserve the command-emitted `text` fence so chat Markdown cannot distort the fixed-width banner; never strip the fence or reconstruct the banner. Do not preface it with narration, summarize it, add a todo/status update, omit the banner, or suggest `doctor` after it. If the command fails, return its actual error output verbatim instead.
 
 If local scripts are available, run `python3 scripts/expand-intent.py "<user phrase>"` and follow the expanded prompt, load list, avoid list, and run order. If the script is not available, use `context/intent-aliases.md` as the manual fallback.
 

@@ -474,6 +474,19 @@ Expert + default   -> explanatory contract plus audit references
 Any layer + verbose -> full comprehensive plan projection
 ```
 
+The implemented user selection is:
+
+```text
+tailtrail start "goal" --presentation quick
+tailtrail start "goal" --presentation guided
+tailtrail start "goal" --presentation expert
+```
+
+The six-verb façade accepts the same `--presentation` choice for `discuss`,
+`approve`, `continue`, task `status`, and `close`. It resolves the run when
+exactly one eligible run exists and asks for `--run-id` only when resolution is
+ambiguous or an exact automation/audit reference is intentionally supplied.
+
 The verbose Start plan must include every applicable section:
 
 1. banner and report identity;

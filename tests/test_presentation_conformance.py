@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -70,6 +71,23 @@ class PresentationConformanceTests(unittest.TestCase):
         result = presentation.conformance()
         self.assertEqual(result["status"], "passed", result["issues"])
         self.assertEqual(result["scenario_count"], 3)
+
+    def test_packaged_conformance_fixtures_match_test_fixtures(self):
+        packaged = ROOT / "benchmarks" / "product-maturity" / "presentation-v1"
+        for test_path, report in self.fixtures():
+            self.assertEqual(json.loads((packaged / test_path.name).read_text(encoding="utf-8")), report)
+
+    def test_cli_can_select_presentation_depth_without_mutating_fixture(self):
+        fixture = ROOT / "tests" / "fixtures" / "presentation" / "plan-report.json"
+        original = json.loads(fixture.read_text(encoding="utf-8"))
+        for mode in ("quick", "guided", "expert"):
+            result = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "presentation", "render", "--input", fixture.as_posix(), "--surface", "json", "--mode", mode],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["mode"], mode)
+        self.assertEqual(json.loads(fixture.read_text(encoding="utf-8")), original)
 
     def test_orchestration_projection_preserves_user_visible_details(self):
         value = {"verb":"discuss","run_id":"start-1","state":"awaiting-approval",

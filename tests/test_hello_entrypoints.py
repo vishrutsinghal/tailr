@@ -23,6 +23,13 @@ class HelloEntrypointTests(unittest.TestCase):
             ".openai/chatgpt-instructions.md",
             ".cursor/rules/tailtrail.mdc",
             "skills/tailtrail/SKILL.md",
+            "demo-project-layout/tailtrail-demo-workspace/.github/copilot-instructions.md",
+            "demo-project-layout/tailtrail-demo-workspace/tailtrail/AGENTS.md",
+            "demo-project-layout/tailtrail-demo-workspace/tailtrail/adapters/claude.md",
+            "demo-project-layout/tailtrail-demo-workspace/tailtrail/adapters/copilot-instructions.md",
+            "demo-project-layout/tailtrail-demo-workspace/tailtrail/adapters/chatgpt-instructions.md",
+            "demo-project-layout/tailtrail-demo-workspace/tailtrail/adapters/gemini.md",
+            "demo-project-layout/tailtrail-demo-workspace/tailtrail/adapters/cursor.mdc",
         )
         for relative_path in guidance:
             with self.subTest(path=relative_path):
@@ -30,6 +37,7 @@ class HelloEntrypointTests(unittest.TestCase):
                 body = re.sub(r"\s+", " ", body)
                 self.assertIn("ascii tailtrail banner", body)
                 self.assertIn("verbatim as the complete response", body)
+                self.assertIn("preserve the command-emitted `text` fence", body)
                 self.assertIn("todo/status update", body)
                 self.assertIn("suggest `doctor` after it", body)
 

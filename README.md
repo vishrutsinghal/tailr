@@ -80,17 +80,23 @@ tailtrail start "fix the zero quantity validation defect"
 ```
 
 ```text
-tailtrail discuss --run-id <run-id> --question "Why was this scope selected?"
-tailtrail approve --run-id <run-id>
-tailtrail continue --run-id <run-id>
-tailtrail status --run-id <run-id>
-tailtrail close --run-id <run-id>
+tailtrail discuss --question "Why was this scope selected?"
+tailtrail approve
+tailtrail continue
+tailtrail flow status
+tailtrail close
 ```
 
 These six verbs use one orchestration façade. TailTrail resolves a run only
 when it is unambiguous, approves only the exact plan or next frozen stage, and
 keeps advanced workflow commands available for diagnostics. Bare `tailtrail
-status` still means installer status; task status includes `--run-id`.
+status` still means installer status; use `tailtrail flow status` for the
+auto-resolved task or `tailtrail status --run-id <run-id>` for an explicit one.
+
+Start plans support `--presentation quick`, `guided`, or `expert`. These modes
+change display depth only. Add `--verbose` to any mode for the comprehensive
+canonical projection; requirements, AIDLC mode, scope, controls, approval, and
+workflow authority remain identical.
 
 Reports use one canonical presentation contract across CLI, MCP, Codex,
 Copilot, and Claude. Narrow terminals wrap without dropping sections, verbose

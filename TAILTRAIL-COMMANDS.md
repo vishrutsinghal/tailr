@@ -6,16 +6,17 @@ The PM-2 façade is the recommended path for ordinary delivery:
 
 ```powershell
 tailtrail start "your goal"
-tailtrail discuss --run-id <run-id> --question "Why was this scope selected?"
-tailtrail approve --run-id <run-id>
-tailtrail continue --run-id <run-id>
-tailtrail status --run-id <run-id>
-tailtrail close --run-id <run-id>
+tailtrail discuss --question "Why was this scope selected?"
+tailtrail approve
+tailtrail continue
+tailtrail flow status
+tailtrail close
 ```
 
-The same commands are available under `tailtrail flow <verb>`. Omit `--run-id`
-only when exactly one eligible run exists. If multiple runs exist, TailTrail
-lists them and asks for the exact ID instead of guessing.
+The same commands are available under `tailtrail flow <verb>`. TailTrail resolves
+the run automatically when exactly one eligible run exists. Supply `--run-id`
+only for automation, audit precision, or when multiple eligible runs exist; in
+the ambiguous case TailTrail lists the candidates and fails closed.
 
 `continue` prepares one dependency-ready stage. After the host performs the
 typed handoff, record the factual result without manual adapter/executor calls:
@@ -25,7 +26,19 @@ tailtrail continue --run-id <run-id> --result-ref .tailtrail/results/result.json
 ```
 
 Bare `tailtrail status` retains its installer-lifecycle meaning for backwards
-compatibility. Use `tailtrail status --run-id <run-id>` for task status.
+compatibility. Use `tailtrail flow status` for auto-resolved task status, or
+`tailtrail status --run-id <run-id>` for an explicit task.
+
+Choose the display depth without changing the saved plan or approval authority:
+
+```bash
+tailtrail start "your goal" --presentation quick
+tailtrail start "your goal" --presentation guided
+tailtrail start "your goal" --presentation expert
+```
+
+`--verbose` overrides the ordinary depth and renders the comprehensive canonical
+plan for any presentation mode.
 
 ## Presentation and host conformance
 
@@ -38,6 +51,7 @@ tailtrail presentation validate --input report.json
 tailtrail presentation render --input report.json --surface markdown
 tailtrail presentation render --input report.json --surface narrow --width 44
 tailtrail presentation render --input report.json --surface json
+tailtrail presentation render --input report.json --surface markdown --mode quick
 ```
 
 Collapsed output deliberately returns an explicit display-required message. It
@@ -661,7 +675,7 @@ python3 scripts/tailtrail.py hello
 tailtrail hello
 ```
 
-Use this after install, update, clone, or launcher setup. It is read-only and fast. It confirms the command resolved, prints whether TailTrail is running as a source checkout or installed pack, and points to `doctor` for full validation. In an assistant chat, the ASCII banner and installation result must be returned verbatim as the entire response—no narration, todo update, or added doctor suggestion.
+Use this after install, update, clone, or launcher setup. It is read-only and fast. It confirms the command resolved, prints whether TailTrail is running as a source checkout or installed pack, and points to `doctor` for full validation. Interactive terminals receive plain ASCII. Captured output receives a `text` fence so chat Markdown cannot distort the fixed-width banner. In an assistant chat, preserve that command-emitted fence and return the ASCII banner plus installation result verbatim as the entire response—no reconstruction, narration, todo update, or added doctor suggestion.
 
 ## MCP Server
 

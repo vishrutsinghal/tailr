@@ -73,6 +73,29 @@ class RequirementDiscoveryTests(unittest.TestCase):
         self.assertIn("one approved requirement row at a time", compact)
         self.assertIn("map and implement one approved requirement at a time", verbose)
 
+    def test_quick_guided_and_expert_are_distinct_views_of_one_plan(self) -> None:
+        goal = "Add cancellation eligibility; release inventory; preserve shipped orders; add integration proof."
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = task_start.build_report(goal, root, ["src/service.py"], "tailtrail")
+            report["planning_lock"] = planning_lock.create(root, goal, "presentation-run")
+            quick = task_start.render_markdown(report, presentation_mode="quick")
+            guided = task_start.render_markdown(report, presentation_mode="guided")
+            expert = task_start.render_markdown(report, presentation_mode="expert")
+            verbose = [
+                task_start.render_markdown(report, presentation_mode=mode, verbose=True)
+                for mode in ("quick", "guided", "expert")
+            ]
+        for mode, rendered in (("quick", quick), ("guided", guided), ("expert", expert)):
+            self.assertIn(f"**Presentation:** `{mode}`", rendered)
+            for heading in ("Planning Lock", "Requirements", "Selected TailTrail features", "Approval"):
+                self.assertIn(heading, rendered)
+        self.assertLess(len(quick), len(guided))
+        self.assertLess(len(guided), len(expert))
+        normalized = [item.replace("`quick`", "`mode`").replace("`guided`", "`mode`").replace("`expert`", "`mode`") for item in verbose]
+        self.assertEqual(normalized[0], normalized[1])
+        self.assertEqual(normalized[1], normalized[2])
+
     def test_approved_anchor_uses_the_displayed_requirement_rows(self) -> None:
         goal = "Add cancellation eligibility; release inventory; preserve shipped orders."
         with tempfile.TemporaryDirectory() as temp:

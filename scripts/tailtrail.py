@@ -506,7 +506,10 @@ def hello() -> int:
     manifest = ROOT / ".tailtrail-install.json"
     mode = "installed package" if packaged_runtime_enabled() else "installed pack" if manifest.is_file() else "source checkout"
     if not quiet_enabled(sys.argv[2:]):
-        print_startup_banner()
+        # Chat hosts capture stdout and render it as Markdown. Preserve the
+        # banner's fixed-width layout there while keeping an interactive
+        # terminal free of literal Markdown fence markers.
+        print_startup_banner(markdown_fence=not sys.stdout.isatty())
     print("Hello from TailTrail.")
     print("Installation check: passed")
     print(f"Mode: {mode}")

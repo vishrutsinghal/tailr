@@ -41,7 +41,9 @@ When the user gives an explicit `tailtrail <command>` request, run the equivalen
 
 For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`,
 return the actual ASCII TailTrail banner and installation result **verbatim as
-the complete response**. Do not preface it with narration, summarize it, add a
+the complete response**. Preserve the command-emitted `text` fence so chat
+Markdown cannot distort the fixed-width banner; never strip the fence or
+reconstruct the banner. Do not preface it with narration, summarize it, add a
 todo/status update, omit the banner, or suggest `doctor` after it. If the command
 fails, return its actual error output verbatim instead.
 

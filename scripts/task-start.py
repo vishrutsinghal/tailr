@@ -1423,6 +1423,75 @@ def compact_start_report(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def quick_start_report(report: dict[str, Any]) -> str:
+    """Render the concise complete contract for a new or occasional user."""
+    plan = report["navigator"]
+    delivery = report["guided_delivery"]
+    lock = report.get("planning_lock")
+    root = Path(str(report["root"]))
+    impacted = [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)]
+    requirements = [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)]
+    aidlc_mode = report.get("aidlc_mode", {}) if isinstance(report.get("aidlc_mode"), dict) else {}
+    token = report["token_posture"]
+    lines = ["# TailTrail Start Plan", "", "## Planning Lock", ""]
+    if lock:
+        lines.extend([
+            f"- Run ID: `{lock['run_id']}`",
+            f"- State: **{lock['status']}**; managed writes allowed: **{str(lock['writes_allowed']).lower()}**.",
+            "- No source files, tests, scanners, or Git changes were run.",
+        ])
+    else:
+        lines.append("- Not persisted; this output does not grant implementation authority.")
+    lines.extend(["", "## Goal", "", f"- {display_prose(report['goal'])}", "", "## Scope", ""])
+    if impacted:
+        for item in impacted[:3]:
+            lines.append(f"- `{item.get('path')}` - {display_prose(item.get('reason'))}")
+        if len(impacted) > 3:
+            lines.append(f"- `{len(impacted) - 3}` additional candidate path(s) remain in the saved plan.")
+    else:
+        lines.append("- Scope is unresolved; bounded discovery is required after approval.")
+    lines.extend(["", "## Requirements", ""])
+    for item in requirements:
+        lines.append(f"- **{item.get('display_id', 'REQ')}:** {display_prose(item.get('statement'))}")
+    if not requirements:
+        lines.append("- Implement the approved goal and preserve existing behavior.")
+    lines.extend([
+        "", "## AIDLC mode", "",
+        f"- `{aidlc_mode.get('mode', 'lite')}` - {display_prose(aidlc_mode.get('boundary', 'The saved plan remains the authority.'))}",
+        "", "## Selected TailTrail features", "",
+        "| Feature | Why |", "| --- | --- |",
+        "| Navigator | Scoped the Planning Lock and approval boundary. |",
+    ])
+    for item in delivery.get("selected", []):
+        if isinstance(item, dict):
+            lines.append(f"| {item.get('name')} | {display_prose(item.get('why'))} |")
+    lines.extend(["", "## Plan", ""])
+    for index, stage in enumerate(delivery.get("stages", []), start=1):
+        lines.append(f"{index}. {display_prose(stage)}")
+    lines.extend(["", "## Focused validation", ""])
+    validation_rows = focused_validation_plan(root, impacted, requirements, str(report["command_prefix"]))
+    for row in validation_rows:
+        proof = f"`{row['command']}`" if row["command"] else row["status"]
+        lines.append(f"- **{row['tier']}:** {proof}")
+    lines.extend([
+        "- No validation has run during Planning Lock.",
+        "", "## Token estimate", "",
+        f"- Focused context estimate: approximately `{token['used_tokens']}` tokens; actual usage requires linked telemetry.",
+        "", "## Approval", "",
+        "- Approve this exact plan, discuss or revise it, or select Guided/Expert/verbose presentation for more detail.",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def annotate_presentation(rendered: str, mode: str, verbose: bool) -> str:
+    """Label display depth without changing canonical task authority."""
+    lines = rendered.splitlines()
+    marker = f"**Presentation:** `{mode}`" + (" with `--verbose` comprehensive projection" if verbose else "")
+    insert_at = 2 if len(lines) > 1 and not lines[1] else 1
+    lines[insert_at:insert_at] = [marker, ""]
+    return "\n".join(lines) + ("\n" if rendered.endswith("\n") else "")
+
+
 def verbose_start_report(report: dict[str, Any]) -> str:
     """Render a detailed but bounded Start report that chat hosts can reproduce."""
     plan = report["navigator"]
@@ -1549,7 +1618,7 @@ def verbose_start_report(report: dict[str, Any]) -> str:
         lines.append(f"- Program approval gate: {hands_free_program['approval_gate']}")
     if report.get("ui_consistency", {}).get("selected"):
         lines.extend(["- UI discovery before implementation: `" + str(report["ui_consistency"]["command"]) + "`", "- UI preservation boundary: " + str(report["ui_consistency"]["boundary"])])
-    lines.extend([f"- Boundary: {delivery['execution_boundary']}", "", "## Validation", ""])
+    lines.extend([f"- Boundary: {delivery['execution_boundary']}", "", "## Validation", "", "### Focused validation", ""])
     validation_rows = focused_validation_plan(root, impacted, requirement_rows, str(report["command_prefix"]))
     lines.extend(["| Tier | Candidate | Status / command |", "| --- | --- | --- |"])
     for item in validation_rows:
@@ -1566,13 +1635,16 @@ def verbose_start_report(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
+def render_markdown(report: dict[str, Any], verbose: bool = False, presentation_mode: str = "guided") -> str:
+    if presentation_mode not in {"quick", "guided", "expert"}:
+        raise ValueError(f"unsupported presentation mode: {presentation_mode}")
     if report.get("target_boundary"):
-        return render_target_boundary_report(report)
+        return annotate_presentation(render_target_boundary_report(report), presentation_mode, verbose)
     if report.get("target_fit_boundary"):
-        return render_target_fit_boundary_report(report)
+        return annotate_presentation(render_target_fit_boundary_report(report), presentation_mode, verbose)
     if report.get("debug_plan"):
-        return debug_start_report(report, verbose=verbose)
+        rendered = debug_start_report(report, verbose=verbose or presentation_mode == "expert")
+        return annotate_presentation(rendered, presentation_mode, verbose)
     plan = report["navigator"]
     lock = report.get("planning_lock")
     lock_lines = []
@@ -1590,9 +1662,9 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     if plan.get("navigator_request", {}).get("explicit"):
         # An explicit Navigator invocation already has a concise decision and
         # separate approval gate. Do not bury it in the broader Start report.
-        return "\n".join(lock_lines) + navigator.markdown(plan)
-    if verbose:
-        return verbose_start_report(report)
+        return annotate_presentation("\n".join(lock_lines) + navigator.markdown(plan), presentation_mode, verbose)
+    if verbose or presentation_mode == "expert":
+        return annotate_presentation(verbose_start_report(report), presentation_mode, verbose)
     token = report["token_posture"]
     learning = report["learning_quality"]
     setup = report["setup_posture"]
@@ -1607,8 +1679,10 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
     selected = plan.get("selected_features", [])
     skipped = plan.get("skipped_features", [])
     actions = report.get("next_actions", [])
+    if presentation_mode == "quick":
+        return annotate_presentation(quick_start_report(report), presentation_mode, verbose)
     if not verbose:
-        return compact_start_report(report)
+        return annotate_presentation(compact_start_report(report), presentation_mode, verbose)
     lines = [
         "# TailTrail Start Report",
         "",
@@ -1704,7 +1778,7 @@ def render_markdown(report: dict[str, Any], verbose: bool = False) -> str:
             lines.append(f"- ...and `{len(impacted) - 6}` more in verbose Navigator output.")
 
     commands = plan.get("suggested_commands", [])
-    lines.extend(["", "## Validation", ""])
+    lines.extend(["", "## Validation", "", "### Focused validation", ""])
     for command in commands[:5]:
         lines.append(f"- `{command}`")
     lines.extend(
@@ -1964,6 +2038,7 @@ def main() -> int:
     parser.add_argument("--no-planning-lock", action="store_true", help="Advanced compatibility escape hatch; does not create the local planning artifact.")
     parser.add_argument("--no-workflow", action="store_true", help="Compatibility escape hatch; keep this Start run outside the DWR workflow runtime.")
     parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    parser.add_argument("--presentation", "--presentation-mode", choices=("quick", "guided", "expert"), default="guided", help="Select Quick, Guided, or Expert display depth. This changes presentation only; --verbose always renders the comprehensive plan.")
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
     parser.add_argument("--verbose", action="store_true", help="Include full decision menu, posture details, and Navigator output.")
     args = parser.parse_args()
@@ -1982,7 +2057,7 @@ def main() -> int:
             if args.format == "json":
                 print(json.dumps(report, indent=2, sort_keys=True, default=str))
             else:
-                print(render_markdown(report, verbose=args.verbose), end="")
+                print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")
             return 2
         host_root = Path(str(host_resolution["root"])) if isinstance(host_resolution, dict) and host_resolution.get("status") == "verified" else None
         target = resolve_target_root(goal, args.root, host_root, args.target_alias, policy_aliases)
@@ -1991,7 +2066,7 @@ def main() -> int:
             if args.format == "json":
                 print(json.dumps(report, indent=2, sort_keys=True, default=str))
             else:
-                print(render_markdown(report, verbose=args.verbose), end="")
+                print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")
             return 2
         root = target["root"]
         applied_alias = args.target_alias if target.get("source") == "alias" else None
@@ -2001,7 +2076,7 @@ def main() -> int:
             if args.format == "json":
                 print(json.dumps(report, indent=2, sort_keys=True, default=str))
             else:
-                print(render_markdown(report, verbose=args.verbose), end="")
+                print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")
             return 2
         requested_spec_kit_feature = args.spec_kit_feature or spec_kit_bridge.feature_from_goal(goal)
         intent_requested = "intent bridge" in goal.lower() or "spec kit" in goal.lower()
@@ -2021,6 +2096,11 @@ def main() -> int:
             bool(args.error),
             bool(args.reproduction_command),
         )
+        report["presentation"] = {
+            "mode": args.presentation,
+            "verbose": bool(args.verbose),
+            "boundary": "Presentation depth only; requirements, AIDLC mode, scope, controls, evidence, approval, and workflow authority are unchanged.",
+        }
         report["target_root"] = {key: value for key, value in target.items() if key != "root"}
         fit = target_workspace.assess_plan_fit(
             goal,
@@ -2035,7 +2115,7 @@ def main() -> int:
             if args.format == "json":
                 print(json.dumps(boundary, indent=2, sort_keys=True, default=str))
             else:
-                print(render_markdown(boundary, verbose=args.verbose), end="")
+                print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
             return 2
         if isinstance(host_resolution, dict):
             report["host_workspace"] = {key: value for key, value in host_resolution.items() if key != "root"}
@@ -2084,7 +2164,7 @@ def main() -> int:
     if args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        print(render_markdown(report, verbose=args.verbose), end="")
+        print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")
     return 0
 
 

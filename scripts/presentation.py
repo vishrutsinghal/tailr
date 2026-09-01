@@ -130,7 +130,8 @@ def from_orchestration(value: dict[str, Any], *, mode: str = "guided", verbose: 
 
 
 def _fixture_reports() -> list[Path]:
-    return sorted((ROOT / "tests" / "fixtures" / "presentation").glob("*-report.json"))
+    packaged = sorted((ROOT / "benchmarks" / "product-maturity" / "presentation-v1").glob("*-report.json"))
+    return packaged or sorted((ROOT / "tests" / "fixtures" / "presentation").glob("*-report.json"))
 
 
 def conformance() -> dict[str, Any]:
@@ -160,13 +161,15 @@ def conformance() -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__); sub = parser.add_subparsers(dest="action", required=True)
     check = sub.add_parser("validate"); check.add_argument("--input", type=Path, required=True)
-    show = sub.add_parser("render"); show.add_argument("--input", type=Path, required=True); show.add_argument("--surface", choices=SURFACES, required=True); show.add_argument("--width", type=int, default=72)
+    show = sub.add_parser("render"); show.add_argument("--input", type=Path, required=True); show.add_argument("--surface", choices=SURFACES, required=True); show.add_argument("--width", type=int, default=72); show.add_argument("--mode", choices=("quick", "guided", "expert"), help="Override display depth only; canonical report semantics and authority remain unchanged.")
     sub.add_parser("conformance")
     args = parser.parse_args()
     try:
         if args.action == "conformance": output = conformance(); print(json.dumps(output, indent=2, sort_keys=True)); return 0 if output["status"] == "passed" else 2
         report = json.loads(args.input.read_text(encoding="utf-8"))
         if args.action == "validate": output = validate(report); print(json.dumps(output, indent=2, sort_keys=True)); return 0 if output["status"] == "passed" else 2
+        if args.mode:
+            report = {**report, "mode": args.mode}
         print(render(report, args.surface, width=args.width)); return 0
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"TailTrail presentation error: {error}"); return 2

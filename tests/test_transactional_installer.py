@@ -286,6 +286,17 @@ class TransactionalInstallerTests(unittest.TestCase):
             self.assertEqual(payload["profile"], "extended")
             common = launcher.parents[2] / "common" / installed.version
             self.assertTrue((common / "tailtrail" / "install" / "cli.py").is_file())
+            for name in ("plan-report.json", "debug-report.json", "closure-report.json"):
+                self.assertTrue((common / "benchmarks" / "product-maturity" / "presentation-v1" / name).is_file())
+            conformance = run(
+                launcher.as_posix(),
+                "presentation",
+                "conformance",
+                cwd=target,
+            )
+            conformance_payload = json.loads(conformance.stdout)
+            self.assertEqual(conformance_payload["status"], "passed")
+            self.assertEqual(conformance_payload["scenario_count"], 3)
             self.assertFalse((launcher.parents[1] / "tailtrail" / "install" / "cli.py").exists())
 
     def test_retention_keeps_only_five_completed_transactions_per_host(self) -> None:

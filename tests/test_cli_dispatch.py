@@ -51,10 +51,12 @@ class CliDispatchTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertNotIn("```", result.stdout)
+        self.assertTrue(result.stdout.startswith("```text\n+"))
+        self.assertIn("\n```\n\nHello from TailTrail.", result.stdout)
         output_lines = result.stdout.splitlines()
-        banner_end = next(index for index, line in enumerate(output_lines[1:], start=1) if line.startswith("+") and line.endswith("+"))
-        banner_lines = output_lines[: banner_end + 1]
+        banner_start = output_lines.index("```text") + 1
+        banner_end = next(index for index, line in enumerate(output_lines[banner_start + 1 :], start=banner_start + 1) if line.startswith("+") and line.endswith("+"))
+        banner_lines = output_lines[banner_start : banner_end + 1]
         self.assertEqual({len(line) for line in banner_lines}, {len(banner_lines[0])})
         self.assertLessEqual(len(banner_lines[0]), 46)
         self.assertTrue(all(ord(character) < 128 for line in banner_lines for character in line))
@@ -77,8 +79,9 @@ class CliDispatchTests(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
                 output_lines = result.stdout.splitlines()
-                banner_end = next(index for index, line in enumerate(output_lines[1:], start=1) if line.startswith("+") and line.endswith("+"))
-                banner_lines = output_lines[: banner_end + 1]
+                banner_start = output_lines.index("```text") + 1
+                banner_end = next(index for index, line in enumerate(output_lines[banner_start + 1 :], start=banner_start + 1) if line.startswith("+") and line.endswith("+"))
+                banner_lines = output_lines[banner_start : banner_end + 1]
                 self.assertEqual({max(46, width)}, {len(line) for line in banner_lines})
                 self.assertTrue(all(ord(character) < 128 for line in banner_lines for character in line))
                 category_lines = [line for line in banner_lines if any(f"| {label}" in line for label in ("PLAN", "MAP", "VERIFY", "DEBUG", "CONTROL", "IMPROVE"))]
@@ -322,6 +325,16 @@ class CliDispatchTests(unittest.TestCase):
         self.assertEqual(report["planning_lock"]["status"], "awaiting-approval")
         self.assertFalse(report["planning_lock"]["writes_allowed"])
         self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
+
+    def test_start_accepts_quick_guided_and_expert_presentation_modes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            for mode in ("quick", "guided", "expert"):
+                result = subprocess.run(
+                    [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "start", "fix validation", "--root", temporary, "--no-planning-lock", "--presentation", mode],
+                    cwd=ROOT, text=True, capture_output=True, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(f"**Presentation:** `{mode}`", result.stdout)
 
     def test_known_review_command_still_dispatches_directly(self) -> None:
         result = subprocess.run(

@@ -40,14 +40,22 @@ class OrchestrationFacadeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); self._planned(root, "facade-run")
             discussion = FACADE.discuss(root, None, "Why is src/validation.py selected?")
-            activated = FACADE.approve(root, "facade-run")
-            status = FACADE.status(root, "facade-run")
-            continued = FACADE.continue_run(root, "facade-run", None)
+            activated = FACADE.approve(root, None)
+            status = FACADE.status(root, None)
+            continued = FACADE.continue_run(root, None, None)
         self.assertEqual(discussion["run_id"], "facade-run")
         self.assertEqual(activated["state"], "plan-approved")
         self.assertEqual(status["workflow_id"], activated["workflow_id"])
         self.assertEqual(continued["workflow_id"], activated["workflow_id"])
         self.assertEqual(continued["state"], "stage-awaiting-approval")
+        self.assertNotIn("--run-id", discussion["next_action"])
+        self.assertNotIn("--run-id", activated["next_action"])
+
+    def test_facade_presentation_mode_is_user_selectable(self) -> None:
+        value = {"verb":"status","run_id":"one-run","state":"awaiting-approval","next_action":"Approve.","boundary":"Read only."}
+        for mode in ("quick", "guided", "expert"):
+            rendered = FACADE.render(value, mode=mode, verbose=mode == "expert")
+            self.assertIn(f"Presentation: {mode}", rendered)
 
     def test_stage_approval_is_exact_and_prepares_only_next_stage(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

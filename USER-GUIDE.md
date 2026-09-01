@@ -107,6 +107,23 @@ python3 scripts/tailtrail.py outcome summarize --month 2026-07
 python3 scripts/tailtrail.py doctor
 ```
 
+For normal delivery, use the six-verb façade. When exactly one eligible run
+exists, TailTrail resolves it automatically:
+
+```bash
+tailtrail start "your goal" --presentation guided
+tailtrail discuss --question "Why was this scope selected?"
+tailtrail approve
+tailtrail continue
+tailtrail flow status
+tailtrail close
+```
+
+Choose `--presentation quick`, `guided`, or `expert` for the desired display
+depth. This changes presentation only. Add `--verbose` to any layer for the
+comprehensive canonical plan. Supply `--run-id` only when TailTrail reports
+multiple eligible runs or an exact automation/audit reference is required.
+
 ### Feature Registry
 
 Use the Feature Registry when you want a read-only index of TailTrail features, commands, docs, scripts, tests, install surface, MCP exposure, approval posture, and evidence label:
@@ -152,6 +169,11 @@ Next check: run `tailtrail doctor` for full validation.
 ```
 
 `hello` is a fast smoke check. It does not inspect the full package, run adapters, change files, call the network, or validate a target project. Use `doctor` when you want the deeper package check.
+
+Interactive terminals receive plain ASCII. When stdout is captured for an
+assistant chat, `hello` wraps only the banner in a `text` fence. Hosts must
+preserve that command-emitted fence verbatim so Markdown cannot distort the
+fixed-width layout.
 
 Installed pack examples:
 

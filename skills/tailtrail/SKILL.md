@@ -66,7 +66,9 @@ TailTrail guidance or advisory `guide` routing.
 
 For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`,
 run the real Hello command. Return its ASCII TailTrail banner and installation
-result **verbatim as the complete response**. Do not preface it with narration,
+result **verbatim as the complete response**. Preserve the command-emitted
+`text` fence so chat Markdown cannot distort the fixed-width banner; never
+strip the fence or reconstruct the banner. Do not preface it with narration,
 summarize it, add a todo/status update, omit the banner, or suggest `doctor`
 after it. If the command fails, return its actual error output verbatim instead.
 
