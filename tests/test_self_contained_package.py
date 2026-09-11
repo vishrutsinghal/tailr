@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) in sys.path:
     sys.path.remove(str(ROOT))
 sys.path.insert(0, str(ROOT))
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(1, str(ROOT / "scripts"))
 loaded_tailtrail = sys.modules.get("tailtrail")
 if loaded_tailtrail is not None and Path(getattr(loaded_tailtrail, "__file__", "")).resolve() == ROOT / "scripts" / "tailtrail.py":
     del sys.modules["tailtrail"]
@@ -36,6 +38,28 @@ def load_proof():
 
 
 PROOF = load_proof()
+
+
+def load_installed_proof():
+    spec = importlib.util.spec_from_file_location("navigator_installed_release_proof_test", ROOT / "scripts" / "navigator-installed-release-proof.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+INSTALLED_PROOF = load_installed_proof()
+
+
+def load_contracts():
+    spec = importlib.util.spec_from_file_location("fsr7_package_contracts", ROOT / "scripts" / "workflow_runtime" / "contracts.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+CONTRACTS = load_contracts()
 
 
 def run(command: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None, expected: int = 0) -> subprocess.CompletedProcess[str]:
@@ -96,6 +120,28 @@ class SelfContainedPackageTests(unittest.TestCase):
         self.assertGreater(wheel["integrity_files"], 400)
         with zipfile.ZipFile(self.wheel) as archive:
             self.assertIn("tailtrail/PACKAGE-CONTRACT.md", archive.namelist())
+            for relative in (
+                "adapters/navigator-scope-scenarios-v2.json",
+                "schemas/host-scope-conformance.schema.json",
+                "schemas/host-scope-reasoning-conformance.schema.json",
+                "schemas/navigator-scope-calibration-report.schema.json",
+                "schemas/navigator-scope-release-proof.schema.json",
+                "schemas/navigator-installed-release-proof.schema.json",
+                "benchmarks/evaluation/navigator-scope/fsr6-v1.json",
+                "benchmarks/evaluation/navigator-scope/installed-release-v1.json",
+                "benchmarks/evaluation/navigator-scope/language-profiles-v1.json",
+                "scripts/navigator_scope.py",
+                "scripts/navigator-scope-calibration.py",
+                "scripts/navigator-installed-release-proof.py",
+                "scripts/navigator-scope-release.py",
+                "scripts/mcp-server.py",
+                "scripts/host-adapter-conformance.py",
+                "scripts/host-runtime-conformance.py",
+                "scripts/session-control.py",
+                "scripts/session_control.py",
+                "schemas/tailtrail-session-attachment.schema.json",
+            ):
+                self.assertIn(f"tailtrail/{relative}", archive.namelist())
         with tarfile.open(self.sdist) as archive:
             names = archive.getnames()
         self.assertFalse(any("/tests/" in name for name in names))
@@ -133,7 +179,9 @@ class SelfContainedPackageTests(unittest.TestCase):
             run(["git", "config", "user.email", "tailtrail@example.invalid"], cwd=project)
             run(["git", "config", "user.name", "TailTrail"], cwd=project)
             (project / "README.md").write_text("before\n", encoding="utf-8")
-            run(["git", "add", "README.md"], cwd=project)
+            (project / "tests").mkdir()
+            (project / "tests" / "test_readme.py").write_text("def test_readme():\n    assert True\n", encoding="utf-8")
+            run(["git", "add", "README.md", "tests/test_readme.py"], cwd=project)
             run(["git", "commit", "-qm", "baseline"], cwd=project)
 
             version = json.loads(run([str(executable), "version", "--format", "json"], cwd=sandbox).stdout)
@@ -144,8 +192,12 @@ class SelfContainedPackageTests(unittest.TestCase):
             learning_receipts = json.loads(run([str(executable), "learn", "receipt", "validate", "--root", str(project)], cwd=sandbox).stdout)
             self.assertEqual(learning_receipts["status"], "passed")
             self.assertEqual(learning_receipts["events"], 0)
+            scope_release = json.loads(run([str(executable), "eval", "scope", "release-proof", "--root", str(project), "--format", "json"], cwd=sandbox).stdout)
+            self.assertEqual(scope_release["status"], "passed")
+            self.assertTrue(scope_release["checks"]["cli_mcp_real_run"])
+            self.assertTrue(scope_release["checks"]["negative_no_artifacts"])
 
-            started = json.loads(run([str(executable), "start", "fix README documentation validation and add a regression test", "--root", str(project), "--changed", "README.md", "--format", "json"], cwd=sandbox).stdout)
+            started = json.loads(run([str(executable), "start", "fix README documentation validation and add a regression test", "--root", str(project), "--changed", "README.md", "--changed", "tests/test_readme.py", "--format", "json"], cwd=sandbox).stdout)
             run_id = started["planning_lock"]["run_id"]
             self.assertTrue(started["setup_posture"]["installed_package"])
             self.assertFalse(started["setup_posture"]["source_checkout"])
@@ -167,7 +219,7 @@ class SelfContainedPackageTests(unittest.TestCase):
             (project / "README.md").write_text("after\n", encoding="utf-8")
 
             source_event = {"kind": "source-edit", "requirement_uids": requirement_uids, "changed_paths": ["README.md"]}
-            command_event = {"kind": "command-result", "requirement_uids": requirement_uids, "changed_paths": ["README.md"], "tier": "unit", "command_label": "README proof", "command": "test README.md", "outcome": "pass", "environment": "isolated-wheel", "asserted_behavior": "README wording and its regression contract are validated", "artifact": "proof.json", "evidence_label": "local-command"}
+            command_event = {"kind": "ci-receipt", "requirement_uids": requirement_uids, "changed_paths": ["README.md"], "tier": "unit", "command_label": "README proof", "command": "test README.md", "outcome": "pass", "environment": "isolated-wheel", "asserted_behavior": "README wording and its regression contract are validated", "artifact": "proof.json", "evidence_label": "ci-receipt", "evidence_quality": "attested"}
             for event in (source_event, command_event):
                 run([str(executable), "execution-evidence", "record", "--root", str(project), "--run-id", run_id, "--event", json.dumps(event), "--approved"], cwd=sandbox)
             finalized = json.loads(run([str(executable), "closure", "finalize", "--root", str(project), "--run-id", run_id], cwd=sandbox).stdout)
@@ -223,6 +275,8 @@ class SelfContainedPackageTests(unittest.TestCase):
                 self.assertFalse(doctor["diagnostics"]["supported"])
                 prepared = json.loads(run([str(executable), "adapters", "runtime", "prepare", "--host", host, "--root", str(target)], cwd=sandbox).stdout)
                 self.assertEqual(len(prepared["scenarios"]), 6)
+                self.assertEqual(len(prepared["scope_scenarios"]), 6)
+                self.assertEqual(prepared["scope_contract_version"], "v2")
                 preview = json.loads(run([str(executable), "update", "--host", host, "--profile", "extended", "--target", str(target), "--dry-run", "--format", "json"], cwd=sandbox).stdout)
                 self.assertEqual(preview["status"], "dry-run")
                 removed = json.loads(run([str(executable), "uninstall", "--host", host, "--target", str(target), "--force", "--format", "json"], cwd=sandbox).stdout)
@@ -232,6 +286,24 @@ class SelfContainedPackageTests(unittest.TestCase):
                 self.assertTrue(json.loads(run([str(executable), "verify", "--host", host, "--target", str(target), "--format", "json"], cwd=sandbox).stdout)["ok"])
         finally:
             temp.cleanup()
+
+    def test_fsr7_installed_real_run_proves_integrity_and_scope_roles(self) -> None:
+        report = INSTALLED_PROOF.installed_release_proof(ROOT, self.wheel, self.sdist)
+        schema = json.loads((ROOT / "schemas" / "navigator-installed-release-proof.schema.json").read_text(encoding="utf-8"))
+        self.assertEqual([], CONTRACTS.validate_document(report, schema))
+        self.assertEqual("passed", report["status"])
+        self.assertTrue(all(report["checks"].values()), report["checks"])
+        integrity = report["installation_integrity"]
+        self.assertTrue(integrity["transactional_update"])
+        self.assertTrue(integrity["all_hashes_match"])
+        self.assertEqual({"codex", "copilot", "claude"}, {row["host"] for row in integrity["hosts"]})
+        self.assertTrue(all(row["profile"] == "extended" for row in integrity["hosts"]))
+        scope = report["behavioral_proof"]["scope"]
+        self.assertEqual(["src/pages/eventGenerator/EventGeneratorPage.tsx"], scope["implementation_owners"])
+        self.assertEqual(["src/pages/eventGenerator/telemetryService.ts"], scope["inspection_paths"])
+        self.assertEqual(["src/pages/eventGenerator/EventGeneratorPage.cy.tsx"], scope["proof_paths"])
+        self.assertIsNone(scope["scope_question"])
+        self.assertEqual("awaiting-approval", scope["planning_lock_status"])
 
     def test_upgrade_dry_run_verifies_the_real_wheel_and_preflights_an_installed_host(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

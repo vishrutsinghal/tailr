@@ -17,8 +17,12 @@ include tailtrail-meta/product-maturity-policy-v1.json
 include tailtrail-meta/product-maturity-learning-inventory-v1.json
 include tailtrail-meta/document-owners-v1.json
 include tailtrail-meta/maintainability-inventory-v1.json
+include tailtrail-meta/navigator-scope-baseline-v1.json
 include benchmarks/product-maturity/pm0-scenarios-v1.json
 include benchmarks/product-maturity/pm-l2-retrieval-fixtures-v1.json
+include benchmarks/product-maturity/presentation-v1/plan-report.json
+include benchmarks/product-maturity/presentation-v1/debug-report.json
+include benchmarks/product-maturity/presentation-v1/closure-report.json
 include benchmarks/evaluation/real-portfolio/v1.json
 include benchmarks/enterprise-conformance/v1.json
 include AGENTS.md
@@ -37,6 +41,8 @@ include INSTALLER-LIFECYCLE.md
 include MCP-SERVER.md
 include PACKAGE-CONTRACT.md
 include PRODUCT-MATURITY-IMPROVEMENT-PLAN.md
+include NAVIGATOR-FALSE-STOP-REMEDIATION-PLAN.md
+include TAILTRAIL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md
 include REPOSITORY-ENFORCEMENT.md
 include PUBLIC-CLAIMS.md
 include README.md
@@ -66,6 +72,7 @@ recursive-include skills *
 recursive-include aidlc *
 recursive-include aidlc-docs *.md
 recursive-include benchmarks/evaluation/learning-calibration *.json
+recursive-include benchmarks/evaluation/navigator-scope *.json
 recursive-include benchmarks/evaluation/adoption *.json
 recursive-include .claude *
 recursive-include .codex-plugin *

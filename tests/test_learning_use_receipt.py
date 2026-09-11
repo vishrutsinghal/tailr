@@ -50,6 +50,41 @@ def completion(uid: str, *, complete: bool = True, drift: bool = False) -> dict:
 
 
 class LearningUseReceiptTests(unittest.TestCase):
+    def test_token_technique_requires_applied_receipt_and_shows_its_reference(self) -> None:
+        token_usage = {
+            "context_estimate": {
+                "saving_techniques": ["Navigator scope narrowing", "Project learning reuse"],
+            }
+        }
+        REPORT.reconcile_learning_saving_evidence(
+            token_usage,
+            {"artifact": None, "receipts": []},
+        )
+        self.assertEqual(
+            ["Navigator scope narrowing"],
+            token_usage["context_estimate"]["saving_techniques"],
+        )
+        self.assertEqual([], token_usage["context_estimate"]["learning_evidence_references"])
+
+        REPORT.reconcile_learning_saving_evidence(
+            token_usage,
+            {
+                "artifact": ".tailtrail/runs/run/learning/use-receipts.jsonl",
+                "receipts": [
+                    {"receipt_id": "luse-applied", "decision": "applied"},
+                    {"receipt_id": "luse-ignored", "decision": "ignored"},
+                ],
+            },
+        )
+        self.assertIn(
+            "Project learning reuse",
+            token_usage["context_estimate"]["saving_techniques"],
+        )
+        self.assertEqual(
+            [".tailtrail/runs/run/learning/use-receipts.jsonl#luse-applied"],
+            token_usage["context_estimate"]["learning_evidence_references"],
+        )
+
     def setup_run(self, root: Path, run_id: str = "run", *, decision_type: str = "implementation") -> tuple[dict, str, dict]:
         learning = V3.latest_records(V3.read_records(root)).get("lrn-receipt-test")
         if learning is None:
@@ -278,7 +313,7 @@ class LearningUseReceiptTests(unittest.TestCase):
             learning, uid, _ = self.setup_run(root)
             self.record(root, learning, uid, decision_type="validation")
             run = LEDGER.state_dir(root, "run")
-            for name in ("checkpoints", "reviews", "completion-gates", "validation-receipts"):
+            for name in ("checkpoints", "reviews", "completion-gates", "validation-receipts", "closure-records"):
                 (run / name).mkdir(parents=True, exist_ok=True)
             (run / "checkpoints" / "checkpoint-1.json").write_text(json.dumps({
                 "requirements": [{"requirement_uid": uid, "state": "validated", "evidence": [{"outcome": "pass"}]}],
@@ -286,7 +321,12 @@ class LearningUseReceiptTests(unittest.TestCase):
             }), encoding="utf-8")
             (run / "reviews" / "review-1.json").write_text(json.dumps({"complete": True, "findings": []}), encoding="utf-8")
             (run / "completion-gates" / "gate-1.json").write_text(json.dumps({"complete": True, "findings": []}), encoding="utf-8")
-            (run / "validation-receipts" / "unit.json").write_text(json.dumps({"tier": "unit", "outcome": "pass"}), encoding="utf-8")
+            validation = run / "validation-receipts" / "unit.json"
+            validation.write_text(json.dumps({"tier": "unit", "tiers": ["unit"], "outcome": "pass", "evidence_quality": "attested"}), encoding="utf-8")
+            (run / "closure-records" / "closure-current.json").write_text(json.dumps({
+                "type": "tailtrail-closure-record", "checkpoint": "checkpoint-1.json",
+                "receipt_artifacts": [validation.relative_to(root).as_posix()],
+            }), encoding="utf-8")
             result = REPORT.build(root, "run")
             rendered = REPORT.render(result)
             saved = json.loads(Path(result["run_artifact"]).read_text(encoding="utf-8"))

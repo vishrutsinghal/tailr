@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/requirement-interpretation.schema.json",
+  "title": "TailTrail Host Requirement Interpretation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "host",
+    "goal",
+    "private_reasoning_excluded",
+    "clauses",
+    "requirements",
+    "material_questions"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-host-requirement-interpretation" },
+    "host": { "enum": ["codex", "copilot", "claude"] },
+    "goal": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "private_reasoning_excluded": { "const": true },
+    "authority": { "enum": ["host-interpretation", "official-ai-dlc-pack"] },
+    "authority_mode": { "enum": ["standard", "full"] },
+    "authority_stage": { "const": "requirements" },
+    "authority_references": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "clauses": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clause_id", "role", "text"],
+        "properties": {
+          "clause_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "role": { "enum": ["context", "outcome", "constraint", "evidence", "scope", "question"] },
+          "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "source_input_id": { "type": "string", "pattern": "^IN-[0-9]{2,}$" }
+        }
+      }
+    },
+    "artifact_evidence": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["input_id", "sha256", "source_clause_ids"],
+        "properties": {
+          "input_id": { "type": "string", "pattern": "^IN-[0-9]{2,}$" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "source_clause_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["display_id", "statement", "source_clause_ids", "intent_terms"],
+        "properties": {
+          "display_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "statement": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "kind": { "enum": ["change", "preserve", "constraint", "safety"] },
+          "source_clause_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+          },
+          "intent_terms": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 24,
+            "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{1,63}$" }
+          },
+          "quoted_literals": {
+            "type": "array",
+            "maxItems": 8,
+            "items": { "type": "string", "minLength": 4, "maxLength": 160 }
+          },
+          "intent_class": { "enum": ["general", "ui-visibility", "ui-interaction", "api-behavior", "data", "configuration"] },
+          "confidence": { "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "material_questions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    }
+  }
+}

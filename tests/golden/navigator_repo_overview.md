@@ -17,7 +17,7 @@ Navigator selected a compact read-only repo overview path.
 1. Inspect README and top-level project structure.
 2. Identify language, framework, entry points, tests, and major modules.
 3. Summarize important repo features and how they fit together.
-4. Offer Code Graph Mapper as an approved deeper discovery step when a reusable graph cache is useful.
+4. Use Navigator's recorded graph lifecycle decision and inspect exact source only where the graph indicates.
 5. Ask before running scans, tests, builds, or writing files.
 
 ## Load
@@ -65,6 +65,6 @@ Navigator selected a compact read-only repo overview path.
 ## Notes
 
 - Navigator selected a read-only discovery path.
-- It does not edit files, run implementation, record learnings, run scanners, or create graph cache files by itself.
+- It does not edit project source, run implementation, record learnings, or run scanners; Start may manage metadata-only graph state.
 - Bootstrap Snapshot writes only `.tailtrail/bootstrap-snapshot.json` when the snapshot command is explicitly approved.
 - If you approve, the next step is to inspect the target repo and answer the repo overview question.

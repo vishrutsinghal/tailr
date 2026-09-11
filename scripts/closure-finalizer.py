@@ -42,6 +42,7 @@ REPORT = load("closure_finalizer_report", "completion-report.py")
 DEBUG_SECTION = load("closure_finalizer_debug_section", "debug-completion.py")
 CORRECTION = load("closure_finalizer_correction", "closure-correction.py")
 WORKFLOW_EVIDENCE = load("closure_finalizer_workflow_evidence", "workflow_runtime/evidence.py")
+NAVIGATOR_GRAPH = load("closure_finalizer_navigator_graph", "navigator_graph_lifecycle.py")
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -61,14 +62,16 @@ def relative(root: Path, path: Path) -> str:
 
 def latest_record(root: Path, run_id: str) -> dict[str, Any]:
     records = L.state_dir(root, run_id) / "closure-records"
-    candidates: list[dict[str, Any]] = []
+    candidates: list[tuple[int, int, str, dict[str, Any]]] = []
     for path in sorted(records.glob("closure-*.json")):
         item = read(path)
         if item.get("type") == "tailtrail-closure-record":
-            candidates.append(item)
+            checkpoint = str(item.get("checkpoint", ""))
+            digits = "".join(character for character in Path(checkpoint).stem if character.isdigit())
+            candidates.append((int(digits or 0), path.stat().st_mtime_ns, path.name, item))
     if not candidates:
         raise ValueError("no closure record exists; run tailtrail closure record first or provide --input")
-    return candidates[-1]
+    return max(candidates, key=lambda row: row[:3])[3]
 
 
 def selected_harnesses(root: Path, run_id: str) -> list[str]:
@@ -137,17 +140,27 @@ def run_behavior(root: Path, run_id: str, scenarios_path: Path | None) -> dict[s
             return missing_behavior(root, run_id)
         scenarios_path = directory / "finalizers" / "approved-behavior-scenarios.json"
         L.atomic_json(scenarios_path, {"scenarios": scenarios})
-    receipts = directory / "closure-records"
-    candidates = sorted(receipts.glob("closure-*-receipts.json"))
-    if not candidates:
+    try:
+        closure = latest_record(root, run_id)
+    except ValueError:
         return missing_behavior(root, run_id)
-    return BEHAVIOUR.assess(root, run_id, scenarios_path, candidates[-1])
+    candidates = [root / value for value in closure.get("receipt_artifacts", []) if isinstance(value, str)]
+    receipt_payload = directory / "finalizers" / "current-validation-receipts.json"
+    rows = [read(path) for path in candidates if path.is_file()]
+    if not rows:
+        return missing_behavior(root, run_id)
+    L.atomic_json(receipt_payload, {"receipts": rows})
+    return BEHAVIOUR.assess(root, run_id, scenarios_path, receipt_payload)
 
 
 def higher_tier_status(root: Path, run_id: str) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
     anchor = read(directory / "anchors" / "approved-v1.json")
-    receipts = [read(path) for path in sorted((directory / "validation-receipts").glob("*.json"))]
+    try:
+        closure = latest_record(root, run_id)
+    except ValueError:
+        closure = {}
+    receipts = [read(root / path) for path in closure.get("receipt_artifacts", []) if isinstance(path, str) and (root / path).is_file()]
     high = {"integration", "contract", "e2e", "infrastructure", "release-smoke"}
     required = [
         {"requirement_uid": row["requirement_uid"], "tier": tier}
@@ -156,14 +169,16 @@ def higher_tier_status(root: Path, run_id: str) -> dict[str, Any]:
         if tier in high and (row.get("validation_contract", {}) or {}).get("state", "required") == "required"
     ]
     missing = [item for item in required if not any(
-        receipt.get("requirement_uid") == item["requirement_uid"]
-        and receipt.get("tier") == item["tier"] and receipt.get("outcome") == "pass"
+        item["requirement_uid"] in receipt.get("requirement_uids", [receipt.get("requirement_uid")])
+        and item["tier"] in receipt.get("tiers", [receipt.get("tier")])
+        and receipt.get("outcome") == "pass"
+        and receipt.get("evidence_quality") in {"trusted", "attested"}
         for receipt in receipts
     )]
     return {
         "required": required, "missing": missing,
         "status": "pass" if not missing else "required-evidence-missing",
-        "boundary": "The finalizer reads saved higher-tier receipts only; it never runs integration, contract, E2E, infrastructure, or release commands.",
+        "boundary": "The finalizer reads the current closure snapshot and accepts only trusted managed-command or attested artifact-backed higher-tier receipts.",
     }
 
 
@@ -175,10 +190,17 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
             raise ValueError("closure input run_id must match --run-id")
         closure = RECORDER.record(root, resolved_input)
     else:
-        try:
-            closure = latest_record(root, run_id)
-        except ValueError:
+        # Rebuild managed evidence when the stream contains executable
+        # receipts. Legacy/manual closure flows can have a valid saved record
+        # without a managed stream, so retain that record as their source.
+        collected = RECORDER.collected_input(root, run_id)
+        if collected.get("receipts"):
             closure = RECORDER.record(root, run_id=run_id)
+        else:
+            try:
+                closure = latest_record(root, run_id)
+            except ValueError:
+                closure = RECORDER.record(root, run_id=run_id)
     LOCK.assert_write_allowed(root, run_id)
     selected = selected_harnesses(root, run_id)
     debug_intake = L.state_dir(root, run_id) / "debug" / "intake" / "debug-intake-v1.json"
@@ -206,6 +228,48 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
     higher = higher_tier_status(root, run_id)
     debug_section = DEBUG_SECTION.generate(root, run_id) if debug_intake.is_file() else None
     report = REPORT.build(root, run_id)
+    graph_lifecycle: dict[str, Any]
+    run_mapping: dict[str, Any] | None = None
+    try:
+        lock_state = LOCK.show(root, run_id)
+        start_report = LOCK.active_start_report(root, run_id).get("report", {})
+        navigator_plan = start_report.get("navigator", {}) if isinstance(start_report, dict) else {}
+        scope_evidence = navigator_plan.get("scope_evidence", {}) if isinstance(navigator_plan, dict) else {}
+        graph_lifecycle = NAVIGATOR_GRAPH.manage(
+            root,
+            str(lock_state.get("goal", "")),
+            changed,
+            mode="auto" if changed else "reuse",
+            attempt_id=run_id,
+            phase="closure",
+        )
+        if isinstance(scope_evidence, dict) and scope_evidence.get("decision_fingerprint"):
+            run_mapping = NAVIGATOR_GRAPH.record_run_mapping(
+                root,
+                run_id,
+                str(lock_state.get("goal", "")),
+                scope_evidence,
+                changed,
+                str(report.get("overall_status", "evidence-incomplete")),
+                graph_lifecycle,
+            )
+        L.append_event(root, run_id, "navigator_graph_lifecycle_recorded", {
+            "action": graph_lifecycle.get("action"),
+            "cache_fingerprint": graph_lifecycle.get("cache_fingerprint"),
+            "mapping_fingerprint": (run_mapping or {}).get("mapping_fingerprint"),
+            "phase": "closure",
+        })
+    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+        graph_lifecycle = {
+            "schema_version": "1",
+            "type": "tailtrail-navigator-graph-lifecycle",
+            "phase": "closure",
+            "action": "failed",
+            "written": False,
+            "implementation_authority": False,
+            "error": str(error),
+            "boundary": "Graph metadata refresh failed without changing closure evidence or source authority.",
+        }
     correction = None
     if report["overall_status"] != "complete":
         if debug_section and debug_section.get("debug_status") != "pass":
@@ -228,6 +292,8 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "debug_section": {"status": debug_section.get("debug_status"), "artifact": DEBUG_SECTION.report_path(root, run_id).relative_to(root).as_posix()} if debug_section else None,
         "recovery": report["recovery_checkpoint"],
         "context_continuity": report["drift_learning"],
+        "graph_lifecycle": graph_lifecycle,
+        "run_mapping": run_mapping,
         "correction": correction,
         "completion_report": report.get("run_artifact"),
         "overall_status": report["overall_status"],

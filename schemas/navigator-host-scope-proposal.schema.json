@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-host-scope-proposal.schema.json",
+  "title": "TailTrail Navigator Host Scope Proposal V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "host",
+    "evidence_packet_fingerprint",
+    "scope_evidence_fingerprint",
+    "target_identity_fingerprint",
+    "goal_fingerprint",
+    "scope_state",
+    "authority",
+    "requirements",
+    "private_reasoning_excluded"
+  ],
+  "properties": {
+    "schema_version": { "const": "2" },
+    "type": { "const": "tailtrail-navigator-host-scope-proposal" },
+    "host": { "enum": ["codex", "claude", "copilot"] },
+    "evidence_packet_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "scope_evidence_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "target_identity_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "goal_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "scope_state": { "enum": ["proposed-resolved", "needs-confirmation", "unresolved", "conflicting"] },
+    "authority": { "const": "evidence-refinement-only" },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/requirement" }
+    },
+    "private_reasoning_excluded": { "const": true }
+  },
+  "$defs": {
+    "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "pathArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "pathClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "candidate_id", "content_fingerprint", "claim_role", "evidence_edge_ids"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "candidate_id": { "type": "string", "pattern": "^cand-[0-9a-f]{12}$" },
+        "content_fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "claim_role": { "enum": ["implementation-owner", "caller", "inspection", "proof"] },
+        "evidence_edge_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^edge-[0-9a-f]{12}$" }
+        }
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id",
+        "statement_fingerprint",
+        "implementation_owners",
+        "callers",
+        "inspection_paths",
+        "proof_paths",
+        "excluded_candidates",
+        "path_claims",
+        "preservation_boundaries",
+        "evidence_edge_ids",
+        "confidence",
+        "decision_reasons",
+        "alternatives",
+        "uncertainties"
+      ],
+      "properties": {
+        "requirement_id": { "type": "string", "minLength": 1 },
+        "statement_fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "implementation_owners": { "$ref": "#/$defs/pathArray" },
+        "callers": { "$ref": "#/$defs/pathArray" },
+        "inspection_paths": { "$ref": "#/$defs/pathArray" },
+        "proof_paths": { "$ref": "#/$defs/pathArray" },
+        "excluded_candidates": { "$ref": "#/$defs/pathArray" },
+        "path_claims": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/pathClaim" }
+        },
+        "preservation_boundaries": { "$ref": "#/$defs/stringArray" },
+        "evidence_edge_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^edge-[0-9a-f]{12}$" }
+        },
+        "confidence": { "enum": ["none", "low", "medium", "high"] },
+        "decision_reasons": { "$ref": "#/$defs/stringArray" },
+        "alternatives": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "uncertainties": { "$ref": "#/$defs/stringArray" }
+      }
+    }
+  }
+}

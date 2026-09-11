@@ -1,0 +1,40 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-scope-fixture",
+  "id": "wrong-file-selection",
+  "goal": "fix multiline requirement splitting",
+  "repository_files": {
+    "scripts/planning-lock.py": "import requirement_discovery\n\ndef propose_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
+    "scripts/requirement_discovery.py": "def statements(goal):\n    # Owns multiline requirement splitting.\n    return [goal]\n",
+    "scripts/task-start.py": "import requirement_discovery\n\ndef start_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
+    "tests/test_aidlc_requirements.py": "# AIDLC requirements fixture mentioning multiline requirement splitting.\n",
+    "tests/test_requirement_discovery.py": "# Focused proof for multiline requirement splitting.\n"
+  },
+  "current_expected": {
+    "target_origin": "goal-discovery",
+    "selected_paths": [
+      "tests/test_aidlc_requirements.py",
+      "tests/test_requirement_discovery.py"
+    ],
+    "selected_reason": "goal-matched target"
+  },
+  "desired_expected": {
+    "scope_state": "resolved",
+    "implementation_owners": [
+      "scripts/requirement_discovery.py"
+    ],
+    "callers": [
+      "scripts/planning-lock.py",
+      "scripts/task-start.py"
+    ],
+    "proof_paths": [
+      "tests/test_requirement_discovery.py"
+    ],
+    "excluded_paths": [
+      {
+        "path": "tests/test_aidlc_requirements.py",
+        "reason_code": "lexical-only-no-owner-edge"
+      }
+    ]
+  }
+}

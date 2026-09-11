@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,7 @@ FLOWS: dict[str, IntentFlow] = {
         title="TailTrail Hello",
         prompt=(
             "Run the TailTrail installation smoke check and show the output. Treat TailTrail casing and the common "
-            "`taitrail` typo as TailTrail. Prefer `tailtrail hello` when the launcher is installed; otherwise run "
+            "`taitrail` or `tailtrial` typo as TailTrail. Prefer `tailtrail hello` when the launcher is installed; otherwise run "
             "`python3 scripts/tailtrail.py hello` from the TailTrail pack. Do not replace this with a conversational greeting."
         ),
         load=["scripts/tailtrail.py when present", ".tailtrail-install.json when present"],
@@ -352,8 +353,332 @@ FLOWS: dict[str, IntentFlow] = {
 }
 
 
+INTENT_ENVELOPE_SCHEMA_VERSION = "1"
+MAX_INTENT_INPUT_LENGTH = 8192
+ACTIVE_STATES = ("none", "awaiting-approval", "active", "closure-ready", "detached", "ambiguous")
+VAGUE_APPROVAL_PHRASES = {
+    "do it",
+    "go ahead",
+    "looks good",
+    "looks good to me",
+    "proceed",
+    "sounds good",
+}
+EXPLICIT_APPROVAL_PATTERN = re.compile(
+    r"^(?:(?:tailtrail\s+)?approve(?:\s+(?:this|the)\s+plan)?|i\s+approve(?:\s+(?:this|the)\s+plan)?)$",
+    re.IGNORECASE,
+)
+
+
+def _explicit_hints(text: str) -> dict[str, Any]:
+    normalized = normalize_prompt(text)
+    aidlc_match = re.search(r"\baidlc\s+(off|lite|standard|full)\b", normalized)
+    if not aidlc_match and re.search(r"\bfull\s+(?:official\s+)?aidlc\b", normalized):
+        aidlc = "full"
+    else:
+        aidlc = aidlc_match.group(1) if aidlc_match else None
+    return {
+        "aidlc": aidlc,
+        "debug": bool(re.search(r"\b(debug|diagnose|root[- ]cause)\b", normalized)),
+        "hands_free": bool(re.search(r"\b(hands[- ]free|end[- ]to[- ]end)\b", normalized)),
+        "verbose": "--verbose" in normalized or bool(re.search(r"\b(verbose|complete audit detail)\b", normalized)),
+        "no_planning_lock_explicit": "--no-planning-lock" in normalized,
+    }
+
+
+def _extract_wrapped_goal(value: str, action: str) -> str | None:
+    patterns = {
+        "start": (
+            r"^(?:tailtrail|taitrail|tailtrial)\s+start\s*(?:[:,\-]\s*|\s+)(.+)$",
+            r"^(?:please\s+)?(?:use|using)\s+(?:tailtrail|taitrail|tailtrial)\s*(?:[:,\-]\s*|\s+to\s+)(.+)$",
+            r"^(?:please\s+)?(?:tailtrail|taitrail|tailtrial)\s+(?:to\s+)?(.+)$",
+            r"^(?:tailtrail|taitrail|tailtrial)\s*[:,\-]\s*(.+)$",
+            r"^(?:can|could)\s+(?:tailtrail|taitrail|tailtrial)\s+(?:help\s+me\s+)?(?:to\s+)?(.+)$",
+        ),
+        "guide": (
+            r"^(?:tailtrail|taitrail|tailtrial)\s+guide\s*(?:[:,\-]\s*|\s+)(.+)$",
+        ),
+        "discuss": (
+            r"^(?:tailtrail|taitrail|tailtrial)\s+discuss(?:\s+--question)?\s*(?:[:,\-]\s*|\s+)(.+)$",
+        ),
+    }
+    for pattern in patterns.get(action, ()):
+        match = re.match(pattern, value.strip(), re.IGNORECASE | re.DOTALL)
+        if match:
+            goal = match.group(1).strip()
+            if action in {"start", "guide"} and goal.startswith(('"', "'")):
+                try:
+                    tokens = shlex.split(goal)
+                except ValueError:
+                    tokens = []
+                if tokens:
+                    goal = tokens[0]
+            elif action in {"start", "guide"}:
+                goal = re.split(
+                    r"\s+--(?:aidlc|verbose|debug|build|changed|no-planning-lock|intent-feature)\b",
+                    goal,
+                    maxsplit=1,
+                    flags=re.IGNORECASE,
+                )[0]
+            if len(goal) >= 2 and goal[0] == goal[-1] and goal[0] in {'"', "'"}:
+                goal = goal[1:-1]
+            return goal.strip()
+    return None
+
+
+def _operation(action: str, goal: str | None, flow: str | None, hints: dict[str, Any]) -> dict[str, Any]:
+    names = {
+        "hello": "hello",
+        "guide": "guide",
+        "start": "start",
+        "discuss": "planning-discuss",
+        "status": "flow-status",
+        "approve": "planning-approve",
+        "continue": "continue",
+        "close": "close",
+        "stop": "stop",
+        "resume": "resume",
+        "ordinary-agent": None,
+        "named-flow": "intent-expand",
+        "clarify": None,
+    }
+    arguments: dict[str, Any] = {}
+    if goal:
+        arguments["goal" if action in {"guide", "start"} else "question"] = goal
+    if flow:
+        arguments["flow"] = flow
+    if action == "resume":
+        match = re.search(r"--run-id(?:=|\s+)([A-Za-z0-9][A-Za-z0-9._-]{0,127})", goal or "")
+        if match:
+            arguments = {"run_id": match.group(1)}
+    if action == "start":
+        for key in ("aidlc", "debug", "hands_free", "verbose", "no_planning_lock_explicit"):
+            if hints.get(key) not in {None, False}:
+                arguments[key] = hints[key]
+    return {"name": names[action], "arguments": arguments}
+
+
+def _envelope(
+    value: str,
+    active_state: str,
+    action: str,
+    *,
+    goal: str | None = None,
+    flow: str | None = None,
+    confidence: str = "high",
+    matched_by: str,
+    reason_codes: list[str] | None = None,
+    requires_clarification: bool = False,
+    explicit_approval_detected: bool = False,
+) -> dict[str, Any]:
+    hints = _explicit_hints(value)
+    authority_class = {
+        "hello": "read-only",
+        "guide": "read-only",
+        "start": "planning-only",
+        "discuss": "saved-planning-only",
+        "status": "read-only",
+        "approve": "controlled-explicit-approval",
+        "continue": "approved-run-only",
+        "close": "evidence-closure-only",
+        "stop": "controlled-explicit-stop",
+        "resume": "controlled-exact-resume",
+        "ordinary-agent": "none",
+        "named-flow": "read-only",
+        "clarify": "none",
+    }[action]
+    return {
+        "schema_version": INTENT_ENVELOPE_SCHEMA_VERSION,
+        "type": "tailtrail-intent-envelope",
+        "input": value,
+        "active_state": active_state,
+        "action": action,
+        "goal": goal,
+        "flow": flow,
+        "confidence": confidence,
+        "matched_by": matched_by,
+        "requires_clarification": requires_clarification,
+        "reason_codes": reason_codes or [],
+        "explicit_hints": hints,
+        "operation": _operation(action, goal, flow, hints),
+        "authority": {
+            "classification": authority_class,
+            "approval_inferred": False,
+            "explicit_approval_detected": explicit_approval_detected,
+            "execution_granted": False,
+            "boundary": (
+                "Intent resolution is read-only. The recommended operation must enforce its own saved-state, "
+                "approval, evidence, and execution boundaries."
+            ),
+        },
+    }
+
+
+def resolve_request(value: str, *, active_state: str = "none") -> dict[str, Any]:
+    """Resolve loose user words to one safe typed TailTrail operation.
+
+    This function never executes the operation and never treats embedded words
+    such as approve, deploy, or run as authority. Approval is recognized only
+    when the complete normalized utterance is an explicit approval statement.
+    """
+    if active_state not in ACTIVE_STATES:
+        raise ValueError(f"active_state must be one of: {', '.join(ACTIVE_STATES)}")
+    if len(value) > MAX_INTENT_INPUT_LENGTH:
+        raise ValueError(f"intent input must not exceed {MAX_INTENT_INPUT_LENGTH} characters")
+    raw = value.strip()
+    normalized = normalize_prompt(raw)
+    if not raw:
+        return _envelope(
+            value, active_state, "clarify", confidence="low", matched_by="empty-input",
+            reason_codes=["goal-required"], requires_clarification=True,
+        )
+
+    if re.fullmatch(r"(?:(?:tailtrail|taitrail|tailtrial)\s+(?:stop|exit)|(?:stop|exit|leave)\s+(?:tailtrail|taitrail|tailtrial)(?:\s+mode)?|leave\s+(?:tailtrail|taitrail|tailtrial)\s+mode)", normalized):
+        return _envelope(value, active_state, "stop", matched_by="explicit-stop", reason_codes=["stop-has-highest-routing-precedence"])
+
+    resume_match = re.fullmatch(r"(?:tailtrail|taitrail|tailtrial)\s+resume\s+--run-id(?:=|\s+)([A-Za-z0-9][A-Za-z0-9._-]{0,127})", normalized)
+    if resume_match:
+        return _envelope(value, active_state, "resume", goal=raw, matched_by="exact-run-resume", reason_codes=["exact-run-id-required"])
+    if re.fullmatch(r"(?:tailtrail|taitrail|tailtrial)\s+resume(?:\s+.*)?", normalized):
+        return _envelope(value, active_state, "clarify", confidence="high", matched_by="resume-without-exact-run-id", reason_codes=["exact-run-id-required"], requires_clarification=True)
+
+    if re.search(ALIASES[0][1], normalized):
+        return _envelope(value, active_state, "hello", matched_by="hello-alias", reason_codes=["installation-smoke-check"])
+
+    if active_state == "ambiguous":
+        return _envelope(
+            value, active_state, "clarify", confidence="high", matched_by="ambiguous-active-state",
+            reason_codes=["exact-run-id-required"], requires_clarification=True,
+        )
+
+    if active_state == "detached":
+        start_goal = _extract_wrapped_goal(raw, "start")
+        if start_goal:
+            return _envelope(value, active_state, "start", goal=start_goal, matched_by="explicit-tailtrail-goal")
+        return _envelope(
+            value, active_state, "ordinary-agent", confidence="high", matched_by="detached-routing",
+            reason_codes=["tailtrail-session-detached"],
+        )
+
+    if EXPLICIT_APPROVAL_PATTERN.fullmatch(normalized):
+        if active_state != "awaiting-approval":
+            return _envelope(
+                value, active_state, "clarify", confidence="high", matched_by="explicit-approval-without-eligible-run",
+                reason_codes=["awaiting-approval-run-required"], requires_clarification=True,
+                explicit_approval_detected=True,
+            )
+        return _envelope(
+            value, active_state, "approve", matched_by="explicit-approval",
+            reason_codes=["approval-must-be-revalidated-by-controlled-operation"], explicit_approval_detected=True,
+        )
+
+    if normalized in VAGUE_APPROVAL_PHRASES:
+        return _envelope(
+            value, active_state, "clarify", confidence="high", matched_by="vague-approval-language",
+            reason_codes=["approval-not-explicit"], requires_clarification=True,
+        )
+
+    exact_actions = (
+        ("status", r"^(?:tailtrail\s+)?(?:flow\s+)?status$"),
+        ("continue", r"^(?:tailtrail\s+)?(?:continue|next)$"),
+        ("close", r"^(?:tailtrail\s+)?close(?:\s+(?:it|run))?$"),
+    )
+    for action, pattern in exact_actions:
+        if re.fullmatch(pattern, normalized):
+            if active_state == "none":
+                return _envelope(
+                    value, active_state, "clarify", confidence="high", matched_by="run-action-without-active-run",
+                    reason_codes=["active-run-required"], requires_clarification=True,
+                )
+            if action == "continue" and active_state == "awaiting-approval":
+                return _envelope(
+                    value, active_state, "clarify", confidence="high", matched_by="continue-before-approval",
+                    reason_codes=["explicit-approval-required"], requires_clarification=True,
+                )
+            return _envelope(value, active_state, action, matched_by="exact-run-action", reason_codes=["active-run-context"])
+
+    if active_state != "none":
+        natural_run_actions = (
+            ("status", r"\b(show|what(?:'s| is)|check)\b.*\b(status|progress|state)\b|\bhow is (?:it|the run) going\b"),
+            ("continue", r"\b(keep going|continue)(?:\s+(?:it|the run|work))?\b"),
+            ("close", r"\b(close|finish|complete)(?:\s+(?:it|the run|this out))\b"),
+        )
+        for action, pattern in natural_run_actions:
+            if re.search(pattern, normalized):
+                if action == "continue" and active_state == "awaiting-approval":
+                    return _envelope(
+                        value, active_state, "clarify", confidence="high", matched_by="continue-before-approval",
+                        reason_codes=["explicit-approval-required"], requires_clarification=True,
+                    )
+                return _envelope(
+                    value, active_state, action, confidence="medium", matched_by="active-run-language",
+                    reason_codes=["active-run-context"],
+                )
+
+    discuss_goal = _extract_wrapped_goal(raw, "discuss")
+    if discuss_goal:
+        if active_state == "none":
+            return _envelope(
+                value, active_state, "clarify", confidence="high", matched_by="discussion-without-active-run",
+                reason_codes=["active-run-required"], requires_clarification=True,
+            )
+        return _envelope(value, active_state, "discuss", goal=discuss_goal, matched_by="explicit-discuss")
+    if active_state != "none" and re.search(r"\b(why|explain|which files|what scope|what validation)\b", normalized):
+        return _envelope(value, active_state, "discuss", goal=raw, matched_by="active-run-question")
+
+    guide_goal = _extract_wrapped_goal(raw, "guide")
+    if guide_goal:
+        return _envelope(value, active_state, "guide", goal=guide_goal, matched_by="explicit-guide")
+    if re.search(r"\b(show me (?:how|an approach)|how should|safest approach|guide me|what approach)\b", normalized):
+        return _envelope(value, active_state, "guide", goal=raw, confidence="medium", matched_by="advisory-language")
+
+    start_goal = _extract_wrapped_goal(raw, "start")
+    if start_goal:
+        return _envelope(value, active_state, "start", goal=start_goal, matched_by="explicit-tailtrail-goal")
+
+    flow = resolve_intent(raw)
+    if normalized in {"tailtrail", "use tailtrail"}:
+        return _envelope(value, active_state, "named-flow", flow="implementation", matched_by="named-flow-alias")
+    if flow != "implementation":
+        return _envelope(value, active_state, "named-flow", flow=flow, matched_by="named-flow-alias")
+
+    if active_state != "none":
+        return _envelope(
+            value, active_state, "ordinary-agent", confidence="high", matched_by="non-tailtrail-active-context",
+            reason_codes=["attached-run-does-not-own-ordinary-conversation"],
+        )
+
+    if re.search(r"\b(fix|add|change|create|debug|diagnose|implement|refactor|reject|remove|replace|update)\b", normalized) or _explicit_hints(raw)["hands_free"]:
+        return _envelope(
+            value, active_state, "start", goal=raw, confidence="medium", matched_by="task-language",
+            reason_codes=["safe-default-is-planning-lock"],
+        )
+
+    return _envelope(
+        value, active_state, "clarify", confidence="low", matched_by="unclassified-language",
+        reason_codes=["material-intent-unclear"], requires_clarification=True,
+    )
+
+
+def intent_markdown(envelope: dict[str, Any]) -> str:
+    operation = envelope["operation"]["name"] or "none"
+    goal = envelope.get("goal") or "none"
+    reasons = ", ".join(envelope.get("reason_codes", [])) or "none"
+    return (
+        "# TailTrail Intent Resolution\n\n"
+        f"- Action: `{envelope['action']}`\n"
+        f"- Operation: `{operation}`\n"
+        f"- Goal: `{goal}`\n"
+        f"- Active state: `{envelope['active_state']}`\n"
+        f"- Confidence: `{envelope['confidence']}`\n"
+        f"- Requires clarification: `{str(envelope['requires_clarification']).lower()}`\n"
+        f"- Reasons: `{reasons}`\n\n"
+        f"{envelope['authority']['boundary']}\n"
+    )
+
+
 ALIASES: list[tuple[str, str]] = [
-    ("hello", r"\b(hello (tailtrail|taitrail)|(tailtrail|taitrail) hello|hi (tailtrail|taitrail)|ping (tailtrail|taitrail))\b"),
+    ("hello", r"\b(hello (tailtrail|taitrail|tailtrial)|(tailtrail|taitrail|tailtrial) hello|hi (tailtrail|taitrail|tailtrial)|ping (tailtrail|taitrail|tailtrial))\b"),
     ("delivery", r"\b(delivery flow|ship this feature|feature flow|end-to-end flow)\b"),
     ("risk", r"\b(risk flow|risk review|production risk|high risk|release risk)\b"),
     ("release", r"\b(release flow|release handoff|ready to release|prepare release|approval package)\b"),
@@ -460,15 +785,37 @@ def markdown(flow: IntentFlow, source: Path | None) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Expand short TailTrail intent phrases into full workflow prompts.")
-    parser.add_argument("prompt", nargs="*", help="Short user phrase, such as 'use AIDLC and review'.")
+    parser = argparse.ArgumentParser(description="Expand named TailTrail flows or resolve loose words to a typed intent.")
+    parser.add_argument(
+        "prompt",
+        nargs="*",
+        help="Short phrase, or: resolve '<loose user words>'.",
+    )
     parser.add_argument("--flow", choices=sorted(FLOWS), help="Bypass phrase matching and select a flow directly.")
     parser.add_argument("--root", type=Path, default=Path.cwd(), help="Project root used to discover override files.")
     parser.add_argument("--overrides", type=Path, help="Explicit intent override JSON file.")
+    parser.add_argument(
+        "--active-state",
+        choices=ACTIVE_STATES,
+        default="none",
+        help="Saved TailTrail state used only when resolving a stateful follow-up.",
+    )
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
     args = parser.parse_args()
 
-    raw_prompt = " ".join(args.prompt)
+    resolve_mode = bool(args.prompt and args.prompt[0].lower() == "resolve")
+    raw_prompt = " ".join(args.prompt[1:] if resolve_mode else args.prompt)
+    if resolve_mode:
+        try:
+            envelope = resolve_request(raw_prompt, active_state=args.active_state)
+        except ValueError as error:
+            parser.error(str(error))
+        if args.format == "json":
+            print(json.dumps(envelope, indent=2))
+        else:
+            print(intent_markdown(envelope), end="")
+        return 0
+
     flow_name = args.flow or resolve_intent(raw_prompt)
     overrides, override_source = load_overrides(args.overrides, args.root.resolve())
     flow = apply_overrides(FLOWS[flow_name], overrides)

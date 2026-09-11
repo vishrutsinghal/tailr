@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-scope-release-proof.schema.json",
+  "title": "TailTrail Navigator Scope Release Proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "status", "checks", "manifest_issues", "platforms", "hosts", "migration", "real_run", "calibration", "adapter_conformance", "artifact_coverage", "local_runtime_hygiene", "artifact_boundary", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"}, "type": {"const": "tailtrail-navigator-scope-release-proof"}, "status": {"enum": ["passed", "failed"]},
+    "checks": {"type": "object", "additionalProperties": false, "required": ["release_manifest", "platform_and_host_contract", "migration_immutability", "cli_mcp_real_run", "planning_approval_closure", "negative_no_artifacts", "lexical_fallback_absent", "calibration_thresholds", "unsafe_lock_zero", "supported_language_profiles", "adapter_conformance", "fsr6_artifact_coverage", "generated_runtime_hygiene"], "properties": {
+      "release_manifest": {"type": "boolean"}, "platform_and_host_contract": {"type": "boolean"}, "migration_immutability": {"type": "boolean"}, "cli_mcp_real_run": {"type": "boolean"}, "planning_approval_closure": {"type": "boolean"}, "negative_no_artifacts": {"type": "boolean"}, "lexical_fallback_absent": {"type": "boolean"},
+      "calibration_thresholds": {"type": "boolean"}, "unsafe_lock_zero": {"type": "boolean"}, "supported_language_profiles": {"type": "boolean"}, "adapter_conformance": {"type": "boolean"}, "fsr6_artifact_coverage": {"type": "boolean"}, "generated_runtime_hygiene": {"type": "boolean"}
+    }},
+    "manifest_issues": {"$ref": "#/$defs/strings"}, "platforms": {"$ref": "#/$defs/strings"}, "hosts": {"$ref": "#/$defs/strings"},
+    "migration": {"type": "object", "additionalProperties": false, "required": ["status", "counts", "immutability", "shadow_comparison"], "properties": {
+      "status": {"enum": ["passed", "failed"]},
+      "counts": {"type": "object", "additionalProperties": false, "required": ["legacy-v1-immutable", "scope-v2", "invalid-v2"], "properties": {"legacy-v1-immutable": {"type": "integer", "minimum": 0}, "scope-v2": {"type": "integer", "minimum": 0}, "invalid-v2": {"type": "integer", "minimum": 0}}},
+      "immutability": {"type": "object", "additionalProperties": false, "required": ["files_before", "files_after", "content_unchanged", "background_rewrite"], "properties": {"files_before": {"type": "integer", "minimum": 0}, "files_after": {"type": "integer", "minimum": 0}, "content_unchanged": {"type": "boolean"}, "background_rewrite": {"const": false}}},
+      "shadow_comparison": {"type": "object", "additionalProperties": false, "required": ["enabled", "raw_goals", "raw_source", "v1_may_override_v2"], "properties": {"enabled": {"const": false}, "raw_goals": {"const": false}, "raw_source": {"const": false}, "v1_may_override_v2": {"const": false}}}
+    }},
+    "real_run": {"type": "object", "additionalProperties": false, "required": ["cli", "mcp", "closure", "negative"], "properties": {
+      "cli": {"type": "object", "additionalProperties": false, "required": ["state", "decision_fingerprint", "owners", "proof_paths", "planning_lock"], "properties": {"state": {"const": "resolved"}, "decision_fingerprint": {"$ref": "#/$defs/fingerprint"}, "owners": {"$ref": "#/$defs/strings"}, "proof_paths": {"$ref": "#/$defs/strings"}, "planning_lock": {"const": "approved"}}},
+      "mcp": {"type": "object", "additionalProperties": false, "required": ["state", "decision_fingerprint", "parity"], "properties": {"state": {"const": "resolved"}, "decision_fingerprint": {"$ref": "#/$defs/fingerprint"}, "parity": {"const": true}}},
+      "closure": {"type": "object", "additionalProperties": false, "required": ["overall_status", "completion_report_present"], "properties": {"overall_status": {"const": "complete"}, "completion_report_present": {"const": true}}},
+      "negative": {"type": "object", "additionalProperties": false, "required": ["rollback_cli", "rollback_mcp", "unresolved_cli", "conflicting_cli", "conflict_state", "status", "fallback"], "properties": {"rollback_cli": {"const": "no-run-artifact"}, "rollback_mcp": {"const": "no-run-artifact"}, "unresolved_cli": {"const": "no-run-artifact"}, "conflicting_cli": {"const": "no-run-artifact"}, "conflict_state": {"enum": ["ambiguous", "conflicting"]}, "status": {"const": "scope-investigation-unavailable"}, "fallback": {"const": "none"}}}
+    }},
+    "calibration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calibration_version", "calibration_digest", "status", "metrics", "baseline_delta", "threshold_results", "scenarios", "language_profiles", "claim_boundaries"],
+      "properties": {
+        "calibration_version": {"type": "string"}, "calibration_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "status": {"const": "passed"},
+        "metrics": {"type": "object"}, "baseline_delta": {"type": "object"}, "threshold_results": {"type": "array", "minItems": 7}, "scenarios": {"type": "array", "minItems": 3}, "language_profiles": {"type": "object"}, "claim_boundaries": {"type": "array", "minItems": 3}
+      }
+    },
+    "adapter_conformance": {
+      "type": "object", "additionalProperties": false, "required": ["status", "hosts", "scope_contract_version", "scope_reasoning_contract_version"],
+      "properties": {"status": {"const": "passed"}, "hosts": {"$ref": "#/$defs/strings"}, "scope_contract_version": {"const": "v2"}, "scope_reasoning_contract_version": {"const": "v1"}}
+    },
+    "artifact_coverage": {
+      "type": "object", "additionalProperties": false, "required": ["required_count", "source_release_count", "package_applicable_count", "package_inventory_count", "missing_files", "missing_source_release_inventory", "missing_package_inventory", "status"],
+      "properties": {"required_count": {"type": "integer", "minimum": 1}, "source_release_count": {"type": "integer", "minimum": 0}, "package_applicable_count": {"type": "integer", "minimum": 1}, "package_inventory_count": {"type": "integer", "minimum": 0}, "missing_files": {"$ref": "#/$defs/strings"}, "missing_source_release_inventory": {"$ref": "#/$defs/strings"}, "missing_package_inventory": {"$ref": "#/$defs/strings"}, "status": {"const": "passed"}}
+    },
+    "local_runtime_hygiene": {
+      "type": "object", "additionalProperties": false, "required": ["forbidden_prefixes", "tracked_violation_count", "tracked_violations", "status", "boundary"],
+      "properties": {"forbidden_prefixes": {"$ref": "#/$defs/strings"}, "tracked_violation_count": {"const": 0}, "tracked_violations": {"$ref": "#/$defs/strings"}, "status": {"const": "passed"}, "boundary": {"type": "string", "minLength": 1}}
+    },
+    "artifact_boundary": {"type": "string", "minLength": 1}, "boundary": {"type": "string", "minLength": 1}
+  },
+  "$defs": {"strings": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}, "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-scope-calibration-report.schema.json",
+  "title": "TailTrail Navigator Scope Calibration Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "status", "evidence_label", "catalog", "coverage", "metrics", "threshold_results", "false_positive_review", "known_gap_baseline", "executable_assurance", "negative_learning", "privacy", "claims", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-navigator-scope-calibration-report"},
+    "status": {"enum": ["passed", "failed"]},
+    "evidence_label": {"const": "committed-fixture-observed"},
+    "catalog": {
+      "type": "object", "additionalProperties": false, "required": ["version", "digest", "receipt_count"],
+      "properties": {"version": {"type": "string"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "receipt_count": {"type": "integer", "minimum": 1}}
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false, "required": ["supported_languages", "covered_languages", "missing_languages", "required_negative_boundaries", "covered_negative_boundaries", "missing_negative_boundaries"],
+      "properties": {
+        "supported_languages": {"$ref": "#/$defs/stringArray"}, "covered_languages": {"$ref": "#/$defs/stringArray"}, "missing_languages": {"$ref": "#/$defs/stringArray"},
+        "required_negative_boundaries": {"$ref": "#/$defs/stringArray"}, "covered_negative_boundaries": {"$ref": "#/$defs/stringArray"}, "missing_negative_boundaries": {"$ref": "#/$defs/stringArray"}
+      }
+    },
+    "metrics": {"$ref": "#/$defs/metrics"},
+    "threshold_results": {"type": "array", "minItems": 5, "items": {"$ref": "#/$defs/threshold"}},
+    "false_positive_review": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "known_gap_baseline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["baseline_version", "baseline_digest", "phase", "status", "known_false_stop_ids", "safe_stop_control_ids", "known_false_stop_count", "safe_stop_control_count", "observed_irrelevant_option_count", "unsafe_lock_count", "release_ready", "claim_boundary"],
+      "properties": {
+        "baseline_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "baseline_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "phase": {"const": "FSR-0"},
+        "status": {"const": "known-gap"},
+        "known_false_stop_ids": {"$ref": "#/$defs/stringArray"},
+        "safe_stop_control_ids": {"$ref": "#/$defs/stringArray"},
+        "known_false_stop_count": {"type": "integer", "minimum": 1},
+        "safe_stop_control_count": {"type": "integer", "minimum": 1},
+        "observed_irrelevant_option_count": {"type": "integer", "minimum": 1},
+        "unsafe_lock_count": {"const": 0},
+        "release_ready": {"const": false},
+        "claim_boundary": {"type": "string", "minLength": 1}
+      }
+    },
+    "executable_assurance": {"$ref": "#/$defs/executableAssurance"},
+    "negative_learning": {
+      "type": "object", "additionalProperties": false, "required": ["learning_id", "state", "source_receipt_ids", "capture_requires_approval", "use_requires_approval", "closure_attribution_required", "governance_gates"],
+      "properties": {
+        "learning_id": {"type": "string"}, "state": {"const": "candidate-only"}, "source_receipt_ids": {"$ref": "#/$defs/stringArray"},
+        "capture_requires_approval": {"const": true}, "use_requires_approval": {"const": true}, "closure_attribution_required": {"const": true},
+        "governance_gates": {"type": "array", "uniqueItems": true, "minItems": 6, "items": {"enum": ["conflict", "freshness", "invalidator", "privacy", "explicit-use-receipt", "closure-attribution"]}}
+      }
+    },
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "claims": {
+      "type": "object", "additionalProperties": false, "required": ["posture", "productivity_claim", "causal_benefit_claim", "boundaries"],
+      "properties": {"posture": {"const": "fixture-only-no-performance-claim"}, "productivity_claim": {"const": false}, "causal_benefit_claim": {"const": false}, "boundaries": {"type": "array", "minItems": 3, "items": {"type": "string", "minLength": 1}}}
+    },
+    "integrity": {"$ref": "#/$defs/integrity"}
+  },
+  "$defs": {
+    "stringArray": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "rateByGroup": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+    "investigation": {
+      "type": "object", "additionalProperties": false, "required": ["files", "bytes", "hops", "duration_ms"],
+      "properties": {"files": {"$ref": "#/$defs/aggregate"}, "bytes": {"$ref": "#/$defs/aggregate"}, "hops": {"$ref": "#/$defs/aggregate"}, "duration_ms": {"$ref": "#/$defs/aggregate"}}
+    },
+    "aggregate": {
+      "type": "object", "additionalProperties": false, "required": ["total", "minimum", "maximum", "mean"],
+      "properties": {"total": {"type": "number", "minimum": 0}, "minimum": {"type": "number", "minimum": 0}, "maximum": {"type": "number", "minimum": 0}, "mean": {"type": "number", "minimum": 0}}
+    },
+    "metrics": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_count", "weak_only_lock_count", "test_only_false_scope_count", "scope_unresolved_rate", "safe_refusal_count", "manual_scope_revision_rate", "owner_precision", "owner_recall", "investigation", "fresh_graph_reuse_count", "stale_graph_rejection_count", "fingerprint_mismatch_count"],
+      "properties": {
+        "receipt_count": {"type": "integer", "minimum": 1}, "weak_only_lock_count": {"type": "integer", "minimum": 0}, "test_only_false_scope_count": {"type": "integer", "minimum": 0},
+        "scope_unresolved_rate": {"type": "object", "additionalProperties": false, "required": ["overall", "by_task", "by_language"], "properties": {"overall": {"type": "number", "minimum": 0, "maximum": 1}, "by_task": {"$ref": "#/$defs/rateByGroup"}, "by_language": {"$ref": "#/$defs/rateByGroup"}}},
+        "safe_refusal_count": {"type": "integer", "minimum": 0}, "manual_scope_revision_rate": {"type": "number", "minimum": 0, "maximum": 1}, "owner_precision": {"type": "number", "minimum": 0, "maximum": 1}, "owner_recall": {"type": "number", "minimum": 0, "maximum": 1},
+        "investigation": {"$ref": "#/$defs/investigation"}, "fresh_graph_reuse_count": {"type": "integer", "minimum": 0}, "stale_graph_rejection_count": {"type": "integer", "minimum": 0}, "fingerprint_mismatch_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "threshold": {
+      "type": "object", "additionalProperties": false, "required": ["metric", "operator", "threshold", "actual", "passed"],
+      "properties": {"metric": {"type": "string"}, "operator": {"enum": ["<=", ">="]}, "threshold": {"type": "number"}, "actual": {"type": "number"}, "passed": {"type": "boolean"}}
+    },
+    "finding": {
+      "type": "object", "additionalProperties": false, "required": ["receipt_id", "kind", "expected_owners", "observed_owners", "action"],
+      "properties": {"receipt_id": {"type": "string"}, "kind": {"enum": ["false-positive-owner", "false-negative-owner", "weak-only-lock", "test-only-false-scope", "surface-fingerprint-mismatch"]}, "expected_owners": {"$ref": "#/$defs/stringArray"}, "observed_owners": {"$ref": "#/$defs/stringArray"}, "action": {"const": "review-required"}}
+    },
+    "delta": {
+      "type": "object", "additionalProperties": false, "required": ["before", "after", "delta"],
+      "properties": {"before": {"type": "integer", "minimum": 0}, "after": {"type": "integer", "minimum": 0}, "delta": {"type": "integer"}}
+    },
+    "scopeScenario": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenario_id", "status", "expected_state", "observed_state", "expected_owners", "observed_owners", "expected_proof_paths", "observed_proof_paths", "question_options", "irrelevant_options", "expected_primary_reason", "observed_primary_reason", "planning_lock_expected", "planning_lock_created", "start_exit_code", "false_stop", "unsafe_lock"],
+      "properties": {
+        "scenario_id": {"type": "string"}, "status": {"enum": ["passed", "failed"]},
+        "expected_state": {"enum": ["resolved", "unresolved", "ambiguous", "blocked-by-limits"]}, "observed_state": {"enum": ["resolved", "unresolved", "ambiguous", "blocked-by-limits"]},
+        "expected_owners": {"$ref": "#/$defs/stringArray"}, "observed_owners": {"$ref": "#/$defs/stringArray"},
+        "expected_proof_paths": {"$ref": "#/$defs/stringArray"}, "observed_proof_paths": {"$ref": "#/$defs/stringArray"},
+        "question_options": {"$ref": "#/$defs/stringArray"}, "irrelevant_options": {"$ref": "#/$defs/stringArray"},
+        "expected_primary_reason": {"type": "string"}, "observed_primary_reason": {"type": "string"},
+        "planning_lock_expected": {"type": "boolean"}, "planning_lock_created": {"type": "boolean"}, "start_exit_code": {"type": "integer"},
+        "false_stop": {"type": "boolean"}, "unsafe_lock": {"type": "boolean"}
+      }
+    },
+    "languageProfile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profile_id", "language", "status", "noise_files", "definition_contract", "import_contract"],
+      "properties": {"profile_id": {"type": "string"}, "language": {"type": "string"}, "status": {"enum": ["passed", "failed"]}, "noise_files": {"type": "integer", "minimum": 10}, "definition_contract": {"type": "boolean"}, "import_contract": {"type": "boolean"}}
+    },
+    "executableAssurance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calibration_version", "calibration_digest", "status", "metrics", "baseline_delta", "threshold_results", "scenarios", "language_profiles", "claim_boundaries"],
+      "properties": {
+        "calibration_version": {"type": "string"}, "calibration_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "status": {"enum": ["passed", "failed"]},
+        "metrics": {
+          "type": "object", "additionalProperties": false,
+          "required": ["scenario_count", "false_stop_count", "false_stop_rate", "irrelevant_option_count", "irrelevant_option_rate", "unsafe_lock_count", "reason_code_accuracy", "owner_precision", "owner_recall", "language_profile_pass_rate"],
+          "properties": {
+            "scenario_count": {"type": "integer", "minimum": 3}, "false_stop_count": {"type": "integer", "minimum": 0}, "false_stop_rate": {"type": "number", "minimum": 0, "maximum": 1},
+            "irrelevant_option_count": {"type": "integer", "minimum": 0}, "irrelevant_option_rate": {"type": "number", "minimum": 0, "maximum": 1}, "unsafe_lock_count": {"type": "integer", "minimum": 0},
+            "reason_code_accuracy": {"type": "number", "minimum": 0, "maximum": 1}, "owner_precision": {"type": "number", "minimum": 0, "maximum": 1}, "owner_recall": {"type": "number", "minimum": 0, "maximum": 1}, "language_profile_pass_rate": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "baseline_delta": {
+          "type": "object", "additionalProperties": false, "required": ["false_stop_count", "irrelevant_option_count", "unsafe_lock_count"],
+          "properties": {"false_stop_count": {"$ref": "#/$defs/delta"}, "irrelevant_option_count": {"$ref": "#/$defs/delta"}, "unsafe_lock_count": {"$ref": "#/$defs/delta"}}
+        },
+        "threshold_results": {"type": "array", "minItems": 7, "items": {"$ref": "#/$defs/threshold"}},
+        "scenarios": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/scopeScenario"}},
+        "language_profiles": {
+          "type": "object", "additionalProperties": false, "required": ["fixture_version", "fixture_digest", "supported", "passed", "pass_rate", "profiles"],
+          "properties": {"fixture_version": {"type": "string"}, "fixture_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "supported": {"type": "integer", "minimum": 1}, "passed": {"type": "integer", "minimum": 0}, "pass_rate": {"type": "number", "minimum": 0, "maximum": 1}, "profiles": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/languageProfile"}}}
+        },
+        "claim_boundaries": {"type": "array", "minItems": 3, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false, "required": ["sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"],
+      "properties": {"sanitized": {"const": true}, "raw_prompt": {"const": false}, "raw_source": {"const": false}, "raw_log": {"const": false}, "identity_fields": {"const": false}}
+    },
+    "integrity": {
+      "type": "object", "additionalProperties": false, "required": ["algorithm", "canonicalization", "digest"],
+      "properties": {"algorithm": {"const": "sha256"}, "canonicalization": {"const": "sorted compact JSON excluding integrity"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    }
+  }
+}

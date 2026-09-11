@@ -24,7 +24,12 @@ For JSON assertions:
 python3 scripts/tailtrail.py guide "PROMPT_TEXT" --changed path/to/file --format json
 ```
 
-Navigator is advisory. It should plan, show selected/skipped features, show suggested commands, and ask for approval. It should not edit files, run tests, run scanners, record learnings, or create graph cache files unless the user approves a follow-up command.
+Navigator is advisory. It should plan, show selected/skipped features, show suggested commands, and ask for approval. It must not edit project source, run tests or scanners, or record learnings. During a normal `start`, it may atomically maintain the metadata-only graph cache when current task evidence makes that useful; this never grants implementation authority. The read-only `guide` command does not write the cache.
+
+For reported user-visible messages, repeat ownership scenarios with plain,
+italic, bold, quoted, and inline-code formatting. All variants must consume the
+same canonical literal and produce the same scope decision; presentation marks
+must never consume the read budget or change an implementation owner.
 
 ## Scenario 1: Tiny Documentation Fix
 
@@ -89,7 +94,7 @@ Expected plan:
 - Optional deeper discovery:
   - Code Graph Mapper
   - Default: not run
-  - Creates `tailtrail-meta/code-graph-cache.json` only if the user later approves and runs `graph map`
+  - The read-only `guide` command does not create `tailtrail-meta/code-graph-cache.json`; users may still run `graph map` explicitly
 - Avoid:
   - editing files
   - scanners
@@ -166,7 +171,7 @@ Expected Test Precision Planner behavior:
 Good behavior:
 
 - Navigator should show Test Precision Planner in Selected Features.
-- Navigator should show Code Graph Mapper before broad source reads, but should not create or refresh `tailtrail-meta/code-graph-cache.json` until the user approves the graph command.
+- Normal `start` should let Navigator reuse, create, refresh, rebuild, or defer the metadata-only graph based on relevance and freshness before broad source reads. `guide` remains non-writing.
 - Navigator should show a post-task Learning Capture Trigger, but should not write learning files until the user approves capture after acceptance, feedback, or validation evidence.
 - The implementation plan should say to use Test Precision Planner before running commands.
 - Review should remain selected because bug fixes need behavior/safeguard review.
@@ -594,5 +599,5 @@ Use this checklist before changing Navigator behavior:
 - Complex Sonar/vulnerability prompt asks scan approval with default `no`.
 - Cross-repo prompt shows read-only reference boundary.
 - Learning refresh prompt suggests refresh review without editing learning files.
-- Navigator does not run tests, scanners, builds, graph map, or learning capture automatically.
+- Navigator does not run tests, scanners, builds, or learning capture automatically. A normal `start` may perform only its bounded metadata graph lifecycle; Debug Start is reuse-only before reproduction approval.
 - Navigator tells the user they can approve or edit the plan.

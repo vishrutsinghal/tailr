@@ -1,5 +1,38 @@
 # TailTrail Evaluation Harness
 
+## Navigator Scope Negative Assurance
+
+NS-8 adds a sealed decision-receipt calibration corpus for Navigator scope v2:
+
+```bash
+python3 scripts/tailtrail.py eval scope validate --format json
+python3 scripts/tailtrail.py eval scope report --format json
+python3 scripts/tailtrail.py eval scope capture-negative --root . --approved --format json
+python3 scripts/tailtrail.py eval scope migration --root . --format json
+python3 scripts/tailtrail.py eval scope release-proof --root . --format json
+python3 scripts/tailtrail.py eval scope rollback-status --root . --format json
+```
+
+`validate` and `report` are read-only. Metrics come only from integrity-sealed,
+factual committed fixtures and include weak-only locks, non-test requests scoped
+only to tests, unresolved rates by task/language, manual revisions, owner
+precision/recall, bounded investigation cost, graph freshness handling, and
+CLI/MCP/host fingerprint parity. Safe refusal is counted but never treated as a
+failed threshold. The report stores no prompts, source, logs, or identities and
+makes no productivity or causal-benefit claim.
+
+The installed release proof additionally runs an emphasized incident literal
+through a wheel-installed Codex payload after a Core-to-Extended update. Its
+scope result must match the plain, quoted, bold, and inline-code unit variants:
+one renderer owner, one inspection-only literal source, one focused proof path,
+and no false stop caused by presentation formatting.
+
+`capture-negative` requires explicit approval and creates only a weak-note
+Learning V3 candidate. Existing retrieval conflict, freshness, invalidator, and
+privacy gates still run. Advice is not injected until an explicit use receipt;
+observed utility is recorded only through requirement-linked closure
+attribution and remains non-causal.
+
 ## PM-7 Adoption Validation
 
 The implemented `eval adoption` surface measures genuine new-user and

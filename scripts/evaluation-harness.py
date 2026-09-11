@@ -54,7 +54,7 @@ def run_script(name: str, args: list[str]) -> int:
 
 
 def usage() -> int:
-    print("Usage: tailtrail eval audit|normalize|validate-events|dataset|real-portfolio|adoption|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
+    print("Usage: tailtrail eval audit|normalize|validate-events|scope|dataset|real-portfolio|adoption|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
     print("")
     print("Implemented in EH-2 aliases:")
     print("- eval audit")
@@ -72,6 +72,7 @@ def usage() -> int:
     print("- eval dataset list|validate|report")
     print("- eval real-portfolio validate|prepare|grade|unblind|report")
     print("- eval adoption validate|template|record|report|gate|propose|decide")
+    print("- eval scope validate|report|capture-negative|migration|release-proof|installed-release-proof|rollback-status|rollback-enable|rollback-disable")
     print("- eval normalize --source <kind> --input <path>")
     print("- eval validate-events [path]")
     print("")
@@ -717,6 +718,12 @@ def main(argv: list[str] | None = None) -> int:
         return normalize(rest)
     if action == "validate-events":
         return validate_events(rest)
+    if action == "scope":
+        if rest[:1] == ["installed-release-proof"]:
+            return run_script("navigator-installed-release-proof.py", rest[1:])
+        if rest[:1] and rest[0] in {"migration", "release-proof", "rollback-status", "rollback-enable", "rollback-disable"}:
+            return run_script("navigator-scope-release.py", rest)
+        return run_script("navigator-scope-calibration.py", rest)
     if action == "scenario":
         return scenario(rest)
     if action == "dataset":
@@ -742,7 +749,7 @@ def main(argv: list[str] | None = None) -> int:
     if action == "artifact":
         return artifact(rest)
 
-    print("Usage: tailtrail eval audit|dataset|real-portfolio|adoption|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
+    print("Usage: tailtrail eval audit|scope|dataset|real-portfolio|adoption|portfolio|guardrails|outcome|workflow|meta|tokens|report|artifact|scenario [args]")
     return 2
 
 

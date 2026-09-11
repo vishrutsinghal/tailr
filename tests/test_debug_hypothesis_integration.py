@@ -32,6 +32,7 @@ class DebugHypothesisIntegrationTests(unittest.TestCase):
         reproduction.approve(root, "di6")
         uid = reproduction.show(root, "di6")["requirement_uid"]
         event = evidence.append(root, "di6", {"kind":"command-result", "requirement_uids":[uid], "tier":"integration", "command_label":"timeout adapter", "command":"python -m unittest timeout_adapter", "outcome":"fail", "environment":"local", "asserted_behavior":"duplicate effect reproduced"}, True)
+        reproduction.record_attempt(root, "di6", "pre-fix", "reproduced", event["fingerprint"], "The approved duplicate-effect signature was observed.", ["command-or-actions", "input-or-fixture"], True)
         ledger = hypothesis.add_hypothesis(root, "di6", "code", "retry lacks stable idempotency", 1)
         return uid, event["fingerprint"], ledger["hypotheses"][0]["hypothesis_id"]
 

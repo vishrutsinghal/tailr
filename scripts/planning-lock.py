@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,6 +42,183 @@ def _display_prose(value: Any) -> str:
     text = re.sub(r"\\(?:r\\n|n|r)", " ", str(value))
     text = " ".join(text.split())
     return text.translate(str.maketrans({"\u2013": "-", "\u2014": "-", "\u2212": "-", "\ufffd": "-"}))
+
+
+_REQUIREMENT_KIND_LABELS = {
+    "constraint": "constraint on other requirements, not independently completable",
+    "preserve": "preserve existing behavior, not new work",
+    "safety": "safety constraint",
+}
+
+
+def _requirement_line(row: dict[str, Any]) -> str:
+    """Render one requirement row, flagging a non-`change` kind."""
+    label = _REQUIREMENT_KIND_LABELS.get(str(row.get("kind") or "change"))
+    if label:
+        return f"- **{row['display_id']}** _({label})_: {_display_prose(row['statement'])}"
+    return f"- **{row['display_id']}:** {_display_prose(row['statement'])}"
+
+
+def debug_next_action_guidance(
+    contract: dict[str, Any], canonical_uid: str | None = None
+) -> dict[str, Any]:
+    """Project one canonical, host-neutral menu for a Debug reproduction state.
+
+    The menu is derived rather than persisted so CLI, MCP, and host renderers
+    cannot disagree about which action is currently available. Prompts are
+    deliberately natural-language friendly; only stop/resume use the public
+    session-control commands because those commands are themselves the user
+    contract.
+    """
+    run_id = str(contract.get("run_id", "")).strip()
+    revision = int(contract.get("revision", 0) or 0)
+    status = str(contract.get("status", "awaiting-approval")).strip()
+    unresolved = [str(item) for item in contract.get("unresolved_fields", []) if str(item).strip()]
+    identity_drift = bool(canonical_uid and canonical_uid != contract.get("requirement_uid"))
+
+    if status == "approved":
+        state = "investigation-ready"
+        actions = [
+            {
+                "id": "run-approved-reproduction",
+                "label": "Run the approved reproduction",
+                "prompt": f"Run the approved reproduction for run {run_id} and record the factual result.",
+                "availability": "now",
+                "effect": "Executes only the approved reproduction boundary; it does not authorize a source edit.",
+            },
+            {
+                "id": "show-evidence",
+                "label": "Show saved evidence",
+                "prompt": f"Show the evidence for run {run_id}.",
+                "availability": "now",
+                "effect": "Reads the evidence already recorded for this run.",
+            },
+            {
+                "id": "continue-investigation",
+                "label": "Continue the investigation",
+                "prompt": f"Continue run {run_id} through root-cause proof and show me the correction proposal.",
+                "availability": "now",
+                "effect": "Advances only through separately gated experiments and root-cause proof.",
+            },
+        ]
+    else:
+        blocked_reason = None
+        if unresolved:
+            blocked_reason = "Resolve these fields first: " + ", ".join(unresolved)
+        elif identity_drift:
+            blocked_reason = f"Revise with the canonical requirement UID {canonical_uid} first."
+        elif status == "rejected":
+            blocked_reason = "This revision was rejected; create a corrected revision before approval."
+        state = "reproduction-revision-required" if blocked_reason else "reproduction-approval-required"
+        actions = [
+            {
+                "id": "approve-reproduction",
+                "label": "Approve this exact reproduction",
+                "prompt": f"Approve reproduction revision {revision} for run {run_id}.",
+                "availability": "blocked" if blocked_reason else "now",
+                "effect": blocked_reason or "Grants investigation authority only; source edits remain blocked.",
+            },
+            {
+                "id": "revise-reproduction",
+                "label": "Revise the reproduction",
+                "prompt": f"Revise reproduction revision {revision} for run {run_id}: <describe the correction>.",
+                "availability": "now",
+                "effect": "Creates a new revision under the same run and preserves its requirement identity.",
+            },
+            {
+                "id": "explain-reproduction",
+                "label": "Explain the proposal",
+                "prompt": f"Explain reproduction revision {revision} for run {run_id}.",
+                "availability": "now",
+                "effect": "Explains saved evidence and boundaries without changing or approving them.",
+            },
+            {
+                "id": "reject-reproduction",
+                "label": "Reject this revision",
+                "prompt": f"Reject reproduction revision {revision} for run {run_id}: <reason>.",
+                "availability": "now",
+                "effect": "Records rejection feedback; it does not create replacement content automatically.",
+            },
+        ]
+
+    actions.extend([
+        {
+            "id": "show-status",
+            "label": "Show run status",
+            "prompt": f"Show TailTrail status for run {run_id}.",
+            "availability": "now",
+            "effect": "Reads the saved lifecycle state without advancing it.",
+        },
+        {
+            "id": "stop-tailtrail",
+            "label": "Stop TailTrail",
+            "prompt": "tailtrail stop",
+            "availability": "now",
+            "effect": "Detaches TailTrail at the current logical boundary and preserves the run.",
+        },
+        {
+            "id": "resume-tailtrail",
+            "label": "Resume later",
+            "prompt": f"tailtrail resume --run-id {run_id}",
+            "availability": "after-stop",
+            "effect": "Reattaches the preserved run without creating a new Planning Lock.",
+        },
+    ])
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-debug-next-action-guidance",
+        "run_id": run_id,
+        "revision": revision,
+        "state": state,
+        "actions": actions,
+        "fix_path": [
+            {
+                "stage": "reproduction",
+                "instruction": "Approve the exact reproduction revision, then run only that approved reproduction.",
+            },
+            {
+                "stage": "investigation",
+                "instruction": "Rank hypotheses, approve bounded experiments separately, and prove root cause with factual evidence.",
+            },
+            {
+                "stage": "correction",
+                "instruction": f"After root cause is proven, ask: Show the correction proposal for run {run_id}.",
+            },
+            {
+                "stage": "implementation",
+                "instruction": f"After reviewing that proposal, ask: Approve the correction for run {run_id} and implement only its approved scope.",
+            },
+            {
+                "stage": "closure",
+                "instruction": "Run focused regression and preservation proof, review the changed scope, finalize closure, and return the Completion Report.",
+            },
+        ],
+        "boundary": "Reproduction approval grants investigation authority only. Correction implementation still requires root-cause proof and separate correction approval.",
+    }
+
+
+def render_debug_next_action_guidance(guidance: dict[str, Any]) -> list[str]:
+    """Render the canonical Debug action menu without fragile Markdown tables."""
+    lines = ["## Next actions", "", "Reply with one of these compact prompts:", ""]
+    for action in guidance.get("actions", []):
+        availability = action.get("availability")
+        label = _display_prose(action.get("label", "Action"))
+        prompt = str(action.get("prompt", "")).strip()
+        effect = _display_prose(action.get("effect", ""))
+        if availability == "blocked":
+            lines.append(f"- **{label} - currently blocked:** {effect}")
+        elif availability == "after-stop":
+            lines.append(f"- **{label}:** `{prompt}` - available after stopping; {effect}")
+        else:
+            lines.append(f"- **{label}:** `{prompt}` - {effect}")
+    lines.extend(["", "## Route to a code fix", ""])
+    for index, stage in enumerate(guidance.get("fix_path", []), start=1):
+        lines.append(
+            f"{index}. **{_display_prose(stage.get('stage', 'stage')).title()}:** "
+            f"{_display_prose(stage.get('instruction', ''))}"
+        )
+    lines.extend(["", f"Boundary: {guidance.get('boundary')}"])
+    return lines
 
 
 def target_workspace() -> Any:
@@ -81,6 +259,14 @@ def spec_kit_evidence() -> Any:
     assert spec and spec.loader
     spec.loader.exec_module(module)
     return module
+
+
+def navigator_scope_module() -> Any:
+    scripts_root = str(ROOT / "scripts")
+    if scripts_root not in sys.path:
+        sys.path.insert(0, scripts_root)
+    import navigator_scope  # type: ignore
+    return navigator_scope
 
 
 def workflow_start_integration() -> Any:
@@ -212,7 +398,7 @@ def suggested_run_id(root: Path, goal: str) -> str:
     return candidate
 
 
-def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None, target_identity: dict[str, Any] | None = None, input_roles: dict[str, Any] | None = None, host_workspace: dict[str, Any] | None = None, enterprise_policy: dict[str, Any] | None = None) -> dict[str, Any]:
+def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None, target_identity: dict[str, Any] | None = None, input_roles: dict[str, Any] | None = None, host_workspace: dict[str, Any] | None = None, enterprise_policy: dict[str, Any] | None = None, scope_decision: dict[str, Any] | None = None) -> dict[str, Any]:
     root = root.resolve()
     selected_run_id = run_id or suggested_run_id(root, goal)
     if Path(selected_run_id).name != selected_run_id:
@@ -230,6 +416,7 @@ def create(root: Path, goal: str, run_id: str | None = None, reference_roots: li
         "input_roles": input_roles or target_workspace().input_roles(root, reference_roots=reference_roots),
         "host_workspace": host_workspace,
         "enterprise_policy": enterprise_policy or {"status": "not-configured", "blocking": False},
+        "scope_decision": scope_decision,
         "approval": None,
         "boundary": "Planning Lock permits read-only planning artifacts only. Source edits, Git mutations, project commands, scanners, and managed patch application require a separate approval for this run.",
     }
@@ -238,6 +425,81 @@ def create(root: Path, goal: str, run_id: str | None = None, reference_roots: li
     role_check = target_workspace().validate_input_roles(payload["input_roles"], root)
     L.append_event(root, selected_run_id, "planning_lock_created", {"artifact": path.relative_to(L.state_dir(root, selected_run_id)).as_posix(), "writes_allowed": False, "reference_roots": payload["reference_roots"], "target_fingerprint": payload["target_identity"]["fingerprint"], "input_roles": {"read_only_inputs": role_check["read_only_inputs"]}})
     return {**payload, "artifact": path.relative_to(root).as_posix()}
+
+
+def rollback_new_start(root: Path, run_id: str) -> None:
+    """Remove only a newly-created, unapproved Start transaction."""
+    root = root.resolve()
+    directory = L.state_dir(root, run_id)
+    if not directory.is_dir():
+        return
+    lock_file = lock_path(root, run_id)
+    if lock_file.is_file():
+        payload = read(lock_file)
+        if payload.get("status") != "awaiting-approval":
+            raise ValueError("cannot roll back an approved or transitioned Planning Lock")
+    shutil.rmtree(directory)
+
+
+def validate_saved_scope_decision(
+    root: Path,
+    run_id: str,
+    report: dict[str, Any] | None = None,
+    *,
+    allow_unresolved_orientation: bool = False,
+) -> dict[str, Any]:
+    """Verify that saved v2 evidence still matches the lock and target binding."""
+    current = show(root.resolve(), run_id)
+    binding = current.get("scope_decision")
+    if not isinstance(binding, dict):
+        return {"status": "legacy", "blocking": False, "reason": "Planning Lock has no v2 scope-decision binding"}
+    if report is None:
+        report = active_start_report(root.resolve(), run_id).get("report", {})
+    revision_binding = report.get("scope_decision_revision") if isinstance(report, dict) else None
+    revision_number: int | None = None
+    if isinstance(revision_binding, dict):
+        if revision_binding.get("type") != "tailtrail-scope-decision-revision":
+            raise ValueError("saved Start report has an invalid scope-decision revision contract")
+        if revision_binding.get("base_decision_fingerprint") != binding.get("decision_fingerprint"):
+            raise ValueError("scope-decision revision is not based on this Planning Lock")
+        revised = revision_binding.get("scope_decision")
+        if not isinstance(revised, dict):
+            raise ValueError("scope-decision revision is missing its revised binding")
+        revision_number = int(revision_binding.get("revision", 0))
+        state = revision_state(root.resolve(), run_id)
+        if revision_number != int(state.get("active_revision", 1)):
+            raise ValueError("scope-decision revision does not match the active plan revision")
+        binding = revised
+    plan = report.get("navigator", {}) if isinstance(report, dict) else {}
+    evidence = plan.get("scope_evidence") if isinstance(plan, dict) else None
+    quality = plan.get("scope_quality") if isinstance(plan, dict) else None
+    if not isinstance(evidence, dict) or not isinstance(quality, dict):
+        raise ValueError("saved Start report is missing its v2 scope evidence or quality decision")
+    scope = navigator_scope_module()
+    if not scope.verify_decision_fingerprint(evidence):
+        raise ValueError("saved Start scope evidence fingerprint is invalid")
+    if evidence.get("decision_fingerprint") != binding.get("decision_fingerprint"):
+        raise ValueError("saved Start scope decision differs from the Planning Lock binding")
+    quality_matches = quality.get("decision_fingerprint") == binding.get("decision_fingerprint")
+    if not quality_matches or (quality.get("blocking") is not False and not allow_unresolved_orientation):
+        raise ValueError("saved Start scope-quality gate is not a passing decision for this Planning Lock")
+    target_fingerprint = str((current.get("target_identity") or {}).get("fingerprint", ""))
+    if binding.get("planning_target_identity_fingerprint") != target_fingerprint:
+        raise ValueError("scope decision target identity differs from the Planning Lock")
+    if binding.get("scope_target_identity_fingerprint") != evidence.get("target_identity_fingerprint"):
+        raise ValueError("scope evidence target binding differs from the Planning Lock")
+    return {
+        "status": (
+            "matched-debug-orientation"
+            if allow_unresolved_orientation and quality.get("blocking") is not False
+            else "matched-revision" if revision_number is not None else "matched"
+        ),
+        "blocking": False,
+        "decision_fingerprint": binding.get("decision_fingerprint"),
+        "target_identity_fingerprint": target_fingerprint,
+        "revision": revision_number,
+        "orientation_only": bool(allow_unresolved_orientation),
+    }
 
 
 def show(root: Path, run_id: str) -> dict[str, Any]:
@@ -255,6 +517,12 @@ def save_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[s
     """
     root = root.resolve()
     show(root, run_id)
+    validate_saved_scope_decision(
+        root,
+        run_id,
+        report,
+        allow_unresolved_orientation=isinstance(report.get("debug_plan"), dict),
+    )
     path = start_report_path(root, run_id)
     if path.exists():
         raise ValueError(f"Start report for run `{run_id}` already exists")
@@ -347,7 +615,8 @@ def approve_debug_investigation(root: Path, run_id: str, reproduction_revision: 
     root = root.resolve()
     path = lock_path(root, run_id)
     payload = show(root, run_id)
-    if payload.get("status") != "approved" or (payload.get("approval") or {}).get("kind") != "debug-plan-only":
+    approval_kind = (payload.get("approval") or {}).get("kind")
+    if payload.get("status") != "approved" or approval_kind not in {"debug-plan-only", "debug-reproduction-contract"}:
         raise ValueError("approve the canonical Debug Start Plan before approving reproduction")
     payload["writes_allowed"] = True
     payload["approval"] = {
@@ -385,7 +654,15 @@ def _proposal_from_start_report(root: Path, run_id: str) -> dict[str, Any] | Non
     if not isinstance(matrix, list) or not matrix:
         paths = [item.get("path") for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
         matrix = _goal_requirements(str(saved.get("goal", "")).strip(), paths)
-    return {"goal": str(saved.get("goal", "")).strip(), "requirements": matrix}
+    proposal = {"goal": str(saved.get("goal", "")).strip(), "requirements": matrix}
+    scope_decision = plan.get("scope_evidence", {}) if isinstance(plan, dict) else {}
+    if isinstance(scope_decision, dict) and scope_decision.get("decision_fingerprint"):
+        proposal["scope_decision"] = {
+            "decision_fingerprint": scope_decision.get("decision_fingerprint"),
+            "target_identity_fingerprint": scope_decision.get("target_identity_fingerprint"),
+            "state": scope_decision.get("state"),
+        }
+    return proposal
 
 
 def _hands_free_requirement_matrix(features: list[dict[str, Any]], paths: list[str]) -> list[dict[str, Any]]:
@@ -405,6 +682,7 @@ def _hands_free_requirement_matrix(features: list[dict[str, Any]], paths: list[s
         ("focused unit", ["unit", "integration", "contract", "e2e"]),
     )
     rows: list[dict[str, Any]] = []
+    framing = requirement_discovery()
     for index, feature in enumerate(features, start=1):
         statement = str(feature.get("statement", "")).strip()
         if not statement:
@@ -414,6 +692,8 @@ def _hands_free_requirement_matrix(features: list[dict[str, Any]], paths: list[s
         conditional = "rollout" in lowered or "infrastructure" in lowered
         rows.append({
             "display_id": str(feature.get("display_id") or f"REQ-{index:02d}"),
+            "requirement_id": str(feature.get("requirement_id") or framing.stable_requirement_id(statement)),
+            "query_terms": list(feature.get("query_terms") or framing.query_terms(statement)),
             "kind": "preserve" if "preserve" in lowered else "change",
             "statement": statement,
             "acceptance_criteria": ["The stated outcome is observable through its named local evidence."],
@@ -556,7 +836,11 @@ def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> d
         },
         "scope": impacted,
         "selected_features": [row for row in delivery.get("selected", []) if isinstance(row, dict)],
-        "deferred_features": [row for row in delivery.get("activated_later", []) if isinstance(row, dict)],
+        "required_later": [row for row in delivery.get("required_later", []) if isinstance(row, dict)] or [
+            {"name": "Focused testing and validation", "when": "after every approved implementation or correction, before completion", "why": "prove changed behavior, preservation cases, and regression boundaries with factual evidence"},
+            {"name": "Canonical completion and closure", "when": "after all required tests and selected Harness checks have factual results", "why": "prevent completion while required evidence is missing, unavailable, or failing"},
+        ],
+        "conditional_controls": [row for row in delivery.get("conditional_controls", delivery.get("activated_later", [])) if isinstance(row, dict)],
         "guided_delivery": delivery,
         "architecture_plan": report.get("architecture_plan", {}),
         "behaviour_plan": report.get("behaviour_plan", {}),
@@ -568,6 +852,38 @@ def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> d
             "code_intelligence": "local-only lite, v1, and v2; provider-backed V3 is not default",
             "exactness": "local estimate only; exact model/API usage requires linked provider telemetry",
         },
+        "scope_binding": (report.get("workflow_runtime", {}) or {}).get("scope_binding"),
+    }
+
+
+def _validate_aidlc_scope_mapping(root: Path, run_id: str, revision: dict[str, Any]) -> dict[str, Any]:
+    """Keep AIDLC authority decisions on the exact saved local scope truth."""
+    saved = _saved_start_report(root, run_id)
+    navigator = saved.get("navigator", {}) if isinstance(saved, dict) else {}
+    evidence = navigator.get("scope_evidence") if isinstance(navigator, dict) else None
+    if not isinstance(evidence, dict) or str(evidence.get("schema_version")) != "2":
+        return {"status": "legacy", "blocking": False}
+    decision = str(evidence.get("decision_fingerprint", ""))
+    original_rows = [row for row in navigator.get("requirement_matrix", []) if isinstance(row, dict)]
+    revised_rows = [row for row in revision.get("requirements", []) if isinstance(row, dict)]
+    original_ids = [str(row.get("display_id")) for row in original_rows]
+    revised_ids = [str(row.get("display_id")) for row in revised_rows]
+    if original_ids != revised_ids:
+        raise ValueError("AIDLC requirement IDs changed while mapping local scope evidence")
+    for row in revised_rows:
+        scope = row.get("scope_evidence")
+        if not isinstance(scope, dict) or scope.get("decision_fingerprint") != decision:
+            raise ValueError(f"AIDLC requirement `{row.get('display_id')}` is missing its saved v2 scope mapping")
+        owners = sorted(str(value) for value in scope.get("implementation_owners", []) if str(value))
+        likely = sorted(str(value) for value in row.get("likely_paths", []) if str(value))
+        if likely != owners:
+            raise ValueError(f"AIDLC requirement `{row.get('display_id')}` changed editable scope outside the saved v2 decision")
+    return {
+        "status": "matched",
+        "blocking": False,
+        "decision_fingerprint": decision,
+        "requirement_ids": revised_ids,
+        "boundary": "AIDLC wording and decisions remain authority-owned; local editable paths remain bound to the saved Navigator decision.",
     }
 
 
@@ -628,6 +944,40 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
     anchor_path = root / anchor_artifact if anchor_artifact else None
     approved_anchor = read(anchor_path) if anchor_path and anchor_path.is_file() else {}
     bridge = saved_report.get("official_aidlc_bridge") if isinstance(saved_report, dict) else None
+    workflow_descriptor = saved_report.get("workflow_runtime", {}) if isinstance(saved_report, dict) else {}
+    workflow_scope_binding = workflow_descriptor.get("scope_binding") if isinstance(workflow_descriptor, dict) else None
+    scope_requirements = [
+        row for row in ((plan.get("scope_evidence", {}) or {}).get("requirements", []))
+        if isinstance(row, dict)
+    ]
+    editable_paths = sorted({
+        str(path)
+        for row in approved_anchor.get("requirements", [])
+        if isinstance(row, dict)
+        for path in row.get("likely_paths", [])
+        if str(path)
+    })
+    proposed_proof_paths = sorted({
+        str(path)
+        for row in approved_anchor.get("requirements", [])
+        if isinstance(row, dict)
+        for path in ((row.get("validation_contract", {}) or {}).get("proposed_paths", []))
+        if str(path)
+    })
+    validation_edit_paths = sorted({
+        str(path)
+        for row in approved_anchor.get("requirements", [])
+        if isinstance(row, dict)
+        for path in ((row.get("validation_contract", {}) or {}).get("editable_paths", []))
+        if str(path)
+    } | set(proposed_proof_paths))
+    approved_change_paths = sorted(set(editable_paths) | set(validation_edit_paths))
+    inspection_paths = sorted({
+        str(path) for row in scope_requirements for path in row.get("inspection_paths", []) if str(path)
+    })
+    proof_paths = sorted({
+        str(path) for row in scope_requirements for path in row.get("proof_paths", []) if str(path)
+    } | set(proposed_proof_paths))
     handoff = {
         "run_id": run_id,
         "state": "execution-ready",
@@ -643,6 +993,7 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
             "behavior_contract": row.get("behavior_contract", {}),
             "maintainability_contract": row.get("maintainability_contract", {}),
             "ui_contract": row.get("ui_contract", {}),
+            "scope_evidence": row.get("scope_evidence", {}),
         } for row in approved_anchor.get("requirements", [])],
         "workflow": delivery.get("stages", ["inspect approved scope", "implement", "validate", "review", "report completion"]),
         "selected_features": delivery.get("selected", []),
@@ -650,7 +1001,22 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
         "behaviour_plan": saved_report.get("behaviour_plan", {}),
         "maintainability_plan": saved_report.get("maintainability_plan", {}),
         "ui_plan": saved_report.get("ui_plan", {}),
-        "likely_paths": [row.get("path") for row in plan.get("likely_impacted_files", []) if isinstance(row, dict) and row.get("path")],
+        "likely_paths": editable_paths,
+        "inspection_paths": inspection_paths,
+        "proof_paths": proof_paths,
+        "proposed_proof_paths": proposed_proof_paths,
+        "validation_edit_paths": validation_edit_paths,
+        "scope_decision": approved_anchor.get("scope_decision"),
+        "scope_binding": workflow_scope_binding,
+        "scope_drift_rule": {
+            "approved_editable_paths": approved_change_paths,
+            "approved_implementation_paths": editable_paths,
+            "approved_proposed_proof_paths": proposed_proof_paths,
+            "approved_validation_paths": validation_edit_paths,
+            "status": "enforced-at-evidence-and-closure",
+            "on_unexpected_path": "record unresolved scope drift and block completion until an approved revision or correction route resolves it",
+            "boundary": "Implementation owners are editable for approved source work. Requirement-linked validation paths named by the approved validation contract are editable only for proof assertions. Inspection-only paths remain read-only.",
+        },
         "execution_boundary": "Implementation may begin only within this activated approved anchor. TailTrail remains responsible for scope, evidence, drift, recovery, and completion controls.",
         "official_aidlc": bridge if isinstance(bridge, dict) else {"mode": (saved_report.get("aidlc_mode", {}) or {}).get("mode", "lite"), "state": "not-attached"},
         "closure": {
@@ -925,6 +1291,8 @@ def approve_official_aidlc_requirements(root: Path, run_id: str, approved: bool)
     revision_path = _official_aidlc_artifact(root, run_id, "official-aidlc-revised-requirements-v1.json")
     revision = read(revision_path)
     _ensure_evidence_capability(revision_path, revision)
+    validate_saved_scope_decision(root, run_id)
+    _validate_aidlc_scope_mapping(root, run_id, revision)
     questions = read(_official_aidlc_artifact(root, run_id, "official-aidlc-requirements-v1.json"))
     if revision.get("question_revision", 1) != questions.get("question_revision", 1):
         raise ValueError("official AIDLC answers are stale because a question revision was approved; answer the current question set again")
@@ -1030,6 +1398,8 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
     revision_path = _aidlc_artifact(root, run_id, "aidlc-revised-requirements-v1.json")
     revision = read(revision_path)
     _ensure_evidence_capability(revision_path, revision)
+    validate_saved_scope_decision(root, run_id)
+    _validate_aidlc_scope_mapping(root, run_id, revision)
     questions = read(_aidlc_artifact(root, run_id, "aidlc-requirements-v1.json"))
     if revision.get("question_revision", 1) != questions.get("question_revision", 1):
         raise ValueError("AIDLC answers are stale because a question revision was approved; answer the current question set again")
@@ -1140,9 +1510,22 @@ def render_aidlc_revision(payload: dict[str, Any]) -> str:
     lines.extend(behaviour.markdown_lines(resolved.get("behaviour_plan", {}), detailed=True))
     lines.extend(maintainability.markdown_lines(resolved.get("maintainability_plan", {}), detailed=True))
     lines.extend(ui.markdown_lines(resolved.get("ui_plan", {}), detailed=True))
-    lines.extend(["", "## Deferred TailTrail features", ""])
-    for row in resolved.get("deferred_features", []):
-        lines.append(f"- **{row.get('name')}:** {_display_prose(row.get('when', ''))}")
+    lines.extend(["", "## Required later in this run", "", "These controls are mandatory before completion; they run after the relevant approved implementation stage and are not deferred or optional.", ""])
+    required_later = resolved.get("required_later", []) or [
+        {"name": "Focused testing and validation", "when": "after every approved implementation or correction, before completion", "why": "required factual proof"},
+        {"name": "Canonical completion and closure", "when": "after all required tests have factual results", "why": "completion remains evidence-gated"},
+    ]
+    for row in required_later:
+        when = _display_prose(row.get('when', '')).rstrip('.')
+        why = _display_prose(row.get('why', 'required before completion')).rstrip('.')
+        lines.append(f"- **{row.get('name')}:** {when}. **Why:** {why}.")
+    lines.extend(["", "## Conditional TailTrail controls", ""])
+    conditional = resolved.get("conditional_controls", resolved.get("deferred_features", []))
+    if conditional:
+        for row in conditional:
+            lines.append(f"- **{row.get('name')}:** {_display_prose(row.get('when', ''))}")
+    else:
+        lines.append("- None. All selected controls are already scheduled in this run.")
     delivery = resolved.get("guided_delivery", {}) or {}
     lines.extend(["", "## Guided Delivery", "", f"- Mode: `{delivery.get('mode', 'guided-delivery')}`", "- After approval:"])
     for index, stage in enumerate(delivery.get("stages", []), start=1):
@@ -1172,7 +1555,7 @@ def render_aidlc_revision(payload: dict[str, Any]) -> str:
 def render_execution_handoff(payload: dict[str, Any]) -> str:
     lines = ["# TailTrail Execution Handoff", "", f"**Run ID:** `{payload['run_id']}`", "**State:** execution ready - AIDLC requirements are approved and the existing Planning Lock is activated.", "", "## Active requirements", ""]
     for row in payload["active_requirements"]:
-        lines.append(f"- **{row['display_id']}:** {_display_prose(row['statement'])}")
+        lines.append(_requirement_line(row))
     lines.extend(["", "## Selected TailTrail controls", ""])
     for row in payload.get("selected_features", []):
         lines.append(f"- **{row.get('name')}:** {row.get('why')}")
@@ -1242,7 +1625,8 @@ def render_debug_reproduction_proposal(payload: dict[str, Any]) -> str:
         lines.extend(f"- Resolve `{field}` before approval." for field in unresolved)
     else:
         lines.append("- None. This exact revision is ready for separate approval.")
-    lines.extend(["", "## Next action", "", f"- {payload['next']}", f"- Boundary: {payload['boundary']}", ""])
+    guidance = debug_next_action_guidance(contract)
+    lines.extend([""] + render_debug_next_action_guidance(guidance) + [""])
     return "\n".join(lines)
 
 
@@ -1294,20 +1678,40 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     identity_check = target_workspace().verify_identity(current.get("target_identity", {}), root)
     if identity_check["blocking"]:
         raise ValueError(f"Target identity mismatch for run `{run_id}`: {identity_check['reason']}. Refresh or recreate the Planning Lock before implementation.")
+    saved_report = active_start_report(root, run_id).get("report", {})
+    debug_orientation = isinstance(saved_report, dict) and isinstance(saved_report.get("debug_plan"), dict)
+    scope_decision_check = validate_saved_scope_decision(
+        root,
+        run_id,
+        saved_report,
+        allow_unresolved_orientation=debug_orientation,
+    )
     role_check = target_workspace().validate_input_roles(current.get("input_roles", {}), root)
     policy_check = enterprise_target_policy().verify_bound(current.get("enterprise_policy"), root)
     if policy_check.get("blocking"):
         raise ValueError(f"Enterprise target policy blocks activation for run `{run_id}`: {policy_check.get('reason', '; '.join(policy_check.get('issues', [])))}")
-    saved_report = active_start_report(root, run_id).get("report", {})
-    if isinstance(saved_report, dict) and isinstance(saved_report.get("debug_plan"), dict):
+    if debug_orientation:
         module = load_module("tailtrail_debug_reproduction_bridge", "debug-reproduction.py")
         return module.approve_start_plan_and_draft(root, run_id)
+    authority_scope = (saved_report.get("navigator", {}) or {}).get("authority_scope") if isinstance(saved_report, dict) else None
+    if isinstance(authority_scope, dict) and authority_scope.get("blocking") is not False:
+        missing = ", ".join(authority_scope.get("unresolved_requirement_ids", [])) or "unknown"
+        raise ValueError(f"authority-owned requirements have unresolved local implementation scope: {missing}")
     source = saved_report.get("spec_kit_source") if isinstance(saved_report, dict) else None
     if isinstance(source, dict):
         current_source = spec_kit_bridge().load(root, str(source.get("feature_id", "")))
         if current_source.get("source_revision") != source.get("source_revision") or current_source.get("import") != source.get("import"):
             raise ValueError("Intent Bridge source/import identity changed after this plan; create an amendment review before activation")
-    if _is_official_aidlc_run(root, run_id):
+    aidlc_requirement_state = (
+        saved_report.get("aidlc_requirements", {})
+        if isinstance(saved_report, dict)
+        and isinstance(saved_report.get("aidlc_requirements"), dict)
+        else {}
+    )
+    prebound_official_requirements = (
+        aidlc_requirement_state.get("state") == "authority-bound-in-start-plan"
+    )
+    if _is_official_aidlc_run(root, run_id) and not prebound_official_requirements:
         revision = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
         if not revision.is_file():
             raise ValueError("Full AIDLC requires answers and explicit official Requirements Analysis approval before TailTrail can freeze the anchor")
@@ -1371,15 +1775,56 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         handoff_path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
         L.atomic_json(handoff_path, handoff)
         handoff_artifact = handoff_path.relative_to(root).as_posix()
+    official_stage_approval: str | None = None
+    if prebound_official_requirements:
+        if not anchor_result or not anchor_result.get("artifact"):
+            raise ValueError("official AIDLC requirement authority requires a canonical approved anchor")
+        approval_path = (
+            L.state_dir(root, run_id)
+            / "aidlc-official"
+            / "requirements"
+            / "authority-approval-v1.json"
+        )
+        approval = {
+            "schema_version": "1",
+            "type": "tailtrail-official-aidlc-requirement-authority-approval",
+            "run_id": run_id,
+            "stage": "requirements",
+            "authority": "official-ai-dlc-pack",
+            "approved": True,
+            "mode": aidlc_requirement_state.get("mode"),
+            "official_references": aidlc_requirement_state.get("official_references", {}),
+            "anchor": anchor_result["artifact"],
+            "boundary": (
+                "Plan approval accepts the official pre-scope requirement boundary and its exact local scope mapping; "
+                "it does not transfer requirement authorship to TailTrail."
+            ),
+        }
+        L.atomic_json(approval_path, approval)
+        official_stage_approval = approval_path.relative_to(root).as_posix()
+        L.append_event(
+            root,
+            run_id,
+            "official_aidlc_requirements_approved",
+            {
+                "official_approval": official_stage_approval,
+                "anchor": anchor_result["artifact"],
+                "authority": "official-ai-dlc-pack",
+                "source": "pre-scope-authority-bound-start-plan",
+            },
+        )
     bridge_activation: dict[str, Any] | None = None
     bridge = saved_report.get("official_aidlc_bridge") if isinstance(saved_report, dict) else None
-    if isinstance(bridge, dict) and bridge.get("mode") == "full":
+    if isinstance(bridge, dict) and (
+        bridge.get("mode") == "full" or prebound_official_requirements
+    ):
         bridge_activation = _official_aidlc_bridge_module().activate(root, run_id)
     L.append_event(root, run_id, "planning_activated", {
         "anchor": anchor_state,
         "handoff": "planning/execution-handoff-v1.json" if handoff else None,
         "official_aidlc_bridge_activation": bridge_activation.get("artifact") if bridge_activation else None,
         "target_identity_status": identity_check["status"],
+        "scope_decision_status": scope_decision_check["status"],
         "input_role_status": role_check["status"],
         "enterprise_policy_status": policy_check["status"],
         "workflow_runtime": workflow_runtime.get("state"),
@@ -1390,9 +1835,11 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         "execution_handoff": handoff,
         "execution_handoff_artifact": handoff_artifact,
         "official_aidlc_bridge_activation": bridge_activation,
+        "official_stage_approval": official_stage_approval,
         "spec_kit_slices": spec_kit_slice_result,
         "spec_kit_evidence": spec_kit_evidence_result,
         "target_identity": identity_check,
+        "scope_decision": scope_decision_check,
         "input_roles": role_check,
         "enterprise_policy": policy_check,
         "workflow_runtime": workflow_runtime,

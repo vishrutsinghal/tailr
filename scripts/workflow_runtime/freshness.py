@@ -81,13 +81,22 @@ def _adapter_fingerprint(root: Path, workflow_id: str, adapter_ids: set[str]) ->
     return _hash(rows)
 
 
+def _approved_reproduction(root: Path, run_id: str) -> Path:
+    folder = root / ".tailtrail" / "runs" / run_id / "debug" / "reproduction"
+    approved = sorted(
+        folder.glob("approved-v*.json"),
+        key=lambda path: int(path.stem.rsplit("v", 1)[-1]),
+    ) if folder.is_dir() else []
+    return approved[-1] if approved else folder / "approved-v1.json"
+
+
 def snapshot(root: Path, workflow_id: str) -> dict[str, Any]:
     root = root.resolve(); scoped, owners = _scoped(root, workflow_id); plan = compiler.show(root, workflow_id)
     dependencies, manifests, policies, repository_inventory = _repository_inventories(root)
     docs = {path: value for path, value in scoped.items() if Path(path).suffix.lower() in DOC_SUFFIXES}
     sources = {path: value for path, value in scoped.items() if Path(path).suffix.lower() not in DOC_SUFFIXES}
     binding = ownership.show(root, workflow_id)
-    reproduction = root / ".tailtrail" / "runs" / str(binding["tailtrail_run_id"]) / "debug" / "reproduction" / "approved-v1.json"
+    reproduction = _approved_reproduction(root, str(binding["tailtrail_run_id"]))
     return {"scoped_sources": sources, "scoped_docs": docs, "path_owners": owners, "manifests": manifests, "dependencies": dependencies, "policies": policies, "repository_identity": compiler._repository_identity_fingerprint(root, binding), "graph_fingerprint": _hash({"inventory":repository_inventory,"provider":_adapter_fingerprint(root, workflow_id, {"graph-discovery"})}), "security_fingerprint": _adapter_fingerprint(root, workflow_id, {"security", "quality"}), "debug_reproduction_fingerprint": _file(reproduction) if reproduction.is_file() else _hash(None), "plan_fingerprint": plan["plan_fingerprint"]}
 
 

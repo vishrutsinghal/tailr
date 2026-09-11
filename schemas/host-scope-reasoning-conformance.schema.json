@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/host-scope-reasoning-conformance.schema.json",
+  "title": "TailTrail Host Scope Reasoning Conformance V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "contract_version", "scenarios", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-host-scope-reasoning-conformance"},
+    "contract_version": {"const": "v1"},
+    "scenarios": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "proposal_status", "scope_state", "run_created", "reason_code", "boundary"],
+        "properties": {
+          "id": {"enum": ["supported-selection", "invented-path", "unsupported-edge", "stale-packet", "authority-escalation"]},
+          "proposal_status": {"enum": ["accepted", "rejected"]},
+          "scope_state": {"enum": ["resolved", "ambiguous"]},
+          "run_created": {"const": false},
+          "reason_code": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+          "boundary": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  }
+}

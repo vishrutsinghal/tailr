@@ -6,7 +6,8 @@
 release remains evidence-blocked pending genuine supported-host receipts.
 The local CLI/MCP control plane, schemas, focused tests, failure intake,
 reproduction approval, hypothesis/experiment ledger, correction approval, and
-canonical Debug closure evidence exists. Native Navigator routing, canonical
+factual pre-fix/post-fix attempt evidence, not-reproduced user-input recovery,
+and canonical Debug closure evidence exist. Native Navigator routing, canonical
 Planning Lock/reproduction ownership, and the DWR `debug-investigation`
 workflow, selected-Harness convergence, and canonical closure are implemented.
 Token/privacy/continuity, candidate-only learning, and equivalent Codex,
@@ -72,6 +73,88 @@ The key discipline the Debug Harness adds is a hard separation between
 **"tests pass"** and **"root cause proven."** A test can pass because the
 agent weakened an assertion, deleted a call, or routed around the failing
 path. TailTrail must never let those two states collapse into each other.
+
+## 2.1 Exact sequence when a user starts Debug mode
+
+The canonical entry is natural symptom wording, `tailtrail start "<symptom>" --debug`,
+or `tailtrail start debug "<symptom>"`. Every path uses the following
+sequence and preserves one run ID and requirement UID throughout:
+
+1. **Classify the symptom.** Navigator selects `debug-investigation`,
+   normalizes the symptom into one stable requirement, and separates supplied
+   examples from requirement wording.
+2. **Run deterministic Debug Preflight.** TailTrail performs a hard-capped,
+   read-only scan of current source slices, focused tests, configuration, and
+   explicitly referenced local artifacts. It returns a fingerprinted packet,
+   runnable focused-test candidates, configuration mismatches, and timing/read/
+   token metrics. The active host gets one reasoning pass over this packet and
+   may not start an independent repository scan. Partial evidence stays
+   unresolved instead of triggering an open-ended search.
+3. **Create the Debug Planning Lock.** The Start Report lists the symptom,
+   scope evidence, requirement facets, proposed reproduction questions or
+   contract, the six proposed reproduction steps, validation tiers, safety
+   boundary, and evidence state `not run`.
+4. **Wait for Start approval.** The user can approve, explain, revise, reject,
+   stop, or resume. No reproduction command or source edit runs before a
+   separate message approves the saved Start plan.
+5. **Draft a versioned reproduction contract.** The contract freezes trigger,
+   expected behavior, observed failure signature, command/user-action method,
+   preservation cases, maximum bounded attempts, and safety boundary.
+6. **Wait for exact reproduction-revision approval.** Approval names the run
+   ID and revision. It grants investigation authority only and never grants a
+   correction or source write.
+7. **Try the approved reproduction.** The active Codex, Copilot, or Claude host
+   runs only the approved local procedure. TailTrail records the real command
+   result through Execution Evidence, then records a typed `pre-fix`
+   reproduction attempt linked to that evidence fingerprint. Contract
+   approval by itself is never reproduction proof.
+8. **Classify the attempt.** `reproduced` advances to project orientation.
+   `not-reproduced` or `inconclusive` enters
+   `awaiting-reproduction-input`; hypotheses, correction, and source writes
+   remain blocked.
+9. **Investigate bounded reproduction differences.** Before asking the user,
+   the host checks only relevant command/actions, input/fixture, runtime
+   version, configuration, environment, permissions, external dependency, and
+   timing/frequency differences. It does not broaden into an unapproved scan.
+10. **Ask for the smallest missing user input.** TailTrail returns what it ran,
+    what it observed, what dimensions were checked, and requests one or more
+    of: exact triggering actions, sanitized failing input/error/log excerpt,
+    runtime/configuration differences, or intermittent frequency. It warns
+    against credentials, personal information, and production data.
+11. **Revise and reapprove when input arrives.** A reopened reproduction keeps
+    the same run and requirement identity, preserves all prior approved
+    revisions and attempts, creates the next revision, displays it, and waits
+    for separate approval before retrying.
+12. **Orient the reproduced path.** After factual reproduction, TailTrail
+    confirms relevant source, callers, tests, configuration, and data/API
+    boundaries using approved reads and freshness-aware graph evidence.
+13. **Create and rank hypotheses.** Each hypothesis is falsifiable and linked
+    to the reproduced failure fingerprint. No hypothesis ledger can open while
+    reproduction is unresolved.
+14. **Propose and separately approve bounded experiments.** Each experiment
+    defines its action, expected discriminating signal, safety limit, and
+    factual evidence requirement before the host runs it.
+15. **Prove root cause.** Saved evidence must strengthen the selected cause and
+    eliminate a meaningful competitor. A stack trace or passing test alone is
+    insufficient.
+16. **Propose and separately approve the correction.** The proposal freezes
+    exact files, symbols, behavior, validation, preservation, architecture,
+    and recovery scope. Only this approval grants bounded source writes.
+17. **Implement and compare scope.** The host makes the smallest approved
+    correction, records source-edit evidence, and TailTrail blocks unexpected
+    paths or symbols.
+18. **Rerun the same reproduction after correction.** The host records a typed
+    `post-fix` attempt. Only `restored`, linked to real command evidence, proves
+    the original failure is absent. `still-reproduced` returns to bounded
+    correction rather than claiming success.
+19. **Run regression, preservation, Harness convergence, and closure.** The
+    Completion Report lists the proposed steps, exact pre-fix attempt, exact
+    post-fix attempt, evidence references, root cause, eliminated alternatives,
+    correction scope, tests, preservation results, gaps, and residual risk.
+
+At every logical boundary, `tailtrail stop` detaches without rejecting or
+deleting the run. `tailtrail resume --run-id <run-id>` reattaches the same
+state without approving or executing the next stage.
 
 ## 3. Fit assessment against the existing TailTrail model
 
@@ -269,6 +352,141 @@ Approval needed: allow the proposed read-only investigation
 
 ### Phase 1 — Project orientation
 
+#### Pre-plan host diagnosis
+
+Before the Debug Start Plan is created, TailTrail runs `debug preflight` to
+produce the same deterministic evidence packet for Codex, Claude, and Copilot.
+It inspects explicit evidence first, extracts exact labels/symbol anchors, and
+only then frames repository discovery. Its public trace runs backward from
+`observed-output` through `output-renderer`, `data-transfer`, and
+`data-producer`, with proof and configuration paths kept in separate roles.
+When a selected slice directly assigns or returns the value of an obvious
+repository-local call, preflight resolves that same-file or statically imported
+symbol and includes its bounded, hash-bound slice. A forwarding caller remains
+`data-transfer`; only the resolved composer can become `data-producer`. Local
+call expansion is capped at two levels and four symbols, consumes only source
+already inside the bounded read set, and leaves the trace `partial` with an
+explicit unresolved item when the callee is missing, ambiguous, or outside the
+boundary.
+The preflight is capped at 15 seconds, 96 scanned files, 2 MB of repository
+text, six returned evidence slices, and 180 lines per slice. The host performs
+exactly one reasoning pass over that packet and must not rescan the repository.
+Neither step executes the project, tests, build, scanners, package managers,
+Git, or external providers.
+
+Those caps are read-safety boundaries, not a performance SLA or release gate.
+This implementation intentionally does not add a strict plan-generation
+performance budget.
+
+Debug preflight treats `file://` references and localhost IDE/browser report
+URLs as local artifacts. It removes query parameters and maps the URL path back
+to the selected repository when possible; it never fetches the URL over the
+network. This lets a generated report contribute bounded evidence without
+turning a local browser URL into an external dependency.
+
+The host submits `tailtrail-host-debug-diagnosis` as the `debug_diagnosis`
+object on MCP `tailtrail_start`, or through CLI `--debug-diagnosis-stdin`.
+The inline `--debug-diagnosis` form remains compatible but is not preferred.
+No temporary diagnosis file is required. The contract contains only:
+
+- exact goal and repository binding;
+- current path hashes and bounded line ranges;
+- typed repository roles and public evidence statements;
+- typed behavior roles and an evidence-bound backward behavior graph;
+- observations and explicitly unproven hypotheses;
+- concrete reproduction, regression, behaviour, and static test cases;
+- candidate commands that remain blocked until the applicable approval; and
+- unresolved facts;
+- the preflight packet fingerprint, termination reason, elapsed time, read
+  counts, bounded token estimate, and one-pass declaration; and
+- a reuse key bound to the goal, artifact hashes, current source hashes, and
+  selected line ranges so later orchestration can recognize identical evidence;
+- an evidence-linked requirement refinement when the supplied artifact makes
+  the observable defect more precise than the raw prompt; and
+- one closed typed host proposal containing only its route, requirement ID,
+  validated owner/proof/trace/finding/test IDs, and the advisory boundary.
+
+TailTrail rejects stale hashes, unsafe or managed-state paths, private
+reasoning, execution/approval claims, claimed checks without matching evidence,
+unsupported trace edges, candidate-only owner promotion, and unsupported test
+evidence. It resolves a conventional focused command for
+known proof paths when the host omits one, and derives
+the plan's token estimate from the validated current line slices rather than a
+whole-repository guess. Every `.tailtrail/**` and `tailtrail-meta/**` path is
+excluded from application ownership, including nested transaction backups.
+
+The validated diagnosis also includes a deterministic evidence-completeness
+assessment. It checks current-source binding, owner and proof role coverage,
+trace connectivity and role consistency, finding references, reproduction and
+test contracts, requirement traceability, and preflight binding. Missing
+coverage is reported as an exact gap instead of being promoted to confidence.
+This is deliberately not a semantic-truth score: the active host interprets
+what the evidence means, while reproduction, experiments, and post-fix proof
+establish whether that interpretation is correct.
+
+The host proposal is not prose and cannot contain private reasoning, a proposed
+fix, approval, execution authority, or arbitrary extension fields. Its route is
+limited to `prepare-reproduction` or `request-more-evidence`, and its referenced
+IDs must exactly cover the validated diagnosis rows. TailTrail uses the proposal
+to assemble the Debug Start plan; it never treats it as reproduction or
+correction authority.
+
+An unresolved repository-local helper is a safe fallback, not permission to
+guess. TailTrail marks the behavior trace `partial`, keeps correction scope
+`blocked`, and continues through the approved reproduction/investigation path
+when an artifact, focused reproduction command, proof path, or bounded
+procedure is available. The host may route to `request-more-evidence` only when
+both reproduction and necessary external context are unavailable. This means a
+partial preflight packet can complete transport successfully while preserving
+its unresolved boundary; it is not misreported as a resolved trace or a proven
+owner.
+
+The behavior graph may contain multiple renderer, transfer, producer, and proof
+branches. TailTrail derives its topology from the validated nodes and edges:
+entry and terminal nodes, branch and merge points, connected components, cycle
+posture, shape, and a bounded path count. Linear graphs retain the compact
+single-trace presentation. Branching or converging graphs render every bounded
+path instead of silently choosing one. A graph is `resolved-to-producer` only
+when every observed-output branch is connected and terminates at a supported
+data producer; cyclic, disconnected, or dead-end graphs remain partial.
+
+After experiment-backed root-cause proof, the host binds the proven fault layer
+to exact nodes in that saved graph. TailTrail then selects proof mechanically:
+
+- `composition` requires a composition-level proof;
+- `rendering` requires a renderer proof;
+- `end-user` requires a final-output proof; and
+- `cross-layer` requires focused proof at every selected layer boundary.
+
+Existing proof boundaries are derived from `exercises` edges. Proposed proof
+cases must declare their intended boundary. DI-7 records the selection in
+`proof_alignment`, carries its commands into the implementation handoff, and
+blocks correction approval when a required boundary is missing. Convergence
+then requires a passing requirement-linked receipt for the exact selected
+command at every boundary. This selection does not itself prove root cause or
+grant source-write authority.
+
+This improves the first plan without collapsing later gates: artifact
+inspection is not reproduction, a hypothesis is not root-cause proof, and an
+orientation candidate is not correction authority. After reproduction passes,
+the normal D-03 orientation and experiment lifecycle confirms or rejects the
+preliminary diagnosis.
+
+#### Debug Start presentation
+
+Quick mode is the default for AIDLC Off and keeps the approval surface compact:
+Planning Lock, requirements, converged likely owner/proof scope, preliminary
+diagnosis, selected features, a five-step plan, unique focused validation,
+token estimate, and approval. Repeated lifecycle detail, complete evidence
+inventories, limits, and all alternatives remain available with `--verbose`.
+
+A proposed real reproduction and a focused regression/unit proof are separate
+roles. A command shared by several proposed test cases is displayed once. A
+unit command is never presented as proof that a supplied HTML report or other
+real artifact reproduced the symptom. Static candidates are replaced by the
+validated host-diagnosis roles when that diagnosis converges; they are not
+shown as competing scope.
+
 Navigator + Code Graph Mapper (existing, unchanged) resolve:
 
 - entry point and the responsible service/module path
@@ -299,9 +517,10 @@ diagnosis:
 | Approval | Required before any experiment or code edit |
 
 If the failure cannot be reproduced deterministically within a bounded number
-of attempts, the run enters `ReproductionBlocked` and returns to the user for
-a revised contract — TailTrail must never proceed to "fix" an unreproduced
-symptom.
+of attempts—or the first approved attempt establishes a material environment
+mismatch—the run enters `awaiting-reproduction-input` and returns a focused,
+sanitized request for a revised contract. TailTrail must never proceed to
+orientation, hypotheses, or a fix for an unreproduced symptom.
 
 **Turn-by-turn approval boundary (mirrors `tailtrail start`'s Planning Lock
 stop-and-wait behavior).** A host/agent must draft the reproduction contract,
@@ -743,6 +962,9 @@ without new runtime code.
 ```bash
 tailtrail debug "<symptom>" [--error <file>] [--command "<cmd>"] [--run-id <id>] [--recent-change]
 tailtrail debug reproduction approve --run-id <id> --revision <N> --approved
+tailtrail debug reproduction attempt-record --run-id <id> --phase pre-fix --outcome reproduced --evidence-event-id <fingerprint> --observed-summary "<sanitized observation>" --checked-dimension command-or-actions --approved
+tailtrail debug reproduction attempt-show --run-id <id>
+tailtrail debug reproduction reopen --run-id <id> --revision <N> --input revised-reproduction.json --approved
 tailtrail debug reproduction reject  --run-id <id> --feedback '{"expected":"<reason>"}'
 tailtrail debug hypothesis show      --run-id <id>
 tailtrail debug experiment record    --run-id <id> --hypothesis-id <hid> --result <file> --approved
@@ -757,6 +979,7 @@ R0 read-only:
 
 - `debug_intake_show(run_id)`
 - `debug_reproduction_show(run_id)`
+- `debug_reproduction_attempt_show(run_id)`
 - `debug_hypothesis_ledger_show(run_id)`
 - `debug_completion_report_show(run_id)`
 
@@ -764,6 +987,8 @@ R2 controlled (require `approved: true` + the exact active debug run):
 
 - `debug_start(symptom, error=None, command=None, run_id=None)`
 - `debug_reproduction_approve(run_id)`
+- `debug_reproduction_attempt_record(run_id, phase, outcome, evidence_event_id, observed_summary, checked_dimensions)`
+- `debug_reproduction_reopen(run_id, revision, contract)`
 - `debug_experiment_record(run_id, hypothesis_id, action, outcome, evidence_boundary)`
 - `debug_correction_approve(run_id)`
 
@@ -1157,13 +1382,13 @@ Implementation record (2026-08-29):
 
 - Added the immutable `WorkflowClassification` decision contract to
   `scripts/navigator_core.py`; it owns workflow type, reason code and prose,
-  known symptom, missing evidence, selected/deferred feature posture,
+  known symptom, missing evidence, selected/required-later/conditional feature posture,
   approval posture, and the optional alternative route.
 - Moved all phrase and ambiguity rules into Navigator core. The CLI retains a
   compatibility projection only and delegates explicit `--debug`, explicit
   `--build`, `--error`, and `--command` signals to the native classifier.
 - Added `debug-investigation` to normal `navigator.decide()` output and made
-  debug-specific selected/deferred controls visible in Navigator Markdown.
+  debug-specific selected, required-later, and conditional controls visible in Navigator Markdown.
 - Kept ambiguous `fix`, `issue`, `bug`, `failure`, and `problem` wording on the
   normal build route unless a concrete symptom, reproduction command, failure
   artifact, or explicit debug override exists.
@@ -1211,7 +1436,7 @@ The report must include:
 - workflow type and classification evidence;
 - known symptom and material unknowns;
 - target identity and likely scope from saved Code Graph evidence;
-- selected and deferred TailTrail features;
+- selected TailTrail features, mandatory later-stage testing and closure, and conditional controls;
 - proposed reproduction questions;
 - intended evidence tiers and safety boundary;
 - token estimate and exactness posture; and
@@ -1245,12 +1470,14 @@ Implementation record (2026-08-29):
   plan; only their presence is retained as sanitized classification evidence.
 - Added a persisted debug planning payload and renderer with Planning Lock/run
   ID, target identity, classification reason, symptom, unknowns, saved-only
-  Code Graph scope, one investigation requirement, selected/deferred controls,
+  Code Graph scope, one investigation requirement, selected/required-later/conditional controls,
   reproduction questions, evidence tiers, token estimate, exactness/safety
   posture, guided-delivery boundary, and approval options.
-- Debug Start reads only an existing graph-cache artifact when available and
-  labels it `saved-unverified`; it does not hash current source, refresh the
-  cache, execute the mapper, or infer freshness during Planning Lock.
+- Without an active-host diagnosis, Debug Start's deterministic fallback reads
+  only an existing graph-cache artifact and labels it `saved-unverified`.
+  With an active host, the pre-plan diagnosis validates current source hashes
+  and bounded line ranges before scope is accepted; neither route executes a
+  mapper, project command, test, build, scanner, package manager, or Git command.
 - DWR is explicitly `deferred-to-di-4`; approval authority for reproduction
   remains DI-3. DI-2 creates neither workflow execution authority nor
   `.tailtrail/runs/<run-id>/debug/` artifacts.
@@ -1349,8 +1576,13 @@ Completion proof:
 - `tailtrail debug reproduction show` renders a concise approval report by
   default. It shows run/revision identity, the observable failure boundary,
   before-fix and after-fix expectations, preserve rules, and the exact
-  approval phrase. Automation can request the unchanged machine contract with
+  state-aware action prompts. Automation can request the unchanged machine contract with
   `tailtrail debug reproduction show --format json`.
+- The canonical next-action projection is derived from the saved contract and
+  shared by CLI, MCP, and host adapters. It offers approval only when the exact
+  revision is ready, keeps revise/explain/reject/status/stop/resume available
+  as applicable, and switches to reproduction/evidence/investigation prompts
+  after approval. Its staged correction prompt never grants source writes.
 - The report deliberately separates three proof states: **failure
   reproduced**, **root cause proven**, and **behavior restored**. A failing
   reproduction is not causal proof, and causal proof is not post-correction

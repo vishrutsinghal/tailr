@@ -41,18 +41,22 @@ def canonical(payload: dict[str, Any]) -> str:
 
 
 def receipt_rows(validated: dict[str, Any], record_id: str) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for receipt in validated["receipts"]:
-        for uid in receipt["requirement_uids"]:
-            rows.append({
-                "schema_version": "1", "type": "tailtrail-validation-evidence-receipt",
-                "requirement_uid": uid, "tier": receipt["tier"], "command": receipt["command"],
-                "command_label": receipt["command_label"], "outcome": receipt["outcome"],
-                "environment": receipt["environment"], "asserted_behavior": receipt["asserted_behavior"],
-                "artifact_path": receipt.get("artifact", ""), "evidence_label": receipt["evidence_label"],
-                "closure_record_id": record_id,
-            })
-    return rows
+    return [{
+        "schema_version": "2", "type": "tailtrail-validation-evidence-receipt",
+        "requirement_uids": receipt["requirement_uids"],
+        "tiers": receipt.get("tiers", [receipt["tier"]]),
+        "scenario_ids": receipt.get("scenario_ids", []),
+        "tier": receipt["tier"], "command": receipt["command"],
+        "command_label": receipt["command_label"], "outcome": receipt["outcome"],
+        "environment": receipt["environment"], "asserted_behavior": receipt["asserted_behavior"],
+        "artifact_path": receipt.get("artifact", ""), "evidence_label": receipt["evidence_label"],
+        "evidence_quality": receipt.get("evidence_quality", "declared"),
+        **{key: receipt[key] for key in (
+            "collector", "exit_code", "started_at", "finished_at", "duration_ms",
+            "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+        ) if key in receipt},
+        "closure_record_id": record_id,
+    } for receipt in validated["receipts"]]
 
 
 def selected_harnesses(root: Path, run_id: str) -> list[str]:
@@ -76,9 +80,64 @@ def artifact_pointer(root: Path, path: Path) -> str:
 
 
 def collected_input(root: Path, run_id: str) -> dict[str, Any]:
-    """Build the existing closure contract only from saved factual evidence."""
+    """Build one current closure snapshot from saved factual evidence.
+
+    A later execution of the same approved requirement/command replaces its
+    earlier attempt for completion judgment, including when the later run
+    records a more complete tier set. The append-only stream still retains
+    every attempt for audit and diagnosis.
+    """
     saved = EVIDENCE.show(root, run_id)["events"]
-    receipts = [{key: item[key] for key in ("requirement_uids", "tier", "command_label", "command", "outcome", "environment", "asserted_behavior", "artifact", "evidence_label") if key in item} for item in saved if item.get("kind") in {"command-result", "ci-receipt"}]
+    anchor_path = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
+    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    requirements = {
+        str(row.get("requirement_uid")): row
+        for row in anchor.get("requirements", [])
+        if isinstance(row, dict) and row.get("requirement_uid")
+    }
+    receipt_fields = (
+        "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
+        "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
+        "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
+        "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+    )
+    current: dict[tuple[tuple[str, ...], str], dict[str, Any]] = {}
+    for item in saved:
+        if item.get("kind") not in {"command-result", "ci-receipt"}:
+            continue
+        if item.get("kind") == "command-result":
+            command = str(item.get("command", ""))
+            item_tiers = {
+                str(value)
+                for value in item.get("tiers", [item.get("tier")])
+                if str(value)
+            }
+            valid_pair = True
+            for uid in item.get("requirement_uids", []):
+                row = requirements.get(str(uid))
+                contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
+                approved_commands = {str(value) for value in contract.get("commands", []) if str(value)}
+                checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
+                matching = [value for value in checks if str(value.get("command", "")) == command]
+                approved_tiers = {
+                    str(value)
+                    for check in matching
+                    for value in check.get("tiers", [])
+                    if str(value)
+                } or {str(value) for value in contract.get("tiers", []) if str(value)}
+                if approved_commands and (
+                    command not in approved_commands or not item_tiers or item_tiers - approved_tiers
+                ):
+                    valid_pair = False
+                    break
+            if not valid_pair:
+                continue
+        identity = (
+            tuple(sorted(str(value) for value in item.get("requirement_uids", []))),
+            str(item.get("command", "")),
+        )
+        current[identity] = item
+    receipts = [{key: item[key] for key in receipt_fields if key in item} for item in current.values()]
     paths = sorted({path for item in saved for path in item.get("changed_paths", [])})
     return {"schema_version": "1", "type": "tailtrail-execution-closure-input", "run_id": run_id, "changed_paths": paths, "receipts": receipts}
 
@@ -103,9 +162,12 @@ def record(root: Path, input_path: Path | None = None, run_id: str | None = None
     results_path = records / f"{record_id}-results.json"
     L.atomic_json(receipts_path, {"receipts": normalized_receipts})
     L.atomic_json(results_path, {"results": [{
-        "requirement_uids": item["requirement_uids"], "command_label": item["command_label"],
-        "command": item["command"], "outcome": item["outcome"], "environment": item["environment"],
-        "asserted_behavior": item["asserted_behavior"], "evidence_label": item["evidence_label"],
+        key: item[key] for key in (
+            "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
+            "outcome", "environment", "asserted_behavior", "evidence_label", "evidence_quality",
+            "artifact", "collector", "exit_code", "started_at", "finished_at", "duration_ms",
+            "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+        ) if key in item
     } for item in validated["receipts"]]})
     receipt_dir = directory / "validation-receipts"
     receipt_artifacts: list[str] = []
@@ -124,7 +186,7 @@ def record(root: Path, input_path: Path | None = None, run_id: str | None = None
         "validated_input": artifact_pointer(root, input_path) if input_path else "execution/evidence-stream.jsonl", "changed_paths": validated["changed_paths"],
         "receipt_artifacts": receipt_artifacts, "checkpoint": checkpoint["path"], "completion_review": review,
         "completion_gate": gate, "selected_harnesses": selected, "next_action": next_action,
-        "boundary": "Recorded supplied validated evidence only. No listed command was executed by TailTrail.",
+        "boundary": "Recorded validated evidence. Managed-command receipts were executed and captured by TailTrail; declared host receipts remain explicitly unverified.",
     }
     L.atomic_json(record_path, payload)
     L.append_event(root, run_id, "closure_recorded", {"record_id": record_id, "artifact": record_path.relative_to(root).as_posix(), "receipt_count": len(normalized_receipts), "checkpoint": checkpoint["checkpoint"], "gate_complete": gate["complete"], "review_complete": review["complete"]})

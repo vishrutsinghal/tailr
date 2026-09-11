@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,14 @@ def validate_requirement(row: dict[str, Any]) -> list[str]:
     if row.get("status") not in STATUSES: issues.append("status is not allowed")
     for field in ("acceptance_criteria", "preserve_rules", "likely_paths", "evidence_plan"):
         if field in row and not isinstance(row[field], list): issues.append(f"{field} must be a list")
+    if "requirement_id" in row and not re.fullmatch(r"req-frame-[a-f0-9]{12}", str(row["requirement_id"])):
+        issues.append("requirement_id must be a stable requirement-frame ID")
+    if "query_terms" in row and (
+        not isinstance(row["query_terms"], list)
+        or any(not isinstance(term, str) or len(term) < 3 for term in row["query_terms"])
+        or len(set(row["query_terms"])) != len(row["query_terms"])
+    ):
+        issues.append("query_terms must be unique strings of at least three characters")
     return issues
 
 
@@ -62,13 +71,22 @@ def normalize_draft(run_id: str, source: dict[str, Any], version: int) -> dict[s
         statement = str(raw.get("statement", "")).strip()
         if not statement: raise ValueError(f"requirement {index} needs a statement")
         row = {"requirement_uid": raw.get("requirement_uid") or uid(run_id, statement), "display_id": raw.get("display_id") or f"REQ-{index:02d}", "kind": raw.get("kind", "change"), "statement": statement, "acceptance_criteria": raw.get("acceptance_criteria", []), "preserve_rules": raw.get("preserve_rules", []), "likely_paths": raw.get("likely_paths", []), "evidence_plan": raw.get("evidence_plan", []), "validation_contract": raw.get("validation_contract", {"state": "required", "tiers": ["unit"]}), "architecture_contract": raw.get("architecture_contract", {"required_paths": [], "protected_paths": [], "forbidden_imports": []}), "behavior_contract": raw.get("behavior_contract", {"scenarios": []}), "maintainability_contract": raw.get("maintainability_contract", {"rules": []}), "ui_contract": raw.get("ui_contract", {}), "status": "proposed"}
+        if raw.get("requirement_id"):
+            row["requirement_id"] = str(raw["requirement_id"])
+        if raw.get("query_terms"):
+            row["query_terms"] = list(raw["query_terms"])
         if isinstance(raw.get("source_reference"), dict):
             row["source_reference"] = raw["source_reference"]
+        if isinstance(raw.get("scope_evidence"), dict):
+            row["scope_evidence"] = raw["scope_evidence"]
         issues = validate_requirement(row)
         if issues: raise ValueError(f"requirement {index}: " + "; ".join(issues))
         if row["requirement_uid"] in seen: raise ValueError(f"duplicate requirement_uid `{row['requirement_uid']}`")
         seen.add(row["requirement_uid"]); normalized.append(row)
-    return {"schema_version": "1", "type": "tailtrail-change-intent-anchor", "run_id": run_id, "proposal_version": version, "goal": str(source.get("goal", "")).strip(), "requirements": normalized, "material_invalidation_rules": sorted(MATERIAL_INVALIDATIONS), "status": "draft"}
+    result = {"schema_version": "1", "type": "tailtrail-change-intent-anchor", "run_id": run_id, "proposal_version": version, "goal": str(source.get("goal", "")).strip(), "requirements": normalized, "material_invalidation_rules": sorted(MATERIAL_INVALIDATIONS), "status": "draft"}
+    if isinstance(source.get("scope_decision"), dict):
+        result["scope_decision"] = source["scope_decision"]
+    return result
 
 
 def drafts(directory: Path) -> list[Path]:

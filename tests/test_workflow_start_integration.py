@@ -28,7 +28,10 @@ from workflow_runtime import approvals, start_integration
 
 class WorkflowStartIntegrationTests(unittest.TestCase):
     def _start(self, root: Path, run_id: str, no_workflow: bool = False) -> dict[str, object]:
-        command = [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "fix a bounded validation rule", "--root", root.as_posix(), "--planning-run-id", run_id, "--format", "json"]
+        owner = root / "src" / "validation.py"
+        owner.parent.mkdir(parents=True, exist_ok=True)
+        owner.write_text("def validate(value):\n    return value > 0\n", encoding="utf-8")
+        command = [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "fix a bounded validation rule", "--root", root.as_posix(), "--changed", "src/validation.py", "--planning-run-id", run_id, "--format", "json"]
         if no_workflow: command.append("--no-workflow")
         result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -73,6 +76,18 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
         self.assertTrue(runtime["execution_authority"]["approval_id"].startswith("wfauth-"))
         self.assertEqual(authorized["source"], "plan-derived")
         self.assertNotIn("scan_local", authorized["action_classes"])
+        start_binding = report["workflow_runtime"]["scope_binding"]
+        self.assertEqual(runtime["scope_binding"], start_binding)
+        self.assertEqual(activated["execution_handoff"]["scope_binding"], start_binding)
+        self.assertEqual(start_binding["editable_paths"], ["src/validation.py"])
+        self.assertEqual(
+            start_binding["decision_fingerprint"],
+            report["navigator"]["scope_evidence"]["decision_fingerprint"],
+        )
+        self.assertEqual(
+            activated["execution_handoff"]["scope_drift_rule"]["approved_editable_paths"],
+            ["src/validation.py"],
+        )
 
     def test_official_and_intent_runs_retain_material_gates(self) -> None:
         official = start_integration.execution_authority_policy({"aidlc_mode": {"mode": "full"}})
@@ -82,6 +97,18 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
         self.assertEqual(intent["route"], "intent-bridge-slice-gated")
         self.assertEqual(official["auto_granted_action_classes"], [])
         self.assertEqual(intent["auto_granted_action_classes"], [])
+
+    def test_official_scope_binding_keeps_question_authority_host_owned(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = self._start(root, "dwr2-official-scope")
+            report["aidlc_mode"] = {"mode": "full"}
+            binding = start_integration.scope_binding(report)
+
+        self.assertEqual(binding["authority"]["type"], "official-aidlc")
+        self.assertEqual(binding["authority"]["question_authority"], "official-host")
+        self.assertEqual(binding["editable_paths"], ["src/validation.py"])
+        self.assertEqual(binding["decision_fingerprint"], report["navigator"]["scope_evidence"]["decision_fingerprint"])
 
     def test_no_workflow_is_a_compatibility_escape_hatch(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

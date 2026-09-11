@@ -20,6 +20,7 @@ def review(root:Path,run_id:str,checkpoint_path:Path|None=None,record:bool=True)
   observed=actual.get(requirement["requirement_uid"])
   if not observed: findings.append({"requirement_uid":requirement["requirement_uid"],"category":"scope","classification":"new-drift","message":"approved requirement is absent from actual checkpoint"});continue
   if observed["state"]!="validated": findings.append({"requirement_uid":requirement["requirement_uid"],"category":"evidence","classification":"needs-decision" if not observed["evidence"] else "unchanged","message":"requirement lacks passing computational evidence"})
+ findings.extend(dict(item) for item in checkpoint.get("drift",[]) if isinstance(item,dict) and item.get("category")=="scope" and item.get("classification") in {"new-drift","regressed","needs-decision"})
  payload={"schema_version":"1","type":"tailtrail-completion-review","run_id":run_id,"checkpoint":checkpoint["checkpoint"],"complete":not findings,"findings":findings,"next_action":"none" if not findings else "issue one bounded correction packet"}
  if record:
   reviews=directory/"reviews"; index=len(list(reviews.glob("review-*.json")))+1; artifact=reviews/f"review-{index}.json";L.atomic_json(artifact,payload)

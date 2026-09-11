@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/tailtrail-session-attachment.schema.json",
+  "title": "TailTrail session attachment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "target_workspace_identity_fingerprint",
+    "context_key_hash",
+    "state",
+    "run_id",
+    "workflow_id",
+    "canonical_run_status",
+    "last_logical_point",
+    "saved_artifact_refs",
+    "temporary_approvals",
+    "reservation_release",
+    "reason_code",
+    "generation",
+    "previous_record_fingerprint",
+    "fingerprint",
+    "created_at",
+    "updated_at",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-session-attachment" },
+    "target_workspace_identity_fingerprint": { "type": ["string", "null"] },
+    "context_key_hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "state": { "enum": ["attached", "stop-pending", "detached", "resume-check"] },
+    "run_id": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "workflow_id": { "type": ["string", "null"] },
+    "canonical_run_status": { "type": "string", "minLength": 1 },
+    "last_logical_point": { "type": "string", "minLength": 1 },
+    "saved_artifact_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "temporary_approvals": { "enum": ["none", "expired", "not-applicable"] },
+    "reservation_release": { "enum": ["not-held", "released", "already-released", "not-applicable"] },
+    "reason_code": { "type": "string", "minLength": 1 },
+    "generation": { "type": "integer", "minimum": 1 },
+    "previous_record_fingerprint": { "type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "boundary": { "type": "string", "minLength": 1 }
+  }
+}

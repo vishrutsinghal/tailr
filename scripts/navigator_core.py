@@ -29,7 +29,8 @@ class WorkflowClassification:
     known_symptom: str | None
     unknown_evidence: tuple[str, ...]
     selected_features: tuple[str, ...]
-    deferred_features: tuple[str, ...]
+    required_later_features: tuple[str, ...]
+    conditional_features: tuple[str, ...]
     approval_posture: str
     alternative: str | None
 
@@ -62,6 +63,7 @@ DEBUG_INTENT_PHRASES = (
 )
 
 AMBIGUOUS_FAILURE_TERMS = ("bug", "defect", "failure", "failing", "fix", "issue", "problem")
+EXPLICIT_DEBUG_PREFIX = re.compile(r"^debug\b", re.IGNORECASE)
 
 
 def classify_workflow_intent(
@@ -87,6 +89,9 @@ def classify_workflow_intent(
     elif normalized_override == "build":
         workflow_type, reason_code = "build", "explicit-build-override"
         reason = "The user explicitly selected the normal build workflow."
+    elif EXPLICIT_DEBUG_PREFIX.match(lowered):
+        workflow_type, reason_code = "debug-investigation", "explicit-debug-command"
+        reason = "The goal begins with the explicit Debug command form."
     elif has_error_artifact or has_reproduction_command:
         workflow_type, reason_code = "debug-investigation", "supplied-debug-evidence"
         reason = "A failure artifact or reproduction command makes this a symptom-first investigation."
@@ -117,9 +122,11 @@ def classify_workflow_intent(
             known_symptom=goal.strip() or None,
             unknown_evidence=tuple(unknown),
             selected_features=("Navigator", "Debug Harness", "Reproduction Contract"),
-            deferred_features=(
+            required_later_features=(
                 "Correction implementation until root cause is proven and approved",
                 "Canonical closure until implementation and validation evidence exist",
+            ),
+            conditional_features=(
                 "Governed learning until trusted acceptance",
             ),
             approval_posture="planning-only; reproduction investigation requires its own approval before experiments",
@@ -134,7 +141,8 @@ def classify_workflow_intent(
         known_symptom=None,
         unknown_evidence=(),
         selected_features=("Navigator", "Planning Lock"),
-        deferred_features=("Debug Harness unless an unexplained symptom or debug evidence is supplied",),
+        required_later_features=(),
+        conditional_features=("Debug Harness unless an unexplained symptom or debug evidence is supplied",),
         approval_posture="normal Planning Lock approval before implementation",
         alternative=(
             "Use --debug or describe the observed symptom/reproduction to start a debug investigation."
@@ -158,6 +166,8 @@ def requirement_impact_matrix(requirements: list[dict[str, object]]) -> list[dic
         rows.append(
             {
                 "display_id": str(requirement.get("display_id") or f"REQ-{index:02d}"),
+                **({"requirement_id": str(requirement["requirement_id"])} if requirement.get("requirement_id") else {}),
+                **({"query_terms": list(requirement["query_terms"])} if requirement.get("query_terms") else {}),
                 "kind": str(requirement.get("kind") or "change"),
                 "statement": statement,
                 "acceptance_criteria": list(requirement.get("acceptance_criteria", [])),
@@ -186,6 +196,11 @@ RISK_KEYWORDS = {
     "schema": "data shape",
     "production": "production",
     "release": "release",
+    "aws": "live E2E dependency",
+    "e2e": "live E2E dependency",
+    "database": "live E2E dependency",
+    "eventual consistency": "live E2E dependency",
+    "test data": "live E2E dependency",
     "sonar": "ci/sonar",
     "sonarqube": "ci/sonar",
     "sonarcloud": "ci/sonar",
@@ -401,6 +416,15 @@ TEST_ADDITION_TERMS = (
     "add test coverage",
 )
 
+# Tolerates inserted words ("add new test cases", "add a few more tests") that the
+# exact-phrase TEST_ADDITION_TERMS list above does not, without enumerating every
+# combination by hand.
+TEST_ADDITION_PATTERN = re.compile(
+    r"\badd(?:ing)?\b(?:\s+\w+){0,3}\s+(?:regression\s+)?tests?\b"
+    r"|\badd(?:ing)?\b(?:\s+\w+){0,3}\s+test\s*cases?\b",
+    re.IGNORECASE,
+)
+
 CROSS_REPO_REFERENCE_TERMS = (
     "cross-repo",
     "cross repo",
@@ -547,10 +571,13 @@ def path_review_requested(goal: str) -> bool:
 
 def feature_signal_is_test_only(goal: str) -> bool:
     lowered = goal.lower()
-    if not any(term in lowered for term in TEST_ADDITION_TERMS):
+    test_addition = any(term in lowered for term in TEST_ADDITION_TERMS) or TEST_ADDITION_PATTERN.search(goal) is not None
+    if not test_addition:
         return False
     non_test_feature_terms = ("feature", "implement", "endpoint", "api", "workflow", "service", "screen", "page")
-    return not any(term in lowered for term in non_test_feature_terms)
+    # Word-boundary match: a naive substring check previously misread "implementation"
+    # (in phrases like "current implementation pattern") as the word "implement".
+    return not any(keyword_found(lowered, term) for term in non_test_feature_terms)
 
 
 def keyword_found(text: str, keyword: str) -> bool:
@@ -605,6 +632,12 @@ def task_types(goal: str) -> list[str]:
         return ["repo-overview"]
     lowered = goal.lower()
     found = []
+    documentation_only = any(
+        term in lowered
+        for term in ("documentation only", "docs only", "readme only", "changelog only", "markdown documentation", "readme documentation")
+    )
+    if documentation_only:
+        found.append("documentation")
     for word, task in TASK_KEYWORDS.items():
         if word == "add" and task == "feature" and feature_signal_is_test_only(goal):
             continue

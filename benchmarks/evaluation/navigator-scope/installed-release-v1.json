@@ -1,0 +1,63 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-installed-release-scenario",
+  "proof_version": "1.0.0",
+  "scenario_id": "installed-typescript-alias-ui-literal",
+  "source_catalog": "benchmarks/evaluation/navigator-scope/fsr6-v1.json",
+  "source_scenario_id": "resolved-typescript-noisy-ui",
+  "hosts": [
+    "codex",
+    "copilot",
+    "claude"
+  ],
+  "install_profiles": [
+    "core",
+    "extended"
+  ],
+  "graph_action": "refresh",
+  "run_id": "fsr7-installed-codex",
+  "hash_members": [
+    "scripts/code-graph-mapper.py",
+    "scripts/code_relationships.py",
+    "scripts/module_resolution.py",
+    "scripts/navigator_graph_lifecycle.py",
+    "scripts/navigator_scope.py",
+    "scripts/task-start.py",
+    "schemas/navigator-scope-evidence.schema.json",
+    "schemas/navigator-scope-quality.schema.json",
+    "adapters/navigator-scope-scenarios-v2.json",
+    "adapters/navigator-host-reasoning-scenarios-v1.json"
+  ],
+  "expected": {
+    "scope_state": "resolved",
+    "implementation_owners": [
+      "src/pages/eventGenerator/EventGeneratorPage.tsx"
+    ],
+    "inspection_paths": [
+      "src/pages/eventGenerator/telemetryService.ts"
+    ],
+    "proof_paths": [
+      "src/pages/eventGenerator/EventGeneratorPage.cy.tsx"
+    ],
+    "scope_question": null,
+    "planning_lock_status": "awaiting-approval",
+    "graph_cache_status": "fresh",
+    "behavior_chain_state": "complete"
+  },
+  "privacy": {
+    "fixture": "synthetic",
+    "raw_project_source_in_summary": false,
+    "external_fixture_retained": false,
+    "hosted_agent_claim": false
+  },
+  "claim_boundaries": [
+    "The proof executes a locally installed TailTrail payload in an isolated synthetic repository; it does not claim hosted Codex, Copilot, or Claude behavior.",
+    "Installation integrity and Navigator behavior are independent gates and neither substitutes for the other.",
+    "The external fixture and virtual environment are temporary and are not release artifacts."
+  ],
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "sorted compact JSON excluding integrity",
+    "digest": "a44d8aebf5f2d5c7772b5e2111e06b0c0b02f45675d2091b5687d907281f72ff"
+  }
+}

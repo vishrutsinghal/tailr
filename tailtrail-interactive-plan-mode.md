@@ -97,6 +97,13 @@ whole plan.
 
 ## Position in the lifecycle
 
+Before a new v2 Planning Lock is persisted, Navigator may perform capped local
+text reads and static relationship extraction to establish scope evidence. It
+does not run project/test/scanner/graph/Git commands or write a cache. This
+automatic pre-lock investigation is distinct from `planning investigate`,
+which is an optional approval-gated post-lock read of already-saved candidates
+and cannot change their roles.
+
 ```mermaid
 flowchart TB
     U["User task"] --> S["TailTrail Start\nPlanning Lock v1"]
@@ -138,6 +145,12 @@ flowchart LR
 | Requirement Framing | May revise proposed TailTrail requirements after user clarification. |
 | Intent Bridge | Must not rewrite imported wording. It may explain mappings, record clarifications, or propose an external-source amendment path. |
 | AIDLC Requirements | Routes material requirement discovery back to the appropriate AIDLC stage rather than maintaining a parallel questionnaire. |
+
+For v2 authority-owned requirements, TailTrail stores the external ID and
+source revision together with a fingerprinted local role mapping. DWR and the
+execution handoff consume that mapping verbatim. If an actual edit later falls
+outside the approved implementation-owner paths, closure records unresolved
+scope drift; an inspection/proof role is never silently promoted.
 
 For an Intent Bridge run, a user may say, “Why does `FR-003` need a payment
 test?” The answer can explain TailTrail's local mapping. But a user request to
@@ -450,6 +463,7 @@ host-independent control plane.
 tailtrail planning discuss --run-id <run-id> --question "Why was service.py selected?"
 tailtrail planning investigate --run-id <run-id> --question-id <id> --approved-read-only
 tailtrail planning revise --run-id <run-id> --changes revision.json
+tailtrail planning revise --run-id <run-id> --changes corrected-revision.json --supersede-pending
 tailtrail planning revision-show --run-id <run-id> --revision v2
 tailtrail planning revision-approve --run-id <run-id> --revision v2 --approved
 tailtrail planning aidlc-standard --run-id <run-id> --approved-proposal
@@ -613,7 +627,7 @@ Files:
 Deliver:
 
 - explanations for selected files, requirement rows, validation choices,
-  selected/deferred Harnesses, AIDLC mode, drift posture, token estimate,
+  selected/required-later/conditional Harnesses, AIDLC mode, drift posture, token estimate,
   requirement authority, risk classification, approval consequences, and
   assumptions;
 - evidence labels and direct/alternative/risk response shape;
@@ -626,7 +640,7 @@ Implementation:
   evidence, alternative, risk, plan impact, and next choice. `planning discuss`
   returns the same answer so a host needs no second interaction.
 - It reads only run-local `lock-v1.json` and immutable `start-report-v1.json`.
-  Saved Navigator impacts, requirement/import rows, selected/deferred controls,
+  Saved Navigator impacts, requirement/import rows, selected/required-later/conditional controls,
   suggested validation, AIDLC mode, token posture, risk posture, and lock
   boundary are reused. It deliberately does not rerun `review-graph.py` or
   `code-graph-mapper.py`, which would create fresh repository evidence after
@@ -767,6 +781,11 @@ Implementation:
   `scope-add`, `scope-remove`, `requirement-add`, `requirement-remove`,
   `requirement-update`, and `proof-update`. Every change is linked to a stable
   requirement UID/display ID where applicable and includes a bounded rationale.
+- `--supersede-pending` replaces an incorrect unapproved proposal without
+  activating it. The prior artifact remains immutable audit evidence, the next
+  revision starts from the last active reviewed report, and requirement removal
+  converges query, scope, feature-slice, and workflow projections before the
+  replacement is published.
 - The proposal is stored as
   `.tailtrail/runs/<id>/planning/revisions/revision-vN.json`. It contains the
   base/revised report fingerprints, requirement continuity map, concise delta,

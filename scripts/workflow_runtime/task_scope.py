@@ -178,8 +178,8 @@ def acquire(root: Path, workflow_id: str) -> dict[str, Any]:
 
 
 def release(root: Path, workflow_id: str, reason: str = "workflow-cancelled") -> dict[str, Any]:
-    """Release only this workflow's reservation after cancellation or verified completion."""
-    if reason not in {"workflow-cancelled", "workflow-completed"}: raise ValueError("reservation release reason is unsupported")
+    """Release only this workflow's reservation at a governed safe boundary."""
+    if reason not in {"workflow-cancelled", "workflow-completed", "user-stop"}: raise ValueError("reservation release reason is unsupported")
     root = root.resolve(); path = _lock_path(root)
     if not path.is_file():
         return {"type": "tailtrail-workflow-code-change-reservation", "status": "unheld", "artifact": None}
@@ -190,7 +190,7 @@ def release(root: Path, workflow_id: str, reason: str = "workflow-cancelled") ->
         return {"artifact": _relative(root, path), **payload, "status": "already-released"}
     payload["state"] = "released"
     payload["release_reason"] = reason
-    payload["boundary"] = "Released after explicit cancellation or evidence-complete template completion. This metadata action did not revert or retry project work."
+    payload["boundary"] = "Released after cancellation, evidence-complete template completion, or explicit TailTrail stop. This metadata action did not revert or retry project work."
     LEDGER.atomic_json(path, payload)
     binding = ownership.show(root, workflow_id)
     LEDGER.append_event(root, binding["tailtrail_run_id"], "workflow_code_change_lock_released", {"workflow_id": workflow_id, "artifact": _relative(root, path), "reason": reason})

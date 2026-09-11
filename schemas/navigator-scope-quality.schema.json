@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-scope-quality.schema.json",
+  "title": "TailTrail Navigator Scope Quality Assessment",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "type",
+    "status",
+    "blocking",
+    "mode",
+    "evidence_state",
+    "decision_fingerprint",
+    "target_identity_fingerprint",
+    "accepted_paths",
+    "missing_requirement_ids",
+    "reason_codes",
+    "question",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-scope-quality-assessment"},
+    "status": {"enum": ["passed", "blocked"]},
+    "blocking": {"type": "boolean"},
+    "mode": {"enum": ["code-change", "test-only", "documentation-only", "supporting-assets-only"]},
+    "evidence_state": {"enum": ["resolved", "unresolved", "ambiguous", "conflicting", "blocked-by-limits"]},
+    "decision_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "target_identity_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "accepted_paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "missing_requirement_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "reason_codes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "primary_reason": {"type": "string", "minLength": 1},
+    "question": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["question_id", "question", "options", "answer_format", "boundary"],
+          "properties": {
+            "question_id": {"const": "SCOPE-Q1"},
+            "question": {"type": "string", "minLength": 1},
+            "options": {"type": "array", "maxItems": 3, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "option_evidence": {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "required": ["path", "evidence", "missing_discriminator", "evidence_edge_ids"],
+                "properties": {
+                  "path": {"type": "string", "minLength": 1},
+                  "evidence": {"type": "string", "minLength": 1},
+                  "missing_discriminator": {"type": "string", "minLength": 1},
+                  "evidence_edge_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^edge-[0-9a-f]{12}$"}}
+                },
+                "additionalProperties": false
+              }
+            },
+            "answer_format": {"type": "string", "minLength": 1},
+            "boundary": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "question_validation": {
+      "type": "object",
+      "required": ["state", "eligible_options", "offered_options", "rejected_candidates", "truncated", "reason_codes"],
+      "properties": {
+        "state": {"enum": ["not-required", "validated", "no-supported-options"]},
+        "eligible_options": {"type": "integer", "minimum": 0},
+        "offered_options": {"type": "integer", "minimum": 0, "maximum": 3},
+        "rejected_candidates": {"type": "integer", "minimum": 0},
+        "truncated": {"type": "boolean"},
+        "reason_codes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

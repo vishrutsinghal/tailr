@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Debug Reproduction Attempt Status",
+  "type": "object",
+  "required": ["schema_version", "type", "run_id", "state", "latest_attempt", "attempts", "pre_fix", "post_fix", "input_request", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-reproduction-attempt-status"},
+    "run_id": {"type": "string", "minLength": 1},
+    "state": {"enum": ["not-run", "reproduction-confirmed", "awaiting-reproduction-input", "behavior-restored", "correction-still-failing"]},
+    "latest_attempt": {"type": ["integer", "null"], "minimum": 1},
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["attempt", "phase_attempt", "phase", "outcome", "state", "reproduction_revision", "evidence_event_id"],
+        "properties": {
+          "attempt": {"type": "integer", "minimum": 1},
+          "phase_attempt": {"type": "integer", "minimum": 1},
+          "phase": {"enum": ["pre-fix", "post-fix"]},
+          "outcome": {"enum": ["reproduced", "not-reproduced", "inconclusive", "restored", "still-reproduced"]},
+          "state": {"enum": ["reproduction-confirmed", "awaiting-reproduction-input", "behavior-restored", "correction-still-failing"]},
+          "reproduction_revision": {"type": "integer", "minimum": 1},
+          "evidence_event_id": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "pre_fix": {
+      "type": ["object", "null"],
+      "required": ["schema_version", "type", "run_id", "attempt", "phase_attempt", "phase", "outcome", "state", "reproduction_revision", "requirement_uid", "evidence_event_id", "command", "exit_outcome", "environment", "asserted_behavior", "observed_summary", "checked_dimensions", "input_request", "recorded_at", "boundary"],
+      "properties": {
+        "schema_version": {"const": "1"},
+        "type": {"const": "tailtrail-debug-reproduction-attempt"},
+        "run_id": {"type": "string", "minLength": 1},
+        "attempt": {"type": "integer", "minimum": 1},
+        "phase_attempt": {"type": "integer", "minimum": 1},
+        "phase": {"const": "pre-fix"},
+        "outcome": {"enum": ["reproduced", "not-reproduced", "inconclusive"]},
+        "state": {"enum": ["reproduction-confirmed", "awaiting-reproduction-input"]},
+        "reproduction_revision": {"type": "integer", "minimum": 1},
+        "requirement_uid": {"type": "string", "minLength": 1},
+        "evidence_event_id": {"type": "string", "minLength": 1},
+        "command": {"type": "string", "minLength": 1},
+        "exit_outcome": {"type": "string", "minLength": 1},
+        "environment": {"type": "string", "minLength": 1},
+        "asserted_behavior": {"type": "string", "minLength": 1},
+        "observed_summary": {"type": "string", "minLength": 1},
+        "checked_dimensions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["command-or-actions", "input-or-fixture", "runtime-version", "configuration", "environment", "permissions", "timing-or-frequency", "external-dependency", "unknown"]}},
+        "input_request": {"type": ["object", "null"]},
+        "recorded_at": {"type": "string", "minLength": 1},
+        "boundary": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "post_fix": {
+      "type": ["object", "null"],
+      "required": ["schema_version", "type", "run_id", "attempt", "phase_attempt", "phase", "outcome", "state", "reproduction_revision", "requirement_uid", "evidence_event_id", "command", "exit_outcome", "environment", "asserted_behavior", "observed_summary", "checked_dimensions", "input_request", "recorded_at", "boundary"],
+      "properties": {
+        "schema_version": {"const": "1"},
+        "type": {"const": "tailtrail-debug-reproduction-attempt"},
+        "run_id": {"type": "string", "minLength": 1},
+        "attempt": {"type": "integer", "minimum": 1},
+        "phase_attempt": {"type": "integer", "minimum": 1},
+        "phase": {"const": "post-fix"},
+        "outcome": {"enum": ["restored", "still-reproduced", "inconclusive"]},
+        "state": {"enum": ["behavior-restored", "correction-still-failing", "awaiting-reproduction-input"]},
+        "reproduction_revision": {"type": "integer", "minimum": 1},
+        "requirement_uid": {"type": "string", "minLength": 1},
+        "evidence_event_id": {"type": "string", "minLength": 1},
+        "command": {"type": "string", "minLength": 1},
+        "exit_outcome": {"type": "string", "minLength": 1},
+        "environment": {"type": "string", "minLength": 1},
+        "asserted_behavior": {"type": "string", "minLength": 1},
+        "observed_summary": {"type": "string", "minLength": 1},
+        "checked_dimensions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["command-or-actions", "input-or-fixture", "runtime-version", "configuration", "environment", "permissions", "timing-or-frequency", "external-dependency", "unknown"]}},
+        "input_request": {"type": ["object", "null"]},
+        "recorded_at": {"type": "string", "minLength": 1},
+        "boundary": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "input_request": {
+      "type": ["object", "null"],
+      "required": ["state", "summary", "requested", "response_prompt", "safety", "next_after_input"],
+      "properties": {
+        "state": {"const": "awaiting-reproduction-input"},
+        "summary": {"type": "string", "minLength": 1},
+        "requested": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "response_prompt": {"type": "string", "minLength": 1},
+        "safety": {"type": "string", "minLength": 1},
+        "next_after_input": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

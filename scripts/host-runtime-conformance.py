@@ -66,6 +66,9 @@ def contracts() -> tuple[dict[str, Any], dict[str, Any]]:
     actual = {item.get("id") for item in scenarios.get("scenarios", [])}
     if expected != actual or expected != {"small-bug", "hands-free-feature", "rejected-requirement", "evidence-failure", "recovery", "ci-wait"}:
         raise ValueError("instruction and runtime scenario sets do not match")
+    scope_contract = INSTRUCTIONS.load_scope_contract(ROOT)
+    if {item.get("id") for item in scope_contract.get("scenarios", [])} != INSTRUCTIONS.REQUIRED_SCOPE_SCENARIOS:
+        raise ValueError("scope-v2 host scenario contract is incomplete")
     return matrix, scenarios
 
 
@@ -80,6 +83,7 @@ def host_entry(matrix: dict[str, Any], host: str) -> dict[str, Any]:
 
 def bundle_payload(host: str) -> dict[str, Any]:
     matrix, scenarios = contracts()
+    scope_contract = INSTRUCTIONS.load_scope_contract(ROOT)
     entry = host_entry(matrix, host)
     source = ROOT / str(entry["source"])
     if not source.is_file():
@@ -95,6 +99,10 @@ def bundle_payload(host: str) -> dict[str, Any]:
         "instruction_source": entry["source"],
         "instruction_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "scenario_contract": SCENARIOS.relative_to(ROOT).as_posix(),
+        "scope_contract_version": scope_contract["contract_version"],
+        "scope_scenario_contract": matrix["scope_scenarios"],
+        "scope_scenario_schema": matrix["scope_scenario_schema"],
+        "scope_scenarios": scope_contract["scenarios"],
         "receipt_schema": matrix["runtime_receipt_schema"],
         "scenarios": scenarios["scenarios"],
         "boundary": "Portable observable contract only. It contains no source, prompt, secret, execution result, or runtime pass claim.",
@@ -107,7 +115,7 @@ def prepare(root: Path, host: str) -> dict[str, Any]:
     payload = bundle_payload(host)
     path = root / ".tailtrail" / "host-runtime" / "bundles" / f"{host}-v1.json"
     L.atomic_json(path, payload)
-    return {**payload, "artifact": path.relative_to(root).as_posix(), "state": "prepared", "next_action": "Run the six scenarios in the named host, then submit one sanitized receipt per scenario."}
+    return {**payload, "artifact": path.relative_to(root).as_posix(), "state": "prepared", "next_action": "Run the six lifecycle receipt scenarios and verify the six scope-v2 contract fixtures in the named host; submit one sanitized receipt per lifecycle scenario."}
 
 
 def _run_dir(root: Path, run_id: str) -> Path:
@@ -322,6 +330,8 @@ def report(root: Path, host: str | None = None) -> dict[str, Any]:
         "type": "tailtrail-host-runtime-conformance-report",
         "adapter_version": matrix["adapter_version"],
         "scenario_version": scenarios["scenario_version"],
+        "scope_contract_version": INSTRUCTIONS.load_scope_contract(ROOT)["contract_version"],
+        "scope_scenarios": sorted(INSTRUCTIONS.REQUIRED_SCOPE_SCENARIOS),
         "instruction_conformance": {"status": "passed" if not instruction_errors else "failed", "issues": instruction_errors},
         "runtime_conformance": rows,
         "allowed_statuses": sorted(STATUSES),

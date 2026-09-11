@@ -248,6 +248,15 @@ the task, creates stable requirement IDs, chooses relevant features and focused
 validation, and persists a Planning Lock. It never turns words such as
 “implement,” “hands-free,” or “end-to-end” into write authority.
 
+Before finalizing normal Start scope, Navigator also owns the metadata graph
+lifecycle. It reuses a fresh relevant graph, creates a bounded one when grounded
+scope exists, incrementally refreshes stale or newly relevant paths, rebuilds
+invalid metadata, or defers when a graph would not help. Debug Start is
+reuse-only until reproduction approval. After implementation, closure refreshes
+the actual changed slice and records an immutable hash-bound run mapping. These
+metadata artifacts improve later task context but never grant source-write or
+cross-run approval authority.
+
 ### 2. Choose the requirements authority
 
 ```mermaid
@@ -338,14 +347,15 @@ For an approved run, record events only when the host actually observes them:
 tailtrail execution-evidence record --root . --run-id <run-id> \
   --event '{"kind":"source-edit","requirement_uids":["<requirement-uid>"],"changed_paths":["src/payment.py"]}' \
   --approved
-tailtrail execution-evidence record --root . --run-id <run-id> \
-  --event '{"kind":"command-result","requirement_uids":["<requirement-uid>"],"changed_paths":["src/payment.py"],"tier":"unit","command_label":"payment tests","command":"python -m unittest tests.test_payment","outcome":"pass"}' \
-  --approved
+tailtrail execution-evidence run --root . --run-id <run-id> \
+  --requirement <requirement-uid> --tier unit --changed src/payment.py \
+  --label "payment tests" --command 'python -m unittest tests.test_payment' --approved
 ```
 
-Evidence can include exact source edits, command outcomes, deterministic
-Harness artifacts, and CI receipts. A test name, assistant statement, configured
-workflow, or planned scanner is not evidence that it ran.
+TailTrail derives local command outcomes from the captured exit code and saves
+bounded redacted output artifacts. External CI or host evidence must link a
+real artifact. A test name, assistant statement, configured workflow, or
+label-only outcome is not authoritative evidence that it ran.
 
 ### 7. Converge, correct, and close
 
@@ -610,3 +620,38 @@ That is the complete TailTrail loop: install trusted bytes, enter through the
 native host, lock intent, execute bounded work, record facts, converge all
 selected assurance, close once, learn only from accepted evidence, and publish
 only after real release proof.
+
+## FSR-6 Navigator release checkpoint
+
+Before an ownership change reaches an installed payload, TailTrail executes the
+sealed incident, owner-selection, and genuine-ambiguity fixtures. It compares
+the result with FSR-0 and requires: false-stop rate `0`, irrelevant-option rate
+`0`, unsafe locks `0`, reason-code accuracy `1.0`, owner precision/recall `1.0`,
+and supported-language profile pass rate `1.0`. The release proof then joins
+these measurements with CLI/MCP parity, Codex/Copilot/Claude adapter
+conformance, migration immutability, package/source inventory, local-runtime
+hygiene, approval, validation, closure, and fail-closed rollback evidence.
+
+Failure at any checkpoint produces a failed release proof. The recovery route
+blocks new Navigator scope runs while preserving existing run history; it never
+falls back to filename matching. Installed real-run confirmation remains the
+next and separate FSR-7 boundary.
+
+## FSR-7 installed release checkpoint
+
+The release pipeline builds canonical artifacts, validates their archive
+inventories, and runs `eval scope installed-release-proof` before publication
+inputs are accepted. It establishes two independent truths:
+
+1. Installation truth: Core-to-Extended updates complete transactionally for
+   Codex, Copilot, and Claude, verification passes, and source/package/installed
+   hashes agree with every host ownership manifest.
+2. Behavior truth: the installed Codex payload refreshes a graph and produces
+   the expected Planning Lock for the sealed UI incident when its exact message
+   is Markdown-emphasized. Canonical literal normalization must still select
+   the page as the sole owner, the service as inspection-only, the page test as
+   proof-only, and no clarification question.
+
+The complete parsed Start result is embedded in the integrity-sealed proof and
+the exact stdout is fingerprinted. Installed Copilot and Claude launchers run
+adapter conformance, but no hosted runtime or support claim is inferred.

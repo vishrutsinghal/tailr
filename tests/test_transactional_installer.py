@@ -81,6 +81,31 @@ class TransactionalInstallerTests(unittest.TestCase):
                 body = (ROOT / "scripts" / script).read_text(encoding="utf-8")
                 self.assertIn("tailtrail.install.cli", body)
 
+    def test_all_host_update_reconciles_shared_payload_hashes_in_every_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as sources:
+            target = Path(temp)
+            for host in ("codex", "copilot", "claude"):
+                installed = InstallEngine(target).apply("install", host, "extended")
+                self.assertTrue(installed.ok, installed.issues)
+
+            source = Path(sources) / "updated-package"
+            shutil.copytree(ROOT, source, ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
+            shared_source = source / "scripts" / "task-start.py"
+            shared_source.write_text(shared_source.read_text(encoding="utf-8") + "\n# shared update fixture\n", encoding="utf-8")
+            relative = f".tailtrail/install/payload/common/{InstallEngine(target, package_root=source).version}/scripts/task-start.py"
+
+            updates = [InstallEngine(target, package_root=source).apply("update", host, "extended") for host in ("codex", "copilot", "claude")]
+
+            self.assertIn(relative, updates[0].changed)
+            self.assertEqual(updates[1].changed, [])
+            self.assertEqual(updates[2].changed, [])
+            self.assertIsNotNone(updates[1].transaction_id)
+            self.assertIsNotNone(updates[2].transaction_id)
+            expected = manifest(target, "codex")["files"][relative]["sha256"]
+            for host in ("codex", "copilot", "claude"):
+                self.assertEqual(manifest(target, host)["files"][relative]["sha256"], expected)
+                self.assertTrue(InstallEngine(target, package_root=source).verify(host).ok)
+
     def test_idempotent_reinstall_has_no_transaction_or_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp)
@@ -126,6 +151,25 @@ class TransactionalInstallerTests(unittest.TestCase):
             rollback = InstallEngine(target).rollback(update.transaction_id or "")
             self.assertTrue(rollback.ok, rollback.issues)
             self.assertEqual((target / "AGENTS.md").read_bytes(), old)
+
+    def test_update_rollback_restores_payload_without_deleting_v2_run_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as sources:
+            target = Path(temp)
+            InstallEngine(target).apply("install", "codex", "core")
+            run = target / ".tailtrail" / "runs" / "scope-v2-run" / "planning" / "start-report-v1.json"
+            run.parent.mkdir(parents=True)
+            saved = b'{"report":{"navigator":{"scope_evidence":{"schema_version":"2"}}}}\n'
+            run.write_bytes(saved)
+            old_payload = (target / "AGENTS.md").read_bytes()
+            source = changed_source(Path(sources), "v2-scope", "new signed payload guidance\n")
+
+            update = InstallEngine(target, package_root=source).apply("update", "codex")
+            self.assertTrue(update.ok, update.issues)
+            rollback = InstallEngine(target).rollback(update.transaction_id or "")
+
+            self.assertTrue(rollback.ok, rollback.issues)
+            self.assertEqual(old_payload, (target / "AGENTS.md").read_bytes())
+            self.assertEqual(saved, run.read_bytes())
 
     def test_modified_managed_file_blocks_update_and_force_preserves_backup(self) -> None:
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as sources:
@@ -286,6 +330,11 @@ class TransactionalInstallerTests(unittest.TestCase):
             self.assertEqual(payload["profile"], "extended")
             common = launcher.parents[2] / "common" / installed.version
             self.assertTrue((common / "tailtrail" / "install" / "cli.py").is_file())
+            self.assertTrue((common / "adapters" / "navigator-scope-scenarios-v2.json").is_file())
+            self.assertTrue((common / "schemas" / "host-scope-conformance.schema.json").is_file())
+            self.assertTrue((common / "scripts" / "mcp-server.py").is_file())
+            self.assertTrue((common / "scripts" / "host-adapter-conformance.py").is_file())
+            self.assertTrue((common / "scripts" / "host-runtime-conformance.py").is_file())
             for name in ("plan-report.json", "debug-report.json", "closure-report.json"):
                 self.assertTrue((common / "benchmarks" / "product-maturity" / "presentation-v1" / name).is_file())
             conformance = run(

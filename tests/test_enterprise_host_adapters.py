@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,8 +18,8 @@ loaded_tailtrail = sys.modules.get("tailtrail")
 if loaded_tailtrail is not None and not hasattr(loaded_tailtrail, "__path__"):
     del sys.modules["tailtrail"]
 
-from tailtrail.hosts.contracts import HOSTS, adapter_version, contract, contracts, core_files
-from tailtrail.hosts.diagnostics import diagnose
+from tailtrail.hosts.contracts import HOSTS, adapter_version, contract, contracts, core_files, scope_scenarios
+from tailtrail.hosts.diagnostics import detect_version, diagnose
 from tailtrail.install import InstallEngine
 
 
@@ -46,6 +47,7 @@ class EnterpriseHostAdapterTests(unittest.TestCase):
         self.assertEqual(matrix["adapter_version"], "v3")
         self.assertFalse(schema["additionalProperties"])
         self.assertEqual(tuple(item["id"] for item in matrix["hosts"]), HOSTS)
+        self.assertEqual({item["id"] for item in scope_scenarios(ROOT)["scenarios"]}, {"resolved", "unresolved", "conflicting", "docs-only", "test-only", "debug-start"})
         for host in HOSTS:
             entry = contract(host, ROOT)
             self.assertEqual(entry["qualification"], "contract-tested")
@@ -55,6 +57,10 @@ class EnterpriseHostAdapterTests(unittest.TestCase):
             self.assertEqual(entry["capabilities"]["policy_enforcement"], "ci-authoritative")
             self.assertTrue(all(entry["capabilities"][key] == "approval-required" for key in ("global_settings", "network_activity", "account_changes")))
             self.assertEqual(entry["migration"]["rollback"], "E3 transaction backup")
+            source = (ROOT / entry["source"]).read_text(encoding="utf-8")
+            generated = (ROOT / entry["generated"]).read_text(encoding="utf-8")
+            self.assertIn("canonical `Next actions` and `Route to a code fix` guidance", source)
+            self.assertIn("## Debug next-action boundary", generated)
 
     def test_every_host_uses_the_common_core_install_doctor_update_rollback_uninstall_lifecycle(self) -> None:
         for host in HOSTS:
@@ -112,6 +118,16 @@ class EnterpriseHostAdapterTests(unittest.TestCase):
             self.assertEqual(result["installation"], "not-installed")
             self.assertIn(".claude/commands/tailtrail-start.md", result["missing_files"])
 
+    def test_hung_host_version_probe_remains_not_detected(self) -> None:
+        with mock.patch("tailtrail.hosts.diagnostics.shutil.which", return_value="/usr/local/bin/codex"), mock.patch(
+            "tailtrail.hosts.diagnostics.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(["codex", "--version"], 5),
+        ):
+            result = detect_version("codex", root=ROOT)
+        self.assertEqual(result["state"], "not-detected")
+        self.assertIsNone(result["version"])
+        self.assertFalse(result["qualified"])
+
     def test_adapter_metadata_migration_is_transactional_and_rollback_restores_prior_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp)
@@ -135,6 +151,8 @@ class EnterpriseHostAdapterTests(unittest.TestCase):
                 self.assertEqual(bundle["host"], host)
                 self.assertEqual(bundle["adapter_version"], "v3")
                 self.assertEqual(len(bundle["scenarios"]), 6)
+                self.assertEqual(len(bundle["scope_scenarios"]), 6)
+                self.assertEqual(bundle["scope_contract_version"], "v2")
                 self.assertEqual(bundle["receipt_schema"], "schemas/host-runtime-receipt.schema.json")
                 self.assertNotIn("source_code", json.dumps(bundle))
 

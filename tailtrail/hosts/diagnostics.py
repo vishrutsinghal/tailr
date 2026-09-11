@@ -17,7 +17,13 @@ def _run(command: Sequence[str]) -> tuple[int, str]:
     executable = shutil.which(command[0])
     if executable is None:
         return 127, ""
-    result = subprocess.run([executable, *command[1:]], text=True, capture_output=True, check=False, timeout=5)
+    try:
+        result = subprocess.run([executable, *command[1:]], text=True, capture_output=True, check=False, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        # Host version detection is diagnostic metadata only. A missing,
+        # inaccessible, or hung host process must remain not-detected rather
+        # than making an otherwise valid transactional installation fail.
+        return 124, ""
     return result.returncode, (result.stdout or result.stderr).strip().splitlines()[0] if (result.stdout or result.stderr).strip() else ""
 
 

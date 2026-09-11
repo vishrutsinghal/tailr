@@ -1,5 +1,7 @@
 import importlib.util
+import copy
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -32,9 +34,266 @@ def load_script(name: str, relative: str):
 mcp = load_module()
 lock = load_script("mcp_execution_lock_test", "scripts/planning-lock.py")
 anchor = load_script("mcp_execution_anchor_test", "scripts/change-intent-anchor.py")
+reproduction = load_script("mcp_reproduction_guidance_test", "scripts/debug-reproduction.py")
+requirement_discovery = load_script("mcp_requirement_discovery_test", "scripts/requirement_discovery.py")
+
+
+def requirement_interpretation(goal: str, host: str = "codex") -> dict:
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-host-requirement-interpretation",
+        "host": host,
+        "goal": goal,
+        "private_reasoning_excluded": True,
+        "clauses": [{"clause_id": "C-01", "role": "outcome", "text": goal}],
+        "requirements": [{
+            "display_id": "REQ-01",
+            "statement": goal,
+            "kind": "change",
+            "source_clause_ids": ["C-01"],
+            "intent_terms": requirement_discovery.query_terms(goal),
+            "quoted_literals": [],
+            "intent_class": "general",
+            "confidence": "medium",
+        }],
+        "material_questions": [],
+    }
+
+
+def scope_proposal(packet: dict, host: str) -> dict:
+    candidates = {row["path"]: row for row in packet["candidates"]}
+    requirement = packet["requirements"][0]
+    chosen, alternative = [row["path"] for row in packet["route"]["eligible_candidates"][:2]]
+    inspection = next(row["path"] for row in packet["candidates"] if row["role"] == "literal-emitter")
+    material = [(chosen, "implementation-owner"), (inspection, "inspection")]
+    claims = [{
+        "path": path,
+        "candidate_id": candidates[path]["candidate_id"],
+        "content_fingerprint": candidates[path]["content_fingerprint"],
+        "claim_role": role,
+        "evidence_edge_ids": candidates[path]["evidence_edge_ids"],
+    } for path, role in material]
+    return {
+        "schema_version": "2",
+        "type": "tailtrail-navigator-host-scope-proposal",
+        "host": host,
+        "evidence_packet_fingerprint": packet["packet_fingerprint"],
+        "scope_evidence_fingerprint": packet["scope_evidence_fingerprint"],
+        "target_identity_fingerprint": packet["target_identity_fingerprint"],
+        "goal_fingerprint": packet["goal_fingerprint"],
+        "scope_state": "proposed-resolved",
+        "authority": "evidence-refinement-only",
+        "requirements": [{
+            "requirement_id": requirement["requirement_id"],
+            "statement_fingerprint": requirement["statement_fingerprint"],
+            "implementation_owners": [chosen],
+            "callers": [],
+            "inspection_paths": [inspection],
+            "proof_paths": [],
+            "excluded_candidates": [row["path"] for row in requirement["excluded_candidates"]],
+            "path_claims": claims,
+            "preservation_boundaries": ["Preserve the unselected renderer."],
+            "evidence_edge_ids": sorted({edge for claim in claims for edge in claim["evidence_edge_ids"]}),
+            "confidence": "high",
+            "decision_reasons": ["The request context selects one strongly evidenced renderer."],
+            "alternatives": [alternative],
+            "uncertainties": [],
+        }],
+        "private_reasoning_excluded": True,
+    }
 
 
 class McpServerTests(unittest.TestCase):
+    def test_requirement_intake_tools_expose_read_and_approved_answer_boundaries(self) -> None:
+        tools_by_name = {item["name"]: item for item in mcp.tool_list()}
+
+        self.assertIn("requirement_intake_show", mcp.READ_ONLY_TOOLS)
+        self.assertIn("requirement_intake_answer", mcp.CONTROLLED_TOOLS)
+        self.assertIn("requirement_intake_show", tools_by_name)
+        self.assertIn("requirement_intake_answer", tools_by_name)
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.requirement_intake_answer(
+                {"intake_id": "intake-0123456789abcdef", "answers": {"DEC-01": "value"}}
+            )
+
+    def test_debug_preflight_is_read_only_and_bounded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "src" / "report.py"
+            proof = root / "tests" / "test_report.py"
+            source.parent.mkdir(parents=True)
+            proof.parent.mkdir(parents=True)
+            source.write_text("def render_steps(steps):\n    return steps + steps\n", encoding="utf-8")
+            proof.write_text("def test_render_steps_once():\n    assert True\n", encoding="utf-8")
+            result = mcp.call_tool("debug_preflight", {
+                "root": root.as_posix(),
+                "goal": "debug repeated report steps",
+                "host": "codex",
+            })
+
+        self.assertEqual(result["tool"], "debug_preflight")
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["host_contract"]["max_reasoning_passes"], 1)
+        self.assertLessEqual(result["result"]["metrics"]["evidence_files"], 6)
+
+    def test_fsr5_mcp_validates_host_reasoning_then_creates_only_the_resolved_run(self) -> None:
+        fixture = json.loads((ROOT / "tests" / "fixtures" / "navigator-scope" / "typescript-genuine-renderer-ambiguity.json").read_text(encoding="utf-8"))
+        interpretation = requirement_interpretation(fixture["goal"])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for relative, body in fixture["repository_files"].items():
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body, encoding="utf-8")
+            first = mcp.tailtrail_start({
+                "goal": fixture["goal"], "root": root.as_posix(), "host": "codex",
+                "requirement_interpretation": interpretation,
+                "run_id": "fsr5-mcp", "format": "json", "approved": True,
+            })
+            packet = first["host_reasoning_packet"]
+            self.assertFalse(first["run_created"])
+            self.assertEqual(first["requirement_route"]["state"], "eligible")
+            self.assertTrue(first["requirement_route"]["scope_question_allowed"])
+            self.assertEqual(first["scope_contract"]["state"], "ambiguous")
+            self.assertEqual(packet["route"]["state"], "requested")
+            proposal = scope_proposal(packet, "codex")
+            invented = copy.deepcopy(proposal)
+            invented["requirements"][0]["implementation_owners"] = ["src/pages/InventedPage.tsx"]
+            invented["requirements"][0]["path_claims"][0]["path"] = "src/pages/InventedPage.tsx"
+            denied = mcp.navigator_scope_proposal_record({
+                "root": root.as_posix(), "packet": packet, "proposal": invented,
+                "approved": True,
+            })
+            self.assertEqual(denied["result"]["status"], "rejected")
+            denied_start = mcp.tailtrail_start({
+                "goal": fixture["goal"], "root": root.as_posix(), "host": "codex",
+                "requirement_interpretation": interpretation,
+                "host_scope_proposal": invented, "run_id": "fsr5-mcp",
+                "format": "json", "approved": True,
+            })
+            self.assertFalse(denied_start["run_created"])
+            self.assertEqual(denied_start["scope_contract"]["state"], "ambiguous")
+            validation = mcp.navigator_scope_proposal_record({
+                "root": root.as_posix(), "packet": packet, "proposal": proposal,
+                "approved": True,
+            })
+            self.assertEqual(validation["result"]["status"], "accepted")
+            self.assertFalse(validation["run_created"])
+            self.assertFalse((root / ".tailtrail" / "runs" / "fsr5-mcp").exists())
+            second = mcp.tailtrail_start({
+                "goal": fixture["goal"], "root": root.as_posix(), "host": "codex",
+                "requirement_interpretation": interpretation,
+                "host_scope_proposal": proposal, "run_id": "fsr5-mcp",
+                "format": "json", "approved": True,
+            })
+
+        self.assertTrue(second["run_created"])
+        self.assertEqual(second["scope_contract"]["state"], "resolved")
+        self.assertEqual(second["scope_contract"]["decision_reason"], "host-evidence-supported-owner-resolved")
+        self.assertIsNone(second["host_reasoning_packet"])
+
+    def test_phase8_mcp_defers_scope_for_open_requirement_intake(self) -> None:
+        goal = (
+            "Create the dapdes-act/dev/auditlogging/apigee-client-credentials "
+            "resource because it does not exist in AWS and is needed to store OEM credentials."
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            response = mcp.tailtrail_start({
+                "goal": goal,
+                "root": root.as_posix(),
+                "aidlc": "lite",
+                "format": "json",
+                "approved": True,
+            })
+
+        self.assertFalse(response["run_created"])
+        self.assertIsNone(response["scope_contract"])
+        self.assertIsNone(response["host_reasoning_packet"])
+        self.assertEqual(response["requirement_route"]["state"], "deferred")
+        self.assertFalse(response["requirement_route"]["scope_question_allowed"])
+        self.assertEqual(response["requirement_route"]["route"], "lite-questions")
+
+    def test_phase9_mcp_exposes_host_interpretation_before_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            response = mcp.tailtrail_start({
+                "goal": "Update the service behavior",
+                "root": root.as_posix(),
+                "host": "codex",
+                "format": "json",
+                "approved": True,
+            })
+
+        self.assertFalse(response["run_created"])
+        self.assertIsNone(response["scope_contract"])
+        self.assertIsNone(response["host_reasoning_packet"])
+        self.assertEqual(response["requirement_route"]["state"], "deferred")
+        self.assertEqual(response["requirement_route"]["route"], "host-interpretation")
+        self.assertFalse(response["requirement_route"]["scope_question_allowed"])
+
+    def test_phase9_mcp_rejects_deferred_route_authority_contradictions(self) -> None:
+        deferred = {
+            "scope_question_precondition": {
+                "state": "deferred",
+                "requirements_state": "clarification-required",
+                "open_material_decision_ids": ["MAT-01"],
+                "scope_question_allowed": False,
+                "reason_code": "requirements-must-be-resolved-before-scope-question",
+            },
+            "recommended_route": "lite-questions",
+        }
+        contradictions = (
+            {"planning_lock": {"run_id": "must-not-exist"}},
+            {"scope_host_packet": {"route": {"state": "requested"}}},
+        )
+        for contradiction in contradictions:
+            with self.subTest(contradiction=contradiction):
+                with self.assertRaisesRegex(
+                    ValueError, "requirement-before-scope conformance violation"
+                ):
+                    mcp.requirement_scope_transport({**deferred, **contradiction})
+
+    def test_phase9_mcp_rejects_scope_state_without_requirement_route(self) -> None:
+        with self.assertRaisesRegex(ValueError, "typed requirement route"):
+            mcp.requirement_scope_transport(
+                {"planning_lock": {"run_id": "must-not-exist"}}
+            )
+
+    def test_debug_reproduction_mcp_returns_canonical_next_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            reproduction.L.init_run(root, "mcp-debug-guidance", "debug guidance")
+            response = mcp.call_tool("debug_reproduction_draft", {
+                "root": root.as_posix(),
+                "run_id": "mcp-debug-guidance",
+                "approved": True,
+                "contract": {
+                    "domain": "code",
+                    "trigger": "wrapped prose becomes two requirements",
+                    "expected": "one requirement",
+                    "actual": "two requirements",
+                    "reproduction_method": "run the focused parser fixture",
+                    "safety_boundary": "local fixture only",
+                },
+            })
+
+            guidance = response["next_actions"]
+            self.assertEqual(guidance["state"], "reproduction-approval-required")
+            self.assertEqual(guidance["run_id"], "mcp-debug-guidance")
+            self.assertEqual(guidance["revision"], 1)
+            action_ids = {item["id"] for item in guidance["actions"]}
+            self.assertTrue({"approve-reproduction", "revise-reproduction", "explain-reproduction", "show-status", "stop-tailtrail", "resume-tailtrail"}.issubset(action_ids))
+            shown = mcp.call_tool("debug_reproduction_show", {
+                "root": root.as_posix(), "run_id": "mcp-debug-guidance"
+            })
+            self.assertEqual(shown["next_actions"], guidance)
+            attempt = mcp.call_tool("debug_reproduction_attempt_show", {
+                "root": root.as_posix(), "run_id": "mcp-debug-guidance"
+            })
+            self.assertEqual(attempt["result"]["state"], "not-run")
+            self.assertEqual(attempt["next_actions"]["state"], "not-run")
+
     def test_debug_orientation_surface_is_read_only_or_explicitly_approval_gated(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -45,13 +304,13 @@ class McpServerTests(unittest.TestCase):
                 mcp.call_tool("debug_orientation_create", {"root": root.as_posix(), "run_id": "missing", "approved": False})
 
     def test_complete_debug_lifecycle_tools_are_classified_and_approval_gated(self) -> None:
-        read_only = {"debug_intake_show", "debug_reproduction_show", "debug_orientation_show",
+        read_only = {"debug_intake_show", "debug_reproduction_show", "debug_reproduction_attempt_show", "debug_orientation_show",
                      "debug_hypothesis_ledger_show", "debug_correction_show", "debug_governance_show",
                      "debug_harness_convergence_show", "debug_completion_report_show",
                      "workflow_current", "workflow_resume", "workflow_replay", "completion_report_show"}
         read_only.update({"debug_evaluation_report", "debug_release_gate"})
-        controlled = {"debug_start", "debug_reproduction_draft", "debug_reproduction_revise",
-                      "debug_reproduction_approve", "debug_orientation_create", "debug_hypothesis_add",
+        controlled = {"debug_start", "debug_reproduction_draft", "debug_reproduction_revise", "debug_reproduction_reopen",
+                      "debug_reproduction_approve", "debug_reproduction_attempt_record", "debug_orientation_create", "debug_hypothesis_add",
                       "debug_hypothesis_reprioritize", "debug_experiment_propose", "debug_experiment_record",
                       "debug_root_cause_prove", "debug_correction_propose", "debug_correction_approve",
                       "debug_harness_convergence_finalize", "debug_closure_finalize"}
@@ -77,7 +336,30 @@ class McpServerTests(unittest.TestCase):
             self.assertFalse((root / ".tailtrail").exists())
 
     def test_tool_list_has_read_only_and_one_approval_gated_allowlist(self):
-        self.assertTrue({"navigator_plan", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "planning_decision_show", "planning_investigation_show", "planning_revision_show", "planning_authority_show", "planning_question_context_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report", "execution_evidence_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
+        self.assertTrue({"navigator_plan", "intent_resolve", "ledger_state", "anchor_show", "git_readiness", "planning_lock_show", "planning_decision_show", "planning_investigation_show", "planning_revision_show", "planning_authority_show", "planning_question_context_show", "aidlc_official_status", "aidlc_official_bridge_show", "aidlc_official_state_show", "aidlc_official_sanitize_validate", "aidlc_official_session_status", "host_conformance_report", "execution_evidence_show"}.issubset(set(mcp.READ_ONLY_TOOLS)))
+
+    def test_intent_resolve_is_read_only_and_never_grants_authority(self):
+        result = mcp.call_tool(
+            "intent_resolve",
+            {"text": "Use TailTrail to reject zero quantities but preserve positive quantities."},
+        )
+        self.assertTrue(result["execution"]["read_only"])
+        self.assertEqual(result["result"]["action"], "start")
+        self.assertEqual(result["result"]["authority"]["classification"], "planning-only")
+        self.assertFalse(result["result"]["authority"]["approval_inferred"])
+        self.assertFalse(result["result"]["authority"]["execution_granted"])
+
+    def test_intent_resolve_fails_closed_for_vague_or_ambiguous_approval(self):
+        vague = mcp.call_tool(
+            "intent_resolve",
+            {"text": "looks good", "active_state": "awaiting-approval"},
+        )["result"]
+        self.assertEqual(vague["action"], "clarify")
+        ambiguous = mcp.call_tool(
+            "intent_resolve",
+            {"text": "approve", "active_state": "ambiguous"},
+        )["result"]
+        self.assertEqual(ambiguous["reason_codes"], ["exact-run-id-required"])
 
     def test_real_evaluation_portfolio_report_is_read_only_and_honest(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -98,12 +380,13 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual("passed", report["status"])
         self.assertEqual([], report["probes"])
         self.assertFalse(report["release_qualification"]["qualified"])
-        self.assertTrue({"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest"}.issubset(set(mcp.CONTROLLED_TOOLS)))
+        self.assertTrue({"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "navigator_scope_proposal_record", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest"}.issubset(set(mcp.CONTROLLED_TOOLS)))
         self.assertEqual(set(mcp.HANDLERS), set((*mcp.READ_ONLY_TOOLS, *mcp.CONTROLLED_TOOLS)))
         self.assertEqual(mcp.ensure_safe_tools(), [])
 
     def test_tool_list_is_projected_from_registry(self):
         projection = mcp.load_registry().mcp_projection(mcp.load_registry().load_registry())
+        definitions = mcp.tool_definitions()
 
         projected = {item["tool"]: item for item in projection}
         self.assertTrue(set(mcp.READ_ONLY_TOOLS).issubset(projected))
@@ -116,11 +399,25 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(projected["planning_lock_approve"]["requires_approval"])
         self.assertFalse(projected["tailtrail_start"]["read_only"])
         self.assertTrue(projected["tailtrail_start"]["requires_approval"])
+        for name in ("navigator_plan", "start_report", "tailtrail_start"):
+            self.assertIn("outputSchema", definitions[name])
+            self.assertIn("scope_contract", definitions[name]["outputSchema"]["properties"])
+            route_schema = definitions[name]["outputSchema"]["properties"]["requirement_route"]
+            self.assertIn("requirement_route", definitions[name]["outputSchema"]["required"])
+            self.assertFalse(route_schema["additionalProperties"])
+            self.assertEqual(
+                route_schema["properties"]["scope_question_allowed"]["type"],
+                "boolean",
+            )
+            self.assertFalse(definitions[name]["annotations"]["destructiveHint"])
+        self.assertFalse(projected["navigator_scope_proposal_record"]["read_only"])
+        self.assertTrue(projected["navigator_scope_proposal_record"]["requires_approval"])
         self.assertTrue(projected["planning_investigation_show"]["read_only"])
         self.assertFalse(projected["planning_investigate"]["read_only"])
         self.assertTrue(projected["planning_investigate"]["requires_approval"])
         self.assertTrue(projected["planning_revision_show"]["read_only"])
         self.assertFalse(projected["planning_revision_propose"]["read_only"])
+        self.assertIn("supersede_pending", definitions["planning_revision_propose"]["inputSchema"]["properties"])
         self.assertTrue(projected["planning_revision_approve"]["requires_approval"])
         self.assertFalse(projected["planning_aidlc_standard_propose"]["read_only"])
         self.assertTrue(projected["planning_aidlc_standard_approve"]["requires_approval"])
@@ -196,7 +493,7 @@ class McpServerTests(unittest.TestCase):
 
         self.assertEqual(
             errors[0],
-            "tool registry order mismatch at index 25: expected `planning_lock_show`, got `planning_decision_show`",
+            "tool registry order mismatch at index 26: expected `planning_lock_show`, got `planning_decision_show`",
         )
 
     def test_unknown_tool_is_rejected(self):
@@ -210,6 +507,17 @@ class McpServerTests(unittest.TestCase):
     def test_execution_evidence_mcp_requires_explicit_approval(self):
         with self.assertRaisesRegex(ValueError, "approved: true"):
             mcp.execution_evidence_record({"run_id": "demo", "event": {}, "approved": False})
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.execution_evidence_run({"run_id": "demo", "approved": False})
+
+    def test_navigator_scope_proposal_record_requires_explicit_approval(self):
+        with self.assertRaisesRegex(ValueError, "approved: true"):
+            mcp.navigator_scope_proposal_record({
+                "root": ROOT.as_posix(),
+                "evidence": {},
+                "proposal": {},
+                "approved": False,
+            })
 
     def test_execution_evidence_show_is_read_only_when_no_events_exist(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -244,6 +552,32 @@ class McpServerTests(unittest.TestCase):
         self.assertFalse(recorded["execution"]["read_only"])
         self.assertEqual(recorded["result"]["kind"], "command-result")
         self.assertEqual(shown["result"]["count"], 1)
+
+    def test_execution_evidence_mcp_runs_only_approved_proof_and_returns_exit_code(self):
+        command = f"{shlex.quote(sys.executable)} -c {shlex.quote('print(\"mcp proof\")')}"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "orders.py").write_text("value = 1\n", encoding="utf-8")
+            lock.create(root, "validate order", "managed-run")
+            proposal = root / "proposal.json"
+            proposal.write_text(json.dumps({"requirements": [{
+                "statement": "Reject an invalid order.", "acceptance_criteria": ["invalid orders reject"],
+                "preserve_rules": [], "likely_paths": ["src/orders.py"], "evidence_plan": ["unit"],
+                "validation_contract": {"state": "required", "tiers": ["unit"], "commands": [command]},
+            }]}), encoding="utf-8")
+            anchor.draft(root, "managed-run", proposal)
+            uid = anchor.approve(root, "managed-run")["requirements"][0]["requirement_uid"]
+            lock.approve(root, "managed-run", True)
+            response = mcp.execution_evidence_run({
+                "root": root.as_posix(), "run_id": "managed-run", "requirement_uids": [uid],
+                "tiers": ["unit"], "changed": ["src/orders.py"], "command": command,
+                "command_label": "order proof", "timeout_seconds": 30, "approved": True,
+            })
+
+        self.assertEqual(response["result"]["outcome"], "pass")
+        self.assertEqual(response["execution"]["exit_code"], 0)
+        self.assertTrue(response["execution"]["command_executed"])
 
     def test_spec_kit_mcp_controls_are_approval_gated(self):
         with self.assertRaisesRegex(ValueError, "approved: true"):
@@ -431,7 +765,7 @@ class McpServerTests(unittest.TestCase):
 
         try:
             mcp.command_result = fake_command_result
-            result = mcp.tailtrail_start({"goal": "plan task 1 and task 2 hands-free", "root": ROOT.as_posix(), "run_id": "program-1", "changed": ["src/a.py"], "approved": True})
+            result = mcp.tailtrail_start({"goal": "plan task 1 and task 2 hands-free", "root": ROOT.as_posix(), "run_id": "program-1", "changed": ["src/a.py"], "graph": "refresh", "approved": True})
         finally:
             mcp.command_result = original
 
@@ -440,8 +774,10 @@ class McpServerTests(unittest.TestCase):
         self.assertTrue(result["execution"]["execution_blocked"])
         self.assertIn("task-start.py", calls[0][1])
         self.assertIn("--planning-run-id", calls[0])
-        self.assertEqual(calls[0][calls[0].index("--format") + 1], "markdown")
+        self.assertEqual(calls[0][calls[0].index("--graph") + 1], "refresh")
+        self.assertEqual(calls[0][calls[0].index("--format") + 1], "json")
         self.assertNotIn("--no-planning-lock", calls[0])
+        self.assertIsNone(result["scope_contract"])
 
     def test_atomic_tailtrail_start_forwards_sanitized_debug_classification_inputs(self):
         calls = []
@@ -468,6 +804,167 @@ class McpServerTests(unittest.TestCase):
         self.assertIn("--debug", calls[0])
         self.assertEqual(calls[0][calls[0].index("--error") + 1], "provided-via-mcp")
         self.assertEqual(calls[0][calls[0].index("--command") + 1], "provided-via-mcp")
+
+    def test_atomic_tailtrail_start_passes_debug_diagnosis_via_stdin(self):
+        calls = []
+        original = mcp.command_result
+        diagnosis = {"schema_version": "1", "type": "tailtrail-host-debug-diagnosis"}
+
+        def fake_command_result(command, cwd, *, stdin_data=None):
+            calls.append((command, stdin_data))
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{}", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            mcp.tailtrail_start({
+                "goal": "debug repeated report steps",
+                "root": ROOT.as_posix(),
+                "host": "codex",
+                "workflow": "debug",
+                "debug_diagnosis": diagnosis,
+                "format": "json",
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        self.assertIn("--debug-diagnosis-stdin", calls[0][0])
+        self.assertNotIn("--debug-diagnosis", calls[0][0])
+        self.assertEqual(json.loads(calls[0][1]), diagnosis)
+
+    def test_atomic_tailtrail_start_forwards_typed_host_requirement_interpretation(self):
+        calls = []
+        original = mcp.command_result
+        goal = "A warning is visible. Remove it."
+        proposal = {
+            "schema_version": "1",
+            "type": "tailtrail-host-requirement-interpretation",
+            "host": "codex",
+            "goal": goal,
+            "private_reasoning_excluded": True,
+            "clauses": [{"clause_id": "C-01", "role": "outcome", "text": "Remove it."}],
+            "requirements": [{
+                "display_id": "REQ-01", "statement": "Remove the visible warning.",
+                "source_clause_ids": ["C-01"], "intent_terms": ["remove", "warning"],
+            }],
+            "material_questions": [],
+        }
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{}", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            mcp.tailtrail_start({
+                "goal": goal,
+                "root": ROOT.as_posix(),
+                "requirement_artifacts": ["/tmp/requirements.md"],
+                "requirement_interpretation": proposal,
+                "format": "json",
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        self.assertIn("--requirement-interpretation", calls[0])
+        self.assertEqual(
+            calls[0][calls[0].index("--requirement-artifact") + 1],
+            "/tmp/requirements.md",
+        )
+        forwarded = json.loads(calls[0][calls[0].index("--requirement-interpretation") + 1])
+        self.assertEqual(forwarded, proposal)
+
+    def test_atomic_tailtrail_start_forwards_required_planning_artifacts(self):
+        calls = []
+        original = mcp.command_result
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 2, "stdout": "{}", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            mcp.tailtrail_start({
+                "goal": "Add tests from the referenced specification.",
+                "root": ROOT.as_posix(),
+                "host": "codex",
+                "requirement_artifacts": ["/tmp/requirements.md", "/tmp/contracts.txt"],
+                "format": "json",
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        artifact_positions = [
+            index for index, value in enumerate(calls[0])
+            if value == "--requirement-artifact"
+        ]
+        self.assertEqual(
+            [calls[0][index + 1] for index in artifact_positions],
+            ["/tmp/requirements.md", "/tmp/contracts.txt"],
+        )
+
+    def test_atomic_tailtrail_start_forwards_answered_requirement_intake(self):
+        calls = []
+        original = mcp.command_result
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{}", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            mcp.tailtrail_start({
+                "goal": "Create the credential resource.",
+                "root": ROOT.as_posix(),
+                "host": "codex",
+                "requirement_intake_id": "intake-0123456789abcdef",
+                "aidlc": "standard",
+                "format": "json",
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        self.assertIn("--requirement-intake-id", calls[0])
+        self.assertEqual(
+            calls[0][calls[0].index("--requirement-intake-id") + 1],
+            "intake-0123456789abcdef",
+        )
+
+    def test_atomic_tailtrail_start_uses_the_shared_multiline_requirement_frame(self):
+        goal = "Add delivery-address validation without breaking valid\r\naddresses."
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / "src" / "address_validation.py"
+            target.parent.mkdir(parents=True)
+            target.write_text("def validate_address(value):\n    return bool(value)\n", encoding="utf-8")
+
+            result = mcp.tailtrail_start({
+                "goal": goal,
+                "root": root.as_posix(),
+                "changed": ["src/address_validation.py"],
+                "run_id": "mcp-ns1-frame",
+                "aidlc": "off",
+                "format": "markdown",
+                "approved": True,
+            })
+            saved = lock.active_start_report(root, "mcp-ns1-frame")
+
+        self.assertEqual(result["execution"]["exit_code"], 0)
+        self.assertIn("Add delivery-address validation without breaking valid addresses.", result["result"])
+        self.assertNotIn("**REQ-02:** Addresses.", result["result"])
+        self.assertEqual(saved["goal"], goal)
+        decision = saved["report"]["navigator"]["scope_evidence"]["decision_fingerprint"]
+        self.assertEqual(result["scope_contract"]["decision_fingerprint"], decision)
+        self.assertEqual(result["scope_contract"]["normalized_decision_fingerprint"], decision)
+        self.assertEqual(result["execution"]["transport_format"], "json")
+        self.assertEqual(result["execution"]["response_format"], "markdown")
+        self.assertEqual(
+            [row["statement"] for row in saved["report"]["navigator"]["requirement_matrix"]],
+            ["Add delivery-address validation without breaking valid addresses."],
+        )
 
     def test_navigator_plan_command_construction(self):
         calls = []

@@ -1,0 +1,106 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-language-profile-fixtures",
+  "fixture_version": "1.0.0",
+  "evidence_label": "executable-synthetic-fixture",
+  "noise_files_per_profile": 12,
+  "profiles": [
+    {
+      "id": "python-static-profile",
+      "language": "python",
+      "path": "src/postal_policy.py",
+      "body": "from app.rules import validate_postal\n\nclass PostalPolicy:\n    pass\n\ndef normalize_postal(value):\n    return validate_postal(value)\n",
+      "expected_definitions": [
+        "PostalPolicy",
+        "normalize_postal"
+      ],
+      "expected_imports": [
+        "app.rules"
+      ]
+    },
+    {
+      "id": "javascript-static-profile",
+      "language": "javascript",
+      "path": "src/postalPolicy.js",
+      "body": "import { validatePostal } from './rules.js';\nexport function normalizePostal(value) { return validatePostal(value); }\n",
+      "expected_definitions": [
+        "normalizePostal"
+      ],
+      "expected_imports": [
+        "./rules.js"
+      ]
+    },
+    {
+      "id": "typescript-static-profile",
+      "language": "typescript",
+      "path": "src/postalPolicy.ts",
+      "body": "import { validatePostal } from '@/rules';\nexport interface PostalResult { valid: boolean }\nexport function normalizePostal(value: string): PostalResult { return { valid: validatePostal(value) }; }\n",
+      "expected_definitions": [
+        "PostalResult",
+        "normalizePostal"
+      ],
+      "expected_imports": [
+        "@/rules"
+      ]
+    },
+    {
+      "id": "java-static-profile",
+      "language": "java",
+      "path": "src/main/java/acme/PostalPolicy.java",
+      "body": "package acme;\nimport acme.rules.PostalRules;\npublic class PostalPolicy { public boolean validate(String value) { return PostalRules.validate(value); } }\n",
+      "expected_definitions": [
+        "PostalPolicy"
+      ],
+      "expected_imports": [
+        "acme.rules.PostalRules"
+      ]
+    },
+    {
+      "id": "csharp-static-profile",
+      "language": "csharp",
+      "path": "src/PostalPolicy.cs",
+      "body": "using Acme.Rules;\nnamespace Acme.Postal;\npublic class PostalPolicy { public bool Validate(string value) => PostalRules.Validate(value); }\n",
+      "expected_definitions": [
+        "PostalPolicy"
+      ],
+      "expected_imports": [
+        "Acme.Rules"
+      ]
+    },
+    {
+      "id": "go-static-profile",
+      "language": "go",
+      "path": "internal/postal/policy.go",
+      "body": "package postal\nimport \"example.com/acme/rules\"\nfunc NormalizePostal(value string) bool { return rules.Validate(value) }\n",
+      "expected_definitions": [
+        "NormalizePostal"
+      ],
+      "expected_imports": [
+        "example.com/acme/rules"
+      ]
+    },
+    {
+      "id": "terraform-static-profile",
+      "language": "terraform",
+      "path": "infra/secrets.tf",
+      "body": "module \"kms\" {\n  source = \"./modules/kms\"\n}\n\nresource \"aws_secretsmanager_secret\" \"postal_policy\" {\n  name = \"postal-policy\"\n}\n",
+      "expected_definitions": [
+        "aws_secretsmanager_secret.postal_policy"
+      ],
+      "expected_imports": [
+        "./modules/kms"
+      ]
+    }
+  ],
+  "privacy": {
+    "classification": "synthetic",
+    "derived_from_proprietary_source": false,
+    "contains_raw_prompt": false,
+    "contains_identity_fields": false
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "sorted compact JSON excluding integrity",
+    "digest": "81da610602b236f5461d653d5396114872bc23bef1b33e51d619c242a8a547fe"
+  }
+}

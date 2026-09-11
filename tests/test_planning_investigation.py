@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -97,6 +98,34 @@ class PlanningInvestigationTests(unittest.TestCase):
         self.assertEqual(result["graph_evidence"]["status"], "stale")
         self.assertFalse(result["graph_evidence"]["reused"])
         self.assertTrue(any("changed after" in item for item in result["graph_evidence"]["reasons"]))
+
+    def test_v2_receipt_preserves_saved_roles_edges_exclusions_and_limits(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            files = {
+                "scripts/planning-lock.py": "import requirement_discovery\n\ndef propose_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
+                "scripts/requirement_discovery.py": "def statements(goal):\n    # Owns multiline requirement splitting.\n    return [goal]\n",
+                "scripts/task-start.py": "import requirement_discovery\n\ndef start_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
+                "tests/test_aidlc_requirements.py": "# AIDLC requirements fixture mentioning multiline requirement splitting.\n",
+                "tests/test_requirement_discovery.py": "# Focused proof for multiline requirement splitting.\n",
+            }
+            for relative, body in files.items():
+                path = root / relative; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(body, encoding="utf-8")
+            started = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(),
+                "fix multiline requirement splitting", "--root", root.as_posix(),
+                "--planning-run-id", "investigation-v2", "--format", "json",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+            self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
+            result = investigation.investigate(root, "investigation-v2", ["scripts/requirement_discovery.py"], True)
+
+        typed = result["typed_scope_evidence"]
+        self.assertEqual(typed["schema_version"], "2")
+        self.assertEqual(typed["paths"][0]["status"], "included")
+        self.assertEqual(typed["paths"][0]["confidence"], "high")
+        self.assertTrue(typed["paths"][0]["edges"])
+        self.assertTrue(any(row["path"] == "tests/test_aidlc_requirements.py" for row in typed["excluded_candidates"]))
+        self.assertGreater(typed["limits"]["candidate_files"], 0)
 
 
 if __name__ == "__main__":

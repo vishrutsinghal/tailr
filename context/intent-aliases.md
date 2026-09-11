@@ -11,11 +11,22 @@ The resolver is `scripts/expand-intent.py`. It converts phrases such as `use AID
 - optional validation commands
 - override source, when customized
 
+It also exposes a separate typed resolver for agents, MCP, CLI automation, and
+non-agent clients:
+
+```bash
+tailtrail intent resolve "Use TailTrail to reject zero quantities" --format json
+```
+
+This returns a versioned `tailtrail-intent-envelope`. It recommends one
+operation but never executes it, creates a Planning Lock, infers approval, or
+grants execution authority.
+
 ## Supported Flows
 
 | Flow | Common User Phrases | Purpose |
 |---|---|---|
-| `hello` | `hello tailtrail`, `hello TailTrail`, `hello taitrail`, `tailtrail hello`, `hi tailtrail`, `ping tailtrail` | Run the TailTrail install smoke check and return its banner/status output exactly, preserving the command-emitted `text` fence in chat. |
+| `hello` | `hello tailtrail`, `hello TailTrail`, `hello taitrail`, `hello tailtrial`, `tailtrail hello`, `hi tailtrail`, `ping tailtrail` | Run the TailTrail install smoke check and return its banner/status output exactly, preserving the command-emitted `text` fence in chat. |
 | `implementation` | `use tailtrail`, `implement`, `small change`, `fix this` | Normal TailTrail coding discipline. |
 | `delivery` | `use delivery flow`, `feature flow`, `end-to-end flow` | Plan, implement, validate, review, and hand off meaningful feature work. |
 | `risk` | `use risk flow`, `risk review`, `production risk` | Review dependency, security, validation, data integrity, rollout, and ownership risk. |
@@ -72,3 +83,9 @@ Overrides are intentionally explicit. A flow override replaces only the fields i
 ## Safety Rule
 
 Intent expansion is not permission to skip reading code. The expanded prompt still requires the assistant to inspect relevant files, preserve safeguards, avoid unnecessary dependencies, and validate non-trivial behavior.
+
+Typed resolution is read-only. Preserve the original goal, let Navigator
+discover scope and controls, and revalidate every recommendation through the
+target operation. Treat `looks good`, `go ahead`, `proceed`, and similar wording
+as clarification—not approval. When multiple runs are eligible, require the
+exact run ID.

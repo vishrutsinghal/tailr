@@ -16,6 +16,7 @@
     "input_roles": {"$ref": "input-role-registry.schema.json"},
     "host_workspace": {"type": ["object", "null"]},
     "enterprise_policy": {"type": "object"},
+    "scope_decision": {"type": ["object", "null"]},
     "approval": {"type": ["object", "null"]},
     "boundary": {"type": "string"}
   },

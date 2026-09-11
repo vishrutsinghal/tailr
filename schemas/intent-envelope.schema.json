@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/intent-envelope.schema.json",
+  "title": "TailTrail Intent Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "input",
+    "active_state",
+    "action",
+    "goal",
+    "flow",
+    "confidence",
+    "matched_by",
+    "requires_clarification",
+    "reason_codes",
+    "explicit_hints",
+    "operation",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-intent-envelope" },
+    "input": { "type": "string" },
+    "active_state": {
+      "enum": ["none", "awaiting-approval", "active", "closure-ready", "detached", "ambiguous"]
+    },
+    "action": {
+      "enum": ["hello", "guide", "start", "discuss", "status", "approve", "continue", "close", "stop", "resume", "ordinary-agent", "named-flow", "clarify"]
+    },
+    "goal": { "type": ["string", "null"] },
+    "flow": { "type": ["string", "null"] },
+    "confidence": { "enum": ["high", "medium", "low"] },
+    "matched_by": { "type": "string", "minLength": 1 },
+    "requires_clarification": { "type": "boolean" },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "explicit_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aidlc", "debug", "hands_free", "verbose", "no_planning_lock_explicit"],
+      "properties": {
+        "aidlc": { "type": ["string", "null"], "enum": [null, "off", "lite", "standard", "full"] },
+        "debug": { "type": "boolean" },
+        "hands_free": { "type": "boolean" },
+        "verbose": { "type": "boolean" },
+        "no_planning_lock_explicit": { "type": "boolean" }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "arguments"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "arguments": { "type": "object" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "approval_inferred", "explicit_approval_detected", "execution_granted", "boundary"],
+      "properties": {
+        "classification": {
+          "enum": ["read-only", "planning-only", "saved-planning-only", "controlled-explicit-approval", "controlled-explicit-stop", "controlled-exact-resume", "approved-run-only", "evidence-closure-only", "none"]
+        },
+        "approval_inferred": { "const": false },
+        "explicit_approval_detected": { "type": "boolean" },
+        "execution_granted": { "const": false },
+        "boundary": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

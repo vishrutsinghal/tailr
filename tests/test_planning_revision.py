@@ -45,6 +45,54 @@ class PlanningRevisionTests(unittest.TestCase):
             },
         })
 
+    def v2_plan(self, root: Path, run_id: str) -> dict[str, object]:
+        owner = root / "src" / "owner.py"; owner.parent.mkdir(parents=True, exist_ok=True); owner.write_text("def owner():\n    return True\n", encoding="utf-8")
+        helper = root / "src" / "helper.py"; helper.write_text("def helper():\n    return True\n", encoding="utf-8")
+        proof = root / "tests" / "test_owner.py"; proof.parent.mkdir(parents=True, exist_ok=True); proof.write_text("from src.owner import owner\n", encoding="utf-8")
+        started = subprocess.run([
+            sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(),
+            "fix owner behavior", "--root", root.as_posix(), "--changed", "src/owner.py",
+            "--planning-run-id", run_id, "--format", "json",
+        ], cwd=ROOT, text=True, capture_output=True, check=False)
+        self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
+        return json.loads(started.stdout)
+
+    def test_v2_revision_cannot_promote_proof_only_test_silently(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self.v2_plan(root, "v2-proof-role")
+            change = json.dumps([{
+                "kind": "scope-add", "requirement_uid": "REQ-01", "path": "tests/test_owner.py",
+                "reason": "Treat the proof as implementation scope.",
+            }])
+            with self.assertRaisesRegex(ValueError, "proof-only test evidence"):
+                revision.propose(root, "v2-proof-role", change, True)
+
+        self.assertFalse((root / ".tailtrail" / "runs" / "v2-proof-role" / "planning" / "revisions" / "revision-v2.json").exists())
+
+    def test_v2_explicit_scope_revision_converges_with_activation_anchor_and_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); started = self.v2_plan(root, "v2-converge")
+            base_decision = started["navigator"]["scope_evidence"]["decision_fingerprint"]
+            change = json.dumps([{
+                "kind": "scope-add", "requirement_uid": "REQ-01", "path": "src/helper.py",
+                "reason": "The user confirmed the existing helper is part of the implementation boundary.",
+                "scope_authority": "explicit-user-scope", "confirmed": True,
+            }])
+            proposed = revision.propose(root, "v2-converge", change, True)
+            rendered = revision.render(proposed)
+            activated = revision.approve(root, "v2-converge", 2, True)
+            active = lock.active_start_report(root, "v2-converge")["report"]
+            anchor = json.loads((root / activated["anchor"]["artifact"]).read_text(encoding="utf-8"))
+
+        revised_decision = active["navigator"]["scope_evidence"]["decision_fingerprint"]
+        self.assertNotEqual(base_decision, revised_decision)
+        self.assertEqual(active["scope_decision_revision"]["scope_decision"]["decision_fingerprint"], revised_decision)
+        self.assertEqual(anchor["scope_decision"]["decision_fingerprint"], revised_decision)
+        self.assertEqual(set(anchor["requirements"][0]["likely_paths"]), {"src/owner.py", "src/helper.py"})
+        self.assertEqual(set(activated["execution_handoff"]["likely_paths"]), {"src/owner.py", "src/helper.py"})
+        self.assertIn("### Implementation owners", rendered)
+        self.assertIn("### Existing proof paths", rendered)
+
     def test_proposal_preserves_v1_and_requires_exact_revision_approval(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); self.plan(root)
@@ -69,6 +117,65 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertNotIn("src/api.py", anchor["requirements"][0]["likely_paths"])
         self.assertEqual(events["planning_revision_proposed"], 1)
         self.assertEqual(events["planning_revision_approved"], 1)
+
+    def test_pending_revision_can_be_superseded_without_activation_and_projections_converge(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self.plan(root, "supersede")
+            report_path = lock.start_report_path(root, "supersede")
+            saved = json.loads(report_path.read_text(encoding="utf-8"))
+            saved["report"]["navigator"]["requirement_query_frame"] = {
+                "schema_version": "1",
+                "type": "tailtrail-requirement-query-frame",
+                "exact_goal_preserved": True,
+                "query_terms": ["cancel", "preserve"],
+                "requirements": [
+                    {"display_id": "REQ-01", "requirement_id": "old-1", "statement": "Cancel an eligible order.", "query_terms": ["cancel"]},
+                    {"display_id": "REQ-02", "requirement_id": "old-2", "statement": "Preserve shipped-order rejection.", "query_terms": ["preserve"]},
+                ],
+            }
+            saved["report"]["guided_delivery"]["slice_strategy"] = {"requirement_ids": ["REQ-01", "REQ-02"]}
+            report_path.write_text(json.dumps(saved), encoding="utf-8")
+            revision.propose(root, "supersede", json.dumps([{
+                "kind": "requirement-update", "requirement_uid": "REQ-01",
+                "statement": "Cancel eligible orders.", "reason": "First wording was incomplete.",
+            }]), True)
+            corrected = revision.propose(root, "supersede", json.dumps([
+                {
+                    "kind": "requirement-update", "requirement_uid": "REQ-01",
+                    "statement": "Cancel eligible orders while preserving shipped-order rejection.",
+                    "reason": "Consolidate the complete behavior into one requirement.",
+                },
+                {
+                    "kind": "requirement-remove", "requirement_uid": "REQ-02",
+                    "reason": "The second row is redundant after consolidation.",
+                },
+            ]), True, supersede_pending=True)
+            old = revision.show(root, "supersede", 2)
+            state = lock.revision_state(root, "supersede")
+            decisions = revision.show(root, "supersede", 3)["proposed_report"]
+            events = ledger.projection(root, "supersede")["activity"]
+
+        self.assertEqual(corrected["revision"], 3)
+        self.assertEqual(corrected["supersedes_revision"], 2)
+        self.assertEqual(old["state"], "superseded")
+        self.assertEqual(old["superseded_by_revision"], 3)
+        self.assertEqual(state["active_revision"], 1)
+        self.assertEqual(state["pending_revision"], 3)
+        self.assertEqual([row["display_id"] for row in corrected["requirement_continuity"]], ["REQ-01"])
+        frame = decisions["navigator"]["requirement_query_frame"]
+        self.assertEqual([row["display_id"] for row in frame["requirements"]], ["REQ-01"])
+        self.assertEqual(frame["requirements"][0]["statement"], "Cancel eligible orders while preserving shipped-order rejection.")
+        self.assertEqual(decisions["guided_delivery"]["slice_strategy"]["requirement_ids"], ["REQ-01"])
+        self.assertEqual(events["planning_revision_proposed"], 2)
+        self.assertEqual(events["planning_revision_superseded"], 1)
+
+    def test_supersede_requires_an_existing_pending_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self.plan(root, "nothing-pending")
+            with self.assertRaisesRegex(ValueError, "no pending plan revision"):
+                revision.propose(root, "nothing-pending", json.dumps([{
+                    "kind": "requirement-remove", "requirement_uid": "REQ-02", "reason": "Redundant.",
+                }]), True, supersede_pending=True)
 
     def test_proof_and_requirement_changes_keep_requirement_uid_continuity(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -448,44 +448,52 @@ TailTrail currently explains the system before letting users feel the value.
 Adoption requires outcome-first onboarding and a clear escalation path from a
 small task to advanced control.
 
-### Three-layer experience
+### Automatic plan-detail policy
 
-| Layer | Audience | Visible concepts |
+| Authority route | Automatic plan detail | Visible concepts |
 | --- | --- | --- |
-| Quick path | New user | run ID, goal, bifurcated requirements, selected AIDLC mode, likely scope, selected features, focused validation, compact token posture, approval, result |
-| Guided path | Regular user | everything in Quick plus requirement-to-impact matrix, dependencies, preservation rules, evidence tiers, selected/deferred Harnesses, AIDLC reasoning/questions, Code Graph freshness, drift, recovery, implementation slices, and token breakdown |
-| Expert path | Platform/reviewer | everything in Guided plus requirement UIDs, workflow/target identities, revisions, fingerprints, schemas, receipt references, MCP decisions, policy versions, detailed token ledger, and calibration history |
+| AIDLC Off | Quick | run ID, goal, requirements, likely scope, selected features, focused validation, compact token posture, and approval |
+| AIDLC Lite | Expert | complete planning/audit context except dedicated Architecture Fitness and Behaviour Harness planning-detail sections |
+| AIDLC Standard or Full | Full | comprehensive canonical plan, including all applicable Harness, authority, evidence, recovery, and lifecycle detail |
+| Hands-free or Intent Bridge | Full | comprehensive canonical plan because program/source authority and dependency ordering must remain visible |
 
-The layers change presentation depth only. They must use the same canonical
-requirements, AIDLC mode, approved scope, selected controls, evidence
-expectations, approval authority, and workflow state.
+This is automatic; normal users do not select or switch views. The detail policy
+never changes canonical requirements, AIDLC mode, approved scope, selected
+controls, evidence expectations, approval authority, or workflow state.
 
 ### `--verbose`: complete-plan contract
 
-`--verbose` overrides the default presentation depth for **every** layer. It
+`--verbose` overrides the automatic detail for **every** AIDLC mode. It
 must render the complete comprehensive canonical plan. It does not switch the
-task into Expert control, change the selected AIDLC mode, grant approval, run a
+task into another control mode, change the selected AIDLC mode, grant approval, run a
 tool, inspect additional source, or alter workflow authority.
 
 ```text
-Quick + default    -> concise complete planning contract
-Guided + default   -> explanatory planning contract
-Expert + default   -> explanatory contract plus audit references
-Any layer + verbose -> full comprehensive plan projection
+AIDLC Off + default                    -> Quick
+AIDLC Lite + default                   -> Expert, excluding Architecture/Behaviour detail
+Standard/Full/hands-free/Intent Bridge -> Full
+Any mode + --verbose                   -> Full
 ```
 
-The implemented user selection is:
+The normal user commands stay short:
 
 ```text
-tailtrail start "goal" --presentation quick
-tailtrail start "goal" --presentation guided
-tailtrail start "goal" --presentation expert
+tailtrail start "goal"
+tailtrail start "goal" --aidlc off
+tailtrail start "goal" --aidlc full
+tailtrail start "goal" --verbose
 ```
 
-The six-verb façade accepts the same `--presentation` choice for `discuss`,
-`approve`, `continue`, task `status`, and `close`. It resolves the run when
-exactly one eligible run exists and asks for `--run-id` only when resolution is
-ambiguous or an exact automation/audit reference is intentionally supplied.
+The old `--presentation` option is retained only as a hidden compatibility
+override for existing automation. It is not part of the recommended workflow.
+The six-verb façade resolves the run when exactly one eligible run exists and
+asks for `--run-id` only when resolution is ambiguous or an exact automation or
+audit reference is intentionally supplied.
+
+Completion Reports are always comprehensive, independent of the Start-plan
+detail. They include requirement status, changed scope, validation receipts,
+Harness evidence, execution authority, lifecycle state, drift/recovery,
+learning attribution, source artifact references, and the closure boundary.
 
 The verbose Start plan must include every applicable section:
 

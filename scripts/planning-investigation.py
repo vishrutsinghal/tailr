@@ -7,12 +7,16 @@ import hashlib
 import importlib.util
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+import navigator_scope as SCOPE
 MAX_FILES = 12
 MAX_BYTES_PER_FILE = 512 * 1024
 BOUNDARY = (
@@ -57,6 +61,11 @@ def saved_report(root: Path, run_id: str) -> dict[str, Any]:
 def planned_paths(report: dict[str, Any]) -> set[str]:
     allowed: set[str] = set()
     navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else {}
+    evidence = navigator.get("scope_evidence")
+    if isinstance(evidence, dict) and str(evidence.get("schema_version")) == "2":
+        for item in evidence.get("candidates", []):
+            if isinstance(item, dict) and isinstance(item.get("path"), str) and item.get("status") != "rejected":
+                allowed.add(item["path"].replace("\\", "/"))
     for item in navigator.get("likely_impacted_files", []):
         if isinstance(item, dict) and isinstance(item.get("path"), str):
             allowed.add(item["path"].replace("\\", "/"))
@@ -73,6 +82,25 @@ def planned_paths(report: dict[str, Any]) -> set[str]:
             if isinstance(row, dict):
                 allowed.update(str(path).replace("\\", "/") for path in row.get("paths", []) if isinstance(path, str))
     return allowed
+
+
+def scope_context(report: dict[str, Any], paths: list[str]) -> dict[str, Any] | None:
+    """Project saved v2 roles and edges without reading additional source."""
+    navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else {}
+    evidence = navigator.get("scope_evidence")
+    if not isinstance(evidence, dict) or str(evidence.get("schema_version")) != "2":
+        return None
+    traces = [SCOPE.candidate_trace(evidence, path) for path in paths]
+    return {
+        "schema_version": "2",
+        "decision_fingerprint": evidence.get("decision_fingerprint"),
+        "state": evidence.get("state"),
+        "paths": [trace for trace in traces if isinstance(trace, dict)],
+        "excluded_candidates": SCOPE.role_projection(evidence, include_excluded=True).get("excluded_candidates", []),
+        "investigation": dict(evidence.get("investigation", {})),
+        "limits": dict(evidence.get("limits", {})),
+        "boundary": "Saved roles, exclusions, confidence, and edges only; this receipt does not reclassify a path or grant edit authority.",
+    }
 
 
 def safe_planned_path(root: Path, value: str, allowed: set[str]) -> tuple[str, Path]:
@@ -181,6 +209,7 @@ def investigate(root: Path, run_id: str, paths: list[str], approved_read_only: b
         existing = sorted(directory.glob("investigation-*.json")) if directory.is_dir() else []
         index = len(existing) + 1
         facts = [source_fact(relative, path) for relative, path in checked]
+        typed_scope = scope_context(report, [relative for relative, _ in checked])
         receipt = {
             "schema_version": "1",
             "type": "tailtrail-plan-investigation",
@@ -190,6 +219,7 @@ def investigate(root: Path, run_id: str, paths: list[str], approved_read_only: b
             "paths_read": [relative for relative, _ in checked],
             "source_facts": facts,
             "graph_evidence": graph_evidence(root, facts),
+            "typed_scope_evidence": typed_scope,
             "commands_run": [],
             "source_changed": False,
             "tests_run": False,

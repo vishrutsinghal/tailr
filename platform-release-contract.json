@@ -2,6 +2,7 @@
   "schema_version": "1",
   "type": "tailtrail-platform-release-contract",
   "supported_operating_systems": ["linux", "macos", "windows"],
+  "compatibility_fixtures": ["wsl"],
   "supported_python_versions": ["3.12", "3.13"],
   "artifact_routes": ["wheel", "sdist-to-wheel"],
   "host_profiles": ["codex:core", "copilot:core", "claude:core"],
@@ -16,6 +17,8 @@
     "verify",
     "update",
     "rollback",
+    "scope-v2-real-run",
+    "scope-v2-no-artifact-rollback",
     "uninstall"
   ],
   "evidence_policy": {
@@ -29,6 +32,7 @@
   "limitations": [
     "Host adapters are contract-tested until E10 supplies qualifying real-host receipts.",
     "Symlink creation may be unavailable on Windows without developer mode or elevated rights; fail-closed rejection is still required when a symlink exists.",
+    "WSL is exercised as a Linux compatibility fixture; it is not reported as a separate hosted operating-system receipt.",
     "Package-manager adapters are outside the support boundary until they verify canonical release hashes and invoke this lifecycle contract."
   ]
 }

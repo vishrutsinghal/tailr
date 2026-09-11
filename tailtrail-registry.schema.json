@@ -202,6 +202,30 @@
                 }
               }
             }
+          },
+          "scope_ownership": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scope_decision",
+              "target_identity",
+              "relationship_evidence",
+              "validated_persistence"
+            ],
+            "properties": {
+              "scope_decision": {
+                "const": "Navigator"
+              },
+              "target_identity": {
+                "const": "Target Workspace"
+              },
+              "relationship_evidence": {
+                "const": "Code Graph"
+              },
+              "validated_persistence": {
+                "const": "Planning Lock"
+              }
+            }
           }
         }
       }

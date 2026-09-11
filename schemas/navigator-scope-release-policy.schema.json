@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-scope-release-policy.schema.json",
+  "title": "TailTrail Navigator Scope Release Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "state", "reason_code", "fallback", "boundary", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-navigator-scope-release-policy"},
+    "state": {"enum": ["available", "scope-investigation-unavailable"]},
+    "reason_code": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+    "fallback": {"const": "none"},
+    "boundary": {"type": "string", "minLength": 1},
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "canonicalization", "digest"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "canonicalization": {"const": "sorted compact JSON excluding integrity"},
+        "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

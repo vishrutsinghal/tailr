@@ -44,8 +44,9 @@ class WorkflowVerticalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); workflow_id, uid = self._setup(root, "dwr4-vertical")
             before = vertical.status(root, workflow_id)
-            EXECUTION.append(root, "dwr4-vertical", {"kind": "source-edit", "requirement_uids": [uid], "changed_paths": ["src/validation.py", "tests/test_validation.py"]}, True)
-            EXECUTION.append(root, "dwr4-vertical", {"kind": "command-result", "requirement_uids": [uid], "changed_paths": ["src/validation.py", "tests/test_validation.py"], "tier": "unit", "command_label": "focused validation", "command": "python -m unittest tests.test_validation", "outcome": "pass", "environment": "local", "asserted_behavior": "positive values remain valid and zero is rejected"}, True)
+            EXECUTION.append(root, "dwr4-vertical", {"kind": "source-edit", "requirement_uids": [uid], "changed_paths": ["src/validation.py"]}, True)
+            proof = root / "proof.json"; proof.write_text(json.dumps({"exit_code": 0}), encoding="utf-8")
+            EXECUTION.append(root, "dwr4-vertical", {"kind": "ci-receipt", "requirement_uids": [uid], "changed_paths": ["src/validation.py"], "tier": "unit", "command_label": "focused validation", "command": "python -m unittest tests.test_validation", "outcome": "pass", "environment": "local", "asserted_behavior": "positive values remain valid and zero is rejected", "evidence_label": "ci-receipt", "evidence_quality": "attested", "artifact": "proof.json"}, True)
             after = vertical.status(root, workflow_id)
             result = vertical.finalize(root, workflow_id)
             receipt = evidence.receipt_path(root, workflow_id).is_file()

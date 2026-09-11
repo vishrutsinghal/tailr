@@ -26,7 +26,8 @@ def load(name: str, filename: str) -> Any:
 EVIDENCE_TIERS = load("closure_contract_evidence_tiers", "evidence-tiers.py")
 TIERS = set(EVIDENCE_TIERS.CANONICAL_EVIDENCE_TIERS)
 OUTCOMES = {"pass", "fail", "blocked", "timed-out", "unavailable"}
-EVIDENCE_LABELS = {"local-command", "ci-receipt", "host-telemetry"}
+EVIDENCE_LABELS = {"local-command", "managed-command", "ci-receipt", "host-telemetry"}
+EVIDENCE_QUALITIES = {"trusted", "attested", "declared"}
 
 
 def ledger() -> Any:
@@ -67,10 +68,15 @@ def approved_requirement_uids(root: Path, run_id: str) -> set[str]:
     return {str(row.get("requirement_uid", "")) for row in payload.get("requirements", []) if isinstance(row, dict)}
 
 
-def validate_receipt(receipt: Any, known_requirements: set[str], index: int) -> dict[str, Any]:
+def validate_receipt(receipt: Any, known_requirements: set[str], index: int, root: Path | None = None) -> dict[str, Any]:
     if not isinstance(receipt, dict):
         raise ValueError(f"receipts[{index}] must be an object")
-    allowed = {"requirement_uids", "tier", "command_label", "command", "outcome", "environment", "asserted_behavior", "artifact", "evidence_label"}
+    allowed = {
+        "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
+        "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
+        "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
+        "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+    }
     unknown = set(receipt) - allowed
     if unknown:
         raise ValueError(f"receipts[{index}] has unsupported fields: {', '.join(sorted(unknown))}")
@@ -82,18 +88,26 @@ def validate_receipt(receipt: Any, known_requirements: set[str], index: int) -> 
     unknown_uids = sorted(set(uids) - known_requirements)
     if unknown_uids:
         raise ValueError(f"receipts[{index}] references unknown approved requirement UID(s): {', '.join(unknown_uids)}")
-    tier = EVIDENCE_TIERS.normalize(receipt.get("tier"))
-    if tier not in TIERS:
-        raise ValueError(f"receipts[{index}].tier is not supported")
+    raw_tiers = receipt.get("tiers", [receipt.get("tier")])
+    if not isinstance(raw_tiers, list) or not raw_tiers:
+        raise ValueError(f"receipts[{index}].tiers must be a non-empty list")
+    tiers = list(dict.fromkeys(EVIDENCE_TIERS.normalize(value) for value in raw_tiers))
+    if any(tier not in TIERS for tier in tiers):
+        raise ValueError(f"receipts[{index}].tiers contains an unsupported tier")
     outcome = receipt.get("outcome")
     if outcome not in OUTCOMES:
         raise ValueError(f"receipts[{index}].outcome is not supported")
     label = receipt.get("evidence_label", "local-command")
     if label not in EVIDENCE_LABELS:
         raise ValueError(f"receipts[{index}].evidence_label is not supported")
+    raw_scenarios = receipt.get("scenario_ids", [])
+    if not isinstance(raw_scenarios, list) or not all(isinstance(value, str) for value in raw_scenarios):
+        raise ValueError(f"receipts[{index}].scenario_ids must be a string list")
     normalized = {
         "requirement_uids": sorted(uids),
-        "tier": tier,
+        "tier": tiers[0],
+        "tiers": tiers,
+        "scenario_ids": sorted({short_text(value, f"receipts[{index}].scenario_ids item") for value in raw_scenarios}),
         "command_label": short_text(receipt.get("command_label"), f"receipts[{index}].command_label"),
         "command": short_text(receipt.get("command"), f"receipts[{index}].command"),
         "outcome": outcome,
@@ -103,6 +117,46 @@ def validate_receipt(receipt: Any, known_requirements: set[str], index: int) -> 
     }
     if "artifact" in receipt:
         normalized["artifact"] = repository_path(receipt["artifact"], f"receipts[{index}].artifact")
+    managed = label == "managed-command"
+    quality = receipt.get("evidence_quality", "trusted" if managed else "attested" if label in {"ci-receipt", "host-telemetry"} and receipt.get("artifact") else "declared")
+    if quality not in EVIDENCE_QUALITIES:
+        raise ValueError(f"receipts[{index}].evidence_quality is not supported")
+    if quality == "trusted" and not managed:
+        raise ValueError(f"receipts[{index}] only TailTrail managed-command evidence may be trusted")
+    if quality == "attested":
+        if label not in {"ci-receipt", "host-telemetry"} or "artifact" not in receipt:
+            raise ValueError(f"receipts[{index}] attested evidence requires a CI or host artifact")
+        if root is not None and not (root / repository_path(receipt["artifact"], f"receipts[{index}].artifact")).is_file():
+            raise ValueError(f"receipts[{index}] attested artifact does not exist")
+    if managed:
+        required = {"collector", "exit_code", "started_at", "finished_at", "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256"}
+        missing = sorted(field for field in required if field not in receipt)
+        if missing:
+            raise ValueError(f"receipts[{index}] managed-command is missing: {', '.join(missing)}")
+        if quality != "trusted":
+            raise ValueError(f"receipts[{index}] managed-command must be trusted")
+        if not isinstance(receipt.get("exit_code"), int) or isinstance(receipt.get("exit_code"), bool):
+            raise ValueError(f"receipts[{index}].exit_code must be an integer")
+        expected_outcomes = {"pass"} if receipt["exit_code"] == 0 else {"fail", "timed-out"}
+        if receipt["outcome"] not in expected_outcomes:
+            raise ValueError(f"receipts[{index}].outcome must be derived from exit_code")
+        duration = receipt.get("duration_ms")
+        if not isinstance(duration, int) or isinstance(duration, bool) or duration < 0:
+            raise ValueError(f"receipts[{index}].duration_ms must be a non-negative integer")
+        normalized.update({
+            "collector": short_text(receipt["collector"], f"receipts[{index}].collector"),
+            "evidence_quality": quality,
+            "exit_code": receipt["exit_code"],
+            "started_at": short_text(receipt["started_at"], f"receipts[{index}].started_at"),
+            "finished_at": short_text(receipt["finished_at"], f"receipts[{index}].finished_at"),
+            "duration_ms": duration,
+            "stdout_artifact": repository_path(receipt["stdout_artifact"], f"receipts[{index}].stdout_artifact"),
+            "stderr_artifact": repository_path(receipt["stderr_artifact"], f"receipts[{index}].stderr_artifact"),
+            "stdout_sha256": short_text(receipt["stdout_sha256"], f"receipts[{index}].stdout_sha256"),
+            "stderr_sha256": short_text(receipt["stderr_sha256"], f"receipts[{index}].stderr_sha256"),
+        })
+    else:
+        normalized["evidence_quality"] = quality
     return normalized
 
 
@@ -126,7 +180,7 @@ def validate_input(root: Path, payload: Any) -> dict[str, Any]:
     receipts = payload.get("receipts")
     if not isinstance(receipts, list) or not receipts:
         raise ValueError("receipts must contain at least one requirement-linked receipt")
-    normalized_receipts = [validate_receipt(item, known, index) for index, item in enumerate(receipts)]
+    normalized_receipts = [validate_receipt(item, known, index, root) for index, item in enumerate(receipts)]
     telemetry = payload.get("host_token_telemetry")
     normalized_telemetry = None
     if telemetry is not None:

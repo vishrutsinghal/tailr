@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/host-scope-conformance.schema.json",
+  "title": "TailTrail Host Scope Conformance Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "contract_version", "scenarios", "boundary"],
+  "properties": {
+    "schema_version": {"const": "2"},
+    "type": {"const": "tailtrail-host-scope-conformance"},
+    "contract_version": {"const": "v2"},
+    "scenarios": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "workflow", "expected_state", "scope_gate", "editable_role", "required_host_observations", "boundary"],
+        "properties": {
+          "id": {"enum": ["resolved", "unresolved", "conflicting", "docs-only", "test-only", "debug-start"]},
+          "workflow": {"enum": ["build", "debug"]},
+          "expected_state": {"enum": ["resolved", "unresolved", "ambiguous"]},
+          "scope_gate": {"enum": ["pass", "block", "orientation-only"]},
+          "editable_role": {"enum": ["implementation-owner", "documentation", "test", "none"]},
+          "required_host_observations": {
+            "type": "array",
+            "minItems": 3,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+          },
+          "boundary": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  }
+}

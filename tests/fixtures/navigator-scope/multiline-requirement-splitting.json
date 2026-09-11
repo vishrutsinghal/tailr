@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-scope-fixture",
+  "id": "multiline-requirement-splitting",
+  "goal": "Add delivery-address validation without breaking valid\naddresses.",
+  "current_expected": {
+    "requirement_count": 2,
+    "statements": [
+      "Add delivery-address validation without breaking valid.",
+      "Addresses."
+    ]
+  },
+  "desired_expected": {
+    "requirement_count": 1,
+    "statements": [
+      "Add delivery-address validation without breaking valid addresses."
+    ]
+  }
+}

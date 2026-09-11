@@ -149,6 +149,64 @@ class StartEntrypointTests(unittest.TestCase):
                 self.assertIn("Intent Bridge", body)
                 self.assertIn("closure", body.lower())
 
+    def test_host_entrypoints_consume_scope_v2_before_planning_lock(self) -> None:
+        guidance = (
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".github/copilot-instructions.md",
+            "adapters/chatgpt-instructions.md",
+            "adapters/claude.md",
+            "adapters/copilot-instructions.md",
+            "adapters/generated/codex-v1.md",
+            "adapters/generated/claude-v1.md",
+            "adapters/generated/copilot-v1.md",
+        )
+        stale = "source discovery only after planning lock"
+        for relative_path in guidance:
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8")
+                normalized = " ".join(body.split())
+                self.assertIn("Scope evidence v2 host boundary", body)
+                self.assertIn("before Planning Lock persistence", normalized)
+                self.assertNotIn(stale, body.lower())
+
+    def test_major_hosts_supply_exact_goal_bound_requirement_interpretation(self) -> None:
+        guidance = (
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".github/copilot-instructions.md",
+            "adapters/chatgpt-instructions.md",
+            "adapters/claude.md",
+            "adapters/copilot-instructions.md",
+            "adapters/generated/codex-v1.md",
+            "adapters/generated/claude-v1.md",
+            "adapters/generated/copilot-v1.md",
+        )
+        for relative_path in guidance:
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
+                self.assertIn("exact-goal-bound", body)
+                self.assertIn("private reasoning", body)
+                self.assertIn("quoted", body)
+                self.assertIn("planning lock", body)
+
+    def test_major_hosts_bind_required_artifacts_before_scope(self) -> None:
+        guidance = (
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".github/copilot-instructions.md",
+            "adapters/generated/codex-v1.md",
+            "adapters/generated/claude-v1.md",
+            "adapters/generated/copilot-v1.md",
+            "skills/tailtrail-start/SKILL.md",
+        )
+        for relative_path in guidance:
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
+                self.assertIn("requirement_artifact", body)
+                self.assertIn("sha-256", body)
+                self.assertIn("before scope", body)
+
 
 if __name__ == "__main__":
     unittest.main()

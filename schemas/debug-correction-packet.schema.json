@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TailTrail DI-7 Debug Correction Packet",
   "type": "object",
-  "required": ["schema_version", "type", "run_id", "workflow_id", "requirement_uid", "hypothesis_id", "failure_fingerprint", "domain", "root_cause", "approved_anchor_ref", "approved_anchor_fingerprint", "expected_changed_paths", "expected_changed_symbols", "preserve_rules", "architecture_constraints", "validation_plan", "behaviour_scenarios", "rollback_recovery_boundary", "impact_map_ref", "unresolved_assumptions", "status", "approved_at", "implementation_authority", "boundary", "correction_fingerprint"],
+  "required": ["schema_version", "type", "run_id", "workflow_id", "requirement_uid", "hypothesis_id", "failure_fingerprint", "domain", "root_cause", "proof_alignment", "approved_anchor_ref", "approved_anchor_fingerprint", "expected_changed_paths", "expected_changed_symbols", "preserve_rules", "architecture_constraints", "validation_plan", "behaviour_scenarios", "rollback_recovery_boundary", "impact_map_ref", "unresolved_assumptions", "status", "approved_at", "implementation_authority", "boundary", "correction_fingerprint"],
   "properties": {
     "schema_version": {"const": "2"},
     "type": {"const": "tailtrail-debug-correction-packet"},
@@ -31,6 +31,20 @@
             "additionalProperties": false
           }
         }
+      },
+      "additionalProperties": false
+    },
+    "proof_alignment": {
+      "type": "object",
+      "required": ["state", "fault_layer", "fault_trace_node_ids", "required_boundaries", "selected_tests", "missing_boundaries", "boundary"],
+      "properties": {
+        "state": {"enum": ["matched", "missing-proof", "legacy-trace-unavailable"]},
+        "fault_layer": {"type": ["string", "null"], "enum": ["composition", "rendering", "end-user", "cross-layer", null]},
+        "fault_trace_node_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "required_boundaries": {"type": "array", "uniqueItems": true, "items": {"enum": ["composition", "renderer", "final-output"]}},
+        "selected_tests": {"type": "array", "items": {"type": "object", "required": ["test_case_id", "path", "command", "tier", "boundaries"], "properties": {"test_case_id": {"type": "string"}, "path": {"type": ["string", "null"]}, "command": {"type": ["string", "null"]}, "tier": {"type": ["string", "null"]}, "boundaries": {"type": "array", "items": {"enum": ["composition", "renderer", "final-output"]}}}, "additionalProperties": false}},
+        "missing_boundaries": {"type": "array", "uniqueItems": true, "items": {"enum": ["composition", "renderer", "final-output"]}},
+        "boundary": {"type": "string"}
       },
       "additionalProperties": false
     },

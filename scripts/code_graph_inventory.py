@@ -12,7 +12,8 @@ SKIP_DIRS = {
     "target", "coverage", ".next", ".nuxt", ".venv", "venv", "bin", "obj",
 }
 RELEVANT_SUFFIXES = {
-    ".cs", ".java", ".py", ".sql", ".tf", ".tfvars", ".json", ".properties",
+    ".cjs", ".cs", ".go", ".java", ".js", ".jsx", ".mjs", ".py", ".sql",
+    ".ts", ".tsx", ".tf", ".tfvars", ".vue", ".svelte", ".json", ".properties",
     ".toml", ".xml", ".yaml", ".yml",
 }
 RELEVANT_NAMES = {

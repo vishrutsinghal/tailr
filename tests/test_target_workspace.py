@@ -69,7 +69,7 @@ class TargetWorkspaceTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn('"status": "inaccessible"', result.stdout)
 
-    def test_implicit_workspace_requires_confirmation_when_only_test_matches_exist(self) -> None:
+    def test_implicit_workspace_identity_does_not_treat_test_matches_as_scope_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             fit = target_workspace.assess_plan_fit(
@@ -78,9 +78,10 @@ class TargetWorkspaceTests(unittest.TestCase):
                 [{"path": "tests/test_validation.py", "reason": "goal-matched target"}],
                 resolution_source="host-cwd",
             )
-        self.assertTrue(fit["blocking"])
-        self.assertEqual(fit["status"], "needs-confirmation")
+        self.assertFalse(fit["blocking"])
+        self.assertEqual(fit["status"], "verified")
         self.assertEqual(fit["production_candidates"], [])
+        self.assertEqual(fit["discovered_candidates"], ["tests/test_validation.py"])
 
     def test_implicit_workspace_is_accepted_when_production_scope_is_found(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -95,7 +96,11 @@ class TargetWorkspaceTests(unittest.TestCase):
                 resolution_source="host-cwd",
             )
         self.assertFalse(fit["blocking"])
-        self.assertEqual(fit["production_candidates"], ["src/order_service/service.py"])
+        self.assertEqual(fit["production_candidates"], [])
+        self.assertEqual(
+            fit["discovered_candidates"],
+            ["src/order_service/service.py", "tests/test_validation.py"],
+        )
 
     def test_explicit_missing_changed_path_blocks_before_planning_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -120,6 +125,45 @@ class TargetWorkspaceTests(unittest.TestCase):
             )
         self.assertFalse(fit["blocking"])
         self.assertEqual(fit["existing_changed_paths"], ["src/service.py"])
+
+    def test_explicit_greenfield_changed_path_in_existing_directory_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tf").mkdir()
+            (root / "tf" / "data.tf").write_text("data \"aws_ssm_parameter\" \"x\" {}\n", encoding="utf-8")
+            fit = target_workspace.assess_plan_fit(
+                "create a new secret in tf/secrets.tf following tf/data.tf", root,
+                [{"path": "tf/data.tf", "reason": "cited pattern file"}],
+                resolution_source="host-cwd", changed=["tf/secrets.tf"],
+            )
+        self.assertFalse(fit["blocking"])
+        self.assertEqual(fit["status"], "verified")
+        self.assertEqual(fit["greenfield_changed_paths"], ["tf/secrets.tf"])
+
+    def test_explicit_greenfield_changed_path_in_missing_directory_still_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            fit = target_workspace.assess_plan_fit(
+                "create a new secret", root,
+                [{"path": "tf/secrets.tf", "reason": "user-provided target"}],
+                resolution_source="host-cwd", changed=["tf/secrets.tf"],
+            )
+        self.assertTrue(fit["blocking"])
+        self.assertEqual(fit["status"], "changed-path-missing")
+        self.assertEqual(fit["missing_changed_paths"], ["tf/secrets.tf"])
+
+    def test_explicit_greenfield_changed_path_with_non_source_role_still_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "docs").mkdir()
+            fit = target_workspace.assess_plan_fit(
+                "add a new doc", root,
+                [{"path": "docs/existing.md", "reason": "user-provided target"}],
+                resolution_source="host-cwd", changed=["docs/new-guide.md"],
+            )
+        self.assertTrue(fit["blocking"])
+        self.assertEqual(fit["status"], "changed-path-missing")
+        self.assertEqual(fit["missing_changed_paths"], ["docs/new-guide.md"])
 
     def test_start_missing_changed_path_creates_no_planning_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -174,6 +218,106 @@ class TargetWorkspaceTests(unittest.TestCase):
             root = Path(temp)
             with self.assertRaisesRegex(ValueError, "overlaps the editable target"):
                 target_workspace.input_roles(root, reference_roots=[root.as_posix()])
+
+    def test_requirement_artifact_becomes_hash_bound_planning_input(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "target"
+            artifact = Path(temp) / "requirements.md"
+            root.mkdir()
+            artifact.write_text("# Requirements\n\nAdd four table scenarios.\n", encoding="utf-8")
+            registry = target_workspace.input_roles(
+                root, requirement_artifacts=[artifact.as_posix()]
+            )
+            prepared = target_workspace.inspect_requirement_artifacts(registry)
+
+        self.assertTrue(prepared["ready"])
+        receipt = prepared["registry"]["inputs"][1]
+        self.assertEqual(receipt["status"], "inspected")
+        self.assertEqual(len(receipt["sha256"]), 64)
+        self.assertNotIn("content", receipt)
+        self.assertEqual(
+            prepared["planning_inputs"][0]["content"],
+            "# Requirements\n\nAdd four table scenarios.\n",
+        )
+
+    def test_required_artifact_fails_closed_when_missing_or_truncated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "target"
+            root.mkdir()
+            missing = target_workspace.inspect_requirement_artifacts(
+                target_workspace.input_roles(
+                    root, requirement_artifacts=[(Path(temp) / "missing.md").as_posix()]
+                )
+            )
+            large = Path(temp) / "large.md"
+            large.write_text("requirement\n" * 10, encoding="utf-8")
+            truncated = target_workspace.inspect_requirement_artifacts(
+                target_workspace.input_roles(root, requirement_artifacts=[large.as_posix()]),
+                max_bytes=8,
+            )
+
+        self.assertFalse(missing["ready"])
+        self.assertEqual(missing["blocking"][0]["status"], "unavailable")
+        self.assertFalse(truncated["ready"])
+        self.assertEqual(truncated["blocking"][0]["status"], "truncated")
+
+    def test_start_inspects_required_artifact_before_host_interpretation_or_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "target"
+            root.mkdir()
+            artifact = Path(temp) / "requirements.md"
+            artifact.write_text("Add pipeline table scenarios.\n", encoding="utf-8")
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    (ROOT / "scripts" / "task-start.py").as_posix(),
+                    "Add tests from the requirement artifact.",
+                    "--root", root.as_posix(),
+                    "--host", "codex",
+                    "--requirement-artifact", artifact.as_posix(),
+                    "--format", "json",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            run_state_exists = (root / ".tailtrail" / "runs").exists()
+
+        self.assertEqual(completed.returncode, 2, completed.stderr)
+        report = json.loads(completed.stdout)
+        self.assertEqual(report["status"], "awaiting-host-interpretation")
+        self.assertEqual(report["requirement_artifacts"][0]["status"], "inspected")
+        self.assertEqual(len(report["requirement_artifacts"][0]["sha256"]), 64)
+        self.assertIsNone(report["planning_lock"])
+        self.assertFalse(run_state_exists)
+
+    def test_start_blocks_unavailable_required_artifact_before_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "target"
+            root.mkdir()
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    (ROOT / "scripts" / "task-start.py").as_posix(),
+                    "Add tests from the requirement artifact.",
+                    "--root", root.as_posix(),
+                    "--host", "codex",
+                    "--requirement-artifact", (Path(temp) / "missing.md").as_posix(),
+                    "--format", "json",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            run_state_exists = (root / ".tailtrail" / "runs").exists()
+
+        self.assertEqual(completed.returncode, 2, completed.stderr)
+        report = json.loads(completed.stdout)
+        self.assertEqual(report["status"], "required-planning-input-unavailable")
+        self.assertIsNone(report["planning_lock"])
+        self.assertFalse(run_state_exists)
 
     def test_roles_cli_returns_bounded_read_only_summary(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

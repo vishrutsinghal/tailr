@@ -10,13 +10,24 @@ experience first, then progressively exposes advanced controls.
 - Start a fresh host task after install or update so project instructions reload.
 - `tailtrail start` is planning-only. It never implements, tests, scans, or
   mutates Git before approval.
+- Do not implement from a Start report; wait for the exact Planning Lock
+  approval and the typed execution handoff.
 - TailTrail automatically resolves the active run when exactly one eligible run
   exists. Normal prompts therefore omit `--run-id`.
 - Use an explicit run ID only when multiple eligible runs exist, when automation
   needs a stable identity, or when an auditor requests an exact reference.
-- Quick, Guided, and Expert change presentation depth only. They never change
-  requirements, AIDLC mode, selected controls, evidence, approval, or workflow
-  authority. `--verbose` shows the comprehensive plan in every mode.
+- Users describe the task; TailTrail chooses the appropriate plan content from
+  task risk, AIDLC routing, selected controls, and execution authority. Normal
+  prompts need only the goal and any lifecycle choice the user actually wants.
+- Text inside each **Example** fence is the complete user prompt. Presenter
+  checks belong in the surrounding **Expected** text, never in the prompt.
+- A real Start must create and display its Planning Lock unless the prompt
+  explicitly demonstrates the non-persisted `--no-planning-lock` boundary.
+  `--verbose` requests the complete audit view without changing requirements,
+  approval, or execution authority.
+- Return Start stdout verbatim. Preserve the fenced banner, run ID, every table
+  pipe and separator row, backticks, and spacing; never reconstruct or
+  HTML-escape the report.
 - Never apply the Terraform fixture or claim external CI, cloud, scanner, host,
   token, or adoption evidence without a genuine linked receipt.
 
@@ -24,31 +35,30 @@ experience first, then progressively exposes advanced controls.
 
 | Host | Start form | Daily follow-ups |
 | --- | --- | --- |
-| Codex | `tailtrail start "goal" --presentation guided` | `tailtrail discuss`, `approve`, `continue`, `flow status`, `close` |
-| GitHub Copilot | `/tailtrail-start "goal" --presentation guided` | ask the host to run the same six TailTrail verbs |
-| Claude | `/tailtrail-start "goal" --presentation guided` | ask the host to run the same six TailTrail verbs |
-| CLI / PowerShell | `tailtrail start "goal" --presentation guided` | identical six-verb flow |
+| Codex | `tailtrail start "goal"` | `tailtrail discuss`, `approve`, `continue`, `flow status`, `close` |
+| GitHub Copilot | `/tailtrail-start "goal"` | ask the host to run the same six TailTrail verbs |
+| Claude | `/tailtrail-start "goal"` | ask the host to run the same six TailTrail verbs |
+| CLI / PowerShell | `tailtrail start "goal"` | identical six-verb flow |
 
 When more than one eligible run exists, TailTrail fails closed and lists the
 candidates. Repeat the command with `--run-id <exact-id>`; never guess.
 
-## Presentation layers
+## Task-first planning
 
 ```mermaid
 flowchart LR
-    Q["Quick\nDecision + safe next action"] --> G["Guided\nImpact + reasoning + evidence"]
-    G --> E["Expert\nAudit references + internals"]
-    Q --> V["--verbose\nComprehensive canonical plan"]
-    G --> V
-    E --> V
+    U["Describe the goal"] --> N["Navigator evaluates\nrisk + scope + authority"]
+    N --> P["Planning Lock\nrequirements + proof + approval"]
+    P --> A["Approve the exact run"]
+    P -. "optional --verbose" .-> V["Complete audit detail\nsame authority"]
 ```
 
-| Layer | Best for | Default view |
+| User intent | TailTrail response | User action |
 | --- | --- | --- |
-| Quick | New users and focused fixes | run, goal, requirements, mode, likely scope, controls, proof, tokens, approval |
-| Guided | Regular delivery | Quick plus impact, preservation, evidence tiers, deferred controls, drift/recovery, slices |
-| Expert | Platform owners and reviewers | Guided plus identities, revisions, receipts, policy and calibration references |
-| Any + `--verbose` | Deep review and conformance | complete canonical plan with explicit unavailable/inapplicable reasons |
+| Focused fix | bounded scope, requirements, selected controls, focused proof, approval | review and approve the exact Planning Lock |
+| Routine delivery | persisted run, impact and preservation evidence, validation, recovery posture | discuss, approve, continue, status, close |
+| Program or authority-heavy work | dependency order, delivery slices, Harness and authority boundaries | approve only the exact program boundary |
+| Explicit `--verbose` audit | complete canonical plan with unavailable or inapplicable reasons | inspect detail; authority remains unchanged |
 
 ---
 
@@ -86,71 +96,80 @@ Debug, MCP, or closure.
 **Example:**
 
 ```text
-Run TailTrail verify and doctor for this exact project and Codex host. Then run
-presentation conformance and MCP doctor from the installed payload. Report real
-exit codes and do not convert contract-tested status into live-host support.
+Check that TailTrail is installed correctly and ready in this Codex project.
 ```
+
+Expected: TailTrail runs project verification, host doctor, and MCP doctor and
+reports their real status without upgrading local evidence into hosted support.
 
 ---
 
-## Level 2 — Quick, Guided, Expert, and verbose plans
+## Level 2 — Task-scaled Planning Locks
 
-**Level purpose:** Demonstrate the three selectable presentation layers without
-creating three competing active runs.
+**Level purpose:** Demonstrate that users can describe the work directly while
+TailTrail scales planning content to the task and lifecycle authority.
 
-**What this teaches:** Presentation depth is independent from planning authority
-and `--verbose` never changes task behavior.
+**What this teaches:** Normal prompts need no presentation flags. Focused work
+stays approachable, routine work receives a persisted Planning Lock,
+authority-heavy work exposes its program boundary, and `--verbose` adds audit
+detail without changing authority.
 
-### Prompt 3: Quick plan preview
+### Prompt 3: ask for a safe approach
 
-**Purpose:** Show the concise complete contract for a new user.
+**Purpose:** Let a new user ask for help before starting a governed run.
 
-**Why it helps:** Keeps a small defect approachable while preserving the
-Planning Lock, requirements, proof, and approval boundary.
-
-**Example:**
-
-```text
-Run a display-only TailTrail Start preview for "reject zero order quantity while
-preserving positive quantities" using --presentation quick,
---changed src/order_service/validation.py, and --no-planning-lock. Do not
-implement or create an active run.
-```
-
-### Prompt 4: Guided plan preview
-
-**Purpose:** Show impact, preservation, evidence tiers, and delivery reasoning.
-
-**Why it helps:** Regular users see why files and Harnesses are selected without
-the full audit ledger.
+**Why it helps:** Navigator explains the likely scope, controls, and proof
+without requiring the user to know TailTrail options.
 
 **Example:**
 
 ```text
-Run the same display-only Start preview with --presentation guided and
---no-planning-lock. Compare its visible information with Quick. Confirm that
-the goal, requirements, AIDLC mode, scope, controls, evidence, and authority are
-unchanged.
+tailtrail guide "Reject negative metric increments while preserving zero and
+positive increments."
 ```
 
-### Prompt 5: Expert plan preview
+Expected: concise advisory guidance with likely impact and focused proof. No
+Planning Lock or execution authority is created.
 
-**Purpose:** Expose detailed audit and platform references.
+### Prompt 4: start a routine fix
 
-**Why it helps:** Reviewers can inspect identities, revisions, receipt posture,
-policy, and calibration without changing the plan.
+**Purpose:** Create the real Planning Lock for a routine AIDLC Lite task.
+
+**Why it helps:** Users receive a reviewable scope, preservation boundary,
+selected controls, focused proof, and approval gate without learning display
+commands.
 
 **Example:**
 
 ```text
-Run the same display-only Start preview with --presentation expert and
---no-planning-lock. Highlight only the additional audit detail; do not claim
-that Expert grants broader execution authority.
+tailtrail start: reject zero order quantity while preserving positive quantities
 ```
 
-### Prompt 6: verbose completeness and host conformance
+Expected: a persisted Planning Lock with an inferred validation scope,
+requirements, selected TailTrail features, focused validation, and approval.
+The host returns the complete report exactly; the user does not ask for its
+format or internal sections.
 
-**Purpose:** Prove every layer can render the comprehensive canonical plan.
+### Prompt 5: start a hands-free program
+
+**Purpose:** Expose the complete delivery boundary for a hands-free program.
+
+**Why it helps:** Program dependencies, Harness details, authority, evidence,
+recovery, and approval boundaries remain visible from the task itself.
+
+**Example:**
+
+```text
+tailtrail start: hands-free order amendments across the API, service, audit,
+tests, rollout, and rollback; preserve existing create and cancel behavior
+```
+
+Expected: a comprehensive Program Delivery Planning Lock with dependency order,
+first active slice, Harness and evidence posture, and explicit approval gates.
+
+### Prompt 6: request complete audit detail
+
+**Purpose:** Prove `--verbose` requests the comprehensive canonical audit plan.
 
 **Why it helps:** Prevents a host from silently dropping requirements or
 approval sections when output is narrow or collapsed.
@@ -158,11 +177,12 @@ approval sections when output is narrow or collapsed.
 **Example:**
 
 ```text
-Run the display-only preview in Quick, Guided, and Expert with --verbose and
---no-planning-lock, then run `tailtrail presentation conformance`. Verify the
-same required semantic sections across all modes and explain the explicit
-collapsed-output refusal. Do not create project runs.
+tailtrail start "reject negative metric increments while preserving zero and
+positive increments" --verbose
 ```
+
+Expected: the complete audit view, including explicit unavailable or
+inapplicable controls. `--verbose` changes detail only, never authority.
 
 ---
 
@@ -174,20 +194,21 @@ collapsed-output refusal. Do not create project runs.
 **What this teaches:** TailTrail owns lifecycle bookkeeping while the user still
 controls every material approval.
 
-### Prompt 7: start the real focused fix
+### Prompt 7: confirm the real focused lock
 
-**Purpose:** Create one persisted Planning Lock for the seeded validation defect.
+**Purpose:** Reuse the persisted Planning Lock created by Prompt 4.
 
-**Why it helps:** Provides a clean, auditable demo run after the display-only
-comparisons.
+**Why it helps:** Proves the task-first planning sequence did not create
+competing runs and keeps the six-verb workflow on one stable identity.
 
 **Example:**
 
 ```text
-tailtrail start "fix the zero quantity validation defect, add focused proof,
-preserve positive quantities and existing order creation behavior" --changed
-src/order_service/validation.py --presentation guided
+tailtrail flow status
 ```
+
+Expected: the zero-quantity Planning Lock from Prompt 4, still awaiting
+approval, with no second run created.
 
 ### Prompt 8: discuss without a run ID
 
@@ -199,9 +220,7 @@ starting a second Planning Lock.
 **Example:**
 
 ```text
-tailtrail discuss --question "Why were these files, AIDLC mode, TailTrail
-features, and validation tiers selected, and what would activate each deferred
-control?"
+tailtrail discuss --question "Why did you choose this scope and validation?"
 ```
 
 ### Prompt 9: approve the only active plan
@@ -231,10 +250,11 @@ read-only status without manual workflow commands.
 **Example:**
 
 ```text
-Use `tailtrail continue` for the only active run. Perform only the typed host
-handoff it returns, record the factual result reference, continue once, and then
-show `tailtrail flow status`. Stop at any approval or evidence gap.
+tailtrail continue
 ```
+
+Expected: only the next legal action or typed handoff. TailTrail stops at any
+approval or evidence gap and records only work that actually occurs.
 
 ### Prompt 11: close from evidence
 
@@ -270,9 +290,8 @@ Requirement Completion.
 **Example:**
 
 ```text
-tailtrail start "reject negative metric increments, preserve zero and positive
-increments, and add one focused unit test" --aidlc off --changed
-src/order_service/metrics.py --presentation quick
+tailtrail start "Reject negative metric increments but keep zero and positive
+increments valid." --aidlc off
 ```
 
 ### Prompt 13: AIDLC Lite
@@ -285,9 +304,8 @@ lifecycle.
 **Example:**
 
 ```text
-tailtrail start "add a focused delivery-address validation rule and preserve the
-current valid-address path" --aidlc lite --changed
-src/order_service/validation.py --presentation guided
+tailtrail start "Add delivery-address validation without breaking valid
+addresses." --aidlc lite
 ```
 
 ### Prompt 14: official AIDLC Standard
@@ -300,10 +318,8 @@ are decided before implementation.
 **Example:**
 
 ```text
-tailtrail start "using AIDLC, add delivery-address validation across the API,
-order service, and customer journey; clarify normalization, rejection behavior,
-backward compatibility, and required evidence" --aidlc standard --presentation
-guided
+tailtrail start "Add delivery-address validation across the API, order service,
+and customer journey." --aidlc standard
 ```
 
 Expected: official host-generated questions with options, requirement IDs,
@@ -321,10 +337,9 @@ migration, operations, rollout, and rollback cannot be flattened safely.
 **Example:**
 
 ```text
-tailtrail start "hands-free: using full AIDLC, add idempotent order amendments
-across API, service, repository, inventory, payments, notifications, audit,
-metrics, migration, rollout, and rollback; preserve create-order and cancellation
-behavior; do not apply Terraform" --aidlc full --presentation expert --verbose
+tailtrail start "Hands-free order amendments across API, data, inventory,
+payments, notifications, and operations; preserve create and cancel behavior."
+--aidlc full
 ```
 
 ---
@@ -348,10 +363,8 @@ callers even when a helper test passes.
 **Example:**
 
 ```text
-tailtrail start "add idempotent payment retry behind the existing payment
-adapter, preserve successful order creation, map every API/service caller, add
-unit and integration proof, and do not add a dependency or second payment
-abstraction" --presentation guided
+tailtrail start: add idempotent payment retries without changing successful
+order creation or introducing another payment abstraction
 ```
 
 ### Prompt 17: Behaviour Harness
@@ -364,10 +377,8 @@ and exactly-once side effects across connected components.
 **Example:**
 
 ```text
-tailtrail start "add a customer-visible order-status journey from creation
-through allocation and shipment; preserve API responses; publish no duplicate
-notification; prove the connected journey, not only unit functions"
---presentation guided
+tailtrail start: add a customer-visible order journey from creation through
+shipment without duplicate notifications
 ```
 
 ### Prompt 18: Maintainability Harness and Safe Git Recovery
@@ -380,9 +391,8 @@ Safe Git Recovery protects unrelated and previously completed work.
 **Example:**
 
 ```text
-tailtrail start "refactor duplicate payment and notification orchestration;
-reuse existing boundaries; preserve public behavior, audit, idempotency, and
-tests; avoid new dependencies; keep recovery task-scoped" --presentation expert
+tailtrail start: remove duplicate payment and notification orchestration while
+preserving behavior, audit, and idempotency
 ```
 
 ### Prompt 19: UI consistency and Higher-Tier Testing
@@ -396,10 +406,8 @@ journey.
 **Example:**
 
 ```text
-tailtrail start "add a Validate & Review page for audit events with summary,
-status, export controls, and JSON preview; discover and reuse existing UI
-patterns; preserve accessibility and responsiveness; do not add a UI library"
---presentation guided
+tailtrail start: add an accessible Validate & Review page for audit events using
+the project's existing UI patterns
 ```
 
 ---
@@ -422,9 +430,8 @@ instead of guessing why a plan was rejected.
 **Example:**
 
 ```text
-For the only awaiting TailTrail plan, show the blank requirement feedback form.
-Do not infer any answers. Then record: REQ-01 approve; REQ-02 reject — partial
-allocation must release only excess reservation; keep remaining rows pending.
+Approve REQ-01. Reject REQ-02 because partial allocation must release only the
+excess reservation. Leave the other requirements pending.
 ```
 
 ### Prompt 21: clarify and challenge an official question
@@ -437,10 +444,8 @@ routes replacement back to official authority and requires question approval.
 **Example:**
 
 ```text
-Clarify official AIDLC question Q5 from the active run in plain language without
-changing it. Then challenge Q5 because it assumes synchronous payment although
-inventory may change before payment acknowledgment. Show the replacement
-candidate and wait for question-level approval.
+Explain Q5 in plain language. Its synchronous-payment assumption looks wrong
+because inventory can change before payment acknowledgment.
 ```
 
 ### Prompt 22: Expert Plan Customization and revision
@@ -453,11 +458,9 @@ without disabling locked safeguards.
 **Example:**
 
 ```text
-For the active plan, show Expert Plan Customization. Propose Standard AIDLC and
-Behaviour Harness, explain scope/evidence/token effects, then revise the plan to
-keep API compatibility, add partial-allocation behavior proof, treat Terraform
-as reference-only, and remove a new notification abstraction. Wait for approval
-of the exact revision.
+Customize this plan to use Standard AIDLC and Behaviour Harness. Keep API
+compatibility, prove partial allocation, treat Terraform as reference-only, and
+reuse the existing notification abstraction.
 ```
 
 ---
@@ -481,11 +484,8 @@ inventory, shipping, customer behavior, migration, CI, and release risk.
 **Example:**
 
 ```text
-tailtrail start "hands-free: using full AIDLC, add returns, exchanges, and
-replacement shipment with idempotent refund/charge/inventory/allocation/
-notification/audit effects, stable customer and operations APIs, dependency-
-ordered slices, bounded correction, continuity, recovery, closure, evaluation,
-and guarded learning; do not apply Terraform" --presentation expert --verbose
+tailtrail start: hands-free returns, exchanges, and replacement shipments with
+safe money, inventory, notification, audit, rollout, and recovery behavior
 ```
 
 ### Prompt 24: Intent Bridge
@@ -498,10 +498,8 @@ TailTrail adds impact, slices, evidence, drift, recovery, and closure.
 **Example:**
 
 ```text
-tailtrail start "Use Intent Bridge feature 014-order-amendment, map its approved
-requirements to API, service, repository, inventory, payment, notification,
-audit, and tests, and propose the first delivery slice without rewriting the
-source" --intent-feature 014-order-amendment --presentation guided
+tailtrail start "Implement the approved order-amendment specification."
+--intent-feature 014-order-amendment
 ```
 
 ---
@@ -524,10 +522,8 @@ preservation constraints.
 **Example:**
 
 ```text
-For the only active run, execute the approved retry test. Record its real exit
-code and sanitized output. If payment and notification occur twice while
-inventory releases once, map the failure to requirements, fingerprint it, and
-propose one bounded correction. Do not start another run.
+Run the approved retry test. If payment and notification happen twice, diagnose
+the failure and propose a bounded correction.
 ```
 
 ### Prompt 26: native Debug Harness
@@ -541,11 +537,8 @@ supporting result; a competitor must be eliminated with recorded evidence.
 **Example:**
 
 ```text
-tailtrail start "debug: payment is accepted but its acknowledgment times out,
-then retry records two charges and two notifications; preserve first-attempt
-behavior; reproduce and prove the cause before correction" --debug --changed
-debug_lab/retry_race.py --command "python3
-debug_lab/run_duplicate_effect_failure.py" --presentation guided
+tailtrail start: debug duplicate charges and notifications after a payment
+acknowledgment timeout; reproduce and prove the cause before changing code
 ```
 
 ### Prompt 27: scoped recovery
@@ -559,10 +552,8 @@ remain untouched; broad reset is forbidden.
 **Example:**
 
 ```text
-For the active run, preserve completed inventory behavior and all unrelated
-user edits. Build a recovery plan for only the failed payment requirement,
-prefer its clean local Git checkpoint, use patch-level reconciliation only as a
-fallback, and rerun preservation evidence. Do not execute a broad reset.
+Recover only the failed payment requirement. Preserve completed inventory work
+and unrelated edits.
 ```
 
 ---
@@ -586,9 +577,8 @@ approved anchor.
 **Example:**
 
 ```text
-Use `tailtrail flow status` to show stage, checkpoint freshness, requirement
-progress, evidence gaps, and legal next actions. Resume with `tailtrail
-continue`; fail closed if the lock is stale or the next stage needs approval.
+tailtrail flow status
+tailtrail continue
 ```
 
 ### Prompt 29: MCP and three-host parity
@@ -600,10 +590,7 @@ continue`; fail closed if the lock is stale or the next stage needs approval.
 **Example:**
 
 ```text
-Using TailTrail read-only MCP tools, inspect the active Planning Lock,
-requirements, workflow, Harness state, evidence, closure boundary, and host
-conformance. Compare with CLI status. Do not invoke controlled mutation or call
-Codex/Copilot/Claude runtime-passed without genuine six-scenario receipts.
+Compare the active run's TailTrail MCP status with its CLI status.
 ```
 
 ---
@@ -626,11 +613,7 @@ being summarized away.
 **Example:**
 
 ```text
-Run `tailtrail close` using only saved evidence. First show the real
-evidence-incomplete result if any required receipt is absent. After recording
-genuine missing proof, close again and show requirement, Architecture Fitness,
-Behaviour Harness, Maintainability Harness, testing, drift, continuity,
-recovery, token, and acceptance status.
+tailtrail close
 ```
 
 ### Prompt 31: evaluation, receipts, conflict, and learning
@@ -644,11 +627,7 @@ promoted automatically.
 **Example:**
 
 ```text
-For an accepted run, retrieve at most three current payment-idempotency Learning
-V3 proposals scoped to service.py and the active requirement. Record whether
-advice was used, ignored, or rejected only if genuinely decided. Join later
-closure evidence without a causal claim, show conflict/negative-learning state,
-run deterministic calibration, and create only an uncurated candidate.
+Show relevant learning for payment idempotency and whether it helped this run.
 ```
 
 ---
@@ -671,11 +650,8 @@ stay explicit while standard library and existing capabilities are preferred.
 **Example:**
 
 ```text
-tailtrail start "add an outbound shipment webhook with signature verification,
-replay protection, bounded retry, audit, and metrics; prefer existing and
-standard-library capabilities; gate any dependency; include repository, CI,
-contract, behavior, security, rollout, and rollback evidence; call no real
-cloud service" --aidlc standard --presentation expert --verbose
+tailtrail start "Add a secure outbound shipment webhook with replay protection,
+safe retries, audit, and metrics." --aidlc standard
 ```
 
 ### Prompt 33: enterprise conformance and negative assurance
@@ -689,10 +665,8 @@ fail closed with sanitized categorical results.
 **Example:**
 
 ```text
-Run TailTrail enterprise conformance, repository enforcement, release check,
-and negative-assurance tests locally. Show passing local probes and every
-missing hosted/platform receipt. Do not echo hostile payloads, claim provider
-readiness, publish, deploy, merge, or apply Terraform.
+Check TailTrail enterprise, repository, release, and negative-assurance
+readiness for this project.
 ```
 
 ---
@@ -715,19 +689,108 @@ standards to itself.
 **Example:**
 
 ```text
-Run `tailtrail maturity validate`, `maturity learning-inventory`, `eval real-
-portfolio report`, `eval adoption report`, and `eval adoption gate`. Preserve
-real exit codes, observation counts, claim boundaries, and privacy rules. Then
-show new-user and experienced-user trial templates without recording a trial.
+Show TailTrail product-maturity, learning, real-evaluation, and adoption
+readiness without inventing evidence.
 ```
 
+---
+
+## Level 13 — Manager showcase: natural requests with governed control
+
+**Level purpose:** Demonstrate the new intent layer with short prompts that a
+developer can use without knowing TailTrail commands, flags, run IDs, file
+paths, or internal feature names.
+
+**What this teaches:** TailTrail can make the experience simple without making
+the authority boundary vague. Natural task language starts planning, advisory
+language stays read-only, active-run questions reuse saved evidence, and casual
+agreement never becomes approval.
+
+### Prompt 35: start planning in one sentence
+
+**Purpose:** Turn an ordinary task request into a real Planning Lock.
+
+**Why it helps:** Opens the demo with the visible developer benefit: the user
+states the outcome while TailTrail discovers scope, requirements, controls, and
+focused validation.
+
+**Example:**
+
+```text
+Use TailTrail to reject zero order quantity while preserving positive quantities.
+```
+
+Expected: the host resolves a planning-only `start`, creates one persisted
+Planning Lock, and returns its complete Start Report. Approval and execution
+remain false.
+
+### Prompt 36: ask for advice without starting a run
+
+**Purpose:** Show that approach-seeking language routes to read-only guidance.
+
+**Why it helps:** A developer can explore TailTrail's value before committing
+to a governed run, without creating duplicate Planning Locks.
+
+**Example:**
+
+```text
+Show me how TailTrail would safely add payment retries before starting any work.
+```
+
+Expected: a `guide` recommendation with likely scope and proof. No run,
+approval, source edit, project command, or execution authority is created.
+
+### Prompt 37: explain the active plan naturally
+
+**Purpose:** Ask a saved-plan question without a run ID or discussion syntax.
+
+**Why it helps:** Demonstrates that state-aware routing makes governance easier:
+the explanation comes from the existing Planning Lock instead of starting a
+second run or inspecting unrelated source.
+
+**Example:**
+
+```text
+Why did TailTrail choose these files and tests?
+```
+
+Expected: read-only plan discussion for the single active run, preserving its
+run ID, requirements, approval state, and implementation boundary.
+
+### Prompt 38: prove casual agreement is not approval
+
+**Purpose:** Demonstrate the fail-closed approval boundary in one memorable
+interaction.
+
+**Why it helps:** Shows managers that a friendly conversational phrase cannot
+silently authorize code changes; approval must be explicit and bound to the
+eligible saved plan.
+
+**Example:**
+
+```text
+Looks good
+```
+
+Expected: TailTrail asks for explicit approval and records no approval or
+execution authority. Continue with Prompt 9 only when the presenter intends to
+approve the exact plan.
+
 ## Recommended live routes
+
+### Five-minute manager showcase
+
+1. Prompt 1 — installation identity and aligned banner.
+2. Prompt 35 — natural task to a governed Planning Lock.
+3. Prompt 37 — explain the active plan without syntax or a run ID.
+4. Prompt 38 — casual agreement fails closed.
+5. Prompt 9 — explicit approval, if implementation is part of the demo.
 
 ### Ten-minute route
 
 1. Prompt 1 — aligned banner.
 2. Prompt 2 — readiness.
-3. Prompts 3–6 — Quick/Guided/Expert/verbose comparison.
+3. Prompts 3–6 — advisory, routine, program, and verbose planning scenarios.
 4. Prompts 7–11 — six-verb focused fix and Completion Report.
 
 ### Thirty-minute route
@@ -740,7 +803,7 @@ show new-user and experienced-user trial templates without recording a trial.
 
 ### Full capability route
 
-Run all 12 levels. Use a fresh clone or archive completed runs between Start
+Run all 13 levels. Use a fresh clone or archive completed runs between Start
 scenarios so auto-resolution remains unambiguous. If you intentionally retain
 multiple runs, demonstrate the fail-closed error and then provide the exact ID
 TailTrail listed.
@@ -750,8 +813,9 @@ TailTrail listed.
 - [ ] Exact project root is open in a fresh host task.
 - [ ] Hello banner is fenced and aligned.
 - [ ] Codex adapter is Extended, verified, and healthy.
-- [ ] Quick, Guided, and Expert outputs differ in depth.
-- [ ] `--verbose` retains comprehensive semantics in all modes.
+- [ ] Normal prompts use goals and lifecycle choices, not output-view flags.
+- [ ] Natural requests route to typed actions without granting authority.
+- [ ] `--verbose` adds complete audit detail without changing authority.
 - [ ] The daily flow omits run IDs when one run is eligible.
 - [ ] Ambiguous runs fail closed and list candidates.
 - [ ] No implementation occurs before approval.

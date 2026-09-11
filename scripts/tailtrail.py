@@ -27,7 +27,11 @@ COMMANDS = {
     "version": "Show source/pack location.",
     "package-info": "Show installed package mode and verified resource status.",
     "start": "Start a task with Navigator-first plan, metrics, setup posture, and learning quality.",
+    "stop": "Detach TailTrail routing while preserving the exact saved run.",
+    "resume": "Reattach one exact saved TailTrail run without advancing it.",
+    "session": "Show the current TailTrail conversation attachment state.",
     "planning": "Create, inspect, discuss, revise, approve, or enforce a Planning Lock for one run.",
+    "requirements": "Show or answer a durable pre-lock requirement intake.",
     "do": "Alias for start; run Navigator-first planning for a free-form task.",
     "run": "Alias for start; run Navigator-first planning for a free-form task.",
     "next": "Recommend one deterministic next action after a Start report.",
@@ -37,7 +41,7 @@ COMMANDS = {
     "failure": "Record or inspect sanitized post-implementation failure artifacts.",
     "debug": "Debug Harness: turn a symptom into a proven root cause (Code/Architecture/Database/API-integration domains only).",
     "anchor": "Draft, approve, invalidate, or review a local change-intent anchor.",
-    "intent": "Expand a short TailTrail prompt through expand-intent.py.",
+    "intent": "Expand a named flow or resolve loose words to a typed TailTrail intent.",
     "expand": "Alias for intent.",
     "route": "Choose a token-saving context route through route-context.py.",
     "token": "Decide whether token routing is useful through token-auto.py.",
@@ -45,7 +49,7 @@ COMMANDS = {
     "budget": "Estimate, record, and learn local token budgets through Token Budget Coach.",
     "profile": "Show prompt compression profiles for focused TailTrail context loading.",
     "receipt": "Capture or summarize context receipts for local token evidence.",
-    "telemetry": "Create normalized measured token telemetry without API calls.",
+    "telemetry": "Record exact host/model API usage metadata for TailTrail and paired baselines.",
     "savings": "Estimate or report token savings with explicit evidence labels.",
     "report": "Generate a local TailTrail enterprise report.",
     "release-check": "Run public release readiness checks.",
@@ -338,6 +342,7 @@ def print_help() -> None:
     print(f"  {command} test plan --changed src/service/foo.py")
     print(f'  {command} test plan --changed src/service/foo.py --goal "fix validation bug"')
     print(f"  {command} test summarize --changed src/service/foo.py")
+    print(f"  {command} test run --jobs 4")
     print(f'  {command} quality-loop capture --workflow review,qa --fit correct --outcome accepted --approved')
     print(f"  {command} quality-loop review --month 2026-07")
     print(f'  {command} outcome capture --task-type bug-fix --workflow start,review --acceptance accepted --validation-outcome pass --approved')
@@ -376,6 +381,7 @@ def print_help() -> None:
     print(f"  {command} learn review --root .")
     print(f"  {command} learn govern --root .")
     print(f'  {command} intent "use AIDLC and review"')
+    print(f'  {command} intent resolve "Use TailTrail to fix zero quantity" --format json')
     print(f"  {command} route review")
     print(f"  {command} token-harness route --path src/app.py")
     print(f"  {command} token-harness reduce --path report.sarif")
@@ -400,6 +406,7 @@ def print_help() -> None:
     print(f"  {command} receipt summary")
     print(f"  {command} receipt retrieve --path src/App.java")
     print(f'  {command} telemetry manual --task-id demo-001 --provider openai --model gpt-5 --baseline-input 42000 --baseline-output 3000 --tailtrail-input 18000 --tailtrail-output 2500')
+    print(f"  {command} telemetry record-host --task-id start-123 --variant tailtrail --provider openai --model gpt-5 --source host-response.json")
     print(f"  {command} telemetry import-openai --source openai-usage.jsonl --output .tailtrail/token-usage.jsonl")
     print(f"  {command} telemetry import-claude --source claude-usage.jsonl --output .tailtrail/token-usage.jsonl")
     print(f"  {command} telemetry import-gemini --source gemini-usage.jsonl --output .tailtrail/token-usage.jsonl")
@@ -529,7 +536,10 @@ def guide(args: list[str]) -> int:
 def navigator(args: list[str]) -> int:
     if not args:
         print('Usage: tailtrail navigator [context|plan|implement] "your scope" [--changed path/to/file]')
+        print('       tailtrail navigator scope inspect --goal "your goal" [--root .]')
         return 2
+    if args[0] == "scope":
+        return run_script("navigator-scope.py", args[1:])
     mode = "context"
     if args[0] in {"context", "plan", "implement"}:
         mode, args = args[0], args[1:]
@@ -814,7 +824,8 @@ def aidlc(args: list[str]) -> int:
 def debug(args: list[str]) -> int:
     if not args:
         print("Usage: tailtrail debug \"<symptom>\" [--error <file>] [--command \"<cmd>\"] [--run-id <id>] [--attach]")
-        print("       tailtrail debug reproduction draft|revise|approve|reject|show ...")
+        print("       tailtrail debug preflight --root <path> --goal \"<symptom>\" --host codex|copilot|claude [--format json|markdown]")
+        print("       tailtrail debug reproduction draft|revise|reopen|approve|reject|show|attempt-record|attempt-show ...")
         print("       tailtrail debug orientation create|show ...")
         print("       tailtrail debug hypothesis add|reprioritize|propose|experiment|replan|prove|domain-status|show ...")
         print("       tailtrail debug correction propose|approve|show ...")
@@ -824,6 +835,8 @@ def debug(args: list[str]) -> int:
         print("       tailtrail debug completion-report generate|show ...  # debug section; canonical closure remains authoritative")
         return 2
     action, rest = args[0], strip_wrapper_flags(args[1:])
+    if action == "preflight":
+        return run_script("debug-preflight.py", rest)
     if action == "reproduction":
         return run_script("debug-reproduction.py", rest)
     if action == "orientation":
@@ -891,12 +904,14 @@ def quality(args: list[str]) -> int:
 
 def test(args: list[str]) -> int:
     if not args:
-        print("Usage: tailtrail test plan|summarize [args]")
+        print("Usage: tailtrail test plan|summarize|run [args]")
         return 2
     action, rest = args[0], args[1:]
     if action in {"plan", "summarize"}:
         return run_script("test-precision.py", [action, *rest])
-    print("Unknown test action. Use: plan or summarize")
+    if action == "run":
+        return run_script("run-tests.py", rest)
+    print("Unknown test action. Use: plan, summarize, or run")
     return 2
 
 
@@ -1245,6 +1260,15 @@ def main() -> int:
         return package_info(args)
     if command in {"start", "do", "run"}:
         return start(args)
+    if command == "stop":
+        return run_script("session-control.py", ["stop", *args])
+    if command == "resume":
+        return run_script("session-control.py", ["resume", *args])
+    if command == "session":
+        if not args or args[0] != "status":
+            print("Usage: tailtrail session status [--root <root>] [--format markdown|json]")
+            return 2
+        return run_script("session-control.py", ["status", *args[1:]])
     if command == "flow":
         if args[:1] == ["start"]:
             return start(args[1:])
@@ -1277,6 +1301,11 @@ def main() -> int:
                 return run_script("planning-feature-controls.py", control_args)
             return run_script("planning-revision.py", revision_args)
         return run_script("planning-lock.py", args)
+    if command == "requirements":
+        if not args or args[0] not in {"show", "answer"}:
+            print("Usage: tailtrail requirements show|answer --intake-id <id> [args]")
+            return 2
+        return run_script("requirement_intake.py", args)
     if command == "next":
         return run_script("task-next.py", [*strip_wrapper_flags(args), "--command-prefix", invocation()])
     if command == "guide":

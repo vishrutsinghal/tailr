@@ -23,12 +23,26 @@ UI_SIGNALS = ("ui", "user interface", "frontend", "front end", "screen", "page",
 BACKEND_SIGNALS = ("api", "endpoint", "backend", "service", "database", "server")
 
 
-def selected_for(goal: str) -> bool:
+def selected_for(goal: str, impacted: list[dict[str, Any]] | None = None) -> bool:
     lowered = goal.lower()
-    return any(signal in lowered for signal in (*BEHAVIOUR_SIGNALS, *UI_SIGNALS)) or " api " in f" {lowered} "
+    if any(signal in lowered for signal in (*BEHAVIOUR_SIGNALS, *UI_SIGNALS)) or " api " in f" {lowered} ":
+        return True
+    # A Gherkin/BDD scenario file already in scope is itself behavior-level
+    # evidence, regardless of whether the goal wording used a signal word.
+    return any(
+        str(item.get("path", "")).lower().endswith(".feature")
+        for item in impacted or []
+        if isinstance(item, dict)
+    )
 
 
-def _ui_only(goal: str) -> bool:
+def _ui_only(goal: str, requirements: list[dict[str, Any]] | None = None) -> bool:
+    if any(
+        str(row.get("intent_class", "")).startswith("ui-")
+        for row in requirements or []
+        if isinstance(row, dict)
+    ):
+        return True
     lowered = goal.lower()
     return any(signal in lowered for signal in UI_SIGNALS) and not any(
         re.search(rf"(?<![a-z0-9_]){re.escape(signal)}(?![a-z0-9_])", lowered)
@@ -58,7 +72,7 @@ def _path_role(path: str) -> str:
     lowered = path.lower().replace("\\", "/")
     name = Path(lowered).name
     suffix = Path(lowered).suffix
-    if "/tests/ui/" in f"/{lowered}" or any(marker in name for marker in ("accessibility", "a11y", "visual")): return "UI behaviour evidence"
+    if "/tests/ui/" in f"/{lowered}" or any(marker in name for marker in (".cy.", ".spec.", ".component.", "accessibility", "a11y", "visual")): return "UI behaviour evidence"
     if suffix in {".css", ".scss", ".sass", ".less"}: return "UI style / token boundary"
     if suffix in {".html", ".jsx", ".tsx", ".vue", ".svelte"}: return "observable UI surface"
     if "/tests/behaviour/" in f"/{lowered}" or "/tests/behavior/" in f"/{lowered}": return "behaviour evidence"
@@ -81,7 +95,8 @@ def filter_weak_suggestions(goal: str, impacted: list[dict[str, Any]]) -> list[d
     for item in impacted:
         path = str(item.get("path", "")); reason = str(item.get("reason", ""))
         name = Path(path.lower()).name
-        if not dependency_signal and "suggested by Code Review Graph" in reason and name in {
+        graph_suggested = "fresh-graph" in item.get("seed_sources", []) or "suggested by Code Review Graph" in reason
+        if not dependency_signal and graph_suggested and name in {
             "package.json", "pyproject.toml", "requirements.txt", "pom.xml", "go.mod", "cargo.toml",
         }:
             continue
@@ -135,7 +150,7 @@ def _evidence(tiers: list[str], asserted: str) -> list[dict[str, str]]:
 
 
 def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if _ui_only(goal):
+    if _ui_only(goal, requirements):
         return _ui_scenarios(requirements)
     lowered = goal.lower(); scenarios: list[dict[str, Any]] = []
     journey_ids = _ids(requirements, ("journey", "workflow", "status", "state", "transition", "creation", "allocation", "shipment"))
@@ -198,18 +213,75 @@ def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, 
 def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Create UI-observable scenarios only from explicit requirement rows."""
     scenarios: list[dict[str, Any]] = []
+    visibility_ids = [
+        str(row.get("display_id", "REQ"))
+        for row in requirements
+        if str(row.get("intent_class", "")) == "ui-visibility"
+        and any(term in str(row.get("statement", "")).lower() for term in ("banner", "toast", "alert", "message", "warning"))
+    ]
+    if visibility_ids:
+        scenarios.append({
+            "scenario_id": "BHV-UI-01",
+            "requirement_ids": visibility_ids,
+            "scenario": "Exercise the UI state that previously displayed the named banner or message.",
+            "preconditions": ["The named UI surface and targeted message are confirmed from the approved requirement."],
+            "action": "Reach the affected state through the existing project-owned UI path.",
+            "expected_outcome": "The targeted banner or message is absent while the primary flow remains usable.",
+            "preservation": ["Other genuine errors remain visible.", "Preserve the existing successful flow and unrelated UI states."],
+            "evidence": _evidence(["component", "behaviour"], "The targeted message is absent without suppressing unrelated errors or breaking the primary flow."),
+        })
+    interaction_definitions = (
+        (
+            ("click", "validate", "move to"),
+            "Validate successful audit-event inputs through the existing UI action.",
+            "The validation-success message remains visible and the UI advances to the requested Validate page or step.",
+            "Validation failure does not advance and does not report false success.",
+        ),
+        (
+            ("click", "copy", "json", "move to"),
+            "Copy JSON through the existing UI action.",
+            "A successful copy shows the requested confirmation and advances to Session Summary.",
+            "Clipboard failure does not advance and does not report false success.",
+        ),
+        (
+            ("preserve", "generate event flow", "transition"),
+            "Exercise the existing Generate Event Flow action.",
+            "The established Event Flow transition remains unchanged.",
+            "The approved change does not regress the working generation path.",
+        ),
+    )
+    consumed: set[str] = set(visibility_ids)
+    for signals, scenario, outcome, preservation in interaction_definitions:
+        ids = [
+            str(row.get("display_id", "REQ"))
+            for row in requirements
+            if all(signal in str(row.get("statement", "")).lower() for signal in signals)
+        ]
+        if not ids:
+            continue
+        consumed.update(ids)
+        scenarios.append({
+            "scenario_id": f"BHV-UI-{len(scenarios) + 1:02d}",
+            "requirement_ids": ids,
+            "scenario": scenario,
+            "preconditions": ["The existing action, success notification, and navigation-state convention are confirmed after approval."],
+            "action": "Exercise the named action through the project-owned interface.",
+            "expected_outcome": outcome,
+            "preservation": [preservation, "Preserve existing focus, responsive, and accessibility behavior."],
+            "evidence": _evidence(["component", "behaviour"], outcome),
+        })
     definitions = (
         (("session summary",), "Render the requested page and session summary.", "The requested summary is visible in the established page structure.", "populated and absent data"),
         (("validation status",), "Render each applicable validation status.", "Status is conveyed semantically and not by color alone.", "pending, valid, invalid, and failure"),
         (("export control",), "Operate each approved export control.", "The control exposes the correct enabled, disabled, focus, success, and failure behavior.", "enabled, disabled, focus, success, and failure"),
         (("json preview",), "Render the all-events JSON preview.", "Structured content remains readable for populated, empty, error, and overflowing data.", "populated, empty, malformed/error, and overflow"),
     )
-    for index, (signals, scenario, outcome, states) in enumerate(definitions, start=1):
-        ids = _ids(requirements, signals)
+    for signals, scenario, outcome, states in definitions:
+        ids = [requirement_id for requirement_id in _ids(requirements, signals) if requirement_id not in consumed]
         if not ids:
             continue
         scenarios.append({
-            "scenario_id": f"BHV-UI-{index:02d}",
+            "scenario_id": f"BHV-UI-{len(scenarios) + 1:02d}",
             "requirement_ids": ids,
             "scenario": scenario,
             "preconditions": ["The repository-owned UI shell, tokens, and interaction conventions are confirmed after approval."],
@@ -235,7 +307,7 @@ def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def build(goal: str, impacted: list[dict[str, Any]], requirements: list[dict[str, Any]], selected: bool) -> dict[str, Any]:
     if not selected:
         return {"selected": False, "scenarios": [], "scope_roles": [], "post_change_checks": []}
-    ui_only = _ui_only(goal)
+    ui_only = _ui_only(goal, requirements)
     scenarios = _scenarios(goal, requirements)
     roles = [{
         "path": str(item.get("path", "")), "role": _path_role(str(item.get("path", ""))),
@@ -285,7 +357,7 @@ def apply_contracts(requirements: list[dict[str, Any]], plan: dict[str, Any]) ->
         row["validation_contract"] = {"state": "required", "tiers": tiers or ["behaviour"]}
 
 
-def markdown_lines(plan: dict[str, Any], detailed: bool) -> list[str]:
+def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = False) -> list[str]:
     if not plan.get("selected"):
         return []
     lines = [
@@ -293,20 +365,52 @@ def markdown_lines(plan: dict[str, Any], detailed: bool) -> list[str]:
         f"- State: `{plan.get('state')}`.",
         f"- Evidence boundary: {plan.get('evidence_boundary')}",
         "", "### Requirement-linked behaviour scenarios", "",
-        "| Requirement | Scenario | Observable result | Preservation rule | Required proof |",
-        "| --- | --- | --- | --- | --- |",
     ]
-    for scenario in plan.get("scenarios", []):
-        proof = ", ".join(str(item.get("tier")) for item in scenario.get("evidence", []))
-        values = [", ".join(scenario.get("requirement_ids", [])), scenario.get("scenario", ""), scenario.get("expected_outcome", ""), "; ".join(scenario.get("preservation", [])), proof]
-        lines.append("| " + " | ".join(str(value).replace("|", "\\|").replace("\n", " ") for value in values) + " |")
-    if not plan.get("scenarios"):
-        lines.append("| unresolved | The user-facing scenario must be clarified before approval. | No behavioural outcome inferred. | Existing behaviour remains authoritative. | evidence-incomplete |")
-    if detailed:
-        lines.extend(["", "### Behaviour scope roles", "", "| Path | Role | Planned use | Confidence |", "| --- | --- | --- | --- |"])
-        for item in plan.get("scope_roles", []):
-            values = [f"`{item.get('path')}`", item.get("role"), item.get("planned_use"), item.get("confidence")]
+    if responsive:
+        for scenario in plan.get("scenarios", []):
+            proof = ", ".join(str(item.get("tier")) for item in scenario.get("evidence", []))
+            lines.extend([
+                f"- **{', '.join(scenario.get('requirement_ids', [])) or 'Unassigned requirement'}**",
+                f"  - **Scenario:** {scenario.get('scenario', '')}",
+                f"  - **Observable result:** {scenario.get('expected_outcome', '')}",
+                f"  - **Preservation rule:** {'; '.join(scenario.get('preservation', []))}",
+                f"  - **Required proof:** {proof}",
+            ])
+    else:
+        lines.extend([
+            "| Requirement | Scenario | Observable result | Preservation rule | Required proof |",
+            "| --- | --- | --- | --- | --- |",
+        ])
+        for scenario in plan.get("scenarios", []):
+            proof = ", ".join(str(item.get("tier")) for item in scenario.get("evidence", []))
+            values = [", ".join(scenario.get("requirement_ids", [])), scenario.get("scenario", ""), scenario.get("expected_outcome", ""), "; ".join(scenario.get("preservation", [])), proof]
             lines.append("| " + " | ".join(str(value).replace("|", "\\|").replace("\n", " ") for value in values) + " |")
+    if not plan.get("scenarios"):
+        if responsive:
+            lines.extend([
+                "- **Unresolved**",
+                "  - **Scenario:** The user-facing scenario must be clarified before approval.",
+                "  - **Observable result:** No behavioural outcome inferred.",
+                "  - **Preservation rule:** Existing behaviour remains authoritative.",
+                "  - **Required proof:** evidence-incomplete",
+            ])
+        else:
+            lines.append("| unresolved | The user-facing scenario must be clarified before approval. | No behavioural outcome inferred. | Existing behaviour remains authoritative. | evidence-incomplete |")
+    if detailed:
+        lines.extend(["", "### Behaviour scope roles", ""])
+        if responsive:
+            for item in plan.get("scope_roles", []):
+                lines.extend([
+                    f"- **`{item.get('path')}`**",
+                    f"  - **Role:** {item.get('role')}",
+                    f"  - **Planned use:** {item.get('planned_use')}",
+                    f"  - **Confidence:** {item.get('confidence')}",
+                ])
+        else:
+            lines.extend(["| Path | Role | Planned use | Confidence |", "| --- | --- | --- | --- |"])
+            for item in plan.get("scope_roles", []):
+                values = [f"`{item.get('path')}`", item.get("role"), item.get("planned_use"), item.get("confidence")]
+                lines.append("| " + " | ".join(str(value).replace("|", "\\|").replace("\n", " ") for value in values) + " |")
         lines.extend(["", "### Post-change Behaviour Harness checks", ""])
         lines.extend(f"{index}. {item}" for index, item in enumerate(plan.get("post_change_checks", []), 1))
         lines.extend(["", "- Final state must be one of: " + ", ".join(f"`{state}`" for state in plan.get("completion_states", [])) + "."])

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/navigator-run-mapping-index.schema.json",
+  "title": "TailTrail Navigator Run Mapping Index",
+  "type": "object",
+  "required": ["schema_version", "type", "mappings"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-navigator-run-mapping-index"},
+    "updated_at": {"type": "string"},
+    "mappings": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": ["run_id", "goal_fingerprint", "query_terms", "scope_decision_fingerprint", "closure_status", "path_hashes", "graph_cache_fingerprint", "recorded_at", "mapping_fingerprint"],
+        "properties": {
+          "run_id": {"type": "string", "minLength": 1},
+          "goal_fingerprint": {"type": "string"},
+          "query_terms": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "scope_decision_fingerprint": {"type": ["string", "null"]},
+          "closure_status": {"type": "string"},
+          "path_hashes": {"type": "object", "additionalProperties": {"type": "string"}},
+          "graph_cache_fingerprint": {"type": ["string", "null"]},
+          "recorded_at": {"type": "string"},
+          "mapping_fingerprint": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

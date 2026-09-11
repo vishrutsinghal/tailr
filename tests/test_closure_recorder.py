@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -29,16 +30,22 @@ evidence = load("closure_recorder_evidence_test", "scripts/execution-evidence.py
 
 
 class ClosureRecorderTests(unittest.TestCase):
+    def proof_command(self) -> str:
+        return f"{shlex.quote(sys.executable)} -m unittest discover -s tests -p test_service.py -v"
+
     def setup_run(self, root: Path, *, approved: bool = True) -> list[str]:
         (root / "src").mkdir()
         (root / "tests").mkdir()
         (root / "src" / "service.py").write_text("def cancel():\n    return True\n", encoding="utf-8")
-        (root / "tests" / "test_service.py").write_text("# focused receipt target\n", encoding="utf-8")
+        (root / "tests" / "test_service.py").write_text(
+            "import unittest\n\nclass ServiceTest(unittest.TestCase):\n    def test_cancel(self):\n        self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
         lock.create(root, "cancel an order", "run")
         proposal = root / "proposal.json"
         proposal.write_text(json.dumps({"requirements": [
-            {"statement": "Reject cancellation after shipment.", "acceptance_criteria": ["shipped order rejects"], "preserve_rules": [], "likely_paths": ["src/service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"]}},
-            {"statement": "Release inventory once for eligible cancellation.", "acceptance_criteria": ["inventory returns"], "preserve_rules": [], "likely_paths": ["src/service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"]}},
+            {"statement": "Reject cancellation after shipment.", "acceptance_criteria": ["shipped order rejects"], "preserve_rules": [], "likely_paths": ["src/service.py", "tests/test_service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"], "commands": [self.proof_command()]}},
+            {"statement": "Release inventory once for eligible cancellation.", "acceptance_criteria": ["inventory returns"], "preserve_rules": [], "likely_paths": ["src/service.py", "tests/test_service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"], "commands": [self.proof_command()]}},
         ]}), encoding="utf-8")
         anchor.draft(root, "run", proposal)
         approved_anchor = anchor.approve(root, "run")
@@ -52,7 +59,7 @@ class ClosureRecorderTests(unittest.TestCase):
             "changed_paths": ["src/service.py", "tests/test_service.py"],
             "receipts": [{
                 "requirement_uids": uids, "tier": "unit", "command_label": "cancellation service tests",
-                "command": "python -m unittest tests.test_service -v", "outcome": "pass", "environment": "local",
+                "command": self.proof_command(), "outcome": "pass", "environment": "local",
                 "asserted_behavior": "Shipped orders reject and eligible cancellations release inventory once.",
             }],
         }
@@ -67,13 +74,13 @@ class ClosureRecorderTests(unittest.TestCase):
             checkpoint = json.loads(Path(result["checkpoint"]).read_text(encoding="utf-8"))
             activity = ledger.projection(root, "run")["activity"]
         self.assertFalse(result["reused"])
-        self.assertEqual(len(result["receipt_artifacts"]), 2)
-        self.assertTrue(result["completion_gate"]["complete"])
-        self.assertTrue(result["completion_review"]["complete"])
-        self.assertEqual([row["state"] for row in checkpoint["requirements"]], ["validated", "validated"])
+        self.assertEqual(len(result["receipt_artifacts"]), 1)
+        self.assertFalse(result["completion_gate"]["complete"])
+        self.assertFalse(result["completion_review"]["complete"])
+        self.assertEqual([row["state"] for row in checkpoint["requirements"]], ["implemented-unverified", "implemented-unverified"])
         self.assertTrue(all(row["fingerprint"].startswith("sha256:") for row in checkpoint["changed_paths"]))
         self.assertEqual(activity["closure_recorded"], 1)
-        self.assertIn("No listed command was executed", result["boundary"])
+        self.assertIn("declared host receipts remain explicitly unverified", result["boundary"])
 
     def test_replaying_the_same_input_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -93,8 +100,7 @@ class ClosureRecorderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             uids = self.setup_run(root)
-            event = {"kind": "command-result", "requirement_uids": uids, "changed_paths": ["src/service.py", "tests/test_service.py"], "tier": "unit", "command_label": "cancellation tests", "command": "python -m unittest tests.test_service -v", "outcome": "pass", "environment": "local", "asserted_behavior": "cancellation behavior is covered"}
-            evidence.append(root, "run", event, True)
+            evidence.run_command(root, "run", uids, ["unit"], self.proof_command(), "cancellation tests", ["src/service.py", "tests/test_service.py"], True, 30)
             result = recorder.record(root, run_id="run")
 
         self.assertEqual(result["validated_input"], "execution/evidence-stream.jsonl")
@@ -112,6 +118,40 @@ class ClosureRecorderTests(unittest.TestCase):
         self.assertFalse(result["completion_gate"]["complete"])
         self.assertFalse(result["completion_review"]["complete"])
         self.assertIn("completion-report", result["next_action"])
+
+    def test_latest_rerun_replaces_stale_attempt_for_completion_judgment(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root)
+            evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": uids,
+                "changed_paths": ["src/service.py"], "tier": "unit",
+                "command_label": "cancellation tests", "command": self.proof_command(),
+                "outcome": "fail", "environment": "local",
+                "asserted_behavior": "earlier failed attempt",
+            }, True)
+            evidence.run_command(root, "run", uids, ["unit"], self.proof_command(), "cancellation tests", ["src/service.py"], True, 30)
+            result = recorder.record(root, run_id="run")
+
+        self.assertEqual(len(result["receipt_artifacts"]), 1)
+        self.assertTrue(result["completion_gate"]["complete"])
+
+    def test_ignores_managed_command_event_with_unapproved_command_tier_pair(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root)
+            evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": uids,
+                "changed_paths": ["src/service.py"], "tier": "component",
+                "command_label": "misclassified historical result", "command": self.proof_command(),
+                "outcome": "fail", "environment": "local",
+                "asserted_behavior": "not valid for this approved command tier",
+            }, True)
+            evidence.run_command(root, "run", uids, ["unit"], self.proof_command(), "cancellation tests", ["src/service.py"], True, 30)
+            result = recorder.record(root, run_id="run")
+
+        self.assertEqual(1, len(result["receipt_artifacts"]))
+        self.assertTrue(result["completion_gate"]["complete"])
 
     def test_requires_an_approved_planning_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -26,12 +26,15 @@ class CrossPlatformSupplyChainTests(unittest.TestCase):
     def test_contract_is_exact_and_claims_require_observation(self) -> None:
         contract = json.loads((ROOT / "platform-release-contract.json").read_text(encoding="utf-8"))
         self.assertEqual(contract["supported_operating_systems"], ["linux", "macos", "windows"])
+        self.assertEqual(contract["compatibility_fixtures"], ["wsl"])
         self.assertEqual(contract["supported_python_versions"], ["3.12", "3.13"])
         self.assertEqual(contract["artifact_routes"], ["wheel", "sdist-to-wheel"])
         self.assertEqual(contract["host_profiles"], ["codex:core", "copilot:core", "claude:core"])
         self.assertFalse(contract["evidence_policy"]["configured_is_observed"])
         self.assertFalse(contract["evidence_policy"]["simulated_is_observed"])
         self.assertTrue(contract["evidence_policy"]["release_requires_identity_attestation"])
+        self.assertIn("scope-v2-real-run", contract["required_checks"])
+        self.assertIn("scope-v2-no-artifact-rollback", contract["required_checks"])
 
     def test_build_dependency_decision_is_exact_and_runtime_remains_empty(self) -> None:
         lock = json.loads((ROOT / "release-build-lock.json").read_text(encoding="utf-8"))

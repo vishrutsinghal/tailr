@@ -9,15 +9,16 @@ Policy enforcement and host-native adapters remain separate phases.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
 import re
 import subprocess
+import sys
 from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any
-
 
 ABSOLUTE_LOCAL_PATH = re.compile(r"(?<!https:)(?<!http:)(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/]|/)[^\s`'\"<>|]+")
 TARGET_ROOT_CUES = (
@@ -40,6 +41,10 @@ INPUT_ROLE_ACCESS = {
     "evidence-artifact": "read-only",
 }
 LOCAL_REPOSITORY_ROLES = {"related-repo", "reference-repo"}
+REQUIREMENT_ARTIFACT_SUFFIXES = {
+    ".adoc", ".json", ".md", ".rst", ".text", ".txt", ".yaml", ".yml",
+}
+REQUIREMENT_ARTIFACT_MAX_BYTES = 128 * 1024
 
 
 def host_adapter() -> Any:
@@ -54,6 +59,18 @@ def enterprise_policy() -> Any:
     spec = importlib.util.spec_from_file_location("tailtrail_enterprise_target_policy", Path(__file__).with_name("enterprise-target-policy.py"))
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def navigator_scope_module() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "tailtrail_target_workspace_navigator_scope",
+        Path(__file__).with_name("navigator_scope.py"),
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -192,7 +209,7 @@ def _role_record(role: str, value: str, target: Path, index: int) -> dict[str, A
     return {
         "input_id": f"IN-{index:02d}", "role": role, "locator": path.as_posix(),
         "kind": "local-directory" if path.is_dir() else "local-artifact",
-        "access": INPUT_ROLE_ACCESS[role], "status": "available-unread" if path.exists() else "unavailable",
+        "access": INPUT_ROLE_ACCESS[role], "status": "verified-unread" if path.exists() else "unavailable",
         "relationship": relationship, "inspection": "read-only-bounded-summary",
     }
 
@@ -236,6 +253,100 @@ def input_roles(
     return registry
 
 
+def inspect_requirement_artifacts(
+    registry: dict[str, Any],
+    *,
+    max_bytes: int = REQUIREMENT_ARTIFACT_MAX_BYTES,
+) -> dict[str, Any]:
+    """Turn declared local requirement files into bounded planning inputs.
+
+    Raw content is returned only in ``planning_inputs`` for the current Start
+    invocation.  The role registry contains the durable, non-content receipt
+    that is persisted with a later Planning Lock.
+    """
+    if max_bytes < 1:
+        raise ValueError("requirement artifact read limit must be positive")
+    prepared = copy.deepcopy(registry)
+    planning_inputs: list[dict[str, Any]] = []
+    blocking: list[dict[str, str]] = []
+    for item in prepared.get("inputs", []):
+        if not isinstance(item, dict) or item.get("role") != "requirement-artifact":
+            continue
+        input_id = str(item.get("input_id", "unknown"))
+        locator = str(item.get("locator", ""))
+        if item.get("kind") == "external-reference":
+            item.update({
+                "status": "unavailable",
+                "inspection": "required-host-access-not-available",
+                "reason_code": "external-requirement-artifact-not-inspected",
+            })
+            blocking.append({"input_id": input_id, "status": "unavailable", "reason_code": item["reason_code"]})
+            continue
+        path = Path(locator)
+        if not path.exists():
+            item.update({"status": "unavailable", "reason_code": "requirement-artifact-missing"})
+        elif not path.is_file():
+            item.update({"status": "unreadable", "reason_code": "requirement-artifact-not-a-file"})
+        elif path.suffix.casefold() not in REQUIREMENT_ARTIFACT_SUFFIXES:
+            item.update({"status": "unsupported", "reason_code": "requirement-artifact-format-unsupported"})
+        else:
+            try:
+                size = path.stat().st_size
+                with path.open("rb") as stream:
+                    raw = stream.read(max_bytes + 1)
+            except OSError:
+                item.update({"status": "unreadable", "reason_code": "requirement-artifact-read-failed"})
+            else:
+                if size > max_bytes or len(raw) > max_bytes:
+                    item.update({
+                        "status": "truncated",
+                        "reason_code": "requirement-artifact-read-limit-exceeded",
+                        "size_bytes": size,
+                        "read_limit_bytes": max_bytes,
+                    })
+                else:
+                    try:
+                        content = raw.decode("utf-8")
+                    except UnicodeDecodeError:
+                        item.update({"status": "unreadable", "reason_code": "requirement-artifact-not-utf8"})
+                    else:
+                        if not content.strip() or "\x00" in content:
+                            item.update({"status": "unreadable", "reason_code": "requirement-artifact-has-no-readable-text"})
+                        else:
+                            digest = hashlib.sha256(raw).hexdigest()
+                            item.update({
+                                "status": "inspected",
+                                "inspection": "bounded-read-only-text",
+                                "sha256": digest,
+                                "size_bytes": len(raw),
+                                "media_type": "text/plain",
+                                "reason_code": "requirement-artifact-inspected",
+                            })
+                            planning_inputs.append({
+                                "input_id": input_id,
+                                "locator": locator,
+                                "sha256": digest,
+                                "size_bytes": len(raw),
+                                "content": content,
+                            })
+                            continue
+        blocking.append({
+            "input_id": input_id,
+            "status": str(item.get("status", "unavailable")),
+            "reason_code": str(item.get("reason_code", "requirement-artifact-unavailable")),
+        })
+    return {
+        "registry": prepared,
+        "planning_inputs": planning_inputs,
+        "blocking": blocking,
+        "ready": not blocking,
+        "boundary": (
+            "Requirement artifact content is a read-only planning input. Only its hash-bound inspection receipt "
+            "may persist in a Planning Lock; raw content grants no implementation authority."
+        ),
+    }
+
+
 def validate_input_roles(registry: dict[str, Any], root: Path) -> dict[str, Any]:
     """Validate role separation before activation or managed writes."""
     if not registry:
@@ -265,7 +376,7 @@ def reference_summary(registry: dict[str, Any]) -> list[dict[str, Any]]:
         if not isinstance(item, dict) or item.get("role") == "target":
             continue
         row = {key: item.get(key) for key in ("input_id", "role", "locator", "kind", "status", "inspection")}
-        if item.get("kind") == "local-directory" and item.get("status") == "available-unread":
+        if item.get("kind") == "local-directory" and item.get("status") in {"available-unread", "verified-unread"}:
             snapshot = identity(Path(str(item["locator"])))
             row["project"] = snapshot["project"]
             row["repository_kind"] = snapshot["repository_kind"]
@@ -315,6 +426,23 @@ def resolve(
     return {"status": "verified", "source": choice["source"], "requested": choice["requested"], "root": path.resolve(), "candidates": [choice], "reason": "one accessible editable target was resolved"}
 
 
+def _greenfield_eligible(root: Path, relative: str) -> bool:
+    """A not-yet-existing --changed path is a safe greenfield target only when
+    its repository role is implementation-owner (a recognized production
+    source suffix, not documentation/configuration/generated/managed-tooling)
+    and its containing directory already exists in the repository. This never
+    grants implementation ownership by itself; Navigator scope-quality
+    still requires an explicit-user-scope qualification for the same path.
+    """
+    normalized = str(relative).replace("\\", "/")
+    pure = Path(normalized)
+    role, _ = navigator_scope_module().classify_repository_role(root, normalized)
+    if role != "implementation-owner":
+        return False
+    parent = root.resolve() / pure.parent if str(pure.parent) != "." else root.resolve()
+    return parent.is_dir()
+
+
 def assess_plan_fit(
     goal: str,
     root: Path,
@@ -323,18 +451,19 @@ def assess_plan_fit(
     resolution_source: str,
     changed: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Fail closed when implicit workspace discovery finds no production scope.
+    """Assess target identity only; scope quality is a separate NS-4 gate.
 
-    An explicit root, host workspace, prompt target, alias, or ``--changed`` path
-    is an intentional target selection and remains authoritative. For an
-    implicit current-directory target, however, a feature request that maps
-    only to tests/docs is not enough evidence that the correct repository is
-    open. This check runs after read-only Navigator discovery and before a
-    Planning Lock is persisted.
+    ``--root`` and host/cwd resolution establish where bounded inspection may
+    occur. They never establish implementation ownership. Explicit changed
+    paths are still checked for existence and containment here; repository-role
+    and owner evidence are validated by ``navigator_scope.assess_scope_quality``.
+    A not-yet-existing path is accepted as a bounded greenfield target only when
+    ``_greenfield_eligible`` holds; every other missing path still blocks.
     """
     if changed:
         missing: list[str] = []
         existing: list[str] = []
+        greenfield: list[str] = []
         for raw in changed:
             candidate = Path(str(raw))
             resolved = candidate.resolve() if candidate.is_absolute() else (root.resolve() / candidate).resolve()
@@ -343,7 +472,12 @@ def assess_plan_fit(
             except ValueError:
                 missing.append(str(raw).replace("\\", "/"))
                 continue
-            (existing if resolved.is_file() else missing).append(str(raw).replace("\\", "/"))
+            if resolved.is_file():
+                existing.append(str(raw).replace("\\", "/"))
+            elif _greenfield_eligible(root, str(raw)):
+                greenfield.append(str(raw).replace("\\", "/"))
+            else:
+                missing.append(str(raw).replace("\\", "/"))
         if missing:
             return {
                 "status": "changed-path-missing", "blocking": True,
@@ -352,66 +486,32 @@ def assess_plan_fit(
                 "existing_changed_paths": existing, "production_candidates": [],
                 "discovered_candidates": [str(item.get("path")) for item in impacted if isinstance(item, dict) and item.get("path")],
             }
-        return {
+        result = {
             "status": "verified", "blocking": False,
             "reason": "every explicit --changed path exists inside the selected target repository",
             "production_candidates": existing, "existing_changed_paths": existing,
         }
+        if greenfield:
+            result["greenfield_changed_paths"] = greenfield
+            result["reason"] = (
+                "every explicit --changed path exists or is a bounded greenfield target "
+                "inside the selected target repository"
+            )
+        return result
 
-    if resolution_source != "host-cwd":
-        return {
-            "status": "verified",
-            "blocking": False,
-            "reason": "the target was explicitly selected or scoped",
-            "production_candidates": [],
-        }
-
-    lowered = " ".join(str(goal).lower().split())
-    production_request = any(
-        term in lowered
-        for term in (
-            "add api", "add service", "implement", "feature", "end to end",
-            "end-to-end", "customer journey", "validation across", "endpoint",
-            "refactor", "user-facing", "user facing", "ui page", "screen",
-        )
-    )
-    documentation_scope = any(
-        term in lowered
-        for term in ("documentation only", "docs only", "readme", "changelog", "markdown documentation")
-    )
-    test_scope = any(
-        term in lowered
-        for term in ("test only", "tests only", "add tests", "update tests", "test coverage only")
-    )
-    docs_or_tests_only = (documentation_scope or test_scope) and not production_request
-    production: list[str] = []
-    discovered: list[str] = []
-    for item in impacted:
-        if not isinstance(item, dict) or not item.get("path"):
-            continue
-        raw = str(item["path"]).replace("\\", "/")
-        discovered.append(raw)
-        path = Path(raw)
-        parts = {part.lower() for part in path.parts}
-        if path.suffix.lower() in PRODUCTION_SUFFIXES and not parts.intersection(NON_PRODUCTION_ROOTS):
-            production.append(raw)
-
-    if production or docs_or_tests_only:
-        return {
-            "status": "verified",
-            "blocking": False,
-            "reason": "read-only discovery found production scope consistent with the request" if production else "the request is explicitly limited to tests or documentation",
-            "production_candidates": production,
-            "discovered_candidates": discovered,
-        }
     return {
-        "status": "needs-confirmation",
-        "blocking": True,
-        "reason": "the implicit current workspace produced no production-code candidate for this request; test or documentation matches alone cannot prove it is the intended repository",
+        "status": "verified",
+        "blocking": False,
+        "reason": "one target repository was resolved; implementation ownership is evaluated independently by the scope-quality gate",
         "root": root.resolve().as_posix(),
         "production_candidates": [],
-        "discovered_candidates": discovered,
+        "discovered_candidates": [
+            str(item.get("path")) for item in impacted
+            if isinstance(item, dict) and item.get("path")
+        ],
+        "resolution_source": resolution_source,
     }
+
 
 
 def markdown(result: dict[str, Any]) -> str:

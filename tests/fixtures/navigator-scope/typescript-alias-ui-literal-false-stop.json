@@ -1,0 +1,108 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-scope-fixture",
+  "id": "typescript-alias-ui-literal-false-stop",
+  "goal": "in the publish to hub page there is a banner Telemetry trace endpoint is not configured. we need to remove it",
+  "repository_files": {
+    "package.json": "{\"scripts\":{\"test:component\":\"ui-test --component\"},\"devDependencies\":{\"typescript\":\"fixture-version\"}}\n",
+    "tsconfig.json": "{\"compilerOptions\":{\"baseUrl\":\".\",\"paths\":{\"@/*\":[\"src/*\"]}}}\n",
+    "src/components/RemoveButton.tsx": "export function RemoveButton() { return <button>Remove</button>; }\n",
+    "src/components/StatusBanner.tsx": "export function StatusBanner() { return <aside>Status</aside>; }\n",
+    "src/pages/account/AccountPage.tsx": "export function AccountPage() { return <main>Account</main>; }\n",
+    "src/pages/dashboard/DashboardPage.tsx": "export function DashboardPage() { return <main>Dashboard</main>; }\n",
+    "src/pages/history/HistoryPage.tsx": "export function HistoryPage() { return <main>History</main>; }\n",
+    "src/pages/inventory/InventoryPage.tsx": "export function InventoryPage() { return <main>Inventory</main>; }\n",
+    "src/pages/login/LoginPage.tsx": "export function LoginPage() { return <main>Login</main>; }\n",
+    "src/pages/metrics/MetricsPage.tsx": "export function MetricsPage() { return <main>Metrics</main>; }\n",
+    "src/pages/notFound/NotFoundPage.tsx": "export function NotFoundPage() { return <main>Not found</main>; }\n",
+    "src/pages/operations/OperationsPage.tsx": "export function OperationsPage() { return <main>Operations</main>; }\n",
+    "src/pages/profile/ProfilePage.tsx": "export function ProfilePage() { return <main>Profile</main>; }\n",
+    "src/pages/reports/ReportsPage.tsx": "export function ReportsPage() { return <main>Reports</main>; }\n",
+    "src/pages/rules/RulesPage.tsx": "export function RulesPage() { return <main>Rules</main>; }\n",
+    "src/pages/search/SearchPage.tsx": "export function SearchPage() { return <main>Search</main>; }\n",
+    "src/pages/settings/SettingsPage.tsx": "export function SettingsPage() { return <main>Settings</main>; }\n",
+    "src/pages/support/SupportPage.tsx": "export function SupportPage() { return <main>Support</main>; }\n",
+    "src/pages/tasks/TasksPage.tsx": "export function TasksPage() { return <main>Tasks</main>; }\n",
+    "src/pages/teams/TeamsPage.tsx": "export function TeamsPage() { return <main>Teams</main>; }\n",
+    "src/pages/users/UsersPage.tsx": "export function UsersPage() { return <main>Users</main>; }\n",
+    "src/pages/eventGenerator/payloadJson.ts": "export function buildPayloadJson() { return JSON.stringify({ ready: true }); }\n",
+    "src/pages/eventGenerator/telemetryService.ts": "const traceUrl = '';\nexport async function getTelemetryTrace(id: string) {\n  if (!traceUrl) throw new Error('Telemetry trace endpoint is not configured.');\n  return fetch(`${traceUrl}?id=${encodeURIComponent(id)}`);\n}\n",
+    "src/pages/eventGenerator/EventGeneratorPage.tsx": "import { useState } from 'react';\nimport { getTelemetryTrace } from '@/pages/eventGenerator/telemetryService';\n\nexport function EventGeneratorPage() {\n  const [traceError, setTraceError] = useState('');\n  const refreshTrace = async () => {\n    setTraceError('');\n    try {\n      await getTelemetryTrace('message-1');\n    } catch (error) {\n      setTraceError(error instanceof Error ? error.message : 'Unable to load telemetry trace.');\n    }\n  };\n  return <main><h1>Publish to Hub</h1><button onClick={refreshTrace}>Refresh</button>{traceError && <aside role='alert'>{traceError}</aside>}</main>;\n}\n",
+    "src/pages/eventGenerator/EventGeneratorPage.cy.tsx": "import { EventGeneratorPage } from './EventGeneratorPage';\ndescribe('EventGeneratorPage', () => { it('does not show an unavailable telemetry banner', () => void EventGeneratorPage); });\n",
+    "src/pages/eventGenerator/telemetryService.cy.ts": "import { getTelemetryTrace } from './telemetryService';\ndescribe('getTelemetryTrace', () => { it('reports missing configuration', () => void getTelemetryTrace); });\n"
+  },
+  "current_expected": {
+    "scope_state": "ambiguous",
+    "implementation_owners": [
+      "src/components/RemoveButton.tsx",
+      "src/components/StatusBanner.tsx",
+      "src/pages/account/AccountPage.tsx",
+      "src/pages/dashboard/DashboardPage.tsx",
+      "src/pages/eventGenerator/EventGeneratorPage.tsx",
+      "src/pages/eventGenerator/payloadJson.ts",
+      "src/pages/eventGenerator/telemetryService.ts",
+      "src/pages/history/HistoryPage.tsx",
+      "src/pages/inventory/InventoryPage.tsx",
+      "src/pages/login/LoginPage.tsx"
+    ],
+    "stop_reason": "file-read-limit-reached",
+    "files_read": 20,
+    "bytes_read": 3004,
+    "graph_cache_status": "fresh",
+    "graph_reason_codes": [
+      "graph-cache-root-and-hashes-match",
+      "graph-cache-task-slice-selected"
+    ],
+    "scope_quality_status": "blocked",
+    "scope_quality_reason_codes": [
+      "scope-state-ambiguous",
+      "investigation-file-read-limit-reached",
+      "graph-cache-root-and-hashes-match",
+      "graph-cache-task-slice-selected"
+    ],
+    "scope_question_options": [
+      "src/components/RemoveButton.tsx",
+      "src/components/StatusBanner.tsx",
+      "src/pages/account/AccountPage.tsx",
+      "src/pages/dashboard/DashboardPage.tsx",
+      "src/pages/eventGenerator/EventGeneratorPage.tsx",
+      "src/pages/eventGenerator/payloadJson.ts",
+      "src/pages/eventGenerator/telemetryService.ts",
+      "src/pages/history/HistoryPage.tsx",
+      "src/pages/inventory/InventoryPage.tsx",
+      "src/pages/login/LoginPage.tsx"
+    ],
+    "planning_lock_created": false
+  },
+  "desired_expected": {
+    "scope_state": "resolved",
+    "implementation_owners": [
+      "src/pages/eventGenerator/EventGeneratorPage.tsx"
+    ],
+    "inspection_paths": [
+      {
+        "path": "src/pages/eventGenerator/telemetryService.ts",
+        "role": "literal-emitter"
+      }
+    ],
+    "proof_paths": [
+      "src/pages/eventGenerator/EventGeneratorPage.cy.tsx"
+    ],
+    "excluded_path_patterns": [
+      "src/components/RemoveButton.tsx",
+      "src/components/StatusBanner.tsx",
+      "src/pages/*"
+    ],
+    "stop_reason": "owner-resolved",
+    "scope_quality_status": "passed",
+    "scope_question": null,
+    "planning_lock_created": true
+  },
+  "privacy": {
+    "classification": "synthetic",
+    "derived_from_proprietary_source": false,
+    "contains_raw_prompt": false,
+    "contains_raw_source": false,
+    "contains_identity_fields": false
+  }
+}

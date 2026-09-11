@@ -1,0 +1,48 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-scope-reasoning-conformance",
+  "contract_version": "v1",
+  "scenarios": [
+    {
+      "id": "supported-selection",
+      "proposal_status": "accepted",
+      "scope_state": "resolved",
+      "run_created": false,
+      "reason_code": "host-proposal-evidence-validated",
+      "boundary": "One active host may select one exact hash-bound owner from strongly evidenced alternatives; validation itself creates no run."
+    },
+    {
+      "id": "invented-path",
+      "proposal_status": "rejected",
+      "scope_state": "ambiguous",
+      "run_created": false,
+      "reason_code": "unknown-paths",
+      "boundary": "A path absent from the canonical packet is rejected and cannot create a Planning Lock."
+    },
+    {
+      "id": "unsupported-edge",
+      "proposal_status": "rejected",
+      "scope_state": "ambiguous",
+      "run_created": false,
+      "reason_code": "unknown-edges",
+      "boundary": "Every material path claim must cite a packet edge that touches the exact candidate."
+    },
+    {
+      "id": "stale-packet",
+      "proposal_status": "rejected",
+      "scope_state": "ambiguous",
+      "run_created": false,
+      "reason_code": "stale-path-content",
+      "boundary": "A changed content fingerprint invalidates the proposal before any run is created."
+    },
+    {
+      "id": "authority-escalation",
+      "proposal_status": "rejected",
+      "scope_state": "ambiguous",
+      "run_created": false,
+      "reason_code": "host-authority-escalation-rejected",
+      "boundary": "Host reasoning is evidence refinement only and cannot request approval, a Planning Lock, writes, or execution."
+    }
+  ],
+  "boundary": "Codex, Copilot, and Claude submit the same public-evidence contract. Host identity is transport metadata and cannot change normalized scope truth."
+}

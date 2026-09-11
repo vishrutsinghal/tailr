@@ -22,6 +22,7 @@ def load(name: str, relative: str):
 task_start = load("debug_orientation_task_start", "scripts/task-start.py")
 reproduction = load("debug_orientation_reproduction", "scripts/debug-reproduction.py")
 orientation = load("debug_orientation_subject", "scripts/debug-orientation.py")
+evidence = load("debug_orientation_evidence", "scripts/execution-evidence.py")
 from workflow_runtime import contracts
 
 
@@ -52,15 +53,29 @@ class DebugOrientationTests(unittest.TestCase):
             self.assertTrue(any(row["path"] == "src/payments.py" for row in first["confirmed_paths"]))
             self.assertEqual(first["stage_id"], "d-03-project-orientation")
             self.assertEqual(first["status"], "awaiting-reproduction-evidence")
+            self.assertEqual(first["start_scope_binding"]["authority"]["type"], "debug-static-orientation")
+            self.assertEqual(first["target_paths"], ["src/payments.py"])
+            self.assertTrue(first["start_scope_binding"]["binding_fingerprint"].startswith("sha256:"))
             self.assertFalse((root / "src" / "payments.py").read_text(encoding="utf-8") == "")
+
+            uid = reproduction.show(root, "debug-orientation")["requirement_uid"]
+            event = evidence.append(root, "debug-orientation", {
+                "kind": "command-result", "requirement_uids": [uid], "tier": "integration",
+                "command_label": "timeout reproduction", "command": "python3 -m unittest timeout_reproduction",
+                "outcome": "fail", "environment": "local", "asserted_behavior": "two payment effects reproduced",
+            }, True)
+            reproduction.record_attempt(root, "debug-orientation", "pre-fix", "reproduced", event["fingerprint"], "The approved two-payment signature was observed.", ["command-or-actions"], True)
+            ready = orientation.create(root, "debug-orientation")
+            self.assertEqual(ready["status"], "ready")
+            self.assertEqual(ready["reproduction_stage_status"], "passed")
 
             (root / "src" / "new_worker.py").write_text("# new untracked source\n", encoding="utf-8")
             second = orientation.create(root, "debug-orientation")
-            self.assertEqual(second["revision"], 2)
+            self.assertEqual(second["revision"], 3)
             self.assertEqual(second["cache"]["status"], "stale")
             self.assertEqual(second["refresh_proposal"]["kind"], "incremental")
             self.assertIn("graph refresh", second["refresh_proposal"]["command"])
-            self.assertTrue((root / ".tailtrail" / "runs" / "debug-orientation" / "debug" / "orientation" / "orientation-v2.json").is_file())
+            self.assertTrue((root / ".tailtrail" / "runs" / "debug-orientation" / "debug" / "orientation" / "orientation-v3.json").is_file())
 
             schema = json.loads((ROOT / "schemas" / "debug-orientation.schema.json").read_text(encoding="utf-8"))
             self.assertEqual(contracts.validate_document({key: value for key, value in second.items() if key != "artifact"}, schema), [])

@@ -11,17 +11,22 @@ import argparse
 import importlib.util
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+import navigator_scope as SCOPE
 BOUNDARY = (
     "Planning discussion records metadata only; it does not persist raw chat or inspect project source, "
     "run tools, or change the approved plan."
 )
 DISCUSSION_CLASSES = {
+    "explain-plan-quality",
     "explain-scope",
     "explain-impact",
     "explain-requirement",
@@ -97,6 +102,13 @@ def classify(message: str) -> str:
         return "explain-authority"
     if any(term in normalized for term in ("update the plan", "revise the plan", "change the plan", "remove ", "add ")):
         return "revision-request"
+    if re.search(r"\b(?:is|does)\s+(?:this|the)\s+plan\b.*\b(?:correct|good|ready|complete)\b", normalized) or "issues remain" in normalized:
+        return "explain-plan-quality"
+    path_refs = references(message)
+    if any(item["kind"] == "path" for item in path_refs) and any(
+        term in normalized for term in ("why", "selected", "excluded", "owner", "scope", "role", "evidence")
+    ):
+        return "explain-scope"
     if any(term in normalized for term in ("must ", "should ", "need to ", "requirement", "preserve ")):
         return "requirement-clarification"
     if any(term in normalized for term in ("dependency", "alternative", "avoid ", "instead of")):
@@ -113,7 +125,7 @@ def classify(message: str) -> str:
         return "explain-token"
     if any(term in normalized for term in ("risk", "safe", "safety", "rollback", "recovery")):
         return "explain-risk"
-    if any(term in normalized for term in ("approve", "approval", "implement", "after approval")):
+    if re.search(r"\b(?:approve|approval|implement|after\s+approval)\b", normalized):
         return "explain-approval"
     if any(term in normalized for term in ("caller", "call path", "impact", "api", "contract")):
         return "explain-impact"
@@ -150,6 +162,7 @@ def aidlc_question_id(message: str) -> str | None:
 
 def summary(kind: str) -> str:
     summaries = {
+        "explain-plan-quality": "Requested an evidence-backed quality assessment of the saved plan.",
         "explain-scope": "Requested an explanation of the saved plan scope.",
         "explain-impact": "Requested an explanation of a saved impact or caller decision.",
         "explain-requirement": "Requested an explanation of a saved requirement row.",
@@ -233,7 +246,114 @@ def explain(root: Path, run_id: str, question: str, kind: str | None = None) -> 
     requirements = [item["value"] for item in references_found if item["kind"] == "requirement"]
     impacted = [item for item in navigator.get("likely_impacted_files", []) if isinstance(item, dict)]
 
+    if classification == "explain-plan-quality":
+        scope_quality = navigator.get("scope_quality") if isinstance(navigator.get("scope_quality"), dict) else {}
+        scope_evidence = navigator.get("scope_evidence") if isinstance(navigator.get("scope_evidence"), dict) else {}
+        matrix = [row for row in navigator.get("requirement_matrix", []) if isinstance(row, dict)]
+        owners = sorted({
+            str(path)
+            for row in matrix
+            for path in row.get("likely_paths", [])
+            if str(path)
+        })
+        proof = sorted({
+            str(path)
+            for row in matrix
+            for path in (row.get("scope_evidence", {}) or {}).get("proof_paths", [])
+            if str(path)
+        })
+        ui_plan = report.get("ui_plan") if isinstance(report.get("ui_plan"), dict) else {}
+        contracts = [row for row in ui_plan.get("contracts", []) if isinstance(row, dict)]
+        investigation = scope_evidence.get("investigation") if isinstance(scope_evidence.get("investigation"), dict) else {}
+        cache = investigation.get("cache") if isinstance(investigation.get("cache"), dict) else {}
+        cache_reasons = set(_text_list(cache.get("reason_codes")))
+        gaps: list[str] = []
+        if scope_quality.get("status") != "passed":
+            gaps.append(f"scope quality is `{scope_quality.get('status', 'unknown')}`")
+        if not matrix:
+            gaps.append("no requirement rows are saved")
+        if ui_plan.get("selected") and len(contracts) != len(matrix):
+            gaps.append("not every requirement has a UI contract")
+        if not proof:
+            gaps.append("no focused proof path is linked to the selected owner")
+        graph_detail = (
+            "bounded in-memory graph built and not persisted"
+            if "bounded-ephemeral-graph-built" in cache_reasons
+            else f"persistent graph cache `{cache.get('status', 'not checked')}`"
+        )
+        evidence = [
+            {"label": "scope-quality", "detail": f"Status `{scope_quality.get('status', 'unknown')}`; owners: {', '.join(f'`{path}`' for path in owners) or 'none'}."},
+            {"label": "requirements", "detail": f"Saved requirement rows: `{len(matrix)}`; UI contracts: `{len(contracts)}`."},
+            {"label": "graph", "detail": f"{graph_detail}; stop reason `{investigation.get('stop_reason', 'not recorded')}`."},
+            {"label": "validation", "detail": f"Linked proof paths: {', '.join(f'`{path}`' for path in proof) or 'none'}."},
+        ]
+        ready = not gaps
+        return _answer(
+            "answered",
+            "The saved plan is ready for approval based on its recorded planning evidence." if ready else "The saved plan is not yet fully ready for approval: " + "; ".join(gaps) + ".",
+            evidence,
+            "Approve only when the saved requirements, owner mapping, and required proof boundary are acceptable; otherwise use a versioned plan revision.",
+            "Approving unresolved proof or requirement gaps can produce implementation that cannot be closed with requirement-linked evidence.",
+            "No plan change.",
+            "Approve, continue discussion, request a versioned revision, reject, or use AIDLC Requirements mode.",
+        )
+
     if classification in {"explain-scope", "explain-impact"}:
+        scope_evidence = navigator.get("scope_evidence")
+        if isinstance(scope_evidence, dict) and str(scope_evidence.get("schema_version")) == "2":
+            traces = [SCOPE.candidate_trace(scope_evidence, path) for path in paths]
+            matches = [trace for trace in traces if isinstance(trace, dict)]
+            if not paths:
+                projection = SCOPE.role_projection(scope_evidence)
+                first = next(iter(projection.get("implementation_owners", [])), None)
+                if isinstance(first, dict):
+                    trace = SCOPE.candidate_trace(scope_evidence, str(first.get("path")))
+                    if isinstance(trace, dict):
+                        matches = [trace]
+            if matches:
+                evidence: list[dict[str, str]] = []
+                for trace in matches[:3]:
+                    mapped = ", ".join(
+                        f"{row.get('requirement_id')}={row.get('role')}"
+                        for row in trace.get("requirement_roles", [])
+                    ) or "not mapped to an editable requirement role"
+                    evidence.append({
+                        "label": "scope-decision",
+                        "detail": (
+                            f"`{trace.get('path')}` is `{trace.get('status')}` as `{trace.get('role')}` "
+                            f"with `{trace.get('confidence')}` confidence; {mapped}; reasons: "
+                            f"{', '.join(trace.get('reason_codes', [])) or 'none recorded'}."
+                        ),
+                    })
+                    for edge in trace.get("edges", []):
+                        evidence.append({
+                            "label": "scope-edge",
+                            "detail": (
+                                f"`{edge.get('edge_id')}` `{edge.get('kind')}`: "
+                                f"`{edge.get('from_path')}` -> `{edge.get('to_path')}` "
+                                f"with `{edge.get('strength')}` strength; reasons: "
+                                f"{', '.join(edge.get('reason_codes', [])) or 'none recorded'}."
+                            ),
+                        })
+                first = matches[0]
+                status = str(first.get("status"))
+                direct = {
+                    "included": "The saved v2 decision identifies this path as an implementation owner for the named requirement mapping.",
+                    "inspection-only": "The saved v2 decision keeps this path read-only for inspection; it is not editable scope.",
+                    "proof-only": "The saved v2 decision uses this path only as proof; it is not an implementation owner.",
+                    "excluded": "The saved v2 decision excluded this lexical candidate from editable and inspection scope.",
+                    "rejected": "The saved v2 decision rejected this path at the repository safety boundary.",
+                }.get(status, "The saved v2 decision records this path without granting edit authority.")
+                return _answer(
+                    "answered",
+                    direct,
+                    evidence,
+                    "Use a versioned plan revision for a role change; evidence-backed roles cannot change through discussion alone.",
+                    "Ignoring the saved role or edge confidence could silently broaden implementation authority.",
+                    "No plan change.",
+                    "Continue discussion, request a bounded revision, reject, or use AIDLC.",
+                )
+            return _unknown("why that v2 candidate or relationship was selected")
         matches = [item for item in impacted if not paths or str(item.get("path")) in paths]
         if matches:
             details = [f"`{item.get('path')}`: {item.get('reason', 'saved Navigator impact decision')}" for item in matches[:3]]
@@ -309,17 +429,17 @@ def explain(root: Path, run_id: str, question: str, kind: str | None = None) -> 
 
     if classification == "explain-feature":
         selected = _feature_rows(report, "selected_features")
-        deferred = _feature_rows(report, "skipped_features")
-        all_rows = [*selected, *deferred]
+        conditional = _feature_rows(report, "skipped_features")
+        all_rows = [*selected, *conditional]
         matched = [item for item in all_rows if any(part and part in normalized for part in str(item.get("name", "")).lower().split())]
-        rows = matched or selected[:3] or deferred[:3]
+        rows = matched or selected[:3] or conditional[:3]
         if rows:
-            deferred_names = {str(item.get("name")) for item in deferred}
+            conditional_names = {str(item.get("name")) for item in conditional}
             return _answer(
                 "answered",
-                "Selected and deferred controls are planning decisions; neither is evidence that a control has already run.",
+                "Selected, required-later, and conditional controls are planning decisions; none is evidence that a control has already run.",
                 [{"label": "decision-record", "detail": f"{item.get('name')}: {item.get('why', item.get('when', 'saved planning decision'))}"} for item in rows],
-                "Deferred controls remain available only under their saved activation conditions." if any(str(item.get("name")) in deferred_names for item in rows) else "Request a plan revision if a selected control is not appropriate.",
+                "Conditional controls use saved activation rules; this control is separate from mandatory required-later testing and closure." if any(str(item.get("name")) in conditional_names for item in rows) else "Request a plan revision if a selected control is not appropriate.",
                 "Treating selection as completed evidence would overstate delivery confidence.",
                 "No plan change.",
                 "Continue discussion or request revision of selected controls.",

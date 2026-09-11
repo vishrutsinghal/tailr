@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/navigator-graph-lifecycle.schema.json",
+  "title": "TailTrail Navigator Graph Lifecycle",
+  "type": "object",
+  "required": ["schema_version", "type", "phase", "requested_mode", "action", "reason_codes", "target_paths", "cache_path", "before_status", "after_status", "written", "metadata_only", "implementation_authority", "boundary", "fingerprint"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-navigator-graph-lifecycle"},
+    "attempt_id": {"type": ["string", "null"]},
+    "phase": {"enum": ["start", "debug-start", "closure"]},
+    "requested_mode": {"enum": ["auto", "reuse", "refresh", "rebuild", "off"]},
+    "action": {"enum": ["reuse", "create", "refresh", "rebuild", "defer", "off"]},
+    "reason_codes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "target_paths": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "cache_path": {"const": "tailtrail-meta/code-graph-cache.json"},
+    "before_status": {"type": "object"},
+    "after_status": {"type": "object"},
+    "cache_fingerprint": {"type": ["string", "null"]},
+    "written": {"type": "boolean"},
+    "metadata_only": {"const": true},
+    "implementation_authority": {"const": false},
+    "boundary": {"type": "string", "minLength": 1},
+    "fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

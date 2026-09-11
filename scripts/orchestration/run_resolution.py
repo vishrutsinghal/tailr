@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 from pathlib import Path
 from typing import Any, Callable
 
@@ -25,6 +26,25 @@ def resolve_run(
         if states and lock.get("status") not in states:
             raise ValueError(f"run `{run_id}` is `{lock.get('status')}`, expected: {', '.join(sorted(states))}")
         return run_id
+    # A durable attachment is the conversational authority.  A detached or
+    # stop-pending record must never be bypassed by scanning saved run folders.
+    session_path = Path(__file__).resolve().parents[1] / "session_control.py"
+    if session_path.is_file():
+        spec = importlib.util.spec_from_file_location("tailtrail_run_resolution_session", session_path)
+        if spec and spec.loader:
+            session = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(session)
+            attachment = session.status(root)
+            if attachment.get("state") in {"detached", "stop-pending", "resume-check"}:
+                raise ValueError("TailTrail routing is detached; use `tailtrail resume --run-id <exact-run-id>` first")
+            attached = attachment.get("run_id") if attachment.get("state") == "attached" else None
+            if attached:
+                lock = show_lock(root, str(attached))
+                if states and lock.get("status") not in states:
+                    raise ValueError(f"run `{attached}` is `{lock.get('status')}`, expected: {', '.join(sorted(states))}")
+                return str(attached)
+    # Legacy workspaces have no attachment artifact. Preserve their existing
+    # single-run behavior until Start or explicit resume creates the record.
     candidates: list[str] = []
     for directory in run_directories(root):
         try:

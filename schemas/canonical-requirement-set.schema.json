@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/canonical-requirement-set.schema.json",
+  "title": "TailTrail Canonical Requirement Set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "source", "authority", "goal_fingerprint", "requirements", "fingerprint"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-canonical-requirement-set" },
+    "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "authority": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "goal_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["display_id", "requirement_id", "statement", "kind", "source_clause_ids"],
+        "properties": {
+          "display_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "requirement_id": { "type": "string", "pattern": "^req-frame-[a-f0-9]{12}$" },
+          "statement": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "kind": { "enum": ["change", "preserve", "constraint", "safety"] },
+          "source_clause_ids": {
+            "type": "array",
+            "maxItems": 25,
+            "items": { "type": "string", "minLength": 1, "maxLength": 64 }
+                   },
+          "source_reference": { "type": "object" }
+        }
+      }
+    }
+  }
+}

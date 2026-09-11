@@ -1172,7 +1172,7 @@ only a list of revised requirements. It projects the immutable Start evidence
 back into the same operator-facing sections used by detailed Navigator plans:
 
 - Navigator decision and target scope;
-- selected and deferred TailTrail features;
+- selected TailTrail features, mandatory later-stage testing and closure, and conditional controls;
 - Architecture Fitness, Behaviour, Maintainability, and UI-consistency plans
   when selected;
 - guided delivery stages and first active slice;
@@ -1203,7 +1203,7 @@ stage. TailTrail does not substitute its own parallel questionnaire.
 - [x] Compile planned evidence tiers before approval and reject unsupported
   plan/receipt combinations early.
 - [x] Render the resolved post-question delivery plan with scope, Harness
-  lenses, validation, token posture, deferred controls, and approval boundary.
+  lenses, validation, token posture, required-later work, conditional controls, and approval boundary.
 - [x] Implement the Requirements-stage Official Approval-Gate Adapter that maps the official gate to
   TailTrail requirement/decision/evidence transitions and records one linked
   event per decision.

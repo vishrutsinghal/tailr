@@ -155,16 +155,24 @@ def close(root: Path, run_id: str | None, decision: str | None, input_path: Path
             "boundary":"Closure uses the canonical finalizer and saved evidence. It does not infer missing proof or promote learning without acceptance."}
 
 
-def render(value: dict[str, Any], *, mode: str = "guided", verbose: bool = False) -> str:
-    return PRESENTATION.render_markdown(PRESENTATION.from_orchestration(value, mode=mode, verbose=verbose))
+def render(value: dict[str, Any], *, mode: str | None = None, verbose: bool = False) -> str:
+    # Follow-up reports have one canonical semantic shape. The legacy mode
+    # override remains accepted for automation compatibility but is not a user
+    # workflow; comprehensive closure detail lives in completion-report.py.
+    selected = mode or "expert"
+    return PRESENTATION.render_markdown(PRESENTATION.from_orchestration(value, mode=selected, verbose=verbose))
 
 
 def main() -> int:
+    # argparse.REMAINDER on start_p below cannot forward -h/--help through to
+    # task-start.py's real parser, so hand off before the outer parser sees it.
+    if len(sys.argv) > 1 and sys.argv[1] == "start" and any(flag in sys.argv[2:] for flag in ("-h", "--help")):
+        return start(sys.argv[2:])
     parser = argparse.ArgumentParser(description=__doc__); sub = parser.add_subparsers(dest="verb", required=True)
     start_p = sub.add_parser("start"); start_p.add_argument("args", nargs=argparse.REMAINDER)
     for verb in ("discuss", "approve", "continue", "status", "close"):
         item = sub.add_parser(verb); item.add_argument("--root", type=Path, default=Path.cwd()); item.add_argument("--run-id"); item.add_argument("--format", choices=("markdown","json"), default="markdown")
-        item.add_argument("--presentation", "--presentation-mode", choices=("quick", "guided", "expert"), default="guided")
+        item.add_argument("--presentation", "--presentation-mode", choices=("quick", "guided", "expert"), default=None, help=argparse.SUPPRESS)
         item.add_argument("--verbose", action="store_true", help="Render the complete canonical projection without changing workflow authority.")
         if verb == "discuss": item.add_argument("--question", required=True)
         if verb == "continue": item.add_argument("--result-ref")

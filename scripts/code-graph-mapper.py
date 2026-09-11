@@ -6,9 +6,11 @@ import argparse
 import ast
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from code_graph_inventory import snapshot as inventory_snapshot
+import code_relationships
+from module_resolution import RepositoryModuleResolver
 
 
 SCHEMA_VERSION = "1"
@@ -30,6 +34,7 @@ SKIP_DIRS = {
     ".idea",
     ".svn",
     ".tailtrail",
+    "tailtrail-meta",
     "__pycache__",
     "aidlc-rules",
     "node_modules",
@@ -47,12 +52,21 @@ SKIP_DIRS = {
 }
 
 SOURCE_EXTENSIONS = {
+    ".cjs",
     ".cs",
+    ".go",
     ".java",
+    ".js",
+    ".jsx",
+    ".mjs",
     ".py",
     ".sql",
     ".tf",
     ".tfvars",
+    ".ts",
+    ".tsx",
+    ".vue",
+    ".svelte",
 }
 
 TEXT_EXTENSIONS = SOURCE_EXTENSIONS | {
@@ -207,6 +221,16 @@ def partition_root_for(path: Path, root: Path) -> Path:
 
 
 def language_for(path: Path) -> str | None:
+    if path.suffix in {".js", ".jsx", ".mjs", ".cjs"}:
+        return "javascript"
+    if path.suffix in {".ts", ".tsx"}:
+        return "typescript"
+    if path.suffix == ".go":
+        return "go"
+    if path.suffix == ".vue":
+        return "vue"
+    if path.suffix == ".svelte":
+        return "svelte"
     if path.suffix == ".py":
         return "python"
     if path.suffix == ".java":
@@ -507,6 +531,31 @@ def extract_language_data(path: Path, root: Path) -> dict[str, list[dict[str, An
         data[key].extend(values)
     data["config_usage"].extend(extract_config_usage(path, root, body))
     data["service_edges"].extend(extract_service_edges(path, root, body))
+    # Keep the persistent mapper aligned with Navigator's dependency-free
+    # relationship extractor. This supplies definitions and import/load edges
+    # for JavaScript, TypeScript, Go, and the existing supported languages
+    # without executing project code or retaining source bodies.
+    facts = code_relationships.extract(path, root, body)
+    rel = safe_relative(path, root) or path.as_posix()
+    known_symbols = {(row.get("name"), row.get("line")) for row in data["symbols"]}
+    for row in facts.get("definitions", []):
+        key = (row.get("value"), row.get("line"))
+        if key not in known_symbols:
+            add_symbol(
+                data["symbols"], str(row.get("kind", "definition")),
+                str(row.get("value", "")), str(facts.get("language", language or "unknown")),
+                rel, int(row.get("line", 1)), "static-text",
+            )
+            known_symbols.add(key)
+    for group in ("imports", "loaders", "registrations"):
+        for row in facts.get(group, []):
+            data["references"].append({
+                "target": str(row.get("value", "")),
+                "referring_file": rel,
+                "line": int(row.get("line", 1)),
+                "reference_type": str(row.get("kind", group.rstrip("s"))),
+                "confidence": "static-text",
+            })
     return data
 
 
@@ -808,6 +857,26 @@ def build_graph(root: Path, changed_values: list[str], mode: str, scanner_values
         for key, values in extracted.items():
             graph_data[key].extend(values)
 
+    # Normalize repository-local JS/TS edges with the same bounded resolver
+    # used by Navigator.  Raw references remain available for audit, while the
+    # resolved target identity lets a fresh graph connect aliases to callers.
+    known_paths = [safe_relative(path, root) for path in candidates]
+    module_resolver = RepositoryModuleResolver(root, (path for path in known_paths if path))
+    for reference in graph_data["references"]:
+        importer = reference.get("referring_file")
+        raw_target = reference.get("target")
+        if not isinstance(importer, str) or not isinstance(raw_target, str):
+            continue
+        result = module_resolver.resolve(importer, raw_target, str(reference.get("reference_type", "import")))
+        if result.state == "not-applicable":
+            continue
+        reference["module_resolution"] = {
+            "state": result.state,
+            "resolved_targets": list(result.candidates),
+            "reason_codes": list(result.reason_codes),
+            "config_paths": list(result.config_paths),
+        }
+
     graph_data["references"].extend(find_references(root, scope_paths, candidates, limit=limit * 4))
     likely_tests, likely_callers = likely_tests_and_callers(root, scope_paths, candidates, limit=limit)
     suggested_read_order = list(
@@ -990,7 +1059,18 @@ def status_for(root: Path, cache: dict[str, Any] | None, changed_values: list[st
 
 def write_cache(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    payload = (json.dumps(data, indent=2) + "\n").encode("utf-8")
+    handle = tempfile.NamedTemporaryFile(prefix=path.name + ".", suffix=".tmp", dir=path.parent, delete=False)
+    temporary = Path(handle.name)
+    try:
+        with handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def markdown_report(data: dict[str, Any], status: dict[str, Any] | None = None, path: Path | None = None) -> str:

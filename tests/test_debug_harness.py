@@ -43,7 +43,7 @@ class DebugHarnessTests(unittest.TestCase):
         scenarios = run / "debug" / "scenario-input.json"; receipts = run / "debug" / "scenario-receipts.json"
         scenarios.parent.mkdir(parents=True, exist_ok=True)
         scenarios.write_text(json.dumps({"scenarios":[{"scenario_id":"debug-restored", "requirement_uid":uid, "preconditions":[], "action":"retry the failed journey", "expected_outcome":asserted, "preservation":[], "evidence":[{"tier":"integration", "asserted_behavior":asserted}]}]}), encoding="utf-8")
-        receipts.write_text(json.dumps({"receipts":[{"requirement_uid":uid, "tier":"integration", "outcome":"pass", "asserted_behavior":asserted}]}), encoding="utf-8")
+        receipts.write_text(json.dumps({"receipts":[{"requirement_uid":uid, "tier":"integration", "outcome":"pass", "evidence_quality":"attested", "asserted_behavior":asserted}]}), encoding="utf-8")
         behavior.assess(root, run_id, scenarios, receipts)
         recovery = run / "recovery" / "boundary.json"; recovery.parent.mkdir(parents=True, exist_ok=True); recovery.write_text(json.dumps({"type":"test-recovery-boundary"}), encoding="utf-8")
         result = convergence.finalize(root, run_id, True)
@@ -59,8 +59,16 @@ class DebugHarnessTests(unittest.TestCase):
         return anchor["requirements"][0]["requirement_uid"]
 
     def record_command_evidence(self, root: Path, run_id: str, uid: str, outcome: str = "pass") -> str:
-        event = {"kind": "command-result", "requirement_uids": [uid], "tier": "integration", "command_label": "trace payment adapter calls", "command": "python3 -m unittest tests.integration.test_payment", "outcome": outcome, "environment": "local", "asserted_behavior": "traced both payment adapter calls"}
-        return evidence.append(root, run_id, event, True)["fingerprint"]
+        event = {"kind": "command-result", "requirement_uids": [uid], "tier": "integration", "command_label": "trace payment adapter calls", "command": "python3 -m unittest tests.integration.test_payment", "outcome": outcome, "environment": "local", "asserted_behavior": "approved duplicate payment failure reproduced"}
+        saved = evidence.append(root, run_id, event, True)
+        reproduction.record_attempt(root, run_id, "pre-fix", "reproduced", saved["fingerprint"], "The approved duplicate-payment signature was observed.", ["command-or-actions", "input-or-fixture"], True)
+        return saved["fingerprint"]
+
+    def record_restored_reproduction(self, root: Path, run_id: str, uid: str) -> str:
+        event = {"kind": "command-result", "requirement_uids": [uid], "tier": "integration", "command_label": "rerun approved payment reproduction", "command": "python3 -m unittest tests.integration.test_payment", "outcome": "pass", "environment": "local", "asserted_behavior": "approved payment behavior restored"}
+        saved = evidence.append(root, run_id, event, True)
+        reproduction.record_attempt(root, run_id, "post-fix", "restored", saved["fingerprint"], "The original failure signature is absent and the approved behavior is restored.", ["command-or-actions", "input-or-fixture"], True)
+        return saved["fingerprint"]
 
     def test_full_happy_path_reaches_domain_ceiling(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -79,6 +87,7 @@ class DebugHarnessTests(unittest.TestCase):
             evidence.append(root, "run", {"kind": "source-edit", "requirement_uids": [uid], "changed_paths": ["src/payments.py"]}, True)
             correction.scope_check(root, "run", ["src/payments.py"], True)
             evidence.append(root, "run", {"kind": "harness-result", "requirement_uids": [uid], "classification": "Behaviour Harness: checkout-with-timeout user journey restored"}, True)
+            self.record_restored_reproduction(root, "run", uid)
             self.converge(root, "run", uid, "checkout-with-timeout user journey restored")
             report = completion.generate(root, "run")
             self.assertEqual(report["confidence_state"], "behavior-restored")
@@ -90,6 +99,14 @@ class DebugHarnessTests(unittest.TestCase):
             self.assertEqual(canonical["debug"]["debug_status"], "pass")
             self.assertEqual(canonical["debug"]["authority"], "section-only")
             self.assertNotIn("acceptance_state", canonical["debug"])
+            rendered = canonical_completion.render(canonical)
+            self.assertIn("## Reproduction proof", rendered)
+            self.assertIn("### Sequential reproduction steps", rendered)
+            self.assertIn("### Before-fix attempt", rendered)
+            self.assertIn("### Post-fix rerun", rendered)
+            self.assertIn("python3 -m unittest tests.integration.test_payment", rendered)
+            self.assertIn("Outcome: **reproduced**", rendered)
+            self.assertIn("Outcome: **restored**", rendered)
 
     def test_unsupported_domain_is_rejected_at_reproduction_and_hypothesis(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -101,6 +118,88 @@ class DebugHarnessTests(unittest.TestCase):
             reproduction.approve(root, "run")
             with self.assertRaisesRegex(ValueError, "not supported"):
                 hypothesis.add_hypothesis(root, "run", "network", "a network hypothesis", 1)
+
+    def test_not_reproduced_requests_user_input_blocks_hypotheses_and_supports_exact_revision_retry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.open_and_approve(root)
+            event = evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": [uid], "tier": "integration",
+                "command_label": "approved timeout reproduction", "command": "python3 -m unittest timeout_reproduction",
+                "outcome": "pass", "environment": "local-python-3.13",
+                "asserted_behavior": "duplicate charge signature was absent",
+            }, True)
+            result = reproduction.record_attempt(
+                root, "run", "pre-fix", "not-reproduced", event["fingerprint"],
+                "The command passed and the approved duplicate-charge signature was absent.",
+                ["command-or-actions", "runtime-version", "configuration"], True,
+            )
+
+            self.assertEqual(result["state"], "awaiting-reproduction-input")
+            self.assertIn("exact command", " ".join(result["input_request"]["requested"]).lower())
+            self.assertIn("Do not provide credentials", result["input_request"]["safety"])
+            self.assertIn("## Input needed to reproduce the issue", reproduction.render_attempt_markdown(result["status_projection"]))
+            malformed_projection = json.loads(json.dumps(result["status_projection"]))
+            malformed_projection["attempts"][0]["invented"] = True
+            with self.assertRaisesRegex(ValueError, "is not allowed"):
+                reproduction.RUNTIME_CONTRACTS.require_valid(malformed_projection)
+            with self.assertRaisesRegex(ValueError, "has not been factually reproduced"):
+                hypothesis.add_hypothesis(root, "run", "code", "speculative cause", 1)
+
+            revised = reproduction.reopen(root, "run", 1, {
+                "reproduction_method": "run the supplied timeout fixture with two workers",
+                "validation_contract": {"max_reproduction_attempts": 2},
+            })
+            self.assertEqual(revised["revision"], 2)
+            self.assertEqual(revised["requirement_uid"], uid)
+            self.assertTrue(reproduction.approved_contract_path(root, "run", 1).is_file())
+            reproduction.approve(root, "run", 2)
+            self.assertTrue(reproduction.approved_contract_path(root, "run", 2).is_file())
+
+            retry = evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": [uid], "tier": "integration",
+                "command_label": "revised timeout reproduction", "command": "python3 -m unittest timeout_reproduction_two_workers",
+                "outcome": "fail", "environment": "local-python-3.13-two-workers",
+                "asserted_behavior": "duplicate charge signature reproduced",
+            }, True)
+            reproduced = reproduction.record_attempt(
+                root, "run", "pre-fix", "reproduced", retry["fingerprint"],
+                "The revised two-worker procedure produced the approved duplicate-charge signature.",
+                ["command-or-actions", "timing-or-frequency"], True,
+            )
+            self.assertEqual(reproduced["state"], "reproduction-confirmed")
+            self.assertEqual(len(hypothesis.add_hypothesis(root, "run", "code", "timing race", 1)["hypotheses"]), 1)
+
+    def test_reproduction_attempt_rejects_sensitive_summary_and_completion_needs_factual_attempt(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.open_and_approve(root)
+            event = evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": [uid], "tier": "integration",
+                "command_label": "approved reproduction", "command": "python3 -m unittest reproduction",
+                "outcome": "fail", "environment": "local", "asserted_behavior": "failure observed",
+            }, True)
+            with self.assertRaisesRegex(ValueError, "sensitive data"):
+                reproduction.record_attempt(root, "run", "pre-fix", "reproduced", event["fingerprint"], "Contact person@example.com for the failure.", ["command-or-actions"], True)
+            report = completion.generate(root, "run")
+            self.assertEqual(report["confidence_state"], "symptom-captured")
+            self.assertEqual(report["reproduction_proof"]["status"], "evidence-incomplete")
+            self.assertTrue(any(item.startswith("No factual pre-fix reproduction attempt") for item in report["gaps"]))
+
+    def test_post_fix_attempt_cannot_skip_current_revision_pre_fix_proof(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.open_and_approve(root)
+            event = evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": [uid], "tier": "integration",
+                "command_label": "post-fix reproduction", "command": "python3 -m unittest reproduction",
+                "outcome": "pass", "environment": "local", "asserted_behavior": "behavior restored",
+            }, True)
+            with self.assertRaisesRegex(ValueError, "requires a factual reproduced pre-fix attempt"):
+                reproduction.record_attempt(
+                    root, "run", "post-fix", "restored", event["fingerprint"],
+                    "The failure was absent.", ["command-or-actions"], True,
+                )
 
     def test_canonical_finalizer_creates_fail_closed_debug_section(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -118,7 +217,8 @@ class DebugHarnessTests(unittest.TestCase):
     def test_experiment_requires_a_real_execution_evidence_event(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            self.open_and_approve(root)
+            uid = self.open_and_approve(root)
+            self.record_command_evidence(root, "run", uid)
             ledger = hypothesis.add_hypothesis(root, "run", "code", "Retry lacks an idempotency key", 1)
             h1 = ledger["hypotheses"][0]["hypothesis_id"]
             with self.assertRaisesRegex(ValueError, "does not match a recorded"):
@@ -194,6 +294,7 @@ class DebugHarnessTests(unittest.TestCase):
             evidence.append(root, "run", {"kind": "source-edit", "requirement_uids": [uid], "changed_paths": ["src/domain.py"]}, True)
             correction.scope_check(root, "run", ["src/domain.py"], True)
             evidence.append(root, "run", {"kind": "harness-result", "requirement_uids": [uid], "classification": "Behaviour Harness: checkout-with-timeout user journey restored"}, True)
+            self.record_restored_reproduction(root, "run", uid)
             self.converge(root, "run", uid, "checkout-with-timeout user journey restored")
             report = completion.generate(root, "run")
             self.assertEqual(report["domain_confidence_ceiling"], expected_ceiling)

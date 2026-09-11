@@ -1,0 +1,62 @@
+{
+  "schema_version": "2",
+  "type": "tailtrail-host-scope-conformance",
+  "contract_version": "v2",
+  "scenarios": [
+    {
+      "id": "resolved",
+      "workflow": "build",
+      "expected_state": "resolved",
+      "scope_gate": "pass",
+      "editable_role": "implementation-owner",
+      "required_host_observations": ["same-decision-fingerprint", "same-path-roles", "approval-still-required"],
+      "boundary": "A resolved decision permits Planning Lock persistence but never grants implementation authority before approval."
+    },
+    {
+      "id": "unresolved",
+      "workflow": "build",
+      "expected_state": "unresolved",
+      "scope_gate": "block",
+      "editable_role": "none",
+      "required_host_observations": ["same-decision-fingerprint", "no-planning-lock", "no-host-scope-invention"],
+      "boundary": "Every entrypoint must return the non-persisted scope boundary and create no run artifacts."
+    },
+    {
+      "id": "conflicting",
+      "workflow": "build",
+      "expected_state": "ambiguous",
+      "scope_gate": "block",
+      "editable_role": "none",
+      "required_host_observations": ["same-decision-fingerprint", "conflict-visible", "no-confidence-promotion"],
+      "boundary": "Conflicting ownership evidence remains ambiguous until an approved investigation or revision resolves it."
+    },
+    {
+      "id": "docs-only",
+      "workflow": "build",
+      "expected_state": "resolved",
+      "scope_gate": "pass",
+      "editable_role": "documentation",
+      "required_host_observations": ["same-decision-fingerprint", "documentation-owner-only", "source-files-excluded"],
+      "boundary": "A documentation-only request may select documentation as its exact owner without promoting production source."
+    },
+    {
+      "id": "test-only",
+      "workflow": "build",
+      "expected_state": "resolved",
+      "scope_gate": "pass",
+      "editable_role": "test",
+      "required_host_observations": ["same-decision-fingerprint", "test-owner-only", "production-files-excluded"],
+      "boundary": "A test-only request may select tests as exact owners; non-test requests may not use this exception."
+    },
+    {
+      "id": "debug-start",
+      "workflow": "debug",
+      "expected_state": "unresolved",
+      "scope_gate": "orientation-only",
+      "editable_role": "none",
+      "required_host_observations": ["same-decision-fingerprint", "command-free-orientation", "correction-gate-preserved"],
+      "boundary": "Debug Start records static orientation only and retains separate reproduction and correction approvals."
+    }
+  ],
+  "boundary": "Codex, Copilot, Claude, CLI, and MCP consume one canonical v2 decision. Host wording may explain evidence but cannot change paths, roles, fingerprints, gates, or authority."
+}

@@ -126,11 +126,11 @@ class CliDispatchTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(result.stdout.startswith("```text\n+"))
-        self.assertIn("\n```\n\n# TailTrail Pre-Target Start Plan", result.stdout)
+        self.assertIn("\n```\n\n# TailTrail Scope Confirmation Required", result.stdout)
         self.assertEqual(result.stdout.count("TAILTRAIL"), 1)
         self.assertLess(
             result.stdout.index("TAILTRAIL"),
-            result.stdout.index("# TailTrail Pre-Target Start Plan"),
+            result.stdout.index("# TailTrail Scope Confirmation Required"),
         )
 
     def test_hyphen_wrappers_delegate_to_importable_modules(self) -> None:
@@ -300,14 +300,12 @@ class CliDispatchTests(unittest.TestCase):
             check=False,
         )
 
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 2, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual(report["goal"], "fix validation bug")
-        self.assertIn("navigator", report)
-        self.assertEqual(report["planning_lock"]["status"], "awaiting-approval")
-        self.assertFalse(report["planning_lock"]["writes_allowed"])
-        self.assertIn("planning_report", report)
-        self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
+        self.assertTrue(report["scope_quality_boundary"])
+        self.assertTrue(report["scope_quality"]["blocking"])
+        self.assertNotIn("planning_lock", report)
 
     def test_free_form_task_routes_to_start(self) -> None:
         result = subprocess.run(
@@ -318,23 +316,46 @@ class CliDispatchTests(unittest.TestCase):
             check=False,
         )
 
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 2, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual(report["goal"], "fix validation bug")
-        self.assertIn("navigator", report)
-        self.assertEqual(report["planning_lock"]["status"], "awaiting-approval")
-        self.assertFalse(report["planning_lock"]["writes_allowed"])
-        self.assertEqual(report["next_step"], "Review the guided delivery plan, then approve or edit before implementation.")
+        self.assertTrue(report["scope_quality_boundary"])
+        self.assertTrue(report["scope_quality"]["blocking"])
+        self.assertNotIn("planning_lock", report)
 
-    def test_start_accepts_quick_guided_and_expert_presentation_modes(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            for mode in ("quick", "guided", "expert"):
+    def test_start_selects_plan_detail_from_aidlc_and_verbose(self) -> None:
+        cases = (("off", "Quick"), ("lite", "Expert"))
+        for aidlc_mode, expected_detail in cases:
+            with tempfile.TemporaryDirectory() as temporary:
+                target = Path(temporary)
+                changed = target / "src" / "order_service" / "validation.py"
+                changed.parent.mkdir(parents=True)
+                changed.write_text("def validate_quantity(value): return value > 0\n", encoding="utf-8")
                 result = subprocess.run(
-                    [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "start", "fix validation", "--root", temporary, "--no-planning-lock", "--presentation", mode],
+                    [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "start", "fix validation", "--root", temporary, "--changed", "src/order_service/validation.py", "--aidlc", aidlc_mode],
                     cwd=ROOT, text=True, capture_output=True, check=False,
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn(f"**Presentation:** `{mode}`", result.stdout)
+                self.assertIn(f"**Plan detail:** `{expected_detail}`", result.stdout)
+                self.assertIn("## Planning Lock", result.stdout)
+                self.assertRegex(result.stdout, r"Run ID: `start-[^`]+`")
+                self.assertIn("- **Navigator**", result.stdout)
+                if aidlc_mode == "lite":
+                    self.assertIn("- **When:** Planning now", result.stdout)
+                self.assertNotIn("| Feature |", result.stdout)
+                self.assertNotIn("&#x20;", result.stdout)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary)
+            changed = target / "src" / "order_service" / "validation.py"
+            changed.parent.mkdir(parents=True)
+            changed.write_text("def validate_quantity(value): return value > 0\n", encoding="utf-8")
+            verbose = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "start", "fix validation", "--root", temporary, "--changed", "src/order_service/validation.py", "--aidlc", "off", "--verbose"],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+        self.assertEqual(verbose.returncode, 0, verbose.stderr)
+        self.assertIn("**Plan detail:** `Full` (requested by `--verbose`)", verbose.stdout)
 
     def test_known_review_command_still_dispatches_directly(self) -> None:
         result = subprocess.run(

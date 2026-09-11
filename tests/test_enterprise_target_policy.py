@@ -62,9 +62,10 @@ class EnterpriseTargetPolicyTests(unittest.TestCase):
     def test_start_alias_persists_policy_and_sanitized_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "service"; root.mkdir()
+            owner = root / "src" / "service.py"; owner.parent.mkdir(); owner.write_text("def service():\n    return None\n", encoding="utf-8")
             policy_path = Path(temp) / "enterprise.json"; write_policy(policy_path, root)
             result = subprocess.run(
-                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "plan a service change", "--enterprise-policy", policy_path.as_posix(), "--target-alias", "service", "--planning-run-id", "policy-start"],
+                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "plan a service change", "--enterprise-policy", policy_path.as_posix(), "--target-alias", "service", "--changed", "src/service.py", "--planning-run-id", "policy-start"],
                 cwd=ROOT, text=True, capture_output=True, check=False,
             )
             lock_payload = json.loads((root / ".tailtrail" / "runs" / "policy-start" / "planning" / "lock-v1.json").read_text(encoding="utf-8"))

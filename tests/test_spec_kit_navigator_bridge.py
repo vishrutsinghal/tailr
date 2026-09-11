@@ -80,9 +80,52 @@ FR-002: The service preserves cancellation behavior.
             report = task_start.build_report("Use existing Spec Kit feature 014-orders", root, [], "python3 scripts/tailtrail.py", spec_kit_feature="014-orders")
             self.assertEqual(report["spec_kit_source"]["feature_id"], "014-orders")
             self.assertEqual([row["display_id"] for row in report["navigator"]["requirement_matrix"]], ["FR-001", "FR-002"])
+            self.assertEqual(
+                [row["display_id"] for row in report["navigator"]["requirement_query_frame"]["requirements"]],
+                ["FR-001", "FR-002"],
+            )
+            self.assertEqual(
+                [row["display_id"] for row in report["navigator"]["canonical_requirements"]["requirements"]],
+                ["FR-001", "FR-002"],
+            )
+            self.assertEqual(
+                {report["navigator"]["canonical_requirements"]["fingerprint"]},
+                {
+                    row["canonical_requirement_set_fingerprint"]
+                    for row in report["navigator"]["requirement_matrix"]
+                },
+            )
             self.assertEqual(report["navigator"]["selected_features"][0]["name"], "Intent Bridge")
             rendered = task_start.render_markdown(report, verbose=True)
             self.assertIn("**FR-001:** Customers can amend an order.", rendered)
+
+    def test_intent_requirements_keep_wording_revision_and_gain_v2_local_scope_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            imported = self.imported_fixture(root)
+            self.write(root, "src/orders/service.py", "def amend(order):\n    return order\n")
+            original = [(row["external_id"], row["statement"]) for row in imported["requirements"]]
+
+            report = task_start.build_report(
+                "Use existing Spec Kit feature 014-orders",
+                root,
+                ["src/orders/service.py"],
+                "python3 scripts/tailtrail.py",
+                spec_kit_feature="014-orders",
+            )
+            rows = report["navigator"]["requirement_matrix"]
+            mapping = report["navigator"]["authority_scope"]
+            draft = task_start.workflow_start_integration.draft(report, "intent-v2")
+
+            self.assertEqual([(row["display_id"], row["statement"]) for row in rows], original)
+            self.assertEqual(report["spec_kit_source"]["source_revision"], imported["source_revision"])
+            self.assertEqual([row["source_reference"]["source_revision"] for row in rows], [imported["source_revision"]] * 2)
+            self.assertEqual(mapping["status"], "resolved")
+            self.assertFalse(mapping["blocking"])
+            self.assertTrue(all(row["likely_paths"] == ["src/orders/service.py"] for row in rows))
+            self.assertTrue(all(row["scope_evidence"]["authority_requirement_id"].startswith("FR-") for row in rows))
+            self.assertEqual(draft["scope_binding"]["authority"]["type"], "intent-bridge")
+            self.assertEqual(draft["scope_binding"]["authority"]["source_revision"], imported["source_revision"])
 
     def test_goal_parser_requires_explicit_feature_phrase(self) -> None:
         self.assertEqual(bridge.feature_from_goal("Use existing Spec Kit feature 014-orders"), "014-orders")

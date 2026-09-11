@@ -10,6 +10,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+import navigator_scope
+
 
 GENERIC_TOKENS = {
     "add", "and", "api", "behaviour", "behavior", "create", "existing",
@@ -20,6 +22,17 @@ GENERIC_TOKENS = {
 DEPENDENCY_FILES = {
     "cargo.toml", "composer.json", "go.mod", "package.json", "pom.xml",
     "pyproject.toml", "requirements.txt",
+}
+# Roles that describe a supporting/boundary-check path, never an editable
+# implementation candidate, so downstream planners converge with the Scope
+# section's own repository-role classification instead of defaulting new,
+# unrecognized paths (CI config, Dockerfiles, generated/vendored, docs) to
+# "implementation candidate".
+NON_IMPLEMENTATION_ROLES = {
+    "unit evidence", "integration evidence", "contract evidence",
+    "behaviour evidence", "test evidence", "requirement source",
+    "dependency boundary", "generated/vendored path", "documentation",
+    "configuration boundary",
 }
 DOMAIN_TERMS = {
     "allocation", "cancellation", "inventory", "notification", "payment",
@@ -50,6 +63,20 @@ def role(path: str) -> str:
     if any(part in name for part in ("validation", "validator")): return "validation boundary"
     if any(part in name for part in ("payment", "gateway", "adapter", "repository", "inventory", "notification", "audit")): return "domain/integration boundary"
     if lowered.startswith("infra/") or name.endswith(".tf"): return "infrastructure boundary"
+    # Anything not already recognized above must still converge with the
+    # Scope section's repository-role classification instead of silently
+    # defaulting to an implementation candidate (CI config, Dockerfiles,
+    # generated/vendored paths, and docs are never implementation owners).
+    parts = set(Path(lowered).parts[:-1])
+    suffix = Path(lowered).suffix
+    if name in navigator_scope.MANIFEST_NAMES:
+        return "dependency boundary"
+    if parts & navigator_scope.GENERATED_PARTS or parts & navigator_scope.VENDOR_PARTS:
+        return "generated/vendored path"
+    if parts & navigator_scope.DOCUMENT_PARTS or suffix in navigator_scope.DOCUMENT_SUFFIXES:
+        return "documentation"
+    if parts & navigator_scope.CONFIG_PARTS or suffix in navigator_scope.CONFIG_SUFFIXES or name.startswith("."):
+        return "configuration boundary"
     return "implementation candidate"
 
 
@@ -60,7 +87,8 @@ def filter_weak_suggestions(goal: str, impacted: list[dict[str, Any]]) -> list[d
     for item in impacted:
         path = str(item.get("path", ""))
         reason = str(item.get("reason", ""))
-        if role(path) == "requirement source" and "suggested by Code Review Graph" in reason:
+        graph_suggested = "fresh-graph" in item.get("seed_sources", []) or "suggested by Code Review Graph" in reason
+        if role(path) == "requirement source" and graph_suggested:
             feature_tokens = tokens(path)
             if feature_tokens and not feature_tokens.intersection(goal_tokens):
                 continue
@@ -168,13 +196,26 @@ def build(goal: str, impacted: list[dict[str, Any]], requirements: list[dict[str
     if not selected:
         return {"selected": False, "invariants": [], "scope_roles": [], "post_change_checks": []}
     invariants = _invariants(requirements)
+    # A requirement's own scope evidence already resolved which paths this
+    # task may edit (for example a QA task's test files); an evidence-role
+    # path in that editable set is not merely proof to run.
+    editable_paths = {
+        str(path)
+        for row in requirements
+        for path in row.get("likely_paths", [])
+        if isinstance(row, dict)
+    }
     scope_roles: list[dict[str, Any]] = []
     for item in impacted:
         path = str(item.get("path", "")); path_role = role(path); reason = str(item.get("reason", ""))
-        if path_role.endswith("evidence"):
+        if path in editable_paths:
+            planned_use = "Primary implementation candidate, subject to post-approval source and caller confirmation."
+        elif path_role.endswith("evidence"):
             planned_use = "Run only when its tier proves an approved requirement."
         elif path_role == "requirement source":
             planned_use = "Read-only requirement context; never implementation scope without an explicit source-owned link."
+        elif path_role in NON_IMPLEMENTATION_ROLES:
+            planned_use = "Supporting/boundary-check path; inspect for impact, not an implementation candidate."
         elif "candidate" in reason or "suggested" in reason:
             planned_use = "Inspect after approval; edit only if the confirmed architecture contract requires it."
         else:
@@ -224,13 +265,20 @@ def apply_contracts(requirements: list[dict[str, Any]], plan: dict[str, Any]) ->
         display_id = str(row.get("display_id", "REQ"))
         row_invariants = [item for item in plan.get("invariants", []) if display_id in item.get("requirement_ids", [])]
         inspection = [item["path"] for item in roles if display_id in item.get("requirement_ids", [])]
+        # This requirement's own resolved scope evidence may already mark a
+        # path (e.g. a test file for a QA task) as editable even though its
+        # architecture role looks like supporting evidence.
+        editable = {str(path) for path in row.get("likely_paths", [])}
         contract = dict(row.get("architecture_contract", {}))
         contract.setdefault("required_paths", [])
         contract.setdefault("protected_paths", [])
         contract.setdefault("forbidden_imports", [])
         contract.update({
             "inspection_paths": list(dict.fromkeys(inspection)),
-            "implementation_candidates": [item["path"] for item in roles if item["path"] in inspection and "evidence" not in item["role"] and item["role"] != "requirement source"],
+            "implementation_candidates": [
+                item["path"] for item in roles
+                if item["path"] in inspection and (item["path"] in editable or item["role"] not in NON_IMPLEMENTATION_ROLES)
+            ],
             "invariants": [item["invariant"] for item in row_invariants],
             "post_change_checks": list(plan.get("post_change_checks", [])),
             "requires_caller_map": any("caller" in item["invariant"].lower() for item in row_invariants),
@@ -241,7 +289,7 @@ def apply_contracts(requirements: list[dict[str, Any]], plan: dict[str, Any]) ->
         row["architecture_contract"] = contract
 
 
-def markdown_lines(plan: dict[str, Any], detailed: bool) -> list[str]:
+def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = False) -> list[str]:
     if not plan.get("selected"):
         return []
     lines = [
@@ -249,20 +297,41 @@ def markdown_lines(plan: dict[str, Any], detailed: bool) -> list[str]:
         f"- State: `{plan.get('state')}`.",
         f"- Evidence boundary: {plan.get('evidence_boundary')}",
         "", "### Requirement-linked architecture contract", "",
-        "| Requirement | Architecture invariant | Implementation guidance | Planned proof |",
-        "| --- | --- | --- | --- |",
     ]
-    for item in plan.get("invariants", []):
-        cells = [
-            ", ".join(item.get("requirement_ids", [])), item.get("invariant", ""),
-            item.get("implementation_guidance", ""), item.get("planned_proof", ""),
-        ]
-        lines.append("| " + " | ".join(str(cell).replace("|", "\\|").replace("\n", " ") for cell in cells) + " |")
-    if detailed:
-        lines.extend(["", "### Architecture scope roles", "", "| Path | Role | Planned use | Confidence |", "| --- | --- | --- | --- |"])
-        for item in plan.get("scope_roles", []):
-            cells = [f"`{item.get('path')}`", item.get("role"), item.get("planned_use"), item.get("confidence")]
+    if responsive:
+        for item in plan.get("invariants", []):
+            lines.extend([
+                f"- **{', '.join(item.get('requirement_ids', [])) or 'Unassigned requirement'}**",
+                f"  - **Architecture invariant:** {item.get('invariant', '')}",
+                f"  - **Implementation guidance:** {item.get('implementation_guidance', '')}",
+                f"  - **Planned proof:** {item.get('planned_proof', '')}",
+            ])
+    else:
+        lines.extend([
+            "| Requirement | Architecture invariant | Implementation guidance | Planned proof |",
+            "| --- | --- | --- | --- |",
+        ])
+        for item in plan.get("invariants", []):
+            cells = [
+                ", ".join(item.get("requirement_ids", [])), item.get("invariant", ""),
+                item.get("implementation_guidance", ""), item.get("planned_proof", ""),
+            ]
             lines.append("| " + " | ".join(str(cell).replace("|", "\\|").replace("\n", " ") for cell in cells) + " |")
+    if detailed:
+        lines.extend(["", "### Architecture scope roles", ""])
+        if responsive:
+            for item in plan.get("scope_roles", []):
+                lines.extend([
+                    f"- **`{item.get('path')}`**",
+                    f"  - **Role:** {item.get('role')}",
+                    f"  - **Planned use:** {item.get('planned_use')}",
+                    f"  - **Confidence:** {item.get('confidence')}",
+                ])
+        else:
+            lines.extend(["| Path | Role | Planned use | Confidence |", "| --- | --- | --- | --- |"])
+            for item in plan.get("scope_roles", []):
+                cells = [f"`{item.get('path')}`", item.get("role"), item.get("planned_use"), item.get("confidence")]
+                lines.append("| " + " | ".join(str(cell).replace("|", "\\|").replace("\n", " ") for cell in cells) + " |")
         lines.extend(["", "### Post-change Architecture Fitness checks", ""])
         lines.extend(f"{index}. {item}" for index, item in enumerate(plan.get("post_change_checks", []), 1))
         lines.extend(["", "- Final state must be `preserved`, `drifted`, `expanded-needs-approval`, or `unknown`; TailTrail must not report a generic architecture pass without the named evidence."])

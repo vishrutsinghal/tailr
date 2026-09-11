@@ -6,7 +6,7 @@ from typing import Any
 
 
 CANONICAL_EVIDENCE_TIERS = (
-    "unit", "component", "integration", "contract", "behaviour",
+    "static", "unit", "component", "integration", "contract", "behaviour",
     "e2e", "infrastructure", "release-smoke",
 )
 EVIDENCE_TIER_ALIASES = {"behavior": "behaviour"}

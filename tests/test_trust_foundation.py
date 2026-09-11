@@ -74,6 +74,20 @@ class TrustFoundationContractTests(unittest.TestCase):
             self.assertEqual(standard["state"], "official-pack-unavailable-fallback")
             self.assertEqual(task_start._aidlc_intent("use full AIDLC for this task".lower()), "full")
 
+    def test_hands_free_full_escalation_reports_lite_fallback_honestly(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            plan = {"risk_indicators": []}
+            result = task_start.aidlc_mode_selection(
+                "hands-free migration and security rollout for production infrastructure",
+                None, root, plan, None,
+            )
+        self.assertEqual(result["mode"], "lite")
+        self.assertEqual(result["requested_mode"], "full")
+        self.assertEqual(result["state"], "official-pack-unavailable-fallback")
+        self.assertEqual(result["full_escalation"]["state"], "eligible-awaiting-compatible-pack")
+        self.assertNotIn("Full execution still requires", result["full_escalation"]["reason"])
+
     def test_changed_scope_contract_excludes_tailtrail_state_but_keeps_project_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -93,7 +107,7 @@ class TrustFoundationContractTests(unittest.TestCase):
 
     def test_ci_workflow_covers_compile_contracts_registry_adapters_and_smoke(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "trust.yml").read_text(encoding="utf-8")
-        for command in ("compileall", "unittest discover", "tailtrail-registry.py validate --strict", "tailtrail.py adapters check", "smoke-test.py"):
+        for command in ("compileall", "scripts/run-tests.py --jobs 4", "tailtrail-registry.py validate --strict", "tailtrail.py adapters check", "smoke-test.py"):
             self.assertIn(command, workflow)
 
     def test_cache_hygiene_ignores_python_and_platform_generated_files(self) -> None:

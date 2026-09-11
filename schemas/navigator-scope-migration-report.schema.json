@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-scope-migration-report.schema.json",
+  "title": "TailTrail Navigator Scope Migration Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "status", "root", "records", "counts", "immutability", "shadow_comparison", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-navigator-scope-migration-report"},
+    "status": {"enum": ["passed", "failed"]},
+    "root": {"type": "string"},
+    "records": {"type": "array", "items": {"$ref": "#/$defs/record"}},
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["legacy-v1-immutable", "scope-v2", "invalid-v2"],
+      "properties": {
+        "legacy-v1-immutable": {"type": "integer", "minimum": 0},
+        "scope-v2": {"type": "integer", "minimum": 0},
+        "invalid-v2": {"type": "integer", "minimum": 0}
+      }
+    },
+    "immutability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["files_before", "files_after", "content_unchanged", "background_rewrite"],
+      "properties": {
+        "files_before": {"type": "integer", "minimum": 0}, "files_after": {"type": "integer", "minimum": 0},
+        "content_unchanged": {"const": true}, "background_rewrite": {"const": false}
+      }
+    },
+    "shadow_comparison": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "raw_goals", "raw_source", "v1_may_override_v2"],
+      "properties": {"enabled": {"const": false}, "raw_goals": {"const": false}, "raw_source": {"const": false}, "v1_may_override_v2": {"const": false}}
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "record": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact", "classification", "saved_authority", "revision_policy", "scope_interpretation", "sha256"],
+      "properties": {
+        "artifact": {"type": "string"},
+        "classification": {"enum": ["legacy-v1-immutable", "scope-v2", "invalid-v2"]},
+        "saved_authority": {"type": "string"}, "revision_policy": {"type": "string"}, "scope_interpretation": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -4,6 +4,24 @@ from __future__ import annotations
 
 from typing import Any
 
+import navigator_scope
+
+_REQUIREMENT_KIND_LABELS = {
+    "constraint": "constraint on other requirements, not independently completable",
+    "preserve": "preserve existing behavior, not new work",
+    "safety": "safety constraint",
+}
+
+
+def _requirement_line(row: dict[str, Any]) -> str:
+    """Render one requirement row, flagging a non-`change` kind."""
+    label = _REQUIREMENT_KIND_LABELS.get(str(row.get("kind") or "change"))
+    display_id = row.get("display_id", "REQ")
+    statement = row.get("statement", "")
+    if label:
+        return f"- **{display_id}** _({label})_: {statement}"
+    return f"- **{display_id}:** {statement}"
+
 
 def markdown(report: dict[str, Any], view: str = "full") -> str:
     if report.get("navigator_request", {}).get("explicit"):
@@ -46,8 +64,53 @@ def markdown(report: dict[str, Any], view: str = "full") -> str:
     lines.extend(f"- {item['name']}: {item['reason']}" for item in report["selected_features"])
     lines.extend(["", "## Skipped Features", ""])
     lines.extend(f"- {item['name']}: {item['reason']}" for item in report["skipped_features"])
-    lines.extend(["", "## Likely Impacted Files", ""])
-    if report["likely_impacted_files"]:
+    lines.extend(["", "## Scope", ""])
+    scope_evidence = report.get("scope_evidence")
+    if isinstance(scope_evidence, dict):
+        summary = scope_evidence.get("summary", {})
+        projection = navigator_scope.role_projection(scope_evidence, include_excluded=True)
+        lines.extend(
+            [
+                f"- State: `{scope_evidence.get('state', 'unresolved')}`",
+                f"- Decision fingerprint: `{scope_evidence.get('decision_fingerprint', 'not-recorded')}`",
+                "- Candidate posture: "
+                f"included={summary.get('included', 0)}, "
+                f"inspection-only={summary.get('inspection_only', 0)}, "
+                f"proof-only={summary.get('proof_only', 0)}, "
+                f"excluded={summary.get('excluded', 0)}, "
+                f"rejected={summary.get('rejected', 0)}.",
+                "- Lexical matches are discovery seeds only; they do not establish implementation ownership.",
+            ]
+        )
+        for title, key in (("Implementation owners", "implementation_owners"), ("Inspection paths", "inspection_paths"), ("Existing proof paths", "proof_paths")):
+            lines.extend(["", f"### {title}", "", "| Path | Requirements | Confidence |", "| --- | --- | --- |"])
+            rows = projection.get(key, [])
+            if rows:
+                lines.extend(
+                    f"| `{row.get('path')}` | {', '.join(row.get('requirement_ids', [])) or 'none'} | `{row.get('confidence')}` |"
+                    for row in rows
+                )
+            else:
+                lines.append("| none | none | `none` |")
+        lines.extend(["", "### Excluded candidates", "", "| Path | Role | Status | Reasons |", "| --- | --- | --- | --- |"])
+        excluded = projection.get("excluded_candidates", [])
+        if excluded:
+            lines.extend(
+                f"| `{row.get('path')}` | `{row.get('candidate_role')}` | `{row.get('status')}` | {', '.join(row.get('reason_codes', []))} |"
+                for row in excluded
+            )
+        else:
+            lines.append("| none | none | none | no excluded candidate |")
+        investigation = projection.get("investigation", {})
+        limits = projection.get("limits", {})
+        limit_state = investigation.get("limit_state", {}) if isinstance(investigation.get("limit_state"), dict) else {}
+        lines.extend([
+            "", "### Investigation limits", "",
+            f"- Decision: `{investigation.get('decision_reason', investigation.get('stop_reason', 'not-recorded'))}`; resolution failure `{investigation.get('resolution_failure_reason') or 'none'}`.",
+            f"- Read loop: `{limit_state.get('termination_reason', 'not-recorded')}`; limit state `{limit_state.get('state', 'not-recorded')}`; files `{investigation.get('files_read', 0)}`, bytes `{investigation.get('bytes_read', 0)}`, hops `{investigation.get('relationship_hops', 0)}`.",
+            f"- Budgets: broad `{limit_state.get('broad_files_read', 0)}/{limit_state.get('broad_file_limit', 'unknown')}`, relationship `{limit_state.get('relationship_files_read', 0)}/{limit_state.get('relationship_file_limit', 'unknown')}`, configuration `{limit_state.get('config_files_read', 0)}/{limit_state.get('config_file_limit', 'unknown')}`; question cap `{limits.get('scope_question_options', 'unknown')}`.",
+        ])
+    elif report["likely_impacted_files"]:
         lines.extend(f"- `{item['path']}`: {item['reason']}" for item in report["likely_impacted_files"])
     else:
         lines.append("- No changed files detected. Add `--changed path/to/file` for a stronger plan.")
@@ -300,6 +363,11 @@ def markdown(report: dict[str, Any], view: str = "full") -> str:
         lines.append(f"- {evidence['message']}")
         lines.append("- Useful evidence:")
         lines.extend(f"  - {item}" for item in evidence["examples"])
+    requirement_rows = [item for item in report.get("requirement_matrix", []) if isinstance(item, dict)]
+    if requirement_rows:
+        lines.extend(["", "## Requirements", ""])
+        for row in requirement_rows:
+            lines.append(_requirement_line(row))
     lines.extend(["", "## Implementation Plan", ""])
     lines.extend(f"{index}. {item}" for index, item in enumerate(report["implementation_plan"], start=1))
     lines.extend(["", "## Approval", ""])

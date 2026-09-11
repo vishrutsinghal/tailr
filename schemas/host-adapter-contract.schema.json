@@ -4,7 +4,7 @@
   "title": "TailTrail host adapter compatibility contract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "type", "adapter_version", "precedence", "hosts", "conformance_scenarios", "runtime_scenarios", "runtime_receipt_schema", "boundary"],
+  "required": ["schema_version", "type", "adapter_version", "precedence", "hosts", "conformance_scenarios", "runtime_scenarios", "runtime_receipt_schema", "scope_scenarios", "scope_scenario_schema", "scope_reasoning_scenarios", "scope_reasoning_scenario_schema", "requirement_routing_scenarios", "requirement_routing_scenario_schema", "boundary"],
   "properties": {
     "schema_version": {"const": "1"},
     "type": {"const": "tailtrail-host-adapter-compatibility"},
@@ -30,6 +30,6 @@
         }
       }
     },
-    "conformance_scenarios": {"type": "array", "minItems": 6}, "runtime_scenarios": {"type": "string"}, "runtime_receipt_schema": {"type": "string"}, "boundary": {"type": "string", "minLength": 1}
+    "conformance_scenarios": {"type": "array", "minItems": 6}, "runtime_scenarios": {"type": "string"}, "runtime_receipt_schema": {"type": "string"}, "scope_scenarios": {"const": "adapters/navigator-scope-scenarios-v2.json"}, "scope_scenario_schema": {"const": "schemas/host-scope-conformance.schema.json"}, "scope_reasoning_scenarios": {"const": "adapters/navigator-host-reasoning-scenarios-v1.json"}, "scope_reasoning_scenario_schema": {"const": "schemas/host-scope-reasoning-conformance.schema.json"}, "requirement_routing_scenarios": {"const": "adapters/requirement-routing-scenarios-v1.json"}, "requirement_routing_scenario_schema": {"const": "schemas/host-requirement-routing-conformance.schema.json"}, "boundary": {"type": "string", "minLength": 1}
   }
 }

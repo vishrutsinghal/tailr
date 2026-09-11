@@ -58,34 +58,49 @@ def generate(root: Path, run_id: str) -> dict[str, Any]:
     intake = json.loads(intake_path.read_text(encoding="utf-8"))
     governance = GOVERNANCE.build(root, run_id)
     contract = REPRODUCTION.read_existing(root, run_id)
+    attempt_status = REPRODUCTION.attempt_status(root, run_id)
+    approved_revision = contract.get("revision") if contract else None
+    pre_fix_candidate = attempt_status.get("pre_fix") if isinstance(attempt_status.get("pre_fix"), dict) else None
+    post_fix_candidate = attempt_status.get("post_fix") if isinstance(attempt_status.get("post_fix"), dict) else None
+    pre_fix_attempt = pre_fix_candidate if pre_fix_candidate and pre_fix_candidate.get("reproduction_revision") == approved_revision else None
+    post_fix_attempt = post_fix_candidate if post_fix_candidate and post_fix_candidate.get("reproduction_revision") == approved_revision else None
+    reproduced = bool(pre_fix_attempt and pre_fix_attempt.get("outcome") == "reproduced")
+    restored = bool(post_fix_attempt and post_fix_attempt.get("outcome") == "restored")
     ledger = HYPOTHESIS.read_ledger(root, run_id)
     packet_path = CORRECTION.packet_path(root, run_id)
     packet = json.loads(packet_path.read_text(encoding="utf-8")) if packet_path.is_file() else None
 
     gaps: list[str] = []
     state = "symptom-captured"
-    if contract and contract.get("status") == "approved":
+    if contract and contract.get("status") == "approved" and reproduced:
         state = "reproduction-confirmed"
     else:
-        gaps.append("Reproduction contract is not approved.")
+        if not contract or contract.get("status") != "approved":
+            gaps.append("Reproduction contract is not approved.")
+        else:
+            gaps.append("No factual pre-fix reproduction attempt confirms the approved failure signature.")
 
     proven = next((row for row in ledger["hypotheses"] if row["status"] == "proven"), None)
-    if proven:
+    if proven and reproduced:
         state = "root-cause-proven"
     else:
-        gaps.append("No hypothesis has been proven yet.")
+        if not proven:
+            gaps.append("No hypothesis has been proven yet.")
+        elif not reproduced:
+            gaps.append("A hypothesis cannot advance Debug confidence without factual reproduction proof.")
 
-    if packet:
+    if packet and proven and reproduced:
         state = "correction-proposed"
     else:
-        gaps.append("No correction packet has been proposed.")
+        if not packet:
+            gaps.append("No correction packet has been proposed.")
 
     evidence_events = EXECUTION_EVIDENCE.show(root, run_id)["events"]
     source_paths = sorted({path for event in evidence_events if event.get("kind") == "source-edit" and packet and packet.get("requirement_uid") in event.get("requirement_uids", []) for path in event.get("changed_paths", [])})
     scope_checks = sorted((CORRECTION.directory(root, run_id)).glob("scope-check-v*.json")) if packet else []
     latest_scope = json.loads(scope_checks[-1].read_text(encoding="utf-8")) if scope_checks else None
     implemented = bool(packet and packet.get("status") == "approved" and source_paths and latest_scope and latest_scope.get("status") == "within-approved-scope" and not (set(source_paths) - set(packet.get("expected_changed_paths", []))))
-    if packet and packet.get("status") == "approved":
+    if packet and packet.get("status") == "approved" and reproduced:
         if implemented: state = "correction-implemented"
         else: gaps.append("Approved correction has no matching source-edit receipt and passing DI-7 scope comparison.")
     regression_pass = any(event["kind"] == "command-result" and event.get("outcome") == "pass" and event.get("tier") in {"integration", "system"} for event in evidence_events)
@@ -94,6 +109,8 @@ def generate(root: Path, run_id: str) -> dict[str, Any]:
             state = "regression-validated"
         else:
             gaps.append("No passing integration/system command-result evidence recorded yet.")
+        if not restored:
+            gaps.append("No factual post-fix rerun confirms that the original reproduction is restored.")
 
     convergence_path = CONVERGENCE.latest_path(root, run_id)
     convergence = json.loads(convergence_path.read_text(encoding="utf-8")) if convergence_path.is_file() else None
@@ -102,10 +119,11 @@ def generate(root: Path, run_id: str) -> dict[str, Any]:
     behavior_result = next((row for row in (convergence or {}).get("control_results", []) if row.get("control") == "Behaviour Harness"), None)
     behavior_evidence = bool(behavior_result and behavior_result.get("status") == "pass")
     if state == "regression-validated":
-        if behavior_evidence:
+        if behavior_evidence and restored:
             state = "behavior-restored"
         else:
-            gaps.append("No typed, requirement-linked Behaviour Harness pass confirms the user journey is restored.")
+            if not behavior_evidence:
+                gaps.append("No typed, requirement-linked Behaviour Harness pass confirms the user journey is restored.")
 
     ceiling = contract["max_achievable_confidence_state"] if contract else "symptom-captured"
     state = cap(state, ceiling)
@@ -121,7 +139,8 @@ def generate(root: Path, run_id: str) -> dict[str, Any]:
     eliminated_competitors = [{"hypothesis_id": row["hypothesis_id"], "statement": row["statement"]} for row in ledger["hypotheses"] if row.get("status") == "eliminated"]
     controls = [
         {"control": "Symptom captured", "status": "pass", "evidence": intake_path.relative_to(root).as_posix(), "detail": str(intake.get("failure_fingerprint", intake.get("fingerprint", "sanitized intake")))},
-        {"control": "Reproduction", "status": "pass" if contract and contract.get("status") == "approved" else "required-evidence-missing", "evidence": REPRODUCTION.approved_contract_path(root, run_id).relative_to(root).as_posix() if contract and contract.get("status") == "approved" else None, "detail": f"approved revision {contract.get('revision')}" if contract and contract.get("status") == "approved" else "approved reproduction revision required"},
+        {"control": "Reproduction", "status": "pass" if reproduced else "required-evidence-missing", "evidence": pre_fix_attempt.get("evidence_event_id") if pre_fix_attempt else None, "detail": f"approved revision {contract.get('revision')} reproduced by factual attempt {pre_fix_attempt.get('attempt')}" if reproduced else "approved contract plus factual pre-fix reproduction attempt required"},
+        {"control": "Post-fix reproduction", "status": "pass" if restored else "required-evidence-missing", "evidence": post_fix_attempt.get("evidence_event_id") if post_fix_attempt else None, "detail": f"factual post-fix attempt {post_fix_attempt.get('attempt')} restored the approved behavior" if restored else "rerun the approved reproduction after correction and record restored evidence"},
         {"control": "Root cause", "status": "proven" if proven and eliminated_competitors else "required-evidence-missing", "evidence": proven.get("evidence_fingerprints", []) if proven else [], "detail": f"{len(eliminated_competitors)} competing hypothesis(es) eliminated"},
         {"control": "Correction", "status": "implemented" if implemented else "required-evidence-missing", "evidence": source_paths, "detail": "approved scope and matching source-edit receipts"},
         {"control": "Regression", "status": "pass" if regression_pass else "required-evidence-missing", "evidence": [row.get("fingerprint") for row in evidence_events if row.get("kind") == "command-result" and row.get("outcome") == "pass" and row.get("tier") in {"integration", "system"}], "detail": "requirement-linked integration/system computational evidence"},
@@ -146,6 +165,20 @@ def generate(root: Path, run_id: str) -> dict[str, Any]:
         "debug_status": debug_status,
         "controls": controls,
         "eliminated_competitors": eliminated_competitors,
+        "reproduction_proof": {
+            "status": "complete" if reproduced and restored else "evidence-incomplete",
+            "approved_revision": contract.get("revision") if contract else None,
+            "trigger": contract.get("trigger") if contract else None,
+            "steps": [
+                contract.get("reproduction_method") if contract else "Approve a bounded reproduction method.",
+                "Record the exact pre-fix command result and compare it with the approved failure signature.",
+                "After the approved correction, rerun the same reproduction boundary and record the restored result.",
+                "Run the approved preservation and regression evidence before closure.",
+            ],
+            "pre_fix": pre_fix_attempt,
+            "post_fix": post_fix_attempt,
+            "boundary": "Contract approval is not reproduction proof. Completion requires factual before-and-after attempts linked to execution evidence.",
+        },
         "gaps": gaps,
         "governance": {"artifact": GOVERNANCE.artifact_path(root, run_id).relative_to(root).as_posix(), "privacy_status": governance["privacy"]["status"], "token_posture": governance["token_posture"], "continuity": governance["continuity"], "learning": governance["learning"]},
         "authority": "section-only",

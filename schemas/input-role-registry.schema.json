@@ -19,7 +19,7 @@
           "role": {"enum": ["target", "related-repo", "reference-repo", "design-reference", "requirement-artifact", "evidence-artifact"]},
           "locator": {"type": "string"},
           "access": {"enum": ["read-write-after-approval", "read-only"]},
-          "status": {"enum": ["verified", "available-unread", "unavailable", "declared-unread"]}
+          "status": {"enum": ["verified", "available-unread", "verified-unread", "inspected", "unavailable", "unreadable", "unsupported", "truncated", "declared-unread"]}
         },
         "additionalProperties": true
       }

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/debug-preflight.schema.json",
+  "title": "TailTrail bounded Debug Start preflight packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "root", "host", "goal_fingerprint", "status", "evidence", "artifacts", "artifact_anchors", "behavior_trace", "safe_fallback", "reuse_key", "configuration_findings", "suggested_test_commands", "unresolved", "metrics", "host_contract", "packet_fingerprint"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-debug-preflight"},
+    "root": {"type": "string"},
+    "host": {"enum": ["codex", "copilot", "claude"]},
+    "goal_fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "status": {"enum": ["complete", "partial"]},
+    "requirement_observations": {"type": "array", "items": {"type": "string"}},
+    "artifacts": {"type": "array", "maxItems": 4, "items": {"type": "object"}},
+    "artifact_anchors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "value", "source"],
+        "properties": {
+          "kind": {"enum": ["artifact-label", "behavior-symbol", "environment"]},
+          "value": {"type": "string"},
+          "source": {"type": "string"}
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "sha256", "suggested_role", "kind", "symbols", "behavior_roles", "start_line", "end_line", "reason", "excerpt"],
+        "properties": {
+          "id": {"type": "string"},
+          "path": {"type": "string"},
+          "sha256": {"type": "string"},
+          "suggested_role": {"enum": ["implementation-owner", "inspection", "proof", "configuration"]},
+          "kind": {"type": "string"},
+          "symbols": {"type": "array", "items": {"type": "string"}},
+          "behavior_roles": {"type": "array", "items": {"enum": ["output-renderer", "data-transfer", "data-producer", "proof", "configuration", "candidate-only"]}},
+          "start_line": {"type": "integer", "minimum": 1},
+          "end_line": {"type": "integer", "minimum": 1},
+          "reason": {"type": "string"},
+          "excerpt": {"type": "string"},
+          "local_call_from": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "symbols", "callee"],
+            "properties": {
+              "path": {"type": "string"},
+              "symbols": {"type": "array", "items": {"type": "string"}},
+              "callee": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "behavior_trace": {
+      "type": "object",
+      "required": ["direction", "state", "nodes", "edges", "divergence_candidates", "topology", "boundary"],
+      "properties": {
+        "direction": {"const": "observed-output-to-producer"},
+        "state": {"enum": ["partial", "resolved-to-producer"]},
+        "nodes": {"type": "array", "items": {"type": "object"}},
+        "edges": {"type": "array", "items": {"type": "object"}},
+        "divergence_candidates": {"type": "array", "items": {"type": "string"}},
+        "topology": {"type": "object"},
+        "boundary": {"type": "string"}
+      }
+    },
+    "safe_fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "trigger", "trace_state", "correction_scope", "user_input", "reproduction_sources", "next_action", "boundary"],
+      "properties": {
+        "state": {"enum": ["not-needed", "continue-approved-debug-investigation", "awaiting-reproduction-input"]},
+        "trigger": {"enum": ["trace-resolved", "local-helper-unresolved", "reproduction-and-external-context-unavailable"]},
+        "trace_state": {"enum": ["partial", "resolved-to-producer"]},
+        "correction_scope": {"const": "blocked"},
+        "user_input": {"enum": ["not-required", "required"]},
+        "reproduction_sources": {"type": "array", "uniqueItems": true, "items": {"enum": ["supplied-artifact", "focused-proof-command"]}},
+        "next_action": {"type": "string", "minLength": 1},
+        "boundary": {"type": "string", "minLength": 1}
+      }
+    },
+    "reuse_key": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "configuration_findings": {"type": "array", "items": {"type": "object"}},
+    "suggested_test_commands": {"type": "array", "items": {"type": "object"}},
+    "unresolved": {"type": "array", "items": {"type": "string"}},
+    "metrics": {
+      "type": "object",
+      "required": ["elapsed_ms", "files_considered", "files_read", "evidence_files", "bytes_read", "estimated_tokens", "termination_reason"],
+      "properties": {
+        "elapsed_ms": {"type": "integer", "minimum": 0},
+        "files_considered": {"type": "integer", "minimum": 0},
+        "files_read": {"type": "integer", "minimum": 0, "maximum": 96},
+        "evidence_files": {"type": "integer", "minimum": 0, "maximum": 6},
+        "bytes_read": {"type": "integer", "minimum": 0, "maximum": 2000000},
+        "estimated_tokens": {"type": "integer", "minimum": 0},
+        "termination_reason": {"type": "string"}
+      }
+    },
+    "host_contract": {
+      "type": "object",
+      "required": ["max_reasoning_passes", "instruction"],
+      "properties": {"max_reasoning_passes": {"const": 1}, "instruction": {"type": "string"}}
+    },
+    "packet_fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+  }
+}

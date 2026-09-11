@@ -16,7 +16,9 @@ from typing import Any
 import navigator_core as core
 import navigator_discovery as discovery
 import navigator_render
+import navigator_scope
 import prompt_profile
+import requirement_discovery
 import token_budget_coach
 
 
@@ -141,12 +143,18 @@ def goal_discovery_terms(goal: str) -> list[str]:
     return discovery.goal_discovery_terms(goal)
 
 
-def goal_discovered_paths(root: Path, goal: str, limit: int = 2) -> list[str]:
-    return discovery.goal_discovered_paths(root, goal, limit)
+def goal_discovered_paths(
+    root: Path,
+    goal: str,
+    limit: int = 2,
+    query_terms: list[str] | None = None,
+    canonical_literals: list[str] | tuple[str, ...] | None = None,
+) -> list[dict[str, Any]]:
+    return discovery.goal_discovered_paths(root, goal, limit, query_terms, canonical_literals)
 
 
-def repository_discovered_paths(root: Path, goal: str, limit: int = 5) -> list[str]:
-    return discovery.repository_discovered_paths(root, goal, limit)
+def repository_discovered_paths(root: Path, goal: str, limit: int = 5, query_terms: list[str] | None = None) -> list[dict[str, Any]]:
+    return discovery.repository_discovered_paths(root, goal, limit, query_terms)
 
 
 def is_actionable_changed_path(root: Path, path: str) -> bool:
@@ -1213,6 +1221,9 @@ def decide(
     workflow_override: str | None = None,
     has_error_artifact: bool = False,
     has_reproduction_command: bool = False,
+    graph_mode: str = "auto",
+    requirement_interpretation: dict[str, Any] | None = None,
+    debug_diagnosis: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     workflow_classification = core.classify_workflow_intent(
         goal,
@@ -1220,6 +1231,36 @@ def decide(
         has_error_artifact=has_error_artifact,
         has_reproduction_command=has_reproduction_command,
     )
+    debug_planning = workflow_classification.workflow_type == "debug-investigation"
+    resolved_requirement_interpretation = (
+        requirement_interpretation or requirement_discovery.interpretation(goal)
+    )
+    requirement_query_frame = (
+        requirement_discovery.debug_scope_query_frame(goal)
+        if debug_planning
+        else requirement_discovery.scope_query_frame(
+            goal,
+            resolved_requirement_interpretation,
+        )
+    )
+    canonical_requirements = (
+        None
+        if debug_planning
+        else requirement_discovery.canonical_set(
+            goal,
+            resolved_requirement_interpretation,
+        )
+    )
+    normalized_scope_goal = " ".join(requirement_query_frame["query_terms"]) or "\n".join(
+        str(item["statement"])
+        for item in requirement_query_frame["requirements"]
+    )
+    canonical_literals = [
+        str(literal)
+        for frame in requirement_query_frame["requirements"]
+        for literal in frame.get("quoted_literals", [])
+        if str(literal).strip()
+    ]
     if allow_explicit:
         request = core.explicit_navigator_request(goal)
         if request:
@@ -1228,35 +1269,117 @@ def decide(
     # Feature and bug requests often arrive while unrelated work is uncommitted;
     # silently adopting that work is misleading and can produce a completely
     # wrong implementation plan.
-    tasks = core.task_types(goal)
-    debug_planning = workflow_classification.workflow_type == "debug-investigation"
-    saved_debug_graph = saved_graph_cache_evidence(root, changed_args) if debug_planning else None
+    semantic_task_goal = goal
+    for literal in canonical_literals:
+        semantic_task_goal = re.sub(re.escape(literal), " ", semantic_task_goal, flags=re.IGNORECASE)
+    tasks = core.task_types(semantic_task_goal)
+    saved_debug_graph = saved_graph_cache_evidence(root, changed_args) if debug_planning and graph_mode != "off" else None
+    scope_seeds: list[dict[str, Any]] = []
     if changed_args:
-        changed = changed_args
+        scope_seeds = [
+            navigator_scope.seed(path, "explicit-path", "user-provided-path")
+            for path in changed_args
+        ]
         target_origin = "provided"
     elif debug_planning:
-        changed = list((saved_debug_graph or {}).get("suggested_read_order", []))[:6]
-        if not changed:
-            changed = list((saved_debug_graph or {}).get("scope", []))[:6]
-        target_origin = "saved-graph" if changed else "none"
+        diagnosed_seeds = [
+            navigator_scope.seed(
+                str(row["path"]),
+                "host-diagnosis",
+                "hash-bound-host-diagnosis-evidence",
+                content_fingerprint=str(row["sha256"]),
+            )
+            for row in (debug_diagnosis or {}).get("evidence", [])
+            if isinstance(row, dict) and row.get("path") and row.get("sha256")
+        ]
+        discovered = list((saved_debug_graph or {}).get("suggested_read_order", []))[:6]
+        if not discovered:
+            discovered = list((saved_debug_graph or {}).get("scope", []))[:6]
+        saved_seeds = [
+            navigator_scope.seed(path, "saved-graph", "saved-graph-path")
+            for path in discovered
+        ]
+        # Debug Start may use the same bounded local text discovery as normal
+        # Start. Lexical results remain seeds; static relationship evidence
+        # must establish ownership before a path can be selected.
+        lexical_seeds = goal_discovered_paths(
+            root,
+            normalized_scope_goal,
+            8,
+            requirement_query_frame["query_terms"],
+            canonical_literals,
+        )
+        scope_seeds = [*diagnosed_seeds, *saved_seeds, *lexical_seeds]
+        target_origin = "host-diagnosis" if diagnosed_seeds else "saved-graph" if saved_seeds else "goal-discovery" if lexical_seeds else "none"
     else:
         if core.ui_change_requested(goal, []):
             # A UI-first request must begin from repository-owned UI paths.
-            # Generic content matching can otherwise select backend files that
-            # happen to contain words such as validation, status, or events.
-            changed = repository_discovered_paths(root, goal, limit=8)
-            target_origin = "repository-discovery" if changed else "none"
+            # Exact user-visible literals are stronger than generic UI path
+            # matches, while structure remains useful for a missing-cache
+            # in-memory relationship pass.  Both remain non-authoritative
+            # seeds until bounded behavior evidence establishes ownership.
+            lexical_seeds = goal_discovered_paths(
+                root,
+                goal,
+                8,
+                requirement_query_frame["query_terms"],
+                canonical_literals,
+            )
+            structure_seeds = repository_discovered_paths(
+                root, normalized_scope_goal, 8, requirement_query_frame["query_terms"]
+            )
+            scope_seeds = [*lexical_seeds, *structure_seeds]
+            target_origin = "goal-discovery" if lexical_seeds else "repository-discovery" if structure_seeds else "none"
         else:
-            changed = goal_discovered_paths(root, goal)
-            target_origin = "goal-discovery" if changed else "none"
-        if not changed and "review" not in tasks:
-            changed = repository_discovered_paths(root, goal)
-            target_origin = "repository-discovery" if changed else "none"
-        if not changed and detect_git_changes and "review" in tasks:
-            changed = git_changed(root)
-            target_origin = "git-changes" if changed else "none"
-    risks = core.risk_indicators(goal, changed)
-    tiny = core.is_tiny(goal, risks, changed)
+            # A QA-only task (no mixed bug/feature/implementation/refactor
+            # intent) typically touches several existing test files (steps,
+            # features, support modules) rather than one owner; a
+            # single-owner budget silently drops the rest as noise. A goal
+            # merely mentioning "validation" (e.g. "fix validation bug") is
+            # still a single-owner bug fix and keeps the tighter budget.
+            qa_only = "qa" in tasks and not ({"feature", "implementation", "bug", "refactor"} & set(tasks))
+            scope_seeds = goal_discovered_paths(
+                root,
+                goal,
+                8 if qa_only else 2,
+                requirement_query_frame["query_terms"],
+                canonical_literals,
+            )
+            target_origin = "goal-discovery" if scope_seeds else "none"
+        if not scope_seeds and "review" not in tasks:
+            scope_seeds = repository_discovered_paths(
+                root, normalized_scope_goal, 5, requirement_query_frame["query_terms"]
+            )
+            target_origin = "repository-discovery" if scope_seeds else "none"
+        if not scope_seeds and detect_git_changes and "review" in tasks:
+            scope_seeds = [
+                navigator_scope.seed(path, "git-change", "git-change-detected")
+                for path in git_changed(root)
+            ]
+            target_origin = "git-changes" if scope_seeds else "none"
+    scope_candidates = navigator_scope.candidates_from_seeds(root, scope_seeds, tasks)
+    changed = [
+        str(candidate["path"])
+        for candidate in scope_candidates
+        if candidate.get("status") not in {"excluded", "rejected"}
+    ]
+    # Discovery seeds are hypotheses, not approved scope.  Their filenames
+    # must not manufacture dependency, migration, CI, or multi-file risk
+    # before ownership evidence resolves them.  Explicit user paths remain
+    # valid early risk signals; discovered owners are reconciled below.
+    early_risk_paths = changed if changed_args else []
+    risks = core.risk_indicators(goal, early_risk_paths)
+    if any(
+        str(frame.get("intent_class")) == "ui-visibility"
+        and any(
+            action in str(frame.get("statement", "")).lower()
+            for action in ("remove", "hide", "dismiss", "suppress")
+        )
+        for frame in requirement_query_frame.get("requirements", [])
+        if isinstance(frame, dict)
+    ):
+        risks = sorted({*risks, "over-broad UI feedback suppression"})
+    tiny = core.is_tiny(goal, risks, early_risk_paths)
     state = existing_state(root)
     evaluation_plan = evaluation_harness_plan(goal, tasks, command_prefix)
 
@@ -1329,7 +1452,7 @@ def decide(
                 "Inspect README and top-level project structure.",
                 "Identify language, framework, entry points, tests, and major modules.",
                 "Summarize important repo features and how they fit together.",
-                "Offer Code Graph Mapper as an approved deeper discovery step when a reusable graph cache is useful.",
+                "Use Navigator's recorded graph lifecycle decision and inspect exact source only where the graph indicates.",
                 "Ask before running scans, tests, builds, or writing files.",
             ],
             "approval": [
@@ -1347,7 +1470,7 @@ def decide(
             "review_graph": None,
             "notes": [
                 "Navigator selected a read-only discovery path.",
-                "It does not edit files, run implementation, record learnings, run scanners, or create graph cache files by itself.",
+                "It does not edit project source, run implementation, record learnings, or run scanners; Start may manage metadata-only graph state.",
                 "Bootstrap Snapshot writes only `.tailtrail/bootstrap-snapshot.json` when the snapshot command is explicitly approved.",
                 "If you approve, the next step is to inspect the target repo and answer the repo overview question.",
             ],
@@ -1441,7 +1564,7 @@ def decide(
 
     aidlc_only = core.has_override(goal, "use aidlc only")
     review_only = core.has_override(goal, "review only")
-    skip_graph = core.has_override(goal, "skip review graph")
+    skip_graph = core.has_override(goal, "skip review graph") or graph_mode == "off"
     skip_aidlc = core.has_override(goal, "skip aidlc") or core.has_override(goal, "without aidlc")
     skip_handoff = core.has_override(goal, "skip handoff")
     ci_sonar_needed = core.ci_sonar_requested(goal, tasks, risks)
@@ -1455,17 +1578,6 @@ def decide(
     test_precision_needed = core.test_precision_requested(goal, tasks, risks, changed)
     cross_repo_plan = core.cross_repo_reference_plan(goal, root, command_prefix)
     graph_cache = saved_debug_graph if debug_planning else graph_cache_status(root, changed, goal, tasks, risks)
-    focused_goal_discovery = (
-        target_origin == "goal-discovery"
-        and "bug" in tasks
-        and not risks
-        and len(changed) <= 3
-        and not any(task in tasks for task in ("feature", "implementation", "refactor", "review", "ci-sonar", "security", "dependency"))
-    )
-    if focused_goal_discovery:
-        # A first plan that already located a validator and its focused test
-        # needs the lightweight review graph, not a cache build/refresh.
-        graph_cache = None
     strategy = context_strategy(goal, root, changed, tasks, risks, graph_cache, command_prefix)
     token_budget = token_budget_coach.estimate_payload(root, goal, changed)
     graph_learning = None
@@ -1788,40 +1900,68 @@ def decide(
             )
 
     # Structure discovery is intentionally a planning inventory, not a claim
-    # about callers.  Do not let the review graph append generic manifests or
-    # lockfiles until the user has confirmed the feature boundary.
-    graph = run_review_graph(root, changed) if needs_graph and changed and target_origin != "repository-discovery" else None
-    impacted = []
-    impact_reason = {
-        "provided": "user-provided target",
-        "goal-discovery": "goal-matched target",
-        "repository-discovery": "existing repository structure candidate; confirm feature boundary after approval",
-        "saved-graph": "saved Code Graph evidence; freshness not checked during Planning Lock",
-        "git-changes": "detected Git change",
-    }.get(target_origin, "target file")
-    if graph and graph.get("changed"):
-        impacted.extend({"path": path, "reason": impact_reason} for path in graph.get("changed", []))
-        for path in graph.get("suggested_read_order", [])[1:6]:
-            impacted.append({"path": path, "reason": "suggested by Code Review Graph Lite"})
-        # The nested graph process may intentionally bound its command-line
-        # input for Windows safety. Preserve every user-provided/discovered
-        # target in the plan itself so verbose output is genuinely complete.
-        graph_changed = {str(path) for path in graph.get("changed", [])}
-        impacted.extend(
-            {"path": path, "reason": impact_reason}
-            for path in changed
-            if path not in graph_changed
-        )
-    else:
-        impacted.extend({"path": path, "reason": impact_reason} for path in changed)
+    # about callers. Do not let graph suggestions bypass typed classification.
+    # Debug Start is static orientation only. Even a TailTrail-owned graph
+    # helper is still a spawned command, so defer it until the approved Debug
+    # orientation stage. Build planning retains the existing bounded helper.
+    graph = (
+        run_review_graph(root, changed)
+        if not debug_planning and needs_graph and changed and target_origin != "repository-discovery"
+        else None
+    )
+    if graph:
+        graph_paths = [
+            str(path)
+            for path in graph.get("suggested_read_order", [])[1:6]
+            if str(path) not in set(changed)
+        ]
+        if graph_paths:
+            scope_seeds.extend(
+                navigator_scope.seed(path, "fresh-graph", "review-graph-suggested-read")
+                for path in graph_paths
+            )
+            scope_candidates = navigator_scope.candidates_from_seeds(root, scope_seeds, tasks)
 
-    deduplicated_impacted = []
-    seen_impacted_paths: set[str] = set()
-    for item in impacted:
-        path = str(item["path"])
-        if path not in seen_impacted_paths:
-            seen_impacted_paths.add(path)
-            deduplicated_impacted.append(item)
+    scope_candidates, scope_edges, scope_investigation = navigator_scope.investigate(
+        root,
+        requirement_query_frame["requirements"],
+        scope_candidates,
+        ["debug", *tasks] if debug_planning else tasks,
+        allow_git_inventory=not debug_planning,
+        allow_persistent_cache=graph_mode != "off",
+    )
+    deduplicated_impacted = navigator_scope.project_likely_impacted(scope_candidates)
+    scope_evidence = navigator_scope.evidence_document(
+        root,
+        goal,
+        requirement_query_frame["requirements"],
+        scope_candidates,
+        edges=scope_edges,
+        investigation=scope_investigation,
+    )
+    scope_host_packet = navigator_scope.host_reasoning_packet(scope_evidence)
+    scope_quality = navigator_scope.assess_scope_quality(root, goal, tasks, scope_evidence)
+
+    cache_reasons = set(scope_investigation.get("cache", {}).get("reason_codes", []))
+    scope_cache_status = str(scope_investigation.get("cache", {}).get("status", "not-checked"))
+    ephemeral_scope_resolved = (
+        scope_investigation.get("state") == "resolved"
+        and "bounded-ephemeral-graph-built" in cache_reasons
+    )
+    missing_cache_scope_resolved = ephemeral_scope_resolved and scope_cache_status == "missing"
+    if missing_cache_scope_resolved:
+        commands = [
+            command for command in commands
+            if " graph map " not in f" {command} " and " graph refresh " not in f" {command} "
+        ]
+        implementation_plan = [
+            step for step in implementation_plan
+            if not step.startswith("If Code Graph Mapper is selected as missing")
+        ]
+        implementation_plan.insert(
+            1,
+            "Reuse the resolved bounded in-memory relationship evidence; a persistent graph cache is optional for future runs.",
+        )
 
     approval = [
         "Review this plan before implementation.",
@@ -1843,11 +1983,15 @@ def decide(
             "Draft and separately approve a deterministic reproduction contract.",
             "Map the failing path and record bounded experiments against ranked hypotheses.",
             "Require root-cause proof before proposing a correction.",
-            "Keep correction implementation and canonical closure deferred to their own approved stages.",
+            "Keep correction implementation and canonical closure blocked until their required approved stages.",
         ]
 
     selected_rows = [decision.__dict__ for decision in selected]
     skipped_rows = [decision.__dict__ for decision in skipped]
+    if missing_cache_scope_resolved:
+        for item in selected_rows:
+            if item.get("name") == "Code Graph Mapper":
+                item["reason"] = "no fresh shared cache was available; bounded static relationships resolved the implementation owner without persisting a cache"
     if workflow_classification.workflow_type == "debug-investigation":
         known_selected = {str(item.get("name")) for item in selected_rows}
         debug_rows = []
@@ -1858,13 +2002,20 @@ def decide(
         selected_rows = [*debug_rows, *selected_rows]
         skipped_rows.extend(
             {"name": item.split(" until ", 1)[0], "reason": item}
-            for item in workflow_classification.deferred_features
+            for item in workflow_classification.conditional_features
         )
 
     return {
         "goal": goal,
+        "requirement_interpretation": resolved_requirement_interpretation,
+        "canonical_requirements": canonical_requirements,
+        "requirement_query_frame": requirement_query_frame,
         "root": root.as_posix(),
         "target_origin": target_origin,
+        "scope_evidence": scope_evidence,
+        "scope_host_packet": scope_host_packet,
+        "scope_quality": scope_quality,
+        "scope_candidates": scope_candidates,
         "task_types": display_tasks,
         "risk_indicators": risks,
         "existing_state": state,

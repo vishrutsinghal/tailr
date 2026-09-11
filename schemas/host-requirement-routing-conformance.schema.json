@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/host-requirement-routing-conformance.schema.json",
+  "title": "TailTrail Host Requirement Routing Conformance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "contract_version", "scenarios", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-host-requirement-routing-conformance"},
+    "contract_version": {"const": "v1"},
+    "scenarios": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "requirement_state", "route", "scope_question_allowed", "run_created", "boundary"],
+        "properties": {
+          "id": {
+            "enum": [
+              "host-interpretation-required",
+              "lite-intake",
+              "standard-intake",
+              "full-intake",
+              "scope-disabled-requirements-open",
+              "answered-intake",
+              "eligible-scope-question"
+            ]
+          },
+          "requirement_state": {"type": "string", "minLength": 1},
+          "route": {"enum": ["host-interpretation", "lite-questions", "aidlc-standard", "aidlc-full", "scope"]},
+          "scope_question_allowed": {"type": "boolean"},
+          "run_created": {"type": "boolean"},
+          "boundary": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  }
+}

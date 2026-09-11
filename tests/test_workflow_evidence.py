@@ -28,7 +28,10 @@ from workflow_runtime import evidence
 
 class WorkflowEvidenceTests(unittest.TestCase):
     def _workflow(self, root: Path, run_id: str) -> tuple[str, str]:
-        command = [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "fix a bounded validation rule", "--root", root.as_posix(), "--planning-run-id", run_id, "--format", "json"]
+        owner = root / "src" / "validation.py"
+        owner.parent.mkdir(parents=True, exist_ok=True)
+        owner.write_text("def validate(value):\n    return value > 0\n", encoding="utf-8")
+        command = [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "fix a bounded validation rule", "--root", root.as_posix(), "--changed", "src/validation.py", "--planning-run-id", run_id, "--format", "json"]
         started = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
         activated = LOCK.activate(root, run_id, True)

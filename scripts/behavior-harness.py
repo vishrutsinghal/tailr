@@ -16,10 +16,17 @@ def assess(root:Path,run_id:str,scenarios_path:Path,evidence_path:Path)->dict[st
   if not sid or uid not in known:raise ValueError("each scenario needs an ID and approved requirement_uid")
   missing=[]
   for item in required:
-   if not any(r.get("requirement_uid")==uid and r.get("tier")==item.get("tier") and r.get("outcome")=="pass" and r.get("asserted_behavior")==item.get("asserted_behavior") for r in receipts):missing.append(item)
+   if not any(
+    uid in r.get("requirement_uids",[r.get("requirement_uid")])
+    and item.get("tier") in r.get("tiers",[r.get("tier")])
+    and r.get("outcome")=="pass"
+    and r.get("evidence_quality") in {"trusted","attested"}
+    and (sid in r.get("scenario_ids",[]) or (not r.get("scenario_ids") and r.get("asserted_behavior")==item.get("asserted_behavior")))
+    for r in receipts
+   ):missing.append(item)
   state="validated" if not missing else "incomplete";results.append({"scenario_id":sid,"requirement_uid":uid,"state":state,"preconditions":scenario.get("preconditions",[]),"action":scenario.get("action",""),"expected_outcome":scenario.get("expected_outcome",""),"preservation":scenario.get("preservation",[]),"missing_evidence":missing})
   if missing:findings.append({"scenario_id":sid,"requirement_uid":uid,"category":"behaviour","classification":"needs-decision" if not required else "unchanged","message":"user-flow scenario lacks matching passing evidence","missing_evidence":missing})
- payload={"schema_version":"1","type":"tailtrail-behavior-harness","run_id":run_id,"scenarios":results,"findings":findings,"complete":not findings,"evidence_label":"declared scenario + local receipt","boundary":"scenario evidence is only as broad as its declared tier and environment"};folder=directory/"behavior";path=folder/f"assessment-{len(list(folder.glob('assessment-*.json')))+1}.json";L.atomic_json(path,payload);L.append_event(root,run_id,"behavior_assessed",{"artifact":path.relative_to(directory).as_posix(),"findings":len(findings),"complete":payload["complete"]});return payload
+ payload={"schema_version":"2","type":"tailtrail-behavior-harness","run_id":run_id,"scenarios":results,"findings":findings,"complete":not findings,"evidence_label":"approved scenario IDs + authoritative execution receipt","boundary":"scenario evidence must use stable IDs and trusted managed-command or attested artifact-backed receipts"};folder=directory/"behavior";path=folder/f"assessment-{len(list(folder.glob('assessment-*.json')))+1}.json";L.atomic_json(path,payload);L.append_event(root,run_id,"behavior_assessed",{"artifact":path.relative_to(directory).as_posix(),"findings":len(findings),"complete":payload["complete"]});return payload
 def main()->int:
  p=argparse.ArgumentParser();p.add_argument("--root",type=Path,default=Path.cwd());p.add_argument("--run-id",required=True);p.add_argument("--scenarios",type=Path,required=True);p.add_argument("--evidence",type=Path,required=True);a=p.parse_args()
  try:print(json.dumps(assess(a.root.resolve(),a.run_id,a.scenarios,a.evidence),indent=2,sort_keys=True));return 0

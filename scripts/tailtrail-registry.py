@@ -38,7 +38,7 @@ REQUIRED_FEATURE_KEYS = {
     "since_version",
     "deprecated_in_version",
 }
-OPTIONAL_FEATURE_KEYS = {"integration_contract"}
+OPTIONAL_FEATURE_KEYS = {"integration_contract", "scope_ownership"}
 INTEGRATION_STATUSES = {"prototype-implemented", "integration-incomplete", "integrated"}
 INTEGRATION_LIST_FIELDS = {
     "implemented_capabilities",
@@ -54,6 +54,12 @@ CANONICAL_OWNER_FIELDS = {
     "requirement_and_drift_status",
     "delivery_closure",
     "learning_and_evaluation",
+}
+SCOPE_OWNERSHIP = {
+    "scope_decision": "Navigator",
+    "target_identity": "Target Workspace",
+    "relationship_evidence": "Code Graph",
+    "validated_persistence": "Planning Lock",
 }
 STRING_LIST_FIELDS = {"commands", "docs", "scripts", "tests", "mcp_tools", "depends_on"}
 STATUS_VALUES = {"planned", "implemented", "deprecated"}
@@ -120,7 +126,11 @@ def mcp_projection(registry: dict[str, Any]) -> list[dict[str, Any]]:
         for tool in tools:
             if not isinstance(tool, str) or not tool:
                 continue
-            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "execution_evidence_record", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "debug_start", "debug_reproduction_draft", "debug_reproduction_approve", "debug_experiment_record", "debug_correction_approve"}
+            controlled = tool in {"harness_control_check", "source_patch_apply", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "navigator_scope_proposal_record", "execution_evidence_record", "execution_evidence_run", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "debug_start", "debug_reproduction_draft", "debug_reproduction_revise", "debug_reproduction_reopen", "debug_reproduction_approve", "debug_reproduction_attempt_record", "debug_experiment_record", "debug_correction_approve"}
+            if tool == "requirement_intake_answer":
+                controlled = True
+            if tool == "requirement_intake_answer":
+                controlled = True
             projection.append(
                 {
                     "tool": tool,
@@ -313,6 +323,17 @@ def validate_registry(registry: dict[str, Any], root: Path = ROOT) -> list[str]:
                     issues.append(
                         f"{label} integration_contract canonical_owners values must be non-empty strings"
                     )
+
+        scope_ownership = feature.get("scope_ownership")
+        if feature_id == "navigator" and scope_ownership is None:
+            issues.append("navigator must define scope_ownership")
+        if scope_ownership is not None:
+            if not isinstance(scope_ownership, dict):
+                issues.append(f"{label} scope_ownership must be an object")
+            elif scope_ownership != SCOPE_OWNERSHIP:
+                issues.append(
+                    f"{label} scope_ownership must equal the canonical ownership projection"
+                )
 
         for key in STRING_LIST_FIELDS:
             values = feature.get(key)

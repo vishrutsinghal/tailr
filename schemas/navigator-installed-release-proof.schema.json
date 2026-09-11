@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-installed-release-proof.schema.json",
+  "title": "TailTrail Navigator Installed Release Proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "proof_version",
+    "status",
+    "evidence_label",
+    "checks",
+    "artifact_verification",
+    "installation_integrity",
+    "behavioral_proof",
+    "claim_boundaries",
+    "proof_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-navigator-installed-release-proof" },
+    "proof_version": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["passed", "failed"] },
+    "evidence_label": { "const": "isolated-installed-payload-observed" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_integrity",
+        "source_package_installed_hashes",
+        "transactional_update",
+        "install_verification",
+        "cross_host_packaging",
+        "graph_fresh",
+        "planning_lock_created",
+        "sole_implementation_owner",
+        "service_inspection_only",
+        "component_test_proof_only",
+        "no_scope_question",
+        "resolution_explained",
+        "complete_start_report_captured"
+      ],
+      "properties": {
+        "artifact_integrity": { "type": "boolean" },
+        "source_package_installed_hashes": { "type": "boolean" },
+        "transactional_update": { "type": "boolean" },
+        "install_verification": { "type": "boolean" },
+        "cross_host_packaging": { "type": "boolean" },
+        "graph_fresh": { "type": "boolean" },
+        "planning_lock_created": { "type": "boolean" },
+        "sole_implementation_owner": { "type": "boolean" },
+        "service_inspection_only": { "type": "boolean" },
+        "component_test_proof_only": { "type": "boolean" },
+        "no_scope_question": { "type": "boolean" },
+        "resolution_explained": { "type": "boolean" },
+        "complete_start_report_captured": { "type": "boolean" }
+      }
+    },
+    "artifact_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wheel", "sdist"],
+      "properties": {
+        "wheel": { "$ref": "#/$defs/artifact" },
+        "sdist": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "installation_integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_version", "transactional_update", "hosts", "hash_members", "launcher_hashes", "all_hashes_match", "external_fixture_retained"],
+      "properties": {
+        "package_version": { "type": "string", "minLength": 1 },
+        "transactional_update": { "type": "boolean" },
+        "hosts": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/host" }
+        },
+        "hash_members": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/hashMember" }
+        },
+        "launcher_hashes": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/launcherHash" }
+        },
+        "all_hashes_match": { "type": "boolean" },
+        "external_fixture_retained": { "const": false }
+      }
+    },
+    "behavioral_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "run_id", "graph", "scope", "resolution_explanation", "start_exit_code", "start_stdout_sha256", "complete_start_report"],
+      "properties": {
+        "host": { "const": "codex" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "graph": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "previous_status", "status", "cache", "reason_codes"],
+          "properties": {
+            "action": { "enum": ["create", "reuse", "refresh"] },
+            "previous_status": { "type": "string", "minLength": 1 },
+            "status": { "type": "string", "minLength": 1 },
+            "cache": { "type": "string", "minLength": 1 },
+            "reason_codes": { "$ref": "#/$defs/strings" }
+          }
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "implementation_owners", "inspection_paths", "proof_paths", "scope_question", "planning_lock_status", "cache_status", "behavior_chain_state", "decision_fingerprint"],
+          "properties": {
+            "state": { "type": "string", "minLength": 1 },
+            "implementation_owners": { "$ref": "#/$defs/strings" },
+            "inspection_paths": { "$ref": "#/$defs/strings" },
+            "proof_paths": { "$ref": "#/$defs/strings" },
+            "scope_question": { "type": ["object", "null"] },
+            "planning_lock_status": { "type": "string", "minLength": 1 },
+            "cache_status": { "type": "string", "minLength": 1 },
+            "behavior_chain_state": { "type": "string", "minLength": 1 },
+            "decision_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "resolution_explanation": { "type": "string", "minLength": 1 },
+        "start_exit_code": { "type": "integer" },
+        "start_stdout_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "complete_start_report": { "type": "object" }
+      }
+    },
+    "claim_boundaries": { "$ref": "#/$defs/strings" },
+    "proof_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "sha256", "entries", "valid", "issues"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["wheel", "sdist"] },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "entries": { "type": "integer", "minimum": 1 },
+        "integrity_files": { "type": "integer", "minimum": 1 },
+        "valid": { "type": "boolean" },
+        "issues": { "$ref": "#/$defs/strings" }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "install_status", "install_transaction", "update_status", "update_transaction", "update_state", "verify_status", "profile", "managed_files", "adapter_conformance"],
+      "properties": {
+        "host": { "enum": ["codex", "copilot", "claude"] },
+        "install_status": { "type": "string", "minLength": 1 },
+        "install_transaction": { "type": "string", "minLength": 1 },
+        "update_status": { "type": "string", "minLength": 1 },
+        "update_transaction": { "type": "string", "minLength": 1 },
+        "update_state": { "type": "string", "minLength": 1 },
+        "verify_status": { "type": "string", "minLength": 1 },
+        "profile": { "const": "extended" },
+        "managed_files": { "type": "integer", "minimum": 1 },
+        "adapter_conformance": { "const": "passed" }
+      }
+    },
+    "hashMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "source_sha256", "wheel_sha256", "sdist_sha256", "installed_sha256", "manifest_hosts", "match"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "wheel_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sdist_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "installed_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "manifest_hosts": { "$ref": "#/$defs/strings" },
+        "match": { "type": "boolean" }
+      }
+    },
+    "launcherHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "source_sha256", "wheel_sha256", "sdist_sha256", "installed_sha256", "manifest_sha256", "match"],
+      "properties": {
+        "host": { "enum": ["codex", "copilot", "claude"] },
+        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "wheel_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sdist_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "installed_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "match": { "type": "boolean" }
+      }
+    }
+  }
+}

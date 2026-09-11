@@ -5,7 +5,7 @@ from __future__ import annotations
 REASON_CODES = {
     "approval-granted", "approval-rejected", "approval-expired",
     "blocked-missing-authority", "blocked-missing-evidence", "contract-failure",
-    "stage-failed", "stage-skipped-approved", "input-stale", "retry-eligible",
+    "stage-failed", "stage-skipped-approved", "input-stale", "user-stop-before-result", "retry-eligible",
     "replan-required", "recovery-required", "workflow-cancelled",
     "workflow-superseded", "workflow-completed",
     "workflow-created", "workflow-ready", "workflow-started", "workflow-paused",

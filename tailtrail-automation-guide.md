@@ -147,7 +147,7 @@ first slice to execute.
 
 TailTrail reports feature use at two distinct points. The Start Report answers
 **what Navigator selected and why** before implementation. It lists selected
-controls, deferred controls, and their trigger reasons. The Dashboard and
+controls, mandatory required-later work, conditional controls, and their trigger reasons. The Dashboard and
 Completion Report answer **what actually produced evidence** after or during
 the run.
 

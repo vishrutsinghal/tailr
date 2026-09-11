@@ -80,7 +80,228 @@ def host_questions() -> list[dict[str, object]]:
     }]
 
 
+def start_command(root: Path, goal: str, *extra: str) -> list[str]:
+    """Give routing tests a real, explicit implementation owner.
+
+    NS-4 deliberately refuses to create even an AIDLC Planning Lock from an
+    empty repository.  These tests exercise AIDLC routing, so their fixture
+    supplies typed scope evidence instead of relying on the removed
+    explicit-root bypass.
+    """
+    owner = root / "src" / "service.py"
+    owner.parent.mkdir(parents=True, exist_ok=True)
+    owner.write_text("def service():\n    return None\n", encoding="utf-8")
+    return [
+        sys.executable,
+        (ROOT / "scripts" / "task-start.py").as_posix(),
+        goal,
+        "--root",
+        root.as_posix(),
+        "--changed",
+        "src/service.py",
+        *extra,
+    ]
+
+
 class OfficialAidlcBridgeTests(unittest.TestCase):
+    def test_agent_host_rejects_stale_official_requirement_authority_before_scope(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            compatible_pack(root)
+            goal = "Add a service workflow."
+            boundary_result = subprocess.run(
+                start_command(
+                    root, goal, "--host", "codex", "--aidlc", "standard", "--format", "json"
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            boundary = json.loads(boundary_result.stdout)
+            references = dict(boundary["official_requirement_authority"]["references"])
+            references["core_workflow"] = "stale/rules.md"
+            proposal = {
+                "schema_version": "1",
+                "type": "tailtrail-host-requirement-interpretation",
+                "host": "codex",
+                "goal": goal,
+                "private_reasoning_excluded": True,
+                "authority": "official-ai-dlc-pack",
+                "authority_mode": "standard",
+                "authority_stage": "requirements",
+                "authority_references": references,
+                "clauses": [{"clause_id": "C-01", "role": "outcome", "text": goal}],
+                "requirements": [{
+                    "display_id": "REQ-01",
+                    "statement": goal,
+                    "source_clause_ids": ["C-01"],
+                    "intent_terms": ["add", "service", "workflow"],
+                }],
+                "material_questions": [],
+            }
+            rejected = subprocess.run(
+                start_command(
+                    root,
+                    goal,
+                    "--host",
+                    "codex",
+                    "--aidlc",
+                    "standard",
+                    "--requirement-interpretation",
+                    json.dumps(proposal),
+                    "--format",
+                    "json",
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(boundary_result.returncode, 2)
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("does not match the verified governing rules", rejected.stderr)
+            self.assertFalse((root / ".tailtrail" / "runs").exists())
+            self.assertFalse((root / "tailtrail-meta").exists())
+
+    def test_answered_prelock_intake_resumes_into_official_standard_same_goal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            compatible_pack(root)
+            goal = (
+                "Create an AWS credential resource for production security because "
+                "it is needed to store OEM credentials."
+            )
+            started = subprocess.run(
+                start_command(
+                    root, goal, "--host", "codex", "--aidlc", "standard", "--format", "json"
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            authority_boundary = json.loads(started.stdout)
+            authority = authority_boundary["official_requirement_authority"]
+            proposal = {
+                "schema_version": "1",
+                "type": "tailtrail-host-requirement-interpretation",
+                "host": "codex",
+                "goal": goal,
+                "private_reasoning_excluded": True,
+                "authority": "official-ai-dlc-pack",
+                "authority_mode": "standard",
+                "authority_stage": "requirements",
+                "authority_references": authority["references"],
+                "clauses": [{"clause_id": "C-01", "role": "outcome", "text": goal}],
+                "requirements": [{
+                    "display_id": "REQ-01",
+                    "statement": goal,
+                    "source_clause_ids": ["C-01"],
+                    "intent_terms": ["create", "aws", "credential", "resource"],
+                    "confidence": "high",
+                }],
+                "material_questions": ["Which AWS credential store must own this resource?"],
+            }
+            planned = subprocess.run(
+                start_command(
+                    root,
+                    goal,
+                    "--host",
+                    "codex",
+                    "--aidlc",
+                    "standard",
+                    "--requirement-interpretation",
+                    json.dumps(proposal),
+                    "--format",
+                    "json",
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            intake = json.loads(planned.stdout)
+            answered = subprocess.run(
+                [
+                    sys.executable,
+                    (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                    "requirements",
+                    "answer",
+                    "--root",
+                    root.as_posix(),
+                    "--intake-id",
+                    intake["intake_id"],
+                    "--answers",
+                    json.dumps({"MAT-01": "Use AWS Secrets Manager."}),
+                    "--format",
+                    "json",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            resumed = subprocess.run(
+                start_command(
+                    root,
+                    goal,
+                    "--aidlc",
+                    "standard",
+                    "--host",
+                    "codex",
+                    "--requirement-intake-id",
+                    intake["intake_id"],
+                    "--format",
+                    "json",
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(started.returncode, 2, started.stderr)
+            self.assertEqual(authority["authority"], "official-ai-dlc-pack")
+            self.assertEqual(planned.returncode, 0, planned.stderr)
+            self.assertEqual(intake["intake_stage"], "navigator-prelock-requirement-intake")
+            self.assertEqual(intake["post_intake_route"], "aidlc-standard")
+            self.assertEqual(intake["route_posture"]["mode"], "standard")
+            self.assertEqual(intake["route_posture"]["state"], "official-standard-ready")
+            self.assertEqual(answered.returncode, 0, answered.stderr)
+            answered_intake = json.loads(answered.stdout)
+            self.assertEqual(answered_intake["state"], "answered")
+            self.assertIn(
+                f"--requirement-intake-id {intake['intake_id']}",
+                answered_intake["continuation"]["command"],
+            )
+            self.assertIn("--aidlc standard", answered_intake["continuation"]["command"])
+            self.assertEqual(resumed.returncode, 0, resumed.stderr or resumed.stdout)
+            report = json.loads(resumed.stdout)
+            activated = lock.activate(
+                root, report["planning_lock"]["run_id"], True
+            )
+            self.assertEqual(report["aidlc_mode"]["mode"], "standard")
+            self.assertEqual(report["requirement_intake_resolution"]["intake_id"], intake["intake_id"])
+            self.assertEqual(
+                report["navigator"]["requirement_interpretation"]["source"],
+                "answered-requirement-intake",
+            )
+            self.assertEqual(
+                report["aidlc_requirements"]["state"],
+                "authority-bound-in-start-plan",
+            )
+            self.assertTrue(report["planning_lock"]["run_id"])
+            self.assertIn(
+                "aidlc-official/requirements/authority-approval-v1.json",
+                activated["official_stage_approval"],
+            )
+            self.assertEqual(
+                activated["official_aidlc_bridge_activation"]["state"],
+                "approved-awaiting-host-attachment",
+            )
+
     def test_lite_and_off_do_not_require_an_official_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -92,11 +313,11 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
     def test_start_intent_routes_default_using_aidlc_and_hands_free_modes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            default = subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "fix one local validation", "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
+            default = subprocess.run(start_command(root, "fix one local validation", "--no-planning-lock", "--format", "json"), cwd=ROOT, text=True, capture_output=True, check=False)
             compatible_pack(root)
-            requested = subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "using AIDLC: add a service feature", "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
-            hands_free = subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "hands-free: add an API and rollout plan", "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
-            escalated = subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "hands-free: regulated multi-team Terraform rollout", "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
+            requested = subprocess.run(start_command(root, "using AIDLC: add a service feature", "--no-planning-lock", "--format", "json"), cwd=ROOT, text=True, capture_output=True, check=False)
+            hands_free = subprocess.run(start_command(root, "hands-free: add an API and rollout plan", "--no-planning-lock", "--format", "json"), cwd=ROOT, text=True, capture_output=True, check=False)
+            escalated = subprocess.run(start_command(root, "hands-free: regulated multi-team Terraform rollout", "--no-planning-lock", "--format", "json"), cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(default.returncode, 0, default.stderr)
         self.assertEqual(requested.returncode, 0, requested.stderr)
         self.assertEqual(hands_free.returncode, 0, hands_free.stderr)
@@ -114,7 +335,7 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
             compatible_pack(root)
             goals = ["using standard AIDLC: add a page", "AIDLC standard: add a page", "use medium AIDLC: add a page"]
             reports = [
-                subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), goal, "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
+                subprocess.run(start_command(root, goal, "--no-planning-lock", "--format", "json"), cwd=ROOT, text=True, capture_output=True, check=False)
                 for goal in goals
             ]
         self.assertTrue(all(report.returncode == 0 for report in reports))
@@ -125,7 +346,7 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
             root = Path(tmp); compatible_pack(root)
             for goal in ("use standard AIDLC: add a page", "AIDLC standard: add a page", "use medium AIDLC: add a page", "using AIDLC: add a page"):
                 with self.subTest(goal=goal):
-                    result = subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), goal, "--root", root.as_posix(), "--no-planning-lock", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
+                    result = subprocess.run(start_command(root, goal, "--no-planning-lock", "--format", "json"), cwd=ROOT, text=True, capture_output=True, check=False)
                     self.assertEqual(result.returncode, 0, result.stderr)
                     report = json.loads(result.stdout)
                     self.assertEqual(report["aidlc_mode"]["mode"], "standard")
@@ -157,7 +378,7 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
             root = Path(tmp)
             compatible_pack(root)
             result = subprocess.run(
-                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "add workflow", "--root", root.as_posix(), "--aidlc", "full", "--official-intent-id", "intent-1", "--format", "json"],
+                start_command(root, "add workflow", "--aidlc", "full", "--official-intent-id", "intent-1", "--format", "json"),
                 cwd=ROOT, text=True, capture_output=True, check=False,
             )
             report = json.loads(result.stdout)
@@ -182,7 +403,7 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
     def test_official_questions_are_host_recorded_with_advisory_recommendations(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); compatible_pack(root)
-            result = subprocess.run([sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "add workflow", "--root", root.as_posix(), "--aidlc", "standard", "--format", "json"], cwd=ROOT, text=True, capture_output=True, check=False)
+            result = subprocess.run(start_command(root, "add workflow", "--aidlc", "standard", "--format", "json"), cwd=ROOT, text=True, capture_output=True, check=False)
             report = json.loads(result.stdout); run_id = report["planning_lock"]["run_id"]
             recorded = lock.record_official_aidlc_questions(root, run_id, json.dumps(host_questions()))
             saved = json.loads((root / recorded["official_questions"]).read_text(encoding="utf-8"))
@@ -236,7 +457,7 @@ compatibility, and rollout/rollback planning. Preserve cancellation behavior."""
             root = Path(tmp)
             compatible_pack(root)
             result = subprocess.run(
-                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), goal, "--root", root.as_posix(), "--format", "json"],
+                start_command(root, goal, "--format", "json"),
                 cwd=ROOT, text=True, capture_output=True, check=False,
             )
             report = json.loads(result.stdout)
@@ -251,7 +472,7 @@ compatibility, and rollout/rollback planning. Preserve cancellation behavior."""
             root = Path(tmp)
             compatible_pack(root)
             result = subprocess.run(
-                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "add a service", "--root", root.as_posix(), "--aidlc", "full", "--format", "json"],
+                start_command(root, "add a service", "--aidlc", "full", "--format", "json"),
                 cwd=ROOT, text=True, capture_output=True, check=False,
             )
             report = json.loads(result.stdout)

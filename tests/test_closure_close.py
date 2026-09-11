@@ -56,12 +56,15 @@ class ClosureCloseTests(unittest.TestCase):
             "Architecture Fitness Harness", "Behaviour Harness", "Maintainability Harness",
         ]}}), encoding="utf-8")
         input_path = root / "closure-input.json"
+        proof = root / "proof.json"
+        proof.write_text(json.dumps({"command": "cancellation unit proof", "exit_code": 0}), encoding="utf-8")
         input_path.write_text(json.dumps({
             "schema_version": "1", "type": "tailtrail-execution-closure-input", "run_id": "run",
             "changed_paths": ["src/service.py", "tests/test_service.py"],
             "receipts": [{"requirement_uids": [uid], "tier": "unit", "command_label": "cancellation unit proof",
                 "command": "tailtrail-never-execute-close-sentinel", "outcome": "pass", "environment": "local",
-                "asserted_behavior": "Eligible order cancellation is idempotent."}],
+                "asserted_behavior": "Eligible order cancellation is idempotent.", "evidence_label": "ci-receipt",
+                "evidence_quality": "attested", "artifact": "proof.json"}],
         }), encoding="utf-8")
         recorder.record(root, input_path)
         return uid

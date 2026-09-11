@@ -70,14 +70,16 @@ def _set_rows(target: dict[str, Any], name: str, state: str, reason: str) -> Non
     navigator = target.setdefault("navigator", {}); delivery = target.setdefault("guided_delivery", {})
     for key in ("selected_features", "skipped_features"):
         values = _rows(navigator.get(key)); navigator[key] = [row for row in values if row["name"].lower() != name.lower()]
-    for key in ("selected", "activated_later"):
+    for key in ("selected", "activated_later", "conditional_controls"):
         values = _rows(delivery.get(key)); delivery[key] = [row for row in values if row["name"].lower() != name.lower()]
     if state == "selected":
         navigator["selected_features"].append({"name": name, "why": f"user-approved Expert Plan Customization: {reason}"})
         delivery["selected"].append({"name": name, "why": f"user-approved Expert Plan Customization: {reason}"})
     elif state == "armed":
         navigator["skipped_features"].append({"name": name, "why": f"armed by user-approved Expert Plan Customization: {reason}"})
-        delivery["activated_later"].append({"name": name, "when": f"armed by user-approved Expert Plan Customization: {reason}"})
+        row = {"name": name, "when": f"armed by user-approved Expert Plan Customization: {reason}"}
+        delivery["activated_later"].append(row)
+        delivery.setdefault("conditional_controls", []).append(dict(row))
     else:
         navigator["skipped_features"].append({"name": name, "why": f"disabled by user-approved Expert Plan Customization: {reason}"})
 

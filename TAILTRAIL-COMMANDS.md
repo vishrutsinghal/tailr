@@ -29,16 +29,76 @@ Bare `tailtrail status` retains its installer-lifecycle meaning for backwards
 compatibility. Use `tailtrail flow status` for auto-resolved task status, or
 `tailtrail status --run-id <run-id>` for an explicit task.
 
-Choose the display depth without changing the saved plan or approval authority:
+## Stop TailTrail and return to the normal agent
 
 ```bash
-tailtrail start "your goal" --presentation quick
-tailtrail start "your goal" --presentation guided
-tailtrail start "your goal" --presentation expert
+tailtrail stop
+tailtrail session status
+tailtrail resume --run-id <exact-run-id>
 ```
 
-`--verbose` overrides the ordinary depth and renders the comprehensive canonical
-plan for any presentation mode.
+`tailtrail stop` is an idempotent common kill switch for Codex, Copilot,
+Claude, CLI, and MCP. It preserves the canonical run at its last safe logical
+point, pauses an eligible active workflow, expires temporary session authority,
+releases its code-change reservation, detaches TailTrail routing, and exits
+successfully. It is not rejection, cancellation, closure, deletion, or undo.
+
+After stop, ordinary prompts stay with the normal host agent. TailTrail becomes
+active again only through a new explicit `tailtrail start ...` or
+`tailtrail resume --run-id <exact-run-id>`. Resume validates the saved target
+and attachment integrity, reattaches the run, and reports its state; it never
+approves, continues, retries, or restores expired authority. Workflow
+`resume`, installer rollback, and TailTrail session resume remain distinct.
+
+## Natural-language intent resolution
+
+Agents may understand ordinary TailTrail requests directly. CLI, MCP, and
+non-agent clients can obtain the same read-only typed recommendation:
+
+```bash
+tailtrail intent resolve "Use TailTrail to reject zero quantities but preserve positive quantities" --format json
+tailtrail intent resolve "Why these files?" --active-state awaiting-approval --format json
+tailtrail intent resolve "looks good" --active-state awaiting-approval --format json
+```
+
+The versioned `tailtrail-intent-envelope` preserves the supplied goal and
+recommends one action such as `guide`, `start`, `discuss`, `status`, `approve`,
+`continue`, `close`, `stop`, `resume`, or `ordinary-agent`. Resolution never performs the action, creates a run,
+infers approval, or grants execution authority. Multiple active runs and vague
+approval language fail closed with a clarification reason.
+
+TailTrail chooses the plan detail automatically from lifecycle authority:
+
+```bash
+tailtrail start "your goal" --aidlc off       # Quick
+tailtrail start "your goal" --aidlc lite      # Expert, without Architecture/Behaviour detail
+tailtrail start "your goal" --aidlc standard  # comprehensive
+tailtrail start "your goal" --aidlc full      # comprehensive
+```
+
+When a local text specification is required to understand the goal, declare it
+as a read-only planning input instead of leaving it as an unread reference:
+
+```bash
+tailtrail start "add the test cases described in the specification" \
+  --requirement-artifact "/absolute/path/to/specification.md"
+```
+
+TailTrail bounded-reads and SHA-256 binds supported UTF-8 text artifacts before
+requirement interpretation or scope discovery. Missing, unreadable,
+unsupported, oversized, or unbound artifacts stop planning before a Planning
+Lock is created. Repeat `--requirement-artifact` for multiple required inputs.
+
+On Codex, Copilot, or Claude, Standard and Full mode establish official AI-DLC
+requirement authority before repository scope discovery. The first Start call
+returns the verified official rule references; the host reads them and resubmits
+an authority-bound typed interpretation. Navigator maps those exact requirement
+rows to local owners without rewriting them. Plan approval freezes both the
+official boundary and its local scope mapping.
+
+Hands-free and Intent Bridge plans are also comprehensive. `--verbose` always
+renders the comprehensive canonical plan. Completion Reports are comprehensive
+for every AIDLC route; no presentation flag is required.
 
 ## Presentation and host conformance
 
@@ -251,6 +311,7 @@ python3 scripts/tailtrail.py planning decision-show --root . --run-id <run-id>
 python3 scripts/tailtrail.py planning investigate --root . --run-id <run-id> --path src/service.py --approved-read-only
 python3 scripts/tailtrail.py planning investigation-show --root . --run-id <run-id>
 python3 scripts/tailtrail.py planning revise --root . --run-id <run-id> --changes '[{"kind":"scope-remove","requirement_uid":"REQ-03","path":"src/api.py","reason":"Internal service support only."}]' --approved-proposal
+python3 scripts/tailtrail.py planning revise --root . --run-id <run-id> --changes '[{"kind":"requirement-remove","requirement_uid":"REQ-02","reason":"Duplicate requirement."}]' --approved-proposal --supersede-pending
 python3 scripts/tailtrail.py planning revision-show --root . --run-id <run-id> --revision 2
 python3 scripts/tailtrail.py planning revision-approve --root . --run-id <run-id> --revision 2 --approved
 python3 scripts/tailtrail.py planning aidlc-standard --root . --run-id <run-id> --approved-proposal
@@ -281,6 +342,13 @@ choice. They do not inspect project source, rerun a graph, run tests/scanners,
 change the plan, or persist raw chat. `discussion-show` returns saved metadata.
 `planning explain` renders Markdown by default; use `--format json` for a host
 adapter or a saved-artifact integration.
+
+For v2 runs, explanations use the saved typed scope decision rather than the
+legacy flat impact list. A file answer states its implementation, inspection,
+proof, excluded, or rejected role; records the saved confidence and reason
+codes; and names every relevant `edge-*` relationship. It never upgrades an
+inspection or proof path into editable scope. Old v1 runs continue to render
+their immutable saved explanation format.
 
 ### AIDLC Question Clarification And Correction
 
@@ -317,6 +385,11 @@ existing Code Graph Mapper cache for freshness without refreshing or rebuilding
 it. The resulting receipt records no raw source, raw question, commands, test
 result, source mutation, or plan change.
 
+On v2 runs the receipt also carries the saved decision fingerprint, exact path
+roles, evidence edges, verbose exclusions, and bounded-investigation limits.
+These are projections of the saved decision, not a fresh classification or
+authority grant.
+
 ## Interactive Plan Revision (IP-3)
 
 `planning revise` is the only pre-approval path that changes a saved plan. It
@@ -326,11 +399,29 @@ accepts a bounded JSON list of material changes (`scope-add`, `scope-remove`,
 reason. It creates `revision-vN.json` and a pending revision pointer under the
 same run; the original `start-report-v1.json` is never overwritten.
 
+For v2 scope additions, saved implementation-owner evidence is sufficient. An
+otherwise unsupported production owner requires both
+`"scope_authority":"explicit-user-scope"` and `"confirmed":true`. A
+proof-only test cannot be promoted into a code implementation owner; use a
+test-only requirement boundary instead. Requirement wording changes must set
+`"retain_scope_confirmed":true` before existing ownership may be carried
+forward. Approval verifies the revised decision fingerprint against the
+original Planning Lock, then uses that same role mapping for the anchor and
+execution handoff.
+
 While a revision is pending, ordinary `planning approve` and `planning activate`
 refuse to run. Review the delta, then use `revision-approve` for that exact
 version. This writes a versioned report snapshot, freezes its requirements into
 the existing immutable anchor workflow, and activates the same run. A stale v1
 approval cannot activate v2.
+
+If the pending proposal itself is wrong, do not approve it merely to unlock a
+new edit. Create the corrected proposal with `planning revise
+--supersede-pending`. TailTrail preserves the old proposal for audit, marks it
+superseded in revision state, creates the next version from the last active
+reviewed report, and keeps implementation blocked until that exact replacement
+is approved. Requirement removal also converges the query frame, scope roles,
+feature slices, and workflow binding so deleted IDs cannot remain in the plan.
 
 ## AIDLC and Intent Bridge authority routing (IP-4)
 
@@ -347,6 +438,18 @@ Instead it records a sanitized authority-route receipt under the same run:
 - Intent Bridge wording stays source-owned. TailTrail records an amendment
   request and requires an updated, explicitly imported source snapshot rather
   than rewriting imported requirements or the immutable Start report.
+
+For v2 runs, each authority-owned requirement ID receives a local
+implementation-owner, inspection, and proof mapping tied to the Navigator
+decision fingerprint. Imported wording, external IDs, source UID, and source
+revision remain unchanged. An unresolved mapping blocks implementation
+activation; it is repository evidence, never a substitute AIDLC requirement.
+Standard/Full question generation remains official-host owned.
+
+The same mapping is stored in the DWR Start draft, checked again at activation,
+and copied into the execution handoff. Lite/Off automatic execution therefore
+uses the exact approved editable paths. Official AIDLC and Intent Bridge retain
+their existing material-stage and slice gates.
 
 Use `planning authority-show` (or the read-only MCP
 `planning_authority_show`) to inspect the authority, route, request context,
@@ -691,15 +794,26 @@ MCP support improves tool access and consistency. It does not automatically comp
 
 ### Run-local execution evidence through MCP
 
-MCP hosts can record one factual, requirement-linked event at a time with the
-approval-gated `execution_evidence_record` tool and inspect the saved stream
-with `execution_evidence_show`. The record tool requires the exact approved run
-ID, `approved: true`, and an event accepted by the same schema as
-`tailtrail execution-evidence record`. It records host-visible facts only; it
-does not run the named command or turn a conversational claim into evidence.
+MCP hosts run approved local proof with `execution_evidence_run`, record source
+edits or external artifact-backed facts with `execution_evidence_record`, and
+inspect the stream with `execution_evidence_show`. The managed runner requires
+the exact approved run ID, `approved: true`, and an exact command and tier from
+the approved validation contract. It captures exit code, duration, environment,
+scenario IDs, hashes, and bounded redacted stdout/stderr. The record tool never
+runs a named command; label-only host assertions remain unverified.
 After evidence is saved, use `tailtrail closure finalize --root . --run-id
 <run-id>` to feed selected Harnesses through the normal fail-closed closure
 path.
+
+CLI example for one command that covers both component and behaviour proof:
+
+```bash
+tailtrail execution-evidence run --root . --run-id <run-id> \
+  --requirement <requirement-uid> --tier component --tier behaviour \
+  --changed src/Page.tsx --changed src/Page.cy.tsx \
+  --label "page interaction proof" \
+  --command 'npm run cypress:component -- --spec src/Page.cy.tsx' --approved
+```
 
 ## Setup Scan
 
@@ -750,6 +864,7 @@ Use `do`, `start`, or free-form task input as the preferred first command for no
 - a compact approval menu with review, approve, edit, and focused validation prompts
 - Navigator-first workflow selection
 - selected TailTrail features and hidden counts for extra details
+- mandatory `Required later in this run` testing/closure controls, distinct from trigger-based `Conditional TailTrail controls`
 - likely impacted files to inspect first
 - key suggested commands
 - post-change Review guidance
@@ -758,6 +873,11 @@ Use `do`, `start`, or free-form task input as the preferred first command for no
 - guarded learning and setup posture summary
 
 Default output is intentionally compact. Use `--verbose` when you need the full decision menu, detailed learning/setup posture, and the full approval-first Navigator plan.
+
+Testing is never deferred from delivery. Planning Lock does not execute tests,
+but every code-change plan schedules focused testing and evidence-backed closure
+under `Required later in this run`. Only genuinely trigger-based controls belong
+under `Conditional TailTrail controls`.
 
 The token posture is a local estimate from file character counts. It is useful for demos and planning, but it is not exact model/API token usage. Learning quality is advisory only; surfaced learnings still require `use learnings`, `ignore learnings`, or `edit plan`.
 
@@ -928,6 +1048,13 @@ local receipt artifacts, creates a fingerprinted checkpoint, runs the existing
 Completion Review and Requirement Completion Gate, and returns the saved
 artifact pointers plus the next required action. Replaying identical input for
 the same run safely reuses the prior closure record.
+
+The checkpoint also compares factual `changed_paths` with the union of paths
+approved as editable in the anchor. Inspection-only and proof-only paths are
+not silently editable. Any unexpected path is recorded as `new-drift`, makes
+Completion Review incomplete, and keeps the Completion Report
+`evidence-incomplete` until an approved revision or correction route resolves
+the scope difference.
 
 Finalize an approved recorded run with its selected deterministic controls:
 
@@ -1314,13 +1441,21 @@ python3 scripts/tailtrail.py guide "tell me important features of this repo"
 
 This mode avoids AIDLC, Review, Handoff, scanners, learning capture, tests, builds, and file edits by default. It asks approval before inspecting the target repo and answering the overview question.
 
-For repo overview, Navigator does not create `tailtrail-meta/code-graph-cache.json` by itself. It shows Code Graph Mapper as optional deeper discovery. Approve and run the suggested `graph map --root /path/to/project` command when you want a reusable module, symbol, endpoint, test, config, and read-order cache that the team can review and commit.
+Navigator manages `tailtrail-meta/code-graph-cache.json` automatically for Start requests when reusable repository orientation is useful. It reuses a fresh relevant cache, creates one when missing, incrementally refreshes stale or newly relevant scope, and rebuilds invalid metadata. Use `--graph reuse`, `--graph refresh`, `--graph rebuild`, or `--graph off` only when you want to override the automatic decision.
 
 For meaningful code-change prompts, Navigator selects Code Graph Mapper before broad reads:
 
-- missing cache: approve `graph map --root "/path/to/project"` when graph context would help
-- stale cache: approve `graph refresh --root "/path/to/project" --changed path/to/file`
-- fresh cache: use the cached read order, then inspect exact source before editing
+- missing cache plus grounded task scope: create a bounded metadata graph
+- stale cache or newly relevant scope: incrementally refresh affected paths
+- invalid cache: rebuild metadata; fresh relevant cache: reuse it
+- no relevant scope: defer graph creation instead of mapping arbitrary files
+- explicit override: `--graph reuse|refresh|rebuild|off`
+
+Debug Start is reuse-only until reproduction approval. Closure refreshes actual
+changed paths and records a hash-bound entry in
+`tailtrail-meta/navigator-run-mappings-v1.json`. Only complete mappings whose
+file hashes still match may seed a later run, and they remain advisory until
+current-source relationship evidence confirms ownership.
 
 Tiny typo and docs-only prompts skip graph mapping so TailTrail does not add more process than the task needs.
 
@@ -1703,6 +1838,70 @@ Use `quality scan` before PRs, Sonar fixes, lint/test issues, or quality-gate wo
 
 Use `quality run` only after the user approves one exact command. It blocks deploy/publish/destructive/cloud commands, uses a local quality-tool allowlist, saves output under `.tailtrail/quality-runs/`, and returns the exit code. Summarize noisy output with `ci summarize` or `sonar summarize`.
 
+## Bounded Navigator Scope Investigation
+
+```bash
+python3 scripts/tailtrail.py navigator scope inspect --root . --goal "fix multiline requirement splitting"
+python3 scripts/tailtrail.py navigator scope inspect --root . --goal "change validation" --changed src/validation.py
+```
+
+This read-only command returns the same v2 scope evidence and sanitized host
+packet used by Navigator. It performs capped static text parsing only: no
+project imports, tests, builds, scanners, network calls, cache writes, Git
+mutations, hidden model calls, or Planning Lock creation. Python,
+JavaScript/TypeScript, Java, C#, and Go definitions and relationships are
+supported. A fresh Code Graph Mapper cache may be reused, but stale or invalid
+caches are rejected without refresh.
+
+When no fresh persisted graph exists, Navigator normally creates a transactional
+metadata-only cache before final scope resolution. If persistence is disabled or
+not permitted, it falls back to a bounded in-memory relationship graph and
+discards that fallback after the scope decision. Exact user-visible literals,
+including quoted, fenced, and Markdown-bold messages, UI action bindings, matching handlers,
+navigation-state writes, and rendered destinations narrow that graph before
+generic lexical candidates. Imported helpers do not become implementation
+owners merely because a component imports them. A missing or stale persisted
+cache is therefore advisory when direct behavior evidence proves one owner;
+true competing owners still fail closed. Graph suggestions remain advisory until
+task-specific current-source evidence establishes ownership.
+
+Successful Starts retain their full scope evidence in the Start artifact and
+bind its fingerprint into the Planning Lock. Closure refreshes graph metadata for
+actual changed paths and appends a hash-bound entry to
+`tailtrail-meta/navigator-run-mappings-v1.json`. Only complete, hash-fresh mappings
+may seed a later Start; approval and implementation authority never transfer.
+
+`tailtrail start` applies a separate scope-quality gate after target
+resolution. For code changes, every requirement must resolve to static
+implementation-owner evidence. Choosing `--root` cannot bypass this gate.
+Tests-only and documentation-only requests remain valid with their matching
+repository roles; an explicitly supplied test remains proof-only for normal
+code-change work. Ambiguous scope returns one `SCOPE-Q1` question, and any
+blocked decision creates no run or other Start artifact. Resolved Start reports
+bind the v2 decision fingerprint to their Planning Lock, target identity,
+requirement rows, validation candidates, activation, and approved anchor.
+Question options require explicit or behavior-specific definition evidence;
+generic lexical and import edges are not presented as evidence-backed owners.
+
+Before an ordinary Lite/Off Build Start, a supported host may submit a typed
+requirement interpretation with `--requirement-interpretation '<json>'` (or
+`--requirement-interpretation-base64 <base64-utf8-json>` on shells where JSON
+quoting is unsafe). The proposal must bind the exact goal and host, contain no
+private reasoning, ground every typed clause in the user text, link every
+requirement to an outcome/constraint/scope clause, and keep quoted messages in
+`quoted_literals` rather than semantic `intent_terms`. TailTrail validates the
+contract and displays its interpretation provenance. Any material question
+returns a clarification report before graph work or Planning Lock creation.
+Without a proposal, the deterministic normalizer remains the portable fallback.
+
+Host proposals must conform to
+`schemas/navigator-host-scope-proposal.schema.json`, cover every requirement,
+cite evidence edges for material path claims, and include alternatives,
+preservation boundaries, concise reasons, and uncertainty. CLI
+`proposal-record` and MCP `navigator_scope_proposal_record` validate and embed
+the supplied proposal in the returned evidence value; they write nothing,
+create no run, approve no scope, and grant no execution authority.
+
 ## Test Precision Planner
 
 ```bash
@@ -1711,13 +1910,19 @@ python3 scripts/tailtrail.py test plan --changed src/service/foo.py
 python3 scripts/tailtrail.py test plan --changed src/service/foo.py --goal "fix validation bug"
 python3 scripts/tailtrail.py test plan --changed src/main/java/com/acme/PaymentValidator.java --format json
 python3 scripts/tailtrail.py test summarize --changed src/service/foo.py --goal "show implemented test cases"
+python3 scripts/tailtrail.py test run
+python3 scripts/tailtrail.py test run --jobs 4
+python3 scripts/tailtrail.py test run --include test_navigator_scope,test_requirement_discovery
+python3 scripts/tailtrail.py test run --serial --verbose
 ```
 
 Use `test plan` after or before an implementation when the next question is "what exact test should we add or run?" It detects common Python, Java/Maven, Java/Gradle, Node, .NET, and Go test setups; infers likely test files from changed source paths; lists existing fixtures/helpers to reuse; builds a small regression/happy-path/negative-path/boundary test matrix; and recommends focused validation commands.
 
 Use `test summarize` when the question is "what test cases appear to exist already?" It scans likely existing test files and reports recognizable test functions or blocks with line numbers and assertion hints. It is heuristic, read-only, and does not execute tests or prove coverage.
 
-This command is read-only. It does not write test files, run test commands, start scanners, call models, or claim validation passed. Use `quality run --approved --command "..."` when the user intentionally approves one exact command.
+Use `test run` to execute TailTrail's Python unittest suite with bounded, cross-platform parallelism. It defaults to `min(CPU count, 4)` workers and honors `TAILTRAIL_TEST_JOBS`. Repository-state and package-governance observers run first in a serial preflight; every remaining test module runs in its own subprocess. Failures retain their unittest output and produce a nonzero exit code. Use `--serial --verbose` to reproduce ordering-sensitive failures with conventional unittest behavior, or `--format json` for machine-readable CI evidence.
+
+`test plan` and `test summarize` are read-only. They do not write test files, execute tests, start scanners, call models, or claim validation passed. `test run` executes only the selected local unittest modules; it does not install dependencies or run arbitrary project commands. Use `quality run --approved --command "..."` when the user intentionally approves a different exact command.
 
 Navigator selects this command when the task mentions unit tests, regression tests, coverage, test cases, post-change validation, validation confidence, or before-PR validation. It appears in `Selected Features` as `Test Precision Planner` with a suggested `test plan --root ... --goal ... --changed ...` command.
 
@@ -2246,6 +2451,48 @@ tailtrail workflow vertical finalize --root . --workflow-id <workflow-id>
 tailtrail reference --target /path/to/service-a --reference /path/to/service-b --goal "match validation style"
 ```
 
+When requirement interpretation still has material decisions, Start creates a
+durable pre-lock intake instead of losing the questions or attempting scope
+discovery. The intake is bound to the exact goal, root, route, and host and
+creates no Planning Lock or implementation authority.
+
+Start enforces this question order: target identity, requirement sufficiency,
+then implementation scope. Scope release checks, graph work, owner discovery,
+and scope questions cannot run while a material requirement decision remains.
+Every scope boundary carries the typed eligibility decision, and its renderer
+suppresses owner choices unless the requirement state is `sufficient`.
+
+```bash
+tailtrail requirements show --root . --intake-id <intake-id>
+tailtrail requirements answer --root . --intake-id <intake-id> \
+  --answers '{"DEC-01":"Use the repository-approved resource type."}'
+```
+
+Answers create append-only intake revisions. Never place credentials or secret
+values in an answer. The returned continuation includes an exact Start command
+with `--requirement-intake-id <intake-id>`. That command accepts only the same
+goal, root, host, and saved AIDLC route; it cannot downgrade or escalate the
+intake. Start consumes the answered decisions before graph or scope work.
+
+When Navigator selected Standard, the pre-lock intake remains Navigator-owned
+and creates no fake “official” questionnaire. After all material intake
+decisions are answered, the same continuation preserves `--aidlc standard`.
+With a compatible pinned pack, the resulting evidence-resolved Start creates
+the Planning Lock and enters the existing host-generated official AI-DLC
+Requirements Analysis stage. Official questions, answers, and stage approval
+remain separate from the Start-plan approval. When the pack is unavailable,
+the report exposes the existing official-pack fallback posture instead of
+claiming that Standard ran.
+
+The intake also preserves bounded evidence gathered only for each material
+decision. It may show a repository-convention recommendation, but the user must
+still answer: evidence does not become scope, ownership, approval, or execution
+authority. TailTrail runs no project commands during this lookup, excludes
+managed/generated/vendor state, records the exact read limits, and reports
+conflict, no-evidence, unsupported, and limit-reached states without guessing.
+The evidence packet is goal/root-bound and fingerprint-checked whenever the
+intake is shown or answered.
+
 The `hello` alias handles `hello tailtrail`, `hello TailTrail`, and the common typo `hello taitrail`, then delegates to `tailtrail hello`. If the launcher was installed before the alias existed, rerun `python3 scripts/tailtrail.py install launcher --force`.
 
 `tailtrail start` is the default guided-delivery entry point: it selects the smallest applicable TailTrail controls, creates a local Planning Lock, and saves the exact Start Report at `.tailtrail/runs/<run-id>/planning/start-report-v1.json`. It remains planning-only even if the same prompt says implement, set up, or replicate. After the user approves, use `tailtrail planning activate --root . --run-id <run-id> --approved`: guided-delivery and hands-free plans receive an immutable approved anchor at `anchors/approved-v1.json`; lean tasks keep only the lock. It does not edit source, run tests, or invoke an implementation agent by itself; managed source changes require that separately approved Planning Lock run.
@@ -2327,6 +2574,14 @@ Use `adapters check` after changing assistant guidance. It verifies source adapt
 Codex, Copilot, and Claude. It checks the fixed precedence order and six local
 control-flow scenarios; it does not claim identical runtime behavior by hosts.
 
+NS-7 adds a second six-scenario scope contract: resolved, unresolved,
+conflicting, docs-only, test-only, and Debug Start. CLI and MCP compute one JSON
+scope decision, Markdown renders that same object, and Codex, Copilot, and
+Claude receive the unchanged normalized decision fingerprint and role
+projection. Unresolved or conflicting Build scope creates no Planning Lock;
+Debug remains command-free orientation. Host explanation cannot reclassify a
+path or expand approval authority.
+
 ### Real-host runtime conformance
 
 ```bash
@@ -2350,6 +2605,26 @@ Use `adapters sync` after editing files in `adapters/`; it writes the generated 
 See `ASSISTANT-COMPATIBILITY.md` for support levels and limitations. Assistant-specific prompt packs live in `adapters/prompts/`.
 
 ## Evaluation Harness
+
+Navigator scope negative assurance:
+
+```text
+tailtrail eval scope validate --format json
+tailtrail eval scope report --format json
+tailtrail eval scope capture-negative --root . --approved --format json
+tailtrail eval scope migration --root . --format json
+tailtrail eval scope release-proof --root . --format json
+tailtrail eval scope rollback-status --root . --format json
+tailtrail eval scope rollback-enable --root . --reason-code scope-release-incident --approved --format json
+tailtrail eval scope rollback-disable --root . --reason-code scope-release-recovered --approved --format json
+```
+
+The first two commands are read-only. The report accepts only sealed factual
+fixture receipts, reports safe refusal separately from failed thresholds, and
+makes no productivity or causal claim. `capture-negative` is approval-gated;
+the captured weak note still requires normal Learning V3 retrieval, conflict,
+freshness, invalidator, privacy, explicit-use receipt, and closure-attribution
+gates.
 
 Real evaluation portfolio:
 
@@ -2391,6 +2666,7 @@ python3 scripts/tailtrail.py eval audit
 python3 scripts/tailtrail.py eval audit --format json
 python3 scripts/tailtrail.py eval audit --strict
 python3 scripts/tailtrail.py eval audit --write-report --approved
+python3 scripts/tailtrail.py eval scope report --format json
 python3 scripts/tailtrail.py eval portfolio run --portfolio --strict
 python3 scripts/tailtrail.py eval guardrails precision --strict
 python3 scripts/tailtrail.py eval outcome summarize
@@ -2505,11 +2781,15 @@ state.
 
 ```bash
 python3 scripts/tailtrail.py start "investigate why checkout fails after timeout" --debug --verbose
+python3 scripts/tailtrail.py start debug "checkout fails after timeout"
 python3 scripts/tailtrail.py debug "describe the observed failure" --root .
 python3 scripts/tailtrail.py debug reproduction show --root . --run-id <debug-run-id>
 python3 scripts/tailtrail.py debug reproduction draft --root . --run-id <debug-run-id> --input reproduction.json
 python3 scripts/tailtrail.py debug reproduction revise --root . --run-id <debug-run-id> --revision <N> --input reproduction.json --approved
 python3 scripts/tailtrail.py debug reproduction approve --root . --run-id <debug-run-id> --revision <N> --approved
+python3 scripts/tailtrail.py debug reproduction attempt-record --root . --run-id <debug-run-id> --phase pre-fix --outcome reproduced --evidence-event-id <fingerprint> --observed-summary "approved failure observed" --checked-dimension command-or-actions --approved
+python3 scripts/tailtrail.py debug reproduction attempt-show --root . --run-id <debug-run-id>
+python3 scripts/tailtrail.py debug reproduction reopen --root . --run-id <debug-run-id> --revision <N> --input revised-reproduction.json --approved
 python3 scripts/tailtrail.py debug orientation create --root . --run-id <debug-run-id>
 python3 scripts/tailtrail.py debug orientation show --root . --run-id <debug-run-id>
 python3 scripts/tailtrail.py workflow state show --root . --workflow-id <workflow-id>
@@ -2539,10 +2819,27 @@ python3 scripts/tailtrail.py debug correction show --root . --run-id <debug-run-
 python3 scripts/tailtrail.py debug completion-report show --root . --run-id <debug-run-id>
 ```
 
-Use `tailtrail start` for the canonical entry point. Symptom-first wording (or
-`--debug`) creates a persisted, planning-only `# TailTrail Debug Start Plan`
-with the normal Planning Lock. It does not create Debug Intake, run a
-reproduction, inspect source, or grant correction authority. Use the separate
+Use `tailtrail start` for the canonical entry point. Symptom-first wording,
+the explicit `tailtrail start debug ...` command form, or `--debug` creates a
+persisted, planning-only `# TailTrail Debug Start Plan`
+with the normal Planning Lock. On Codex, Copilot, or Claude, the active host
+first performs bounded read-only source, caller, test, configuration, and
+supplied-artifact diagnosis, then passes the hash-bound
+`schemas/debug-host-diagnosis.schema.json` contract through MCP
+`debug_diagnosis` or CLI `--debug-diagnosis '<json>'` (Base64 is also
+available). If an active host omits that contract, Start returns
+`TailTrail Debug Diagnosis Required` and creates no lock. The complete plan
+then includes preliminary findings, typed repository roles, concrete test
+cases and candidate commands, and a line-slice token estimate. It does not create Debug Intake, run a
+reproduction, execute project/test/graph/Git commands, claim root cause, or
+grant correction authority. Every `.tailtrail/**` and `tailtrail-meta/**`
+path is excluded before inventory limits are charged. Every resulting
+application path is labelled an orientation candidate, never correction scope. Use the separate
+Use `tailtrail debug preflight --root . --goal "<exact symptom>" --host codex --format json`
+to create the bounded read-only packet required before host-assisted Debug
+Start. Substitute `copilot` or `claude` for the active host. The packet runs no
+project command and creates no Planning Lock.
+
 `tailtrail debug` command only when intentionally exercising the prototype
 intake lifecycle directly.
 
@@ -2556,6 +2853,24 @@ both the exact machine stage and display name, `workflow resume` returns the
 shortest dependency-ready continuation, and `workflow state replay`
 reconstructs state from the canonical journal. Project source writes remain
 blocked until a later correction is proven and separately approved.
+
+Every reproduction proposal, revision, `show`, and approval report now ends
+with the same bullet-based `Next actions` and `Route to a code fix` guidance.
+It gives compact prompts for the actions that are valid at that state: approve,
+revise, explain, reject, inspect status/evidence, run the approved reproduction,
+continue investigation, stop, or resume. The exact run ID and revision are
+carried into each applicable prompt. A correction prompt is displayed only as
+a future lifecycle stage; it never grants source-write authority before
+root-cause proof and separate correction approval.
+
+After exact approval, the host must run the approved bounded procedure, save
+the real `command-result` through Execution Evidence, and link it with
+`reproduction attempt-record`. A `not-reproduced` or `inconclusive` pre-fix
+attempt enters `awaiting-reproduction-input`, blocks orientation/hypotheses and
+correction, and returns a sanitized focused request. User evidence can reopen
+the same run into the next separately approved reproduction revision; earlier
+approvals and attempts remain immutable. Successful closure requires both a
+factual pre-fix `reproduced` attempt and a factual post-fix `restored` attempt.
 
 `debug orientation create` is a local metadata action after reproduction
 approval. It reuses the existing Code Graph cache when hashes and repository

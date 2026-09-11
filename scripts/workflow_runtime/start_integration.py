@@ -1,14 +1,96 @@
 """DWR-2 bridge from an approved Start report to existing workflow controls."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
+import navigator_scope
 from workflow_runtime import approvals, capabilities, compiler, ownership, state, task_scope
 
 
 LEDGER = ownership.LEDGER
+
+
+def _canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def scope_binding(report: dict[str, Any]) -> dict[str, Any] | None:
+    """Freeze the exact v2 role projection into the DWR control plane."""
+    navigator = report.get("navigator", {}) if isinstance(report, dict) else {}
+    evidence = navigator.get("scope_evidence") if isinstance(navigator, dict) else None
+    if not isinstance(evidence, dict):
+        return None
+    if not navigator_scope.verify_decision_fingerprint(evidence):
+        raise ValueError("DWR scope binding requires valid Navigator v2 evidence")
+    authority_scope = navigator.get("authority_scope") if isinstance(navigator.get("authority_scope"), dict) else None
+    if authority_scope is not None:
+        mappings = [dict(row) for row in authority_scope.get("requirements", []) if isinstance(row, dict)]
+        authority = dict(authority_scope.get("authority", {}))
+    else:
+        matrix = [row for row in navigator.get("requirement_matrix", []) if isinstance(row, dict)]
+        mode = str((report.get("aidlc_mode", {}) or {}).get("mode", "lite"))
+        if isinstance(report.get("debug_plan"), dict):
+            authority = {"type": "debug-static-orientation", "route": "reproduction-and-correction-gated"}
+        elif mode in {"standard", "full"}:
+            authority = {"type": "official-aidlc", "mode": mode, "question_authority": "official-host"}
+        else:
+            authority = {"type": "tailtrail-local-requirements", "mode": mode}
+        mappings = navigator_scope.authority_requirement_mappings(evidence, matrix, authority=authority)
+    implementation_paths = sorted({
+        str(path) for row in mappings for path in row.get("implementation_owners", []) if str(path)
+    })
+    proposed_proof_paths = sorted({
+        str(path)
+        for row in navigator.get("requirement_matrix", [])
+        if isinstance(row, dict)
+        for path in ((row.get("validation_contract", {}) or {}).get("proposed_paths", []))
+        if str(path)
+    })
+    validation_edit_paths = sorted({
+        str(path)
+        for row in navigator.get("requirement_matrix", [])
+        if isinstance(row, dict)
+        for path in ((row.get("validation_contract", {}) or {}).get("editable_paths", []))
+        if str(path)
+    } | set(proposed_proof_paths))
+    proof_paths = sorted({
+        str(path) for row in mappings for path in row.get("proof_paths", []) if str(path)
+    } | set(proposed_proof_paths))
+    stable = {
+        "schema_version": "1",
+        "type": "tailtrail-workflow-scope-binding",
+        "source_schema_version": "2",
+        "decision_fingerprint": evidence.get("decision_fingerprint"),
+        "target_identity_fingerprint": evidence.get("target_identity_fingerprint"),
+        "state": evidence.get("state"),
+        "authority": authority,
+        "requirements": mappings,
+        "editable_paths": sorted(set(implementation_paths) | set(validation_edit_paths)),
+        "implementation_paths": implementation_paths,
+        "inspection_paths": sorted({
+            str(path) for row in mappings for path in row.get("inspection_paths", []) if str(path)
+        }),
+        "proof_paths": proof_paths,
+        "proposed_proof_paths": proposed_proof_paths,
+        "validation_edit_paths": validation_edit_paths,
+        "boundary": "DWR consumes the saved Navigator decision by fingerprint. Proven implementation owners are editable for source work; requirement-linked validation paths named by the approved validation contract are editable only for proof assertions; inspection-only paths remain read-only.",
+    }
+    return {
+        **stable,
+        "binding_fingerprint": "sha256:" + hashlib.sha256(_canonical(stable).encode("utf-8")).hexdigest(),
+    }
+
+
+def _saved_start_report(root: Path, run_id: str) -> dict[str, Any]:
+    path = LEDGER.state_dir(root.resolve(), run_id) / "planning" / "start-report-v1.json"
+    if not path.is_file():
+        return {}
+    value = json.loads(path.read_text(encoding="utf-8"))
+    report = value.get("report", value) if isinstance(value, dict) else {}
+    return report if isinstance(report, dict) else {}
 
 
 def _relative(root: Path, path: Path) -> str:
@@ -21,12 +103,13 @@ def approval_path(root: Path, workflow_id: str) -> Path:
 
 def draft(report: dict[str, Any], run_id: str, disabled: bool = False) -> dict[str, Any]:
     """Create an in-report proposal only; it never creates a workflow artifact."""
+    scope_contract = scope_binding(report)
     if disabled:
-        return {"enabled": False, "state": "disabled", "reason": "--no-workflow requested", "boundary": "No DWR workflow artifact, compiler plan, or approval record will be created for this Start run."}
+        return {"enabled": False, "state": "disabled", "reason": "--no-workflow requested", "scope_binding": scope_contract, "boundary": "No DWR workflow artifact, compiler plan, or approval record will be created for this Start run. The in-report scope binding remains non-executable planning metadata."}
     navigator = report.get("navigator", {}) if isinstance(report, dict) else {}
     projection = navigator.get("registry_workflow", {}) if isinstance(navigator, dict) else {}
     feature_ids = [str(item) for item in projection.get("feature_ids", []) if isinstance(item, str)]
-    return {"enabled": True, "state": "draft", "workflow_id": ownership.suggested_id(run_id), "feature_ids": sorted(set(feature_ids)),
+    return {"enabled": True, "state": "draft", "workflow_id": ownership.suggested_id(run_id), "feature_ids": sorted(set(feature_ids)), "scope_binding": scope_contract,
             "boundary": "Draft exists only inside the reviewed Start proposal. No .tailtrail/workflows artifact, execution authority, or stage approval exists before canonical Planning Lock approval."}
 
 
@@ -95,6 +178,9 @@ def activate(root: Path, run_id: str, saved_report: dict[str, Any], anchor_artif
         return {"state": "disabled", "reason": descriptor.get("reason", "legacy report has no workflow draft"), "boundary": "No DWR workflow was created."}
     if not anchor_artifact:
         return {"state": "not-created", "reason": "canonical requirement anchor is not required for this Start mode", "boundary": "DWR-2 never creates a workflow without an approved anchor."}
+    current_scope_binding = scope_binding(saved_report)
+    if descriptor.get("scope_binding") != current_scope_binding:
+        raise ValueError("approved Start DWR scope binding differs from the saved Navigator decision")
     workflow_id = str(descriptor.get("workflow_id", "")); feature_ids = [str(item) for item in descriptor.get("feature_ids", []) if isinstance(item, str)]
     if not workflow_id or not feature_ids: raise ValueError("approved Start workflow draft is incomplete")
     binding = _existing_or_bind(root, run_id, workflow_id)
@@ -106,7 +192,7 @@ def activate(root: Path, run_id: str, saved_report: dict[str, Any], anchor_artif
     authority = execution_authority_policy(saved_report)
     plan_grant = approvals.grant_approved_plan(root, workflow_id) if authority["route"] == "approved-plan-auto-grant" else None
     LEDGER.append_event(root, run_id, "workflow_runtime_activated", {"workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "compiler_plan": compiled["artifact"], "compiler_plan_fingerprint": compiled["plan_fingerprint"]})
-    return {"state": "compiled", "workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "state_view": {"status": lifecycle["status"], "lifecycle_state": lifecycle["lifecycle_state"]}, "compiler": {"artifact": compiled["artifact"], "revision": compiled["revision"], "plan_fingerprint": compiled["plan_fingerprint"], "template_id": compiled["template_id"]}, "initial_plan_approval": initial_approval.get("record"), "policy_preapproval": policy_approval, "execution_authority": {**authority, "approval_id": (plan_grant or {}).get("record", {}).get("approval_id")}, "next": "The compiled graph is ready for its host adapter. Safe local stages may reuse the plan-derived grant only when execution_authority says so; no stage was dispatched during activation.", "boundary": "Activation persists TailTrail workflow metadata and bounded authority only; it does not run project work."}
+    return {"state": "compiled", "workflow_id": workflow_id, "binding": binding["artifact"], "capability_plan": declared["artifact"], "scope_binding": current_scope_binding, "state_view": {"status": lifecycle["status"], "lifecycle_state": lifecycle["lifecycle_state"]}, "compiler": {"artifact": compiled["artifact"], "revision": compiled["revision"], "plan_fingerprint": compiled["plan_fingerprint"], "template_id": compiled["template_id"]}, "initial_plan_approval": initial_approval.get("record"), "policy_preapproval": policy_approval, "execution_authority": {**authority, "approval_id": (plan_grant or {}).get("record", {}).get("approval_id")}, "next": "The compiled graph is ready for its host adapter. Safe local stages may reuse the plan-derived grant only when execution_authority says so; no stage was dispatched during activation.", "boundary": "Activation persists TailTrail workflow metadata and bounded authority only; it does not run project work."}
 
 
 def activate_debug(root: Path, run_id: str, reproduction_contract_ref: str) -> dict[str, Any]:
@@ -118,6 +204,7 @@ def activate_debug(root: Path, run_id: str, reproduction_contract_ref: str) -> d
     boundaries.
     """
     root = root.resolve(); workflow_id = ownership.suggested_id(run_id)
+    scope_contract = scope_binding(_saved_start_report(root, run_id))
     feature_ids = ["debug-harness", "code-graph-mapper", "requirement-completion-harness", "evidence-aware-testing"]
     binding = _existing_or_bind(root, run_id, workflow_id)
     declared = _existing_or_declare(root, workflow_id, feature_ids)
@@ -151,7 +238,7 @@ def activate_debug(root: Path, run_id: str, reproduction_contract_ref: str) -> d
     view = state.show(root, workflow_id)
     return {
         "state": "compiled", "workflow_id": workflow_id,
-        "binding": binding["artifact"], "capability_plan": declared["artifact"], "task_scope": scope["artifact"],
+        "binding": binding["artifact"], "capability_plan": declared["artifact"], "task_scope": scope["artifact"], "scope_binding": scope_contract,
         "compiler": {"artifact": compiled["artifact"], "revision": compiled["revision"], "plan_fingerprint": compiled["plan_fingerprint"], "template_id": compiled["template_id"]},
         "current_stage": view["current_stage"], "current_stage_display": view.get("current_stage_display"),
         "initial_plan_approval": initial_approval.get("record"),

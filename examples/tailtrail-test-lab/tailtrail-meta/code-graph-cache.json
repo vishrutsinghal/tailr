@@ -1,0 +1,1038 @@
+{
+  "schema_version": "1",
+  "created_at": "2026-09-03T14:04:06.545820+00:00",
+  "updated_at": "2026-09-03T14:04:06.545827+00:00",
+  "tailtrail_version": "local",
+  "root": "/Users/vsingha7/Desktop/TailTrail/examples/tailtrail-test-lab",
+  "cache_key": "d040f7b738864c3db309a3064f2bbf6509fdab6ffb7cd702adc4a4c361488acc",
+  "graph_mode": "navigator-start",
+  "scope": [
+    "test_demo_assets.py"
+  ],
+  "task_tags": [
+    "navigator",
+    "start"
+  ],
+  "language_profiles": {
+    "python": {
+      "level": 2,
+      "files": 1
+    }
+  },
+  "source_files": {
+    "test_demo_assets.py": {
+      "sha256": "99b32d03cca526a410647330345224bc2ab172e2f2ef3b3a205752e342d5a03b",
+      "mtime": 1788281128,
+      "size": 8754
+    }
+  },
+  "watch_files": {},
+  "scanner_evidence": {},
+  "inventory": {
+    "algorithm": "path-size-mtime-ns-v1",
+    "file_count": 1,
+    "fingerprint": "sha256:1d432fab9eb62ca959b8613a7f6f9398b954c5f9f3448c826123cd44eaa1bbb6"
+  },
+  "graph": {
+    "changed_files": [
+      "test_demo_assets.py"
+    ],
+    "symbols": [
+      {
+        "kind": "class",
+        "name": "DemoAssetTests",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 9,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_heavy_demo_documents_are_present",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 10,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_root_prompt_book_matches_current_daily_product",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 35,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_every_demo_level_and_prompt_explains_its_utility",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 70,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_normal_flow_omits_run_id_but_ambiguity_rule_is_explicit",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 90,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 98,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 112,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_demo_prompts_forbid_terraform_apply",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 124,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 131,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_debug_harness_track_covers_the_native_lifecycle",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 146,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 158,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_demo_assets_use_current_launcher_contract",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 168,
+        "confidence": "python_ast"
+      }
+    ],
+    "references": [
+      {
+        "target": "re",
+        "referring_file": "test_demo_assets.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text"
+      },
+      {
+        "target": "unittest",
+        "referring_file": "test_demo_assets.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text"
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "test_demo_assets.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text"
+      },
+      {
+        "target": "debug_lab.retry_race",
+        "referring_file": "test_demo_assets.py",
+        "line": 159,
+        "reference_type": "import",
+        "confidence": "static-text"
+      },
+      {
+        "target": "decimal",
+        "referring_file": "test_demo_assets.py",
+        "line": 160,
+        "reference_type": "import",
+        "confidence": "static-text"
+      }
+    ],
+    "call_chains": [
+      {
+        "caller": "test_heavy_demo_documents_are_present",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 32,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_heavy_demo_documents_are_present",
+        "callee": "assertTrue",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 33,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_heavy_demo_documents_are_present",
+        "callee": "is_file",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 33,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_root_prompt_book_matches_current_daily_product",
+        "callee": "sub",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 36,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_root_prompt_book_matches_current_daily_product",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 36,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_root_prompt_book_matches_current_daily_product",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 67,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_root_prompt_book_matches_current_daily_product",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 68,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 71,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "list",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 72,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "list",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 73,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "assertEqual",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 74,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "assertEqual",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 75,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "enumerate",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 76,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "enumerate",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 82,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "finditer",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 72,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "finditer",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 73,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "str",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 74,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "group",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 74,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "str",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 75,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "group",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 75,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "start",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 77,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 77,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 79,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 80,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 81,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "start",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 83,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 83,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 85,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 86,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 87,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 88,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "range",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 74,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "range",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 75,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 77,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "end",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 78,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 83,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "end",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 84,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "group",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 79,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_every_demo_level_and_prompt_explains_its_utility",
+        "callee": "group",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 85,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_normal_flow_omits_run_id_but_ambiguity_rule_is_explicit",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 91,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_normal_flow_omits_run_id_but_ambiguity_rule_is_explicit",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 92,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_normal_flow_omits_run_id_but_ambiguity_rule_is_explicit",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 93,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_normal_flow_omits_run_id_but_ambiguity_rule_is_explicit",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 94,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_normal_flow_omits_run_id_but_ambiguity_rule_is_explicit",
+        "callee": "assertNotIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 95,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_normal_flow_omits_run_id_but_ambiguity_rule_is_explicit",
+        "callee": "assertNotIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 96,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 99,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "search",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 101,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "assertIsNotNone",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 102,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "strip",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 103,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "assertEqual",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 104,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 108,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 109,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "assertNotIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 110,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "index",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 100,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "index",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 100,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "sub",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 103,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_routine_demo_prompt_is_natural_and_creates_a_real_lock",
+        "callee": "group",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 103,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 113,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "findall",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 114,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "assertEqual",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 115,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "enumerate",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 117,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 115,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "strip",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 118,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 119,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "assertLessEqual",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 120,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "sub",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 118,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 120,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "assertNotIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 122,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "split",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 120,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_user_examples_are_compact_and_separate_from_presenter_checks",
+        "callee": "lower",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 122,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_prompts_forbid_terraform_apply",
+        "callee": "lower",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 127,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_prompts_forbid_terraform_apply",
+        "callee": "glob",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 125,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_prompts_forbid_terraform_apply",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 128,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_prompts_forbid_terraform_apply",
+        "callee": "assertNotIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 129,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_prompts_forbid_terraform_apply",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 127,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 132,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "sub",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 134,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 143,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 144,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "index",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 133,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "index",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 133,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 141,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_manager_showcase_prompts_are_short_and_authority_safe",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 142,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_harness_track_covers_the_native_lifecycle",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 147,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_harness_track_covers_the_native_lifecycle",
+        "callee": "subTest",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 155,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_harness_track_covers_the_native_lifecycle",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 156,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "AmbiguousPaymentGateway",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 162,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "RecordingNotifier",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 163,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "submit_with_faulty_retry",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 164,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "assertEqual",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 165,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "assertEqual",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 166,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "Decimal",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 164,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 165,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_debug_lab_reproduces_the_documented_duplicate_effect",
+        "callee": "len",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 166,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_assets_use_current_launcher_contract",
+        "callee": "read_text",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 169,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_assets_use_current_launcher_contract",
+        "callee": "assertNotIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 170,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_assets_use_current_launcher_contract",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 171,
+        "confidence": "python_ast"
+      },
+      {
+        "caller": "test_demo_assets_use_current_launcher_contract",
+        "callee": "assertIn",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 172,
+        "confidence": "python_ast"
+      }
+    ],
+    "type_hierarchy": [
+      {
+        "type": "DemoAssetTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "test_demo_assets.py",
+        "line": 9,
+        "confidence": "python_ast"
+      }
+    ],
+    "endpoints": [],
+    "db_tables": [],
+    "config_usage": [],
+    "service_edges": [],
+    "partitions": [
+      {
+        "partition": "test_demo_assets.py",
+        "files": 1,
+        "languages": {
+          "python": 1
+        },
+        "manifests": [],
+        "tests": [
+          "test_demo_assets.py"
+        ],
+        "release_paths": [],
+        "in_scope": true
+      }
+    ],
+    "endpoint_service_table_flows": [],
+    "owner_test_release_map": {
+      "codeowners_found": false,
+      "mappings": [
+        {
+          "file": "test_demo_assets.py",
+          "partition": "test_demo_assets.py",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        }
+      ],
+      "release_paths": []
+    },
+    "workspace_overlays": [],
+    "likely_callers": [],
+    "likely_tests": [],
+    "nearby_manifests": [],
+    "risk_tags": [],
+    "confidence": "medium",
+    "suggested_read_order": [
+      "test_demo_assets.py"
+    ]
+  },
+  "freshness": {
+    "status": "fresh",
+    "checked_at": "2026-09-03T14:04:06.547282+00:00",
+    "reasons": []
+  },
+  "navigator_lifecycle_history": [
+    {
+      "action": "create",
+      "at": "2026-09-03T14:04:06.547290+00:00",
+      "attempt_id": "start-20260903140406-b5e37f",
+      "phase": "start",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-missing"
+      ],
+      "target_paths": [
+        "src/order_service/service.py"
+      ],
+      "effective_scope": [
+        "src/order_service/service.py"
+      ]
+    }
+  ]
+}

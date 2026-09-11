@@ -107,6 +107,29 @@ Project transactions are rolled back if pip fails. `--approved` is required
 because the active Python environment changes. Discover the trusted channel
 and verification commands with `tailtrail release info`.
 
+### Scope-v2 release verification and rollback
+
+Before promotion, run the packaged entrypoint—not a source-only import:
+
+```bash
+tailtrail eval scope release-proof --root /path/to/project --format json
+```
+
+The proof executes isolated CLI and MCP Starts, checks the same v2 decision
+fingerprint and exact owner/proof roles, approves the lock, records a bounded
+implementation fixture and command evidence, finalizes closure, and requires a
+complete Completion Report. It also proves the negative rollback path creates
+no run artifacts. Wheel/sdist inventory and checksums remain separately
+mandatory through `scripts/package-release-proof.py` and the normal release
+workflow.
+
+For an investigation incident, use `eval scope rollback-enable` as documented
+in `SUPPORT.md`. It never enables legacy lexical scope. For an update incident,
+use the install transaction rollback; the prior signed managed payload is
+restored while `.tailtrail/runs` is preserved byte-for-byte. WSL uses the Linux
+artifact and is exercised as a compatibility fixture; it is not represented as
+a separate hosted platform receipt.
+
 ## Optional surfaces
 
 Managed packs support:
@@ -159,3 +182,58 @@ python3 scripts/tailtrail.py aidlc official host install --root /path/to/project
 
 It activates only for an explicit approved `--aidlc full` run. See
 [TAILTRAIL-COMMANDS.md](TAILTRAIL-COMMANDS.md) for the full AIDLC reference.
+
+## Navigator scope release and rollback
+
+Before packaging or updating an installation, run:
+
+```bash
+tailtrail eval scope report --format json
+tailtrail eval scope release-proof --root . --format json
+python3 scripts/run-tests.py --jobs 1 --include test_self_contained_package
+tailtrail adapters conformance
+```
+
+The scope report must show zero false stops, irrelevant options, and unsafe
+locks for the committed FSR-6 corpus, plus complete supported-language profile
+coverage. Package inventory proves that runtime code, schemas, fixtures, and
+documentation are present; source-release inventory separately retains tests.
+
+If an investigation regression appears, enable the fail-closed switch with
+`tailtrail eval scope rollback-enable --root . --reason-code <incident> --approved`.
+This blocks new scope-v2 Start runs without deleting installations or saved
+runs and without reviving lexical ownership. After a corrected build passes
+calibration and release proof, re-enable with `rollback-disable` under explicit
+approval. Transactional installer rollback remains the separate byte-level
+recovery mechanism.
+
+For already-built artifacts, verify their exact inventories and hashes with
+`python3 scripts/package-release-proof.py --wheel <artifact.whl> --sdist <artifact.tar.gz>`.
+
+## FSR-7 installed real-run proof
+
+After building the canonical wheel and source distribution, run:
+
+```bash
+tailtrail eval scope installed-release-proof \
+  --wheel dist/tailtrail-0.6.0-py3-none-any.whl \
+  --sdist dist/tailtrail-0.6.0.tar.gz \
+  --source-root . \
+  --output fsr7-installed-release-proof.json
+```
+
+The command creates a temporary external Git fixture, installs the wheel into
+an isolated virtual environment, performs a Core install followed by an
+Extended transactional update for Codex, Copilot, and Claude, and verifies
+every host manifest. It then uses the installed Codex launcher to refresh a
+real graph and execute the sealed incident-style Start request.
+
+Installation integrity and Navigator behavior are separate fail-closed gates.
+The proof compares selected source, wheel, source-distribution, installed, and
+ownership-manifest hashes; the behavioral gate requires one page owner, one
+inspection-only service, one proof-only component test, a fresh graph, no
+scope question, presentation-independent literal matching, and a real
+awaiting-approval Planning Lock. Plain, emphasized, quoted, and inline-code
+spellings of the same reported message must not change scope. The complete
+parsed Start report and exact stdout digest are retained. The temporary fixture
+is deleted and no hosted-agent success is claimed.

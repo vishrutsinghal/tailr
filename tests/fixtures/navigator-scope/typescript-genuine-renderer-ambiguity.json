@@ -1,0 +1,40 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-scope-fixture",
+  "id": "typescript-genuine-renderer-ambiguity",
+  "goal": "there is a banner Telemetry trace endpoint is not configured. we need to remove it",
+  "repository_files": {
+    "tsconfig.json": "{\"compilerOptions\":{\"baseUrl\":\".\",\"paths\":{\"@/*\":[\"src/*\"]}}}\n",
+    "src/pages/trace/telemetryService.ts": "export function getTelemetryTrace() { throw new Error('Telemetry trace endpoint is not configured.'); }\n",
+    "src/pages/trace/PrimaryPage.tsx": "import { getTelemetryTrace } from './telemetryService';\nexport function PrimaryPage() { try { getTelemetryTrace(); return <main>Ready</main>; } catch (error) { return <aside role='alert'>{error instanceof Error ? error.message : 'Trace unavailable'}</aside>; } }\n",
+    "src/pages/trace/SecondaryPage.tsx": "import { getTelemetryTrace } from './telemetryService';\nexport function SecondaryPage() { try { getTelemetryTrace(); return <main>Ready</main>; } catch (error) { return <aside role='alert'>{error instanceof Error ? error.message : 'Trace unavailable'}</aside>; } }\n"
+  },
+  "current_expected": {
+    "scope_state": "ambiguous",
+    "implementation_owners": [
+      "src/pages/trace/PrimaryPage.tsx",
+      "src/pages/trace/SecondaryPage.tsx"
+    ],
+    "stop_reason": "inventory-exhausted",
+    "scope_quality_status": "blocked",
+    "scope_question_options": [
+      "src/pages/trace/PrimaryPage.tsx",
+      "src/pages/trace/SecondaryPage.tsx"
+    ],
+    "planning_lock_created": false
+  },
+  "desired_expected": {
+    "scope_state": "ambiguous",
+    "implementation_owners": [],
+    "safe_refusal": true,
+    "planning_lock_created": false,
+    "reason": "Two equally supported renderers remain and the request names no UI location."
+  },
+  "privacy": {
+    "classification": "synthetic",
+    "derived_from_proprietary_source": false,
+    "contains_raw_prompt": false,
+    "contains_raw_source": false,
+    "contains_identity_fields": false
+  }
+}

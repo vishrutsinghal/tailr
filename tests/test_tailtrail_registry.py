@@ -42,6 +42,29 @@ class TailTrailRegistryTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_navigator_registers_canonical_scope_ownership(self) -> None:
+        registry = self.load_registry()
+        feature = next(item for item in registry["features"] if item["id"] == "navigator")
+
+        self.assertEqual(feature["scope_ownership"], tailtrail_registry.SCOPE_OWNERSHIP)
+
+    def test_validator_rejects_missing_or_reassigned_scope_owner(self) -> None:
+        missing = self.load_registry()
+        missing_feature = next(item for item in missing["features"] if item["id"] == "navigator")
+        del missing_feature["scope_ownership"]
+
+        reassigned = self.load_registry()
+        reassigned_feature = next(item for item in reassigned["features"] if item["id"] == "navigator")
+        reassigned_feature["scope_ownership"]["scope_decision"] = "Planning Lock"
+
+        self.assertIn("navigator must define scope_ownership", tailtrail_registry.validate_registry(missing))
+        self.assertTrue(
+            any(
+                "scope_ownership must equal the canonical ownership projection" in issue
+                for issue in tailtrail_registry.validate_registry(reassigned)
+            )
+        )
+
     def test_debug_harness_status_separates_prototype_from_native_integration(self) -> None:
         registry = self.load_registry()
         feature = next(item for item in registry["features"] if item["id"] == "debug-harness")

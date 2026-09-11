@@ -20,6 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 SUPPORTED_DOMAINS = {"code", "architecture", "database", "api-integration"}
 DEFAULT_CYCLE_LIMIT = 3
 OUTCOMES = {"strengthens", "eliminates", "unchanged", "regressed", "new-drift", "inconclusive"}
+FAULT_LAYERS = {"composition", "rendering", "end-user", "cross-layer"}
+TRACE_ROLE_LAYERS = {
+    "data-transfer": "composition",
+    "data-producer": "composition",
+    "output-renderer": "rendering",
+    "observed-output": "end-user",
+}
 
 
 def load(name: str, filename: str) -> Any:
@@ -75,6 +82,58 @@ def _requirement_uid(root: Path, run_id: str) -> str:
     return uid
 
 
+def _saved_behavior_trace(root: Path, run_id: str) -> dict[str, Any] | None:
+    path = L.state_dir(root, run_id) / "planning" / "start-report-v1.json"
+    if not path.is_file():
+        return None
+    value = json.loads(path.read_text(encoding="utf-8"))
+    report = value.get("report") if isinstance(value, dict) else None
+    debug_plan = report.get("debug_plan") if isinstance(report, dict) else None
+    trace = debug_plan.get("behavior_trace") if isinstance(debug_plan, dict) else None
+    return trace if isinstance(trace, dict) and isinstance(trace.get("nodes"), list) else None
+
+
+def _proven_fault_layer(
+    root: Path,
+    run_id: str,
+    fault_layer: str | None,
+    trace_node_ids: list[str] | None,
+) -> dict[str, Any]:
+    trace = _saved_behavior_trace(root, run_id)
+    if trace is None:
+        if fault_layer or trace_node_ids:
+            raise ValueError("fault-layer proof cannot be validated because this legacy run has no saved behavior trace")
+        return {
+            "state": "legacy-trace-unavailable",
+            "fault_layer": None,
+            "trace_node_ids": [],
+            "trace_state": "unavailable",
+            "boundary": "Legacy run without a saved behavior trace; validation tiers remain explicitly supplied.",
+        }
+    if fault_layer not in FAULT_LAYERS:
+        raise ValueError("root-cause proof requires --fault-layer composition, rendering, end-user, or cross-layer")
+    selected_ids = list(dict.fromkeys(str(value).strip() for value in (trace_node_ids or []) if str(value).strip()))
+    if not selected_ids:
+        raise ValueError("root-cause proof requires at least one behavior-trace node ID")
+    nodes = {str(row.get("id")): row for row in trace["nodes"] if isinstance(row, dict) and row.get("id")}
+    unsupported = sorted(set(selected_ids) - set(nodes))
+    if unsupported:
+        raise ValueError("fault-layer proof references unsupported behavior-trace node(s): " + ", ".join(unsupported))
+    node_layers = {TRACE_ROLE_LAYERS.get(str(nodes[node_id].get("role"))) for node_id in selected_ids}
+    if None in node_layers:
+        raise ValueError("fault-layer proof may reference only observed-output, renderer, transfer, or producer nodes")
+    expected_layer = "cross-layer" if len(node_layers) > 1 else next(iter(node_layers))
+    if fault_layer != expected_layer:
+        raise ValueError(f"declared fault layer `{fault_layer}` does not match selected trace nodes (`{expected_layer}`)")
+    return {
+        "state": "proven-and-trace-bound",
+        "fault_layer": fault_layer,
+        "trace_node_ids": selected_ids,
+        "trace_state": str(trace.get("state", "partial")),
+        "boundary": "The fault layer is bound to the proven hypothesis and saved behavior trace; it grants no correction or execution authority.",
+    }
+
+
 def read_ledger(root: Path, run_id: str) -> dict[str, Any]:
     path = ledger_path(root, run_id)
     if path.is_file():
@@ -91,6 +150,10 @@ def require_reproduction_approved(root: Path, run_id: str) -> None:
     contract = REPRO.read_existing(root, run_id)
     if contract is None or contract.get("status") != "approved":
         raise ValueError("no approved reproduction contract for this run; approve one before opening the hypothesis ledger")
+    attempt = REPRO.attempt_status(root, run_id)
+    pre_fix = attempt.get("pre_fix") if isinstance(attempt.get("pre_fix"), dict) else None
+    if not pre_fix or pre_fix.get("outcome") != "reproduced":
+        raise ValueError("the approved failure has not been factually reproduced; record a reproduced pre-fix attempt or request user input before opening hypotheses")
 
 
 def domain_evidence_status(domain: str) -> dict[str, Any]:
@@ -304,7 +367,13 @@ def replan(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     return ledger
 
 
-def prove(root: Path, run_id: str, hypothesis_id: str) -> dict[str, Any]:
+def prove(
+    root: Path,
+    run_id: str,
+    hypothesis_id: str,
+    fault_layer: str | None = None,
+    trace_node_ids: list[str] | None = None,
+) -> dict[str, Any]:
     root = root.resolve()
     ledger = read_ledger(root, run_id)
     row = _find(ledger, hypothesis_id)
@@ -314,9 +383,15 @@ def prove(root: Path, run_id: str, hypothesis_id: str) -> dict[str, Any]:
         raise ValueError("hypothesis has no recorded supporting evidence; run a `strengthens` experiment first")
     if not any(other["status"] == "eliminated" for other in ledger["hypotheses"] if other["hypothesis_id"] != hypothesis_id):
         raise ValueError("no competing hypothesis has been eliminated yet; root cause proof requires ruling out at least one alternative")
+    row["proven_fault_layer"] = _proven_fault_layer(root, run_id, fault_layer, trace_node_ids)
     row["status"] = "proven"
     L.atomic_json(ledger_path(root, run_id), ledger)
-    L.append_event(root, run_id, "debug_root_cause_proven", {"hypothesis_id": hypothesis_id, "domain": row["domain"]})
+    L.append_event(root, run_id, "debug_root_cause_proven", {
+        "hypothesis_id": hypothesis_id,
+        "domain": row["domain"],
+        "fault_layer": row["proven_fault_layer"].get("fault_layer"),
+        "trace_node_ids": row["proven_fault_layer"].get("trace_node_ids", []),
+    })
     return ledger
 
 
@@ -413,6 +488,8 @@ def main() -> int:
     prove_parser.add_argument("--root", type=Path, default=Path.cwd())
     prove_parser.add_argument("--run-id", required=True)
     prove_parser.add_argument("--hypothesis-id", required=True)
+    prove_parser.add_argument("--fault-layer", choices=sorted(FAULT_LAYERS))
+    prove_parser.add_argument("--trace-node-id", action="append", default=[])
 
     domain_status_parser = sub.add_parser("domain-status")
     domain_status_parser.add_argument("--domain", required=True)
@@ -444,7 +521,7 @@ def main() -> int:
         elif args.action == "replan":
             result = replan(args.root, args.run_id, args.approved)
         elif args.action == "prove":
-            result = prove(args.root, args.run_id, args.hypothesis_id)
+            result = prove(args.root, args.run_id, args.hypothesis_id, args.fault_layer, args.trace_node_id)
         elif args.action == "domain-status":
             result = domain_evidence_status(args.domain)
         else:

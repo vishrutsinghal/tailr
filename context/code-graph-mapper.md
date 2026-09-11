@@ -4,9 +4,10 @@ Code Graph Mapper creates a compact, freshness-checked metadata cache at `tailtr
 It also stores a lightweight repository inventory fingerprint (relative path, size,
 and modified time only). Navigator automatically marks the cache stale when a
 relevant source, test, manifest, config, or IaC file is added, removed, renamed,
-or changed—even before Git tracks that file. The next selected graph refresh
-updates the cache after the plan is approved; end users do not need to name the
-new file manually. Planning Lock never refreshes the shared cache by itself.
+or changed—even before Git tracks that file. Navigator owns the normal lifecycle:
+Start may transactionally reuse, create, refresh, or rebuild this metadata before
+the final scope decision, and closure refreshes actual changed paths. End users do
+not need to name newly added files or run graph commands for ordinary work.
 
 Use it for heavy Sonar, vulnerability, dependency, QA, review, handoff, or broad implementation work where repeated source discovery would waste tokens.
 
@@ -35,7 +36,7 @@ Use `--cache .tailtrail/code-graph-cache.json` only when a repo deliberately wan
 ## What It Stores
 
 - file hashes for target files, likely tests, likely callers, watched manifests, and optional scanner evidence
-- language profiles for Python, Java, .NET/C#, SQL, and Terraform
+- language profiles for JavaScript/TypeScript, Python, Java, .NET/C#, Go, SQL, and Terraform
 - metadata-only symbols, references, call-chain hints, type-hierarchy hints, endpoint hints, DB table hints, config usage hints, and workspace overlays
 - suggested read order
 - confidence and freshness reasons
@@ -69,16 +70,21 @@ These fields help the agent choose what to read first. They are not a complete s
 - If fresh, use the suggested read order before broad source reading.
 - Use partitions to stay inside the relevant service/module before widening scope.
 - Use owner/test/release mapping to prepare focused validation and handoff notes.
-- If stale, refresh before relying on the graph.
-- If missing, recommend `graph map` when changed files or scanner-reported files are known.
+- If stale, let Navigator incrementally refresh the relevant scope before relying on it.
+- If missing, let Navigator create a bounded persistent graph when the task benefits from reusable orientation.
+- Use `--graph reuse|refresh|rebuild|off` only as an explicit override of Navigator's automatic decision.
+- Never promote a graph-suggested file to implementation owner without task-specific current-source evidence.
+- After closure, record the immutable run mapping in `tailtrail-meta/navigator-run-mappings-v1.json`; only complete hash-fresh mappings may seed later runs.
 - Never treat graph freshness as proof that Sonar, vulnerability, CI, or tests are fixed.
 - Always read exact current source files before editing.
 
 ## Language Coverage
 
 - Python: modules, imports, classes, functions, route decorators, pytest proximity, and Python `ast` symbols when parsable.
+- JavaScript/TypeScript: modules, imports, dynamic imports, definitions, handlers, and likely callers/tests from static text.
 - Java: packages, classes, interfaces, enums, methods, Spring/JAX-RS-style route annotations, JPA table annotations, Maven/Gradle manifests.
 - .NET/C#: namespaces, classes, interfaces, records, methods, ASP.NET route attributes, EF `DbSet` hints, `.sln`, and `.csproj` files.
+- Go: packages, imports, functions, types, and static caller/test hints.
 - SQL: tables, routines, migrations, and query references.
 - Terraform: resources, data sources, modules, variables, outputs, providers, and references.
 
@@ -150,3 +156,25 @@ Deferred deeper mapper work:
 Use the mapper as an index of where to look first. Do not use it as a correctness proof, a replacement for source inspection, or evidence that validation passed.
 
 Review the shared cache before committing it the first time. It is metadata-only, but it can reveal architecture shape, symbols, endpoints, tables, config keys, owners, tests, and release paths.
+
+## FSR-6 graph assurance
+
+Release calibration executes supported-language relationship fixtures with at
+least twelve unrelated files per profile. This proves the bounded extractor can
+retain the declared definition/import contract in repository noise; it does not
+claim full compiler or language-server equivalence. The incident and safe-stop
+fixtures separately exercise graph consumption through Navigator Start.
+
+If calibration or release proof fails, use the Navigator scope rollback switch.
+Do not restore lexical ownership. Existing runs remain immutable and new Start
+requests fail closed until a corrected release passes the same corpus.
+
+## FSR-7 installed graph observation
+
+The installed release proof invokes `graph refresh` through the installed
+Codex host launcher inside a clean synthetic repository. Start must then report
+both the graph result and its consumed Navigator cache posture as `fresh`.
+Passing requires the bounded behavior chain to connect the configured
+TypeScript alias, literal-emitting service, caught error, page state, and
+rendered alert. The graph remains temporary fixture metadata; it is neither
+copied back to the source checkout nor represented as hosted-agent evidence.

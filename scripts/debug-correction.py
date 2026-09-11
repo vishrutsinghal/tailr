@@ -32,6 +32,18 @@ IMPACT = load("debug_correction_impact", "requirement-impact-map.py")
 GIT = load("debug_correction_git", "git-readiness.py")
 EVIDENCE = load("debug_correction_evidence", "execution-evidence.py")
 
+LAYER_BOUNDARIES = {
+    "composition": ["composition"],
+    "rendering": ["renderer"],
+    "end-user": ["final-output"],
+}
+ROLE_BOUNDARIES = {
+    "data-transfer": "composition",
+    "data-producer": "composition",
+    "output-renderer": "renderer",
+    "observed-output": "final-output",
+}
+
 
 def directory(root: Path, run_id: str) -> Path: return L.state_dir(root.resolve(), run_id) / "debug" / "correction"
 def packet_path(root: Path, run_id: str) -> Path: return directory(root, run_id) / "correction-packet-v1.json"
@@ -78,6 +90,70 @@ def _source(path: Path | None) -> dict[str, Any]:
     return value
 
 
+def _saved_debug_diagnosis(root: Path, run_id: str) -> dict[str, Any] | None:
+    path = L.state_dir(root, run_id) / "planning" / "start-report-v1.json"
+    if not path.is_file():
+        return None
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    report = saved.get("report") if isinstance(saved, dict) else None
+    debug_plan = report.get("debug_plan") if isinstance(report, dict) else None
+    diagnosis = debug_plan.get("host_diagnosis") if isinstance(debug_plan, dict) else None
+    return diagnosis if isinstance(diagnosis, dict) else None
+
+
+def _proof_alignment(root: Path, run_id: str, hypothesis: dict[str, Any]) -> dict[str, Any]:
+    fault = hypothesis.get("proven_fault_layer")
+    diagnosis = _saved_debug_diagnosis(root, run_id)
+    if not isinstance(fault, dict) or fault.get("state") == "legacy-trace-unavailable" or diagnosis is None:
+        return {
+            "state": "legacy-trace-unavailable",
+            "fault_layer": None,
+            "fault_trace_node_ids": [],
+            "required_boundaries": [],
+            "selected_tests": [],
+            "missing_boundaries": [],
+            "boundary": "No saved trace-bound fault layer exists for this legacy run; explicit validation tiers remain authoritative.",
+        }
+    trace = diagnosis.get("behavior_trace") if isinstance(diagnosis.get("behavior_trace"), dict) else {}
+    nodes = {str(row.get("id")): row for row in trace.get("nodes", []) if isinstance(row, dict) and row.get("id")}
+    selected_node_ids = [str(value) for value in fault.get("trace_node_ids", [])]
+    if any(node_id not in nodes for node_id in selected_node_ids):
+        raise ValueError("the proven fault layer references a behavior-trace node absent from the saved Start report")
+    layer = str(fault.get("fault_layer") or "")
+    if layer == "cross-layer":
+        required = sorted({ROLE_BOUNDARIES.get(str(nodes[node_id].get("role"))) for node_id in selected_node_ids} - {None})
+    else:
+        required = list(LAYER_BOUNDARIES.get(layer, []))
+    if not required:
+        raise ValueError("the proven fault layer does not resolve a supported proof boundary")
+    selected_tests = []
+    for row in diagnosis.get("test_cases", []):
+        if not isinstance(row, dict):
+            continue
+        boundaries = sorted(set(str(value) for value in row.get("proof_boundaries", []) if str(value) in {"composition", "renderer", "final-output"}))
+        matched = sorted(set(boundaries) & set(required))
+        if not matched:
+            continue
+        selected_tests.append({
+            "test_case_id": str(row.get("id")),
+            "path": row.get("path"),
+            "command": row.get("command"),
+            "tier": row.get("tier"),
+            "boundaries": matched,
+        })
+    covered = {boundary for row in selected_tests for boundary in row["boundaries"]}
+    missing = sorted(set(required) - covered)
+    return {
+        "state": "matched" if not missing else "missing-proof",
+        "fault_layer": layer,
+        "fault_trace_node_ids": selected_node_ids,
+        "required_boundaries": required,
+        "selected_tests": selected_tests,
+        "missing_boundaries": missing,
+        "boundary": "Proof is selected from the saved trace-bound fault layer. A correction cannot be approved while any required boundary lacks focused proof.",
+    }
+
+
 def propose(root: Path, run_id: str, hypothesis_id: str, statement: str | None, source: dict[str, Any] | None = None) -> dict[str, Any]:
     root = root.resolve(); source = source or {}; ledger = HYPOTHESIS.read_ledger(root, run_id); row = HYPOTHESIS._find(ledger, hypothesis_id)
     if row["status"] != "proven": raise ValueError(f"hypothesis `{hypothesis_id}` is `{row['status']}`, not proven; prove root cause before proposing a correction")
@@ -86,13 +162,18 @@ def propose(root: Path, run_id: str, hypothesis_id: str, statement: str | None, 
     expected_symbols = [{"path": _safe_path(str(item.get("path", ""))), "symbols": sorted({str(symbol) for symbol in item.get("symbols", []) if str(symbol).strip()})} for item in source.get("expected_changed_symbols", []) if isinstance(item, dict)]
     preserve = list(dict.fromkeys(str(item) for item in [*requirement.get("preserve_rules", []), *source.get("preserve_rules", [])] if str(item).strip()))
     architecture = list(dict.fromkeys(str(item) for item in source.get("architecture_constraints", ["Apply the correction at the existing owning boundary.", "Do not add a dependency or parallel abstraction without separate approval."]) if str(item).strip()))
-    tiers = list(dict.fromkeys(str(item) for item in source.get("validation_tiers", ["focused", "integration"]) if str(item).strip()))
+    proof_alignment = _proof_alignment(root, run_id, row)
+    selected_proof_tiers = [str(item.get("tier")) for item in proof_alignment["selected_tests"] if item.get("tier")]
+    tiers = list(dict.fromkeys(str(item) for item in [*source.get("validation_tiers", ["focused", "integration"]), *selected_proof_tiers] if str(item).strip()))
+    commands = list(dict.fromkeys(str(item.get("command")) for item in proof_alignment["selected_tests"] if item.get("command")))
     scenarios = [str(item) for item in source.get("behaviour_scenarios", []) if str(item).strip()]
     assumptions = [str(item) for item in source.get("unresolved_assumptions", []) if str(item).strip()]
     if not expected_paths: assumptions.append("Expected changed paths have not been approved.")
+    for boundary in proof_alignment["missing_boundaries"]:
+        assumptions.append(f"No focused `{boundary}` proof is matched to the proven fault layer.")
     eliminated = [{"hypothesis_id": item["hypothesis_id"], "evidence": list(item.get("contradicting_evidence", []))} for item in ledger["hypotheses"] if item.get("status") == "eliminated"]
     recovery = GIT.readiness(root); impact = IMPACT.map_impact(root, run_id, expected_paths) if expected_paths else None
-    stable = {"run_id":run_id, "workflow_id":workflow_id, "requirement_uid":uid, "hypothesis_id":hypothesis_id, "failure_fingerprint":ledger.get("failure_fingerprint"), "domain":row["domain"], "root_cause":{"hypothesis_id":hypothesis_id, "statement":statement or row["statement"], "supporting_evidence":list(row.get("supporting_evidence", [])), "eliminated_hypotheses":eliminated}, "approved_anchor_ref":approved_anchor_path(root, run_id).relative_to(root).as_posix(), "approved_anchor_fingerprint":anchor.get("approved_fingerprint"), "expected_changed_paths":expected_paths, "expected_changed_symbols":expected_symbols, "preserve_rules":preserve, "architecture_constraints":architecture, "validation_plan":{"tiers":tiers, "commands":[], "required_evidence":["source-edit-receipt", "requirement-linked command receipts", "scope comparison"]}, "behaviour_scenarios":scenarios, "rollback_recovery_boundary":{"git_ready":bool(recovery.get("ready")), "mode":"mode-a-local-checkpoint" if recovery.get("ready") else "mode-b-task-scoped-recovery-required", "readiness_issues":list(recovery.get("issues", [])), "separate_approval_required":True}, "impact_map_ref":Path(impact["path"]).resolve().relative_to(root).as_posix() if impact else None, "unresolved_assumptions":list(dict.fromkeys(assumptions)), "status":"proposed", "approved_at":None, "implementation_authority":None, "boundary":"Correction proposal only. No source edit, test, scanner, dependency, Git mutation, publish, or deployment occurred."}
+    stable = {"run_id":run_id, "workflow_id":workflow_id, "requirement_uid":uid, "hypothesis_id":hypothesis_id, "failure_fingerprint":ledger.get("failure_fingerprint"), "domain":row["domain"], "root_cause":{"hypothesis_id":hypothesis_id, "statement":statement or row["statement"], "supporting_evidence":list(row.get("supporting_evidence", [])), "eliminated_hypotheses":eliminated}, "proof_alignment":proof_alignment, "approved_anchor_ref":approved_anchor_path(root, run_id).relative_to(root).as_posix(), "approved_anchor_fingerprint":anchor.get("approved_fingerprint"), "expected_changed_paths":expected_paths, "expected_changed_symbols":expected_symbols, "preserve_rules":preserve, "architecture_constraints":architecture, "validation_plan":{"tiers":tiers, "commands":commands, "required_evidence":["source-edit-receipt", "requirement-linked command receipts", "fault-layer-matched proof receipts", "scope comparison"]}, "behaviour_scenarios":scenarios, "rollback_recovery_boundary":{"git_ready":bool(recovery.get("ready")), "mode":"mode-a-local-checkpoint" if recovery.get("ready") else "mode-b-task-scoped-recovery-required", "readiness_issues":list(recovery.get("issues", [])), "separate_approval_required":True}, "impact_map_ref":Path(impact["path"]).resolve().relative_to(root).as_posix() if impact else None, "unresolved_assumptions":list(dict.fromkeys(assumptions)), "status":"proposed", "approved_at":None, "implementation_authority":None, "boundary":"Correction proposal only. No source edit, test, scanner, dependency, Git mutation, publish, or deployment occurred."}
     packet = {"schema_version":"2", "type":"tailtrail-debug-correction-packet", **stable, "correction_fingerprint":_fingerprint(stable)}
     L.atomic_json(packet_path(root, run_id), packet); L.append_event(root, run_id, "debug_correction_proposed", {"hypothesis_id":hypothesis_id, "requirement_uid":uid, "workflow_id":workflow_id, "expected_changed_paths":expected_paths, "correction_fingerprint":packet["correction_fingerprint"]}); return packet
 
@@ -107,7 +188,7 @@ def approve(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     decision = approvals.decide(root, packet["workflow_id"], stage_ids=["d-08-correction-implementation"], action_classes=["write_project"], operation_kind="fix-application", operation_ref=path.relative_to(root).as_posix(), decision="approved", rationale="Explicit approval of the exact DI-7 root cause, bounded file/symbol scope, preservation rules, architecture constraints, validation plan, and recovery boundary.")
     packet["status"] = "approved"; packet["approved_at"] = L.utc_now(); packet["implementation_authority"] = {"approval_id":decision["record"]["approval_id"], "stage_id":"d-08-correction-implementation", "action_class":"write_project", "operation_ref":path.relative_to(root).as_posix()}
     packet["correction_fingerprint"] = _fingerprint({key:value for key,value in packet.items() if key != "correction_fingerprint"}); L.atomic_json(path, packet); L.atomic_json(approved_path(root, run_id), packet)
-    handoff = {"schema_version":"1", "type":"tailtrail-debug-implementation-handoff", "run_id":run_id, "workflow_id":packet["workflow_id"], "requirement_uid":packet["requirement_uid"], "correction_ref":approved_path(root, run_id).relative_to(root).as_posix(), "correction_fingerprint":packet["correction_fingerprint"], "implementation_authority":packet["implementation_authority"], "expected_changed_paths":packet["expected_changed_paths"], "expected_changed_symbols":packet["expected_changed_symbols"], "preserve_rules":packet["preserve_rules"], "architecture_constraints":packet["architecture_constraints"], "validation_plan":packet["validation_plan"], "behaviour_scenarios":packet["behaviour_scenarios"], "recovery_boundary":packet["rollback_recovery_boundary"], "next":"Acquire the workflow code-change reservation, apply only the approved correction, record source-edit receipts, then run scope-check before regression validation.", "boundary":"Scoped implementation authority only. It does not claim source edits, passing tests, Harness convergence, Git checkpoint creation, dependency approval, publish, deploy, or closure."}
+    handoff = {"schema_version":"1", "type":"tailtrail-debug-implementation-handoff", "run_id":run_id, "workflow_id":packet["workflow_id"], "requirement_uid":packet["requirement_uid"], "correction_ref":approved_path(root, run_id).relative_to(root).as_posix(), "correction_fingerprint":packet["correction_fingerprint"], "implementation_authority":packet["implementation_authority"], "expected_changed_paths":packet["expected_changed_paths"], "expected_changed_symbols":packet["expected_changed_symbols"], "preserve_rules":packet["preserve_rules"], "architecture_constraints":packet["architecture_constraints"], "proof_alignment":packet["proof_alignment"], "validation_plan":packet["validation_plan"], "behaviour_scenarios":packet["behaviour_scenarios"], "recovery_boundary":packet["rollback_recovery_boundary"], "next":"Acquire the workflow code-change reservation, apply only the approved correction, record source-edit receipts, then run the fault-layer-matched proof and scope-check before regression validation.", "boundary":"Scoped implementation authority only. It does not claim source edits, passing tests, Harness convergence, Git checkpoint creation, dependency approval, publish, deploy, or closure."}
     L.atomic_json(handoff_path(root, run_id), handoff); L.append_event(root, run_id, "debug_correction_approved", {"hypothesis_id":packet["hypothesis_id"], "workflow_id":packet["workflow_id"], "approval_id":packet["implementation_authority"]["approval_id"], "artifact":handoff_path(root, run_id).relative_to(root).as_posix()}); return {**packet, "execution_handoff": {**handoff, "artifact":handoff_path(root, run_id).relative_to(root).as_posix()}}
 
 

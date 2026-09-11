@@ -1,0 +1,206 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-scope-baseline",
+  "baseline_version": "1.1.0",
+  "program_phase": "NS-0",
+  "program_extensions": ["FSR-0"],
+  "captured_at": "2026-09-03T21:30:00+05:30",
+  "captured_revision": "98e50830ba5d0b94c790bfdcf21cc3e0e9f8e8e3",
+  "ownership": {
+    "scope_decision": "Navigator",
+    "target_identity": "Target Workspace",
+    "relationship_evidence": "Code Graph",
+    "validated_persistence": "Planning Lock"
+  },
+  "fixtures": [
+    {
+      "id": "wrong-file-selection",
+      "fixture": "tests/fixtures/navigator-scope/wrong-file-selection.json",
+      "input_fingerprint": "sha256:1d9fd655b226bc05241ddd501ccf0cb79e130da69dc4b6eccd3168b378b1318b",
+      "state": "known-gap",
+      "current_result": {
+        "target_origin": "goal-discovery",
+        "selected_paths": [
+          "tests/test_aidlc_requirements.py",
+          "tests/test_requirement_discovery.py"
+        ],
+        "selected_reason": "goal-matched target"
+      },
+      "current_result_fingerprint": "sha256:252d117ae7ba6cab5df605479805f2944b3ac5afb650f1c8f3a0c7ca3239ef96",
+      "expected_result": {
+        "scope_state": "resolved",
+        "implementation_owners": [
+          "scripts/requirement_discovery.py"
+        ],
+        "callers": [
+          "scripts/planning-lock.py",
+          "scripts/task-start.py"
+        ],
+        "proof_paths": [
+          "tests/test_requirement_discovery.py"
+        ],
+        "excluded_paths": [
+          {
+            "path": "tests/test_aidlc_requirements.py",
+            "reason_code": "lexical-only-no-owner-edge"
+          }
+        ]
+      },
+      "expected_result_fingerprint": "sha256:587282b433f39302f7b0c35e4774f1fff06d917d88eda97758a08eaf61aeccb5",
+      "assertion": "The current lexical selector reproduces both false-positive tests while omitting the implementation owner and its callers."
+    },
+    {
+      "id": "multiline-requirement-splitting",
+      "fixture": "tests/fixtures/navigator-scope/multiline-requirement-splitting.json",
+      "input_fingerprint": "sha256:0936b6e7e9fcf861463d46a96127ba5e9ff833481edc29b966e557e5653501ac",
+      "state": "known-gap",
+      "current_result": {
+        "requirement_count": 2,
+        "statements": [
+          "Add delivery-address validation without breaking valid.",
+          "Addresses."
+        ]
+      },
+      "current_result_fingerprint": "sha256:98960cc735f5fab5d897bcfe05ea2edbef76751044cd13e93684cf8974ccca47",
+      "expected_result": {
+        "requirement_count": 1,
+        "statements": [
+          "Add delivery-address validation without breaking valid addresses."
+        ]
+      },
+      "expected_result_fingerprint": "sha256:3261c32a41470656ca21a6b852f3bd1f4c231815d959adec3e4d591190a28f5b",
+      "assertion": "The current line-based parser reproduces an orphan requirement from one soft-wrapped sentence."
+    },
+    {
+      "id": "typescript-alias-ui-literal-false-stop",
+      "fixture": "tests/fixtures/navigator-scope/typescript-alias-ui-literal-false-stop.json",
+      "input_fingerprint": "sha256:271d237ff13bbd8b652152f210dc625c1633aa9bf6afda23fd7623a03e3c6053",
+      "state": "known-gap",
+      "current_result": {
+        "scope_state": "ambiguous",
+        "implementation_owners": [
+          "src/components/RemoveButton.tsx",
+          "src/components/StatusBanner.tsx",
+          "src/pages/account/AccountPage.tsx",
+          "src/pages/dashboard/DashboardPage.tsx",
+          "src/pages/eventGenerator/EventGeneratorPage.tsx",
+          "src/pages/eventGenerator/payloadJson.ts",
+          "src/pages/eventGenerator/telemetryService.ts",
+          "src/pages/history/HistoryPage.tsx",
+          "src/pages/inventory/InventoryPage.tsx",
+          "src/pages/login/LoginPage.tsx"
+        ],
+        "stop_reason": "file-read-limit-reached",
+        "files_read": 20,
+        "bytes_read": 3004,
+        "graph_cache_status": "fresh",
+        "graph_reason_codes": [
+          "graph-cache-root-and-hashes-match",
+          "graph-cache-task-slice-selected"
+        ],
+        "scope_quality_status": "blocked",
+        "scope_quality_reason_codes": [
+          "scope-state-ambiguous",
+          "investigation-file-read-limit-reached",
+          "graph-cache-root-and-hashes-match",
+          "graph-cache-task-slice-selected"
+        ],
+        "scope_question_options": [
+          "src/components/RemoveButton.tsx",
+          "src/components/StatusBanner.tsx",
+          "src/pages/account/AccountPage.tsx",
+          "src/pages/dashboard/DashboardPage.tsx",
+          "src/pages/eventGenerator/EventGeneratorPage.tsx",
+          "src/pages/eventGenerator/payloadJson.ts",
+          "src/pages/eventGenerator/telemetryService.ts",
+          "src/pages/history/HistoryPage.tsx",
+          "src/pages/inventory/InventoryPage.tsx",
+          "src/pages/login/LoginPage.tsx"
+        ],
+        "planning_lock_created": false
+      },
+      "current_result_fingerprint": "sha256:b6c66354409db349bf627fb0616bbbe531a7388fc6f6c0b4ce3e68cbdfe6cae5",
+      "expected_result": {
+        "scope_state": "resolved",
+        "implementation_owners": [
+          "src/pages/eventGenerator/EventGeneratorPage.tsx"
+        ],
+        "inspection_paths": [
+          {
+            "path": "src/pages/eventGenerator/telemetryService.ts",
+            "role": "literal-emitter"
+          }
+        ],
+        "proof_paths": [
+          "src/pages/eventGenerator/EventGeneratorPage.cy.tsx"
+        ],
+        "excluded_path_patterns": [
+          "src/components/RemoveButton.tsx",
+          "src/components/StatusBanner.tsx",
+          "src/pages/*"
+        ],
+        "stop_reason": "owner-resolved",
+        "scope_quality_status": "passed",
+        "scope_question": null,
+        "planning_lock_created": true
+      },
+      "expected_result_fingerprint": "sha256:e23a973a4723fbeaedde5f25f98431823c1d1b38385538dcb4b0276d21448a34",
+      "assertion": "A fresh graph still produces ten owner choices and a false file-limit stop because the aliased emitter-to-renderer relationship is unresolved and generic page terms are promoted."
+    },
+    {
+      "id": "typescript-genuine-renderer-ambiguity",
+      "fixture": "tests/fixtures/navigator-scope/typescript-genuine-renderer-ambiguity.json",
+      "input_fingerprint": "sha256:6f469ff3b621691f1100749519a77f147679bcd268eb33c7f6f1696c3f83822d",
+      "state": "known-gap",
+      "current_result": {
+        "scope_state": "ambiguous",
+        "implementation_owners": [
+          "src/pages/trace/PrimaryPage.tsx",
+          "src/pages/trace/SecondaryPage.tsx"
+        ],
+        "stop_reason": "inventory-exhausted",
+        "scope_quality_status": "blocked",
+        "scope_question_options": [
+          "src/pages/trace/PrimaryPage.tsx",
+          "src/pages/trace/SecondaryPage.tsx"
+        ],
+        "planning_lock_created": false
+      },
+      "current_result_fingerprint": "sha256:501cffcdb306e7db69b5b44287cfc6a074b4f25bebcbb5a3c3d417fbc6c81925",
+      "expected_result": {
+        "scope_state": "ambiguous",
+        "implementation_owners": [],
+        "safe_refusal": true,
+        "planning_lock_created": false,
+        "reason": "Two equally supported renderers remain and the request names no UI location."
+      },
+      "expected_result_fingerprint": "sha256:548b9ff27e088ed291efca7f154332966e987190cd68dc4b7675ee9c477f5d3d",
+      "assertion": "Two equally supported renderers remain blocked, preserving the safe-stop boundary while later phases improve how ambiguity is represented."
+    }
+  ],
+  "calibration": {
+    "known_false_stop_ids": [
+      "typescript-alias-ui-literal-false-stop"
+    ],
+    "safe_stop_control_ids": [
+      "typescript-genuine-renderer-ambiguity"
+    ],
+    "metrics": {
+      "known_false_stop_count": 1,
+      "safe_stop_control_count": 1,
+      "observed_irrelevant_option_count": 9,
+      "unsafe_lock_count": 0
+    },
+    "release_posture": "known-gap-not-release-proof"
+  },
+  "boundaries": {
+    "behavior": "NS-0 and FSR-0 are measurement-only; they do not change Navigator selection, module resolution, or requirement normalization.",
+    "evidence": "Current results are passing known-gap comparisons, not claims that the desired behavior is implemented.",
+    "privacy": "The shared baseline contains only deterministic synthetic paths and normalized results; fixture source bodies remain test-local."
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "sorted compact JSON excluding integrity",
+    "digest": "30f507813e9bcdfb36b8fd80e42456536525d42a3861a51e5851d7b704c04fe4"
+  }
+}

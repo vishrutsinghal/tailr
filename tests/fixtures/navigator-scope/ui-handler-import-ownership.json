@@ -1,0 +1,23 @@
+{
+  "goal": "there is an issue when user clicks on generate event flow the screen moves to event flow but when user clicks on validate it just showing the message 'Audit event inputs are valid' but it should also move to validate page, similarly for copy json it should message like json copied and move the screen to session summary page",
+  "repository_files": {
+    "package.json": "{\"scripts\":{\"cypress:component\":\"cypress run --component\"},\"devDependencies\":{\"cypress\":\"^15.16.0\"}}\n",
+    "cypress.config.ts": "export default { component: { devServer: { framework: 'react', bundler: 'vite' } } };\n",
+    "src/pages/pipelineAuditEventsGenerator/PipelineAuditEventsGeneratorPage.tsx": "import { buildAuditJson } from './auditJson';\nimport { deployEvents } from './deploymentService';\n\nfunction PipelineAuditEventsGeneratorPage() {\n  const [showReviewPage, setShowReviewPage] = useState(false);\n  const validateGeneratedEvents = () => {\n    toast.success('Audit event inputs are valid');\n    setShowReviewPage(true);\n  };\n  const copyJson = async () => {\n    await navigator.clipboard.writeText(buildAuditJson());\n    toast.success('JSON copied');\n    setShowReviewPage(true);\n  };\n  return showReviewPage ? <section><h2>Session Summary</h2></section> : <><Button onPress={validateGeneratedEvents}>Validate</Button><Button onPress={copyJson}>Copy JSON</Button></>;\n}\n\nexport default PipelineAuditEventsGeneratorPage;\n",
+    "src/pages/pipelineAuditEventsGenerator/auditJson.ts": "export function buildAuditJson() { return JSON.stringify({ event: 'audit' }); }\n",
+    "src/pages/pipelineAuditEventsGenerator/deploymentService.ts": "export async function deployEvents() { return { valid: true }; }\n",
+    "src/pages/addRuleConfiguration/hooks/useRulesConfigService.ts": "export function useRulesConfigService() { return { userRulesValid: true }; }\n",
+    "src/pages/listRuleConfiguration/hooks/useRuleConditionDetails.ts": "export function useRuleConditionDetails() { return { eventValidation: true }; }\n",
+    "src/components/Button.tsx": "export function Button(props: { onPress: () => void }) { return <button onClick={props.onPress} />; }\n",
+    "src/components/Button.cy.tsx": "import { Button } from './Button';\ndescribe('Button', () => { it('clicks', () => void Button); });\n"
+  },
+  "expected_owner": "src/pages/pipelineAuditEventsGenerator/PipelineAuditEventsGeneratorPage.tsx",
+  "expected_helpers": [
+    "src/pages/pipelineAuditEventsGenerator/auditJson.ts",
+    "src/pages/pipelineAuditEventsGenerator/deploymentService.ts"
+  ],
+  "unrelated_candidates": [
+    "src/pages/addRuleConfiguration/hooks/useRulesConfigService.ts",
+    "src/pages/listRuleConfiguration/hooks/useRuleConditionDetails.ts"
+  ]
+}

@@ -28,7 +28,58 @@ def contracts(root: Path | None = None) -> dict[str, Any]:
         raise ValueError("host adapter contract must define codex, copilot, and claude exactly once")
     for entry in entries:
         _validate_entry(entry)
+    scope_scenarios = _safe_path(payload.get("scope_scenarios"), "scope_scenarios")
+    scope_schema = _safe_path(payload.get("scope_scenario_schema"), "scope_scenario_schema")
+    for relative in (scope_scenarios, scope_schema):
+        if not (base / relative).is_file():
+            raise ValueError(f"host scope contract resource is missing: {relative}")
+    scope_payload = json.loads((base / scope_scenarios).read_text(encoding="utf-8"))
+    if scope_payload.get("schema_version") != "2" or scope_payload.get("type") != "tailtrail-host-scope-conformance":
+        raise ValueError("host scope scenario contract is incompatible")
+    if {item.get("id") for item in scope_payload.get("scenarios", []) if isinstance(item, dict)} != {"resolved", "unresolved", "conflicting", "docs-only", "test-only", "debug-start"}:
+        raise ValueError("host scope scenario contract must define all six v2 scenarios")
+    reasoning_scenarios = _safe_path(payload.get("scope_reasoning_scenarios"), "scope_reasoning_scenarios")
+    reasoning_schema = _safe_path(payload.get("scope_reasoning_scenario_schema"), "scope_reasoning_scenario_schema")
+    for relative in (reasoning_scenarios, reasoning_schema):
+        if not (base / relative).is_file():
+            raise ValueError(f"host scope reasoning resource is missing: {relative}")
+    reasoning_payload = json.loads((base / reasoning_scenarios).read_text(encoding="utf-8"))
+    if reasoning_payload.get("schema_version") != "1" or reasoning_payload.get("type") != "tailtrail-host-scope-reasoning-conformance":
+        raise ValueError("host scope reasoning scenario contract is incompatible")
+    if {item.get("id") for item in reasoning_payload.get("scenarios", []) if isinstance(item, dict)} != {"supported-selection", "invented-path", "unsupported-edge", "stale-packet", "authority-escalation"}:
+        raise ValueError("host scope reasoning contract must define all five scenarios")
+    requirement_scenarios = _safe_path(payload.get("requirement_routing_scenarios"), "requirement_routing_scenarios")
+    requirement_schema = _safe_path(payload.get("requirement_routing_scenario_schema"), "requirement_routing_scenario_schema")
+    for relative in (requirement_scenarios, requirement_schema):
+        if not (base / relative).is_file():
+            raise ValueError(f"host requirement-routing resource is missing: {relative}")
+    requirement_payload = json.loads((base / requirement_scenarios).read_text(encoding="utf-8"))
+    if requirement_payload.get("schema_version") != "1" or requirement_payload.get("type") != "tailtrail-host-requirement-routing-conformance":
+        raise ValueError("host requirement-routing scenario contract is incompatible")
+    expected_requirement_scenarios = {
+        "host-interpretation-required", "lite-intake", "standard-intake",
+        "full-intake", "scope-disabled-requirements-open", "answered-intake",
+        "eligible-scope-question",
+    }
+    if {item.get("id") for item in requirement_payload.get("scenarios", []) if isinstance(item, dict)} != expected_requirement_scenarios:
+        raise ValueError("host requirement-routing contract must define all seven scenarios")
     return payload
+
+
+def scope_scenarios(root: Path | None = None) -> dict[str, Any]:
+    """Return the closed package-owned host scope scenario contract."""
+    base = (root or package_root()).resolve()
+    matrix = contracts(base)
+    return json.loads((base / str(matrix["scope_scenarios"])).read_text(encoding="utf-8"))
+
+
+def requirement_routing_scenarios(root: Path | None = None) -> dict[str, Any]:
+    """Return the closed package-owned requirement-before-scope contract."""
+    base = (root or package_root()).resolve()
+    matrix = contracts(base)
+    return json.loads(
+        (base / str(matrix["requirement_routing_scenarios"])).read_text(encoding="utf-8")
+    )
 
 
 def _safe_path(value: object, field: str) -> str:

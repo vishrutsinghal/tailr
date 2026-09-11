@@ -1,0 +1,35 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-installed-release-proof",
+  "proof_version": "1.0.0",
+  "status": "passed",
+  "evidence_label": "isolated-installed-payload-observed",
+  "note": "Captured from a real `python3 scripts/navigator-installed-release-proof.py --wheel <built .whl> --sdist <built .tar.gz>` run against the current source checkout (host: copilot, date: 2026-09-04). Wheel/sdist were built for real via `pip wheel` + `setup.py sdist`, matching the recipe in tests/test_self_contained_package.py. This is the FSR-7 exit-criteria evidence: an installed run created a Planning Lock with the page as the sole editable owner, the service was inspection-only, the page component test was proof-only, no scope question was generated, and installation integrity/behavioral proof were reported separately.",
+  "checks": {
+    "artifact_integrity": true,
+    "complete_start_report_captured": true,
+    "component_test_proof_only": true,
+    "cross_host_packaging": true,
+    "graph_fresh": true,
+    "install_verification": true,
+    "no_scope_question": true,
+    "planning_lock_created": true,
+    "resolution_explained": true,
+    "service_inspection_only": true,
+    "sole_implementation_owner": true,
+    "source_package_installed_hashes": true,
+    "transactional_update": true
+  },
+  "behavioral_proof_scope": {
+    "state": "resolved",
+    "implementation_owners": ["src/pages/eventGenerator/EventGeneratorPage.tsx"],
+    "inspection_paths": ["src/pages/eventGenerator/telemetryService.ts"],
+    "proof_paths": ["src/pages/eventGenerator/EventGeneratorPage.cy.tsx"],
+    "scope_question": null,
+    "planning_lock_status": "awaiting-approval",
+    "cache_status": "fresh",
+    "behavior_chain_state": "complete",
+    "decision_fingerprint": "sha256:fca07d49a431759f876c7f78ecb43f28f508bfb4cb7d1a9ab761d58ad2f7fde0"
+  },
+  "proof_digest": "sha256:7cc9951b56f12647d8be8a7795bd2cfcdf84deb02c993536d18cfff23e2f24b3"
+}

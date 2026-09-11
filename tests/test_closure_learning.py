@@ -50,7 +50,8 @@ class ClosureLearningTests(unittest.TestCase):
         (run / "planning").mkdir(exist_ok=True)
         (run / "planning" / "execution-handoff-v1.json").write_text(json.dumps({"closure": {"selected_harnesses": []}}), encoding="utf-8")
         closure = root / "closure.json"
-        closure.write_text(json.dumps({"schema_version": "1", "type": "tailtrail-execution-closure-input", "run_id": "run", "changed_paths": ["src/service.py", "tests/test_service.py"], "receipts": [{"requirement_uids": [uid], "tier": "unit", "command_label": "unit proof", "command": "never-run-sentinel", "outcome": outcome, "environment": "local", "asserted_behavior": "eligible cancellation is idempotent"}]}), encoding="utf-8")
+        proof = root / "proof.json"; proof.write_text(json.dumps({"outcome": outcome}), encoding="utf-8")
+        closure.write_text(json.dumps({"schema_version": "1", "type": "tailtrail-execution-closure-input", "run_id": "run", "changed_paths": ["src/service.py", "tests/test_service.py"], "receipts": [{"requirement_uids": [uid], "tier": "unit", "command_label": "unit proof", "command": "never-run-sentinel", "outcome": outcome, "environment": "local", "asserted_behavior": "eligible cancellation is idempotent", "evidence_label": "ci-receipt", "evidence_quality": "attested", "artifact": "proof.json"}]}), encoding="utf-8")
         recorder.record(root, closure)
         finalizer.finalize(root, "run")
         return uid

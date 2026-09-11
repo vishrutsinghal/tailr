@@ -111,7 +111,7 @@ For normal delivery, use the six-verb façade. When exactly one eligible run
 exists, TailTrail resolves it automatically:
 
 ```bash
-tailtrail start "your goal" --presentation guided
+tailtrail start "your goal"
 tailtrail discuss --question "Why was this scope selected?"
 tailtrail approve
 tailtrail continue
@@ -119,10 +119,50 @@ tailtrail flow status
 tailtrail close
 ```
 
-Choose `--presentation quick`, `guided`, or `expert` for the desired display
-depth. This changes presentation only. Add `--verbose` to any layer for the
-comprehensive canonical plan. Supply `--run-id` only when TailTrail reports
-multiple eligible runs or an exact automation/audit reference is required.
+If the request depends on a local Markdown or text specification, pass it as a
+required planning input:
+
+```bash
+tailtrail start "add the scenarios described in this specification" \
+  --requirement-artifact "/absolute/path/to/specification.md"
+```
+
+The host reads the inspected artifact and binds artifact-derived clauses to its
+input ID and SHA-256. TailTrail will not replace an unavailable or unread
+required artifact with a generic requirement or continue into scope discovery.
+
+For Standard and Full mode on an agent host, the verified official AI-DLC
+Requirements Analysis rules own the requirement rows before scope is selected.
+The host consumes TailTrail's authority receipt, returns the official typed
+boundary, and only then may Navigator map it to implementation and proof paths.
+Approving the Start Plan records the official Requirements approval and freezes
+that mapping; TailTrail does not launch a duplicate post-scope questionnaire.
+
+TailTrail chooses plan detail from the lifecycle route: Off is Quick; Lite is
+Expert without dedicated Architecture/Behaviour planning detail; Standard,
+Full, hands-free, and Intent Bridge are comprehensive. Add `--verbose` to force
+the complete canonical plan in any mode. Completion Reports are always
+comprehensive. Supply `--run-id` only when TailTrail reports multiple eligible
+runs or an exact automation/audit reference is required.
+
+To leave TailTrail immediately without rejecting or deleting the saved work:
+
+```bash
+tailtrail stop
+```
+
+This returns the chat to regular agent behavior and exits with code `0`, even
+when it is already detached. The report preserves the exact run ID and safe
+point. Resume only that run later with:
+
+```bash
+tailtrail resume --run-id <exact-run-id>
+```
+
+Resume reattaches and reports; it does not approve the plan or continue a
+workflow. `tailtrail session status` reads the current attachment. If several
+legacy runs exist and no attachment has been established, stop fails closed
+and asks for an exact run ID instead of guessing.
 
 ### Feature Registry
 
@@ -321,6 +361,9 @@ The Start report contains:
 
 - **Start Here**: the immediate next step, default action, and reminder that nothing has been changed yet.
 - **Guided Delivery**: the smallest selected sequence after approval—requirements, impact mapping, implementation, computational proof, and one completion report—plus safeguards that activate only when a trigger occurs.
+- **Required later in this run**: mandatory post-implementation testing, preservation/regression proof, selected Harness convergence, and evidence-backed closure. These controls are scheduled later because they need implemented behavior to evaluate; they are never optional or deferred from delivery.
+- **Testing plan**: concrete requirement-linked assertions, the existing or proposed proof path, the rule for updating missing assertions after approval, and runnable focused proof, lint, and build/type-check commands discovered from the project.
+- **Conditional TailTrail controls**: additional controls that activate only when their documented risk, recovery, architecture, behavior, or release trigger occurs.
 - **Decision Menu**: short prompts for review, approve, edit, focused validation, scan approval, learning approval, or leaner workflow.
 - **Navigator Summary**: selected workflow, task type, risk signals, selected feature count, skipped feature count, and impacted file count.
 - **Token Posture**: approximate token estimate for focused files versus broad TailTrail docs intentionally avoided.
@@ -329,7 +372,15 @@ The Start report contains:
 - **Install And Update Posture**: whether the current root looks like a source checkout or installed pack and which dry-run update/check command to use.
 - **Full Navigator Plan**: the same approval-first plan produced by `guide`.
 
-The token posture is estimated from local file character counts. It helps show directionally whether TailTrail avoided loading broad context, but it is not exact model/API token usage. Exact savings require real provider usage telemetry.
+The normal Start report keeps token posture to three lines: TailTrail's planned
+working set from Navigator-selected line ranges, estimated reduction against the
+complete bodies of those same scoped files, and the major saving techniques
+used. `--verbose` adds the typed ranges, purpose breakdown, full scoped-file
+ceiling, and repository inventory as informational context only.
+The Start estimate cannot be actual usage because execution has not happened;
+the Completion Report shows exact host/API tokens when telemetry is linked to
+the run. A loose-prompt or AIDLC comparison is optional and requires a separate
+same-task, same-provider/model baseline; TailTrail never creates one silently.
 
 Recommended user flow:
 
@@ -338,7 +389,7 @@ Recommended user flow:
 3. Review the Start report.
 4. Edit the plan if it is too heavy, too light, missing a file, or recommending the wrong command.
 5. Approve implementation only after the plan looks right. The host/agent then follows the selected Guided Delivery controls; users do not need to manually invoke every harness command.
-6. After implementation, return one requirement-completion report and run later-only controls only when their documented trigger occurs.
+6. After implementation, always run the required focused testing, preservation/regression proof, selected Harness convergence, and Completion Report. Run separately listed conditional controls only when their documented trigger occurs.
 
 Common Start examples:
 
@@ -843,7 +894,7 @@ Expected behavior:
 - selects `Repo Overview / Discovery`
 - avoids AIDLC, Review, Handoff, scanners, learning capture, tests, builds, and file edits by default
 - loads README/docs, manifests, top-level structure, entry points, tests, and main modules only as needed
-- shows Code Graph Mapper as an optional deeper discovery command, but does not create `tailtrail-meta/code-graph-cache.json` unless the user approves and runs that command
+- keeps `guide` read-only; a later normal `start` can let Navigator manage the metadata-only graph automatically, while `graph map` remains available as an explicit discovery command
 - asks for approval before inspecting the repo and answering the overview question
 
 This mode is for understanding a repo. If the prompt also asks to fix, implement, review, scan, or prepare a PR, Navigator switches back to the normal workflow planner.
@@ -859,6 +910,22 @@ That writes:
 ```text
 /path/to/project/tailtrail-meta/code-graph-cache.json
 ```
+
+For normal code-change planning, Navigator owns the persisted graph lifecycle.
+A persisted graph is an accelerator rather than a prerequisite. Navigator uses
+task relevance and freshness to reuse, create, incrementally refresh, rebuild,
+or defer `tailtrail-meta/code-graph-cache.json`. It may still build a bounded
+non-persisted relationship graph for current-source scope proof. Exact messages
+and UI labels outrank generic repository matches, and no graph or mapping grants
+implementation authority. Before an active-host Debug Start, Codex, Copilot,
+or Claude performs bounded read-only preliminary diagnosis and submits the
+current hash-bound `tailtrail-host-debug-diagnosis` contract. The resulting
+plan includes preliminary findings, impacted repository roles, concrete test
+cases, and a line-slice token estimate; it still cannot claim reproduction or
+root cause. TailTrail-managed state is excluded before candidate limits are
+charged. Debug Start may only reuse a fresh cache before reproduction approval.
+Closure refreshes actual changed paths and records an
+immutable, hash-bound mapping for reuse by related later runs.
 
 ### Recommended Daily Flow
 
@@ -999,11 +1066,13 @@ Navigator is approval-first. Review the plan, edit it if needed, then approve im
 
 Navigator automatically classifies the request and recommends a workflow. It may check local Git changed files, local TailTrail state, graph cache status, and learning indexes. It may run lightweight local helper scripts such as Code Review Graph Lite or Graph-Aware Learning search to prepare the plan.
 
-For meaningful code-change prompts, Navigator now treats Code Graph Mapper as a first-read helper:
+For meaningful code-change prompts, Navigator owns the first-read graph decision:
 
-- if `tailtrail-meta/code-graph-cache.json` is missing, it recommends `graph map --root "/path/to/project"` before broad source reads
-- if the cache exists and watched files changed, it recommends `graph refresh --root "/path/to/project" --changed ...`
-- if the cache is fresh, it recommends using the cached read order, then reading exact source before edits
+- if the cache is missing and task-specific paths are grounded, it creates a bounded metadata graph
+- if repository inventory is stale or the task expands beyond cached scope, it incrementally refreshes relevant paths
+- if metadata is invalid, it rebuilds it; if it is fresh and relevant, it reuses it
+- if no relevant graph scope is established, it defers instead of mapping arbitrary files
+- explicit `--graph reuse|refresh|rebuild|off` overrides the automatic decision
 
 This applies to major and minor code-change work. Tiny typo or docs-only work still skips graph mapping to avoid process noise.
 
@@ -1018,7 +1087,7 @@ Navigator does not automatically:
 - change policy files
 - modify TailTrail rules
 
-Anything that writes files, runs broad commands, or records learning/quality history should be explicitly approved.
+Project/source writes, broad commands, and learning or quality-history writes require their designated approval. Navigator's bounded graph metadata transition is the sole Start-time metadata exception and grants no implementation authority.
 
 For meaningful implementation, fix, review, QA, security, dependency, or handoff work, Navigator also prepares a **Learning Capture Trigger**. This does not record a learning by itself. It adds a post-task command that should run only after user acceptance, reviewer feedback, validation results, or a clear reusable repo pattern is known.
 
@@ -1427,10 +1496,12 @@ What it does:
 
 Navigator behavior:
 
-- Navigator selects Test Precision Planner when the prompt mentions unit tests, regression tests, test coverage, test cases, post-change validation, validation confidence, or before-PR validation.
+- Navigator selects Test Precision Planner when the prompt requests test precision or when Start actually creates assertion-level test cases or resolves a focused proof path and runnable command. The Selected TailTrail features section then identifies its role during planning and after implementation.
 - Navigator shows the feature in `Selected Features` and adds a command like `tailtrail test plan --root "/path/to/repo" --goal "..." --changed src/service/foo.py`.
-- It does not run automatically after development. The user or agent should run the suggested command after implementation or before final validation.
+- Start never runs tests while planning. After approval and implementation, the agent runs the approved focused proof and records its factual result before closure; selecting the planner itself grants no extra execution authority.
 - Pair it with Review by asking: `Use TailTrail Navigator for this fix, then after implementation run review and Test Precision Planner before final validation.`
+
+Token reports name only techniques evidenced for the current run. An unapproved Learning Use Proposal is not reported as project-learning reuse. If an approved learning is actually applied, the Completion Report names the technique and links it to the exact learning-use receipt. Verbose Start reports also explain any medium-confidence context-slice estimate.
 
 Boundaries:
 
@@ -1446,11 +1517,34 @@ Evaluation Harness is the planned umbrella for TailTrail evidence: benchmark sce
 
 Use `eval ...` when you want evidence about TailTrail behavior, quality, token claims, outcomes, or benchmarks from one command family.
 
+For Navigator scope-v2 regression proof, run:
+
+```bash
+python3 scripts/tailtrail.py eval scope validate --format json
+python3 scripts/tailtrail.py eval scope report --format json
+python3 scripts/tailtrail.py eval scope migration --root . --format json
+python3 scripts/tailtrail.py eval scope release-proof --root . --format json
+python3 scripts/tailtrail.py eval scope rollback-status --root . --format json
+```
+
+This is sealed fixture calibration, not hidden telemetry or a productivity
+claim. It covers every supported relationship language, false test-only scope,
+weak-only ownership, ambiguity/safe refusal, graph freshness, manual revision,
+investigation cost, and CLI/MCP/Codex/Copilot/Claude fingerprint parity. A bad
+scope case enters explicit false-positive review. Safe refusal remains a valid
+protective outcome.
+
+An administrator may explicitly capture the governed negative learning with
+`eval scope capture-negative --root . --approved`. Capture alone does not use
+the advice: project-framed retrieval and all Learning V3 governance, use-receipt,
+and closure-attribution gates still apply.
+
 ```bash
 python3 scripts/tailtrail.py eval audit
 python3 scripts/tailtrail.py eval audit --format json
 python3 scripts/tailtrail.py eval audit --strict
 python3 scripts/tailtrail.py eval audit --write-report --approved
+python3 scripts/tailtrail.py eval scope report --format json
 python3 scripts/tailtrail.py eval portfolio run --portfolio
 python3 scripts/tailtrail.py eval guardrails precision
 python3 scripts/tailtrail.py eval outcome summarize
@@ -2256,6 +2350,28 @@ When AIDLC asks questions, each question should include:
 
 TailTrail includes an intent expansion agent so users do not need to paste long prompts every time.
 
+Agents can also accept normal user language without requiring TailTrail flags:
+
+```text
+Use TailTrail to reject zero quantities but keep positive quantities working.
+```
+
+Codex, Copilot, or Claude preserves that goal and starts planning. Navigator
+discovers likely scope, lifecycle posture, controls, and proof. The user does
+not need to name files, AIDLC mode, Harnesses, or report sections.
+
+CLI, MCP, and non-agent clients can request the same typed, read-only routing
+decision without performing it:
+
+```bash
+tailtrail intent resolve "Use TailTrail to reject zero quantities but keep positive quantities working" --format json
+tailtrail intent resolve "Why these files?" --active-state awaiting-approval --format json
+```
+
+The result conforms to `schemas/intent-envelope.schema.json`. It never creates
+a run, infers approval, or grants execution authority. Vague approval language
+and ambiguous active-run state require clarification.
+
 Examples:
 
 ```bash
@@ -2853,6 +2969,9 @@ Use token savings reports only with the right evidence label:
 Use exact token telemetry when you need real before/after token results instead of approximate context estimates.
 
 ```bash
+python3 scripts/tailtrail.py telemetry record-host --task-id start-123 --variant tailtrail --provider openai --model gpt-5 --source tailtrail-response.json
+python3 scripts/tailtrail.py telemetry record-host --task-id start-123 --variant loose-prompt --provider openai --model gpt-5 --source loose-response.json
+python3 scripts/tailtrail.py telemetry record-host --task-id start-123 --variant aidlc --provider openai --model gpt-5 --source aidlc-response.json
 python3 scripts/tailtrail.py telemetry manual --task-id demo-001 --provider openai --model gpt-5 --baseline-input 42000 --baseline-output 3000 --tailtrail-input 18000 --tailtrail-output 2500
 python3 scripts/tailtrail.py telemetry import-openai --source openai-usage.jsonl --output .tailtrail/token-usage.jsonl
 python3 scripts/tailtrail.py telemetry import-claude --source claude-usage.jsonl --output .tailtrail/token-usage.jsonl
@@ -2862,6 +2981,22 @@ python3 scripts/tailtrail.py savings report --telemetry .tailtrail/token-usage.j
 python3 scripts/tailtrail.py savings report --telemetry templates/token-usage-example.jsonl
 python3 scripts/tailtrail.py report --token-telemetry .tailtrail/token-usage.jsonl
 ```
+
+`telemetry record-host` is the preferred path when the active host or model API
+exposes response usage metadata. It extracts common provider usage fields,
+appends the exact total to the named TailTrail run, and labels it as
+`tailtrail`, `loose-prompt`, or `aidlc`. The Completion Report sums TailTrail
+records and reports exact savings only when a matching baseline uses the same
+provider and model. It never runs a duplicate baseline automatically.
+
+Start and Completion reports also show an estimated repository-context
+reduction. The baseline is the metadata-only size of relevant source, test,
+manifest, and configuration files; dependencies, VCS data, generated/build
+output, coverage, TailTrail state, and known vendor folders are excluded. The
+estimate compares that ceiling with the full bodies of scoped files and lists
+major evidenced techniques such as Code Graph/file-map reuse, Navigator scope
+narrowing, focused validation, and project-learning reuse. This percentage is
+an estimated context reduction, not exact model-token savings.
 
 Use `telemetry manual` when the provider UI, logs, gateway, or benchmark notes already show token numbers. Use `telemetry import-*` when those numbers are in a local JSON or JSONL file. These commands create normalized measured records; `savings report` is still the command that calculates the before/after totals.
 
@@ -2976,8 +3111,14 @@ python3 scripts/check-tailtrail.py
 python3 scripts/sync-adapters.py --check
 python3 scripts/benchmark-tailtrail.py
 python3 -m compileall -q scripts hooks
-python3 -m unittest discover -s tests
+python3 scripts/tailtrail.py test run
 ```
+
+`test run` uses up to four isolated workers by default, while repository-state
+and package-governance checks run first in a serial preflight. Override the
+worker count with `--jobs N` or `TAILTRAIL_TEST_JOBS=N`. For focused checks use
+`--include test_module_a,test_module_b`; for diagnosing order-sensitive
+failures, use `python3 scripts/tailtrail.py test run --serial --verbose`.
 
 For Codex plugin validation:
 

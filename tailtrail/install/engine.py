@@ -128,6 +128,38 @@ class InstallEngine:
             raise InstallFailure("corrupt-manifest", f"invalid ownership manifest: {path}")
         return payload
 
+    @staticmethod
+    def _manifest_matches_plan(
+        manifest: dict[str, object] | None,
+        plan: InstallPlan,
+        adapter: str,
+    ) -> bool:
+        """Return whether installed ownership metadata exactly describes the plan.
+
+        A common payload is shared by all installed hosts. During an all-host
+        update, an earlier host may replace those bytes before a later host is
+        processed. The later host must reconcile its manifest even though its
+        planned file actions are all ``unchanged``.
+        """
+        if manifest is None:
+            return False
+        if (
+            manifest.get("version") != plan.version
+            or manifest.get("profile") != plan.profile
+            or manifest.get("adapter_version") != adapter
+        ):
+            return False
+        files = manifest.get("files")
+        if not isinstance(files, dict) or set(files) != {entry.path for entry in plan.entries}:
+            return False
+        for entry in plan.entries:
+            recorded = files.get(entry.path)
+            if not isinstance(recorded, dict):
+                return False
+            if recorded.get("sha256") != entry.sha256 or recorded.get("size") != entry.size:
+                return False
+        return True
+
     @contextmanager
     def _lock(self) -> Iterator[None]:
         self.state_root.mkdir(parents=True, exist_ok=True)
@@ -324,8 +356,8 @@ class InstallEngine:
                 return result
             manifest_before = self._load_manifest(host)
             current_adapter = adapter_version(self._contract_root())
-            adapter_current = (manifest_before or {}).get("adapter_version") == current_adapter
-            if all(entry.action == "unchanged" for entry in plan.entries) and not plan.removals and adapter_current:
+            manifest_current = self._manifest_matches_plan(manifest_before, plan, current_adapter)
+            if all(entry.action == "unchanged" for entry in plan.entries) and not plan.removals and manifest_current:
                 result.status = "current"
                 return result
             transaction_id = f"{int(time.time())}-{uuid.uuid4().hex[:12]}"

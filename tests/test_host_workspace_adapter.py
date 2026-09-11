@@ -40,12 +40,33 @@ class HostWorkspaceAdapterTests(unittest.TestCase):
     def test_target_host_workspace_cli_and_start_use_host_workspace_before_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            owner = root / "src" / "service.py"; owner.parent.mkdir(); owner.write_text("def service():\n    return None\n", encoding="utf-8")
             host = subprocess.run(
                 [sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "target", "host-workspace", "--host", "copilot", "--workspace", root.as_posix(), "--format", "json"],
                 cwd=ROOT, text=True, capture_output=True, check=False,
             )
+            goal = "plan a change in /missing/prompt-target"
+            interpretation = {
+                "schema_version": "1",
+                "type": "tailtrail-host-requirement-interpretation",
+                "host": "copilot",
+                "goal": goal,
+                "private_reasoning_excluded": True,
+                "clauses": [{"clause_id": "C-01", "role": "outcome", "text": goal}],
+                "requirements": [{
+                    "display_id": "REQ-01",
+                    "statement": goal,
+                    "kind": "change",
+                    "source_clause_ids": ["C-01"],
+                    "intent_terms": ["plan", "change", "prompt-target"],
+                    "quoted_literals": [],
+                    "intent_class": "general",
+                    "confidence": "medium",
+                }],
+                "material_questions": [],
+            }
             started = subprocess.run(
-                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "plan a change in /missing/prompt-target", "--host", "copilot", "--host-workspace", root.as_posix(), "--planning-run-id", "host-workspace-run"],
+                [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), goal, "--host", "copilot", "--host-workspace", root.as_posix(), "--changed", "src/service.py", "--planning-run-id", "host-workspace-run", "--requirement-interpretation", json.dumps(interpretation, separators=(",", ":"))],
                 cwd=ROOT, text=True, capture_output=True, check=False,
             )
             lock = json.loads((root / ".tailtrail" / "runs" / "host-workspace-run" / "planning" / "lock-v1.json").read_text(encoding="utf-8"))

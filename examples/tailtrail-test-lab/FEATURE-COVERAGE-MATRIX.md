@@ -3,11 +3,12 @@
 | Capability | Demo prompts | Visible proof |
 | --- | --- | --- |
 | Hello and host reload | 1–2 | fenced banner, exact root, verify/doctor |
-| Quick / Guided / Expert | 3–5 | progressively deeper views of one semantic contract |
-| Verbose completeness | 6 | full required sections in all three modes |
+| Natural intent routing | 3–11 | ordinary goals and follow-ups map to Guide, Start, Discuss, Approve, Continue, Status, and Close |
+| Task-scaled planning | 3–5 | guidance, task risk, AIDLC, and authority select the needed planning content |
+| Verbose completeness | 6 | complete required audit sections without changing authority |
 | PM-2 orchestration façade | 7–11 | `start`, `discuss`, `approve`, `continue`, `flow status`, `close` |
 | Automatic run resolution | 8–11 | no ID with one run; fail-closed candidates on ambiguity |
-| Navigator / Planning Lock | 7 | scoped requirements and approval-only state |
+| Navigator / Planning Lock | 3–5, 7 | real locks, scoped requirements, approval-only state |
 | AIDLC Off / Lite / Standard / Full | 12–15 | local or pinned official requirement authority |
 | Requirement Completion | 16, 23, 30 | per-requirement delivery and evidence status |
 | Architecture Fitness | 16, 30 | caller/layer/contract/scope comparison |

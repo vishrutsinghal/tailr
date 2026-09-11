@@ -81,7 +81,7 @@ class ArchitecturePlanningTests(unittest.TestCase):
             report = task_start.build_report(
                 GOAL,
                 root,
-                ["src/order_service/payments.py", "src/order_service/service.py", "tests/integration/test_order_service.py"],
+                ["src/order_service/payments.py", "src/order_service/service.py", "src/order_service/api.py", "tests/integration/test_order_service.py"],
                 "tailtrail",
             )
             rendered = task_start.verbose_start_report(report)
@@ -92,7 +92,12 @@ class ArchitecturePlanningTests(unittest.TestCase):
         self.assertIn("Retries must not duplicate payment", rendered)
         self.assertIn("Architecture scope roles", rendered)
         self.assertIn("`src/order_service/api.py`", rendered)
-        self.assertIn("| unit | `not resolved from planning evidence` | must be discovered after approval |", rendered)
+        self.assertIn("- **unit**", rendered)
+        self.assertIn("- **Candidate:** `not resolved from planning evidence`", rendered)
+        self.assertIn(
+            "- **Status / command:** required: resolve a project-owned proof path and runnable command before the first edit",
+            rendered,
+        )
         self.assertIn("tests/integration/test_order_service.py", rendered)
         contracts = [row["architecture_contract"] for row in report["navigator"]["requirement_matrix"]]
         self.assertTrue(any(contract.get("invariants") for contract in contracts))

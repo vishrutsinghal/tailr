@@ -18,7 +18,7 @@ live demo controlled, honest, and recoverable.
 
 ```mermaid
 flowchart LR
-    H["Hello + readiness"] --> P["Quick / Guided / Expert"]
+    H["Hello + readiness"] --> P["Task-scaled Planning Lock"]
     P --> S["Start one real fix"]
     S --> D["Discuss"]
     D --> A["Approve"]
@@ -29,14 +29,14 @@ flowchart LR
 | Minute | Prompts | Proof |
 | ---: | --- | --- |
 | 0–2 | 1–2 | correct project, adapter, payload, banner |
-| 2–5 | 3–6 | three display depths; one canonical authority |
+| 2–5 | 3–6 | advisory, routine, program, and verbose planning proof |
 | 5–11 | 7–10 | no-ID six-verb orchestration and focused implementation |
 | 11–13 | 11 | evidence-backed closure and acceptance choices |
 | 13–15 | 30–31 | honest evidence gap, tokens, evaluation, Learning V3 |
 
 ## Full capability route
 
-- Levels 1–3: onboarding, presentation, and daily flow.
+- Levels 1–3: onboarding, task-first planning, and daily flow.
 - Level 4: Off/Lite/official Standard/official Full AIDLC.
 - Level 5: Requirement Completion, Architecture, Behaviour, Maintainability,
   UI, Evidence-Aware and Higher-Tier Testing.

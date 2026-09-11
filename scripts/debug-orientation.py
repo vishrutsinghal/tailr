@@ -28,6 +28,7 @@ def load(name: str, filename: str) -> Any:
 
 LEDGER = load("debug_orientation_ledger", "run-ledger.py")
 GRAPH = load("debug_orientation_graph", "code-graph-mapper.py")
+REPRODUCTION = load("debug_orientation_reproduction", "debug-reproduction.py")
 
 
 def _canonical(value: Any) -> str:
@@ -139,8 +140,19 @@ def create(root: Path, run_id: str) -> dict[str, Any]:
     workflow_id = str(handoff["workflow_runtime"]["workflow_id"])
     from workflow_runtime import state as workflow_state
     view = workflow_state.show(root, workflow_id)
-    reproduction_state = view.get("stage_states", {}).get("d-02-reproduction", {}).get("status", "pending")
-    targets = _start_targets(root, run_id); cache_path, cache, status = _cache(root, targets)
+    attempt = REPRODUCTION.attempt_status(root, run_id)
+    pre_fix = attempt.get("pre_fix") if isinstance(attempt.get("pre_fix"), dict) else None
+    reproduction_state = "passed" if pre_fix and pre_fix.get("outcome") == "reproduced" else attempt.get("state", "pending")
+    start_scope_binding = handoff.get("workflow_runtime", {}).get("scope_binding")
+    if isinstance(start_scope_binding, dict):
+        targets = list(dict.fromkeys([
+            *start_scope_binding.get("editable_paths", []),
+            *start_scope_binding.get("inspection_paths", []),
+            *start_scope_binding.get("proof_paths", []),
+        ]))[:20]
+    else:
+        targets = _start_targets(root, run_id)
+    cache_path, cache, status = _cache(root, targets)
     cache_state = str(status.get("status", "invalid")); graph = cache or {}
     hints = _graph_hints(graph) if cache else {key: [] for key in ("suggested_read_order", "likely_callers", "likely_tests", "nearby_manifests", "endpoints", "database_boundaries", "service_edges")}
     refresh = _refresh(root, targets, status)
@@ -153,13 +165,14 @@ def create(root: Path, run_id: str) -> dict[str, Any]:
         "requirement_uids": [str(handoff["requirement_uid"])], "reproduction_revision": int(approved["revision"]),
         "reproduction_stage_status": reproduction_state, "status": orientation_status,
         "target_paths": targets,
+        "start_scope_binding": start_scope_binding,
         "cache": {"status": cache_state, "artifact_ref": cache_path.relative_to(root).as_posix() if cache_path.is_file() else None, "schema_version": graph.get("schema_version"), "inventory_fingerprint": (graph.get("inventory") or {}).get("fingerprint"), "confidence": (graph.get("graph") or {}).get("confidence"), "reasons": [str(item) for item in status.get("reasons", [])]},
         "confirmed_paths": _path_rows(root, graph, cache_state), "heuristic_candidates": hints,
         "refresh_proposal": refresh,
         "unsupported_domains": ["cloud-infrastructure", "network", "security"],
         "evidence_labels": {"confirmed-local-path-and-hash": "Path existence and saved SHA-256 match current local files; this does not prove runtime behavior.", "heuristic": "Local Code Graph pattern evidence; inspect exact source before a conclusion or edit."},
         "adapter_handoff": {"stage_id": STAGE_ID, "adapter_id": "graph-discovery", "graph_ref": f".tailtrail/runs/{run_id}/debug/orientation/orientation-v1.json", "graph_version": str(graph.get("schema_version", "unavailable")), "inventory_fingerprint": (graph.get("inventory") or {}).get("fingerprint") or _fingerprint(None), "freshness": cache_state, "likely_callers": hints["likely_callers"], "likely_tests": hints["likely_tests"], "read_order": hints["suggested_read_order"], "evidence_label": "local-evidence"},
-        "boundary": "Local graph-cache orientation only. No source was parsed or edited, no graph refresh or project command ran, no hypothesis was proven, and the DWR stage was not advanced.",
+        "boundary": "Local graph-cache orientation over the saved Start scope binding only. No source was parsed or edited, no graph refresh or project command ran, no hypothesis was proven, and the DWR stage was not advanced.",
     }
     payload = {"schema_version": "1", "type": "tailtrail-debug-orientation", "revision": revision, **stable, "orientation_fingerprint": _fingerprint(stable)}
     archive = _directory(root, run_id) / f"orientation-v{revision}.json"

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-scope-calibration-catalog.schema.json",
+  "title": "TailTrail Navigator Scope Calibration Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "catalog_version", "evidence_label", "supported_languages", "negative_boundaries", "thresholds", "receipts", "negative_learning", "privacy", "claim_boundaries", "integrity"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-navigator-scope-calibration-catalog"},
+    "catalog_version": {"type": "string", "minLength": 1},
+    "evidence_label": {"const": "committed-fixture-observed"},
+    "supported_languages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "negative_boundaries": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}},
+    "thresholds": {
+      "type": "object", "additionalProperties": false,
+      "required": ["weak_only_lock_count_max", "test_only_false_scope_count_max", "fingerprint_mismatch_count_max", "owner_precision_min", "owner_recall_min"],
+      "properties": {
+        "weak_only_lock_count_max": {"const": 0},
+        "test_only_false_scope_count_max": {"const": 0},
+        "fingerprint_mismatch_count_max": {"const": 0},
+        "owner_precision_min": {"type": "number", "minimum": 0, "maximum": 1},
+        "owner_recall_min": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "receipts": {"type": "array", "minItems": 7, "items": {"$ref": "#/$defs/receipt"}},
+    "negative_learning": {"$ref": "#/$defs/negativeLearning"},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "claim_boundaries": {"type": "array", "minItems": 3, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "integrity": {"$ref": "#/$defs/integrity"}
+  },
+  "$defs": {
+    "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "stringArray": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "implementation_owners", "strongest_evidence", "safe_refusal"],
+      "properties": {
+        "state": {"enum": ["resolved", "unresolved", "ambiguous", "blocked-by-limits"]},
+        "implementation_owners": {"$ref": "#/$defs/stringArray"},
+        "strongest_evidence": {"enum": ["none", "weak", "medium", "strong"]},
+        "safe_refusal": {"type": "boolean"}
+      }
+    },
+    "investigation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["files_read", "bytes_read", "relationship_hops", "duration_ms", "fresh_graph_reused", "stale_graph_rejected"],
+      "properties": {
+        "files_read": {"type": "integer", "minimum": 0},
+        "bytes_read": {"type": "integer", "minimum": 0},
+        "relationship_hops": {"type": "integer", "minimum": 0},
+        "duration_ms": {"type": "integer", "minimum": 0},
+        "fresh_graph_reused": {"type": "boolean"},
+        "stale_graph_rejected": {"type": "boolean"}
+      }
+    },
+    "receipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_id", "source_kind", "factual", "task_class", "language", "request_kind", "negative_boundaries", "expected", "observed", "manual_scope_revision", "investigation", "surface_fingerprints", "receipt_fingerprint"],
+      "properties": {
+        "receipt_id": {"type": "string", "pattern": "^ns8-[a-z0-9-]+$"},
+        "source_kind": {"const": "committed-fixture"},
+        "factual": {"const": true},
+        "task_class": {"type": "string", "minLength": 1},
+        "language": {"type": "string", "minLength": 1},
+        "request_kind": {"enum": ["code-change", "test-only", "documentation-only", "debug"]},
+        "negative_boundaries": {"$ref": "#/$defs/stringArray"},
+        "expected": {"$ref": "#/$defs/decision"},
+        "observed": {"$ref": "#/$defs/decision"},
+        "manual_scope_revision": {"type": "boolean"},
+        "investigation": {"$ref": "#/$defs/investigation"},
+        "surface_fingerprints": {
+          "type": "object", "additionalProperties": false,
+          "required": ["cli", "mcp", "codex", "copilot", "claude"],
+          "properties": {
+            "cli": {"$ref": "#/$defs/fingerprint"}, "mcp": {"$ref": "#/$defs/fingerprint"},
+            "codex": {"$ref": "#/$defs/fingerprint"}, "copilot": {"$ref": "#/$defs/fingerprint"},
+            "claude": {"$ref": "#/$defs/fingerprint"}
+          }
+        },
+        "receipt_fingerprint": {"$ref": "#/$defs/fingerprint"}
+      }
+    },
+    "negativeLearning": {
+      "type": "object", "additionalProperties": false,
+      "required": ["learning_id", "learning_class", "source_receipt_ids", "summary", "advice", "task_types", "tags", "path_patterns", "confidence_score", "invalidators", "stale_when", "capture_default", "use_default", "closure_attribution"],
+      "properties": {
+        "learning_id": {"type": "string", "pattern": "^lrn-"},
+        "learning_class": {"const": "avoid-history"},
+        "source_receipt_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "summary": {"type": "string", "minLength": 1, "maxLength": 500},
+        "advice": {"type": "string", "minLength": 1, "maxLength": 500},
+        "task_types": {"$ref": "#/$defs/stringArray"},
+        "tags": {"$ref": "#/$defs/stringArray"},
+        "path_patterns": {"$ref": "#/$defs/stringArray"},
+        "confidence_score": {"type": "integer", "minimum": 0, "maximum": 59},
+        "invalidators": {"type": "array", "minItems": 5, "uniqueItems": true, "items": {"enum": ["source-change", "policy-change", "graph-change", "symbol-change", "manifest-change", "ownership-change", "validation-change"]}},
+        "stale_when": {"type": "string", "minLength": 1},
+        "capture_default": {"const": "do-not-capture"},
+        "use_default": {"const": "do-not-use"},
+        "closure_attribution": {"const": "required-after-explicit-use"}
+      }
+    },
+    "privacy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sanitized", "raw_prompt", "raw_source", "raw_log", "identity_fields"],
+      "properties": {"sanitized": {"const": true}, "raw_prompt": {"const": false}, "raw_source": {"const": false}, "raw_log": {"const": false}, "identity_fields": {"const": false}}
+    },
+    "integrity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["algorithm", "canonicalization", "digest"],
+      "properties": {"algorithm": {"const": "sha256"}, "canonicalization": {"const": "sorted compact JSON excluding integrity"}, "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    }
+  }
+}

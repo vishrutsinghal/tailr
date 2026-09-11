@@ -76,7 +76,16 @@ class BehaviourPlanningTests(unittest.TestCase):
             report = task_start.build_report(
                 GOAL,
                 root,
-                ["src/order_service/api.py", "tests/behaviour/test_customer_journey.py"],
+                [
+                    "src/order_service/api.py",
+                    "src/order_service/service.py",
+                    "src/order_service/repository.py",
+                    "src/order_service/notifications.py",
+                    "src/order_service/shipping.py",
+                    "tests/behaviour/test_customer_journey.py",
+                    "tests/integration/test_order_service.py",
+                    "tests/contract/test_api_contract.py",
+                ],
                 "tailtrail",
             )
             rendered = task_start.verbose_start_report(report)
@@ -98,10 +107,13 @@ class BehaviourPlanningTests(unittest.TestCase):
         self.assertIn("## Behaviour Harness Plan", rendered)
         self.assertIn("BHV-01", {row["scenario_id"] for row in report["behaviour_plan"]["scenarios"]})
         self.assertIn("BHV-03", {row["scenario_id"] for row in report["behaviour_plan"]["scenarios"]})
-        self.assertIn("| behaviour | `tests/behaviour/test_customer_journey.py` |", rendered)
-        self.assertIn("| integration | `tests/integration/test_order_service.py` |", rendered)
-        self.assertIn("| contract | `tests/contract/test_api_contract.py` |", rendered)
-        self.assertNotIn("| unit |", rendered)
+        self.assertIn("- **behaviour**", rendered)
+        self.assertIn("- **Candidate:** `tests/behaviour/test_customer_journey.py`", rendered)
+        self.assertIn("- **integration**", rendered)
+        self.assertIn("- **Candidate:** `tests/integration/test_order_service.py`", rendered)
+        self.assertIn("- **contract**", rendered)
+        self.assertIn("- **Candidate:** `tests/contract/test_api_contract.py`", rendered)
+        self.assertNotIn("- **unit**", rendered)
         self.assertNotIn("retry boundary", rendered.lower())
         self.assertNotIn("payment/service path", rendered.lower())
 
@@ -140,6 +152,7 @@ class BehaviourPlanningTests(unittest.TestCase):
                         "requirement_uid": requirement["requirement_uid"],
                         "tier": item["tier"],
                         "outcome": "pass",
+                        "evidence_quality": "attested",
                         "asserted_behavior": item["asserted_behavior"],
                     } for item in scenario["evidence"])
             scenarios_path = root / "scenarios.json"; evidence_path = root / "evidence.json"

@@ -58,11 +58,139 @@ def read(path: Path) -> dict[str, Any]:
 
 
 def latest(directory: Path, pattern: str) -> tuple[dict[str, Any] | None, str | None]:
-    files = sorted(directory.glob(pattern))
+    files = list(directory.glob(pattern))
     if not files:
         return None, None
-    path = files[-1]
+    path = max(files, key=lambda value: (value.stat().st_mtime_ns, value.name))
     return read(path), path.relative_to(directory.parents[0]).as_posix()
+
+
+def latest_closure_receipts(root: Path, directory: Path) -> tuple[list[dict[str, Any]], list[str]]:
+    """Read only the receipts selected by the newest checkpointed closure record.
+
+    Validation receipt files are append-only audit history. Aggregating every
+    historical file makes a corrected rerun inherit stale failures and can also
+    turn one host assertion into many apparent results. The closure record is
+    the canonical snapshot for one assessment.
+    """
+    records: list[tuple[int, int, Path, dict[str, Any]]] = []
+    for path in (directory / "closure-records").glob("closure-*.json"):
+        item = read(path)
+        if item.get("type") != "tailtrail-closure-record":
+            continue
+        checkpoint = str(item.get("checkpoint", ""))
+        digits = "".join(character for character in Path(checkpoint).stem if character.isdigit())
+        records.append((int(digits or 0), path.stat().st_mtime_ns, path, item))
+    if not records:
+        return [], []
+    _, _, _, selected = max(records, key=lambda row: (row[0], row[1], row[2].name))
+    refs = [str(value) for value in selected.get("receipt_artifacts", []) if isinstance(value, str)]
+    receipts = [read(root / reference) for reference in refs if (root / reference).is_file()]
+    return receipts, refs
+
+
+def receipt_tiers(receipt: dict[str, Any]) -> list[str]:
+    values = receipt.get("tiers")
+    if isinstance(values, list):
+        return [str(value) for value in values if value]
+    return [str(receipt["tier"])] if receipt.get("tier") else []
+
+
+def receipt_requirement_uids(receipt: dict[str, Any]) -> list[str]:
+    values = receipt.get("requirement_uids")
+    if isinstance(values, list):
+        return [str(value) for value in values if value]
+    return [str(receipt["requirement_uid"])] if receipt.get("requirement_uid") else []
+
+
+def consolidated_receipts(receipts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge requirement-fanned copies of one validation observation.
+
+    Legacy closure recording wrote one receipt per requirement even when a
+    single command covered the full slice. The append-only files remain
+    untouched, while the human report presents that observation once and
+    lists every affected requirement.
+    """
+    grouped: list[dict[str, Any]] = []
+    by_observation: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for source in receipts:
+        tiers = tuple(receipt_tiers(source))
+        key = (
+            source.get("command_label"), source.get("command"), tiers,
+            source.get("outcome"), source.get("evidence_quality"),
+            source.get("exit_code"), source.get("started_at"), source.get("finished_at"),
+            source.get("stdout_sha256"), source.get("stderr_sha256"),
+            source.get("stdout_artifact"), source.get("stderr_artifact"), source.get("artifact_path"),
+        )
+        current = by_observation.get(key)
+        if current is None:
+            current = dict(source)
+            current["tiers"] = list(tiers)
+            current["requirement_uids"] = []
+            current["source_receipt_count"] = 0
+            grouped.append(current)
+            by_observation[key] = current
+        for uid in receipt_requirement_uids(source):
+            if uid not in current["requirement_uids"]:
+                current["requirement_uids"].append(uid)
+        current["source_receipt_count"] += 1
+    return grouped
+
+
+def required_validation_checks(anchor: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return one approved validation check with all covered requirements."""
+    grouped: list[dict[str, Any]] = []
+    by_command: dict[str, dict[str, Any]] = {}
+    for requirement in anchor.get("requirements", []):
+        if not isinstance(requirement, dict):
+            continue
+        contract = requirement.get("validation_contract")
+        if not isinstance(contract, dict) or contract.get("state") == "not-required":
+            continue
+        saved_checks = [row for row in contract.get("checks", []) if isinstance(row, dict)]
+        if saved_checks:
+            checks = [{
+                "command": str(row.get("command", "")),
+                "tiers": [str(value) for value in row.get("tiers", []) if value],
+                "candidate_paths": [str(value) for value in row.get("candidate_paths", []) if value],
+            } for row in saved_checks if row.get("command")]
+        else:
+            checks = [{
+                "command": str(command),
+                "tiers": [str(value) for value in contract.get("tiers", []) if value],
+                "candidate_paths": [str(value) for value in contract.get("candidate_paths", []) if value],
+            } for command in contract.get("commands", []) if command]
+        uid = str(requirement.get("requirement_uid", ""))
+        for check in checks:
+            command = check["command"]
+            current = by_command.get(command)
+            if current is None:
+                current = {"command": command, "tiers": [], "requirement_uids": [], "candidate_paths": []}
+                grouped.append(current)
+                by_command[command] = current
+            for tier in check["tiers"]:
+                if tier not in current["tiers"]:
+                    current["tiers"].append(tier)
+            if uid and uid not in current["requirement_uids"]:
+                current["requirement_uids"].append(uid)
+            for path in check["candidate_paths"]:
+                if path and str(path) not in current["candidate_paths"]:
+                    current["candidate_paths"].append(str(path))
+    return grouped
+
+
+def aggregate_tiers(receipts: list[dict[str, Any]]) -> dict[str, str]:
+    """Collapse current authoritative evidence with non-pass precedence."""
+    tiers = sorted({tier for receipt in receipts for tier in receipt_tiers(receipt)})
+    result: dict[str, str] = {}
+    precedence = ("fail", "timed-out", "blocked", "unavailable")
+    for tier in tiers:
+        matching = [receipt for receipt in receipts if tier in receipt_tiers(receipt)]
+        authoritative = [receipt for receipt in matching if receipt.get("evidence_quality") in {"trusted", "attested"}]
+        outcomes = {str(receipt.get("outcome")) for receipt in authoritative}
+        reported_outcomes = {str(receipt.get("outcome")) for receipt in matching}
+        result[tier] = next((value for value in precedence if value in reported_outcomes), "pass" if "pass" in outcomes else "unverified" if matching else "not-evidenced")
+    return result
 
 
 def status(value: bool | None, *, not_selected: bool = False) -> str:
@@ -73,9 +201,34 @@ def status(value: bool | None, *, not_selected: bool = False) -> str:
     return "pass" if value else "fail"
 
 
-def table_cell(value: Any) -> str:
-    """Keep saved evidence safe to render inside a single Markdown table cell."""
-    return " ".join(str(value).replace("|", "\\|").split()) or "-"
+def report_text(value: Any) -> str:
+    """Render saved evidence as one safe line without table-specific escaping."""
+    if value is None:
+        return "-"
+    return " ".join(str(value).split()) or "-"
+
+
+def append_records(
+    lines: list[str],
+    records: list[tuple[str, list[tuple[str, str]]]],
+    *,
+    empty: str | None = None,
+) -> None:
+    """Render responsive report records that remain readable in narrow hosts.
+
+    Markdown tables size every row against the widest prose cell. Completion
+    evidence contains paths, commands, and boundaries, so those tables wrap
+    unpredictably in Codex, Claude, and Copilot panes. A labelled stack keeps
+    each record together and gives wrapped text a stable hanging indentation.
+    """
+    if not records:
+        if empty:
+            lines.append(f"- {empty}")
+        return
+    for title, fields in records:
+        lines.append(f"- **{report_text(title)}**")
+        for label, value in fields:
+            lines.append(f"  - **{report_text(label)}:** {value}")
 
 
 def failure_summary(directory: Path) -> dict[str, Any]:
@@ -109,15 +262,150 @@ def token_usage_summary(root: Path, run_id: str, directory: Path) -> dict[str, A
                 continue
             if isinstance(item, dict) and item.get("mode") == "measured" and str(item.get("task_id", "")) == run_id:
                 records.append(item)
-    totals = [item.get("tailtrail", {}).get("total_tokens") for item in records if isinstance(item.get("tailtrail"), dict)]
-    measured = bool(records) and all(isinstance(value, int) and not isinstance(value, bool) and value >= 0 for value in totals)
+    tailtrail_totals: list[int] = []
+    tailtrail_identities: set[tuple[str, str]] = set()
+    baseline_totals: dict[str, list[int]] = {"loose-prompt": [], "aidlc": []}
+    baseline_identities: dict[str, set[tuple[str, str]]] = {"loose-prompt": set(), "aidlc": set()}
+
+    def measured_total(value: Any) -> int | None:
+        total = value.get("total_tokens") if isinstance(value, dict) else None
+        return total if isinstance(total, int) and not isinstance(total, bool) and total >= 0 else None
+
+    def identity(item: dict[str, Any]) -> tuple[str, str] | None:
+        provider = str(item.get("provider", "")).strip()
+        model = str(item.get("model", "")).strip()
+        if not provider or not model or model == "unknown":
+            return None
+        return provider, model
+
+    for item in records:
+        variant = str(item.get("variant", ""))
+        item_identity = identity(item)
+        if variant in {"tailtrail", "loose-prompt", "aidlc"}:
+            total = measured_total(item.get("usage"))
+            if total is None:
+                continue
+            if variant == "tailtrail":
+                tailtrail_totals.append(total)
+                if item_identity:
+                    tailtrail_identities.add(item_identity)
+            else:
+                baseline_totals[variant].append(total)
+                if item_identity:
+                    baseline_identities[variant].add(item_identity)
+            continue
+
+        # Backward-compatible paired telemetry. Older records represent a
+        # loose-prompt comparison unless they explicitly name AIDLC.
+        tailtrail_total = measured_total(item.get("tailtrail"))
+        baseline_total = measured_total(item.get("baseline"))
+        if tailtrail_total is not None:
+            tailtrail_totals.append(tailtrail_total)
+            if item_identity:
+                tailtrail_identities.add(item_identity)
+        if baseline_total is not None:
+            baseline_kind = "aidlc" if str(item.get("baseline_kind", "")) == "aidlc" else "loose-prompt"
+            baseline_totals[baseline_kind].append(baseline_total)
+            if item_identity:
+                baseline_identities[baseline_kind].add(item_identity)
+
+    measured = bool(tailtrail_totals)
+    actual = sum(tailtrail_totals) if measured else None
+    context_estimate = {
+        "status": (
+            "estimated"
+            if isinstance(posture.get("repository_ceiling_tokens"), int)
+            and isinstance(posture.get("estimated_saved_tokens"), int)
+            else "unavailable"
+        ),
+        "comparison_basis": (
+            "scoped-files"
+            if isinstance(posture.get("planned_working_set_tokens"), int)
+            and isinstance(posture.get("scoped_file_ceiling_tokens"), int)
+            else "legacy-repository-ceiling"
+        ),
+        "planned_working_set_tokens": posture.get("planned_working_set_tokens"),
+        "scoped_file_ceiling_tokens": posture.get("scoped_file_ceiling_tokens"),
+        "forecast_confidence": posture.get("forecast_confidence"),
+        "repository_ceiling_tokens": posture.get("repository_ceiling_tokens"),
+        "repository_file_count": posture.get("repository_file_count"),
+        "scoped_tokens": estimate,
+        "estimated_saved_tokens": posture.get("estimated_saved_tokens"),
+        "estimated_reduction_percent": posture.get("estimated_reduction_percent"),
+        "saving_techniques": list(posture.get("saving_techniques", [])) if isinstance(posture.get("saving_techniques"), list) else [],
+        "boundary": posture.get("repository_boundary"),
+    }
+    comparisons: dict[str, dict[str, Any]] = {}
+    for baseline_kind in ("loose-prompt", "aidlc"):
+        values = baseline_totals[baseline_kind]
+        if not measured:
+            comparisons[baseline_kind] = {
+                "status": "unavailable",
+                "reason": "TailTrail host/API usage is not linked to this run.",
+            }
+        elif not values:
+            comparisons[baseline_kind] = {
+                "status": "unavailable",
+                "reason": f"No paired {baseline_kind} host/API baseline is linked to this run.",
+            }
+        elif (
+            tailtrail_identities
+            and baseline_identities[baseline_kind]
+            and tailtrail_identities != baseline_identities[baseline_kind]
+        ):
+            comparisons[baseline_kind] = {
+                "status": "incomparable",
+                "reason": "The baseline and TailTrail usage use different provider/model identities.",
+            }
+        else:
+            baseline = sum(values)
+            saved = baseline - int(actual)
+            comparisons[baseline_kind] = {
+                "status": "measured",
+                "baseline_tokens": baseline,
+                "tailtrail_tokens": actual,
+                "saved_tokens": saved,
+                "reduction_percent": round((saved / baseline) * 100, 2) if baseline else None,
+                "baseline_records": len(values),
+            }
     return {
         "planning_estimate_tokens": estimate,
         "status": "measured" if measured else "unavailable",
-        "actual_tailtrail_tokens": sum(totals) if measured else None,
-        "telemetry_records": len(records),
-        "boundary": "Actual tokens require host/provider telemetry with task_id equal to this run ID; local estimates are never presented as measured usage.",
+        "actual_tailtrail_tokens": actual,
+        "telemetry_records": len(tailtrail_totals),
+        "comparisons": comparisons,
+        "context_estimate": context_estimate,
+        "boundary": "Exact usage comes only from host/provider metadata linked to this run ID. Exact savings additionally require a paired loose-prompt or AIDLC baseline for the same provider and model.",
     }
+
+
+def reconcile_learning_saving_evidence(
+    token_usage: dict[str, Any], learning_use: dict[str, Any]
+) -> None:
+    """Claim learning reuse only when an applied receipt proves it."""
+    context = token_usage.get("context_estimate")
+    if not isinstance(context, dict):
+        return
+    techniques = [
+        str(value)
+        for value in context.get("saving_techniques", [])
+        if str(value) and str(value) != "Project learning reuse"
+    ]
+    applied = [
+        row
+        for row in learning_use.get("receipts", [])
+        if isinstance(row, dict) and row.get("decision") == "applied"
+    ]
+    artifact = str(learning_use.get("artifact") or "").strip()
+    references = [
+        f"{artifact}#{row.get('receipt_id')}"
+        for row in applied
+        if artifact and row.get("receipt_id")
+    ]
+    if references:
+        techniques.append("Project learning reuse")
+    context["saving_techniques"] = list(dict.fromkeys(techniques))
+    context["learning_evidence_references"] = list(dict.fromkeys(references))
 
 
 def drift_learning_observation(directory: Path, payload: dict[str, Any], record: bool) -> dict[str, Any]:
@@ -251,9 +539,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     maintainability, maintainability_path = latest(directory / "maintainability", "assessment-*.json")
     boundary_path = directory / "recovery" / "boundary.json"
     boundary = read(boundary_path) if boundary_path.is_file() else None
-    receipt_paths = sorted((directory / "validation-receipts").glob("*.json"))
-    receipts = [read(path) for path in receipt_paths]
-    receipt_refs = [path.relative_to(root).as_posix() for path in receipt_paths]
+    receipts, receipt_refs = latest_closure_receipts(root, directory)
     failures = failure_summary(directory)
     debug_section_path = directory / "debug" / "completion" / "debug-closure-section-v1.json"
     debug_section = read(debug_section_path) if debug_section_path.is_file() else None
@@ -285,11 +571,14 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             and not findings_by_requirement.get(uid)
             and not blocking_drift_by_requirement.get(uid)
         )
+        implementation_state = observed.get("implementation_state", "implemented" if observed.get("state") in {"validated", "implemented-not-validated", "implemented-unverified"} else "not-evidenced")
         requirements.append({
             "requirement_uid": uid,
             "display_id": requirement.get("display_id", uid),
             "statement": requirement.get("statement", ""),
-            "status": "complete" if validated else ("incomplete" if checkpoint else "not-evidenced"),
+            "status": "complete" if validated else ("implemented-unverified" if implementation_state == "implemented" else "not-evidenced"),
+            "implementation_status": implementation_state,
+            "verification_status": observed.get("verification_state", "pass" if observed.get("state") == "validated" else "not-evidenced"),
             "evidence": observed.get("evidence", []),
             "findings": findings_by_requirement.get(uid, []),
             "drift": drift_by_requirement.get(uid, []),
@@ -321,9 +610,11 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     )
     behavior_required = "Behaviour Harness" in selected_names or behavior is not None
     maintainability_required = "Maintainability Harness" in selected_names
-    passed_tiers = sorted({str(item.get("tier")) for item in receipts if item.get("outcome") == "pass"})
-    failed_receipts = [item for item in receipts if item.get("outcome") != "pass"]
-    receipt_outcomes = {str(item.get("outcome")) for item in receipts}
+    tier_results = aggregate_tiers(receipts)
+    passed_tiers = sorted(tier for tier, outcome in tier_results.items() if outcome == "pass")
+    failed_receipts = [item for item in receipts if item.get("evidence_quality") in {"trusted", "attested"} and item.get("outcome") != "pass"]
+    unverified_receipts = [item for item in receipts if item.get("evidence_quality") not in {"trusted", "attested"}]
+    receipt_outcomes = set(tier_results.values())
     if gate and gate.get("complete"):
         test_status = "pass"
     elif receipt_outcomes & {"fail", "timed-out"}:
@@ -332,6 +623,8 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         test_status = "blocked"
     elif "unavailable" in receipt_outcomes:
         test_status = "unavailable"
+    elif "unverified" in receipt_outcomes:
+        test_status = "unverified"
     else:
         test_status = "not-evidenced"
     requirement_complete = sum(item["status"] == "complete" for item in requirements)
@@ -384,8 +677,12 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         "tests": {
             "status": test_status,
             "passed_tiers": passed_tiers,
+            "tier_results": tier_results,
+            "required_checks": required_validation_checks(anchor),
+            "receipts": receipts,
             "receipt_refs": receipt_refs,
             "failed_or_unavailable_receipts": failed_receipts,
+            "unverified_receipts": unverified_receipts,
             "findings": (gate or {}).get("findings", []),
         },
         "drift": {
@@ -401,6 +698,15 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "debug_status": "required-evidence-missing" if debug_run else "not-triggered",
             "confidence_state": None, "domain_confidence_ceiling": None,
             "controls": [], "gaps": ["Debug closure section has not been finalized."] if debug_run else [],
+            "reproduction_proof": {
+                "status": "evidence-incomplete" if debug_run else "not-triggered",
+                "approved_revision": None,
+                "trigger": None,
+                "steps": [],
+                "pre_fix": None,
+                "post_fix": None,
+                "boundary": "Debug closure has not yet recorded factual before-and-after reproduction evidence." if debug_run else "Not a Debug Harness run.",
+            },
             "authority": "section-only",
         },
         "token_usage": token_usage_summary(root, run_id, directory),
@@ -452,20 +758,28 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     payload["overall_status"] = "complete" if ready else "evidence-incomplete"
     execution_blockers: list[dict[str, Any]] = []
     seen_blockers: set[tuple[str, str, str]] = set()
-    for item in failed_receipts:
+    for item in [*failed_receipts, *unverified_receipts]:
         blocker = {
-            "outcome": str(item.get("outcome")),
+            "outcome": str(item.get("outcome")) if item not in unverified_receipts else (f"reported-{item.get('outcome')} (unverified)" if item.get("outcome") != "pass" else "unverified"),
             "command_label": str(item.get("command_label", item.get("tier", "validation"))),
             "asserted_behavior": str(item.get("asserted_behavior", "Saved validation did not pass.")),
+            "command": str(item.get("command", "")),
+            "exit_code": item.get("exit_code"),
+            "duration_ms": item.get("duration_ms"),
+            "evidence_quality": str(item.get("evidence_quality", "declared")),
+            "stdout_artifact": item.get("stdout_artifact"),
+            "stderr_artifact": item.get("stderr_artifact"),
         }
         identity = (blocker["outcome"], blocker["command_label"], blocker["asserted_behavior"])
         if identity not in seen_blockers:
             seen_blockers.add(identity); execution_blockers.append(blocker)
+    changed_paths = payload["changed_scope"]["changed_paths"]
+    implementation_status = "implemented" if changed_paths and payload["changed_scope"]["status"] == "approved" else ("scope-drift" if changed_paths else "not-evidenced")
     payload["implementation"] = {
-        "status": "complete" if ready else ("blocked" if test_status in {"blocked", "unavailable"} or failures["status"] == "unresolved" else "incomplete"),
+        "status": implementation_status,
         "changed_paths": payload["changed_scope"]["changed_paths"],
         "blockers": execution_blockers,
-        "boundary": "Implementation status is derived from saved changed paths, requirement checkpoints, and factual command receipts; it is not inferred from chat narration.",
+        "boundary": "Implementation presence is derived from saved changed-path evidence and approved scope. Verification is reported separately and only authoritative command evidence can establish correctness.",
     }
     reports = directory / "completion-reports"
     report_path = reports / f"report-{len(list(reports.glob('report-*.json'))) + 1}.json"
@@ -473,6 +787,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     payload["learning_use"] = RECEIPTS.attribute_completion(
         root, run_id, payload, record=record, completion_ref=report_ref,
     )
+    reconcile_learning_saving_evidence(payload["token_usage"], payload["learning_use"])
     payload["drift_learning"] = drift_learning_observation(directory, payload, record)
     payload["completion_learning"] = completion_learning_intake(root, directory, payload, record)
     payload["positive_learning"] = positive_learning_status(directory, payload)
@@ -587,63 +902,332 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
 def render(payload: dict[str, Any]) -> str:
     requirements = payload["requirement_status"]
     tests = payload["tests"]
-    tiers = " + ".join(tests["passed_tiers"]) or "no passing test receipt recorded"
+    tiers = " + ".join(tests["passed_tiers"]) or "none"
+    implemented = sum(requirement.get("implementation_status") == "implemented" for requirement in requirements["requirements"])
+    receipts = consolidated_receipts(tests.get("receipts", []))
+    required_checks = tests.get("required_checks", [])
+    requirement_ids = {
+        str(requirement.get("requirement_uid")): str(requirement.get("display_id"))
+        for requirement in requirements["requirements"]
+    }
+
+    def check_state(check: dict[str, Any]) -> str:
+        matching = [item for item in receipts if item.get("command") == check.get("command")]
+        required_tiers = set(str(value) for value in check.get("tiers", []))
+        passing_tiers = {
+            tier for item in matching
+            if item.get("outcome") == "pass" and item.get("evidence_quality") in {"trusted", "attested"}
+            for tier in receipt_tiers(item)
+        }
+        if required_tiers and required_tiers.issubset(passing_tiers):
+            return "pass"
+        for outcome in ("fail", "timed-out", "blocked", "unavailable"):
+            authoritative = next((item for item in matching if item.get("outcome") == outcome and item.get("evidence_quality") in {"trusted", "attested"}), None)
+            if authoritative:
+                return outcome
+            declared = next((item for item in matching if item.get("outcome") == outcome), None)
+            if declared:
+                return f"reported-{outcome} (unverified)"
+        return "unverified" if matching else "not-evidenced"
+
+    required_results = [(check, check_state(check)) for check in required_checks]
+    incomplete_checks = [(check, state) for check, state in required_results if state != "pass"]
     lines = [
         "# TailTrail Completion Report",
         "",
         f"Run: `{payload['run_id']}`",
         f"Overall: **{payload['overall_status']}**",
         f"Implementation: **{payload['implementation']['status']}**",
+        "Detail: **comprehensive** (closure is never reduced by the Start-plan detail level)",
         "",
-        f"Requirement delivery: **{requirements['complete']}/{requirements['total']} complete**",
-        f"Overall evidence: **tests {tests['status']} ({tiers}); drift {payload['drift']['status']}**",
-        "",
-        "## Requirement delivery status",
-        "",
-        "| Requirement | Status | Proof | Drift |",
-        "| --- | --- | --- | --- |",
+        f"Implementation coverage: **{implemented}/{requirements['total']} requirements have approved changed-path evidence**",
+        f"Verified delivery: **{requirements['complete']}/{requirements['total']} requirements complete**",
+        f"Verification: **{tests['status']}**; passing tiers: **{tiers}**; drift: **{payload['drift']['status']}**",
     ]
+
+    lines.extend(["", "## What needs attention", ""])
+    attention: list[str] = []
+    if payload["overall_status"] == "complete":
+        attention.append("No closure blocker remains; every required tier has authoritative passing evidence.")
+    else:
+        if incomplete_checks:
+            attention.append(f"{len(incomplete_checks)} approved validation command(s) still need authoritative passing evidence.")
+        elif not required_checks and tests.get("status") != "pass":
+            attention.append("No runnable approved validation command is saved; resolve the proof command before claiming completion.")
+        if payload.get("behaviour", {}).get("status") == "fail":
+            attention.append(f"Behaviour proof has {len(payload['behaviour'].get('findings', []))} unresolved finding(s).")
+        if payload.get("changed_scope", {}).get("status") != "approved":
+            attention.append(f"Changed scope is {report_text(payload['changed_scope'].get('status'))}.")
+        if payload.get("drift", {}).get("status") == "unresolved":
+            attention.append(f"{len(payload['drift'].get('findings', []))} unresolved drift finding(s) remain.")
+    lines.extend(f"- {item}" for item in attention)
+
+    lines.extend(["", "## Requirement status", ""])
+    requirement_records = []
     for requirement in requirements["requirements"]:
-        proof = f"{len(requirement['evidence'])} saved item(s)"
         drift = ", ".join(sorted({str(item.get("classification")) for item in requirement["drift"] if item.get("classification")})) or ("not assessed" if payload["drift"]["status"] == "not-assessed" else "none recorded")
-        lines.append(f"| {table_cell(requirement['display_id'])} - {table_cell(requirement['statement'])} | {table_cell(requirement['status'])} | {table_cell(proof)} | {table_cell(drift)} |")
+        requirement_records.append((
+            report_text(requirement["display_id"]),
+            [
+                ("Requirement", report_text(requirement["statement"])),
+                ("Implementation", f"**{report_text(requirement.get('implementation_status', 'not-evidenced'))}**"),
+                ("Verification", f"**{report_text(requirement.get('verification_status', 'not-evidenced'))}**"),
+                ("Delivery", f"**{report_text(requirement['status'])}**"),
+                ("Drift", report_text(drift)),
+            ],
+        ))
+    append_records(lines, requirement_records, empty="No canonical requirement was recorded.")
     if payload.get("debug", {}).get("debug_status") != "not-triggered":
-        lines.extend(["", "## Debug investigation status", "", f"Debug confidence: **{table_cell(payload['debug'].get('confidence_state'))}** (domain ceiling: **{table_cell(payload['debug'].get('domain_confidence_ceiling'))}**)", "", "| Debug control | Status | Evidence / boundary |", "| --- | --- | --- |"])
-        for control in payload["debug"].get("controls", []):
-            lines.append(f"| {table_cell(control.get('control'))} | {table_cell(control.get('status'))} | {table_cell(control.get('detail'))} |")
-    if payload["implementation"]["blockers"]:
-        lines.extend(["", "## Execution blockers", "", "| Outcome | Check | Boundary |", "| --- | --- | --- |"])
-        for blocker in payload["implementation"]["blockers"]:
-            lines.append(f"| {table_cell(blocker['outcome'])} | {table_cell(blocker['command_label'])} | {table_cell(blocker['asserted_behavior'])} |")
-    learning_use = payload["learning_use"]
+        lines.extend(["", "## Debug investigation status", "", f"Debug confidence: **{report_text(payload['debug'].get('confidence_state'))}** (domain ceiling: **{report_text(payload['debug'].get('domain_confidence_ceiling'))}**)", ""])
+        append_records(lines, [
+            (
+                report_text(control.get("control")),
+                [
+                    ("Status", f"**{report_text(control.get('status'))}**"),
+                    ("Evidence / boundary", report_text(control.get("detail"))),
+                ],
+            )
+            for control in payload["debug"].get("controls", [])
+        ], empty="No Debug control record was saved.")
+        reproduction = payload["debug"].get("reproduction_proof") or {}
+        lines.extend([
+            "",
+            "## Reproduction proof",
+            "",
+            f"Status: **{report_text(reproduction.get('status', 'evidence-incomplete'))}**.",
+            f"Approved revision: **{report_text(reproduction.get('approved_revision'))}**.",
+            f"Trigger: {report_text(reproduction.get('trigger'))}",
+            "",
+            "### Sequential reproduction steps",
+            "",
+        ])
+        steps = reproduction.get("steps") if isinstance(reproduction.get("steps"), list) else []
+        if steps:
+            lines.extend(f"{index}. {report_text(step)}" for index, step in enumerate(steps, start=1))
+        else:
+            lines.append("1. No approved reproduction sequence has been recorded yet.")
+        for heading, key in (("Before-fix attempt", "pre_fix"), ("Post-fix rerun", "post_fix")):
+            attempt = reproduction.get(key)
+            lines.extend(["", f"### {heading}", ""])
+            if not isinstance(attempt, dict):
+                lines.append("- No factual attempt has been recorded.")
+                continue
+            lines.extend([
+                f"- Attempt: **{report_text(attempt.get('attempt'))}**",
+                f"- Outcome: **{report_text(attempt.get('outcome'))}**",
+                f"- Evidence event: `{report_text(attempt.get('evidence_event_id'))}`",
+                f"- Evidence fingerprint: `{report_text(attempt.get('evidence_fingerprint'))}`",
+                f"- Observed: {report_text(attempt.get('observed_summary'))}",
+                "- Exact command:",
+                "",
+                f"    {report_text(attempt.get('command'))}",
+            ])
+        lines.extend(["", f"Boundary: {report_text(reproduction.get('boundary'))}"])
     lines.extend([
         "",
-        "## Learning use and closure attribution",
+        "## Changed files",
         "",
-        f"Status: **{table_cell(learning_use['status'])}**; decisions: **{learning_use['decisions']}**; attributed: **{learning_use['attributed']}**.",
+        f"Status: **{report_text(payload['changed_scope']['status'])}**.",
         "",
-        "| Learning | Requirements | Decision | Evidence association | Utility |",
-        "| --- | --- | --- | --- | --- |",
     ])
-    for receipt in learning_use.get("receipts", []):
-        utility_delta = f"{receipt['utility_delta']:+d}" if isinstance(receipt.get("utility_delta"), int) else "-"
-        lines.append(
-            f"| {table_cell(receipt['learning_id'])} | {table_cell(', '.join(receipt['requirement_uids']))} | "
-            f"{table_cell(receipt['decision_type'] + ': ' + receipt['decision'])} | {table_cell(receipt['association'])} | "
-            f"{table_cell(utility_delta)} |"
+    for item in payload["changed_scope"].get("changed_paths", []):
+        if isinstance(item, dict):
+            lines.append(f"- `{report_text(item.get('path'))}`")
+        else:
+            lines.append(f"- `{report_text(item)}`")
+    if not payload["changed_scope"].get("changed_paths"):
+        lines.append("- No changed path receipt was recorded.")
+    lines.extend([
+        "",
+        "## Validation evidence",
+        "",
+        f"Verification status: **{report_text(tests['status'])}**. Passing tiers: **{report_text(tiers)}**.",
+        "",
+    ])
+    command_records = []
+    required_commands = {str(check.get("command")) for check in required_checks}
+    displayed_receipts = [
+        receipt for receipt in receipts
+        if str(receipt.get("command")) in required_commands
+        or (
+            receipt.get("evidence_quality") in {"trusted", "attested"}
+            and receipt.get("outcome") != "pass"
         )
-    if not learning_use.get("receipts"):
-        lines.append("| - | - | - | no recorded learning influence | 0 |")
-    lines.extend(["", f"Boundary: {learning_use['boundary']}"])
+    ]
+    supporting_receipts = [receipt for receipt in receipts if receipt not in displayed_receipts]
+    for receipt in displayed_receipts:
+        receipt_tier_text = ", ".join(receipt_tiers(receipt)) or "-"
+        uids = receipt_requirement_uids(receipt)
+        affected = ", ".join(sorted((requirement_ids.get(uid, uid) for uid in uids))) or "not linked"
+        quality = str(receipt.get("evidence_quality", "declared"))
+        outcome = str(receipt.get("outcome", "not-evidenced"))
+        displayed_outcome = outcome if quality in {"trusted", "attested"} else f"reported {outcome}; unverified"
+        telemetry = (
+            f"exit {receipt.get('exit_code')}; {receipt.get('duration_ms')} ms"
+            if receipt.get("exit_code") is not None and receipt.get("duration_ms") is not None
+            else "not captured"
+        )
+        fields = [
+            ("Role", "required proof" if str(receipt.get("command")) in required_commands else "supporting check"),
+            ("Requirements", report_text(affected)),
+            ("Tiers", report_text(receipt_tier_text)),
+            ("Result", f"**{report_text(displayed_outcome)}**"),
+            ("Telemetry", report_text(telemetry)),
+            ("Evidence quality", report_text(quality)),
+        ]
+        if receipt.get("command"):
+            fields.insert(4, ("Command", f"`{report_text(receipt.get('command'))}`"))
+        artifacts = ", ".join(value for value in (receipt.get("stdout_artifact"), receipt.get("stderr_artifact")) if value) or receipt.get("artifact_path")
+        if artifacts:
+            fields.append(("Output", report_text(artifacts)))
+        if int(receipt.get("source_receipt_count", 1)) > 1:
+            fields.append(("Consolidated legacy receipts", report_text(receipt["source_receipt_count"])))
+        label = receipt.get("command_label") or (f"{receipt_tier_text} validation" if receipt_tier_text != "-" else "Validation evidence")
+        command_records.append((report_text(label), fields))
+    append_records(lines, command_records, empty="No required proof or authoritative failure needs detailed display.")
+    if supporting_receipts:
+        authoritative_failures = sum(
+            item.get("evidence_quality") in {"trusted", "attested"} and item.get("outcome") != "pass"
+            for item in supporting_receipts
+        )
+        lines.extend([
+            "",
+            f"Supporting checks: **{len(supporting_receipts)} consolidated observation(s)** retained in JSON; "
+            f"authoritative failures: **{authoritative_failures}**.",
+        ])
+
+    lines.extend(["", "### Harness result", ""])
+    used_harnesses = [item for item in payload["harnesses"] if item.get("used") or item.get("status") == "required-evidence-missing"]
+    for harness in used_harnesses:
+        artifact = f"; `{report_text(harness.get('artifact'))}`" if harness.get("artifact") else ""
+        lines.append(f"- **{report_text(harness['name'])}:** {report_text(harness['status'])}{artifact}")
+    if not used_harnesses:
+        lines.append("- No Harness assessment was selected.")
+
+    receipt_refs = tests.get("receipt_refs", [])
+    if receipt_refs:
+        parents = {Path(str(reference)).parent.as_posix() for reference in receipt_refs}
+        archive = next(iter(parents)) if len(parents) == 1 else "multiple validation-receipt directories"
+        lines.extend(["", f"Audit archive: **{len(receipt_refs)} receipt file(s)** retained under `{archive}`. Exact references remain in the JSON report."])
+    else:
+        lines.extend(["", "Audit archive: no validation receipt file was recorded."])
+
+    learning_use = payload["learning_use"]
+    learning_receipts = [item for item in learning_use.get("receipts", []) if isinstance(item, dict)]
+    if learning_receipts:
+        lines.extend(["", "## Learning use and closure attribution", ""])
+        learning_records: list[tuple[str, list[tuple[str, str]]]] = []
+        for receipt in learning_receipts:
+            learning_records.append((
+                f"{report_text(receipt.get('decision_type'))}: {report_text(receipt.get('decision'))}",
+                [
+                    ("Requirements", ", ".join(report_text(value) for value in receipt.get("requirement_uids", [])) or "-"),
+                    ("Observed association", report_text(receipt.get("association"))),
+                    ("Utility delta", report_text(receipt.get("utility_delta"))),
+                ],
+            ))
+        append_records(lines, learning_records)
+        lines.append("- Attribution is an observed association, not a causal claim or execution authority.")
+
+    token_usage = payload["token_usage"]
+    lines.extend(["", "## Token impact", ""])
+    if token_usage.get("status") == "measured":
+        lines.append(
+            f"- **TailTrail:** {report_text(token_usage.get('actual_tailtrail_tokens'))} exact tokens "
+            f"from {report_text(token_usage.get('telemetry_records'))} linked host/API record(s)."
+        )
+    else:
+        lines.append("- **TailTrail:** exact host/API usage is not linked to this run.")
+    comparison_labels = {"loose-prompt": "Loose-prompt baseline", "aidlc": "AIDLC baseline"}
+    for comparison_kind, label in comparison_labels.items():
+        comparison = token_usage.get("comparisons", {}).get(comparison_kind, {})
+        if comparison.get("status") != "measured":
+            lines.append(
+                f"- **{label}:** {report_text(comparison.get('status', 'unavailable'))} - "
+                f"{report_text(comparison.get('reason', 'no paired host/API baseline is linked'))}"
+            )
+            continue
+        saved = int(comparison.get("saved_tokens", 0))
+        delta_label = "saved" if saved >= 0 else "additional"
+        reduction = comparison.get("reduction_percent")
+        reduction_text = f"{abs(reduction)}%" if isinstance(reduction, (int, float)) else "not calculable"
+        lines.append(
+            f"- **{label}:** {report_text(comparison.get('baseline_tokens'))} exact tokens; "
+            f"TailTrail {delta_label} {abs(saved)} tokens ({reduction_text})."
+        )
+    context_estimate = token_usage.get("context_estimate", {})
+    if context_estimate.get("status") == "estimated":
+        if context_estimate.get("comparison_basis") == "scoped-files":
+            lines.append(
+                f"- **Planning forecast:** approximately {report_text(context_estimate.get('planned_working_set_tokens'))} "
+                f"tokens from a {report_text(context_estimate.get('forecast_confidence'))}-confidence working set; "
+                f"full scoped-file ceiling {report_text(context_estimate.get('scoped_file_ceiling_tokens'))} tokens "
+                f"({report_text(context_estimate.get('estimated_reduction_percent'))}% reduction)."
+            )
+            lines.append(
+                f"- **Repository inventory:** approximately {report_text(context_estimate.get('repository_ceiling_tokens'))} "
+                f"tokens across {report_text(context_estimate.get('repository_file_count'))} relevant file(s); informational only."
+            )
+        else:
+            lines.append(
+                f"- **Repository context:** approximately {report_text(context_estimate.get('repository_ceiling_tokens'))} "
+                f"tokens across {report_text(context_estimate.get('repository_file_count'))} relevant file(s); "
+                f"approximately {report_text(context_estimate.get('estimated_saved_tokens'))} tokens excluded "
+                f"({report_text(context_estimate.get('estimated_reduction_percent'))}%)."
+            )
+        techniques = [report_text(value) for value in context_estimate.get("saving_techniques", []) if value]
+        if techniques:
+            lines.append(f"- **Major techniques:** {', '.join(techniques)}.")
+        learning_references = [
+            report_text(value)
+            for value in context_estimate.get("learning_evidence_references", [])
+            if value
+        ]
+        if learning_references:
+            lines.append(
+                "- **Project learning evidence:** "
+                + ", ".join(f"`{value}`" for value in learning_references)
+                + "."
+            )
+    lines.append(f"- **Boundary:** {report_text(token_usage.get('boundary'))}")
+
     lines.extend([
         "",
-        "## TailTrail control status",
+        "## Audit summary",
         "",
-        "| Control | Status | Evidence / boundary |",
-        "| --- | --- | --- |",
     ])
-    for control in payload["tailtrail_status"]:
-        lines.append(f"| {table_cell(control['control'])} | {table_cell(control['status'])} | {table_cell(control['detail'])} |")
+    recorded_sources = {name: reference for name, reference in payload.get("source_artifacts", {}).items() if reference}
+    lines.extend([
+        f"- **Authority:** {report_text(payload['execution_authority'].get('status'))} / {report_text(payload['execution_authority'].get('route'))}",
+        f"- **Canonical state:** {report_text(payload['canonical_state'].get('status'))}",
+        f"- **Scope:** {report_text(payload['changed_scope'].get('status'))}",
+        f"- **Drift:** {report_text(payload['drift'].get('status'))}",
+        f"- **Recovery:** {report_text(payload['recovery_checkpoint'].get('status'))}",
+        f"- **Learning attribution:** {report_text(learning_use.get('status'))}; {report_text(learning_use.get('attributed'))} requirement-linked receipt(s)",
+        f"- **Recorded source artifacts:** {len(recorded_sources)}; exact references remain in the JSON report",
+        f"- **Actual model tokens:** "
+        + (
+            f"{report_text(payload['token_usage'].get('actual_tailtrail_tokens'))} from {report_text(payload['token_usage'].get('telemetry_records'))} linked record(s)"
+            if payload["token_usage"].get("status") == "measured"
+            else report_text(payload["token_usage"].get("status"))
+        ),
+    ])
+    if payload["official_aidlc"].get("evidence_status") != "not-triggered":
+        lines.append(f"- **Official AI-DLC:** {report_text(payload['official_aidlc'].get('evidence_status'))}")
+    if payload["overall_status"] != "complete":
+        lines.extend(["", "## Next actions", ""])
+        if incomplete_checks:
+            lines.append("1. Run the approved required proof through TailTrail managed execution:")
+            for check, state in incomplete_checks:
+                affected = ", ".join(requirement_ids.get(uid, uid) for uid in check.get("requirement_uids", [])) or "unlinked"
+                lines.append(f"   - `{report_text(check.get('command'))}` — {report_text(state)}; covers {affected}; tiers: {', '.join(check.get('tiers', [])) or 'not specified'}")
+            lines.append(f"2. Finalize the same run: `tailtrail closure finalize --root . --run-id {report_text(payload['run_id'])}`")
+            lines.append("3. Generate the Completion Report again.")
+        else:
+            lines.append("1. Resolve the evidence or drift item listed above.")
+            lines.append(f"2. Finalize the same run: `tailtrail closure finalize --root . --run-id {report_text(payload['run_id'])}`")
+        lines.append("- Completion remains unverified until every required tier has authoritative passing evidence.")
+    lines.extend(["", "## Closure boundary", "", payload["boundary"]])
     return "\n".join(lines) + "\n"
 
 

@@ -29,7 +29,7 @@ Registry now distinguishes working prototype availability from native workflow
 integration and records one owner for routing, approval, lifecycle, evidence,
 drift, closure, and learning state. DI-1 is complete: Navigator core now owns a
 typed, conservative build-versus-debug decision, explicit overrides, reasons,
-evidence gaps, selected/deferred features, and approval posture; the CLI only
+evidence gaps, selected/required-later/conditional features, and approval posture; the CLI only
 projects that decision for compatibility. DI-2 is complete: symptom-first
 `tailtrail start` now creates the canonical persisted Debug Start Plan and
 Planning Lock, uses saved-only graph evidence, renders questions/evidence/token
@@ -377,7 +377,7 @@ returns `unknown` when that evidence cannot support an answer; it does not
 inspect source or revise the plan. Users can now question, challenge, clarify,
 and revise an
 awaiting-approval Start plan without rejecting it or creating a new run. It
-will expose the rationale for file scope, selected/deferred Harnesses, AIDLC
+will expose the rationale for file scope, selected/required-later/conditional Harnesses, AIDLC
 mode, drift posture, validation tier, risk, token estimate, requirement
 authority, and approval consequences. It will use saved planning/graph/intent
 evidence for explanations, offer an explicitly approved bounded read-only
@@ -425,7 +425,7 @@ Phase C now also compiles every revised requirement's evidence tiers against
 one shared capability registry before approval. This closes the former gap in
 which Behaviour Harness could plan `behaviour` proof that closure receipts
 could not record. After Standard or Full questions are answered, the same run
-now renders a resolved delivery plan with target scope, selected/deferred
+now renders a resolved delivery plan with target scope, selected/required-later/conditional
 features, Architecture/Behaviour/Maintainability/UI lenses, guided stages,
 focused validation, token posture, and the explicit approval boundary. No
 project implementation begins during this projection.

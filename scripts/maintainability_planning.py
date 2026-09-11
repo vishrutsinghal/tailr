@@ -159,7 +159,7 @@ def _cell(value: Any) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
-def markdown_lines(plan: dict[str, Any], detailed: bool) -> list[str]:
+def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = False) -> list[str]:
     if not plan.get("selected"):
         return []
     lines = [
@@ -168,20 +168,50 @@ def markdown_lines(plan: dict[str, Any], detailed: bool) -> list[str]:
         f"- Baseline: {plan.get('baseline_timing')}",
         f"- Evidence boundary: {plan.get('evidence_boundary')}",
         "", "### Requirement-linked maintainability rules", "",
-        "| Rule | Requirement | Objective | Required proof | Failure condition |",
-        "| --- | --- | --- | --- | --- |",
     ]
-    for rule in plan.get("rules", []):
-        values = [rule.get("rule_id"), ", ".join(rule.get("requirement_ids", [])), rule.get("objective"), rule.get("proof"), rule.get("failure")]
-        lines.append("| " + " | ".join(_cell(value) for value in values) + " |")
-    if detailed:
-        lines.extend(["", "### Maintainability scope roles", "", "| Path | Role | Planned use | Confidence |", "| --- | --- | --- | --- |"])
-        for item in plan.get("scope_roles", []):
-            values = [f"`{item.get('path')}`", item.get("role"), item.get("planned_use"), item.get("confidence")]
+    if responsive:
+        for rule in plan.get("rules", []):
+            lines.extend([
+                f"- **{rule.get('rule_id')}**",
+                f"  - **Requirement:** {', '.join(rule.get('requirement_ids', [])) or 'none'}",
+                f"  - **Objective:** {rule.get('objective')}",
+                f"  - **Required proof:** {rule.get('proof')}",
+                f"  - **Failure condition:** {rule.get('failure')}",
+            ])
+    else:
+        lines.extend([
+            "| Rule | Requirement | Objective | Required proof | Failure condition |",
+            "| --- | --- | --- | --- | --- |",
+        ])
+        for rule in plan.get("rules", []):
+            values = [rule.get("rule_id"), ", ".join(rule.get("requirement_ids", [])), rule.get("objective"), rule.get("proof"), rule.get("failure")]
             lines.append("| " + " | ".join(_cell(value) for value in values) + " |")
-        lines.extend(["", "### Pre-edit baseline metrics", "", "| Metric | Purpose |", "| --- | --- |"])
-        for item in plan.get("baseline_metrics", []):
-            lines.append(f"| {_cell(item.get('metric'))} | {_cell(item.get('use'))} |")
+    if detailed:
+        lines.extend(["", "### Maintainability scope roles", ""])
+        if responsive:
+            for item in plan.get("scope_roles", []):
+                lines.extend([
+                    f"- **`{item.get('path')}`**",
+                    f"  - **Role:** {item.get('role')}",
+                    f"  - **Planned use:** {item.get('planned_use')}",
+                    f"  - **Confidence:** {item.get('confidence')}",
+                ])
+        else:
+            lines.extend(["| Path | Role | Planned use | Confidence |", "| --- | --- | --- | --- |"])
+            for item in plan.get("scope_roles", []):
+                values = [f"`{item.get('path')}`", item.get("role"), item.get("planned_use"), item.get("confidence")]
+                lines.append("| " + " | ".join(_cell(value) for value in values) + " |")
+        lines.extend(["", "### Pre-edit baseline metrics", ""])
+        if responsive:
+            for item in plan.get("baseline_metrics", []):
+                lines.extend([
+                    f"- **{item.get('metric')}**",
+                    f"  - **Purpose:** {item.get('use')}",
+                ])
+        else:
+            lines.extend(["| Metric | Purpose |", "| --- | --- |"])
+            for item in plan.get("baseline_metrics", []):
+                lines.append(f"| {_cell(item.get('metric'))} | {_cell(item.get('use'))} |")
         lines.extend(["", "### Post-change Maintainability Harness checks", ""])
         lines.extend(f"{index}. {item}" for index, item in enumerate(plan.get("post_change_checks", []), 1))
         lines.extend(["", "- Final state must be one of: " + ", ".join(f"`{state}`" for state in plan.get("completion_states", [])) + "."])

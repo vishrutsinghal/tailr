@@ -43,6 +43,13 @@ class NavigatorDebugRoutingTests(unittest.TestCase):
         decision = navigator_core.classify_workflow_intent("investigate why cancellation publishes two events")
         self.assertEqual(decision.workflow_type, "debug-investigation")
 
+    def test_leading_debug_command_routes_without_debug_flag(self):
+        goal = "debug an - issue fix multiline requirement splitting"
+        self.assertEqual(tailtrail.classify_start_intent(goal, [goal]), "debug")
+        decision = navigator_core.classify_workflow_intent(goal)
+        self.assertEqual(decision.workflow_type, "debug-investigation")
+        self.assertEqual(decision.reason_code, "explicit-debug-command")
+
     def test_navigator_report_exposes_typed_debug_decision(self):
         report = navigator.decide(
             "payments are sometimes charged twice after timeout",

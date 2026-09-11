@@ -11,13 +11,13 @@ and validating real host facts.
 
 ## EB-1 delivery
 
-`scripts/execution-evidence.py` now provides an append-only run-local evidence
-stream with `record` and `show` commands. It accepts only explicitly approved,
-host-supplied events, checks requirement IDs against the approved anchor,
-normalizes repository-relative paths, deduplicates replay by fingerprint, and
-writes a compact changed-path/requirement index. It does not execute commands,
-assess completion, or automatically capture host actions; those integration
-steps remain EB-2 and EB-4.
+`scripts/execution-evidence.py` provides an append-only run-local evidence
+stream with `record`, `run`, and `show`. `run` accepts only an exact command and
+tier from the approved anchor, executes it with a bounded timeout, and captures
+exit code, timestamps, duration, environment, scenario IDs, hashes, and
+redacted stdout/stderr. `record` remains available for source edits and external
+artifact-backed CI/host facts; label-only command assertions are declared and
+cannot close a requirement.
 
 ## EB-2 delivery
 
@@ -39,14 +39,12 @@ user-journey pass without a matching declared scenario.
 
 ## EB-4 delivery
 
-`scripts/mcp-server.py` now exposes `execution_evidence_show` as a read-only
-run-local inspection tool and `execution_evidence_record` as the one controlled
-host receipt-ingestion tool. Recording requires `approved: true`, the exact
-approved Planning Lock, and the strict EB-1 event validator; the server never
-executes, reinterprets, or fabricates the test, CI, edit, or Harness event it
-stores. Codex, Copilot, and Claude instruction surfaces now require approved
-runs to record only host-visible facts and to invoke closure finalization before
-returning a Completion Report.
+`scripts/mcp-server.py` exposes `execution_evidence_show`, controlled
+`execution_evidence_record`, and controlled `execution_evidence_run`. Managed
+execution requires `approved: true`, the exact approved Planning Lock, and an
+exact approved validation command/tier. Codex, Copilot, and Claude instruction
+surfaces require local proof to use this monitor and closure finalization to
+consume only the current evidence snapshot.
 
 ## EB-5 delivery
 

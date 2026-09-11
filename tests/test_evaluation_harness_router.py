@@ -29,6 +29,10 @@ class EvaluationHarnessRouterTests(unittest.TestCase):
         self.assertIn("eval tokens route|reduce|receipt|ledger|proof|telemetry|savings|budget|bridge", result.stdout)
         self.assertIn("eval scenario list|run|compare|report", result.stdout)
         self.assertIn("eval adoption validate|template|record|report|gate|propose|decide", result.stdout)
+        self.assertIn(
+            "eval scope validate|report|capture-negative|migration|release-proof|installed-release-proof|rollback-status|rollback-enable|rollback-disable",
+            result.stdout,
+        )
 
     def test_eval_audit_delegates_to_audit_script(self) -> None:
         result = self.run_tailtrail("eval", "audit", "--format", "json", "--strict")

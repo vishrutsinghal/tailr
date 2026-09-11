@@ -1,0 +1,520 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-scope-calibration-catalog",
+  "catalog_version": "1.0.0",
+  "evidence_label": "committed-fixture-observed",
+  "supported_languages": [
+    "csharp",
+    "go",
+    "java",
+    "javascript",
+    "python",
+    "terraform",
+    "typescript"
+  ],
+  "negative_boundaries": [
+    "conflicting-ownership",
+    "fresh-graph-reuse",
+    "host-fingerprint-parity",
+    "manual-scope-revision",
+    "privacy-boundary",
+    "safe-refusal",
+    "stale-graph-rejection",
+    "test-only-non-test",
+    "weak-only-owner"
+  ],
+  "thresholds": {
+    "weak_only_lock_count_max": 0,
+    "test_only_false_scope_count_max": 0,
+    "fingerprint_mismatch_count_max": 0,
+    "owner_precision_min": 1.0,
+    "owner_recall_min": 1.0
+  },
+  "receipts": [
+    {
+      "receipt_id": "ns8-python-owner",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "implementation-owner-resolution",
+      "language": "python",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "weak-only-owner",
+        "test-only-non-test"
+      ],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/requirement_discovery.py"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/requirement_discovery.py"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 4,
+        "bytes_read": 3200,
+        "relationship_hops": 1,
+        "duration_ms": 12,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "mcp": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "codex": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "copilot": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "claude": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "receipt_fingerprint": "sha256:bcbdf92644d7d5fabd00b750601d95b396f40aef3e6e3b3f09c4cbde5d9ec626"
+    },
+    {
+      "receipt_id": "ns8-javascript-owner",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "implementation-owner-resolution",
+      "language": "javascript",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "host-fingerprint-parity"
+      ],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/address.js"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/address.js"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 3,
+        "bytes_read": 2100,
+        "relationship_hops": 1,
+        "duration_ms": 9,
+        "fresh_graph_reused": true,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "mcp": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "codex": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "copilot": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "claude": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "receipt_fingerprint": "sha256:b5f780c1a941fff989394495398279bbd07c46ea2c118daa397ba3147992cc43"
+    },
+    {
+      "receipt_id": "ns8-typescript-owner",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "implementation-owner-resolution",
+      "language": "typescript",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "fresh-graph-reuse"
+      ],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/address.ts"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/address.ts"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 2,
+        "bytes_read": 1800,
+        "relationship_hops": 1,
+        "duration_ms": 8,
+        "fresh_graph_reused": true,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "mcp": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "codex": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "copilot": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "claude": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "receipt_fingerprint": "sha256:f896aef155ec6b03e430a8b687087c63ab2d467156a2fc8acd7fcddd46a68859"
+    },
+    {
+      "receipt_id": "ns8-java-owner",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "implementation-owner-resolution",
+      "language": "java",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "stale-graph-rejection"
+      ],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/main/java/acme/Address.java"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/main/java/acme/Address.java"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 5,
+        "bytes_read": 4800,
+        "relationship_hops": 2,
+        "duration_ms": 17,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": true
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "mcp": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "codex": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "copilot": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "claude": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "receipt_fingerprint": "sha256:c78282285d2f9235631327749d6d2ef7c1abf9d24b5130370cacef33b58fb242"
+    },
+    {
+      "receipt_id": "ns8-csharp-owner",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "implementation-owner-resolution",
+      "language": "csharp",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "privacy-boundary"
+      ],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/Address.cs"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/Address.cs"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 3,
+        "bytes_read": 2600,
+        "relationship_hops": 1,
+        "duration_ms": 10,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "mcp": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "codex": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "copilot": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "claude": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "receipt_fingerprint": "sha256:9da06cbc0178176ec0a8cb42b4ed63b5b0444a3dc62aa9a4d7c31945a6f979ad"
+    },
+    {
+      "receipt_id": "ns8-go-owner",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "implementation-owner-resolution",
+      "language": "go",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "manual-scope-revision"
+      ],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "internal/address/address.go"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "internal/address/address.go"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": true,
+      "investigation": {
+        "files_read": 6,
+        "bytes_read": 5100,
+        "relationship_hops": 2,
+        "duration_ms": 19,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "mcp": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "codex": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "copilot": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "claude": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+      },
+      "receipt_fingerprint": "sha256:ebf784336e14dfa657bd3a681f4ac39277f167b8252a7dce45136a305c170374"
+    },
+    {
+      "receipt_id": "ns8-python-unresolved",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "no-owner-safe-refusal",
+      "language": "python",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "safe-refusal",
+        "test-only-non-test",
+        "weak-only-owner"
+      ],
+      "expected": {
+        "state": "unresolved",
+        "implementation_owners": [],
+        "strongest_evidence": "weak",
+        "safe_refusal": true
+      },
+      "observed": {
+        "state": "unresolved",
+        "implementation_owners": [],
+        "strongest_evidence": "weak",
+        "safe_refusal": true
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 4,
+        "bytes_read": 2900,
+        "relationship_hops": 1,
+        "duration_ms": 13,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "mcp": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "codex": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "copilot": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "claude": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "receipt_fingerprint": "sha256:231cf25d226fb2d3601cdafff01de5ff6196938a54a49cbc4d11913dcd08c914"
+    },
+    {
+      "receipt_id": "ns8-typescript-conflict",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "conflicting-owner-safe-refusal",
+      "language": "typescript",
+      "request_kind": "code-change",
+      "negative_boundaries": [
+        "conflicting-ownership",
+        "safe-refusal"
+      ],
+      "expected": {
+        "state": "ambiguous",
+        "implementation_owners": [],
+        "strongest_evidence": "medium",
+        "safe_refusal": true
+      },
+      "observed": {
+        "state": "ambiguous",
+        "implementation_owners": [],
+        "strongest_evidence": "medium",
+        "safe_refusal": true
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 7,
+        "bytes_read": 6300,
+        "relationship_hops": 2,
+        "duration_ms": 22,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "mcp": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "codex": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "copilot": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "claude": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "receipt_fingerprint": "sha256:fbe9f282c291181e360496792148f8906e13ad03969aeb35bb33753962570136"
+    },
+    {
+      "receipt_id": "ns8-java-test-only",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "test-only-owner",
+      "language": "java",
+      "request_kind": "test-only",
+      "negative_boundaries": [
+        "test-only-non-test"
+      ],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/test/java/acme/AddressTest.java"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "src/test/java/acme/AddressTest.java"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 1,
+        "bytes_read": 900,
+        "relationship_hops": 0,
+        "duration_ms": 4,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "mcp": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "codex": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "copilot": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "claude": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "receipt_fingerprint": "sha256:8cae154a2d797686fd32458bc87e994c9e9a798478e5a2914cc5c0737e91973d"
+    },
+    {
+      "receipt_id": "ns8-terraform-owner",
+      "source_kind": "committed-fixture",
+      "factual": true,
+      "task_class": "implementation-owner-resolution",
+      "language": "terraform",
+      "request_kind": "code-change",
+      "negative_boundaries": [],
+      "expected": {
+        "state": "resolved",
+        "implementation_owners": [
+          "infra/secrets.tf"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "observed": {
+        "state": "resolved",
+        "implementation_owners": [
+          "infra/secrets.tf"
+        ],
+        "strongest_evidence": "strong",
+        "safe_refusal": false
+      },
+      "manual_scope_revision": false,
+      "investigation": {
+        "files_read": 2,
+        "bytes_read": 1400,
+        "relationship_hops": 1,
+        "duration_ms": 7,
+        "fresh_graph_reused": false,
+        "stale_graph_rejected": false
+      },
+      "surface_fingerprints": {
+        "cli": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "mcp": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "codex": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "copilot": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "claude": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "receipt_fingerprint": "sha256:dc4da86d2aacab08bfc65b5dce24644aebc4ce4c3f0c22071e42b91920a68c75"
+    }
+  ],
+  "negative_learning": {
+    "learning_id": "lrn-navigator-test-only-owner-gate",
+    "learning_class": "avoid-history",
+    "source_receipt_ids": [
+      "ns8-python-owner",
+      "ns8-python-unresolved"
+    ],
+    "summary": "Do not promote lexical test matches into non-test implementation scope.",
+    "advice": "Treat lexical test matches as discovery seeds only; require supported implementation ownership for non-test changes and safely refuse scope when no owner is proven.",
+    "task_types": [
+      "build",
+      "debug"
+    ],
+    "tags": [
+      "implementation-ownership",
+      "navigator-scope",
+      "negative-assurance"
+    ],
+    "path_patterns": [],
+    "confidence_score": 45,
+    "invalidators": [
+      "graph-change",
+      "ownership-change",
+      "policy-change",
+      "source-change",
+      "symbol-change",
+      "validation-change"
+    ],
+    "stale_when": "Navigator ownership policy, graph evidence, relevant source, validation, or repository ownership changes.",
+    "capture_default": "do-not-capture",
+    "use_default": "do-not-use",
+    "closure_attribution": "required-after-explicit-use"
+  },
+  "privacy": {
+    "sanitized": true,
+    "raw_prompt": false,
+    "raw_source": false,
+    "raw_log": false,
+    "identity_fields": false
+  },
+  "claim_boundaries": [
+    "Metrics describe only versioned committed decision fixtures and are not live-agent performance measurements.",
+    "Safe refusal is a protected outcome and is not counted as a scope failure.",
+    "No metric establishes user productivity, quality improvement, or causal benefit.",
+    "Learning remains candidate-only until existing governance and explicit use-receipt gates pass."
+  ],
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "sorted compact JSON excluding integrity",
+    "digest": "62932b41d976b438d9b16e849745ffada95c68b96532e70cfce898ef6b305db5"
+  }
+}

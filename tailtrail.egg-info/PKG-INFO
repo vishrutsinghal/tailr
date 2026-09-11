@@ -44,6 +44,16 @@ tailtrail start "add payment retry handling"
 TailTrail returns a Planning Lock and run ID. It does not implement the task,
 run tests, or change Git until you approve the plan.
 
+Leave TailTrail without losing that run at any time:
+
+```text
+tailtrail stop
+```
+
+Ordinary prompts then return to the host agent. Resume later with the exact
+saved identity: `tailtrail resume --run-id <run-id>`. Stop is not rejection or
+cancellation, and resume never approves or advances the workflow.
+
 ### Choose your host
 
 | Host | Fast path |
@@ -92,17 +102,25 @@ tailtrail start "fix the zero quantity validation defect"
 ```
 
 ```text
-tailtrail discuss --run-id <run-id> --question "Why was this scope selected?"
-tailtrail approve --run-id <run-id>
-tailtrail continue --run-id <run-id>
-tailtrail status --run-id <run-id>
-tailtrail close --run-id <run-id>
+tailtrail discuss --question "Why was this scope selected?"
+tailtrail approve
+tailtrail continue
+tailtrail flow status
+tailtrail close
 ```
 
 These six verbs use one orchestration façade. TailTrail resolves a run only
 when it is unambiguous, approves only the exact plan or next frozen stage, and
 keeps advanced workflow commands available for diagnostics. Bare `tailtrail
-status` still means installer status; task status includes `--run-id`.
+status` still means installer status; use `tailtrail flow status` for the
+auto-resolved task or `tailtrail status --run-id <run-id>` for an explicit one.
+
+Start plans select detail automatically: AIDLC Off is Quick; AIDLC Lite is
+Expert without dedicated Architecture/Behaviour planning detail; Standard,
+Full, hands-free, and Intent Bridge plans are comprehensive. Users do not need
+a presentation flag. Add `--verbose` in any mode to force the complete canonical
+projection; requirements, scope, controls, approval, and workflow authority
+remain identical. Completion Reports are always comprehensive.
 
 Reports use one canonical presentation contract across CLI, MCP, Codex,
 Copilot, and Claude. Narrow terminals wrap without dropping sections, verbose
@@ -166,7 +184,7 @@ release risk—actually occurs.
 | Feature area | What is included | How it helps |
 | --- | --- | --- |
 | **Navigator and TailTrail Start** | Automatic task classification, feature selection, skipped/deferred explanations, focused validation, token estimate, and a Planning Lock. | Gives the user a TailTrail decision before implementation starts. |
-| **Target and code intelligence** | Enterprise Target Workspace Resolver, input-role registry, Code Graph Mapper, caller/test discovery, cache freshness, semantic evidence labels, and cross-repository reference mapping. | Keeps the agent in the correct editable repository and makes impact decisions from local project evidence. |
+| **Target and code intelligence** | Enterprise Target Workspace Resolver, input-role registry, Navigator-owned graph creation/reuse/incremental refresh/rebuild, caller/test discovery, immutable hash-bound run mappings, semantic evidence labels, and cross-repository reference mapping. | Keeps the agent in the correct editable repository, preserves useful context across tasks, and validates ownership against current local evidence. |
 | **Canonical requirements and anchors** | Versioned requirement IDs, requirement-to-impact matrix, immutable approved intent, phase/slice anchors, actual state, and amendment history. | Provides the stable reference used for implementation, drift detection, evaluation, and selective recovery. |
 | **AIDLC integration** | Off, Lite, verified official Standard, and verified official Full modes; Question Orchestrator grounding and requirement traceability; official questions, recommendations, stage approvals, session resume/redo/jump/recovery, and evidence/closure adapters. | Matches lifecycle depth to task complexity, improves question relevance, and never presents a local questionnaire as official AIDLC. |
 | **Intent Bridge** | Detects, imports, versions, maps, amends, and converges existing structured requirement sources. | Lets source-owned specifications remain authoritative while TailTrail manages delivery evidence and drift. |

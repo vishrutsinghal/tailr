@@ -59,6 +59,8 @@ def selection(root: Path, run_id: str) -> dict[str, Any]:
         {"control":"Evidence-Aware Testing", "reason":"Every correction requires passing requirement-linked computational receipts for its selected tiers."},
         {"control":"Drift Control", "reason":"Every correction must compare actual changed paths with immutable correction scope."},
     ]
+    if packet.get("proof_alignment", {}).get("state") == "matched":
+        selected.append({"control":"Fault-Layer Proof Alignment", "reason":"The proven behavior-graph layer requires passing proof at each matched composition, renderer, or final-output boundary."})
     if packet.get("domain") in {"architecture","database","api-integration"} or packet.get("expected_changed_symbols") or len(packet.get("expected_changed_paths", [])) > 1:
         selected.append({"control":"Architecture Fitness Harness", "reason":"The correction crosses symbols, callers, layers, API/data boundaries, or multiple files."})
     if packet.get("behaviour_scenarios"):
@@ -96,6 +98,32 @@ def finalize(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     missing = [tier for tier in required_tiers if not any(row.get("kind") in {"command-result","ci-receipt"} and row.get("outcome") == "pass" and row.get("tier") in aliases.get(tier, {tier}) for row in requirement_events)]
     testing_refs = [str(row.get("fingerprint")) for row in requirement_events if row.get("kind") in {"command-result","ci-receipt"} and row.get("outcome") == "pass"]
     results.append(_result("Evidence-Aware Testing", "pass" if not missing else "required-evidence-missing", None, testing_refs, "Missing required tiers: " + (", ".join(missing) if missing else "none")))
+
+    if "Fault-Layer Proof Alignment" in names:
+        alignment = packet.get("proof_alignment", {})
+        missing_boundaries = []
+        matched_refs = []
+        for boundary in alignment.get("required_boundaries", []):
+            commands = {
+                str(row.get("command")) for row in alignment.get("selected_tests", [])
+                if boundary in row.get("boundaries", []) and row.get("command")
+            }
+            matches = [
+                row for row in requirement_events
+                if row.get("kind") in {"command-result", "ci-receipt"}
+                and row.get("outcome") == "pass"
+                and row.get("command") in commands
+            ]
+            if not commands or not matches:
+                missing_boundaries.append(str(boundary))
+            matched_refs.extend(str(row.get("fingerprint")) for row in matches if row.get("fingerprint"))
+        results.append(_result(
+            "Fault-Layer Proof Alignment",
+            "pass" if not missing_boundaries else "required-evidence-missing",
+            None,
+            list(dict.fromkeys(matched_refs)),
+            "Missing passing proof boundaries: " + (", ".join(missing_boundaries) if missing_boundaries else "none"),
+        ))
 
     drift_ok = bool(scope and scope.get("status") == "within-approved-scope" and not scope.get("unexpected_paths"))
     results.append(_result("Drift Control", "pass" if drift_ok else "drift-unresolved", _rel(root, scope_path), [str(scope.get("evidence_event_id"))] if scope else [], "Unexpected correction paths must be resolved before convergence."))

@@ -49,6 +49,13 @@ invocation verifies required resources and the complete digest inventory before
 dispatch. Missing, malformed, path-escaping, and hash-mismatched resources fail
 closed with non-sensitive categorical diagnostics.
 
+The explicit runtime-required inventory includes the MCP server, host adapter
+and runtime conformance modules, canonical Navigator scope implementation,
+host compatibility/runtime contracts, the six-scenario scope-v2 contract, and
+their schemas. Extended transactional Codex, Copilot, and Claude payloads copy
+these resources under the common versioned payload; install, update, verify,
+rollback, wheel, and sdist tests fail if any are missing.
+
 Migration API version `1` represents the initial packaged-state format. No
 data migration is required for TailTrail 0.6; future migrations must be
 versioned, forward-only by default, idempotently testable, and retain an

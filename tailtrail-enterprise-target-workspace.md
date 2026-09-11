@@ -341,6 +341,19 @@ Delivered behavior:
   verbose reports render every role, access boundary, and availability state.
 - Lock activation and managed-write checks validate that the active workspace
   remains the declared target and that no non-target role gained write access.
+- Local text `requirement-artifact` inputs are executable planning inputs:
+  Start reads them before requirement sufficiency within a 128 KiB per-file
+  boundary, validates UTF-8 and the supported text format, and records a
+  SHA-256 inspection receipt without persisting raw content. Artifact-derived
+  host clauses must bind the exact input ID and hash. Missing, unreadable,
+  unsupported, truncated, or unbound required artifacts stop before graph,
+  scope, and Planning Lock creation.
+- Agent-host Standard/Full runs establish a verified official AI-DLC
+  Requirements authority receipt before scope. The host must bind its typed
+  requirements to the exact mode, Requirements stage, official rule references,
+  and inspected artifacts. Navigator may attach local path roles but cannot
+  rewrite those requirements. Start-plan approval records the durable official
+  Requirements approval and avoids a second post-scope questionnaire.
 
 ```text
 Target selected
@@ -350,9 +363,10 @@ Target selected
   -> permit managed writes only inside that target after approval
 ```
 
-This registry does not automatically fetch Figma, documents, CI, or external
-repositories. It records their role and availability; later approved tools may
-produce bounded, read-only summaries.
+This registry does not automatically fetch Figma, binary documents, CI, or
+external repositories. It records their role and availability; local supported
+text requirement artifacts are the deliberate exception above, while other
+inputs need a bounded format-specific adapter.
 
 ### Phase TW-4 — Host adapters — implemented
 

@@ -143,6 +143,15 @@ def read_json_or_jsonl(path: Path) -> list[dict[str, Any]]:
             rows.append(item)
         return rows
 
+    if text.startswith("{"):
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError:
+            value = None
+        if isinstance(value, dict):
+            value["_line_number"] = 1
+            return [value]
+
     rows: list[dict[str, Any]] = []
     for line_number, line in enumerate(text.splitlines(), start=1):
         line = line.strip()
@@ -275,7 +284,66 @@ def manual(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def record_host(args: argparse.Namespace) -> dict[str, Any]:
+    """Record exact usage returned by a host/model API response."""
+    rows = read_json_or_jsonl(Path(args.source))
+    usages = [usage for row in rows if (usage := extract_usage(row)) is not None]
+    if not usages:
+        raise SystemExit("No host/model API usage metadata was found in the source.")
+    input_values = [usage.input_tokens for usage in usages]
+    output_values = [usage.output_tokens for usage in usages]
+    usage = TokenUsage(
+        total_tokens=sum(item.total_tokens for item in usages),
+        input_tokens=sum(input_values) if all(value is not None for value in input_values) else None,
+        output_tokens=sum(output_values) if all(value is not None for value in output_values) else None,
+    )
+    record = {
+        "schema_version": "2",
+        "mode": "measured",
+        "task_id": args.task_id,
+        "variant": args.variant,
+        "provider": "anthropic" if args.provider == "claude" else args.provider,
+        "model": args.model,
+        "source": "host_api_usage",
+        "timestamp": args.timestamp or now(),
+        "usage": usage.as_dict(),
+        "response_records": len(usages),
+    }
+    if args.stage_id:
+        record["stage_id"] = args.stage_id
+    output_path = Path(args.output)
+    write_records([record], output_path, append=True, dry_run=args.dry_run)
+    return {
+        "mode": "host_usage",
+        "output": output_path.as_posix(),
+        "records_written": 0 if args.dry_run else 1,
+        "dry_run": args.dry_run,
+        "record": record,
+        "claim_guardrail": (
+            "The usage total comes from host/model API metadata. Token savings are exact only "
+            "when a matching loose-prompt or AIDLC baseline is also recorded for this task."
+        ),
+    }
+
+
 def render_markdown(report: dict[str, Any]) -> str:
+    if report["mode"] == "host_usage":
+        record = report["record"]
+        lines = [
+            "# TailTrail Host Token Usage",
+            "",
+            f"- Output: `{report['output']}`",
+            f"- Records written: `{report['records_written']}`",
+            f"- Dry run: `{report['dry_run']}`",
+            f"- Run: `{record['task_id']}`",
+            f"- Variant: `{record['variant']}`",
+            f"- Provider/model: `{record['provider']}` / `{record['model']}`",
+            f"- Exact API-reported tokens: `{record['usage']['total_tokens']}`",
+            f"- API response records: `{record['response_records']}`",
+            f"- Claim guardrail: {report['claim_guardrail']}",
+        ]
+        return "\n".join(lines)
+
     if report["mode"] == "manual":
         record = report["record"]
         lines = [
@@ -326,8 +394,20 @@ def add_common_import_args(parser: argparse.ArgumentParser) -> None:
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(description="Create normalized measured token telemetry without API calls.")
+    root = argparse.ArgumentParser(description="Create normalized measured token telemetry from host/model API usage metadata.")
     subparsers = root.add_subparsers(dest="command", required=True)
+
+    host_parser = subparsers.add_parser("record-host", help="Record exact usage metadata returned by a host/model API.")
+    host_parser.add_argument("--task-id", required=True, help="TailTrail run ID shared by the compared variants.")
+    host_parser.add_argument("--variant", required=True, choices=("tailtrail", "loose-prompt", "aidlc"))
+    host_parser.add_argument("--provider", required=True)
+    host_parser.add_argument("--model", required=True)
+    host_parser.add_argument("--source", required=True, help="Host/model API response JSON or JSONL containing usage metadata.")
+    host_parser.add_argument("--stage-id")
+    host_parser.add_argument("--timestamp")
+    host_parser.add_argument("--output", default=DEFAULT_OUTPUT.as_posix())
+    host_parser.add_argument("--dry-run", action="store_true")
+    host_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
     manual_parser = subparsers.add_parser("manual", help="Write one manually entered measured token record.")
     manual_parser.add_argument("--task-id", required=True)
@@ -361,7 +441,9 @@ def parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = parser().parse_args()
-    if args.command == "manual":
+    if args.command == "record-host":
+        report = record_host(args)
+    elif args.command == "manual":
         if args.baseline_total is None and args.baseline_input + args.baseline_output <= 0:
             raise SystemExit("Provide --baseline-total or baseline input/output tokens.")
         if args.tailtrail_total is None and args.tailtrail_input + args.tailtrail_output <= 0:

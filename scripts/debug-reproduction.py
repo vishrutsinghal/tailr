@@ -34,14 +34,35 @@ def load(name: str, filename: str) -> Any:
 L = load("debug_reproduction_ledger", "run-ledger.py")
 ANCHOR = load("debug_reproduction_anchor", "change-intent-anchor.py")
 PLANNING = load("debug_reproduction_planning", "planning-lock.py")
+EVIDENCE = load("debug_reproduction_evidence", "execution-evidence.py")
+PRIVACY = load("debug_reproduction_privacy", "debug-privacy.py")
+SHORT_TEXT = load("debug_reproduction_contract_text", "closure-contract.py")
+RUNTIME_CONTRACTS = load("debug_reproduction_runtime_contracts", "workflow_runtime/contracts.py")
 
 
 def contract_path(root: Path, run_id: str) -> Path:
     return L.state_dir(root, run_id) / "debug" / "reproduction" / "reproduction-contract-v1.json"
 
 
-def approved_contract_path(root: Path, run_id: str) -> Path:
-    return L.state_dir(root, run_id) / "debug" / "reproduction" / "approved-v1.json"
+def approved_contract_path(root: Path, run_id: str, revision: int | None = None) -> Path:
+    folder = L.state_dir(root, run_id) / "debug" / "reproduction"
+    if revision is None:
+        approved = sorted(
+            folder.glob("approved-v*.json"),
+            key=lambda path: int(path.stem.rsplit("v", 1)[-1]),
+        ) if folder.is_dir() else []
+        if approved:
+            return approved[-1]
+        revision = 1
+    return folder / f"approved-v{revision}.json"
+
+
+def attempt_path(root: Path, run_id: str, attempt: int) -> Path:
+    return L.state_dir(root, run_id) / "debug" / "reproduction" / f"attempt-v{attempt}.json"
+
+
+def attempt_status_path(root: Path, run_id: str) -> Path:
+    return L.state_dir(root, run_id) / "debug" / "reproduction" / "attempt-status-v1.json"
 
 
 def revision_path(root: Path, run_id: str, revision: int) -> Path:
@@ -93,16 +114,20 @@ def normalized_validation_contract(source: dict[str, Any]) -> dict[str, Any]:
     supplied = source.get("validation_contract", {})
     if not isinstance(supplied, dict):
         raise ValueError("validation_contract must be a JSON object")
+    maximum = supplied.get("max_reproduction_attempts", 3)
+    if not isinstance(maximum, int) or not 1 <= maximum <= 5:
+        raise ValueError("validation_contract.max_reproduction_attempts must be between 1 and 5")
     return {
         "state": "required",
         "tiers": ["reproduction", "root-cause", "regression", "behaviour"],
+        "max_reproduction_attempts": maximum,
         **supplied,
     }
 
 
-def draft(root: Path, run_id: str, source: dict[str, Any]) -> dict[str, Any]:
+def draft(root: Path, run_id: str, source: dict[str, Any], *, allow_after_approved: bool = False) -> dict[str, Any]:
     root = root.resolve()
-    if approved_contract_path(root, run_id).is_file():
+    if approved_contract_path(root, run_id).is_file() and not allow_after_approved:
         raise ValueError("approved reproduction contract is immutable; open a correction/replan revision instead")
     domain = source.get("domain")
     if domain not in SUPPORTED_DOMAINS:
@@ -140,6 +165,46 @@ def draft(root: Path, run_id: str, source: dict[str, Any]) -> dict[str, Any]:
     L.atomic_json(contract_path(root, run_id), contract)
     L.append_event(root, run_id, "debug_reproduction_drafted", {"revision": revision, "domain": domain})
     return contract
+
+
+def reopen(root: Path, run_id: str, expected_revision: int, source: dict[str, Any]) -> dict[str, Any]:
+    """Create a separately approvable reproduction revision after a failed attempt.
+
+    Earlier approved revisions and attempt evidence remain immutable. The
+    requirement UID and approved delivery requirement stay stable; only the
+    bounded reproduction procedure is revised from new user evidence.
+    """
+    root = root.resolve()
+    existing = read_existing(root, run_id)
+    if existing is None or existing.get("status") != "approved":
+        raise ValueError("reopening reproduction requires the current approved reproduction revision")
+    if int(existing.get("revision", 0)) != expected_revision:
+        raise ValueError(f"reproduction revision mismatch: requested {expected_revision}, current revision is {existing.get('revision')}")
+    attempt = attempt_status(root, run_id)
+    if attempt.get("state") != "awaiting-reproduction-input":
+        raise ValueError("reproduction may be reopened only after a factual not-reproduced or inconclusive attempt requests user input")
+    allowed = {
+        "domain", "trigger", "expected", "actual", "reproduction_method",
+        "preserve_rules", "safety_boundary", "validation_contract",
+        "unresolved_fields", "field_feedback",
+    }
+    unknown = set(source) - allowed
+    if unknown:
+        raise ValueError("reproduction revision has unsupported fields: " + ", ".join(sorted(unknown)))
+    merged = {key: existing.get(key) for key in allowed if key in existing}
+    merged.update(source)
+    merged["requirement_uid"] = existing["requirement_uid"]
+    revised = draft(root, run_id, merged, allow_after_approved=True)
+    revised["reopened_from_revision"] = expected_revision
+    revised["reopened_from_attempt"] = attempt.get("latest_attempt")
+    L.atomic_json(revision_path(root, run_id, revised["revision"]), revised)
+    L.atomic_json(contract_path(root, run_id), revised)
+    L.append_event(root, run_id, "debug_reproduction_reopened", {
+        "from_revision": expected_revision,
+        "to_revision": revised["revision"],
+        "attempt": attempt.get("latest_attempt"),
+    })
+    return revised
 
 
 def revise(root: Path, run_id: str, expected_revision: int, source: dict[str, Any]) -> dict[str, Any]:
@@ -243,8 +308,9 @@ def validate_anchor_compatibility(root: Path, run_id: str, contract: dict[str, A
 
 
 def create_investigation_handoff(root: Path, run_id: str, contract: dict[str, Any]) -> dict[str, Any]:
+    approved_path = approved_contract_path(root, run_id, int(contract["revision"]))
     runtime = PLANNING.workflow_start_integration().activate_debug(
-        root, run_id, approved_contract_path(root, run_id).relative_to(root).as_posix()
+        root, run_id, approved_path.relative_to(root).as_posix()
     )
     payload = {
         "schema_version": "1",
@@ -253,7 +319,7 @@ def create_investigation_handoff(root: Path, run_id: str, contract: dict[str, An
         "state": "investigation-ready",
         "requirement_uid": contract["requirement_uid"],
         "reproduction_revision": contract["revision"],
-        "reproduction_contract": approved_contract_path(root, run_id).relative_to(root).as_posix(),
+        "reproduction_contract": approved_path.relative_to(root).as_posix(),
         "approved_anchor": (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix(),
         "workflow_runtime": runtime,
         "allowed_actions": ["read approved scope", "run approved reproduction", "record exact evidence", "manage hypotheses"],
@@ -262,6 +328,8 @@ def create_investigation_handoff(root: Path, run_id: str, contract: dict[str, An
         "boundary": "Reproduction approval grants investigation authority only. A proven root cause and separate correction approval are required before source changes.",
     }
     path = L.state_dir(root, run_id) / "debug" / "investigation-handoff-v1.json"
+    archive = L.state_dir(root, run_id) / "debug" / f"investigation-handoff-v{contract['revision']}.json"
+    L.atomic_json(archive, payload)
     L.atomic_json(path, payload)
     L.append_event(root, run_id, "debug_investigation_handoff_created", {"artifact": path.relative_to(root).as_posix(), "requirement_uid": contract["requirement_uid"], "reproduction_revision": contract["revision"]})
     return {**payload, "artifact": path.relative_to(root).as_posix()}
@@ -294,7 +362,7 @@ def approve(root: Path, run_id: str, expected_revision: int | None = None) -> di
     contract["approved_at"] = L.utc_now()
     contract["approved_fingerprint"] = "sha256:" + hashlib.sha256(json.dumps({key: value for key, value in contract.items() if key not in {"approved_at", "approved_fingerprint"}}, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     L.atomic_json(contract_path(root, run_id), contract)
-    L.atomic_json(approved_contract_path(root, run_id), contract)
+    L.atomic_json(approved_contract_path(root, run_id, int(contract["revision"])), contract)
     L.append_event(root, run_id, "debug_reproduction_approved", {"revision": contract["revision"], "domain": contract["domain"]})
     ensure_investigation_prerequisites(root, run_id, contract)
     lock = PLANNING.approve_debug_investigation(root, run_id, contract["revision"])
@@ -326,12 +394,232 @@ def show(root: Path, run_id: str) -> dict[str, Any]:
     return contract
 
 
+ATTEMPT_PHASE_OUTCOMES = {
+    "pre-fix": {"reproduced", "not-reproduced", "inconclusive"},
+    "post-fix": {"restored", "still-reproduced", "inconclusive"},
+}
+CHECK_DIMENSIONS = {
+    "command-or-actions", "input-or-fixture", "runtime-version", "configuration",
+    "environment", "permissions", "timing-or-frequency", "external-dependency", "unknown",
+}
+
+
+def attempt_status(root: Path, run_id: str) -> dict[str, Any]:
+    root = root.resolve()
+    path = attempt_status_path(root, run_id)
+    if path.is_file():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-debug-reproduction-attempt-status",
+        "run_id": run_id,
+        "state": "not-run",
+        "latest_attempt": None,
+        "attempts": [],
+        "pre_fix": None,
+        "post_fix": None,
+        "input_request": None,
+        "boundary": "No reproduction result exists. Contract approval alone is not reproduction proof.",
+    }
+
+
+def _input_request(run_id: str, revision: int, checked_dimensions: list[str], observed: str) -> dict[str, Any]:
+    checked = ", ".join(checked_dimensions) or "the approved local procedure"
+    return {
+        "state": "awaiting-reproduction-input",
+        "summary": f"TailTrail could not confirm the approved failure after checking {checked}. Observed: {observed}",
+        "requested": [
+            "The exact command or user actions that trigger the issue.",
+            "A sanitized failing input, error message, or short log excerpt.",
+            "Relevant runtime/platform version and configuration differences.",
+            "Whether the issue is intermittent and its approximate frequency or timing conditions.",
+        ],
+        "response_prompt": f"For run {run_id}, provide the missing reproduction details so TailTrail can revise reproduction revision {revision}.",
+        "safety": "Do not provide credentials, tokens, private keys, personal information, or unsanitized production data.",
+        "next_after_input": f"Revise and show the reproduction contract for run {run_id}; do not execute it until I approve the exact new revision.",
+    }
+
+
+def record_attempt(
+    root: Path,
+    run_id: str,
+    phase: str,
+    outcome: str,
+    evidence_event_id: str,
+    observed_summary: str,
+    checked_dimensions: list[str],
+    approved: bool,
+) -> dict[str, Any]:
+    """Record one factual host-run reproduction attempt and derive its next state."""
+    if approved is not True:
+        raise ValueError("recording a reproduction attempt requires --approved")
+    if phase not in ATTEMPT_PHASE_OUTCOMES or outcome not in ATTEMPT_PHASE_OUTCOMES[phase]:
+        raise ValueError("reproduction attempt phase/outcome combination is unsupported")
+    if not isinstance(checked_dimensions, list) or not checked_dimensions or set(checked_dimensions) - CHECK_DIMENSIONS:
+        raise ValueError("checked_dimensions must be a non-empty allowlisted list")
+    root = root.resolve()
+    contract = read_existing(root, run_id)
+    if contract is None or contract.get("status") != "approved":
+        raise ValueError("recording a reproduction attempt requires the current approved reproduction revision")
+    observed = SHORT_TEXT.short_text(observed_summary, "observed_summary")
+    privacy = PRIVACY.inspect({"observed_summary": observed})
+    if privacy["sensitive"]:
+        raise ValueError("observed_summary contains sensitive data categories; sanitize it before recording")
+    events = EVIDENCE.show(root, run_id)["events"]
+    event = next((row for row in events if row.get("fingerprint") == evidence_event_id), None)
+    if event is None or event.get("kind") != "command-result":
+        raise ValueError("reproduction attempt requires a real command-result execution evidence fingerprint")
+    if contract["requirement_uid"] not in event.get("requirement_uids", []):
+        raise ValueError("reproduction attempt evidence does not reference the approved Debug requirement UID")
+
+    status = attempt_status(root, run_id)
+    attempts = list(status.get("attempts", []))
+    prior = next((row for row in attempts if row.get("phase") == phase and row.get("evidence_event_id") == evidence_event_id), None)
+    if prior:
+        return {**prior, "reused": True, "status_projection": status}
+    current_revision = int(contract["revision"])
+    phase_attempts = [
+        row for row in attempts
+        if row.get("phase") == phase and row.get("reproduction_revision") == current_revision
+    ]
+    if phase == "post-fix":
+        current_pre_fix = status.get("pre_fix") if isinstance(status.get("pre_fix"), dict) else None
+        if not current_pre_fix or current_pre_fix.get("reproduction_revision") != current_revision or current_pre_fix.get("outcome") != "reproduced":
+            raise ValueError("post-fix reproduction requires a factual reproduced pre-fix attempt for the current approved revision")
+    maximum = int((contract.get("validation_contract") or {}).get("max_reproduction_attempts", 3))
+    if len(phase_attempts) >= maximum:
+        raise ValueError(f"{phase} reproduction attempt limit reached; request user input or revise the reproduction contract")
+    sequence = len(attempts) + 1
+    phase_sequence = len(phase_attempts) + 1
+    state = (
+        "reproduction-confirmed" if phase == "pre-fix" and outcome == "reproduced"
+        else "behavior-restored" if phase == "post-fix" and outcome == "restored"
+        else "correction-still-failing" if phase == "post-fix" and outcome == "still-reproduced"
+        else "awaiting-reproduction-input"
+    )
+    input_request = _input_request(run_id, int(contract["revision"]), checked_dimensions, observed) if state == "awaiting-reproduction-input" else None
+    payload = {
+        "schema_version": "1",
+        "type": "tailtrail-debug-reproduction-attempt",
+        "run_id": run_id,
+        "attempt": sequence,
+        "phase_attempt": phase_sequence,
+        "phase": phase,
+        "outcome": outcome,
+        "state": state,
+        "reproduction_revision": current_revision,
+        "requirement_uid": contract["requirement_uid"],
+        "evidence_event_id": evidence_event_id,
+        "command": event.get("command"),
+        "exit_outcome": event.get("outcome"),
+        "environment": event.get("environment"),
+        "asserted_behavior": event.get("asserted_behavior"),
+        "observed_summary": observed,
+        "checked_dimensions": sorted(set(checked_dimensions)),
+        "input_request": input_request,
+        "recorded_at": L.utc_now(),
+        "boundary": "Factual host-run attempt linked to saved execution evidence. TailTrail did not invent or rerun the command while recording this artifact.",
+    }
+    RUNTIME_CONTRACTS.require_valid(payload)
+    L.atomic_json(attempt_path(root, run_id, sequence), payload)
+    attempts.append({
+        key: payload[key]
+        for key in ("attempt", "phase_attempt", "phase", "outcome", "state", "reproduction_revision", "evidence_event_id")
+    })
+    projection = {
+        "schema_version": "1",
+        "type": "tailtrail-debug-reproduction-attempt-status",
+        "run_id": run_id,
+        "state": state,
+        "latest_attempt": sequence,
+        "attempts": attempts,
+        "pre_fix": payload if phase == "pre-fix" else status.get("pre_fix"),
+        "post_fix": payload if phase == "post-fix" else status.get("post_fix"),
+        "input_request": input_request,
+        "boundary": "Only a reproduced pre-fix attempt confirms the symptom; only a restored post-fix attempt confirms the original failure is gone.",
+    }
+    RUNTIME_CONTRACTS.require_valid(projection)
+    L.atomic_json(attempt_status_path(root, run_id), projection)
+    L.append_event(root, run_id, "debug_reproduction_attempt_recorded", {
+        "attempt": sequence,
+        "phase": phase,
+        "outcome": outcome,
+        "state": state,
+        "evidence_event_id": evidence_event_id,
+    })
+    return {**payload, "reused": False, "status_projection": projection}
+
+
+def attempt_guidance(status: dict[str, Any]) -> dict[str, Any]:
+    run_id = str(status.get("run_id", ""))
+    state = str(status.get("state", "not-run"))
+    if state == "awaiting-reproduction-input":
+        request = status.get("input_request") or {}
+        actions = [
+            {"id": "provide-reproduction-input", "label": "Provide missing reproduction details", "prompt": request.get("response_prompt"), "availability": "now", "effect": "Creates no authority; TailTrail must show a revised contract for separate approval."},
+            {"id": "close-not-reproduced", "label": "Close as not reproduced", "prompt": f"Close run {run_id} as not reproduced without claiming a fix.", "availability": "now", "effect": "Preserves the evidence and records no root-cause or correction claim."},
+            {"id": "stop-tailtrail", "label": "Stop TailTrail", "prompt": "tailtrail stop", "availability": "now", "effect": "Preserves this run and returns later prompts to the normal agent."},
+        ]
+    elif state == "reproduction-confirmed":
+        actions = [{"id": "continue-investigation", "label": "Continue investigation", "prompt": f"Continue run {run_id} with project orientation and hypothesis ranking.", "availability": "now", "effect": "Source correction remains blocked until root-cause proof and separate correction approval."}]
+    elif state == "behavior-restored":
+        actions = [{"id": "finalize-proof", "label": "Complete validation and closure", "prompt": f"Complete preservation proof and closure for run {run_id}.", "availability": "now", "effect": "Closure still consumes all required Harness and scope evidence."}]
+    else:
+        actions = [{"id": "review-failure", "label": "Review the unresolved reproduction", "prompt": f"Show reproduction status and the next bounded action for run {run_id}.", "availability": "now", "effect": "No correction or completion is inferred."}]
+    return {"state": state, "run_id": run_id, "actions": actions, "input_request": status.get("input_request"), "boundary": status.get("boundary")}
+
+
+def render_attempt_markdown(status: dict[str, Any]) -> str:
+    lines = ["# TailTrail Reproduction Attempt Status", "", f"**Run ID:** `{status['run_id']}`", f"**State:** `{status['state']}`", ""]
+    latest_number = status.get("latest_attempt")
+    if latest_number:
+        latest = status.get("pre_fix") if (status.get("pre_fix") or {}).get("attempt") == latest_number else status.get("post_fix")
+        lines.extend([
+            "## Attempt evidence", "",
+            f"- Attempt: `{latest.get('attempt')}`; phase: `{latest.get('phase')}`; outcome: `{latest.get('outcome')}`.",
+            f"- Command: `{latest.get('command')}`",
+            f"- Recorded command outcome: `{latest.get('exit_outcome')}`.",
+            f"- Observed: {PLANNING._display_prose(latest.get('observed_summary'))}",
+            f"- Evidence event: `{latest.get('evidence_event_id')}`.",
+        ])
+    request = status.get("input_request")
+    if isinstance(request, dict):
+        lines.extend(["", "## Input needed to reproduce the issue", "", request["summary"], "", "Please provide one or more of:", ""])
+        lines.extend(f"- {item}" for item in request.get("requested", []))
+        lines.extend(["", f"- Safety: {request['safety']}", f"- Reply: `{request['response_prompt']}`", f"- Then: {request['next_after_input']}"])
+    guidance = attempt_guidance(status)
+    lines.extend(["", "## Next actions", ""])
+    for action in guidance["actions"]:
+        lines.append(f"- **{action['label']}:** `{action['prompt']}` - {action['effect']}")
+    lines.extend(["", f"Boundary: {guidance['boundary']}"])
+    return "\n".join(lines)
+
+
+def next_action_guidance(contract: dict[str, Any], canonical_uid: str | None = None, attempt: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the same derived next-action contract used by every surface."""
+    latest = None
+    if attempt:
+        latest_number = attempt.get("latest_attempt")
+        for candidate in (attempt.get("pre_fix"), attempt.get("post_fix")):
+            if isinstance(candidate, dict) and candidate.get("attempt") == latest_number:
+                latest = candidate
+                break
+    if latest and latest.get("reproduction_revision") == contract.get("revision"):
+        return attempt_guidance(attempt)
+    return PLANNING.debug_next_action_guidance(contract, canonical_uid)
+
+
+def markdown_table_cell(value: Any) -> str:
+    """Keep saved multiline prose from breaking a Markdown table row."""
+    return PLANNING._display_prose(value).replace("|", "\\|")
+
+
 def render_markdown(contract: dict[str, Any], canonical_uid: str | None = None) -> str:
     validation = contract.get("validation_contract", {})
     before_exit = validation.get("expected_exit_code_before_fix", "not specified")
     after_exit = validation.get("expected_exit_code_after_fix", "not specified")
-    before_output = ", ".join(validation.get("required_output", [])) or "not specified"
-    after_output = ", ".join(validation.get("required_output_after_fix", [])) or "not specified"
+    before_output = markdown_table_cell(", ".join(validation.get("required_output", [])) or "not specified")
+    after_output = markdown_table_cell(", ".join(validation.get("required_output_after_fix", [])) or "not specified")
     unresolved = contract.get("unresolved_fields", [])
     identity_drift = bool(canonical_uid and canonical_uid != contract.get("requirement_uid"))
     if unresolved:
@@ -361,10 +649,10 @@ def render_markdown(contract: dict[str, Any], canonical_uid: str | None = None) 
         "",
         "| Field | Approved meaning |",
         "| --- | --- |",
-        f"| Trigger | {contract['trigger']} |",
-        f"| Expected behavior | {contract['expected']} |",
-        f"| Observed failure | {contract['actual']} |",
-        f"| Reproduction command / method | `{contract['reproduction_method']}` |",
+        f"| Trigger | {markdown_table_cell(contract['trigger'])} |",
+        f"| Expected behavior | {markdown_table_cell(contract['expected'])} |",
+        f"| Observed failure | {markdown_table_cell(contract['actual'])} |",
+        f"| Reproduction command / method | `{markdown_table_cell(contract['reproduction_method'])}` |",
         "",
         "## Validation expectations",
         "",
@@ -380,9 +668,9 @@ def render_markdown(contract: dict[str, Any], canonical_uid: str | None = None) 
         "",
     ]
     preserve = contract.get("preserve_rules", [])
-    lines.extend([f"- {item}" for item in preserve] or ["- No preserve rule was supplied."])
+    lines.extend([f"- {PLANNING._display_prose(item)}" for item in preserve] or ["- No preserve rule was supplied."])
     lines.extend([
-        f"- Safety: {contract['safety_boundary']}",
+        f"- Safety: {PLANNING._display_prose(contract['safety_boundary'])}",
         "",
         "## Approval",
         "",
@@ -394,12 +682,15 @@ def render_markdown(contract: dict[str, Any], canonical_uid: str | None = None) 
             "Approval is unavailable until a corrected revision resolves the blocking condition.",
             "",
         ])
-    else:
+    elif contract.get("status") != "approved":
         lines.extend([
-            f"To approve this exact contract: `Approve reproduction revision {contract['revision']} for run {contract['run_id']}`",
+            "This exact revision can be approved using the option below.",
             "",
         ])
     lines.append("Approval authorizes only the bounded reproduction and investigation. It does not authorize source edits or a correction.")
+    lines.extend([""] + PLANNING.render_debug_next_action_guidance(
+        next_action_guidance(contract, canonical_uid)
+    ))
     return "\n".join(lines)
 
 
@@ -418,6 +709,13 @@ def main() -> int:
     revise_parser.add_argument("--input", type=Path, required=True)
     revise_parser.add_argument("--approved", action="store_true")
     revise_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    reopen_parser = sub.add_parser("reopen")
+    reopen_parser.add_argument("--root", type=Path, default=Path.cwd())
+    reopen_parser.add_argument("--run-id", required=True)
+    reopen_parser.add_argument("--revision", type=int, required=True)
+    reopen_parser.add_argument("--input", type=Path, required=True)
+    reopen_parser.add_argument("--approved", action="store_true")
+    reopen_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     approve_parser = sub.add_parser("approve")
     approve_parser.add_argument("--root", type=Path, default=Path.cwd())
     approve_parser.add_argument("--run-id", required=True)
@@ -433,6 +731,20 @@ def main() -> int:
     show_parser.add_argument("--root", type=Path, default=Path.cwd())
     show_parser.add_argument("--run-id", required=True)
     show_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    attempt_record_parser = sub.add_parser("attempt-record")
+    attempt_record_parser.add_argument("--root", type=Path, default=Path.cwd())
+    attempt_record_parser.add_argument("--run-id", required=True)
+    attempt_record_parser.add_argument("--phase", choices=tuple(ATTEMPT_PHASE_OUTCOMES), required=True)
+    attempt_record_parser.add_argument("--outcome", choices=tuple(sorted(set().union(*ATTEMPT_PHASE_OUTCOMES.values()))), required=True)
+    attempt_record_parser.add_argument("--evidence-event-id", required=True)
+    attempt_record_parser.add_argument("--observed-summary", required=True)
+    attempt_record_parser.add_argument("--checked-dimension", action="append", choices=tuple(sorted(CHECK_DIMENSIONS)), required=True)
+    attempt_record_parser.add_argument("--approved", action="store_true")
+    attempt_record_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    attempt_show_parser = sub.add_parser("attempt-show")
+    attempt_show_parser.add_argument("--root", type=Path, default=Path.cwd())
+    attempt_show_parser.add_argument("--run-id", required=True)
+    attempt_show_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     args = parser.parse_args()
     try:
         if args.action == "draft":
@@ -442,6 +754,10 @@ def main() -> int:
             if not args.approved: raise ValueError("revising a reproduction contract requires --approved")
             source = json.loads(args.input.read_text(encoding="utf-8"))
             result = revise(args.root, args.run_id, args.revision, source)
+        elif args.action == "reopen":
+            if not args.approved: raise ValueError("reopening a reproduction contract requires --approved")
+            source = json.loads(args.input.read_text(encoding="utf-8"))
+            result = reopen(args.root, args.run_id, args.revision, source)
         elif args.action == "approve":
             if not args.approved:
                 raise ValueError("approving a reproduction contract requires --approved")
@@ -451,11 +767,30 @@ def main() -> int:
             if feedback is not None and not isinstance(feedback, dict):
                 raise ValueError("--feedback must be a JSON object")
             result = reject(args.root, args.run_id, args.reason, feedback)
+        elif args.action == "attempt-record":
+            result = record_attempt(
+                args.root, args.run_id, args.phase, args.outcome,
+                args.evidence_event_id, args.observed_summary,
+                args.checked_dimension, args.approved,
+            )
+        elif args.action == "attempt-show":
+            result = attempt_status(args.root, args.run_id)
         else:
             result = show(args.root, args.run_id)
         output_format = getattr(args, "format", "json")
-        canonical_uid = saved_canonical_requirement_uid(args.root.resolve(), args.run_id)
-        print(json.dumps(result, indent=2, sort_keys=True) if output_format == "json" else render_markdown(result, canonical_uid))
+        if output_format == "json":
+            print(json.dumps(result, indent=2, sort_keys=True))
+        elif args.action in {"attempt-record", "attempt-show"}:
+            projection = result.get("status_projection", result)
+            print(render_attempt_markdown(projection))
+        else:
+            canonical_uid = saved_canonical_requirement_uid(args.root.resolve(), args.run_id)
+            rendered = render_markdown(result, canonical_uid)
+            if args.action == "show":
+                attempt = attempt_status(args.root, args.run_id)
+                if attempt.get("state") != "not-run":
+                    rendered += "\n\n" + render_attempt_markdown(attempt)
+            print(rendered)
         return 0
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Debug reproduction error: {error}")

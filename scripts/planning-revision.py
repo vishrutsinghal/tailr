@@ -7,12 +7,17 @@ import copy
 import hashlib
 import importlib.util
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+import navigator_scope as SCOPE
+from workflow_runtime import start_integration as WORKFLOW_START
 BOUNDARY = (
     "A plan revision changes only versioned TailTrail planning metadata. It does not inspect or edit project "
     "source, run tests, scanners, builds, package managers, Git, or implementation commands."
@@ -40,6 +45,7 @@ def module(name: str, filename: str) -> Any:
 LOCK = module("planning_revision_lock", "planning-lock.py")
 LEDGER = module("planning_revision_ledger", "run-ledger.py")
 ANCHOR = module("planning_revision_anchor", "change-intent-anchor.py")
+REQUIREMENTS = module("planning_revision_requirements", "requirement_discovery.py")
 INTENT_BRIDGE = module("planning_revision_intent_bridge", "spec-kit-bridge.py")
 OFFICIAL_BRIDGE = module("planning_revision_official_bridge", "aidlc-official-bridge.py")
 
@@ -168,7 +174,302 @@ def _new_display_id(rows: list[dict[str, Any]]) -> str:
     return f"REQ-{index:02d}"
 
 
-def _apply_change(report: dict[str, Any], rows: list[dict[str, Any]], change: dict[str, Any], run_id: str) -> dict[str, Any]:
+def _sync_requirement_projections(report: dict[str, Any], rows: list[dict[str, Any]], removed_display_ids: set[str]) -> None:
+    """Keep derived plan projections aligned with the revised requirement matrix."""
+    active_display_ids = {str(row.get("display_id")) for row in rows}
+    active_requirement_ids = {
+        str(row.get("requirement_id") or REQUIREMENTS.stable_requirement_id(str(row.get("statement", ""))))
+        for row in rows
+    }
+    # Derived projections use both human-facing display IDs and stable query
+    # frame IDs. Resolve the stable IDs of removed rows before pruning so a
+    # revision cannot retain either representation, while active stable IDs do
+    # not trigger the stale-reference gate.
+    removed_requirement_ids: set[str] = set()
+    navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else {}
+    frame = navigator.get("requirement_query_frame") if isinstance(navigator, dict) else None
+    if isinstance(frame, dict):
+        for item in frame.get("requirements", []):
+            if isinstance(item, dict) and str(item.get("display_id", "")) in removed_display_ids:
+                removed_requirement_ids.add(str(item.get("requirement_id", "")))
+    allowed_requirement_references = active_display_ids | active_requirement_ids
+    removed_requirement_references = removed_display_ids | removed_requirement_ids
+
+    def prune(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, item in list(value.items()):
+                if key == "requirement_ids" and isinstance(item, list):
+                    value[key] = [identifier for identifier in item if str(identifier) not in removed_requirement_references]
+                    continue
+                if isinstance(item, list):
+                    value[key] = [
+                        child for child in item
+                        if not (
+                            isinstance(child, dict)
+                            and str(child.get("display_id", "")) in removed_display_ids
+                        )
+                    ]
+                    for child in value[key]:
+                        prune(child)
+                else:
+                    prune(item)
+        elif isinstance(value, list):
+            for item in value:
+                prune(item)
+
+    prune(report)
+    navigator = report.setdefault("navigator", {})
+    frame = navigator.get("requirement_query_frame")
+    if isinstance(frame, dict):
+        framed_rows: list[dict[str, Any]] = []
+        combined_terms: list[str] = []
+        for row in rows:
+            terms = REQUIREMENTS.query_terms(str(row.get("statement", "")))
+            row["query_terms"] = terms
+            stable_id = str(row.get("requirement_id") or REQUIREMENTS.stable_requirement_id(str(row.get("statement", ""))))
+            row["requirement_id"] = stable_id
+            framed_rows.append({
+                "display_id": str(row.get("display_id")),
+                "requirement_id": stable_id,
+                "statement": str(row.get("statement", "")),
+                "query_terms": terms,
+            })
+            combined_terms.extend(terms)
+        frame["requirements"] = framed_rows
+        frame["query_terms"] = list(dict.fromkeys(combined_terms))
+
+    # Fail closed if a known derived requirement-id collection retained a
+    # removed display ID. This catches new projections until they are wired to
+    # the canonical matrix instead of silently publishing contradictory plans.
+    def stale_references(value: Any, path: str = "report") -> list[str]:
+        stale: list[str] = []
+        if isinstance(value, dict):
+            for key, item in value.items():
+                child_path = f"{path}.{key}"
+                if key == "requirement_ids" and isinstance(item, list):
+                    stale.extend(
+                        f"{child_path}:{identifier}"
+                        for identifier in item
+                        if str(identifier) not in allowed_requirement_references
+                    )
+                else:
+                    stale.extend(stale_references(item, child_path))
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                stale.extend(stale_references(item, f"{path}[{index}]"))
+        return stale
+
+    stale = stale_references(report)
+    if stale:
+        raise ValueError("revised plan retained stale requirement references: " + ", ".join(stale[:5]))
+
+
+def _v2_scope(report: dict[str, Any]) -> dict[str, Any] | None:
+    navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else {}
+    evidence = navigator.get("scope_evidence") if isinstance(navigator, dict) else None
+    return evidence if isinstance(evidence, dict) and str(evidence.get("schema_version")) == "2" else None
+
+
+def _scope_requirement(evidence: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
+    identifiers = {
+        str(row.get("display_id", "")),
+        str(row.get("requirement_id", "")),
+    }
+    matches = [
+        item for item in evidence.get("requirements", [])
+        if isinstance(item, dict)
+        and ({str(item.get("display_id", "")), str(item.get("requirement_id", ""))} & identifiers)
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"v2 scope evidence does not contain exactly one row for `{row.get('display_id', 'requirement')}`")
+    return matches[0]
+
+
+def _explicit_scope_authority(change: dict[str, Any]) -> bool:
+    return change.get("scope_authority") == "explicit-user-scope" and change.get("confirmed") is True
+
+
+def _candidate(evidence: dict[str, Any], path: str) -> dict[str, Any] | None:
+    return next((row for row in evidence.get("candidates", []) if isinstance(row, dict) and row.get("path") == path), None)
+
+
+def _ensure_v2_requirement(evidence: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return _scope_requirement(evidence, row)
+    except ValueError:
+        candidates = [item for item in evidence.get("candidates", []) if isinstance(item, dict)]
+        created = {
+            "requirement_id": str(row.get("requirement_id") or row.get("display_id")),
+            "display_id": str(row.get("display_id", "")),
+            "statement_fingerprint": SCOPE.fingerprint(str(row.get("statement", ""))),
+            "query_terms": REQUIREMENTS.query_terms(str(row.get("statement", ""))),
+            "scope_state": "unresolved",
+            "implementation_owners": [],
+            "inspection_paths": sorted(str(item.get("path")) for item in candidates if item.get("status") == "inspection-only"),
+            "proof_paths": sorted(str(item.get("path")) for item in candidates if item.get("status") == "proof-only"),
+            "excluded_candidates": [
+                {"path": str(item.get("path")), "reason_codes": list(item.get("reason_codes", []))}
+                for item in candidates if item.get("status") in {"excluded", "rejected"}
+            ],
+            "confidence": "none",
+            "reason_codes": ["ownership-evidence-required"],
+        }
+        evidence.setdefault("requirements", []).append(created)
+        return created
+
+
+def _change_v2_owner(
+    root: Path,
+    report: dict[str, Any],
+    row: dict[str, Any],
+    path: str,
+    change: dict[str, Any],
+    *,
+    remove: bool,
+) -> dict[str, Any]:
+    evidence = _v2_scope(report)
+    if evidence is None:
+        return {}
+    requirement = _ensure_v2_requirement(evidence, row)
+    owners = [str(value) for value in requirement.get("implementation_owners", []) if isinstance(value, str)]
+    if remove:
+        requirement["implementation_owners"] = [value for value in owners if value != path]
+        return {"scope_authority": "saved-v2-decision", "confirmed": True}
+
+    candidate = _candidate(evidence, path)
+    if candidate is not None and candidate.get("role") == "test":
+        raise ValueError(
+            f"`{path}` is proof-only test evidence and cannot become an implementation owner in a code-change revision; use a test-only requirement boundary instead"
+        )
+    evidence_backed = bool(
+        candidate
+        and candidate.get("role") == "implementation-owner"
+        and candidate.get("status") == "included"
+        and (candidate.get("evidence_edge_ids") or "explicit-path" in candidate.get("seed_sources", []))
+    )
+    explicit = _explicit_scope_authority(change)
+    if not evidence_backed and not explicit:
+        raise ValueError(
+            f"scope-add for `{path}` needs saved implementation-owner evidence or `scope_authority: explicit-user-scope` with `confirmed: true`"
+        )
+    if candidate is None:
+        generated = SCOPE.candidates_from_seeds(
+            root,
+            [SCOPE.seed(path, "explicit-path", "explicit-user-scope-confirmed")],
+            report.get("navigator", {}).get("task_types", []),
+        )
+        candidate = next((item for item in generated if item.get("path") == path), None)
+        if candidate is None:
+            raise ValueError(f"explicit scope path `{path}` could not be classified inside the target repository")
+        if candidate.get("role") != "implementation-owner":
+            raise ValueError(f"explicit scope path `{path}` is `{candidate.get('role')}`, not an implementation-owner path")
+        evidence.setdefault("candidates", []).append(candidate)
+    elif explicit and candidate.get("role") == "implementation-owner":
+        candidate["status"] = "included"
+        candidate["confidence"] = "high"
+        candidate["seed_sources"] = sorted(set(candidate.get("seed_sources", [])) | {"explicit-path"})
+        candidate["reason_codes"] = sorted(set(candidate.get("reason_codes", [])) | {"explicit-user-scope-confirmed"})
+        provenance = list(candidate.get("evidence_provenance", []))
+        explicit_provenance = {"source": "explicit-path", "strength": "strong", "kind": "discovery-seed"}
+        if explicit_provenance not in provenance:
+            provenance.append(explicit_provenance)
+        candidate["evidence_provenance"] = provenance
+    requirement["implementation_owners"] = sorted(set(owners) | {path})
+    return {
+        "scope_authority": "saved-v2-evidence" if evidence_backed else "explicit-user-scope",
+        "confirmed": True,
+        "evidence_edge_ids": list(candidate.get("evidence_edge_ids", [])),
+    }
+
+
+def _finalize_v2_scope(root: Path, run_id: str, report: dict[str, Any], rows: list[dict[str, Any]], revision: int) -> None:
+    evidence = _v2_scope(report)
+    if evidence is None:
+        return
+    active_display_ids = {str(row.get("display_id")) for row in rows}
+    evidence["requirements"] = [
+        item for item in evidence.get("requirements", [])
+        if isinstance(item, dict) and str(item.get("display_id")) in active_display_ids
+    ]
+    candidates = [item for item in evidence.get("candidates", []) if isinstance(item, dict)]
+    by_path = {str(item.get("path")): item for item in candidates}
+    for row in rows:
+        requirement = _ensure_v2_requirement(evidence, row)
+        requirement["statement_fingerprint"] = SCOPE.fingerprint(str(row.get("statement", "")))
+        requirement["query_terms"] = REQUIREMENTS.query_terms(str(row.get("statement", "")))
+        owners = sorted(set(str(value) for value in requirement.get("implementation_owners", []) if str(value)))
+        requirement["implementation_owners"] = owners
+        requirement["scope_state"] = "resolved" if owners else "unresolved"
+        confidences = [str(by_path.get(path, {}).get("confidence", "none")) for path in owners]
+        requirement["confidence"] = "high" if "high" in confidences else "medium" if "medium" in confidences else "low" if owners else "none"
+        requirement["reason_codes"] = ["planning-revision-owner-confirmed"] if owners else ["ownership-evidence-required"]
+        row["likely_paths"] = owners
+        row["scope_evidence"] = {
+            "decision_fingerprint": None,
+            "implementation_owners": owners,
+            "inspection_paths": list(requirement.get("inspection_paths", [])),
+            "proof_paths": list(requirement.get("proof_paths", [])),
+            "confidence": requirement["confidence"],
+            "reason_codes": list(requirement["reason_codes"]),
+        }
+    evidence["state"] = "resolved" if all(item.get("scope_state") == "resolved" for item in evidence["requirements"]) else "unresolved"
+    evidence["host_reasoning"] = {
+        "state": "recorded",
+        "proposal": {
+            "source": "versioned-planning-revision",
+            "revision": revision,
+            "private_reasoning_excluded": True,
+        },
+    }
+    evidence["summary"] = {
+        "included": sum(item.get("status") == "included" for item in candidates),
+        "inspection_only": sum(item.get("status") == "inspection-only" for item in candidates),
+        "proof_only": sum(item.get("status") == "proof-only" for item in candidates),
+        "excluded": sum(item.get("status") == "excluded" for item in candidates),
+        "rejected": sum(item.get("status") == "rejected" for item in candidates),
+    }
+    investigation = evidence.get("investigation") if isinstance(evidence.get("investigation"), dict) else {}
+    investigation["evidence_packet_fingerprint"] = SCOPE.fingerprint({
+        "requirements": sorted(str(item.get("requirement_id")) for item in evidence["requirements"]),
+        "candidates": sorted((str(item.get("path")), str(item.get("candidate_id"))) for item in candidates),
+        "edges": sorted(str(item.get("edge_id")) for item in evidence.get("edges", []) if isinstance(item, dict)),
+        "limits": evidence.get("limits", {}),
+        "revision": revision,
+    })
+    evidence["investigation"] = investigation
+    evidence.pop("decision_fingerprint", None)
+    evidence["decision_fingerprint"] = SCOPE.fingerprint(evidence)
+    for row in rows:
+        row["scope_evidence"]["decision_fingerprint"] = evidence["decision_fingerprint"]
+    navigator = report.setdefault("navigator", {})
+    navigator["scope_evidence"] = evidence
+    navigator["scope_host_packet"] = SCOPE.host_reasoning_packet(evidence)
+    navigator["scope_quality"] = SCOPE.assess_scope_quality(
+        root,
+        str(report.get("goal", "")),
+        navigator.get("task_types", []),
+        evidence,
+    )
+    if navigator["scope_quality"].get("blocking") is not False:
+        raise ValueError("revised v2 scope does not pass the scope-quality gate: " + ", ".join(navigator["scope_quality"].get("reason_codes", [])))
+    navigator["likely_impacted_files"] = SCOPE.project_likely_impacted(candidates)
+    lock = LOCK.show(root, run_id)
+    binding = SCOPE.decision_binding(root, evidence, lock.get("target_identity", {}))
+    original = lock.get("scope_decision", {})
+    report["scope_decision_revision"] = {
+        "schema_version": "1",
+        "type": "tailtrail-scope-decision-revision",
+        "revision": revision,
+        "base_decision_fingerprint": original.get("decision_fingerprint"),
+        "scope_decision": binding,
+        "authority": "versioned-planning-revision",
+    }
+    descriptor = report.get("workflow_runtime")
+    if isinstance(descriptor, dict):
+        descriptor["scope_binding"] = WORKFLOW_START.scope_binding(report)
+
+
+def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]], change: dict[str, Any], run_id: str) -> dict[str, Any]:
     kind = _safe_text(change.get("kind"), "kind")
     if kind not in CHANGE_KINDS:
         raise ValueError(f"unsupported revision change kind `{kind}`")
@@ -183,15 +484,23 @@ def _apply_change(report: dict[str, Any], rows: list[dict[str, Any]], change: di
                 raise ValueError(f"`{path}` is already in requirement `{row['display_id']}` scope")
             row["likely_paths"] = [*paths, path]
             _add_impact(report, path, reason)
+            normalized.update(_change_v2_owner(root, report, row, path, change, remove=False))
         else:
             if path not in paths:
                 raise ValueError(f"`{path}` is not in requirement `{row['display_id']}` scope")
             row["likely_paths"] = [item for item in paths if item != path]
             _remove_impact_if_unreferenced(report, rows, path)
+            normalized.update(_change_v2_owner(root, report, row, path, change, remove=True))
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "path": path})
     elif kind == "requirement-update":
         row = _requirement(rows, change.get("requirement_uid"))
+        if _v2_scope(report) is not None and change.get("retain_scope_confirmed") is not True:
+            raise ValueError("v2 requirement-update needs `retain_scope_confirmed: true` so ownership is not silently carried across changed wording")
         row["statement"] = _safe_text(change.get("statement"), "statement")
+        if row.get("requirement_id"):
+            row["requirement_id"] = REQUIREMENTS.stable_requirement_id(row["statement"])
+        if row.get("query_terms"):
+            row["query_terms"] = REQUIREMENTS.query_terms(row["statement"])
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "statement": row["statement"]})
     elif kind == "proof-update":
         row = _requirement(rows, change.get("requirement_uid"))
@@ -205,6 +514,7 @@ def _apply_change(report: dict[str, Any], rows: list[dict[str, Any]], change: di
         paths = [_safe_path(item) for item in change.get("likely_paths", [])] if isinstance(change.get("likely_paths", []), list) else []
         row = {
             "requirement_uid": ANCHOR.uid(run_id, statement), "display_id": display_id, "kind": change.get("requirement_kind", "change"),
+            "requirement_id": REQUIREMENTS.stable_requirement_id(statement), "query_terms": REQUIREMENTS.query_terms(statement),
             "statement": statement, "acceptance_criteria": _list_of_text(change.get("acceptance_criteria"), "acceptance_criteria"),
             "preserve_rules": _list_of_text(change.get("preserve_rules"), "preserve_rules"), "likely_paths": list(dict.fromkeys(paths)),
             "evidence_plan": _list_of_text(change.get("evidence_plan"), "evidence_plan"),
@@ -212,6 +522,9 @@ def _apply_change(report: dict[str, Any], rows: list[dict[str, Any]], change: di
         if row["kind"] not in ANCHOR.KINDS:
             raise ValueError("requirement_kind is not allowed")
         rows.append(row)
+        evidence = _v2_scope(report)
+        if evidence is not None:
+            _ensure_v2_requirement(evidence, row)
         for path in row["likely_paths"]:
             _add_impact(report, path, reason)
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": display_id, "statement": statement})
@@ -220,6 +533,12 @@ def _apply_change(report: dict[str, Any], rows: list[dict[str, Any]], change: di
         if len(rows) == 1:
             raise ValueError("a plan revision must retain at least one requirement")
         rows.remove(row)
+        evidence = _v2_scope(report)
+        if evidence is not None:
+            evidence["requirements"] = [
+                item for item in evidence.get("requirements", [])
+                if not isinstance(item, dict) or str(item.get("display_id")) != str(row.get("display_id"))
+            ]
         for path in row.get("likely_paths", []):
             _remove_impact_if_unreferenced(report, rows, str(path))
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"]})
@@ -362,14 +681,23 @@ def propose_aidlc_standard(root: Path, run_id: str, approved_proposal: bool) -> 
     return {**proposal, "artifact": destination.relative_to(root).as_posix()}
 
 
-def propose(root: Path, run_id: str, changes_json: str, approved_proposal: bool) -> dict[str, Any]:
+def propose(
+    root: Path,
+    run_id: str,
+    changes_json: str,
+    approved_proposal: bool,
+    supersede_pending: bool = False,
+) -> dict[str, Any]:
     if approved_proposal is not True:
         raise ValueError("planning revision proposal requires --approved-proposal")
     root = root.resolve()
     LOCK.assert_discussion_allowed(root, run_id)
     state = LOCK.revision_state(root, run_id)
-    if state.get("pending_revision") is not None:
+    pending_revision = state.get("pending_revision")
+    if pending_revision is not None and not supersede_pending:
         raise ValueError(f"plan revision v{state['pending_revision']} is already awaiting approval; approve or supersede it first")
+    if supersede_pending and pending_revision is None:
+        raise ValueError("no pending plan revision exists to supersede")
     payload = LOCK.active_start_report(root, run_id)
     report = copy.deepcopy(payload.get("report"))
     if not isinstance(report, dict):
@@ -389,13 +717,20 @@ def propose(root: Path, run_id: str, changes_json: str, approved_proposal: bool)
         return _route_aidlc(root, run_id, report, context)
     rows = _requirements(report, root, run_id)
     base_rows = copy.deepcopy(rows)
-    normalized_changes = [_apply_change(report, rows, item, run_id) for item in changes]
+    number = max(int(state.get("active_revision", 1)), int(pending_revision or 0)) + 1
+    normalized_changes = [_apply_change(root, report, rows, item, run_id) for item in changes]
+    removed_display_ids = {
+        str(item.get("display_id"))
+        for item in normalized_changes
+        if item.get("kind") == "requirement-remove"
+    }
+    _sync_requirement_projections(report, rows, removed_display_ids)
     navigator = report.setdefault("navigator", {})
     navigator["requirement_matrix"] = rows
     # Hands-free v1 anchors normally derive rows from their feature program.
     # A reviewed IP-3 delta is the explicit replacement boundary for this run.
     navigator["revision_requirement_matrix"] = True
-    number = int(state.get("active_revision", 1)) + 1
+    _finalize_v2_scope(root, run_id, report, rows, number)
     proposed = {
         "schema_version": "1", "type": "tailtrail-plan-revision", "run_id": run_id,
         "revision": number, "base_revision": int(state.get("active_revision", 1)), "state": "awaiting-approval",
@@ -405,13 +740,33 @@ def propose(root: Path, run_id: str, changes_json: str, approved_proposal: bool)
         "rationale": [{"kind": item["kind"], "requirement_uid": item.get("requirement_uid"), "reason": item["reason"]} for item in normalized_changes],
         "boundary": BOUNDARY, "created_at": utc_now(), "proposed_report": report,
     }
+    if pending_revision is not None:
+        proposed["supersedes_revision"] = int(pending_revision)
     with LEDGER.RunLock(LEDGER.state_dir(root, run_id) / ".lock"):
         destination = revision_path(root, run_id, number)
         if destination.exists():
             raise ValueError(f"plan revision v{number} already exists")
         LEDGER.atomic_json(destination, proposed)
-        next_state = {**state, "pending_revision": number, "pending_artifact": destination.relative_to(root).as_posix()}
+        superseded = list(state.get("superseded_revisions", [])) if isinstance(state.get("superseded_revisions", []), list) else []
+        if pending_revision is not None:
+            superseded.append({
+                "revision": int(pending_revision),
+                "superseded_by": number,
+                "artifact": state.get("pending_artifact"),
+            })
+        next_state = {
+            **state,
+            "pending_revision": number,
+            "pending_artifact": destination.relative_to(root).as_posix(),
+            "superseded_revisions": superseded,
+        }
         LEDGER.atomic_json(LOCK.revision_state_path(root, run_id), next_state)
+    if pending_revision is not None:
+        LEDGER.append_event(root, run_id, "planning_revision_superseded", {
+            "revision": int(pending_revision),
+            "superseded_by": number,
+            "replacement_artifact": destination.relative_to(root).as_posix(),
+        })
     LEDGER.append_event(root, run_id, "planning_revision_proposed", {
         "revision": number, "base_revision": proposed["base_revision"], "artifact": destination.relative_to(root).as_posix(),
         "requirement_uids": [item["requirement_uid"] for item in normalized_changes if item.get("requirement_uid")],
@@ -428,7 +783,13 @@ def show(root: Path, run_id: str, revision: int | None = None) -> dict[str, Any]
     path = revision_path(root, run_id, int(number))
     if not path.is_file():
         raise ValueError(f"plan revision v{number} does not exist for run `{run_id}`")
-    return {**json.loads(path.read_text(encoding="utf-8")), "artifact": path.relative_to(root).as_posix()}
+    payload = {**json.loads(path.read_text(encoding="utf-8")), "artifact": path.relative_to(root).as_posix()}
+    for item in state.get("superseded_revisions", []):
+        if isinstance(item, dict) and item.get("revision") == int(number):
+            payload["state"] = "superseded"
+            payload["superseded_by_revision"] = item.get("superseded_by")
+            break
+    return payload
 
 
 def authority_show(root: Path, run_id: str, sequence: int | None = None) -> dict[str, Any]:
@@ -524,7 +885,22 @@ def render(payload: dict[str, Any]) -> str:
         target = item.get("display_id", item.get("requirement_uid", "plan"))
         lines.append(f"- **{target}:** `{item['kind']}` — {item['reason']}")
     delta = payload["delta_summary"]
-    lines.extend(["", "## Delta", "", f"- Requirement rows changed: {len(delta['requirements_changed'])}", f"- Scope added: {', '.join(f'`{item}`' for item in delta['scope_added']) or 'none'}", f"- Scope removed: {', '.join(f'`{item}`' for item in delta['scope_removed']) or 'none'}", f"- Proof rows changed: {', '.join(f'`{item}`' for item in delta['proof_changed']) or 'none'}", "", "## Approval", "", f"- Approve exactly v{payload['revision']} to freeze this revised plan into the immutable anchor and activate this same run.", "- A v1 approval cannot activate this v2-or-later proposal.", ""])
+    lines.extend(["", "## Delta", "", f"- Requirement rows changed: {len(delta['requirements_changed'])}", f"- Scope added: {', '.join(f'`{item}`' for item in delta['scope_added']) or 'none'}", f"- Scope removed: {', '.join(f'`{item}`' for item in delta['scope_removed']) or 'none'}", f"- Proof rows changed: {', '.join(f'`{item}`' for item in delta['proof_changed']) or 'none'}"])
+    report = payload.get("proposed_report", {})
+    navigator = report.get("navigator", {}) if isinstance(report, dict) else {}
+    evidence = navigator.get("scope_evidence") if isinstance(navigator, dict) else None
+    if isinstance(evidence, dict) and str(evidence.get("schema_version")) == "2":
+        projection = SCOPE.role_projection(evidence)
+        lines.extend(["", "## Revised scope roles", "", f"- Decision fingerprint: `{projection.get('decision_fingerprint')}`."])
+        for title, key in (("Implementation owners", "implementation_owners"), ("Inspection paths", "inspection_paths"), ("Existing proof paths", "proof_paths")):
+            lines.extend(["", f"### {title}", "", "| Path | Requirements | Confidence |", "| --- | --- | --- |"])
+            rows = projection.get(key, [])
+            if rows:
+                for row in rows:
+                    lines.append(f"| `{row.get('path')}` | {', '.join(row.get('requirement_ids', []))} | `{row.get('confidence')}` |")
+            else:
+                lines.append("| none | none | `none` |")
+    lines.extend(["", "## Approval", "", f"- Approve exactly v{payload['revision']} to freeze this revised plan into the immutable anchor and activate this same run.", "- A v1 approval cannot activate this v2-or-later proposal.", ""])
     return "\n".join(lines)
 
 
@@ -557,6 +933,7 @@ def main() -> int:
     source.add_argument("--changes", help="JSON list of material revision changes.")
     source.add_argument("--changes-base64", help="Base64 UTF-8 JSON changes for Windows shell safety.")
     propose_parser.add_argument("--approved-proposal", action="store_true")
+    propose_parser.add_argument("--supersede-pending", action="store_true", help="Preserve and replace the current unapproved pending revision.")
     show_parser = sub.add_parser("show", help="Show one saved plan revision.")
     show_parser.add_argument("--root", type=Path, default=Path.cwd())
     show_parser.add_argument("--run-id", required=True)
@@ -586,7 +963,7 @@ def main() -> int:
             if args.changes_base64 is not None:
                 import base64
                 changes = base64.b64decode(args.changes_base64, validate=True).decode("utf-8")
-            result = propose(args.root, args.run_id, str(changes), args.approved_proposal)
+            result = propose(args.root, args.run_id, str(changes), args.approved_proposal, args.supersede_pending)
             print(render_authority_route(result) if result.get("type") == "tailtrail-planning-authority-route" else render(result))
         elif args.command == "show":
             print(json.dumps(show(args.root, args.run_id, args.revision), indent=2, sort_keys=True))

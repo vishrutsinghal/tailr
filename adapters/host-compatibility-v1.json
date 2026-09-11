@@ -89,5 +89,13 @@
   ],
   "runtime_scenarios": "adapters/runtime-scenarios-v1.json",
   "runtime_receipt_schema": "schemas/host-runtime-receipt.schema.json",
-  "boundary": "Contract-tested means local adapter, installer, composition, diagnostic, and negative-assurance tests passed. It is not runtime-observed or supported. No host is runtime-passed without six fresh validated receipts, and no host is supported until the E5 and E10 release matrices pass."
+  "scope_scenarios": "adapters/navigator-scope-scenarios-v2.json",
+  "scope_scenario_schema": "schemas/host-scope-conformance.schema.json",
+  "scope_reasoning_scenarios": "adapters/navigator-host-reasoning-scenarios-v1.json",
+  "scope_reasoning_scenario_schema": "schemas/host-scope-reasoning-conformance.schema.json",
+  "requirement_routing_scenarios": "adapters/requirement-routing-scenarios-v1.json",
+  "requirement_routing_scenario_schema": "schemas/host-requirement-routing-conformance.schema.json",
+  "requirement_routing_scenarios": "adapters/requirement-routing-scenarios-v1.json",
+  "requirement_routing_scenario_schema": "schemas/host-requirement-routing-conformance.schema.json",
+  "boundary": "Contract-tested means local adapter, installer, composition, diagnostic, scope-v2, and negative-assurance tests passed. It is not runtime-observed or supported. No host is runtime-passed without six fresh validated lifecycle receipts, and no host is supported until the E5 and E10 release matrices pass."
 }

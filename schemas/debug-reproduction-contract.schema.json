@@ -25,7 +25,8 @@
         "expected_exit_code_before_fix": {"type": "integer"},
         "required_output": {"type": "array", "items": {"type": "string"}},
         "expected_exit_code_after_fix": {"type": "integer"},
-        "required_output_after_fix": {"type": "array", "items": {"type": "string"}}
+        "required_output_after_fix": {"type": "array", "items": {"type": "string"}},
+        "max_reproduction_attempts": {"type": "integer", "minimum": 1, "maximum": 5}
       }
     },
     "unresolved_fields": {"type": "array", "uniqueItems": true, "items": {"enum": ["domain", "trigger", "expected", "actual", "reproduction_method", "preserve_rules", "safety_boundary"]}},

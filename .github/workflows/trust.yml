@@ -35,8 +35,11 @@ jobs:
         run: python scripts/public-doc-audit.py
       - name: Validate public release candidate
         run: python scripts/release-check.py
+      - name: Prove Navigator scope migration and real-run rollback lifecycle
+        if: matrix.python-version == '3.12'
+        run: python scripts/tailtrail.py eval scope release-proof --root . --format json
       - name: Run dependency-free unit and contract tests
-        run: python -m unittest discover -s tests -p "test_*.py" -v
+        run: python scripts/run-tests.py --jobs 4
       - name: Build and inspect self-contained package artifacts
         if: matrix.python-version == '3.12'
         env:

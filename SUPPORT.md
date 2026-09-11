@@ -87,6 +87,44 @@ Installer incidents should include the redacted host, profile, transaction ID,
 `status`, and `doctor` result. Retained transactions should not be deleted until
 the affected update, recovery, rollback, or uninstall is resolved.
 
+## Navigator scope release rollback
+
+If v2 repository-scope investigation is unhealthy, diagnose it without
+creating a run:
+
+```bash
+tailtrail eval scope rollback-status --root . --format json
+tailtrail eval scope migration --root . --format json
+```
+
+An operator may then enable the common fail-closed release switch. This is an
+availability rollback, not a rollback to lexical matching:
+
+```bash
+tailtrail eval scope rollback-enable --root . \
+  --reason-code scope-release-incident --approved --format json
+```
+
+While enabled, every new CLI or MCP Start returns
+`scope-investigation-unavailable` before repository investigation and before a
+Planning Lock or run directory is created. Existing v1 runs may finish only
+under their saved authority; existing v2 runs retain their exact fingerprint.
+Neither migration audit nor the switch rewrites or deletes `.tailtrail/runs`.
+
+After installing and verifying a corrected signed payload, disable the switch:
+
+```bash
+tailtrail eval scope rollback-disable --root . \
+  --reason-code scope-release-recovered --approved --format json
+tailtrail eval scope release-proof --root . --format json
+```
+
+`doctor`/`status` report an old payload as `update-available`, and host
+diagnostics report an adapter contract mismatch when installed guidance is
+older than the active package. If an update itself fails, use the installer
+transaction ID with `tailtrail rollback --to <transaction-id>`; rollback
+restores the prior managed payload and intentionally leaves saved runs intact.
+
 ## Enterprise Adapter Administrator Runbook
 
 This is the minimum operational runbook for the optional local, provider-neutral

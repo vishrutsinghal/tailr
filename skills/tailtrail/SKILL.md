@@ -98,6 +98,14 @@ same explicit command. A `hands-free` or `end-to-end` request requires a
 comprehensive Program Delivery plan—feature requirements, dependency order,
 first active slice, and approval gate—before any execution.
 
+When the current user message explicitly names TailTrail and includes a task
+goal, treat it as a planning-only Start even without command syntax or file
+paths. Preserve the task words as the goal and let Navigator discover scope and
+controls. Requests asking only for an approach route to `guide`; active-run why
+questions route to `discuss`. Never treat `looks good`, `go ahead`, or similar
+wording as approval. `tailtrail intent resolve "<words>"` and MCP
+`intent_resolve` are read-only recommendations and grant no authority.
+
 For broad, risky, ambiguous, multi-team, regulated, or long-running work, use `AIDLC.md` at the smallest useful depth. Use `templates/change-brief.md` only for non-trivial work, and resume from `aidlc-docs/aidlc-state.md` instead of reloading every lifecycle artifact.
 
 For non-trivial, risky, dependency-sensitive, lifecycle-driven, or unclear work, apply `GUARDRAILS.md`. Use only the relevant guardrail sections; do not load the full file for tiny low-risk edits.

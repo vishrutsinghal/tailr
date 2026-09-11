@@ -1,0 +1,341 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/navigator-scope-evidence.schema.json",
+  "title": "TailTrail Navigator Scope Evidence V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "target_identity_fingerprint",
+    "goal_fingerprint",
+    "state",
+    "requirements",
+    "candidates",
+    "edges",
+    "host_reasoning",
+    "investigation",
+    "limits",
+    "summary",
+    "decision_fingerprint"
+  ],
+  "properties": {
+    "schema_version": { "const": "2" },
+    "type": { "const": "tailtrail-navigator-scope-evidence" },
+    "target_identity_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "goal_fingerprint": { "$ref": "#/$defs/fingerprint" },
+    "state": { "enum": ["resolved", "partially-resolved", "unresolved", "ambiguous", "blocked-by-limits"] },
+    "requirements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/requirement" }
+    },
+    "candidates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/candidate" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "host_reasoning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "proposal"],
+      "properties": {
+        "state": { "enum": ["not-requested", "requested", "recorded", "rejected"] },
+        "proposal": { "type": ["object", "null"] }
+      }
+    },
+    "investigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "files_read", "bytes_read", "relationship_hops", "stop_reason", "cache", "limits", "evidence_packet_fingerprint"],
+      "properties": {
+        "state": { "enum": ["not-run", "resolved", "unresolved", "ambiguous", "blocked-by-limits"] },
+        "files_read": { "type": "integer", "minimum": 0 },
+        "bytes_read": { "type": "integer", "minimum": 0 },
+        "relationship_hops": { "type": "integer", "minimum": 0 },
+        "stop_reason": { "type": "string", "minLength": 1 },
+        "decision_reason": { "type": "string", "minLength": 1 },
+        "resolution_failure_reason": { "type": ["string", "null"], "minLength": 1 },
+        "limit_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "termination_reason", "cache_validation_files_read", "broad_files_read", "broad_file_limit", "relationship_files_read", "relationship_file_limit", "relationship_candidates", "config_files_read", "config_file_limit", "reason_codes"],
+          "properties": {
+            "state": { "enum": ["not-reached", "broad-limit-reached", "relationship-limit-reached", "byte-limit-reached"] },
+            "termination_reason": { "enum": ["inventory-exhausted", "broad-file-read-limit-reached", "relationship-file-read-limit-reached", "total-byte-limit-reached"] },
+            "cache_validation_files_read": { "type": "integer", "minimum": 0 },
+            "broad_files_read": { "type": "integer", "minimum": 0 },
+            "broad_file_limit": { "type": "integer", "minimum": 1 },
+            "relationship_files_read": { "type": "integer", "minimum": 0 },
+            "relationship_file_limit": { "type": "integer", "minimum": 0 },
+            "relationship_candidates": { "type": "integer", "minimum": 0 },
+            "config_files_read": { "type": "integer", "minimum": 0 },
+            "config_file_limit": { "type": "integer", "minimum": 1 },
+            "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+          }
+        },
+        "cache": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason_codes"],
+          "properties": {
+            "status": { "enum": ["not-checked", "missing", "fresh", "stale", "invalid", "disabled"] },
+            "reason_codes": { "$ref": "#/$defs/reasonCodes" },
+            "files_read": { "type": "integer", "minimum": 0 },
+            "bytes_read": { "type": "integer", "minimum": 0 },
+            "eligible_paths": { "type": "integer", "minimum": 0 },
+            "selected_paths": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "module_resolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["profile", "state", "references_checked", "resolved", "ambiguous", "unresolved", "rejected", "config_paths", "reason_codes"],
+          "properties": {
+            "profile": { "const": "javascript-typescript" },
+            "state": { "enum": ["not-configured", "configured", "ambiguous"] },
+            "references_checked": { "type": "integer", "minimum": 0 },
+            "resolved": { "type": "integer", "minimum": 0 },
+            "ambiguous": { "type": "integer", "minimum": 0 },
+            "unresolved": { "type": "integer", "minimum": 0 },
+            "rejected": { "type": "integer", "minimum": 0 },
+            "config_paths": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+            "config_files_read": { "type": "integer", "minimum": 0 },
+            "config_bytes_read": { "type": "integer", "minimum": 0 },
+            "config_limits": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["max_config_files", "max_config_bytes", "max_extends_depth", "max_alias_targets"],
+              "properties": {
+                "max_config_files": { "type": "integer", "minimum": 1 },
+                "max_config_bytes": { "type": "integer", "minimum": 1 },
+                "max_extends_depth": { "type": "integer", "minimum": 0 },
+                "max_alias_targets": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+          }
+        },
+        "behavior_chains": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "chains", "reason_codes"],
+          "properties": {
+            "state": { "enum": ["not-exercised", "complete", "partial", "conflicting", "unresolved"] },
+            "chains": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["renderer_path", "source_path", "state", "variant", "fact_kinds", "reason_codes"],
+                "properties": {
+                  "renderer_path": { "$ref": "#/$defs/path" },
+                  "source_path": { "$ref": "#/$defs/path" },
+                  "state": { "enum": ["complete", "partial", "incomplete", "unresolved"] },
+                  "variant": { "enum": ["none", "returned-value-render", "caught-error-state-render", "caught-error-render"] },
+                  "fact_kinds": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": { "enum": ["import-binding", "call", "call-result", "catch-binding", "state-write", "render-use"] }
+                  },
+                  "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+                }
+              }
+            },
+            "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+          }
+        },
+        "ownership_selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["strategy", "selected_rule", "qualified_candidates", "selected_candidates", "rule_counts", "reason_codes"],
+          "properties": {
+            "strategy": { "const": "qualification-precedence" },
+            "selected_rule": {
+              "type": ["string", "null"],
+              "enum": [null, "explicit-user-scope", "ui-renderer-behavior", "task-specific-behavior", "unique-exact-literal", "task-specific-relationship", "task-specific-definition"]
+            },
+            "qualified_candidates": { "type": "integer", "minimum": 0 },
+            "selected_candidates": { "type": "integer", "minimum": 0 },
+            "rule_counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["explicit-user-scope", "ui-renderer-behavior", "task-specific-behavior", "unique-exact-literal", "task-specific-relationship", "task-specific-definition"],
+              "properties": {
+                "explicit-user-scope": { "type": "integer", "minimum": 0 },
+                "ui-renderer-behavior": { "type": "integer", "minimum": 0 },
+                "task-specific-behavior": { "type": "integer", "minimum": 0 },
+                "unique-exact-literal": { "type": "integer", "minimum": 0 },
+                "task-specific-relationship": { "type": "integer", "minimum": 0 },
+                "task-specific-definition": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+          }
+        },
+        "limits": { "$ref": "#/$defs/limits" },
+        "evidence_packet_fingerprint": { "$ref": "#/$defs/fingerprint" }
+      }
+    },
+    "limits": {
+      "$ref": "#/$defs/limits"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included", "inspection_only", "proof_only", "excluded", "rejected"],
+      "properties": {
+        "included": { "type": "integer", "minimum": 0 },
+        "inspection_only": { "type": "integer", "minimum": 0 },
+        "proof_only": { "type": "integer", "minimum": 0 },
+        "excluded": { "type": "integer", "minimum": 0 },
+        "rejected": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "decision_fingerprint": { "$ref": "#/$defs/fingerprint" }
+  },
+  "$defs": {
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_files", "initial_file_reads", "escalation_file_reads", "max_file_bytes", "max_total_read_bytes", "relationship_hops", "retained_owners"],
+      "properties": {
+        "candidate_files": { "type": "integer", "minimum": 1 },
+        "initial_file_reads": { "type": "integer", "minimum": 1 },
+        "escalation_file_reads": { "type": "integer", "minimum": 0 },
+        "cache_validation_file_reads": { "type": "integer", "minimum": 0 },
+        "relationship_file_reads": { "type": "integer", "minimum": 0 },
+        "max_file_bytes": { "type": "integer", "minimum": 1 },
+        "max_total_read_bytes": { "type": "integer", "minimum": 1 },
+        "max_cache_validation_bytes": { "type": "integer", "minimum": 1 },
+        "relationship_hops": { "type": "integer", "minimum": 0 },
+        "retained_owners": { "type": "integer", "minimum": 1 },
+        "scope_question_options": { "type": "integer", "minimum": 1, "maximum": 3 }
+      }
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "reasonCodes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id",
+        "display_id",
+        "statement_fingerprint",
+        "query_terms",
+        "scope_state",
+        "implementation_owners",
+        "inspection_paths",
+        "proof_paths",
+        "excluded_candidates",
+        "confidence",
+        "reason_codes"
+      ],
+      "properties": {
+        "requirement_id": { "type": "string", "minLength": 1 },
+        "display_id": { "type": "string", "minLength": 1 },
+        "statement_fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "query_terms": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "scope_state": { "enum": ["resolved", "partially-resolved", "unresolved", "ambiguous", "blocked-by-limits"] },
+        "implementation_owners": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+        "inspection_paths": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+        "proof_paths": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/path" } },
+        "excluded_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "reason_codes"],
+            "properties": {
+              "path": { "$ref": "#/$defs/path" },
+              "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+            }
+          }
+        },
+        "confidence": { "enum": ["none", "low", "medium", "high"] },
+        "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "path",
+        "role",
+        "status",
+        "seed_sources",
+        "evidence_edge_ids",
+        "confidence",
+        "reason_codes",
+        "evidence_provenance"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "pattern": "^cand-[0-9a-f]{12}$" },
+        "path": { "$ref": "#/$defs/path" },
+        "role": { "enum": ["implementation-owner", "caller", "literal-emitter", "test", "configuration", "manifest", "documentation", "reference", "generated", "managed-tooling", "unknown"] },
+        "status": { "enum": ["included", "inspection-only", "proof-only", "excluded", "rejected"] },
+        "seed_sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["explicit-path", "fresh-graph", "git-change", "lexical-body", "lexical-path", "module-name", "repository-structure", "saved-graph", "symbol-name"] }
+        },
+        "evidence_edge_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^edge-[0-9a-f]{12}$" }
+        },
+        "confidence": { "enum": ["none", "low", "medium", "high"] },
+        "reason_codes": { "$ref": "#/$defs/reasonCodes" },
+        "evidence_provenance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "strength", "kind"],
+            "properties": {
+              "source": { "type": "string", "minLength": 1 },
+              "strength": { "enum": ["none", "weak", "medium", "strong"] },
+              "kind": { "const": "discovery-seed" }
+            }
+          }
+        },
+        "content_fingerprint": { "$ref": "#/$defs/fingerprint" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "from_candidate_id", "to_candidate_id", "kind", "strength", "reason_codes"],
+      "properties": {
+        "edge_id": { "type": "string", "pattern": "^edge-[0-9a-f]{12}$" },
+        "from_candidate_id": { "type": "string", "pattern": "^cand-[0-9a-f]{12}$" },
+        "to_candidate_id": { "type": "string", "pattern": "^cand-[0-9a-f]{12}$" },
+        "kind": { "type": "string", "minLength": 1 },
+        "strength": { "enum": ["weak", "medium", "strong"] },
+        "reason_codes": { "$ref": "#/$defs/reasonCodes" }
+      }
+    }
+  }
+}

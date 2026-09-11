@@ -75,6 +75,8 @@ class HostRuntimeConformanceTests(unittest.TestCase):
             root = Path(tmp); result = runtime.prepare(root, "codex")
         self.assertEqual(result["state"], "prepared")
         self.assertEqual(len(result["scenarios"]), 6)
+        self.assertEqual(result["scope_contract_version"], "v2")
+        self.assertEqual({row["id"] for row in result["scope_scenarios"]}, {"resolved", "unresolved", "conflicting", "docs-only", "test-only", "debug-start"})
         self.assertNotIn("source_code", json.dumps(result))
 
     def test_all_six_fresh_receipts_produce_runtime_pass_separate_from_instruction_pass(self) -> None:
@@ -86,6 +88,8 @@ class HostRuntimeConformanceTests(unittest.TestCase):
                 self.assertEqual(result["evaluation"], "passed")
             report = runtime.report(root, "codex")
         self.assertEqual(report["instruction_conformance"]["status"], "passed")
+        self.assertEqual(report["scope_contract_version"], "v2")
+        self.assertEqual(set(report["scope_scenarios"]), {"resolved", "unresolved", "conflicting", "docs-only", "test-only", "debug-start"})
         self.assertEqual(report["runtime_conformance"][0]["runtime_status"], "passed")
         self.assertEqual(report["runtime_conformance"][0]["scenario_coverage"], 6)
 

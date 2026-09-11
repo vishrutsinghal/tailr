@@ -34,7 +34,7 @@ STAGE_REASONS = {
     "running": {"stage-started", "approval-granted"}, "passed": {"stage-passed"},
     "failed": {"stage-failed", "contract-failure"},
     "blocked": {"stage-blocked", "blocked-missing-authority", "blocked-missing-evidence", "external-dependency", "recovery-required"},
-    "skipped": {"stage-skipped-approved"}, "stale": {"input-stale"},
+    "skipped": {"stage-skipped-approved"}, "stale": {"input-stale", "user-stop-before-result"},
     "cancelled": {"stage-cancelled", "workflow-cancelled"},
 }
 

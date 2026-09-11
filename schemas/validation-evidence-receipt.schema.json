@@ -1,1 +1,24 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["schema_version","type","requirement_uid","tier","command","outcome","environment","asserted_behavior","evidence_label"],"properties":{"schema_version":{"const":"1"},"type":{"const":"tailtrail-validation-evidence-receipt"},"requirement_uid":{"type":"string"},"tier":{"enum":["unit","component","integration","contract","e2e","infrastructure","release-smoke"]},"outcome":{"enum":["pass","fail","blocked","timed-out","unavailable"]}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TailTrail Validation Evidence Receipt",
+  "type": "object",
+  "required": ["schema_version", "type", "tier", "command", "outcome", "environment", "asserted_behavior", "evidence_label"],
+  "anyOf": [{"required": ["requirement_uid"]}, {"required": ["requirement_uids"]}],
+  "properties": {
+    "schema_version": {"enum": ["1", "2"]}, "type": {"const": "tailtrail-validation-evidence-receipt"},
+    "requirement_uid": {"type": "string"},
+    "requirement_uids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "tier": {"enum": ["unit", "component", "integration", "contract", "e2e", "infrastructure", "release-smoke", "behaviour"]},
+    "tiers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["unit", "component", "integration", "contract", "e2e", "infrastructure", "release-smoke", "behaviour"]}},
+    "scenario_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "command": {"type": "string"}, "command_label": {"type": "string"},
+    "outcome": {"enum": ["pass", "fail", "blocked", "timed-out", "unavailable"]},
+    "environment": {"type": "string"}, "asserted_behavior": {"type": "string"}, "artifact_path": {"type": "string"},
+    "evidence_label": {"enum": ["local-command", "managed-command", "ci-receipt", "host-telemetry"]},
+    "evidence_quality": {"enum": ["trusted", "attested", "declared"]}, "collector": {"type": "string"},
+    "exit_code": {"type": "integer"}, "started_at": {"type": "string"}, "finished_at": {"type": "string"},
+    "duration_ms": {"type": "integer", "minimum": 0}, "stdout_artifact": {"type": "string"}, "stderr_artifact": {"type": "string"},
+    "stdout_sha256": {"type": "string"}, "stderr_sha256": {"type": "string"}, "closure_record_id": {"type": "string"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/debug-host-diagnosis.schema.json",
+  "title": "TailTrail host-assisted Debug Start diagnosis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "host", "root", "goal_fingerprint", "authority", "checks_performed", "evidence", "findings", "test_cases", "reproduction", "unknowns", "proposal"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-host-debug-diagnosis"},
+    "host": {"enum": ["codex", "copilot", "claude"]},
+    "root": {"type": "string", "minLength": 1},
+    "goal_fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "authority": {"const": "advisory-only"},
+    "checks_performed": {"type": "array", "maxItems": 8, "items": {"enum": ["artifact-read", "configuration-read", "source-read", "static-search", "test-read"]}},
+    "evidence": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"$ref": "#/$defs/evidence"}},
+    "behavior_trace": {"$ref": "#/$defs/behavior_trace"},
+    "findings": {"type": "array", "minItems": 1, "maxItems": 10, "items": {"$ref": "#/$defs/finding"}},
+    "test_cases": {"type": "array", "minItems": 1, "maxItems": 12, "items": {"$ref": "#/$defs/test"}},
+    "reproduction": {"$ref": "#/$defs/reproduction"},
+    "unknowns": {"type": "array", "maxItems": 10, "items": {"type": "string", "minLength": 1}},
+    "preflight": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["packet_fingerprint", "elapsed_ms", "files_considered", "files_read", "bytes_read", "estimated_tokens", "termination_reason", "host_reasoning_passes"],
+      "properties": {
+        "packet_fingerprint": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "elapsed_ms": {"type": "integer", "minimum": 0},
+        "files_considered": {"type": "integer", "minimum": 0},
+        "files_read": {"type": "integer", "minimum": 0},
+        "bytes_read": {"type": "integer", "minimum": 0},
+        "estimated_tokens": {"type": "integer", "minimum": 0},
+        "termination_reason": {"type": "string", "minLength": 1},
+        "host_reasoning_passes": {"const": 1},
+        "reuse_key": {"type": ["string", "null"], "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "requirement_refinement": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["statement", "acceptance_criteria", "preserve_rules", "evidence_ids"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1},
+        "acceptance_criteria": {"type": "array", "maxItems": 10, "items": {"type": "string", "minLength": 1}},
+        "preserve_rules": {"type": "array", "maxItems": 10, "items": {"type": "string", "minLength": 1}},
+        "evidence_ids": {"type": "array", "minItems": 1, "maxItems": 10, "items": {"type": "string"}}
+      }
+    },
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route", "requirement_id", "owner_evidence_ids", "proof_evidence_ids", "trace_node_ids", "finding_ids", "test_case_ids", "boundary"],
+      "properties": {
+        "route": {"enum": ["prepare-reproduction", "request-more-evidence"]},
+        "requirement_id": {"const": "REQ-DEBUG-01"},
+        "owner_evidence_ids": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"type": "string"}},
+        "proof_evidence_ids": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"type": "string"}},
+        "trace_node_ids": {"type": "array", "maxItems": 30, "uniqueItems": true, "items": {"type": "string"}},
+        "finding_ids": {"type": "array", "maxItems": 10, "uniqueItems": true, "items": {"type": "string"}},
+        "test_case_ids": {"type": "array", "maxItems": 12, "uniqueItems": true, "items": {"type": "string"}},
+        "boundary": {"const": "advisory-only; no approval or execution authority"}
+      }
+    },
+    "safe_fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "trigger", "trace_state", "correction_scope", "user_input", "reproduction_sources", "next_action", "boundary"],
+      "properties": {
+        "state": {"enum": ["not-needed", "continue-approved-debug-investigation", "awaiting-reproduction-input"]},
+        "trigger": {"enum": ["trace-resolved", "local-helper-unresolved", "reproduction-and-external-context-unavailable"]},
+        "trace_state": {"enum": ["partial", "resolved-to-producer"]},
+        "correction_scope": {"const": "blocked"},
+        "user_input": {"enum": ["not-required", "required"]},
+        "reproduction_sources": {"type": "array", "uniqueItems": true, "items": {"enum": ["artifact", "candidate-command", "bounded-procedure", "focused-reproduction-proof"]}},
+        "next_action": {"type": "string", "minLength": 1},
+        "boundary": {"type": "string", "minLength": 1}
+      }
+    },
+    "status": {"const": "preliminary"},
+    "token_estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planned_working_set_tokens", "full_scoped_file_ceiling_tokens", "estimated_context_reduction_percent", "confidence", "by_role_tokens", "basis"],
+      "properties": {
+        "planned_working_set_tokens": {"type": "integer", "minimum": 0},
+        "full_scoped_file_ceiling_tokens": {"type": "integer", "minimum": 0},
+        "estimated_context_reduction_percent": {"type": "number", "minimum": 0, "maximum": 100},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "by_role_tokens": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "basis": {"type": "string"}
+      }
+    },
+    "evidence_completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checks", "gaps", "boundary"],
+      "properties": {
+        "status": {"enum": ["complete", "incomplete"]},
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "status", "detail"],
+            "properties": {
+              "id": {"type": "string"},
+              "status": {"enum": ["pass", "incomplete"]},
+              "detail": {"type": "string"}
+            }
+          }
+        },
+        "gaps": {"type": "array", "items": {"type": "string"}},
+        "boundary": {"type": "string"}
+      }
+    },
+    "boundary": {"type": "string"}
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "sha256", "role", "kind", "symbols", "start_line", "end_line", "finding"],
+      "properties": {
+        "id": {"type": "string"}, "path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "role": {"enum": ["implementation-owner", "inspection", "proof", "configuration"]},
+        "behavior_roles": {"type": "array", "maxItems": 6, "items": {"enum": ["output-renderer", "data-transfer", "data-producer", "proof", "configuration", "candidate-only"]}},
+        "kind": {"enum": ["artifact-read", "configuration-read", "source-read", "static-search", "test-read"]},
+        "symbols": {"type": "array", "maxItems": 10, "items": {"type": "string"}},
+        "start_line": {"type": "integer", "minimum": 1}, "end_line": {"type": "integer", "minimum": 1}, "finding": {"type": "string", "minLength": 1}
+      }
+    },
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "statement", "state", "confidence", "evidence_ids"],
+      "properties": {"id": {"type": "string"}, "statement": {"type": "string"}, "state": {"enum": ["observation", "hypothesis"]}, "confidence": {"enum": ["low", "medium", "high"]}, "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}}}
+    },
+    "test": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "tier", "state", "statement"],
+      "properties": {"id": {"type": "string"}, "tier": {"enum": ["reproduction", "regression", "behaviour", "unit", "component", "integration", "static"]}, "state": {"enum": ["existing", "proposed"]}, "statement": {"type": "string"}, "path": {"type": ["string", "null"]}, "command": {"type": ["string", "null"]}, "proof_boundaries": {"type": "array", "maxItems": 3, "uniqueItems": true, "items": {"enum": ["composition", "renderer", "final-output"]}}}
+    },
+    "reproduction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "observation", "expected", "artifact_refs", "proposed_steps"],
+      "properties": {"status": {"enum": ["not-run", "artifact-inspected", "candidate-identified"]}, "observation": {"type": "string"}, "expected": {"type": "string"}, "artifact_refs": {"type": "array", "maxItems": 8, "items": {"type": "string"}}, "proposed_steps": {"type": "array", "maxItems": 10, "items": {"type": "string"}}, "candidate_command": {"type": ["string", "null"]}}
+    },
+    "behavior_trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direction", "state", "nodes", "edges", "divergence_candidates", "boundary"],
+      "properties": {
+        "direction": {"const": "observed-output-to-producer"},
+        "state": {"enum": ["partial", "resolved-to-producer"]},
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": {
+            "type": "object",
+            "required": ["id", "role", "path", "evidence_id"],
+            "properties": {
+              "id": {"type": "string"},
+              "role": {"enum": ["observed-output", "output-renderer", "data-transfer", "data-producer", "proof", "configuration", "candidate-only"]},
+              "path": {"type": "string"},
+              "symbols": {"type": "array", "items": {"type": "string"}},
+              "evidence_id": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "required": ["id", "from", "to", "relationship"],
+            "properties": {
+              "id": {"type": "string"},
+              "from": {"type": "string"},
+              "to": {"type": "string"},
+              "relationship": {"enum": ["rendered-by", "reads-from", "receives-from", "exercises"]}
+            }
+          }
+        },
+        "divergence_candidates": {"type": "array", "maxItems": 20, "items": {"type": "string"}},
+        "topology": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["shape", "entry_node_ids", "terminal_node_ids", "branch_node_ids", "merge_node_ids", "component_count", "cyclic", "path_count", "path_count_capped"],
+          "properties": {
+            "shape": {"enum": ["linear", "branching", "converging", "branching-and-converging", "cyclic", "disconnected"]},
+            "entry_node_ids": {"type": "array", "items": {"type": "string"}},
+            "terminal_node_ids": {"type": "array", "items": {"type": "string"}},
+            "branch_node_ids": {"type": "array", "items": {"type": "string"}},
+            "merge_node_ids": {"type": "array", "items": {"type": "string"}},
+            "component_count": {"type": "integer", "minimum": 0},
+            "cyclic": {"type": "boolean"},
+            "path_count": {"type": "integer", "minimum": 0, "maximum": 64},
+            "path_count_capped": {"type": "boolean"}
+          }
+        },
+        "boundary": {"type": "string"}
+      }
+    }
+  }
+}

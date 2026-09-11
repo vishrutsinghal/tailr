@@ -1,0 +1,53 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-navigator-scope-release-fixture",
+  "fixture_id": "navigator-scope-v2-real-run-v1",
+  "goal": "reject zero order quantity while preserving positive quantities",
+  "resolved": {
+    "explicit_paths": ["src/order_validation.py", "tests/test_order_validation.py"],
+    "implementation_owners": ["src/order_validation.py"],
+    "proof_paths": ["tests/test_order_validation.py"],
+    "never_implementation_owners": ["tests/test_requirements.py"]
+  },
+  "negative": {
+    "state": "scope-investigation-unavailable",
+    "fallback": "none",
+    "run_artifacts": 0
+  },
+  "surfaces": ["cli", "mcp"],
+  "hosts": ["codex:core", "copilot:core", "claude:core"],
+  "platforms": ["linux", "macos", "windows", "wsl"],
+  "lifecycle": ["start", "planning-lock", "approval", "bounded-edit", "execution-evidence", "closure-finalize", "completion-report"],
+  "required_fsr6_artifacts": [
+    "NAVIGATOR-FALSE-STOP-REMEDIATION-PLAN.md",
+    "context/navigator.md",
+    "context/code-graph-mapper.md",
+    "HOST-ADAPTERS.md",
+    "MCP-SERVER.md",
+    "INSTALL.md",
+    "COMPLETE-END-TO-END-WORKFLOW.md",
+    "scripts/module_resolution.py",
+    "scripts/code_relationships.py",
+    "scripts/navigator_scope.py",
+    "scripts/navigator-scope-calibration.py",
+    "scripts/navigator-scope-release.py",
+    "scripts/task-start.py",
+    "scripts/mcp-server.py",
+    "tests/test_module_resolution.py",
+    "tests/test_navigator_scope.py",
+    "tests/test_navigator_scope_calibration.py",
+    "tests/test_navigator_scope_release.py",
+    "schemas/navigator-scope-evidence.schema.json",
+    "schemas/navigator-host-scope-proposal.schema.json",
+    "schemas/host-scope-conformance.schema.json",
+    "schemas/host-scope-reasoning-conformance.schema.json",
+    "schemas/navigator-scope-calibration-report.schema.json",
+    "schemas/navigator-scope-release-proof.schema.json",
+    "adapters/navigator-scope-scenarios-v2.json",
+    "adapters/navigator-host-reasoning-scenarios-v1.json",
+    "benchmarks/evaluation/navigator-scope/fsr6-v1.json",
+    "benchmarks/evaluation/navigator-scope/language-profiles-v1.json"
+  ],
+  "forbidden_runtime_artifact_prefixes": [".tailtrail/", "__pycache__/", ".pytest_cache/"],
+  "claim_boundary": "Synthetic isolated real-run fixture. WSL is a Linux compatibility fixture; hosted receipts and signed artifact publication remain separate release evidence."
+}

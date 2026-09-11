@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/requirement-sufficiency.schema.json",
+  "title": "TailTrail Requirement Sufficiency",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "state",
+    "confidence",
+    "requirements",
+    "context",
+    "scope",
+    "dimensions",
+    "material_decisions",
+    "evidence_refs",
+    "recommended_route",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-requirement-sufficiency" },
+    "state": { "enum": ["sufficient", "clarification-required", "standard-recommended", "full-recommended"] },
+    "confidence": { "enum": ["high", "medium", "low"] },
+    "requirements": { "type": "array", "minItems": 1, "maxItems": 25, "items": { "type": "object" } },
+    "context": { "$ref": "#/$defs/clauses" },
+    "scope": { "$ref": "#/$defs/clauses" },
+    "dimensions": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "required", "status", "reason", "evidence_refs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "required": { "type": "boolean" },
+          "status": { "enum": ["satisfied", "missing", "not-applicable"] },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "evidence_refs": { "type": "array", "maxItems": 25, "items": { "type": "string", "minLength": 1, "maxLength": 160 } }
+        }
+      }
+    },
+    "material_decisions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "decision_class", "question", "impact", "evidence_refs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "decision_class": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "question": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "impact": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 64 } },
+          "evidence_refs": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 160 } }
+        }
+      }
+    },
+    "evidence_refs": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 160 } },
+    "recommended_route": { "enum": ["scope", "lite-questions", "aidlc-standard", "aidlc-full"] },
+    "routing_selection": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "routing_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected", "signals", "critical_risks", "material_decision_ids", "reason"],
+      "properties": {
+        "selected": { "type": "boolean" },
+        "signals": { "type": "array", "maxItems": 16, "items": { "type": "string" } },
+        "critical_risks": { "type": "array", "maxItems": 8, "items": { "type": "string" } },
+        "material_decision_ids": { "type": "array", "maxItems": 3, "items": { "type": "string" } },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "resolved_material_decisions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "decision_class", "answer", "impact", "evidence_refs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "decision_class": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "answer": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "impact": { "type": "array", "maxItems": 8, "items": { "type": "string" } },
+          "evidence_refs": { "type": "array", "maxItems": 8, "items": { "type": "string" } }
+        }
+      }
+    },
+    "post_intake_route": { "enum": ["lite-questions", "aidlc-standard", "aidlc-full"] },
+    "intake_id": { "type": "string", "pattern": "^intake-[a-f0-9]{16}$" },
+    "intake_revision": { "type": "integer", "minimum": 2 },
+    "boundary": { "type": "string", "minLength": 1, "maxLength": 500 }
+  },
+  "$defs": {
+    "clauses": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clause_id", "text"],
+        "properties": {
+          "clause_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      }
+    }
+  }
+}

@@ -24,6 +24,8 @@
         "DEBUG-HARNESS.md",
         "benchmarks/debug-harness/scenarios-v1.json",
         "schemas/debug-orientation.schema.json",
+        "schemas/debug-reproduction-attempt.schema.json",
+        "schemas/debug-reproduction-attempt-status.schema.json",
         "schemas/debug-correction-packet.schema.json",
         "schemas/debug-harness-convergence.schema.json",
         "schemas/debug-completion-report.schema.json",
@@ -31,10 +33,13 @@
         "schemas/debug-experiment-proposal.schema.json",
         "schemas/debug-hypothesis-ranking.schema.json",
         "schemas/debug-evaluation-report.schema.json",
-        "schemas/debug-release-gate.schema.json"
+        "schemas/debug-release-gate.schema.json",
+        "schemas/debug-host-diagnosis.schema.json",
+        "schemas/debug-preflight.schema.json"
       ],
       "scripts": [
         "scripts/debug-intake.py",
+        "scripts/debug-preflight.py",
         "scripts/debug-reproduction.py",
         "scripts/debug-orientation.py",
         "scripts/debug-hypothesis.py",
@@ -43,7 +48,8 @@
         "scripts/debug-completion.py",
         "scripts/debug-privacy.py",
         "scripts/debug-governance.py",
-        "scripts/debug-evaluation.py"
+        "scripts/debug-evaluation.py",
+        "scripts/debug-host-diagnosis.py"
       ],
       "tests": [
         "tests/test_debug_harness.py",
@@ -59,6 +65,7 @@
       "mcp_tools": [
         "debug_intake_show",
         "debug_reproduction_show",
+        "debug_reproduction_attempt_show",
         "debug_orientation_show",
         "debug_hypothesis_ledger_show",
         "debug_correction_show",
@@ -67,10 +74,13 @@
         "debug_release_gate",
         "debug_harness_convergence_show",
         "debug_completion_report_show",
+        "debug_preflight",
         "debug_start",
         "debug_reproduction_draft",
         "debug_reproduction_revise",
+        "debug_reproduction_reopen",
         "debug_reproduction_approve",
+        "debug_reproduction_attempt_record",
         "debug_orientation_create",
         "debug_hypothesis_add",
         "debug_hypothesis_reprioritize",
@@ -112,7 +122,9 @@
           "canonical closure integration with one overall delivery result, separate domain-capped debug confidence, seven typed debug controls, and correction/replan routing for incomplete evidence",
           "DI-10 run-local privacy classification, sanitized portable fingerprints, exactness-aware token posture, continuity deduplication, and acceptance-gated candidate-only Debug learning",
           "DI-11 complete approval-gated MCP lifecycle, shared DWR resume/replay, canonical closure delegation, and equivalent Codex/Copilot/Claude host contract",
-          "DI-12 ten-scenario deterministic evaluation, calibrated metrics, sensitive-data negative assurance, genuine-host vertical-run validation, and fail-closed release gate"
+          "DI-12 ten-scenario deterministic evaluation, calibrated metrics, sensitive-data negative assurance, genuine-host vertical-run validation, and fail-closed release gate",
+          "factual pre-fix and post-fix reproduction attempts linked to requirement-owned command evidence, bounded retry dimensions, sanitized awaiting-user-input recovery, same-run revision reopening, and Completion Report proof",
+          "hash-bound host-assisted pre-plan diagnosis with managed-state exclusion, typed repository roles, concrete test cases, source-slice token accounting, and preserved reproduction/correction gates"
         ],
         "remaining_integration": [
           "genuine passing Codex, Copilot, and Claude runtime receipts linked to accepted evidence-complete Debug vertical runs"
@@ -705,22 +717,52 @@
         "tailtrail run",
         "tailtrail guide",
         "tailtrail navigator",
+        "tailtrail navigator scope",
         "tailtrail next",
         "tailtrail intent",
+        "tailtrail intent resolve",
+        "tailtrail eval scope validate|report|capture-negative|migration|release-proof|rollback-status|rollback-enable|rollback-disable",
         "tailtrail expand"
       ],
       "docs": [
         "USER-GUIDE.md",
+        "TAILTRAIL-COMMANDS.md",
         "context/navigator.md",
+        "context/intent-aliases.md",
         "NAVIGATOR-TEST-SCENARIOS.md",
         "tailtrail-automation-guide.md",
-        "harness-engineering-workflow.md"
+        "harness-engineering-workflow.md",
+        "schemas/intent-envelope.schema.json",
+        "schemas/navigator-scope-baseline.schema.json",
+        "schemas/navigator-scope-evidence.schema.json",
+        "schemas/navigator-host-scope-proposal.schema.json",
+        "schemas/navigator-scope-quality.schema.json",
+        "schemas/navigator-scope-calibration-catalog.schema.json",
+        "schemas/navigator-scope-calibration-report.schema.json",
+        "schemas/navigator-scope-release-policy.schema.json",
+        "schemas/navigator-scope-migration-report.schema.json",
+        "schemas/navigator-scope-release-proof.schema.json",
+        "schemas/navigator-installed-release-proof.schema.json",
+        "schemas/requirement-interpretation.schema.json",
+        "benchmarks/evaluation/navigator-scope/v1.json",
+        "benchmarks/evaluation/navigator-scope/fsr6-v1.json",
+        "benchmarks/evaluation/navigator-scope/language-profiles-v1.json",
+        "benchmarks/evaluation/navigator-scope/release-v1.json",
+        "NAVIGATOR-FALSE-STOP-REMEDIATION-PLAN.md",
+        "tailtrail-meta/navigator-scope-baseline-v1.json"
       ],
       "scripts": [
         "scripts/navigator.py",
+        "scripts/navigator-scope.py",
+        "scripts/code_relationships.py",
         "scripts/navigator_core.py",
         "scripts/navigator_discovery.py",
         "scripts/navigator_render.py",
+        "scripts/navigator_scope.py",
+        "scripts/module_resolution.py",
+        "scripts/navigator-scope-calibration.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-installed-release-proof.py",
         "scripts/requirement_discovery.py",
         "scripts/start_posture.py",
         "scripts/task-start.py",
@@ -729,11 +771,21 @@
       ],
       "tests": [
         "tests/test_navigator_core.py",
+        "tests/test_expand_intent.py",
+        "tests/test_mcp_server.py",
+        "tests/test_host_adapter_conformance.py",
         "tests/test_requirement_discovery.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_module_resolution.py",
+        "tests/test_navigator_scope_calibration.py",
+        "tests/test_navigator_scope_release.py",
+        "tests/test_navigator_installed_release.py",
         "tests/test_release4_maintainability.py"
       ],
       "mcp_tools": [
         "navigator_plan",
+        "navigator_scope_proposal_record",
+        "intent_resolve",
         "start_report"
       ],
       "requires_approval": true,
@@ -742,6 +794,12 @@
       "depends_on": [
         "guardrails"
       ],
+      "scope_ownership": {
+        "scope_decision": "Navigator",
+        "target_identity": "Target Workspace",
+        "relationship_evidence": "Code Graph",
+        "validated_persistence": "Planning Lock"
+      },
       "since_version": "v1",
       "deprecated_in_version": null
     },
@@ -810,6 +868,47 @@
       "evidence_label": "local-evidence",
       "depends_on": [
         "guardrails"
+      ],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "requirement-intake",
+      "title": "Evidence-Assisted Durable Pre-Lock Requirement Intake",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Requirement routing Phases 4-9",
+      "owner": "tailtrail-core",
+      "governance_class": "dev-experience",
+      "commands": [
+        "tailtrail requirements show --intake-id <intake-id>",
+        "tailtrail requirements answer --intake-id <intake-id> --answers <json>",
+        "tailtrail start <goal> --requirement-intake-id <intake-id>"
+      ],
+      "docs": [
+        "schemas/requirement-evidence-assistance.schema.json",
+        "schemas/requirement-intake.schema.json",
+        "schemas/requirement-sufficiency.schema.json",
+        "schemas/host-requirement-routing-conformance.schema.json",
+        "adapters/requirement-routing-scenarios-v1.json"
+      ],
+      "scripts": [
+        "scripts/requirement_evidence.py",
+        "scripts/requirement_intake.py"
+      ],
+      "tests": [
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_mcp_server.py"
+      ],
+      "mcp_tools": [
+        "requirement_intake_show",
+        "requirement_intake_answer"
+      ],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": [
+        "navigator"
       ],
       "since_version": "v1",
       "deprecated_in_version": null
@@ -1100,17 +1199,20 @@
       "governance_class": "product",
       "commands": [
         "tailtrail test plan",
-        "tailtrail test summarize"
+        "tailtrail test summarize",
+        "tailtrail test run"
       ],
       "docs": [
         "USER-GUIDE.md",
         "TAILTRAIL-COMMANDS.md"
       ],
       "scripts": [
-        "scripts/test-precision.py"
+        "scripts/test-precision.py",
+        "scripts/run-tests.py"
       ],
       "tests": [
-        "tests/test_navigator_core.py"
+        "tests/test_navigator_core.py",
+        "tests/test_parallel_test_runner.py"
       ],
       "mcp_tools": [],
       "requires_approval": false,
@@ -1228,10 +1330,12 @@
         "scripts/scanner-graph-overlay.py",
         "scripts/cache-summary.py",
         "scripts/graph-learning.py",
-        "scripts/code_graph_inventory.py"
+        "scripts/code_graph_inventory.py",
+        "scripts/navigator_graph_lifecycle.py"
       ],
       "tests": [
-        "tests/test_navigator_core.py"
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_graph_lifecycle.py"
       ],
       "mcp_tools": [
         "graph_map"
@@ -1425,6 +1529,7 @@
         "scripts/token_telemetry.py"
       ],
       "tests": [
+        "tests/test_token_telemetry.py",
         "tests/test_token_harness_proof.py",
         "tests/test_cli_dispatch.py"
       ],
@@ -1549,7 +1654,7 @@
       "tests": [
         "tests/test_mcp_server.py"
       ],
-      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "planning_lock_show", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "execution_evidence_show", "execution_evidence_record", "workflow_dashboard_show", "harness_control_check"],
+      "mcp_tools": ["ledger_state", "anchor_show", "harness_checkpoint_show", "completion_feedback_show", "planning_lock_show", "planning_lock_start", "planning_lock_approve", "tailtrail_start", "profile_view", "validation_receipt_show", "git_readiness", "recovery_boundary_show", "architecture_assessment_show", "completion_report_show", "execution_evidence_show", "execution_evidence_record", "execution_evidence_run", "workflow_dashboard_show", "harness_control_check"],
       "requires_approval": true,
       "read_only": false,
       "evidence_label": "local-evidence",
@@ -1797,7 +1902,8 @@
         "tailtrail eval validate-events",
         "tailtrail eval dataset list|validate|report",
         "tailtrail eval real-portfolio validate|prepare|grade|unblind|report",
-        "tailtrail eval adoption validate|template|record|report|gate|propose|decide"
+        "tailtrail eval adoption validate|template|record|report|gate|propose|decide",
+        "tailtrail eval scope validate|report|capture-negative"
       ],
       "docs": [
         "EVALUATION-HARNESS.md",
@@ -1815,6 +1921,11 @@
         "schemas/adoption-validation-trial.schema.json",
         "schemas/adoption-validation-report.schema.json",
         "schemas/adoption-improvement-decision.schema.json",
+        "schemas/navigator-scope-calibration-catalog.schema.json",
+        "schemas/navigator-scope-calibration-report.schema.json",
+        "benchmarks/evaluation/navigator-scope/v1.json",
+        "benchmarks/evaluation/navigator-scope/fsr6-v1.json",
+        "benchmarks/evaluation/navigator-scope/language-profiles-v1.json",
         "aidlc-docs/phase-pm-7-requirements.md",
         "aidlc-docs/phase-pm-7-design.md",
         "templates/evaluation-result.md"
@@ -3080,6 +3191,72 @@
         "registry"
       ],
       "since_version": "pm-0",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "session-attachment-status",
+      "title": "TailTrail Session Attachment Status",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Stop, Detach, and Resume Control / SR-1",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail session status"
+      ],
+      "docs": [
+        "TAILTRAIL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md",
+        "schemas/tailtrail-session-attachment.schema.json"
+      ],
+      "scripts": [
+        "scripts/session-control.py",
+        "scripts/session_control.py"
+      ],
+      "tests": [
+        "tests/test_session_control.py",
+        "tests/test_tailtrail_stop_resume.py"
+      ],
+      "mcp_tools": ["tailtrail_session_status"],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "local-evidence",
+      "depends_on": ["planning-lock"],
+      "since_version": "sr-1",
+      "deprecated_in_version": null
+    },
+    {
+      "id": "stop-resume-control",
+      "title": "TailTrail Common Stop, Detach, and Exact Resume Control",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Stop, Detach, and Resume Control / SR-2 through SR-7",
+      "owner": "tailtrail-core",
+      "governance_class": "product",
+      "commands": [
+        "tailtrail stop",
+        "tailtrail resume --run-id <exact-run-id>"
+      ],
+      "docs": [
+        "TAILTRAIL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md",
+        "TAILTRAIL-COMMANDS.md",
+        "USER-GUIDE.md",
+        "MCP-SERVER.md",
+        "schemas/tailtrail-session-attachment.schema.json",
+        "schemas/intent-envelope.schema.json"
+      ],
+      "scripts": [
+      ],
+      "tests": [
+        "tests/test_tailtrail_stop_resume.py",
+        "tests/test_expand_intent.py",
+        "tests/test_mcp_server.py"
+      ],
+      "mcp_tools": ["tailtrail_stop", "tailtrail_resume"],
+      "requires_approval": false,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["planning-lock", "session-attachment-status", "durable-workflow-state-engine-dwr-1"],
+      "since_version": "sr-7",
       "deprecated_in_version": null
     },
     {

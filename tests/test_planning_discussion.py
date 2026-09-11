@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -25,6 +26,70 @@ discussion = load("planning_discussion_test", "scripts/planning-discussion.py")
 
 
 class PlanningDiscussionTests(unittest.TestCase):
+    def test_v2_file_explanation_names_exact_edge_role_and_confidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            owner = root / "src" / "owner.py"; owner.parent.mkdir(); owner.write_text("def owner():\n    return True\n", encoding="utf-8")
+            proof = root / "tests" / "test_owner.py"; proof.parent.mkdir(); proof.write_text("from src.owner import owner\n", encoding="utf-8")
+            started = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(),
+                "fix owner behavior", "--root", root.as_posix(), "--changed", "src/owner.py",
+                "--planning-run-id", "discussion-v2", "--format", "json",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+            self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
+            result = discussion.discuss(root, "discussion-v2", "Why was src/owner.py selected?")
+            implementation_wording = discussion.discuss(
+                root,
+                "discussion-v2",
+                "Why was src/owner.py selected as the implementation owner?",
+            )
+
+        answer = result["answer"]
+        self.assertIn("implementation owner", answer["direct"])
+        decision = next(item for item in answer["evidence"] if item["label"] == "scope-decision")
+        edges = [item for item in answer["evidence"] if item["label"] == "scope-edge"]
+        edge = next(item for item in edges if "tests/test_owner.py" in item["detail"])
+        self.assertIn("`high` confidence", decision["detail"])
+        self.assertRegex(edge["detail"], r"`edge-[0-9a-f]{12}`")
+        self.assertIn("tests/test_owner.py", edge["detail"])
+        self.assertIn("src/owner.py", edge["detail"])
+        self.assertEqual(implementation_wording["classification"], "explain-scope")
+        self.assertIn("implementation owner", implementation_wording["answer"]["direct"])
+
+    def test_plan_quality_explanation_reports_saved_graph_and_proof_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "change UI behavior", "plan-quality")
+            lock.save_start_report(root, "plan-quality", {
+                "goal": "change UI behavior",
+                "navigator": {
+                    "scope_quality": {"status": "passed"},
+                    "scope_evidence": {
+                        "investigation": {
+                            "stop_reason": "owner-resolved",
+                            "cache": {
+                                "status": "missing",
+                                "reason_codes": ["bounded-ephemeral-graph-built", "ephemeral-graph-not-persisted"],
+                            },
+                        },
+                    },
+                    "requirement_matrix": [{
+                        "display_id": "REQ-01",
+                        "likely_paths": ["src/Page.tsx"],
+                        "scope_evidence": {"proof_paths": []},
+                    }],
+                },
+                "ui_plan": {"selected": True, "contracts": [{"requirement_id": "REQ-01"}]},
+            })
+
+            result = discussion.discuss(root, "plan-quality", "Is this plan correct, and what issues remain?")
+
+        self.assertEqual(result["classification"], "explain-plan-quality")
+        self.assertIn("not yet fully ready", result["answer"]["direct"])
+        self.assertIn("no focused proof path", result["answer"]["direct"])
+        graph = next(row for row in result["answer"]["evidence"] if row["label"] == "graph")
+        self.assertIn("bounded in-memory graph built and not persisted", graph["detail"])
+
     def test_question_records_sanitized_receipt_without_touching_source(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -234,7 +299,8 @@ class PlanningDiscussionTests(unittest.TestCase):
             assumptions = discussion.discuss(root, "explain-decisions", "What assumptions are in this plan?")["answer"]
 
         self.assertEqual(feature["status"], "answered")
-        self.assertIn("deferred controls", feature["alternative"].lower())
+        self.assertIn("required-later", feature["alternative"].lower())
+        self.assertIn("conditional controls", feature["alternative"].lower())
         self.assertEqual(assumptions["status"], "answered")
         self.assertIn("Refund adapter is already available", assumptions["evidence"][0]["detail"])
 

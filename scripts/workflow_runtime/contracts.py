@@ -82,6 +82,8 @@ SCHEMA_BY_TYPE = {
     "tailtrail-workflow-freshness-assessment": "workflow-freshness-assessment.schema.json",
     "tailtrail-workflow-retry-attempts": "workflow-retry-attempts.schema.json",
     "tailtrail-workflow-correction-packet": "workflow-correction-packet.schema.json",
+    "tailtrail-debug-reproduction-attempt": "debug-reproduction-attempt.schema.json",
+    "tailtrail-debug-reproduction-attempt-status": "debug-reproduction-attempt-status.schema.json",
 }
 
 

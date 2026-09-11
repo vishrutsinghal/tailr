@@ -1,6 +1,6 @@
 ---
 name: tailtrail-start
-description: Use when the user explicitly asks to start TailTrail planning, including "tailtrail start", "tailtrail start," hands-free, or end-to-end requests. Create or request one persisted Planning Lock and return the complete TailTrail Start Report before any implementation.
+description: Use when the user explicitly asks TailTrail to handle a task, including natural requests such as "Use TailTrail to fix...", exact "tailtrail start" forms, hands-free, or end-to-end requests. Create or request one persisted Planning Lock and return the complete TailTrail Start Report before any implementation.
 ---
 
 # TailTrail Start
@@ -43,6 +43,15 @@ order: `tailtrail/scripts/tailtrail.py` (installed pack), then
 python3 tailtrail/scripts/tailtrail.py start "<user goal>"
 ```
 
+When the user explicitly references a local requirement or specification file,
+pass it through MCP `requirement_artifacts` or repeated CLI
+`--requirement-artifact`. TailTrail must boundedly inspect it before requirement
+sufficiency and return its input ID and SHA-256. Read that exact artifact,
+create only evidence-grounded clauses, bind them with `source_input_id` and
+`artifact_evidence`, and resubmit the typed interpretation. Missing, unreadable,
+unsupported, truncated, or unbound required artifacts stop before scope and
+Planning Lock; never replace them with a generic requirement.
+
 When the user includes `--verbose`, pass `verbose: true` to the MCP tool (or
 append `--verbose` to the CLI invocation); do not leave the flag inside the
 goal text.
@@ -66,7 +75,7 @@ the same Planning Lock machinery. It may persist only planning metadata; it
 must not create Debug Intake, approve a reproduction contract, inspect source,
 run tests/scanners, or grant correction authority. The debug report also shows
 the Navigator decision, material unknowns, proposed reproduction questions,
-evidence tiers, exactness/safety posture, and deferred controls.
+evidence tiers, exactness/safety posture, required later-stage proof, and conditional controls.
 
 Return the complete Start Report and its Planning Lock run ID. For `hands-free`
 or `end-to-end`, include the Program Delivery plan: proposed requirements,

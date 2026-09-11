@@ -1,0 +1,64 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-requirement-routing-conformance",
+  "contract_version": "v1",
+  "scenarios": [
+    {
+      "id": "host-interpretation-required",
+      "requirement_state": "host-interpretation-required",
+      "route": "host-interpretation",
+      "scope_question_allowed": false,
+      "run_created": false,
+      "boundary": "An ordinary agent-host Build Start obtains the typed exact-goal interpretation before scope discovery."
+    },
+    {
+      "id": "lite-intake",
+      "requirement_state": "clarification-required",
+      "route": "lite-questions",
+      "scope_question_allowed": false,
+      "run_created": false,
+      "boundary": "One isolated material decision creates durable pre-lock intake and no scope question."
+    },
+    {
+      "id": "standard-intake",
+      "requirement_state": "standard-recommended",
+      "route": "aidlc-standard",
+      "scope_question_allowed": false,
+      "run_created": false,
+      "boundary": "Standard requirements intake completes before official processing or implementation scope."
+    },
+    {
+      "id": "full-intake",
+      "requirement_state": "full-recommended",
+      "route": "aidlc-full",
+      "scope_question_allowed": false,
+      "run_created": false,
+      "boundary": "Full requirements intake completes before official processing or implementation scope."
+    },
+    {
+      "id": "scope-disabled-requirements-open",
+      "requirement_state": "clarification-required",
+      "route": "lite-questions",
+      "scope_question_allowed": false,
+      "run_created": false,
+      "boundary": "Requirement intake wins even when the scope subsystem is unavailable; no premature scope stop is returned."
+    },
+    {
+      "id": "answered-intake",
+      "requirement_state": "sufficient",
+      "route": "scope",
+      "scope_question_allowed": true,
+      "run_created": false,
+      "boundary": "Answered intake permits scope investigation but does not itself create a run or authority."
+    },
+    {
+      "id": "eligible-scope-question",
+      "requirement_state": "sufficient",
+      "route": "scope",
+      "scope_question_allowed": true,
+      "run_created": false,
+      "boundary": "A single bounded owner question is permitted only after requirements are sufficient and scope remains genuinely ambiguous."
+    }
+  ],
+  "boundary": "CLI, MCP, Codex, Copilot, and Claude preserve the same requirement-first decision. The contract never grants Planning Lock, scope, approval, or execution authority."
+}

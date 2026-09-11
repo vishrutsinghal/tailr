@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import code_relationships
+
 
 SKIP_DIRS = {
     ".git",
@@ -186,17 +188,17 @@ def add(symbols: list[Symbol], name: str, kind: str, language: str, file: str, l
 def extract_imports(path: Path, root: Path, body: str, language: str) -> list[dict[str, Any]]:
     rel = safe_relative(path, root) or path.as_posix()
     imports: list[dict[str, Any]] = []
-    if language == "python":
-        for match in re.finditer(r"^\s*(?:from\s+([\w.]+)\s+import\s+([\w.*, ]+)|import\s+([\w., ]+))", body, re.MULTILINE):
-            module = match.group(1) or match.group(3) or ""
-            names = match.group(2) or ""
-            imports.append({"module": module.strip(), "names": names.strip(), "language": language, "file": rel, "line": line_number(body, match.start()), "confidence": "heuristic"})
-    elif language == "java":
-        for match in re.finditer(r"^\s*import\s+([\w.*]+)\s*;", body, re.MULTILINE):
-            imports.append({"module": match.group(1), "names": "", "language": language, "file": rel, "line": line_number(body, match.start()), "confidence": "heuristic"})
-    elif language == "dotnet":
-        for match in re.finditer(r"^\s*using\s+([\w.]+)\s*;", body, re.MULTILINE):
-            imports.append({"module": match.group(1), "names": "", "language": language, "file": rel, "line": line_number(body, match.start()), "confidence": "heuristic"})
+    if language in {"python", "java", "dotnet"}:
+        facts = code_relationships.extract(path, root, body)
+        for item in facts["imports"]:
+            imports.append({
+                "module": item["value"],
+                "names": "",
+                "language": language,
+                "file": rel,
+                "line": item["line"],
+                "confidence": "python_ast" if language == "python" else "heuristic",
+            })
     elif language == "terraform":
         for match in re.finditer(r'\b(source|providers?)\s*=\s*"([^"]+)"', body):
             imports.append({"module": match.group(2), "names": match.group(1), "language": language, "file": rel, "line": line_number(body, match.start()), "confidence": "heuristic"})

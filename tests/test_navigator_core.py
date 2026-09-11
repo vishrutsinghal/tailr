@@ -101,7 +101,7 @@ class NavigatorCoreTests(unittest.TestCase):
             self.assertIn("tests/unit/test_validation.py", paths)
             self.assertNotIn("src/order_service/service.py", paths)
             self.assertEqual(len(paths), len(set(paths)))
-            self.assertNotIn("Code Graph Mapper", {item["name"] for item in report["selected_features"]})
+            self.assertIn("Code Graph Mapper", {item["name"] for item in report["selected_features"]})
 
     def test_non_review_start_does_not_adopt_unrelated_git_changes_when_goal_discovery_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -154,7 +154,14 @@ class NavigatorCoreTests(unittest.TestCase):
                 navigator.git_changed = original_git_changed
 
         self.assertEqual(report["target_origin"], "git-changes")
-        self.assertEqual(report["likely_impacted_files"], [{"path": "src/service.py", "reason": "detected Git change"}])
+        self.assertEqual([item["path"] for item in report["likely_impacted_files"]], ["src/service.py"])
+        self.assertEqual(report["likely_impacted_files"][0]["role"], "implementation-owner")
+        self.assertEqual(report["likely_impacted_files"][0]["status"], "inspection-only")
+        self.assertEqual(report["likely_impacted_files"][0]["seed_sources"], ["git-change"])
+        self.assertIn(
+            "git-change-needs-task-specific-evidence",
+            report["likely_impacted_files"][0]["reason_codes"],
+        )
 
     def test_task_start_renders_installed_pack_command_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -645,7 +652,7 @@ class NavigatorCoreTests(unittest.TestCase):
         actions = {item["action"] for item in report["next_actions"]}
         self.assertIn("review", actions)
         self.assertIn("approve", actions)
-        self.assertEqual(report["token_posture"]["mode"], "local_estimate")
+        self.assertEqual(report["token_posture"]["mode"], "file_body_upper_bound")
         self.assertIn("recommended_check", report["setup_posture"])
         self.assertEqual(report["code_intelligence"]["default_engine_path"], ["lite", "v1", "v2"])
         self.assertIn("V3 is never default", report["code_intelligence"]["v3_rule"])
@@ -721,11 +728,108 @@ class NavigatorCoreTests(unittest.TestCase):
             rendered = task_start.compact_start_report(report)
 
         self.assertIn("## Selected TailTrail features", rendered)
-        self.assertIn("| Feature | When | Used for this task |", rendered)
-        self.assertIn("| Navigator | Planning now |", rendered)
+        self.assertIn("- **Navigator**", rendered)
+        self.assertIn("- **When:** Planning now", rendered)
+        self.assertIn("- **Used for this task:**", rendered)
         self.assertIn("Requirement Completion Harness", rendered)
         self.assertIn("## Token posture", rendered)
-        self.assertIn("Estimated focused context:", rendered)
+        self.assertIn("Planned TailTrail working set:", rendered)
+        self.assertIn("Full scoped-file ceiling:", rendered)
+        self.assertNotIn("Repository inventory ceiling", rendered)
+
+    def test_guided_report_keeps_lock_and_responsive_markdown_structure(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = task_start.build_report("fix zero quantity validation", root, ["src/order_service/validation.py"], "tailtrail")
+            report["planning_lock"] = task_start.planning_lock.create(root, report["goal"], "start-guided-report")
+            rendered = task_start.render_markdown(report, presentation_mode="guided")
+
+        self.assertIn("## Planning Lock", rendered)
+        self.assertIn("Run ID: `start-guided-report`", rendered)
+        self.assertIn("- **Navigator**", rendered)
+        self.assertIn("- **When:** Planning now", rendered)
+        self.assertNotIn("| Feature | When | Used for this task |", rendered)
+        self.assertNotIn("&#x20;", rendered)
+
+    def test_automatic_plan_detail_policy_matches_lifecycle_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lite = task_start.build_report(
+                "add payment API workflow and preserve customer-visible behavior",
+                root,
+                ["src/api.py", "src/service.py"],
+                "tailtrail",
+                aidlc_mode="lite",
+            )
+            off = task_start.build_report(
+                "fix zero quantity validation",
+                root,
+                ["src/validation.py"],
+                "tailtrail",
+                aidlc_mode="off",
+            )
+
+        lite_rendered = task_start.render_markdown(lite)
+        off_rendered = task_start.render_markdown(off)
+        self.assertIn("**Plan detail:** `Expert` (automatic for AIDLC Lite)", lite_rendered)
+        self.assertIn("## Navigator Decision", lite_rendered)
+        self.assertNotIn("## Architecture Fitness Plan", lite_rendered)
+        self.assertNotIn("## Behaviour Harness Plan", lite_rendered)
+        self.assertIn("## Required later in this run", lite_rendered)
+        self.assertIn("## Conditional TailTrail controls", lite_rendered)
+        self.assertIn("Focused testing and validation", lite_rendered)
+        self.assertNotIn("## Deferred TailTrail features", lite_rendered)
+        self.assertIn("### Included", lite_rendered)
+        self.assertIn("### Not included in this mode", lite_rendered)
+        self.assertNotIn("| Included | Not included in this mode |", lite_rendered)
+        self.assertNotIn("| Feature | When | Why |", lite_rendered)
+        self.assertIn("**Plan detail:** `Quick` (automatic for AIDLC Off)", off_rendered)
+        self.assertIn("## Plan", off_rendered)
+        self.assertIn("## Required later in this run", off_rendered)
+        self.assertIn("Focused testing and validation", off_rendered)
+        self.assertIn("mandatory before completion", off_rendered)
+        self.assertNotIn("## Deferred TailTrail features", off_rendered)
+        self.assertNotIn("## Navigator Decision", off_rendered)
+
+        standard = dict(lite)
+        standard["aidlc_mode"] = {**lite["aidlc_mode"], "mode": "standard"}
+        standard_rendered = task_start.render_markdown(standard)
+        self.assertIn("**Plan detail:** `Full`", standard_rendered)
+        self.assertIn("## Architecture Fitness Plan", standard_rendered)
+        self.assertIn("## Behaviour Harness Plan", standard_rendered)
+        self.assertNotIn("| Requirement | Architecture invariant |", standard_rendered)
+        self.assertNotIn("| Requirement | Scenario |", standard_rendered)
+
+        intent = dict(lite)
+        intent["spec_kit_source"] = {"feature_id": "014-order-amendment"}
+        self.assertEqual(task_start.presentation_policy(intent)["level"], "full")
+
+    def test_verbose_always_includes_full_harness_detail(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            report = task_start.build_report(
+                "add payment API workflow and preserve customer-visible behavior",
+                Path(temp),
+                ["src/api.py", "src/service.py"],
+                "tailtrail",
+                aidlc_mode="off",
+            )
+        rendered = task_start.render_markdown(report, verbose=True)
+        self.assertIn("**Plan detail:** `Full` (requested by `--verbose`)", rendered)
+        self.assertIn("## Architecture Fitness Plan", rendered)
+        self.assertIn("## Behaviour Harness Plan", rendered)
+
+        with tempfile.TemporaryDirectory() as temp:
+            narrow = task_start.build_report(
+                "fix zero quantity validation",
+                Path(temp),
+                ["src/validation.py"],
+                "tailtrail",
+                aidlc_mode="off",
+            )
+        narrow_rendered = task_start.render_markdown(narrow, verbose=True)
+        self.assertIn("## Architecture Fitness Plan", narrow_rendered)
+        self.assertIn("## Behaviour Harness Plan", narrow_rendered)
+        self.assertGreaterEqual(narrow_rendered.count("State: `not-selected`."), 2)
 
     def test_start_focused_validation_uses_only_the_interpreter_when_pack_path_contains_tailtrail(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -752,7 +856,8 @@ class NavigatorCoreTests(unittest.TestCase):
             "## Start Here",
             "## Navigator Decision",
             "## Selected TailTrail features",
-            "## Deferred TailTrail features",
+            "## Required later in this run",
+            "## Conditional TailTrail controls",
             "## Guided Delivery",
             "## Validation",
             "## Evidence posture",
@@ -779,7 +884,7 @@ class NavigatorCoreTests(unittest.TestCase):
 
         selected = {item["name"] for item in report["guided_delivery"]["selected"]}
         self.assertTrue({"Canonical requirements", "Requirement Completion Harness", "Architecture Fitness Harness", "Behaviour Harness"}.issubset(selected))
-        self.assertIn("## Plan", rendered)
+        self.assertIn("## Guided Delivery", rendered)
         self.assertIn("does not itself edit source", report["guided_delivery"]["execution_boundary"])
 
     def test_hands_free_multi_task_request_still_returns_a_program_plan_before_execution(self) -> None:
@@ -804,8 +909,16 @@ class NavigatorCoreTests(unittest.TestCase):
                 root, [], "tailtrail",
             )
             rendered = task_start.compact_start_report(report)
-        self.assertIn("**REQ-01:** Define the cancellation eligibility rule", rendered)
-        self.assertIn("Issue one refund", rendered)
+        self.assertIn("**REQ-01:** Add order cancellation.", rendered)
+        self.assertIn("**REQ-02:** Refund payment.", rendered)
+        self.assertEqual(
+            report["guided_delivery"]["hands_free_program"]["feature_requirements"],
+            report["navigator"]["canonical_requirements"]["requirements"],
+        )
+        self.assertEqual(
+            report["guided_delivery"]["hands_free_program"]["canonical_requirement_set_fingerprint"],
+            report["navigator"]["canonical_requirements"]["fingerprint"],
+        )
         self.assertIn("## Plan", rendered)
         self.assertIn("Proposed dependency order", rendered)
         self.assertIn("First active slice", rendered)
@@ -823,14 +936,19 @@ class NavigatorCoreTests(unittest.TestCase):
         requirements = report["guided_delivery"]["hands_free_program"]["feature_requirements"]
         statements = [item["statement"] for item in requirements]
         joined = " ".join(statements).lower()
-        self.assertIn("amendment eligibility", joined)
-        self.assertIn("authoritative order revision", joined)
-        self.assertIn("stale concurrent amendment", joined)
-        self.assertIn("excess reserved inventory", joined)
-        self.assertIn("partial refund", joined)
+        self.assertIn("order-amendment capability", joined)
+        self.assertIn("authorized address correction", joined)
+        self.assertIn("release excess inventory", joined)
         self.assertIn("create-order and cancellation behavior", joined)
         self.assertNotIn("eligible cancellation succeeds", joined)
-        self.assertGreaterEqual(len(requirements), 10)
+        self.assertNotIn("stale concurrent amendment", joined)
+        self.assertEqual(
+            [(item["requirement_id"], item["statement"]) for item in requirements],
+            [
+                (item["requirement_id"], item["statement"])
+                for item in report["navigator"]["requirement_matrix"]
+            ],
+        )
         self.assertIn("new Full-mode Planning Lock", report["aidlc_mode"]["full_escalation"]["reason"])
 
     def test_task_start_uses_only_explicit_run_evidence_for_correction_and_recovery(self) -> None:
