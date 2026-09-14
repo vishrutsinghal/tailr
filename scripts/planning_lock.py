@@ -418,6 +418,12 @@ def create(root: Path, goal: str, run_id: str | None = None, reference_roots: li
         "enterprise_policy": enterprise_policy or {"status": "not-configured", "blocking": False},
         "scope_decision": scope_decision,
         "approval": None,
+        "pipeline": {
+            "active_stage": "PENDING",
+            "completed_stages": [],
+            "stage_sequence": ["IMPLEMENTATION", "TESTING", "INFRA"],
+            "handoff_manifest": None,
+        },
         "boundary": "Planning Lock permits read-only planning artifacts only. Source edits, Git mutations, project commands, scanners, and managed patch application require a separate approval for this run.",
     }
     path = lock_path(root, selected_run_id)

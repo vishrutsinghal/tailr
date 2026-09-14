@@ -86,6 +86,28 @@ ROLES = {
     "managed-tooling",
     "unknown",
 }
+
+@dataclass(frozen=True)
+class WorkerContract:
+    """Permission boundary for a specific pipeline stage."""
+    allowed_write_roles: set[str]
+    prohibited_write_roles: set[str]
+    read_access: str = "all"
+
+WORKER_CONTRACTS = {
+    "IMPLEMENTATION": WorkerContract(
+        allowed_write_roles={"implementation-owner", "supporting-assets"},
+        prohibited_write_roles={"test", "managed-tooling"},
+    ),
+    "TESTING": WorkerContract(
+        allowed_write_roles={"test"},
+        prohibited_write_roles={"implementation-owner", "supporting-assets"},
+    ),
+    "INFRA": WorkerContract(
+        allowed_write_roles={"configuration", "manifest"},
+        prohibited_write_roles={"implementation-owner", "test"},
+    ),
+}
 STATUSES = {"included", "inspection-only", "proof-only", "excluded", "rejected"}
 SEED_SOURCES = {
     "explicit-path",

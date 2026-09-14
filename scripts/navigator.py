@@ -20,6 +20,8 @@ import navigator_scope
 import prompt_profile
 import requirement_discovery
 import token_budget_coach
+import pipeline_manager
+import pipeline_judge
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -296,8 +298,47 @@ def capture_mode(goal: str) -> str:
     return "accepted"
 
 
-def quoted(value: str) -> str:
-    return json.dumps(value)
+def get_stage_aware_instructions(root: Path, run_id: str) -> str:
+    """Return role-specific steering instructions based on the active pipeline stage."""
+    manager = pipeline_manager.PipelineManager(root, run_id)
+    stage = manager.get_current_stage()
+    
+    if stage == "IMPLEMENTATION":
+        return (
+            "You are currently in the IMPLEMENTATION slice. "
+            "Focus exclusively on production source code and supporting assets. "
+            "Do not propose or edit test files in this stage."
+        )
+    elif stage == "TESTING":
+        return (
+            "You are currently in the TESTING slice. "
+            "Focus exclusively on proof paths, test classes, and validation specs. "
+            "Production source code is read-only; do not attempt to modify it."
+        )
+    elif stage == "INFRA":
+        return (
+            "You are currently in the INFRA slice. "
+            "Focus exclusively on configuration manifests and infrastructure-as-code. "
+            "Production source and tests are read-only."
+        )
+    return "You are in a general planning or orientation state."
+
+def get_stage_aware_profile(root: Path, run_id: str, tasks: list[str], risks: list[str]) -> str:
+    """Select a prompt profile that aligns with the active pipeline stage."""
+    manager = pipeline_manager.PipelineManager(root, run_id)
+    stage = manager.get_current_stage()
+    
+    # Start with the base profile based on task/risk
+    profile_name = prompt_profile.choose_profile(tasks, risks)
+    
+    # Overlay stage-specific constraints
+    if stage == "TESTING":
+        # Ensure the profile is steered toward validation and proof
+        return f"{profile_name}-test-worker"
+    elif stage == "INFRA":
+        return f"{profile_name}-infra-worker"
+        
+    return profile_name
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -2082,6 +2123,96 @@ def main() -> int:
         print(markdown(report, args.view), end="")
     return 0
 
+
+def start_hands_free_slice(root: Path, goal: str, run_id: str) -> str:
+    """Initialize a Hands-Free slice. Breaks the goal into the sequential pipeline stages.
+    
+    Checks if the goal contains hands-free cue phrases. If detected, sets the 
+    active stage to IMPLEMENTATION in the Planning Lock.
+    
+    Args:
+        root: The project root path.
+        goal: The user's task goal description.
+        run_id: The current run ID.
+        
+    Returns:
+        Status message indicating slice initiation or lack of hands-free cues.
+    """
+    lowered = goal.lower()
+    is_hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
+    
+    from scripts.pipeline_manager import PipelineManager
+    manager = PipelineManager(root, run_id)
+    
+    if is_hands_free:
+        manager.set_stage("IMPLEMENTATION")
+        return "Hands-Free slice initiated. Starting with IMPLEMENTATION stage. New badge active."
+    
+    return "No hands-free cues detected."
+
+
+def process_handoff(root: Path, run_id: str, from_stage: str, manifest_data: dict[str, Any]) -> str:
+    """Process a handoff from one pipeline stage to the next.
+    
+    Validates the transition using the PipelineJudge and persists the state
+    using the PipelineManager.
+    
+    Args:
+        root: The project root path.
+        run_id: The current run ID.
+        from_stage: The stage being completed (e.g., "IMPLEMENTATION").
+        manifest_data: Dictionary containing change_manifest, requirement_pointers, context, and evidence.
+    
+    Returns:
+        A status message indicating the result of the handoff.
+    """
+    from scripts.pipeline_manager import PipelineManager, HandoffManifest
+    from scripts.pipeline_judge import PipelineJudge
+    
+    manager = PipelineManager(root, run_id)
+    judge = PipelineJudge(root, run_id)
+    
+    # 1. Structure the manifest data for the Drift Gate check.
+    # The Drift Gate requires 'requirement_pointers' and 'evidence' to be present.
+    evidence = manifest_data.get("evidence", [])
+    requirement_pointers = manifest_data.get("requirement_pointers", [])
+    
+    # Build the structured evidence dict expected by the Judge
+    structured_evidence = {
+        "requirement_pointers": requirement_pointers,
+        "change_manifest": manifest_data.get("change_manifest", []),
+        "context": manifest_data.get("context", ""),
+        "evidence": evidence
+    }
+    
+    # 1. Determine the next stage in the pipeline sequence.
+    # Stage sequence: IMPLEMENTATION -> TESTING -> INFRA
+    stage_sequence = ["IMPLEMENTATION", "TESTING", "INFRA"]
+    from_idx = stage_sequence.index(from_stage) if from_stage in stage_sequence else -1
+    to_stage = stage_sequence[from_idx + 1] if from_idx >= 0 and from_idx + 1 < len(stage_sequence) else from_stage
+
+    # 2. Verify the stage transition using the Judge
+    # This will automatically check the Drift Gate if moving from TESTING to INFRA.
+    allowed, error = judge.verify_stage_transition(from_stage, to_stage, structured_evidence)
+    if not allowed:
+        return f"Stage transition blocked: {error}"
+    
+    # 3. Persist the transition and advance the stage using the Manager
+    manifest = HandoffManifest(
+        from_stage=from_stage,
+        to_stage=manager.get_current_stage(),
+        change_manifest=manifest_data.get("change_manifest", []),
+        requirement_pointers=manifest_data.get("requirement_pointers", []),
+        context=manifest_data.get("context", ""),
+        evidence=manifest_data.get("evidence", [])
+    )
+    
+    next_stage = manager.complete_stage(from_stage, manifest)
+    
+    if next_stage:
+        return f"Slicing successful. Transitioned to {next_stage}. New badge active."
+    else:
+        return "Pipeline complete. All stages verified."
 
 if __name__ == "__main__":
     raise SystemExit(main())

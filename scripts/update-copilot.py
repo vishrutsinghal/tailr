@@ -13,6 +13,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import pipeline_manager
+from write_guardian import guarded_write
+
+# ... existing imports ...
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,11 +91,13 @@ def backup_file(path: Path, target_root: Path, backup_root: Path, report: Update
     report.backed_up.append(relative_display(destination, target_root))
 
 
+@guarded_write
 def write_text_file(path: Path, body: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
 
 
+@guarded_write
 def copy_file(path: Path, source: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, path)

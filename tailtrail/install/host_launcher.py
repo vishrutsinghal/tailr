@@ -26,6 +26,7 @@ def main() -> int:
     if not entry.is_file():
         print(f"TailTrail unavailable: shared payload is missing: {entry}", file=sys.stderr)
         return 69
+    os.environ["TAILTRAIL_ACTIVE_HOST"] = host
     os.environ["TAILTRAIL_SOURCE_COMPAT_ROOT"] = shared_root.as_posix()
     os.environ.setdefault("TAILTRAIL_COMMAND_NAME", f"python3 {launcher.as_posix()}")
     if shared_root.as_posix() not in sys.path:

@@ -1976,3 +1976,13 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+def start_hands_free_slice(root: Path, goal: str, run_id: str) -> str:
+    lowered = goal.lower()
+    is_hands_free = any(phrase in lowered for phrase in ('hands-free', 'hands free', 'end-to-end', 'end to end'))
+    from scripts.pipeline_manager import PipelineManager
+    manager = PipelineManager(root, run_id)
+    if is_hands_free:
+        manager.set_stage('IMPLEMENTATION')
+        return 'Hands-Free slice initiated. Starting with IMPLEMENTATION stage. New badge active.'
+    return 'No hands-free cues detected.'

@@ -9,6 +9,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -36,7 +37,7 @@ navigator = importlib.util.module_from_spec(SPEC)
 sys.modules["tailtrail_navigator"] = navigator
 SPEC.loader.exec_module(navigator)
 
-PLANNING_LOCK_PATH = ROOT / "scripts" / "planning-lock.py"
+PLANNING_LOCK_PATH = ROOT / "scripts" / "planning_lock.py"
 LOCK_SPEC = importlib.util.spec_from_file_location("tailtrail_planning_lock", PLANNING_LOCK_PATH)
 if LOCK_SPEC is None or LOCK_SPEC.loader is None:
     raise SystemExit("Unable to load scripts/planning-lock.py")
@@ -640,6 +641,26 @@ def target_boundary_report(goal: str, resolution: dict[str, Any], command_prefix
     }
 
 
+def render_host_interpretation_required_report(goal: str, resolved_host: str, command_prefix: str) -> dict[str, Any]:
+    """Return a non-persisted report when a trusted agent host is active but no interpretation was provided.
+    
+    This blocks the Start process before scope discovery to prevent silent degradation to deterministic planning.
+    """
+    return {
+        "goal": goal,
+        "root": None,
+        "command_prefix": command_prefix,
+        "target_root": {
+            "requested": "Agent-Host Contract",
+            "status": "blocked",
+            "reason": f"The active host `{resolved_host}` requires a typed host interpretation to proceed. No such interpretation was provided in the request.",
+        },
+        "target_boundary": True,
+        "next_step": f"The agent must provide a typed host interpretation for `{resolved_host}` before a Planning Lock can be created.",
+    }
+
+
+
 def render_target_boundary_report(report: dict[str, Any]) -> str:
     target = report["target_root"]
     requested = str(target["requested"])
@@ -943,8 +964,13 @@ def navigator_requirement_route(
     goal: str,
     requested: str | None,
     sufficiency: dict[str, Any],
+    existing_route: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Choose scope, Lite questions, or Standard before scope discovery."""
+    """Choose scope, Lite questions, or Standard before scope discovery.
+    
+    If an existing_route is provided (e.g. from an automatic hands-free escalation),
+    it is preserved to prevent silent degradation after interpretation.
+    """
     routed = dict(sufficiency)
     decisions = list(routed.get("material_decisions", []))
     if not decisions:
@@ -954,6 +980,19 @@ def navigator_requirement_route(
             goal, {"requirement_sufficiency": routed}
         )
         return routed
+    
+    # Preserve automatic routing if already decided
+    if existing_route and existing_route.get("selection") in {"navigator-hands-free-escalation", "navigator-risk-routing"}:
+        routed["recommended_route"] = existing_route["recommended_route"]
+        routed["routing_selection"] = existing_route["routing_selection"]
+        routed["routing_evidence"] = existing_route["routing_evidence"]
+        routed["state"] = (
+            "full-recommended" if routed["recommended_route"] == "aidlc-full"
+            else "standard-recommended" if routed["recommended_route"] == "aidlc-standard"
+            else "clarification-required"
+        )
+        return routed
+
     normalized = "standard" if requested == "medium" else requested
     evidence = navigator_standard_evidence(goal, {"requirement_sufficiency": routed})
     hands_free = any(
@@ -1942,6 +1981,30 @@ def intent_bridge_requirement_interpretation(
     }
 
 
+def resolve_host_identity(args_host: str | None) -> tuple[str | None, str]:
+    """Resolve host identity with priority: explicit flag > trusted launcher > absent.
+    
+    Returns: (resolved_host, source)
+    """
+    launcher_host = os.environ.get("TAILTRAIL_ACTIVE_HOST")
+    
+    if args_host and launcher_host:
+        if args_host != launcher_host:
+            raise ValueError(
+                f"Host identity conflict: explicit flag `{args_host}` mismatches "
+                f"installed launcher identity `{launcher_host}`."
+            )
+        return args_host, "explicit-flag"
+    
+    if args_host:
+        return args_host, "explicit-flag"
+    
+    if launcher_host:
+        return launcher_host, "installed-launcher"
+    
+    return None, "absent"
+
+
 def build_report(
     goal: str,
     root: Path,
@@ -1957,17 +2020,42 @@ def build_report(
     graph_mode: str = "auto",
     requirement_interpretation: dict[str, Any] | None = None,
     debug_diagnosis: dict[str, Any] | None = None,
+    host_override: str | None = None,
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
+    
+    # Resolve host identity and source
+    try:
+        resolved_host, host_source = resolve_host_identity(host_override)
+    except ValueError as error:
+        raise SystemExit(f"Host identity error: {error}")
+    
     spec_kit_source = spec_kit_bridge.load(root, spec_kit_feature) if spec_kit_feature else None
+    
+    # Enforce Agent-Host Contract: if a trusted host is active, a typed interpretation is mandatory
+    if resolved_host and not requirement_interpretation:
+        return render_host_interpretation_required_report(goal, resolved_host, command_prefix)
+
     if spec_kit_source is not None:
         requirement_interpretation = intent_bridge_requirement_interpretation(
             goal,
             spec_kit_source,
         )
+    
+    # First pass: determine routing and requirements
+    # We use a dummy plan for initial routing evidence if needed
+    initial_plan = {"likely_impacted_files": []} 
+    
+    # Determine initial routing
+    # In a real run, navigator.decide() does this, but we need the route to pass to it
+    # and then to potentially re-verify it.
+    
     resolved_requirement_interpretation = (
         requirement_interpretation or requirement_discovery.interpretation(goal)
     )
+    
+    # To fix TT-CUR-03, we must ensure that if navigator.decide selects a route, 
+    # any subsequent calls to route resolution preserve it.
     plan = navigator.decide(
         goal,
         root,
