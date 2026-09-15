@@ -44,7 +44,7 @@ def load_module(name: str, relative: str) -> Any:
 
 
 LEDGER = load_module("execution_failure_ledger", "scripts/run-ledger.py")
-PLANNING = load_module("execution_failure_planning", "scripts/planning-lock.py")
+PLANNING = load_module("execution_failure_planning", "scripts/planning_lock.py")
 ANCHOR = load_module("execution_failure_anchor", "scripts/change-intent-anchor.py")
 CONVERGENCE = load_module("execution_failure_convergence", "scripts/harness-convergence.py")
 SETUP_SCAN = load_module("execution_failure_setup_scan", "scripts/setup-scan.py")

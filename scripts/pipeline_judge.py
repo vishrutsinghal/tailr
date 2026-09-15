@@ -56,9 +56,11 @@ class PipelineJudge:
         # Primary check: drift analysis module
         try:
             import drift_analysis
-            result = drift_analysis.analyze(self.root, self.run_id)
+            result = drift_analysis.analyze(self.root, self.run_id, evidence=evidence)
             if result.get("drift_detected"):
-                return False, f"Stage transition blocked: Requirement drift detected. The current fix violates original requirements."
+                findings = result.get("findings", [])
+                detail = findings[0].get("message") if findings else "The current fix violates original requirements."
+                return False, f"Stage transition blocked: Requirement drift detected. {detail}"
         except ImportError:
             pass
         
