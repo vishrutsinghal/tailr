@@ -22,6 +22,35 @@ except ValueError:
     pass
 sys.path.insert(0, IMPORT_ROOT.as_posix())
 
+_SHARED_FILES = None
+
+
+def shared_files():
+    """Load tailtrail/install/files.py (single file-ops ownership).
+
+    Plain package import is unreliable here because scripts/tailtrail.py
+    can shadow the tailtrail package on sys.path, so prefer an explicit
+    path load with a package-import fallback for installed layouts.
+    """
+    global _SHARED_FILES
+    if _SHARED_FILES is not None:
+        return _SHARED_FILES
+    try:
+        from tailtrail.install import files as module
+    except ImportError:
+        module = None
+    if module is None:
+        import importlib.util
+
+        path = ROOT / "tailtrail" / "install" / "files.py"
+        spec = importlib.util.spec_from_file_location("tailtrail_install_files", path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("tailtrail/install/files.py could not be located")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    _SHARED_FILES = module
+    return _SHARED_FILES
+
 COPILOT_SOURCE = ROOT / "adapters" / "copilot-instructions.md"
 START_PROMPT_SOURCE = ROOT / ".github" / "prompts" / "tailtrail-start.prompt.md"
 
@@ -457,8 +486,7 @@ def copy_file(source: Path, destination: Path, force: bool, written: list[str], 
     if destination.exists() and not force:
         skipped.append(destination.as_posix())
         return
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
+    shared_files().atomic_copy(source, destination)
     written.append(destination.as_posix())
 
 
@@ -498,7 +526,7 @@ def pack_entries() -> list[str]:
 
 
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return shared_files().sha256_file(path)
 
 
 def install_timestamp() -> str:
@@ -533,7 +561,7 @@ def write_manifest(
         (".github/prompts/tailtrail-start.prompt.md", start_prompt_body(pack_dir)),
     ):
         destination = pack_root / relative_path
-        digest = sha256(destination) if destination.is_file() else hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+        digest = sha256(destination) if destination.is_file() else shared_files().sha256_bytes(rendered.encode("utf-8"))
         files[relative_path] = {"sha256": digest}
     manifest = {
         "version": 1,
@@ -744,9 +772,9 @@ def installed_surface(manifest: dict[str, object] | None) -> str:
 
 def source_hash(relative_path: str, pack_dir: Path) -> str:
     if relative_path == ".github/copilot-instructions.md":
-        return hashlib.sha256(copilot_body(pack_dir).encode("utf-8")).hexdigest()
+        return shared_files().sha256_bytes(copilot_body(pack_dir).encode("utf-8"))
     if relative_path == ".github/prompts/tailtrail-start.prompt.md":
-        return hashlib.sha256(start_prompt_body(pack_dir).encode("utf-8")).hexdigest()
+        return shared_files().sha256_bytes(start_prompt_body(pack_dir).encode("utf-8"))
     return sha256(ROOT / relative_path)
 
 
@@ -757,7 +785,7 @@ def write_entry(relative_path: str, destination: Path, pack_dir: Path) -> None:
     elif relative_path == ".github/prompts/tailtrail-start.prompt.md":
         destination.write_text(start_prompt_body(pack_dir), encoding="utf-8")
     else:
-        shutil.copy2(ROOT / relative_path, destination)
+        shared_files().atomic_copy(ROOT / relative_path, destination)
 
 
 def can_upgrade_entry(destination: Path, relative_path: str, previous_files: dict[str, dict[str, str]]) -> tuple[bool, str | None]:

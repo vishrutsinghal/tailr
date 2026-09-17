@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import shutil
 import stat
-import tempfile
 import time
 import uuid
 from contextlib import contextmanager
@@ -17,6 +15,7 @@ from typing import Callable, Iterator
 from ..hosts.contracts import adapter_version
 from ..hosts.diagnostics import diagnose
 
+from . import files
 from .catalog import HOSTS, PROFILES, payload_version, payloads, source_root
 from .models import InstallPlan, InstallResult, PlanEntry
 
@@ -24,6 +23,8 @@ from .models import InstallPlan, InstallResult, PlanEntry
 STATE_SCHEMA = "1"
 MANIFEST_SCHEMA = "1"
 BACKUP_RETENTION = 5
+# Locks older than this are treated as stale crash leftovers on any platform.
+LOCK_STALE_AFTER_SECONDS = 2 * 60 * 60
 
 
 class InstallFailure(RuntimeError):
@@ -39,25 +40,15 @@ class UncleanInterruption(BaseException):
 
 
 def _hash_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+    return files.sha256_bytes(data)
 
 
 def _hash_file(path: Path) -> str:
-    return _hash_bytes(path.read_bytes())
+    return files.sha256_file(path)
 
 
 def _atomic_bytes(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "wb") as stream:
-            stream.write(data)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    files.atomic_write_bytes(path, data)
 
 
 def _atomic_json(path: Path, payload: object) -> None:
@@ -160,6 +151,36 @@ class InstallEngine:
                 return False
         return True
 
+    @staticmethod
+    def _pid_alive(pid: int) -> bool:
+        """Cross-platform process liveness check.
+
+        os.kill(pid, 0) is POSIX-only semantics: on Windows it can raise
+        for reasons unrelated to liveness, which previously made live
+        locks look stale (and deletable). Use OpenProcess on Windows.
+        Unknown outcome means alive — never delete a lock we cannot prove
+        is stale, except via the age backstop below.
+        """
+        if os.name == "nt":
+            try:
+                import ctypes
+
+                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                handle = ctypes.windll.kernel32.OpenProcess(
+                    PROCESS_QUERY_LIMITED_INFORMATION, False, pid
+                )
+                if not handle:
+                    return False
+                ctypes.windll.kernel32.CloseHandle(handle)
+                return True
+            except Exception:
+                return True
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        return True
+
     @contextmanager
     def _lock(self) -> Iterator[None]:
         self.state_root.mkdir(parents=True, exist_ok=True)
@@ -170,8 +191,10 @@ class InstallEngine:
             try:
                 current = json.loads(self.lock_path.read_text(encoding="utf-8"))
                 pid = int(current.get("pid", -1))
-                os.kill(pid, 0)
+                age = int(time.time()) - int(current.get("created_at", 0))
             except (OSError, ValueError, json.JSONDecodeError):
+                pid, age = -1, LOCK_STALE_AFTER_SECONDS + 1
+            if age > LOCK_STALE_AFTER_SECONDS or not self._pid_alive(pid):
                 self.lock_path.unlink(missing_ok=True)
                 descriptor = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             else:
@@ -194,16 +217,7 @@ class InstallEngine:
             os.fsync(stream.fileno())
 
     def _destination(self, relative: str) -> Path:
-        value = Path(relative)
-        if value.is_absolute() or not value.parts or any(part in {"", ".", ".."} for part in value.parts):
-            raise InstallFailure("unsafe-path", f"unsafe managed path: {relative}")
-        destination = self.target / value
-        current = self.target
-        for part in value.parts[:-1]:
-            current = current / part
-            if current.is_symlink():
-                raise InstallFailure("unsafe-path", f"managed path crosses a symlink: {relative}")
-        return destination
+        return files.safe_managed_path(self.target, relative)
 
     def plan(self, operation: str, host: str, profile: str | None = None, *, force: bool = False) -> InstallPlan:
         if host not in HOSTS:

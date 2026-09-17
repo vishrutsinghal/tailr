@@ -49,6 +49,13 @@ Automatic selection fails without mutation when zero or multiple hosts are
 detected. Use `--host all` only when the repository intentionally supports all
 three assistants.
 
+After a successful `setup`/`install`, TailTrail registers its own command
+directory on your user PATH when `tailtrail` does not already resolve
+(Windows: HKCU Environment, no admin needed; other platforms print a shell
+hint). Restart terminals and IDEs afterwards — PATH reloads per process —
+then verify with `where.exe tailtrail` (Windows) or `command -v tailtrail`.
+Pass `--no-path-register` to opt out.
+
 | Host | Windows | macOS / Linux |
 | --- | --- | --- |
 | Codex | `tailtrail install --host codex --profile core --target "D:\path\to\project"` | `tailtrail install --host codex --profile core --target /path/to/project` |

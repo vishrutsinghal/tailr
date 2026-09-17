@@ -30,6 +30,17 @@ qualification and real-host observations remain separate E4-E5 gates.
 - Extended payloads use one immutable versioned common runtime and one small
   launcher per host. A common path referenced by another current host manifest
   is preserved during update, uninstall, and rollback.
+- File-operation ownership: `tailtrail/install/files.py` owns hashing,
+  atomic copy/write, and safe-path resolution for every install/update
+  flow (engine and legacy per-host scripts delegate to it). The install
+  `catalog.py` owns payload *selection* per host; per-host modules own
+  *generated content* (rendered instruction bodies). Legacy pack-manifest
+  formats are retained for existing installs — unifying them under the
+  engine manifest is a tracked follow-up, not this change.
+- Installer locks use platform process-liveness checks (Windows uses
+  OpenProcess, not signal 0) plus a 2-hour stale-lock backstop. The
+  install CLI refuses the Microsoft Store `python` alias with a direct
+  error instead of failing later with misleading messages.
 
 ## State layout
 

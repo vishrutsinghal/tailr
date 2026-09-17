@@ -5,12 +5,29 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Sequence
 
 from ..hosts.contracts import contract
 from .catalog import HOSTS, PROFILES
 from .engine import InstallEngine, InstallFailure
+
+
+def check_interpreter(executable: str | None = None) -> str | None:
+    """Return an error message when the interpreter cannot run installs.
+
+    The Microsoft Store `python` alias is not a real runtime: venv creation
+    and package installs fail under it with misleading errors.
+    """
+    value = str(executable or sys.executable)
+    lowered = value.replace("\\", "/").lower()
+    if "windowsapps" in lowered:
+        return (
+            f"refusing to install under the Microsoft Store python alias ({value}); "
+            "use `py -3.12`/`py -3.13` or a venv python instead"
+        )
+    return None
 
 
 def _render(payload: dict[str, object], as_json: bool, *, verbose: bool = False) -> None:
@@ -80,10 +97,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument("--no-path-register", action="store_true", help="skip automatic PATH registration of the tailtrail command")
     parser.add_argument("--verbose", action="store_true", help="include managed path and full plan details")
     parser.add_argument("--compact", action="store_true", help="use the summary JSON envelope for compatibility-controlled lifecycle commands")
     args = parser.parse_args(argv)
     as_json = args.format == "json"
+    interpreter_error = check_interpreter()
+    if interpreter_error:
+        if as_json:
+            print(json.dumps({"ok": False, "error": interpreter_error}, indent=2, sort_keys=True))
+        else:
+            print(f"TailTrail install: failed\nError: {interpreter_error}")
+        return 2
     try:
         engine = InstallEngine(args.target)
         if args.operation == "rollback":
@@ -124,6 +149,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         full_payloads = [result.as_dict(details=True) for result in results]
         compact_json = as_json and not args.verbose and (args.compact or args.operation == "setup")
         payloads = [result.as_dict(details=False) for result in results] if compact_json else full_payloads
+        path_registration = None
+        succeeded = all(result.ok for result in results)
+        if succeeded and not args.dry_run and args.operation in {"setup", "install"} and not args.no_path_register:
+            from .pathfix import ensure_command_on_path, render_notice
+
+            path_registration = ensure_command_on_path()
+            if as_json:
+                for payload in payloads:
+                    if isinstance(payload, dict):
+                        payload["path_registration"] = path_registration
+            elif path_registration is not None:
+                print()
+                print(render_notice(path_registration))
         if len(payloads) == 1:
             _render(payloads[0] if as_json else full_payloads[0], as_json, verbose=args.verbose)
         elif as_json:
@@ -133,7 +171,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if index:
                     print()
                 _render(full_payloads[index], False, verbose=args.verbose)
-        return 0 if all(result.ok for result in results) else 3
+        return 0 if succeeded else 3
     except InstallFailure as error:
         payload = {"schema_version": "1", "type": "tailtrail-install-error", "ok": False, "error": error.code, "message": str(error), "exit_code": 3}
         print(json.dumps(payload, sort_keys=True) if as_json else f"TailTrail installer failed [{error.code}]: {error}")

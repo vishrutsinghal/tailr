@@ -95,15 +95,13 @@ def write_text_file(root: Path, path: Path, body: str) -> None:
     # Installer context: no pipeline run exists, so the unenforced write
     # is declared openly instead of silently bypassed.
     guard_write(root, path, permissive=True)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8")
+    install_copilot.shared_files().atomic_write_text(path, body)
 
 
 def copy_file(root: Path, path: Path, source: Path) -> None:
     # Installer context: see write_text_file.
     guard_write(root, path, permissive=True)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, path)
+    install_copilot.shared_files().atomic_copy(source, path)
 
 
 def current_was_managed(path: Path, relative_path: str, manifest: dict[str, Any] | None) -> bool:
