@@ -76,4 +76,4 @@ Transitions between stages are not automatic; they are **evidence-gated**.
 ## 6. Integration Points
 - **`scripts/navigator.py`**: Now calls `PipelineManager.get_current_stage()` to determine which prompt template to use.
 - **`scripts/pipeline_judge.py`**: Updated to be a stateless utility that takes `(badge, path)` and returns a boolean.
-- **`scripts/planning-lock.py`**: Expanded to store the `pipeline` state and `handoff_manifest`.
+- **`scripts/planning_lock.py`**: Expanded to store the `pipeline` state and `handoff_manifest`.

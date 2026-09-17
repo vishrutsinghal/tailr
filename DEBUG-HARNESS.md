@@ -1449,7 +1449,7 @@ writes, or edit code.
 Likely files:
 
 - `scripts/task-start.py`
-- `scripts/planning-lock.py`
+- `scripts/planning_lock.py`
 - `scripts/debug-intake.py`
 - `scripts/navigator_render.py`
 - `schemas/debug-intake.schema.json`
@@ -1498,7 +1498,7 @@ Files changed for DI-2:
 - `scripts/task-start.py`
 - `scripts/tailtrail.py`
 - `scripts/navigator.py`
-- `scripts/planning-lock.py`
+- `scripts/planning_lock.py`
 - `scripts/mcp-server.py`
 - `MCP-SERVER.md`
 - `tests/test_debug_start_planning.py`
@@ -1546,7 +1546,7 @@ Example approved investigation requirement:
 Likely files:
 
 - `scripts/debug-reproduction.py`
-- `scripts/planning-lock.py`
+- `scripts/planning_lock.py`
 - `scripts/change-intent-anchor.py`
 - `scripts/planning-discussion.py`
 - `scripts/planning-revision.py`
@@ -1616,7 +1616,7 @@ flowchart LR
 ```
 
 Implemented files include `scripts/debug-reproduction.py`,
-`scripts/planning-lock.py`, `scripts/change-intent-anchor.py`,
+`scripts/planning_lock.py`, `scripts/change-intent-anchor.py`,
 `scripts/mcp-server.py`, both DI-3 schemas, and focused Debug Start/Harness
 tests.
 

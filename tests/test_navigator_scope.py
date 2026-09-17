@@ -202,7 +202,7 @@ class NavigatorScopeBaselineTests(unittest.TestCase):
         self.assertEqual(
             actual_paths,
             [
-                "scripts/planning-lock.py",
+                "scripts/planning_lock.py",
                 "scripts/requirement_discovery.py",
                 "scripts/task-start.py",
                 "tests/test_requirement_discovery.py",
@@ -519,11 +519,19 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
         outside.write_text("outside\n", encoding="utf-8")
         link = self.root / "src" / "link.py"
         link.parent.mkdir(parents=True, exist_ok=True)
+        symlink_created = True
         try:
             link.symlink_to(outside)
-            self.assertEqual(navigator_scope.safe_text(self.root, "src/link.py")[1], "symlink-rejected")
+        except OSError:
+            # Windows without admin rights/Developer Mode cannot create symlinks
+            # (WinError 1314). Skip only the symlink assertion; the remaining
+            # fail-closed checks below are unaffected. On Linux CI this runs.
+            symlink_created = False
         finally:
             outside.unlink(missing_ok=True)
+
+        if symlink_created:
+            self.assertEqual(navigator_scope.safe_text(self.root, "src/link.py")[1], "symlink-rejected")
 
         self.assertEqual(navigator_scope.safe_text(self.root, "src/binary.py")[1], "binary-file-rejected")
         self.assertEqual(navigator_scope.safe_text(self.root, "src/non_utf8.py")[1], "non-utf8-file-rejected")
@@ -743,9 +751,9 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
             "    'requirements', ROOT / 'scripts' / 'requirement_discovery.py'\n"
             ")\n"
         )
-        self.write("scripts/planning-lock.py", body)
+        self.write("scripts/planning_lock.py", body)
         facts = code_relationships.extract(
-            self.root / "scripts" / "planning-lock.py",
+            self.root / "scripts" / "planning_lock.py",
             self.root,
             body,
         )
@@ -2038,7 +2046,7 @@ class NavigatorScopeAtomicStartTests(unittest.TestCase):
         report_path.write_text(json.dumps(saved), encoding="utf-8")
         activated = subprocess.run(
             [
-                sys.executable, (ROOT / "scripts" / "planning-lock.py").as_posix(), "activate",
+                sys.executable, (ROOT / "scripts" / "planning_lock.py").as_posix(), "activate",
                 "--root", self.root.as_posix(), "--run-id", "ns4-tamper", "--approved", "--format", "json",
             ],
             cwd=self.root, text=True, capture_output=True, check=False,

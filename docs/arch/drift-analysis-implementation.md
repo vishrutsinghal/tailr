@@ -273,7 +273,7 @@ New `tests/test_drift_analysis.py`:
 
 ## 10. Design Refinements from Review: Failure Classification, Fulfillment Drift, Requirement Concreteness
 
-> **Status: implemented.** §10.1 lives in `scripts/pipeline_orchestrator.py` (`classify_test_failure` + classified `handle_regression` routing); §10.2 and §10.3 live in `scripts/drift_analysis.py` (`_requirement_validated` fulfillment check + `_validate_concreteness` gate). The classifier reuses `execution-failure.py`'s `classify()`, whose broken load path (`scripts/planning-lock.py` → `scripts/planning_lock.py`) was fixed as part of this work.
+> **Status: implemented.** §10.1 lives in `scripts/pipeline_orchestrator.py` (`classify_test_failure` + classified `handle_regression` routing); §10.2 and §10.3 live in `scripts/drift_analysis.py` (`_requirement_validated` fulfillment check + `_validate_concreteness` gate). The classifier reuses `execution-failure.py`'s `classify()`, whose broken load path (`scripts/planning_lock.py` → `scripts/planning_lock.py`) was fixed as part of this work.
 
 Review of the first implementation surfaced three gaps. Each is recorded here with the agreed direction.
 

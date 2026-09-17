@@ -1858,7 +1858,7 @@ repository. Rather than fabricate receipts, it actually executed the six
 scenarios defined in `adapters/runtime-scenarios-v1.json` end to end, for
 real, against an isolated scratch git target (`/tmp/tailtrail-e10-scratch`,
 not this repository), using the genuine production CLIs:
-`scripts/task-start.py`, `scripts/planning-lock.py`,
+`scripts/task-start.py`, `scripts/planning_lock.py`,
 `scripts/harness-checkpoint.py`, `scripts/harness-feedback.py`,
 `scripts/task-recovery-boundary.py`, `scripts/execution-evidence.py`,
 `scripts/validation-receipt.py`, and `scripts/closure-close.py`. Every

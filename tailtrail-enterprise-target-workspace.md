@@ -283,7 +283,7 @@ Delivered files:
 
 - `scripts/target_workspace.py`: creates and verifies a sanitized target
   identity.
-- `scripts/planning-lock.py`: writes the identity into new schema-v2 locks,
+- `scripts/planning_lock.py`: writes the identity into new schema-v2 locks,
   checks it before activation, and checks it again before a managed write.
 - `schemas/planning-lock.schema.json`: accepts lock schemas v1 and v2 so
   existing runs remain readable.

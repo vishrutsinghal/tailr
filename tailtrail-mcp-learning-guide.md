@@ -722,7 +722,7 @@ thin protocol layer over small, testable workflow modules and shared artifacts.
 | File | Purpose | Why it exists | MCP relationship |
 | --- | --- | --- | --- |
 | **scripts/task-start.py** | Produces the Navigator-based Start Report and selects the applicable TailTrail workflow. | Planning must be visible before an agent edits code. | tailtrail_start invokes it so a persisted lock and the report are created together. |
-| **scripts/planning-lock.py** | Creates, shows, approves, and activates Planning Locks. Persists the saved Start Report. | Separates “plan the work” from “permission to perform managed work.” | planning_lock_show, planning_lock_start, planning_lock_approve, and tailtrail_start depend on it. |
+| **scripts/planning_lock.py** | Creates, shows, approves, and activates Planning Locks. Persists the saved Start Report. | Separates “plan the work” from “permission to perform managed work.” | planning_lock_show, planning_lock_start, planning_lock_approve, and tailtrail_start depend on it. |
 | **scripts/change-intent-anchor.py** | Drafts and approves immutable requirement anchors. | Requirement IDs, preservation rules, and acceptance criteria must not change silently during implementation. | anchor_show exposes approved-v1.json through MCP. |
 | **scripts/run-ledger.py** | Maintains per-run local event history and run-directory layout. | Every tool needs one run identity and replayable evidence pointers. | ledger_state reads the run projection; many other tools resolve artifacts through the same layout. |
 | **scripts/harness-checkpoint.py** | Records checkpoint-specific observed state, validation results, changed file fingerprints, and drift. | “Agent says done” is not enough; actual evidence must be recorded separately from approved intent. | harness_checkpoint_show exposes the latest or requested checkpoint. |
@@ -768,10 +768,10 @@ For an interviewer, explain this path in order:
 1. A host discovers tool schemas from scripts/mcp-server.py.
 2. It calls tailtrail_start for a user-requested task.
 3. mcp-server.py delegates to task-start.py.
-4. task-start.py asks Navigator for a plan and calls planning-lock.py.
-5. planning-lock.py creates .tailtrail run state and saves the exact Start Report.
+4. task-start.py asks Navigator for a plan and calls planning_lock.py.
+5. planning_lock.py creates .tailtrail run state and saves the exact Start Report.
 6. User approval calls planning_lock_approve.
-7. planning-lock.py activates the saved plan; change-intent-anchor.py creates approved-v1.json when required.
+7. planning_lock.py activates the saved plan; change-intent-anchor.py creates approved-v1.json when required.
 8. Implementation and selected deterministic controls run only after the matching lock is approved.
 9. harness-checkpoint.py records actual evidence and drift.
 10. Read-only MCP tools expose anchor, checkpoint, architecture, continuity, recovery, and completion evidence to any compatible host.

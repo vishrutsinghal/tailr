@@ -39,7 +39,7 @@ def module(name: str, filename: str) -> Any:
     return loaded
 
 
-LOCK = module("planning_investigation_lock", "planning-lock.py")
+LOCK = module("planning_investigation_lock", "planning_lock.py")
 LEDGER = module("planning_investigation_ledger", "run-ledger.py")
 GRAPH_SCHEMA_VERSION = "1"
 

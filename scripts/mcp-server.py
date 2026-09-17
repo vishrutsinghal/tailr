@@ -889,7 +889,7 @@ def run_id(args: dict[str, Any]) -> str:
 def require_approved_planning_lock(root: Path, identifier: str, action: str, *, source_write: bool = False) -> None:
     command_name = "assert-source-write" if source_write else "assert-write"
     result = command_result(
-        [PYTHON, script("planning-lock.py").as_posix(), command_name, "--root", root.as_posix(), "--run-id", identifier],
+        [PYTHON, script("planning_lock.py").as_posix(), command_name, "--root", root.as_posix(), "--run-id", identifier],
         root,
     )
     if result["exit_code"] != 0:
@@ -1032,7 +1032,7 @@ def context_continuity_show(args: dict[str, Any]) -> dict[str, Any]:
 
 def planning_lock_show(args: dict[str, Any]) -> dict[str, Any]:
     root = root_from(args); identifier = run_id(args)
-    result = command_result([PYTHON, script("planning-lock.py").as_posix(), "show", "--root", root.as_posix(), "--run-id", identifier], root)
+    result = command_result([PYTHON, script("planning_lock.py").as_posix(), "show", "--root", root.as_posix(), "--run-id", identifier], root)
     return {"tool": "planning_lock_show", "result": parse_stdout(result, "json"), "execution": result}
 
 
@@ -1287,7 +1287,7 @@ def planning_lock_start(args: dict[str, Any]) -> dict[str, Any]:
     if not goal:
         raise ValueError("goal is required")
     root = root_from(args)
-    command = [PYTHON, script("planning-lock.py").as_posix(), "start", "--root", root.as_posix(), "--goal", goal]
+    command = [PYTHON, script("planning_lock.py").as_posix(), "start", "--root", root.as_posix(), "--goal", goal]
     run = str(args.get("run_id", "")).strip()
     if run:
         command.extend(["--run-id", run])
@@ -1313,7 +1313,7 @@ def planning_lock_approve(args: dict[str, Any]) -> dict[str, Any]:
     identifier = run_id(args)
     action = "activate" if (root / ".tailtrail" / "runs" / identifier / "planning" / "start-report-v1.json").is_file() else "approve"
     result = command_result(
-        [PYTHON, script("planning-lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved", "--format", "json"] if action == "activate" else [PYTHON, script("planning-lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved"],
+        [PYTHON, script("planning_lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved", "--format", "json"] if action == "activate" else [PYTHON, script("planning_lock.py").as_posix(), action, "--root", root.as_posix(), "--run-id", identifier, "--approved"],
         root,
     )
     result["read_only"] = False

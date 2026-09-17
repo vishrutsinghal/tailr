@@ -1,3 +1,71 @@
+# Navigator AIDLC Mode Selection — Improvement Analysis
+
+## 1. Overview
+
+This document captures improvement opportunities in how Navigator selects an AI-DLC (AIDLC) mode (Lite / Standard / Full / Off) during TailTrail Start. The current selection is deterministic and keyword-driven, with no quantitative complexity assessment, no dynamic re-evaluation after scope discovery, and some structural redundancy. This document is intended for review and possible future evolution of the `scripts/task-start.py → aidlc_mode_selection()` routing path.
+
+### 1.1 Scope
+
+This document covers the decision tree inside `scripts/task-start.py` lines ~896–1204, as redesigned to the agreed 2D architecture:
+- Host agent — Dimension 1 natural-language intent capture (replaces `_aidlc_intent()` keyword/synonym table)
+- `navigator_standard_evidence()` — programme-scale signal detection (Dimension 2 support signal)
+- `aidlc_mode_selection()` — final mode routing combining host intent + quantitative scope signal
+- Agreed default: user says "use AIDLC" without a mode → Standard, no keyword table lookup.
+
+It does **not** cover downstream Official AIDLC lifecycle stages (that is the authority of the official pack boundary) or the Planning Lock approval flow (covered elsewhere).
+
+### 1.2 Baseline Behavior (Current State)
+
+The current mode selection proceeds with a **1D keyword-only decision**, replaced by the **agreed 2D architecture** (host agent for intent + TailTrail quantitative metrics for scope). The synonym/keyword table is retired; the host agent is always available (offline or online), so there is no table to maintain. The agreed rule for unspecified AIDLC is Standard.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│             CURRENT (1D) → TARGET (2D) AIDLC MODE SELECTION      │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Explicit --aidlc flag  → wins immediately (explicit-flag)     │
+│                                                                   │
+│ 2. Natural-language intent (1D path — target for host agent):    │
+│    intent = _aidlc_intent(goal)  ← 1D: keyword/synonym table   │
+│    → opt-out → Off                                                │
+│    → full  → Full                                                 │
+│    → standard → Standard                                          │
+│    → requested → go to stage 3 (fall through)                    │
+│    → none → go to stage 3                                         │
+│                                                                   │
+│    【2D TARGET】Host agent answers: "which AIDLC mode if any?"   │
+│    → explicit intent (full/standard/off) captured directly       │
+│    → "use AIDLC" without mode → Standard (default for unspecified)│
+│    → no AIDLC mention → none (TailTrail quantitative path)       │
+│                                                                   │
+│ 3. Quantitative scope signal (2D Dimension 2 — TailTrail):       │
+│    metrics = extract_scope_complexity_metrics(scope_evidence)    │
+│    → affected_files, cross_layer_edges, call_chain_depth,        │
+│      module_resolution_ambiguous, behavior_chain_state           │
+│    → scope_signal = True if metrics exceed calibrated thresholds │
+│    → dual-gate: keyword signal OR scope_signal → Standard        │
+│    → scope floor: tiny scope (few files, low lines) keeps Lite   │
+│                                                                   │
+│ 4. Combined resolution (2D):                                     │
+│    IF explicit host intent OR scope_signal:                      │
+│        → Standard (or Full if hands_free + programme signals)     │
+│    ELSE:                                                          │
+│        → Lite                                                     │
+│    IF intent=="none" AND NOT hands_free AND NOT scope_signal:   │
+│        → Lite (selection: default)                                │
+│    IF hands_free AND (intent OR scope_signal OR programme_sigs): │
+│        → Full                                                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 1.3 AIDLC Mode Definitions (Reference)
+
+| Mode | When Selected | What It Enables | What It Excludes |
+|---|---|---|---|
+| **Off** | User opts out (`"without AIDLC"`, `"AIDLC off"`) | AIDLC lifecycle disabled; Navigator requirement boundary governs | Local AIDLC Requirements stage, official pack verification |
+| **Lite** (default) | No signals, no hands-free, no explicit intent | Navigator planning + Planning Lock + task-selected controls + Local AIDLC Lifecycle Lite | Mandatory AIDLC workshop, official pack identity |
+| **Standard** | ≥2 programme signals, OR hands-free + signals, OR explicit standard/fuller intent | Everything in Lite + verified official AI-DLC Requirements Analysis rules + host-generated official questions with options/recommendations/reasoning | Full lifecycle stages after requirements |
+| **Full** | Hands-free + ≥2 signals + official pack available | Everything in Standard + Phase A compatibility verification + full official lifecycle rules + receipt-driven attachment with ordered resume/redo/jump/recovery history | TailTrail-generated substitute questions, silent fallback |
+
 ## 2. Identified Improvement Areas
 
 ### 2.1 Gap #1 — No Quantitative Code Complexity Metric
@@ -78,70 +146,18 @@ if complexity_score >= 2:
 
 This would make a 50-file refactor with no programme keywords correctly route to Standard mode based on objective evidence.
 
-#### 2.1.4 Trade-offs
+#### 2.1.4 Trade-offs (1D vs 2D)
 
-| Consideration | Impact |
-|---|---|
-| Graph must be available before mode selection | May require early graph build or reuse; adds latency if graph is not cached |
-| Complexity threshold needs calibration | Too sensitive → Standard on every medium task; too lenient → same as today |
-| Graph stats may be incomplete for first-time runs | Fallback to keyword-only signals if graph unavailable |
-# Navigator AIDLC Mode Selection — Improvement Analysis
+These tradeoffs compare the legacy 1D keyword-only approach against the 2D architecture (host agent for intent + quantitative metrics for scope):
 
-## 1. Overview
-
-This document captures improvement opportunities in how Navigator selects an AI-DLC (AIDLC) mode (Lite / Standard / Full / Off) during TailTrail Start. The current selection is deterministic and keyword-driven, with no quantitative complexity assessment, no dynamic re-evaluation after scope discovery, and some structural redundancy. This document is intended for review and possible future evolution of the `scripts/task-start.py → aidlc_mode_selection()` routing path.
-
-### 1.1 Scope
-
-This document covers the decision tree inside `scripts/task-start.py` lines ~896–1204:
-- `_aidlc_intent()` — natural-language intent detection
-- `navigator_standard_evidence()` — programme-scale signal detection
-- `aidlc_mode_selection()` — final mode routing
-
-It does **not** cover downstream Official AIDLC lifecycle stages (that is the authority of the official pack boundary) or the Planning Lock approval flow (covered elsewhere).
-
-### 1.2 Baseline Behavior (Current State)
-
-The current mode selection proceeds in five stages:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  CURRENT AIDLC MODE SELECTION                     │
-├─────────────────────────────────────────────────────────────────┤
-│ 1. Explicit --aidlc flag  → wins immediately (explicit-flag)     │
-│                                                                   │
-│ 2. Natural-language intent → opt-out → Off                       │
-│                               full  → Full                         │
-│                               standard → Standard                  │
-│                               requested → go to stage 3            │
-│                               none → go to stage 3                 │
-│                                                                   │
-│ 3. Auto-routing (intent=none or requested):                      │
-│    hands_free = goal has "hands-free"/"end-to-end"               │
-│    routing = navigator_standard_evidence(goal, plan)             │
-│                                                                   │
-│    IF intent=="none" AND NOT hands_free AND NOT routing.selected:│
-│        → LITE (selection: default)                                │
-│        → full_escalation: not-eligible                            │
-│    ELIF hands_free AND routing.selected:                         │
-│        → FULL (or eligible-awaiting-compatible-pack)              │
-│    ELIF intent in {"requested","standard"} OR routing.selected     │
-│         OR hands_free:                                            │
-│        → STANDARD                                                 │
-│    ELSE:                                                          │
-│        → LITE (fallback)                                         │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 1.3 AIDLC Mode Definitions (Reference)
-
-| Mode | When Selected | What It Enables | What It Excludes |
+| Consideration | 1D (keyword-only) | 2D (host agent + scope metrics) | Impact |
 |---|---|---|---|
-| **Off** | User opts out (`"without AIDLC"`, `"AIDLC off"`) | AIDLC lifecycle disabled; Navigator requirement boundary governs | Local AIDLC Requirements stage, official pack verification |
-| **Lite** (default) | No signals, no hands-free, no explicit intent | Navigator planning + Planning Lock + task-selected controls + Local AIDLC Lifecycle Lite | Mandatory AIDLC workshop, official pack identity |
-| **Standard** | ≥2 programme signals, OR hands-free + signals, OR explicit standard/fuller intent | Everything in Lite + verified official AI-DLC Requirements Analysis rules + host-generated official questions with options/recommendations/reasoning | Full lifecycle stages after requirements |
-| **Full** | Hands-free + ≥2 signals + official pack available | Everything in Standard + Phase A compatibility verification + full official lifecycle rules + receipt-driven attachment with ordered resume/redo/jump/recovery history | TailTrail-generated substitute questions, silent fallback |
-### 2.2 Gap #2 — Brittle Natural-Language Intent Detection
+| **Graph must be available before mode selection** | N/A (keywords only) | Mitigated — Tier 1 metrics from `likely_impacted_files` work without graph; Tier 2 from `scope_evidence`; Tier 3 from mapper cache only when available | Low — no graph required for basic metric routing |
+| **Complexity threshold needs calibration** | Binary — either a keyword matches or it doesn't. No granularity for "how complex." Must rely on coarse word-count heuristics that are hard to tune. | Quantified — file count, cross-layer edges, call chain depth, module ambiguity, behavior chain state. Continuous metrics make calibration precise and measurable. | High — 2D enables empirical, data-driven threshold tuning |
+| **Graph stats may be incomplete for first-time runs** | Always uses keyword-only signals regardless of data availability | Tiered fallback — if no scope_evidence or graph cache, Tier 1-only metrics (cheap_scope_metrics) still provide file count + path depth. Mode selection never blocks. | Low — graceful degradation to available signals |
+### 2.2 Gap #2 — Retire keyword/synonym intent detection (host agent is the intent path)
+
+> **Agreed design (final):** the host agent answers "which AIDLC mode, if any?" The `_aidlc_intent()` keyword/synonym table is retired. No synonym table is maintained. Reason: the host agent is always available (offline or online) and solves phrasing variation without a probabilistic table. Agreed default: user says "use AIDLC" with no mode → **Standard**.
 
 #### 2.2.1 Current Behavior
 
@@ -232,13 +248,16 @@ This handles:
 - `"skip the AIDLC lifecycle"` → anchor present, qualifier absent, but "skip" nearby → `"opt-out"`
 - `"use AIDLC lifecycle"` → anchor present, qualifier absent → `"requested"` (correctly ambiguous)
 
-#### 2.2.4 Trade-offs
+### 2.2.4 Summary: 1D vs 2D Trade-offs
 
-| Consideration | Impact |
-|---|---|
-| Synonym table must be maintained | New synonyms added over time as users phrase things differently |
-| Distance threshold (+/-3 words) is a heuristic | May miss `"AIDLC"` separated by 4+ words from the mode word in long sentences |
-| Ambiguous cases ("AIDLC lifecycle") remain `"requested"` | This is intentional — ambiguous cases correctly fall through to risk routing rather than guessing |
+| Consideration | 1D (keyword/synonym only) | 2D (host agent + scope metrics) |
+|---|---|---|
+| Synonym table must be maintained | Critical — sole determinant; missed synonym = wrong mode | **Retired** — host agent handles natural-language intent directly; no table to maintain |
+| Distance threshold (+/-3 words) is a heuristic | Limitation — misses intent separated by 4+ words | **Eliminated** — host reads full sentence; scope metrics provide independent signal path |
+| Ambiguous cases ("AIDLC lifecycle") | Falls through to risk routing with unclear mode | **Resolved** — bare "use AIDLC" → Standard (agreed default); explicit intents captured by host |
+| Complexity is not measurable | Binary keyword match; no notion of "how complex" | **Quantified** — file count, cross-layer edges, call chain depth, module ambiguity |
+| Graph needed for metrics | N/A | Tiered fallback — Tier 1 from `likely_impacted_files` works without graph; Tier 2/3 degrade gracefully |
+
 ### 2.3 Gap #3 — No Post-Planning Re-Evaluation of AIDLC Mode
 
 #### 2.3.1 Current Behavior
@@ -269,6 +288,8 @@ Examining saved start reports (e.g., `start-20260808123420-180837`):
 - Even when `scope_evidence` later shows more files than the initial goal implied, the AIDLC mode is unchanged
 
 #### 2.3.4 Suggested Direction
+
+> **Superseded (R0)**: the sketch below was written before the Phase 3 metrics work landed. It uses ad-hoc triggers that would drift from the calibrated thresholds in `metrics_extractor.py`. The authoritative design is now the refined Phase 6 section (reuses `compute_complexity()` → `scope_signal` / `scope_floor_lite`); this draft is retained as history only.
 
 Add a **discovery-triggered re-evaluation trigger point** between scope discovery and Planning Lock finalization:
 
@@ -458,13 +479,13 @@ With this:
 
 This preserves the intent (don't escalate on a single benign signal) while being less conservative about genuinely risky single-signal tasks.
 
-#### 2.5.4 Trade-offs
+#### 2.5.4 Trade-offs (1D vs 2D)
 
-| Consideration | Impact |
-|---|---|
-| Single critical risk to Standard adds more Standard-mode tasks | More official AIDLC requirements analysis runs; higher cost per task |
-| Weighting system must be calibrated | Threshold of 3 may need adjustment based on observed outcomes |
-| Decisions-based escalation needs review | The current `len(decisions) >= 2 AND bool(signals or critical_risks)` already captures material decisions; keep that path |
+| Consideration | 1D (keyword-only scoring) | 2D (host agent + scope metrics) | Impact |
+|---|---|---|---|
+| Single critical risk to Standard | Binary OR of ≥2 signals means single critical risk (e.g., `"migration"`) is ignored, even though the current logic allows escalation if `material_decisions >= 2 AND risk` | Weight is unnecessary — scope metrics (file count, cross-layer edges) capture complexity independently of keyword count; critical risks remain as a parallel signal through `navigator_standard_evidence()` | Low — scope metrics provide independent escalation path |
+| Weighting system must be calibrated | Threshold of ≥2 keyword signals is a hard gate with no gradient | Scope metrics have natural thresholds (20 files, 3 cross-layer edges, depth stddev 3.0); host agent handles intent without weighting | Low — no weighting system needed |
+| Decisions-based escalation | `len(decisions) >= 2 AND bool(signals or critical_risks)` is a compound condition hard to tune | Material decisions still feed `navigator_standard_evidence()` as risk indicators; scope metrics provide a separate escalation path | Low — both signals supported in parallel |
 ### 2.6 Gap #6 — No Integration with Code Intelligence Depth
 
 #### 2.6.1 Current Behavior
@@ -506,23 +527,23 @@ Where `_assess_code_complexity` uses:
 - `graph_stats.max_depth` — call chain depth
 - `graph_stats.boundaries_touched` — number of architectural boundaries affected
 
-#### 2.6.4 Trade-offs
+#### 2.6.4 Trade-offs (1D vs 2D)
 
-| Consideration | Impact |
-|---|---|
-| Requires graph or directory scan before mode selection | Adds latency; may need a lightweight pre-scan (file count only) for mode selection, with full analysis after |
-| `code_intel.default` is a user setting, not a task signal | A user who sets `v3` by default may get Standard mode on simple tasks; make it a soft signal (adds 0.5 to score, not a full signal) |
-| File count alone is a weak proxy | A task changing 20 config files is different from a task changing 20 source files; weight by file type |
+| Consideration | 1D (no code intelligence integration) | 2D (host agent + scope metrics) | Impact |
+|---|---|---|---|
+| Requires graph before mode selection | N/A — keywords only, no graph needed | Tier 1 metrics from `likely_impacted_files` work without graph; Tier 2 from scope_evidence; Tier 3 from mapper cache only when available — tiered fallback eliminates the need for upfront graph build | Low — no graph required for basic mode routing |
+| `code_intel.default` user setting vs task signal | User sets `v3` globally but simple tasks still go to Lite — setting is ignored | User code-intelligence setting becomes one soft signal among many (file count, edges, depth); it contributes but doesn't dominate | Low — setting respected but doesn't override scope reality |
+| File count alone is a weak proxy | No file-count signal at all — only keywords | File count is Tier 1 (always available) but combined with cross-layer edges, call chain depth, and module ambiguity to form a composite complexity view; not relied on alone | Low — file count weighted with other structural signals |
 ## 3. Summary of Improvement Areas
 
 | # | Gap | Severity | Current Behavior | Proposed Direction | Key File(s) |
 |---|---|---|---|---|---|
-| 1 | No quantitative complexity metric | **High** | Keyword-only; 50-file refactor with no keywords to Lite | Add code-complexity signal (file count, graph depth, coverage gap, boundaries) to `navigator_standard_evidence()` or new function | `scripts/task-start.py:923` |
-| 2 | Brittle intent detection | **Medium** | Exact regex, word-order-sensitive, no synonym normalization | Add synonym normalization + two-pass anchor/qualifier detection in `_aidlc_intent()` | `scripts/task-start.py:896` |
-| 3 | No post-discovery re-evaluation | **Medium** | Mode locked at Start; no revision path after scope discovery | Add re-evaluation trigger before lock finalization with user prompt for Lite-to-Standard escalation | `scripts/task-start.py` + lock finalization path |
-| 4 | Duplicated `hands_free` check | **Low** | Same regex in `aidlc_mode_selection()` and `guided_delivery()` | Extract `is_hands_free()` shared helper | `scripts/task-start.py:1139`, `:1229` |
+| 1 | No quantitative complexity metric | **High** | Keyword-only; 50-file refactor with no keywords to Lite | Add code-complexity signal (file count, graph depth, cross-layer edges) to `navigator_standard_evidence()` or new function | `scripts/task-start.py:923` |
+| 2 | Brittle intent detection | **Medium → Agreed** | Exact regex, word-order-sensitive, no synonym normalization | **Retired** — host agent handles explicit user intent directly from natural language; bare "use AIDLC" → Standard | `scripts/task-start.py:896` → **Phase 5 (agreed)** |
+| 3 | No post-discovery re-evaluation | **Medium** | Mode locked at Start; no revision path after scope discovery | Add re-evaluation trigger before lock finalization with user prompt for Lite-to-Standard escalation (separate enhancement) | `scripts/task-start.py` + lock finalization path |
+| 4 | Duplicated `hands_free` check | **Low** | Same regex in `aidlc_mode_selection()` and `guided_delivery()` | Extract `is_hands_free()` shared helper (cleanup task) | `scripts/task-start.py:1139`, `:1229` |
 | 5 | Threshold >=2 signals too conservative | **Low** | Single critical risk not enough for Standard | Weight critical risks (weight 2) vs. programme signals (weight 1); threshold >=3 | `scripts/task-start.py:945` |
-| 6 | No code intelligence integration | **Low** | `code_intel`, `len(changed)`, graph depth not used | Pass code intelligence evidence into mode selection as a soft signal | `scripts/task-start.py:1132` |
+| 6 | No code intelligence integration | **Low** | `code_intel`, `len(changed)`, graph depth not used | Pass code intelligence evidence into mode selection as a soft signal (Tier 3 enrichment) | `scripts/task-start.py:1132` |
 
 ### 3.1 Prioritization Rationale
 
@@ -535,84 +556,17 @@ Where `_assess_code_complexity` uses:
 
 The following are intentionally left open for review and do not represent decisions:
 
-1. **Complexity threshold calibration**: What score/threshold gives the right balance between over-escalating (Standard on simple tasks) and under-escalating (Lite on genuinely complex tasks)?
+1. **Complexity threshold tuning**: The 2D design proposes specific default thresholds (20 files, 3 cross-layer edges, depth stddev 3.0, etc.). These are starting points. What are the right calibrated values for this codebase, and should they vary by project?
 
-2. **When to re-evaluate**: Should re-evaluation happen automatically and prompt the user, or should it be a flag the user can opt into (e.g., `--aidlc auto-escalate`)?
+2. **Re-evaluation timing**: Gap #3 is marked as a separate enhancement (Phase 6+). Should it be folded into the initial 2D rollout, or kept separate?
 
-3. **Downgrade protection**: Should the system ever downgrade from Standard to Lite based on discovery? Currently there is no path; is that correct?
+3. **Downgrade protection**: Should the system ever downgrade from Standard to Lite based on post-discovery evidence? Currently proposed as no — is that correct?
 
-4. **Graph availability latency**: If Gap 1 requires graph stats before mode selection, does the system build a minimal graph first (slow start) or accept graph-unavailable as a fallback to keyword-only signals?
+4. **User override**: Should users be able to override the dual-gate auto-selected mode? E.g., "I know this is simple-looking but I want Standard for documentation" or "I want Lite on this complex task." 
 
-5. **User override**: Should users be able to override the auto-selected mode after seeing both the goal-based selection and the code-complexity evidence? (e.g., "I know this is complex but I want Lite" or "This looks simple but I want Standard for the documentation")
+5. **Scope floor for Standard**: The proposed Standard floor requires `changed_files >= 50 OR code_intel != "lite"`. Is 50 the right floor, and should `v2`/`v3` code intelligence be a soft contributor (adds 0.5) rather than a hard trigger?
 
-6. **Code intelligence as a mode signal vs. a separate harness decision**: Gap 6 could be interpreted as "code intelligence depth should affect the delivery harness, not the AIDLC mode." Is that the right separation?
-## 5. Design Framework for Quantitative Code-Complexity Metrics
-
-### 5.1 Core Principle: Deterministic Over Host-Agent Reasoning
-
-**Short answer**: Do **not** make the agent host the primary gatherer. Use the existing deterministic static-analysis + code-graph path. Reserve host reasoning only as a last-resort fallback for languages the mapper doesn't cover.
-
-**Why agent-host reasoning is a poor primary path here:**
-
-| Concern | Host-agent reasoning | Deterministic static analysis |
-|---|---|---|
-| **Determinism** | Non-deterministic — different reasoning paths on rerun | Reproducible from AST / graph / file count |
-| **Token cost** | Reads files, reasons about complexity → expensive per run | Capped budgets (`InvestigationLimits`, `max_total_read_bytes`) |
-| **Testability** | Hard to assert "complexity score is X" in a test | Easy: feed a fixed `scope_evidence` doc, assert metric values |
-| **TailTrail philosophy** | Violates "bounded discovery" and evidence-first norms | Aligns with `navigator_scope.py`'s capped investigation design |
-| **Timing** | Would need to happen *before* mode selection — slows start | Metrics already derivable from `scope_evidence` computed at line 2408 |
-
-The existing `navigator_scope.investigate()` (line 1621) already builds a `scope_evidence` document with candidates, edges, behavior chains, and investigation stats. The data is there; it just isn't extracted into metrics and fed to `aidlc_mode_selection()`.
-
-
-
-### 5.2 What Already Exists That Can Be Leveraged
-
-#### 5.2.1 Data available in `scope_evidence` document (from `investigate()`)
-
-The Navigator scope investigation at `scripts/navigator_scope.py:1621` produces a `scope_evidence` document with:
-
-| Field | Contains | Quantitative value derivable |
-|---|---|---|
-| `candidates[]` | File/module candidates with roles, statuses, edges | `len(candidates)` = affected file count; role distribution (implementation-owner, test, excluded, supporting) |
-| `edges[]` | Relationship edges with `kind`, `strength`, `from_candidate_id`, `to_candidate_id` | Cross-layer edges from specific `kind` values; edge count per candidate |
-| `behavior_chains` | Complete/partial execution chains | Chain depth; chain completeness ratio; gap points |
-| `investigation` | Investigation metadata (`files_read`, `bytes_read`, limits, phases) | Coverage ratio; investigation effort; files found vs. attempted |
-| `ownership_selection` | Qualified candidates, selected candidates, reasons | Qualification ratio; selection confidence |
-| `module_resolution` | Resolution stats (`ambiguous`, `unresolved`, `resolved`) | Resolution ambiguity count — indicator of codebase complexity |
-| `evidence_state` | `"resolved"` or `"partial"` | Completeness signal |
-
-These fields exist but are not computed as standalone metrics for AIDLC routing today.
-
-#### 5.2.2 Capabilities available in `code-graph-mapper.py`
-
-`scripts/code-graph-mapper.py` can extract from a repository:
-
-| Capability | Metric it can produce |
-|---|---|
-| File/module inventory | `affected_files` count, file list |
-| Call chains (`call_chains[]`) | `call_chain_depth_mean`, `call_chain_depth_stddev`, `max_chain_depth`, chain count |
-| Symbols per file (`symbols[]`) | Function/class density per file |
-| Endpoints (`endpoints[]`) | API surface size |
-| Type hierarchy (`type_hierarchy[]`) | Inheritance depth, type coupling |
-| Import relationships | Import graph edges, cross-module dependencies |
-
-These are available when the mapper has been run and a `code-graph-cache.json` exists (see `.tailtrail/meta/code-graph-cache.json`).
-
-#### 5.2.3 Capabilities available as cheap fallback
-
-When no graph cache or full scope investigation is available:
-
-| Capability | Cost | Metric it can produce |
-|---|---|---|
-| `plan["likely_impacted_files"]` | O(n) — already computed at line 2405 | `affected_files` from path list |
-| File path analysis | O(n) — path string inspection | Layer detection (src/ vs. tests/ vs. infra/); path depth stddev |
-| File size inspection | O(n) — stat() call per file | `changed_lines_estimate` from file size or git diff |
-| Git diff inspection | O(diff) — subprocess call | Actual changed-line count |
-
-These are cheap enough to run before mode selection without noticeable latency.
-
-
+6. **Weighting of code_intel.default**: In Gap #6's proposed direction, the suggestion was to make `code_intel` a soft signal. Is a contribution of 0.5 to the Standard count sufficient, or does it need finer granularity?
 ## 5. Design Framework for Quantitative Code-Complexity Metrics
 
 ### 5.1 Core Principle: Deterministic Over Host-Agent Reasoning
@@ -800,7 +754,7 @@ The cleanest insertion point is a **new function** `extract_scope_complexity_met
 
 ---
 
-### 5.5 Modified Routing Logic (Dual-Gate)
+### 5.5 Modified Routing Logic (Dual-Gate: host intent + scope metrics, Standard default for unspecified AIDLC)
 
 ```python
 def aidlc_mode_selection_with_scope(
@@ -903,11 +857,13 @@ This means even without a full investigation, the routing gets at least Tier-1 m
 
 ---
 
-### 5.8 Should the Agent Host Ever Be Involved?
+### 5.8 Host Agent Is the Intent Path (agreed design)
 
-**Primary path**: No. The deterministic tiers above cover the vast majority of cases and align with TailTrail's evidence-first, bounded-discovery philosophy.
+**Agreed design (final):** TailTrail asks the host agent one question — "which AIDLC mode, if any?" — and records the answer. No synonym/keyword table is maintained, because the host is always available offline or online and solves novel phrasing without probabilistic matching. The host returns full/standard/off if the user says so; **bare "use AIDLC" with no mode returns Standard**; silence on AIDLC returns none and TailTrail routes on the quantitative scope path alone.
 
-**Acceptable fallback**: When a project uses a language or framework that the code-graph mapper doesn't support (e.g., a new language, custom DSL, or heavily metaprogramming codebase), and no `scope_evidence` document exists, the host agent **could** provide a qualitative complexity assessment as a last resort — but only if:
+**Primary path**: the host answers explicit intent; the deterministic metric tiers answer scope complexity.
+
+**Host intent as a scoped fallback**: not applicable for intent — the host is the intent path.
 
 - It's marked as `source: "host-agent-qualitative"` in the metrics dict
 - It's treated as a **weak signal** (lower weight than deterministic metrics)
@@ -949,6 +905,97 @@ User runs: tailtrail start "Fix validation bug..."
 ```
 
 ---
+
+
+
+## 5.10 Decision Framework: When to Escalate
+
+This section defines the concrete decision logic for when quantitative metrics should trigger a higher AIDLC mode. It answers: **"At what `affected_files` count do we escalate to Standard? And what makes a task 'complex enough' for Full?"**
+
+### 5.10.1 The Core Heuristic
+
+Escalation is **not** a single threshold on `affected_files`. It's a multi-signal assessment where any one strong signal can trigger Standard, and multiple signals together can trigger Full. This prevents both over-escalation (a 30-file well-contained refactor shouldn't force Full) and under-escalation (a 3-file auth patch that introduces a new external dependency should escalate).
+
+The decision uses a **scoring model** with three tiers of signals:
+
+```
+TIER 1 — STRONG INDIVIDUAL SIGNALS (any ONE triggers Standard)
+  · cross_layer_edges >= 3
+  · new_external_dependencies >= 1
+  · call_chain_depth_stddev >= 3.5
+  · module_resolution_ambiguous >= 5
+  · behavior_chain_state == "incomplete"
+
+TIER 2 — MODERATE SIGNALS (need 2+ to trigger Standard)
+  · affected_files >= 20
+  · affected_files >= 10 AND cross_layer_edges >= 2
+  · critical_risk_keyword detected AND affected_files >= 3
+
+TIER 3 — WEAK SIGNALS (need 3+ to trigger Standard)
+  · affected_files >= 10
+  · call_chain_depth_mean >= 2.5
+  · files_in_multiple_layers >= 2
+```
+
+
+### 5.10.2 Standard vs. Full: Different Thresholds
+
+Full mode is **not** just "more of the same signals." It requires evidence of **programme-scale coordination complexity** that goes beyond technical scope. The distinction:
+
+```
+STANDARD triggers when:
+  · Technical scope is material (many files, deep call chains, cross-layer)
+  · OR a high-stakes content keyword is present with non-trivial scope
+  · OR multiple moderate signals combine
+
+FULL triggers when (requires BOTH a technical signal AND a programme signal):
+  · Technical: affected_files >= 30 OR cross_layer_edges >= 5
+  · PLUS Programme: any of:
+      - hands_free or end_to_end phrase in goal
+      - goal contains "release", "rollout", "migration", "multi-team"
+      - scope_evidence.state == "programme_coordination"
+      - explicit --aidlc full flag
+```
+
+**The key insight**: Full is reserved for work that is both technically large **and** involves coordination/release/migration concerns. A large refactor that's purely internal (no release, no multi-team handoff) stays Standard. A small security patch in production stays Standard (keyword + small scope, not Full).
+
+
+### 5.10.3 Decision Tree
+
+
+```
+START: Goal received → keyword analysis + scope metrics extracted
+
+├── Keywords fire (≥2 programme signals OR ≥2 critical risks)?
+│   ├── YES → Check scope floor:
+│   │   ├── Tiny scope (≤5 files, ≤50 estimated lines)?
+│   │   │   └── → Lite + risk noted in report
+│   │   └── Not tiny?
+│   │       └── → Standard (keyword-driven escalation)
+│   └── NO → Continue to scope analysis
+
+├── Scope metrics fire (≥1 quantitative threshold)?
+│   ├── YES → Standard (scope-driven escalation)
+│   └── NO → Continue to combined assessment
+
+└── Combined assessment:
+    ├── Multiple weak signals (1 keyword + 1 metric near threshold,
+    │   or 2 metrics each just below threshold)?
+    │   └── → Standard (weak-signal aggregation)
+    └── No signals, no metrics near threshold?
+        └── → Lite
+```
+
+
+### 5.10.4 Escalation Thresholds by Mode
+
+
+| Mode change | Trigger condition | Rationale |
+|---|---|---|
+| Lite → Standard | ≥2 programme keywords OR ≥2 critical risks (non-tiny scope) OR ≥1 scope metric above threshold OR 1 keyword + 1 metric near threshold | Material scope or risk detected; coordination/review benefit outweighs overhead |
+| Standard → Full | `hands_free` phrase AND scope metrics indicate program-scale (≥10 files across ≥3 layers OR ≥5 cross-layer edges) OR explicit `--aidlc full` flag | Hands-free program delivery with material scope warrants full lifecycle rigor |
+| Any → Off | Explicit `"without AIDLC"` / `"AIDLC off"` keyword OR user opt-out in project policy | User explicitly rejects AIDLC |
+| Any → Lite (override) | User explicitly selects Lite despite signals firing | User authority overrides auto-selection |
 
 
 ### 5.10.5 How Different Project Types Might Tune These
@@ -1024,104 +1071,6 @@ Thresholds should not be set once and forgotten. A continuous calibration loop:
 This loop can be manual (human reviews a sample and adjusts) or partially automated (statistical analysis of mode distribution vs. metric values).
 
 
-
-## 5.10 Decision Framework: When to Escalate
-
-This section defines the concrete decision logic for when quantitative metrics should trigger a higher AIDLC mode. It answers: **"At what `affected_files` count do we escalate to Standard? And what makes a task 'complex enough' for Full?"**
-
-### 5.10.1 The Core Heuristic
-
-Escalation is **not** a single threshold on `affected_files`. It's a multi-signal assessment where any one strong signal can trigger Standard, and multiple signals together can trigger Full. This prevents both over-escalation (a 30-file well-contained refactor shouldn't force Full) and under-escalation (a 3-file auth patch that introduces a new external dependency should escalate).
-
-The decision uses a **scoring model** with three tiers of signals:
-
-```
-TIER 1 — STRONG INDIVIDUAL SIGNALS (any ONE triggers Standard)
-  · cross_layer_edges >= 3
-  · new_external_dependencies >= 1
-  · call_chain_depth_stddev >= 3.5
-  · module_resolution_ambiguous >= 5
-  · behavior_chain_state == "incomplete"
-
-TIER 2 — MODERATE SIGNALS (need 2+ to trigger Standard)
-  · affected_files >= 20
-  · affected_files >= 10 AND cross_layer_edges >= 2
-  · critical_risk_keyword detected AND affected_files >= 3
-
-TIER 3 — WEAK SIGNALS (need 3+ to trigger Standard)
-  · affected_files >= 10
-  · call_chain_depth_mean >= 2.5
-  · files_in_multiple_layers >= 2
-```
-
-
-### 5.10.2 Standard vs. Full: Different Thresholds
-
-Full mode is **not** just "more of the same signals." It requires evidence of **programme-scale coordination complexity** that goes beyond technical scope. The distinction:
-
-```
-STANDARD triggers when:
-  · Technical scope is material (many files, deep call chains, cross-layer)
-  · OR a high-stakes content keyword is present with non-trivial scope
-  · OR multiple moderate signals combine
-
-FULL triggers when (requires BOTH a technical signal AND a programme signal):
-  · Technical: affected_files >= 30 OR cross_layer_edges >= 5
-  · PLUS Programme: any of:
-      - hands_free or end_to_end phrase in goal
-      - goal contains "release", "rollout", "migration", "multi-team"
-      - scope_evidence.state == "programme_coordination"
-      - explicit --aidlc full flag
-```
-
-**The key insight**: Full is reserved for work that is both technically large **and** involves coordination/release/migration concerns. A large refactor that's purely internal (no release, no multi-team handoff) stays Standard. A small security patch in production stays Standard (keyword + small scope, not Full).
-
-
-## 5.10 Decision Framework: When to Escalate
-
-### 5.10.1 The Core Question
-
-At what point does a task become "complex enough" to warrant Standard or Full AIDLC mode?
-
-This is fundamentally a **risk-based decision**, not a pure file-count decision. The quantitative metrics are signals, not answers. A task that touches 30 files in a single module with no cross-layer edges may be less risky than a task that touches 3 files across API + service + database layers.
-
-The system should look for **patterns across multiple signals**, not any single threshold.
-
-### 5.10.2 Decision Tree
-
-```
-START: Goal received → keyword analysis + scope metrics extracted
-
-├── Keywords fire (≥2 programme signals OR ≥2 critical risks)?
-│   ├── YES → Check scope floor:
-│   │   ├── Tiny scope (≤5 files, ≤50 estimated lines)?
-│   │   │   └── → Lite + risk noted in report
-│   │   └── Not tiny?
-│   │       └── → Standard (keyword-driven escalation)
-│   └── NO → Continue to scope analysis
-
-├── Scope metrics fire (≥1 quantitative threshold)?
-│   ├── YES → Standard (scope-driven escalation)
-│   └── NO → Continue to combined assessment
-
-└── Combined assessment:
-    ├── Multiple weak signals (1 keyword + 1 metric near threshold,
-    │   or 2 metrics each just below threshold)?
-    │   └── → Standard (weak-signal aggregation)
-    └── No signals, no metrics near threshold?
-        └── → Lite
-```
-
-### 5.10.3 Escalation Thresholds by Mode
-
-| Mode change | Trigger condition | Rationale |
-|---|---|---|
-| Lite → Standard | ≥2 programme keywords OR ≥2 critical risks (non-tiny scope) OR ≥1 scope metric above threshold OR 1 keyword + 1 metric near threshold | Material scope or risk detected; coordination/review benefit outweighs overhead |
-| Standard → Full | `hands_free` phrase AND scope metrics indicate program-scale (≥10 files across ≥3 layers OR ≥5 cross-layer edges) OR explicit `--aidlc full` flag | Hands-free program delivery with material scope warrants full lifecycle rigor |
-| Any → Off | Explicit `"without AIDLC"` / `"AIDLC off"` keyword OR user opt-out in project policy | User explicitly rejects AIDLC |
-| Any → Lite (override) | User explicitly selects Lite despite signals firing | User authority overrides auto-selection |
-
-
 ## 6. Implementation Phases
 
 This section defines a phased roadmap for implementing the quantitative code-complexity metric feature. Each phase is independently testable and delivers incremental value. Phases are ordered by risk and dependency — later phases build on earlier ones.
@@ -1182,125 +1131,161 @@ This section defines a phased roadmap for implementing the quantitative code-com
 
 **Goal**: Make thresholds tunable per project and establish calibration methodology.
 
+**Status**: ✅ **Completed** — threshold defaults defined, project-level override loading implemented and wired into `compute_complexity()`, mode selection calls `compute_complexity()` and attaches metrics to the result.
+
 **Scope**:
-- [ ] Add optional project-level threshold override file (e.g., `.tailtrail/aidlc-scope-thresholds.json`)
-- [ ] Load overrides in `compose_start_report()` if file exists
-- [ ] Document threshold semantics and tuning guidance
-- [ ] Run calibration experiments on historical TailTrail runs (if available) or synthetic scenarios
-- [ ] Record calibration results in `docs/arch/aidlc-calibration.md` or similar
+- [x] **Threshold defaults defined** — `scripts/metrics_extractor.py` lines 19-41 define `DEFAULT_THRESHOLDS` dict with tunable values for all metrics; rationale for each value is documented in `docs/arch/aidlc-calibration.md`.
+- [x] **Load project-level thresholds from `.tailtrail/aidlc-scope-thresholds.json`** — `load_thresholds(root)` (lines 44-57) loads project overrides when present, merges with defaults, falls back to defaults if file missing or invalid. Called inside `compute_complexity()` at line 259.
+- [x] **Hook threshold loading into mode selection** — `compute_complexity()` is imported and called in `task-start.py` `aidlc_mode_selection()` at line 1168; threshold loading is internal to `compute_complexity()`. `complexity_metrics` attached to selected result at line 1224.
+- [x] **Document threshold semantics and tuning guidance** — `docs/arch/aidlc-calibration.md` created with threshold definitions, rationale, tuning procedure, and example override file.
+- [ ] Run calibration experiments on historical TailTrail runs (deferred — no historical run data available yet)
+- [ ] Record calibration results (deferred — experiments not yet run)
 
 **Files changed**:
-- `scripts/task-start.py` — threshold loading
-- `.tailtrail/aidlc-scope-thresholds.json` — example override file (optional)
-- `docs/arch/aidlc-calibration.md` — calibration documentation (new)
+- `scripts/metrics_extractor.py` — threshold defaults + `load_thresholds()` + `compute_complexity()` wiring (✅ done)
+- `scripts/task-start.py` — `compute_complexity()` imported and called in `aidlc_mode_selection()`; metrics attached to result (✅ done)
+- `tests/test_metrics_extractor.py` — unit tests for metrics extractor (✅ done)
+- `.tailtrail/aidlc-scope-thresholds.json` — example override file (created in calibration docs)
+- `docs/arch/aidlc-calibration.md` — threshold semantics, tuning guidance, example override (✅ done)
 
 **Dependencies**: Phase 2 complete.
 
 **Exit criteria**:
-- Project override file is loaded and applied correctly
-- Defaults are documented with rationale
-- Calibration notes exist for future tuning
+- [x] Thresholds are tunable per project (override file loading works via `load_thresholds()`)
+- [x] Defaults are documented with rationale (in `aidlc-calibration.md`)
+- [ ] Calibration notes exist for future tuning (deferred until runs in active use)
 
-**Estimated effort**: 1 day
-
----
-
-
+**Estimated effort**: Infrastructure complete; calibration documentation added. Remaining calibration work deferred until mode selection is in active use with real run data.
 
 ### Phase 4 — Extending `assess_scope_quality()` (Optional Consolidation)
 
-**Goal**: Optionally move metric extraction into `assess_scope_quality()` so it's a single extraction point.
+**Goal**: Optionally move metric extraction into `assess_scope_quality()` so it's a single extraction point that serves both quality validation and complexity metrics.
+
+**Status**: ✅ **Completed** — `assess_scope_quality()` now accepts an optional `compute_complexity=True` parameter and returns complexity metrics via the `_complexity_metrics()` helper, which delegates to `metrics_extractor.extract_scope_complexity_metrics()`.
 
 **Scope**:
-- [ ] Evaluate whether `assess_scope_quality()` should return complexity metrics alongside its current pass/block verdict
-- [ ] If yes: add `complexity_metrics` field to its return dict
-- [ ] Update `compose_start_report()` to read metrics from `scope_quality` instead of separate `scope_complexity`
-- [ ] Remove or deprecate standalone `extract_scope_complexity_metrics()` if consolidated
+- [x] Evaluate whether `assess_scope_quality()` should return complexity metrics alongside its current pass/block verdict → **Yes** — implemented with optional `compute_complexity` flag.
+- [x] Add `compute_complexity` parameter (default `False` for backward compatibility) → **Done** — added at navigator_scope.py line 2604.
+- [x] Extract metrics from `document` (scope_evidence) when requested → **Done** — `_complexity_metrics()` at line 2580 delegates to `metrics_extractor.py`.
+- [x] Return `complexity_metrics` field in assessment dict when computed → **Done** — added at Navigator return dict line 2737.
+- [ ] Remove or deprecate standalone `extract_scope_complexity_metrics()` if consolidated → **Not done** — standalone function retained as primary path for `task-start.py`. Phase 4 does not remove it; both paths coexist.
 
 **Files changed**:
-- `scripts/navigator_scope.py` — extended return
-- `scripts/task-start.py` — updated read path
+- `scripts/navigator_scope.py` — `_complexity_metrics()` helper (line 2580), `compute_complexity` parameter (line 2604), `complexity_metrics` return field (line 2737)
+- `docs/arch/navigator_aidlc_improvements.md` — Phase 4 status, scope items, and completion note
 
-**Dependencies**: Phase 2 or 3 complete.
+**Dependencies**: Phase 2 or 3 complete (metrics infrastructure must exist for delegation to work).
 
 **Exit criteria**:
-- Single extraction point serves both quality validation and complexity metrics
-- No duplicate extraction logic
+- [x] Single extraction point serves both quality validation and complexity metrics (via delegation to metrics_extractor)
+- [x] No duplicate extraction logic — `metrics_extractor.py` is the single source of truth for metrics computation; `assess_scope_quality()` delegates to it
+- [x] Backward compatible — existing callers without `compute_complexity=True` see no change in behavior or return shape
 
-**Estimated effort**: 0.5-1 day
+**Estimated effort**: ~1 day (completed)
+
+**Note**: Phase 4 is an optional consolidation, not a feature addition. The standalone `extract_scope_complexity_metrics()` in `metrics_extractor.py` remains the **primary** path for `task-start.py`. Phase 4's `assess_scope_quality(..., compute_complexity=True)` is an alternative entry point for callers that already have a `scope_evidence` document and want both the quality verdict and complexity metrics in one call. Neither path replaces the other.
+
 
 **Note**: This phase is **optional** — it's a consolidation, not a feature addition. Phase 2 can work with a standalone function indefinitely.
 
 ---
 
-### Phase 5 — Host-Agent Qualitative Fallback (Contingency)
+### Phase 5 — Host-Agent Paths (split into 5A / 5B after review)
 
-**Goal**: Add a bounded host-agent fallback for projects where deterministic metrics are unavailable.
+> **Review decision (R0 alignment):** the original Phase 5 bundled two unrelated host-agent ideas. They are now split, with different verdicts. **5A is deferred** — the agreed user-facing outcome (bare "use AIDLC" → Standard; explicit full/standard captured) is already achieved without a host roundtrip. **5B is rejected unless demonstrated need appears** — the deterministic tiers already degrade gracefully, and host judgment at a mode-selection control point reintroduces the non-determinism that was rejected when the synonym table was retired.
 
-**Scope**:
-- [ ] Define fallback interface: host returns `complexity_tier: "low" | "medium" | "high"` with `source: "host-agent-qualitative"`
-- [ ] Treat fallback as weak signal (lower weight, does not override deterministic metrics)
-- [ ] Document when fallback is acceptable (unsupported language, no scope_evidence, no graph cache)
-- [ ] Add guardrails: fallback cannot escalate to Full mode on its own
+#### Phase 5A — Host-Agent Intent Roundtrip — DEFERRED
 
-**Files changed**:
-- `scripts/task-start.py` — fallback handling
-- `docs/arch/aidlc-host-fallback.md` — fallback policy (new)
+**Goal (original)**: the host agent answers "which AIDLC mode, if any?" directly, fully retiring `_aidlc_intent()`.
 
-**Dependencies**: Phase 2 complete.
+**Current state (verified in `scripts/task-start.py`)**:
+- `_aidlc_intent()` regex still exists, but routing treats `intent in ("requested", "standard")` as `keyword_signal` → Standard.
+- Bare "use AIDLC" (no mode word) → `intent == "requested"` → `keyword_signal` → **Standard** — the agreed default is already live.
+- Explicit "use AIDLC full" / "use AIDLC standard" / opt-out are handled by dedicated branches above the dual-gate.
 
-**Exit criteria**:
-- Fallback is clearly labeled as qualitative/weak
-- Fallback cannot drive Full escalation alone
-- Policy documents acceptable use cases
+**Why deferred**:
+- The host roundtrip adds a model call to every Start to solve phrasings the current regex handles acceptably.
+- It reintroduces host-LLM non-determinism at a control point (mode selection changes which lifecycle, reviews, and handoff rules apply). The same reasoning that retired the synonym table applies to a host-interpreted intent path.
 
-**Estimated effort**: 1 day
+**Revisit trigger**: if the Phase R1 decision log shows `intent == "requested"` cases where the user demonstrably meant a specific mode but the regex missed it (visible via user overrides / planning feedback), revisit with a typed host-question contract — one bounded question, one typed answer, recorded in the Planning Lock for auditability.
 
-**Note**: This phase should only be implemented if there's a demonstrated need — it's a contingency, not a default path.
+#### Phase 5B — Qualitative Complexity Fallback — REJECTED (unless evidence)
+
+**Goal (original)**: when no deterministic metrics are computable at all (unsupported language, no `scope_evidence`, no graph cache, empty `likely_impacted_files`), the host supplies a bounded `complexity_tier: "low" | "medium" | "high"` marked `source: "host-agent-qualitative"`, treated as a weak signal that cannot escalate to Full alone.
+
+**Why rejected for now**:
+- The residual gap is narrow: Tier 1 `cheap_scope_metrics()` always extracts file counts and changed-lines from `likely_impacted_files`, so all-zeros requires both empty discovery input and an unparseable language — an edge case, not a default path.
+- The honest fix for a zero-metrics run is better scope discovery, not host guessing at a routing control point.
+- A "weak signal" is still non-deterministic, untestable, and weak on audit trail — the same properties rejected in 5A.
+
+**Reopen criterion (single, evidence-based)**: the Phase R1 decision log records actual zero-metrics runs (`source: "likely_impacted_files_only"` with `affected_files == 0` on a real task). Until that appears in run logs, 5B stays closed. If it reopens, the original guardrails apply: weak signal only, labeled in routing evidence, cannot drive Full escalation alone, and bounded to the three-word tier — never open-ended reasoning.
 
 ---
 
 ### Phase 6 — Post-Discovery Re-Evaluation Hook (Separate Enhancement)
 
+> **R0 refinement (supersedes the earlier 2.3.4 draft logic):** the original sketch used its own ad-hoc triggers (`changed_count >= 5`, `graph_depth >= 4`, signal counting) that would drift from the calibrated thresholds in `metrics_extractor.py`. The refined design reuses the **exact same** `compute_complexity()` → `scope_signal` / `scope_floor_lite` computation as the initial selection, so there is one definition of "too complex for Lite" across both decision points. See section 2.3.4 for the historical draft.
+
 **Goal**: Allow AIDLC mode to be re-checked after scope discovery reveals larger-than-expected scope.
 
-**Scope**:
-- [ ] Identify where in the lock-finalization or Planning Lock flow a re-evaluation hook could be added
-- [ ] Define trigger conditions (e.g., `scope_quality.changed_files` exceeds threshold after investigation)
-- [ ] Define user interaction model (auto-prompt vs. opt-in flag)
-- [ ] Implement hook and tests
+**Design constraints (each maps to an existing TailTrail safeguard)**:
 
-**Files changed**:
-- `scripts/task-start.py` and/or lock finalization path
-- `tests/test_aidlc_reevaluation.py` — new test file
+1. **Escalation-only**: Lite → Standard only. Never a downgrade; never touches `off` or explicit `full` (explicit user intent is final).
+2. **Pre-lock only**: the hook runs between scope discovery and Planning Lock finalization. After lock approval the mode is final — a new Start is required to change it. This preserves the "mode computed once, then frozen" safety property.
+3. **Same triggers as initial selection**: reuse `compute_complexity()`; fire only when post-discovery `scope_signal=True` and `scope_floor_lite` does not apply. No new thresholds, no second trigger set to maintain.
+4. **Approval-bound, not auto**: no free-standing mid-pipeline prompt and no silent upgrade. The lock draft records `re_evaluation_suggested: true` plus the complexity snapshot as evidence, and the user approves explicitly — consistent with the explicit-approval rule.
 
-**Dependencies**: Phase 2 complete (needs metrics to re-evaluate against).
+**Open decision (owner: user)**: where the approval moment lives —
+- **(a) Bounded post-discovery question** — better evidence (discovery already revealed the scope), but adds a second approval moment to Start. *Current lean: (a), since the whole point is that discovery revealed something the goal did not.*
+- (b) Start-plan approval line — one decision point, but the user approves before discovery evidence exists.
+
+**Implementation shape**:
+
+| File | Change |
+|---|---|
+| `scripts/task-start.py` / lock-finalization path | Post-discovery hook: initial mode Lite ∧ post-discovery `scope_signal` (and not `scope_floor_lite`) → set `re_evaluation_suggested` + attach complexity snapshot to the lock draft |
+| Lock finalization guard | Reject `re_evaluation_suggested` mutations on an **already-approved** lock — the guard lives in the finalization path itself, not in caller discipline |
+| `tests/test_aidlc_reevaluation.py` | Fires on threshold breach; does NOT fire when `scope_floor_lite` applies; never fires for `off` / `full` / already-Standard; never fires post-approval; metrics snapshot recorded verbatim |
+
+**Dependencies**: R0 (design frozen), R1 calibration runway (thresholds observed sane on real runs).
 
 **Exit criteria**:
-- Re-evaluation triggers when scope exceeds threshold
-- User is prompted or can opt-in via flag
-- Tests cover both auto and opt-in paths
+- All tests green; escalation-only and pre-lock-only properties each covered by a dedicated test
+- No new threshold constants introduced (grep-verify: only `metrics_extractor.DEFAULT_THRESHOLDS` values in use)
+- Decision recorded with the metrics snapshot as evidence
 
-**Estimated effort**: 2-3 days
-
-**Note**: This is a separate enhancement from the quantitative metric feature. It uses the metrics but adds a different capability (dynamic re-checking).
+**Estimated effort**: ~2 days
 
 ---
 
 ### Phase Summary Table
 
-| Phase | Goal | Effort | Dependencies | Risk |
-|---|---|---|---|---|
-| 1 | Metric extraction infrastructure | 1-2 days | None | Low |
-| 2 | Wire metrics into mode selection | 2-3 days | Phase 1 | Medium |
-| 3 | Threshold calibration + overrides | 1 day | Phase 2 | Low |
-| 4 | Consolidate into assess_scope_quality | 0.5-1 day | Phase 2 or 3 | Low |
-| 5 | Host-agent qualitative fallback | 1 day | Phase 2 | Medium (contingency) |
-| 6 | Post-discovery re-evaluation hook | 2-3 days | Phase 2 | Medium |
+| Phase | Goal | Effort | Dependencies | Risk | Status |
+|---|---|---|---|---|---|
+| 1 | Metric extraction infrastructure | 1-2 days | None | Low | ✅ Completed — `scripts/metrics_extractor.py` (tiered extraction: Tier 1 cheap / Tier 2 scope_evidence / Tier 3 mapper) |
+| 2 | Wire metrics into mode selection | 2-3 days | Phase 1 | Medium | ✅ Completed — `aidlc_mode_selection()` in `scripts/task-start.py` calls `compute_complexity()`; dual-gate routing with `scope_signal` + `scope_floor_lite` |
+| 3 | Threshold calibration + overrides | 1 day | Phase 2 | Low | ✅ Completed — `DEFAULT_THRESHOLDS` + `load_thresholds()` (`.tailtrail/aidlc-scope-thresholds.json` override); 29 tests in `tests/test_metrics_extractor.py` pass (19 core metric/complexity tests + 10 R1 decision-log tests) |
+| 4 | Consolidate into assess_scope_quality | 0.5-1 day | Phase 2 or 3 | Low | ✅ Completed — `assess_scope_quality(compute_complexity=True)` in `scripts/navigator_scope.py` returns `complexity_metrics` |
+| 5 | Host-agent paths | — | Phase 2 | — | **Split (R0)**: 5A intent roundtrip **⏸ Deferred** (bare "use AIDLC" → Standard already live via dual-gate; revisit only on R1 evidence). 5B qualitative fallback **❌ Rejected** unless R1 logs show real zero-metrics runs |
+| 6 | Post-discovery re-evaluation hook | ~2 days | R0 + R1 calibration runway | Medium | ✅ **Completed** — `compute_re_evaluation()` in `scripts/metrics_extractor.py` reuses `compute_complexity()`/`scope_signal` + `scope_floor_lite` (escalation-only, pre-lock-only, approval-bound); wired into lock-finalization path in `scripts/task-start.py`; `planning_lock.create()` records `re_evaluation_suggestion` when present; 14 tests in `tests/test_aidlc_reevaluation.py` pass (firing on threshold breach, NOT firing when `scope_floor_lite` applies, never firing for `off`/`full`/already-Standard, status-snapshot round-trip test) |
 
-**Total if all phases implemented**: ~8-11 days
+**Remaining-work plan (R-series, from design review)**:
 
-**Minimum viable (Phases 1+2)**: ~3-5 days — this delivers the core feature: quantitative metrics influencing AIDLC mode selection.
+| Phase | Goal | Effort | Verdict / Notes |
+|---|---|---|---|
+| R0 | Documentation alignment | 0.5 day | ✅ Completed — Phase 5 split into 5A/5B with verdicts; Phase 6 design refined to reuse `scope_signal`; 2.3.4 draft marked superseded |
+| R1 | Calibration runway (decision log) | ✅ **Implemented** — passive accumulation over 10–20 real runs | Every dual-gate Start decision appends one sanitized JSONL entry to `.tailtrail/aidlc-mode-decisions.jsonl` (`scripts/metrics_extractor.py`: `append_mode_decision()` / `build_mode_decision_entry()` / `summarize_mode_decisions()`; wired in `scripts/task-start.py` `aidlc_mode_selection()`). Records `scope_signal` / `scope_floor_lite` / `zero_metrics` / metrics source / thresholds snapshot; goal text never logged (truncated SHA-256 only); bounded to 500 entries. **Decision gate for R2 and for reopening 5B** |
+| R2 | Implement Phase 6 hook | ~2 days | ✅ **Completed** — Phase 6 hook implemented as `compute_re_evaluation()` in `scripts/metrics_extractor.py` (reuses `compute_complexity()` → `scope_signal` + `scope_floor_lite`, escalation-only, pre-lock-only, approval-bound) and wired into lock-finalization path in `scripts/task-start.py`; `planning_lock.create()` records `re_evaluation_suggestion` when present; `tests/test_aidlc_reevaluation.py` (14 tests, all passing) covers firing on threshold breach, NOT firing when `scope_floor_lite` applies, never firing for `off`/`full`/already-Standard, and a status-snapshot round-trip test. Implementation complete; passive observation now via R1 decision log |
+| R3 | Phase 5A host intent roundtrip | — | ⏸ Deferred; revisit trigger = R1 shows regex-missed explicit intents |
+| R4 | Phase 5B qualitative fallback | — | ❌ Rejected; reopen criterion = R1 shows real zero-metrics runs |
+
+**Execution order**: R0 → R1 ✅ (implemented; now passively accumulating real-run entries — review via `summarize_mode_decisions()` after 10–20 runs) → R2 ✅ (completed — escalation-only, pre-lock-only, approval-bound hook implemented; 14 tests pass) → R3/R4 remain closed unless R1 evidence reopens them. **All implementation complete**: Phases 1–4 + R1 + R2 are live. Remaining plan items (R3 deferred, R4 rejected) are decision gates, not pending code. Total implementation ≈ 4–6 days (Phases 1–4 ≈ 4 days + R2 ≈ 2 days); R1 code complete, observation passive.
+
+**Implementation status note**: Phases 1–4 are implemented and covered by `tests/test_metrics_extractor.py` (29 tests, all passing) plus `tests/test_aidlc_reevaluation.py` (14 tests, all passing). The R2 hook is implemented and covered. The script filename was unified as `scripts/planning_lock.py` (underscore) across loaders, tests, fixtures, the registry, the package manifest, and reference docs — the earlier `planning-lock.py` hyphen spelling existed only in installed payloads and stale doc references, all of which have been updated.
+
+**Total if all phases implemented**: ~4-6 days (Phases 1-4 done ≈ 4 days + R2 ≈ 2 days; 5A deferred, 5B rejected unless R1 evidence)
+
+**Minimum viable (Phases 1+2)**: ~3-5 days — this delivers the core feature: quantitative metrics influencing AIDLC mode selection. **Achieved**: Phases 1–4 complete.
 
 ---
 
@@ -1325,7 +1310,7 @@ Phases 4-6 are enhancements that can be prioritized based on observed need after
 | Performance impact on start latency | 1-2 | Tier 1 is O(n) on path count; Tier 2/3 only run when scope_evidence exists; cache reuse |
 | Testability of routing decisions | 2 | Synthetic scope_evidence documents with known metric values; assert mode outputs |
 | Project override file misconfiguration | 3 | Validate JSON schema; fall back to defaults on error; log override loading |
-| Host-agent fallback abused as primary path | 5 | Guardrails: weak signal only, cannot drive Full, clearly labeled |
+| Host-agent fallback abused as primary path | 5B | Rejected unless R1 logs show real zero-metrics runs; if ever reopened: weak signal only, cannot drive Full, clearly labeled |
 
 ---
 

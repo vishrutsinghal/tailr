@@ -393,7 +393,7 @@
       "governance_class": "governance",
       "commands": ["tailtrail start", "tailtrail planning start", "tailtrail planning approve", "tailtrail planning show", "tailtrail planning assert-write"],
       "docs": ["tailtrail-automation-guide.md", "USER-GUIDE.md", "TAILTRAIL-COMMANDS.md", "schemas/planning-lock.schema.json"],
-      "scripts": ["scripts/planning-lock.py"],
+      "scripts": ["scripts/planning_lock.py"],
       "tests": ["tests/test_planning_lock.py", "tests/test_mcp_server.py", "tests/test_navigator_core.py"],
       "mcp_tools": [],
       "requires_approval": true,

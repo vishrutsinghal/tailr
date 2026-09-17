@@ -19,7 +19,7 @@ def load(name: str, relative: str):
     sys.modules[name] = module; spec.loader.exec_module(module); return module
 
 
-LOCK = load("phase9_lock", "scripts/planning-lock.py")
+LOCK = load("phase9_lock", "scripts/planning_lock.py")
 MCP = load("phase9_mcp", "scripts/mcp-server.py")
 from workflow_runtime import ci, compiler, contracts, ownership, start_integration, storage, task_scope, transitions
 

@@ -23,7 +23,7 @@ def load(name: str, relative: str):
 
 ledger = load("execution_evidence_v2_ledger_test", "scripts/run-ledger.py")
 anchor = load("execution_evidence_v2_anchor_test", "scripts/change-intent-anchor.py")
-lock = load("execution_evidence_v2_lock_test", "scripts/planning-lock.py")
+lock = load("execution_evidence_v2_lock_test", "scripts/planning_lock.py")
 evidence = load("execution_evidence_v2_test", "scripts/execution-evidence.py")
 
 

@@ -33,7 +33,7 @@ def load(name: str, script: str) -> Any:
 
 
 L = load("closure_finalizer_ledger", "run-ledger.py")
-LOCK = load("closure_finalizer_lock", "planning-lock.py")
+LOCK = load("closure_finalizer_lock", "planning_lock.py")
 RECORDER = load("closure_finalizer_recorder", "closure-recorder.py")
 ARCHITECTURE = load("closure_finalizer_architecture", "architecture-fitness.py")
 BEHAVIOUR = load("closure_finalizer_behaviour", "behavior-harness.py")

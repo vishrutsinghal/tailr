@@ -694,7 +694,7 @@ def doctor(args: list[str] | None = None) -> int:
             "USEFUL-PROMPTS.md",
             "USER-GUIDE.md",
             "scripts/tailtrail.py",
-            "scripts/planning-lock.py",
+            "scripts/planning_lock.py",
             "scripts/tailtrail-registry.py",
             "scripts/task-next.py",
             "scripts/ast-map.py",
@@ -1300,7 +1300,7 @@ def main() -> int:
                 control_args = ["show", *args[1:]] if args[0] == "feature-controls-show" else ["propose", *args[1:]] if args[0] == "feature-controls-propose" else ["approve", *args[1:]]
                 return run_script("planning-feature-controls.py", control_args)
             return run_script("planning-revision.py", revision_args)
-        return run_script("planning-lock.py", args)
+        return run_script("planning_lock.py", args)
     if command == "requirements":
         if not args or args[0] not in {"show", "answer"}:
             print("Usage: tailtrail requirements show|answer --intake-id <id> [args]")

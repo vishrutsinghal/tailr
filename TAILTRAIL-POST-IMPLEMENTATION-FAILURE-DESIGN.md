@@ -442,7 +442,7 @@ this lifecycle.
 |---|---|---|
 | `scripts/cross-repo-reference.py` | Enforces editable-target/read-only-reference boundaries | Extend or reuse for explicit reference-root identity, commit, and file provenance |
 | `scripts/code-graph-mapper.py` | Maps code relationships | Reuse for source impact; complement with setup/configuration contract discovery |
-| `scripts/planning-lock.py` | Approves source mutation for one run | Reuse unchanged; an approved run remains the correction boundary |
+| `scripts/planning_lock.py` | Approves source mutation for one run | Reuse unchanged; an approved run remains the correction boundary |
 | `scripts/run-ledger.py` | Append-only local run events | Extend with execution-failure lifecycle events |
 | `scripts/recovery-diagnostician.py` | Diagnoses repeated structured architecture/behavior/scope findings | Keep unchanged for repeated harness findings; do not overload it with raw execution errors |
 | `scripts/task-recovery.py` | Restores verified task-owned Git paths | Keep unchanged; Git restoration is not the normal debugging path |
@@ -1248,7 +1248,7 @@ Implementation requirements:
 
 - Standard library only.
 - Reuse `scripts/run-ledger.py` dynamic loader and `atomic_json` convention.
-- Reuse `scripts/planning-lock.py` for write-boundary checks when applicable.
+- Reuse `scripts/planning_lock.py` for write-boundary checks when applicable.
 - Validate run ID and failure ID as single local identifiers.
 - Reject path traversal and external artifact paths by default.
 - Never accept or write raw log bodies.

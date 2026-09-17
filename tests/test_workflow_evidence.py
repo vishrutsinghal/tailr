@@ -22,7 +22,7 @@ def load(name: str, relative: str):
     return module
 
 
-LOCK = load("dwr3_lock_test", "scripts/planning-lock.py")
+LOCK = load("dwr3_lock_test", "scripts/planning_lock.py")
 from workflow_runtime import evidence
 
 

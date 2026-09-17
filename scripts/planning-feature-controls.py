@@ -22,7 +22,7 @@ def module(name: str, filename: str) -> Any:
     loaded = importlib.util.module_from_spec(spec); assert spec and spec.loader; spec.loader.exec_module(loaded); return loaded
 
 
-LOCK = module("expert_controls_lock", "planning-lock.py")
+LOCK = module("expert_controls_lock", "planning_lock.py")
 LEDGER = module("expert_controls_ledger", "run-ledger.py")
 OFFICIAL_BRIDGE = module("expert_controls_official_bridge", "aidlc-official-bridge.py")
 

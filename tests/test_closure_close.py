@@ -22,7 +22,7 @@ def load(name: str, relative: str):
 
 ledger = load("closure_close_ledger_test", "scripts/run-ledger.py")
 anchor = load("closure_close_anchor_test", "scripts/change-intent-anchor.py")
-lock = load("closure_close_lock_test", "scripts/planning-lock.py")
+lock = load("closure_close_lock_test", "scripts/planning_lock.py")
 recorder = load("closure_close_recorder_test", "scripts/closure-recorder.py")
 close = load("closure_close_test", "scripts/closure-close.py")
 

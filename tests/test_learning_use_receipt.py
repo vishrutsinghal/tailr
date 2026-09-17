@@ -25,7 +25,7 @@ def load(name: str, relative: str):
 V3 = load("pm_l3_v3", "scripts/learning-v3.py")
 RETRIEVAL = load("pm_l3_retrieval", "scripts/learning-retrieval.py")
 RECEIPTS = load("pm_l3_receipts", "scripts/learning-use-receipt.py")
-LOCK = load("pm_l3_lock", "scripts/planning-lock.py")
+LOCK = load("pm_l3_lock", "scripts/planning_lock.py")
 ANCHOR = load("pm_l3_anchor", "scripts/change-intent-anchor.py")
 REPORT = load("pm_l3_completion", "scripts/completion-report.py")
 LEDGER = load("pm_l3_ledger", "scripts/run-ledger.py")

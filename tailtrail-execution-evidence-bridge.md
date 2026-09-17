@@ -276,7 +276,7 @@ passing saved evidence, no unresolved drift/failure, and explicit acceptance.
 - `scripts/completion-report.py` — clearer status wording and per-requirement
   evidence explanation.
 - `scripts/mcp-server.py` — controlled schema-validated receipt ingestion.
-- `scripts/planning-lock.py` — execution handoff declares bridge contract.
+- `scripts/planning_lock.py` — execution handoff declares bridge contract.
 - `AGENTS.md`, `adapters/*`, `adapters/prompts/*` — host closure behavior.
 - focused closure, Completion Report, MCP, and adapter-conformance tests.
 

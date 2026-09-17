@@ -47,7 +47,7 @@ def load(name: str, relative: str) -> Any:
 
 V3 = load("learning_use_receipt_v3", "learning-v3.py")
 L = load("learning_use_receipt_ledger", "run-ledger.py")
-LOCK = load("learning_use_receipt_lock", "planning-lock.py")
+LOCK = load("learning_use_receipt_lock", "planning_lock.py")
 CONTRACT = load("learning_use_receipt_contract", "closure-contract.py")
 
 

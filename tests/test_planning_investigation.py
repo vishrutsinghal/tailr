@@ -22,7 +22,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("planning_investigation_lock_test", "scripts/planning-lock.py")
+lock = load("planning_investigation_lock_test", "scripts/planning_lock.py")
 investigation = load("planning_investigation_test", "scripts/planning-investigation.py")
 
 
@@ -103,7 +103,7 @@ class PlanningInvestigationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             files = {
-                "scripts/planning-lock.py": "import requirement_discovery\n\ndef propose_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
+                "scripts/planning_lock.py": "import requirement_discovery\n\ndef propose_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
                 "scripts/requirement_discovery.py": "def statements(goal):\n    # Owns multiline requirement splitting.\n    return [goal]\n",
                 "scripts/task-start.py": "import requirement_discovery\n\ndef start_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
                 "tests/test_aidlc_requirements.py": "# AIDLC requirements fixture mentioning multiline requirement splitting.\n",

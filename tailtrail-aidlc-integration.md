@@ -42,7 +42,7 @@ TailTrail has a **Lifecycle Lite** implementation. It provides enough lifecycle 
 | Initialization | `scripts/aidlc-init.py` | Creates `aidlc-docs/` |
 | Validation | `scripts/aidlc-check.py` | Validates lifecycle artifacts and strict question answers |
 | Requirements adapter | `scripts/aidlc-requirements.py` | Generates questions, recommendations/reasoning, validates answers, revises proposal |
-| Planning bridge | `scripts/task-start.py`, `scripts/planning-lock.py` | Connects AIDLC requirements mode to a planning run |
+| Planning bridge | `scripts/task-start.py`, `scripts/planning_lock.py` | Connects AIDLC requirements mode to a planning run |
 | Assurance controls | Requirement/harness/recovery/closure scripts | Tests completion against approved intent |
 
 ### Local lifecycle flow
@@ -991,7 +991,7 @@ verify the resulting evidence rather than trusting that the agent followed it.
 | Improvement | Current gap | Proposed implementation |
 | --- | --- | --- |
 | Complexity classifier | Lite versus full AIDLC is too coarse | Add a deterministic `requirements_mode` decision: `lite`, `deepen`, `official-full`. |
-| Requirement decomposition | Generic goals can yield one broad row | Extend `scripts/navigator.py` and `scripts/planning-lock.py` with bounded feature/side-effect/contract decomposition. |
+| Requirement decomposition | Generic goals can yield one broad row | Extend `scripts/navigator.py` and `scripts/planning_lock.py` with bounded feature/side-effect/contract decomposition. |
 | Requirement quality checks | Outcome, preservation, dependency, and proof can be missing | Add a validator that marks incomplete rows and triggers only targeted questions. |
 | Dependency/impact mapping | Current likely paths can be a flat list | Use Code Graph Lite results to attach likely caller, contract, and test relationships to each row. |
 | Discovery frame | Initial plans may miss actors, assumptions, non-goals, or material unknowns | Add a bounded discovery object populated from the request, policy, and read-only graph evidence. |
@@ -1009,7 +1009,7 @@ Suggested file scope for a V1:
 
 - `scripts/navigator.py` — select `requirements_mode`, identify complexity
   signals, and produce bounded structured requirement candidates.
-- `scripts/planning-lock.py` — persist the candidate matrix, targeted questions,
+- `scripts/planning_lock.py` — persist the candidate matrix, targeted questions,
   revisions, and approved anchor mapping.
 - `scripts/task-start.py` — render the compact/verbose plans without duplicating
   the full AIDLC questionnaire.

@@ -773,7 +773,7 @@ completion without forcing expensive inference into every task.
 | `scripts/architecture_planning.py` | Builds the planning-only requirement-linked Architecture Fitness contract and renders its Start insights. |
 | `scripts/architecture-fitness.py` | Evaluates changed scope, approved path/import/dependency rules, and required graph receipts after implementation. |
 | `scripts/task-start.py` | Carries architecture insights into compact/verbose Start reports and exposes every requested validation tier. |
-| `scripts/planning-lock.py` | Preserves architecture and validation contracts in the immutable execution handoff. |
+| `scripts/planning_lock.py` | Preserves architecture and validation contracts in the immutable execution handoff. |
 | `tests/test_architecture_planning.py` | Covers architecture role discovery, invariant rendering, validation gaps, anchor persistence, and execution steering. |
 | `tests/test_requirement_recovery_manifest.py` | Implemented baseline preservation, later-overlap refusal, and repeated-evidence diagnosis tests. |
 

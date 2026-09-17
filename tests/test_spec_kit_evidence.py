@@ -20,7 +20,7 @@ def module(file: str, name: str):
 
 importer = module("spec-kit-import.py", "spec_kit_evidence_import")
 bridge = module("spec-kit-bridge.py", "spec_kit_evidence_bridge")
-lock = module("planning-lock.py", "spec_kit_evidence_lock")
+lock = module("planning_lock.py", "spec_kit_evidence_lock")
 evidence = module("spec-kit-evidence.py", "spec_kit_evidence_test")
 
 

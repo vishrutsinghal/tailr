@@ -18,7 +18,7 @@ def load(name: str, relative: str):
     sys.modules[name] = module; spec.loader.exec_module(module); return module
 
 
-LOCK = load("phase7_lock", "scripts/planning-lock.py")
+LOCK = load("phase7_lock", "scripts/planning_lock.py")
 from workflow_runtime import capabilities, compiler, context, evidence, outcomes, ownership, storage, task_scope
 
 

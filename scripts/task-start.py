@@ -40,7 +40,7 @@ SPEC.loader.exec_module(navigator)
 PLANNING_LOCK_PATH = ROOT / "scripts" / "planning_lock.py"
 LOCK_SPEC = importlib.util.spec_from_file_location("tailtrail_planning_lock", PLANNING_LOCK_PATH)
 if LOCK_SPEC is None or LOCK_SPEC.loader is None:
-    raise SystemExit("Unable to load scripts/planning-lock.py")
+    raise SystemExit("Unable to load scripts/planning_lock.py")
 planning_lock = importlib.util.module_from_spec(LOCK_SPEC)
 sys.modules["tailtrail_planning_lock"] = planning_lock
 LOCK_SPEC.loader.exec_module(planning_lock)
@@ -1134,6 +1134,31 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
 
     A user-provided flag wins. Standard and Full are official-pack-backed when
     available; an unavailable pack falls back transparently to TailTrail Lite.
+
+    R1 calibration runway: the dual-gate decision is appended to
+    .tailtrail/aidlc-mode-decisions.jsonl (best-effort, never fails Start).
+    """
+    calibration: dict[str, Any] = {}
+    selected = _aidlc_mode_selection_inner(goal, requested, root, plan, manifest, calibration)
+    if calibration:
+        try:
+            from metrics_extractor import append_mode_decision, build_mode_decision_entry
+
+            append_mode_decision(
+                root,
+                build_mode_decision_entry(goal, requested, calibration, selected),
+            )
+        except Exception:  # noqa: BLE001 — calibration logging must never break Start
+            pass
+    return selected
+
+
+def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None, calibration: dict[str, Any]) -> dict[str, Any]:
+    """Dual-gate mode routing; publishes decision signals via ``calibration``.
+
+    The calibration dict stays empty for explicit-flag / opt-out / explicit
+    full / explicit standard paths (they do not exercise the quantitative
+    thresholds, so they are excluded from the R1 calibration runway).
     """
     lowered = goal.lower()
     hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
@@ -1161,43 +1186,88 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
         return selected
     routing = navigator_standard_evidence(goal, plan)
     signals = routing["signals"]
-    if intent == "none" and not hands_free and not routing["selected"]:
+
+    # --- Phase 3 wiring: quantitative scope-complexity metrics (dual-gate) ---
+    from metrics_extractor import compute_complexity
+
+    complexity = compute_complexity(
+        plan.get("likely_impacted_files", []),
+        plan.get("scope_evidence"),
+        root,
+    )
+    thresholds = complexity.get("thresholds", {})
+    scope_signal = (
+        complexity.get("affected_files", 0) >= thresholds.get("affected_files_standard", 20)
+        or complexity.get("cross_layer_edges", 0) >= thresholds.get("cross_layer_edges_standard", 2)
+        or complexity.get("call_chain_depth_stddev", 0.0) >= thresholds.get("call_chain_depth_stddev_standard", 3.0)
+        or complexity.get("module_resolution_ambiguous", 0) >= thresholds.get("module_resolution_ambiguous_standard", 3)
+        or complexity.get("new_external_deps", 0) >= thresholds.get("new_external_deps_standard", 1)
+        or complexity.get("behavior_chain_incomplete", False) is True
+    )
+    # Derive host-agent intent signal: when _aidlc_intent returns "requested" or "standard",
+    # the user's natural-language goal already contains an AIDLC mode request
+    # (the host agent reliably captures this; the keyword table is retired).
+    keyword_signal = intent in ("requested", "standard")
+    # Scope floor: explicitly tiny task (few files, low changed-lines estimate).
+    # When this fires AND only a lone keyword is present, keep Lite to avoid
+    # over-escalation from a trivial task.
+    scope_floor_lite = (
+        complexity.get("affected_files", 9999) <= thresholds.get("affected_files_lite_floor", 5)
+        and complexity.get("changed_lines_estimate", 9999) <= thresholds.get("changed_lines_lite_floor", 50)
+    )
+    # R1 calibration runway: publish the decision signals for the mode-decision log.
+    calibration.update({
+        "intent": intent,
+        "hands_free": hands_free,
+        "keyword_signal": keyword_signal,
+        "scope_signal": scope_signal,
+        "scope_floor_lite": scope_floor_lite,
+        "routing_selected": routing["selected"],
+        "complexity": complexity,
+    })
+    # Dual-gate routing: host-agent intent OR quantitative scope signal → Standard.
+    # Scope floor prevents over-escalation when a lone keyword fires on a trivially
+    # small task (few files, low changed-lines estimate).
+    if intent == "none" and not hands_free and not routing["selected"] and not scope_signal:
         selected = official_aidlc_bridge.preflight(root, "lite", manifest)
         selected["selection"] = "default"
         selected["routing_evidence"] = routing
         selected["full_escalation"] = {"state": "not-eligible", "reason": "Navigator found no material evidence requiring stronger AIDLC routing."}
         return selected
-    if hands_free and routing["selected"]:
-        # preflight() never raises for an unavailable pack; it returns mode
-        # "lite" with this state directly, so detect the fallback from the
-        # result instead of a try/except that can never trigger.
+    if hands_free and (routing["selected"] or scope_signal):
         selected = official_aidlc_bridge.preflight(root, "full", manifest)
         if selected.get("state") == "official-pack-unavailable-fallback":
             selected["full_escalation"] = {
                 "state": "eligible-awaiting-compatible-pack",
                 "signals": signals,
-                "reason": "Navigator found programme-scale signals, but no compatible pinned official pack is installed; TailTrail Lite remains active. Full mode requires a verified pack and a new Full-mode Planning Lock; this run cannot be silently upgraded.",
+                "reason": "Navigator found programme-scale signals or scope-complexity evidence, but no compatible pinned official pack is installed; TailTrail Lite remains active. Full mode requires a verified pack and a new Full-mode Planning Lock; this run cannot be silently upgraded.",
             }
         else:
             selected["selection"] = "navigator-hands-free-escalation"
             selected["full_escalation"] = {
                 "state": "selected",
                 "signals": signals,
-                "reason": "Navigator found programme-scale signals and a compatible pinned official pack; Full execution still requires a new Full-mode Planning Lock and cannot silently upgrade an existing run.",
+                "reason": "Navigator found programme-scale signals or scope-complexity evidence and a compatible pinned official pack; Full execution still requires a new Full-mode Planning Lock and cannot silently upgrade an existing run.",
             }
             return selected
-    elif intent in {"requested", "standard"} or routing["selected"] or hands_free:
+    if keyword_signal and not scope_floor_lite:
         selected = official_aidlc_bridge.preflight(root, "standard", manifest)
+        selected["selection"] = "explicit-natural-language-standard"
         selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Standard mode covers the requested AIDLC depth without a Full official lifecycle transition."}
+    elif scope_signal:
+        selected = official_aidlc_bridge.preflight(root, "standard", manifest)
+        selected["selection"] = "scope-complexity-standard"
+        selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Quantitative scope-complexity metrics exceeded the Standard escalation threshold; Standard mode covers this depth without a Full official lifecycle transition."}
+    elif hands_free:
+        selected = official_aidlc_bridge.preflight(root, "standard", manifest)
+        selected["selection"] = "hands-free-default"
+        selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Hands-free mode selected Standard AIDLC; no programme-scale signals were found for Full escalation."}
     else:
         selected = official_aidlc_bridge.preflight(root, "lite", manifest)
+        selected["selection"] = "default"
         selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": routing["reason"]}
-    selected["selection"] = (
-        "hands-free-default" if hands_free
-        else "navigator-risk-routing" if routing["selected"]
-        else "explicit-natural-language-aidlc"
-    )
     selected["routing_evidence"] = routing
+    selected["complexity_metrics"] = complexity
     return selected
 
 
@@ -5838,6 +5908,28 @@ def main() -> int:
                 ),
                 "boundary": required_official_authority["boundary"],
             }
+
+        # Phase 6: Post-discovery re-evaluation hook.
+        # Re-applies the same scope_signal / scope_floor_lite thresholds as the
+        # initial selection. Escalation-only (Lite -> Standard); does NOT fire
+        # for off / full / explicit-standard. Does NOT auto-change the mode —
+        # records the suggestion in the lock draft for explicit user approval.
+        if effective_aidlc_mode == "lite":
+            from metrics_extractor import compute_re_evaluation
+            _navigator_block = report.get("navigator", {}) if isinstance(report.get("navigator"), dict) else {}
+            _scope_quality = _navigator_block.get("scope_quality", {})
+            _post_complexity = None
+            if isinstance(_scope_quality, dict):
+                _post_complexity = _scope_quality.get("complexity_metrics")
+            _re_eval_suggestion = compute_re_evaluation(
+                "lite",
+                _post_complexity,
+                scope_quality_blocking=bool(_scope_quality.get("blocking")) if isinstance(_scope_quality, dict) else False,
+                complexity_available=bool(_post_complexity.get("available")) if isinstance(_post_complexity, dict) else False,
+            )
+            if _re_eval_suggestion is not None:
+                report["aidlc_mode"]["re_evaluation_suggestion"] = _re_eval_suggestion
+
         if not args.no_planning_lock:
             created_run_id: str | None = None
             try:
@@ -5860,6 +5952,7 @@ def main() -> int:
                     host_workspace=host_resolution,
                     enterprise_policy=policy_result,
                     scope_decision=scope_decision,
+                    re_evaluation_suggestion=report.get("aidlc_mode", {}).get("re_evaluation_suggestion"),
                 )
                 created_run_id = report["planning_lock"]["run_id"]
                 report["workflow_runtime"] = workflow_start_integration.draft(

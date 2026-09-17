@@ -20,7 +20,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("aidlc_question_lock_test", "scripts/planning-lock.py")
+lock = load("aidlc_question_lock_test", "scripts/planning_lock.py")
 question_control = load("aidlc_question_control_test", "scripts/planning-aidlc-question.py")
 
 

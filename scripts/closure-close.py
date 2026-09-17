@@ -23,7 +23,7 @@ def load(name: str, script: str) -> Any:
 
 
 L = load("closure_close_ledger", "run-ledger.py")
-LOCK = load("closure_close_lock", "planning-lock.py")
+LOCK = load("closure_close_lock", "planning_lock.py")
 FINALIZER = load("closure_close_finalizer", "closure-finalizer.py")
 LEARNING = load("closure_close_learning", "closure-learning.py")
 EVALUATION = load("closure_close_evaluation", "closure-evaluation.py")

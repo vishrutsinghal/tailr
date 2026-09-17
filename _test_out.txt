@@ -1,0 +1,19 @@
+test_does_not_fire_when_complexity_empty_dict (tests.test_aidlc_reevaluation.ComputeReEvaluationAvailabilityTests.test_does_not_fire_when_complexity_empty_dict) ... ok
+test_does_not_fire_when_complexity_is_none_dict (tests.test_aidlc_reevaluation.ComputeReEvaluationAvailabilityTests.test_does_not_fire_when_complexity_is_none_dict) ... ok
+test_does_not_fire_when_complexity_unavailable (tests.test_aidlc_reevaluation.ComputeReEvaluationAvailabilityTests.test_does_not_fire_when_complexity_unavailable) ... ok
+test_does_not_fire_for_full (tests.test_aidlc_reevaluation.ComputeReEvaluationBasicTests.test_does_not_fire_for_full) ... ok
+test_does_not_fire_for_off (tests.test_aidlc_reevaluation.ComputeReEvaluationBasicTests.test_does_not_fire_for_off) ... ok
+test_does_not_fire_for_standard (tests.test_aidlc_reevaluation.ComputeReEvaluationBasicTests.test_does_not_fire_for_standard) ... ok
+test_does_not_fire_when_scope_floor_lite_applies (tests.test_aidlc_reevaluation.ComputeReEvaluationBasicTests.test_does_not_fire_when_scope_floor_lite_applies) ... ok
+test_does_not_fire_when_scope_signal_false (tests.test_aidlc_reevaluation.ComputeReEvaluationBasicTests.test_does_not_fire_when_scope_signal_false) ... ok
+test_fires_for_lite_when_scope_signal_and_no_floor (tests.test_aidlc_reevaluation.ComputeReEvaluationBasicTests.test_fires_for_lite_when_scope_signal_and_no_floor) ... ok
+test_high_complexity_scope_signal_true (tests.test_aidlc_reevaluation.EvaluateScopeSignalTests.test_high_complexity_scope_signal_true) ... ok
+test_low_complexity_scope_signal_false_floor_true (tests.test_aidlc_reevaluation.EvaluateScopeSignalTests.test_low_complexity_scope_signal_false_floor_true) ... ok
+test_none_returns_false_false (tests.test_aidlc_reevaluation.EvaluateScopeSignalTests.test_none_returns_false_false) ... ok
+test_create_stores_re_evaluation_suggestion (tests.test_aidlc_reevaluation.PlanningLockStorageTests.test_create_stores_re_evaluation_suggestion) ... ok
+test_create_without_suggestion_stores_none (tests.test_aidlc_reevaluation.PlanningLockStorageTests.test_create_without_suggestion_stores_none) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.593s
+
+OK

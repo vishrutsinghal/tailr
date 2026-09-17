@@ -186,7 +186,7 @@
     "scripts/ui_planning.py",
     "scripts/maintainability_planning.py",
     "scripts/maintainability-harness.py",
-    "scripts/planning-lock.py",
+    "scripts/planning_lock.py",
     "scripts/product-maturity.py",
     "scripts/learning-v3.py",
     "scripts/learning-retrieval.py",

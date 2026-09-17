@@ -21,7 +21,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("workflow_approval_lock_test", "scripts/planning-lock.py")
+lock = load("workflow_approval_lock_test", "scripts/planning_lock.py")
 from workflow_runtime import approvals, compiler, start_integration, state, task_scope
 
 

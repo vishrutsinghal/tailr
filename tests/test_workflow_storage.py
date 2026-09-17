@@ -22,7 +22,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("workflow_storage_lock_test", "scripts/planning-lock.py")
+lock = load("workflow_storage_lock_test", "scripts/planning_lock.py")
 ownership = load("workflow_storage_ownership_test", "scripts/workflow_runtime/ownership.py")
 from workflow_runtime import storage
 

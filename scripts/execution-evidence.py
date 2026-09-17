@@ -24,7 +24,7 @@ def load(name: str, filename: str) -> Any:
 
 
 L = load("execution_evidence_ledger", "run-ledger.py")
-LOCK = load("execution_evidence_lock", "planning-lock.py")
+LOCK = load("execution_evidence_lock", "planning_lock.py")
 CONTRACT = load("execution_evidence_contract", "closure-contract.py")
 
 

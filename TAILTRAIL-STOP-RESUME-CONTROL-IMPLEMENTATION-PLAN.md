@@ -79,7 +79,7 @@ dispatch, intent routing, and attachment-aware resolution now close them.
 | Baseline component | Previous behavior | Implemented resolution |
 | --- | --- | --- |
 | `scripts/workflow_runtime/state.py` | Supports pause/resume/cancel for an activated DWR workflow | Cannot stop an awaiting Planning Lock or detach conversation routing; pause is unavailable before activation |
-| `scripts/planning-lock.py` | Uses `awaiting-approval` and `approved` canonical states | Has no session attachment concept, and its state should not be corrupted to represent conversational detachment |
+| `scripts/planning_lock.py` | Uses `awaiting-approval` and `approved` canonical states | Has no session attachment concept, and its state should not be corrupted to represent conversational detachment |
 | `scripts/orchestration/run_resolution.py` | Scans run directories and auto-selects one matching run when no ID is supplied | A preserved dormant run can be rediscovered and recapture later prompts |
 | `scripts/expand-intent.py` | Knows `none`, `awaiting-approval`, `active`, `closure-ready`, and `ambiguous` | Has no `detached` state or `stop`/`ordinary-agent` action; generic task language can route to TailTrail Start |
 | `scripts/orchestration_facade.py` | Exposes start, discuss, approve, continue, status, and close | Has no stop, detach, or exact-run resume facade |
@@ -570,7 +570,7 @@ Exit criteria:
 | `scripts/orchestration/run_resolution.py` | Attachment-only default run resolution |
 | `scripts/orchestration_facade.py` | Stop and exact resume facade operations |
 | `scripts/tailtrail.py` | Top-level dispatch and help |
-| `scripts/planning-lock.py` | Read-only run status integration; no attachment-state ownership |
+| `scripts/planning_lock.py` | Read-only run status integration; no attachment-state ownership |
 | `scripts/workflow_runtime/state.py` | Safe pause and resume coordination |
 | `scripts/workflow_runtime/approvals.py` | Stop-driven session/stage expiry |
 | `scripts/workflow_runtime/task_scope.py` | Reservation release and freshness-gated reacquisition |

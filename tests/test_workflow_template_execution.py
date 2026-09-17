@@ -25,7 +25,7 @@ def load(name: str, relative: str):
     return module
 
 
-LOCK = load("workflow_template_execution_lock", "scripts/planning-lock.py")
+LOCK = load("workflow_template_execution_lock", "scripts/planning_lock.py")
 from workflow_runtime import adapter_catalog, adapters, approvals, compiler, executor, ownership, stage_results, start_integration, storage, task_scope
 
 

@@ -18,7 +18,7 @@ def load(name: str, relative: str):
     sys.modules[name] = module; spec.loader.exec_module(module); return module
 
 
-lock = load("expert_controls_lock_test", "scripts/planning-lock.py")
+lock = load("expert_controls_lock_test", "scripts/planning_lock.py")
 controls = load("expert_controls_test", "scripts/planning-feature-controls.py")
 ledger = load("expert_controls_ledger_test", "scripts/run-ledger.py")
 

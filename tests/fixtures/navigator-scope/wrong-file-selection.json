@@ -4,7 +4,7 @@
   "id": "wrong-file-selection",
   "goal": "fix multiline requirement splitting",
   "repository_files": {
-    "scripts/planning-lock.py": "import requirement_discovery\n\ndef propose_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
+    "scripts/planning_lock.py": "import requirement_discovery\n\ndef propose_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
     "scripts/requirement_discovery.py": "def statements(goal):\n    # Owns multiline requirement splitting.\n    return [goal]\n",
     "scripts/task-start.py": "import requirement_discovery\n\ndef start_requirements(goal):\n    return requirement_discovery.matrix(goal, [])\n",
     "tests/test_aidlc_requirements.py": "# AIDLC requirements fixture mentioning multiline requirement splitting.\n",
@@ -24,7 +24,7 @@
       "scripts/requirement_discovery.py"
     ],
     "callers": [
-      "scripts/planning-lock.py",
+      "scripts/planning_lock.py",
       "scripts/task-start.py"
     ],
     "proof_paths": [

@@ -22,7 +22,7 @@ def load(name: str, filename: str):
 
 
 SESSION = load("tailtrail_session_control_test", "session_control.py")
-LOCK = load("tailtrail_session_lock_test", "planning-lock.py")
+LOCK = load("tailtrail_session_lock_test", "planning_lock.py")
 LEDGER = load("tailtrail_session_ledger_test", "run-ledger.py")
 from workflow_runtime import capabilities, compiler, ownership, state as workflow_state, storage, task_scope
 

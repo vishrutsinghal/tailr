@@ -61,7 +61,7 @@ def module(name: str, filename: str) -> Any:
     return loaded
 
 
-LOCK = module("planning_discussion_lock", "planning-lock.py")
+LOCK = module("planning_discussion_lock", "planning_lock.py")
 LEDGER = module("planning_discussion_ledger", "run-ledger.py")
 
 

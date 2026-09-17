@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT/"scripts"))
 def load(name,path):
  spec=importlib.util.spec_from_file_location(name,ROOT/path); module=importlib.util.module_from_spec(spec); assert spec and spec.loader; sys.modules[name]=module; spec.loader.exec_module(module); return module
-mcp=load("phase8_mcp","scripts/mcp-server.py"); lock=load("phase8_lock","scripts/planning-lock.py"); anchor=load("phase8_anchor","scripts/change-intent-anchor.py"); recorder=load("phase8_recorder","scripts/closure-recorder.py")
+mcp=load("phase8_mcp","scripts/mcp-server.py"); lock=load("phase8_lock","scripts/planning_lock.py"); anchor=load("phase8_anchor","scripts/change-intent-anchor.py"); recorder=load("phase8_recorder","scripts/closure-recorder.py")
 from workflow_runtime import capabilities, compiler, ownership, state, storage, task_scope
 
 class WorkflowMcpTests(unittest.TestCase):

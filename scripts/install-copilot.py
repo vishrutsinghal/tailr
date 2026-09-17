@@ -279,7 +279,7 @@ PACK_SCRIPTS = [
     "scripts/phase8-advanced.py",
     "scripts/package-release-proof.py",
     "scripts/platform-qualification.py",
-    "scripts/planning-lock.py",
+    "scripts/planning_lock.py",
     "scripts/prompt-profile.py",
     "scripts/prompt_profile.py",
     "scripts/public-benchmark.py",

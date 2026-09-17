@@ -26,7 +26,7 @@ SCOPE = load("ns9_scope_test", "scripts/navigator_scope.py")
 RELEASE = load("ns9_release_test", "scripts/navigator-scope-release.py")
 CONTRACTS = load("ns9_contracts_test", "scripts/workflow_runtime/contracts.py")
 MCP = load("ns9_mcp_test", "scripts/mcp-server.py")
-LOCK = load("ns9_lock_test", "scripts/planning-lock.py")
+LOCK = load("ns9_lock_test", "scripts/planning_lock.py")
 
 
 class NavigatorScopeReleaseTests(unittest.TestCase):

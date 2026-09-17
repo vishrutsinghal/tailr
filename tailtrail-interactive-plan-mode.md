@@ -566,7 +566,7 @@ Files:
 - `schemas/planning-conversation.schema.json`
 - `schemas/planning-revision.schema.json`
 - `scripts/planning-discussion.py`
-- `scripts/planning-lock.py`
+- `scripts/planning_lock.py`
 - `scripts/tailtrail.py`
 - `tests/test_planning_discussion.py`
 
@@ -674,7 +674,7 @@ Files:
 - `scripts/planning-decision-posture.py`
 - `scripts/task-start.py`
 - `scripts/navigator.py`
-- `scripts/planning-lock.py`
+- `scripts/planning_lock.py`
 - `schemas/planning-decision-posture.schema.json`
 - `scripts/workflow-dashboard.py`
 - `tests/test_planning_decision_posture.py`
@@ -760,7 +760,7 @@ Status: **implemented**.
 Files:
 
 - `scripts/planning-revision.py`
-- `scripts/planning-lock.py`
+- `scripts/planning_lock.py`
 - `scripts/change-intent-anchor.py`
 - `scripts/task-start.py`
 - `schemas/planning-revision.schema.json`

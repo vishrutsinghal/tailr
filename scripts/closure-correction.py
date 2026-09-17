@@ -29,7 +29,7 @@ def load(name: str, script: str) -> Any:
 
 
 L = load("closure_correction_ledger", "run-ledger.py")
-LOCK = load("closure_correction_lock", "planning-lock.py")
+LOCK = load("closure_correction_lock", "planning_lock.py")
 CONVERGENCE = load("closure_correction_convergence", "harness-convergence.py")
 CONTINUITY = load("closure_correction_continuity", "context-continuity.py")
 

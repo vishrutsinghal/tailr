@@ -22,7 +22,7 @@ def load(name: str, filename: str):
     return module
 
 
-LOCK = load("tailtrail_stop_cli_lock_test", "planning-lock.py")
+LOCK = load("tailtrail_stop_cli_lock_test", "planning_lock.py")
 SESSION = load("tailtrail_stop_cli_session_test", "session_control.py")
 INTENT = load("tailtrail_stop_intent_test", "expand-intent.py")
 MCP = load("tailtrail_stop_mcp_test", "mcp-server.py")

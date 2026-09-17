@@ -21,7 +21,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("workflow_transitions_lock_test", "scripts/planning-lock.py")
+lock = load("workflow_transitions_lock_test", "scripts/planning_lock.py")
 from workflow_runtime import capabilities, compiler, contracts, reason_codes, state, storage, transitions
 
 

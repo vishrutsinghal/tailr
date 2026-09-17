@@ -21,7 +21,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("planning_discussion_lock_test", "scripts/planning-lock.py")
+lock = load("planning_discussion_lock_test", "scripts/planning_lock.py")
 discussion = load("planning_discussion_test", "scripts/planning-discussion.py")
 
 

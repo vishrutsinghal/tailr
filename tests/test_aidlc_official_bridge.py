@@ -22,7 +22,7 @@ def load(name: str, relative: str):
 
 bridge = load("official_aidlc_bridge_test", "scripts/aidlc-official-bridge.py")
 ledger = load("official_aidlc_bridge_ledger_test", "scripts/run-ledger.py")
-lock = load("official_aidlc_planning_lock_test", "scripts/planning-lock.py")
+lock = load("official_aidlc_planning_lock_test", "scripts/planning_lock.py")
 official_requirements = load("official_aidlc_requirements_test", "scripts/official-aidlc-requirements.py")
 
 

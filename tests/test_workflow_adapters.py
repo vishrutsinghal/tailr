@@ -19,7 +19,7 @@ def load(name: str, relative: str):
     sys.modules[name] = module; spec.loader.exec_module(module); return module
 
 
-lock = load("workflow_adapter_lock_test", "scripts/planning-lock.py")
+lock = load("workflow_adapter_lock_test", "scripts/planning_lock.py")
 from workflow_runtime import adapter_catalog, adapters, approvals, contracts, start_integration, task_scope
 
 

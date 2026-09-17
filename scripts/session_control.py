@@ -36,7 +36,7 @@ def _module(name: str, filename: str) -> Any:
 
 
 LEDGER = ownership.LEDGER
-LOCK = _module("tailtrail_session_planning_lock", "planning-lock.py")
+LOCK = _module("tailtrail_session_planning_lock", "planning_lock.py")
 TARGET = _module("tailtrail_session_target", "target_workspace.py")
 
 

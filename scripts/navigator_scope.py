@@ -2577,17 +2577,44 @@ def _validated_scope_question_options(
     return [row["path"] for row in offered], offered, validation
 
 
+def _complexity_metrics(
+    root: Path,
+    document: dict[str, Any],
+) -> dict[str, Any]:
+    """Extract quantitative scope-complexity metrics from scope evidence.
+
+    Delegates to :mod:`metrics_extractor` so the same three-tier pipeline
+    (likely_impacted_files → scope_evidence → mapper cache) is used by
+    both the standalone extraction path and the consolidated
+    ``assess_scope_quality()`` path.
+    """
+    try:
+        import metrics_extractor as _m
+    except Exception:
+        return {"source": "unavailable", "error": "metrics_extractor-unavailable"}
+    return _m.extract_scope_complexity_metrics(root, document)
+
+
 def assess_scope_quality(
     root: Path,
     goal: str,
     task_types: Iterable[str],
     document: dict[str, Any],
+    *,
+    compute_complexity: bool = False,
 ) -> dict[str, Any]:
     """Fail closed unless the evidence supports this request's repository role.
 
     Target selection and scope quality are deliberately independent: an
     explicit ``--root`` proves where to inspect, never which file owns a
     requested behavior.
+
+    When ``compute_complexity`` is True, quantitative scope-complexity
+    metrics are extracted alongside the scope-quality verdict and returned
+    in the ``complexity_metrics`` field. This is the consolidated path for
+    AIDLC mode selection (Phase 4); the standalone
+    :func:`~metrics_extractor.extract_scope_complexity_metrics` remains the
+    primary path for ``task-start.py``.
     """
     mode = requested_scope_mode(goal, task_types)
     errors: list[str] = []
@@ -2689,6 +2716,9 @@ def assess_scope_quality(
                 "boundary": "TailTrail found no query- or relationship-grounded, high-confidence owner option. This clarification grants no implementation authority or Planning Lock.",
             }
     primary_reason = errors[0] if errors else f"{mode}-scope-supported"
+    complexity_metrics: dict[str, Any] = {}
+    if compute_complexity:
+        complexity_metrics = _complexity_metrics(root, document)
     return {
         "schema_version": "1",
         "type": "tailtrail-scope-quality-assessment",
@@ -2704,6 +2734,7 @@ def assess_scope_quality(
         "primary_reason": primary_reason,
         "question": question,
         "question_validation": question_validation,
+        "complexity_metrics": complexity_metrics,
         "boundary": "Scope quality is evidence-based and independent of target-root selection. Passing this gate grants no execution authority.",
     }
 

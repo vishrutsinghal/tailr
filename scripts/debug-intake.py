@@ -29,7 +29,7 @@ def load(name: str, filename: str) -> Any:
 
 L = load("debug_intake_ledger", "run-ledger.py")
 GRAPH = load("debug_intake_graph", "code-graph-mapper.py")
-PLANNING = load("debug_intake_planning", "planning-lock.py")
+PLANNING = load("debug_intake_planning", "planning_lock.py")
 PRIVACY = load("debug_intake_privacy", "debug-privacy.py")
 GOVERNANCE = load("debug_intake_governance", "debug-governance.py")
 

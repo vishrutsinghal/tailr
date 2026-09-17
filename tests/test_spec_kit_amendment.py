@@ -20,7 +20,7 @@ def module(file: str, name: str):
 
 importer = module("spec-kit-import.py", "spec_kit_amendment_import")
 bridge = module("spec-kit-bridge.py", "spec_kit_amendment_bridge")
-lock = module("planning-lock.py", "spec_kit_amendment_lock")
+lock = module("planning_lock.py", "spec_kit_amendment_lock")
 amendment = module("spec-kit-amendment.py", "spec_kit_amendment_test")
 slices = module("spec-kit-slices.py", "spec_kit_amendment_slices_test")
 

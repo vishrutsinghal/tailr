@@ -27,7 +27,7 @@ def _module(name: str, filename: str) -> Any:
 
 
 LEDGER = _module("workflow_ownership_ledger", "run-ledger.py")
-LOCK = _module("workflow_ownership_lock", "planning-lock.py")
+LOCK = _module("workflow_ownership_lock", "planning_lock.py")
 TARGET = _module("workflow_ownership_target", "target_workspace.py")
 
 

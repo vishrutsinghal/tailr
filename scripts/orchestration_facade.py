@@ -24,7 +24,7 @@ def _module(name: str, filename: str) -> Any:
     return loaded
 
 
-LOCK = _module("pm2_planning_lock", "planning-lock.py")
+LOCK = _module("pm2_planning_lock", "planning_lock.py")
 DISCUSSION = _module("pm2_planning_discussion", "planning-discussion.py")
 CLOSURE = _module("pm2_closure_close", "closure-close.py")
 PRESENTATION = _module("pm3_presentation", "presentation.py")

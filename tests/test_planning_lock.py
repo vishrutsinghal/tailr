@@ -20,13 +20,13 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("planning_lock_test", "scripts/planning-lock.py")
+lock = load("planning_lock_test", "scripts/planning_lock.py")
 ledger = load("planning_lock_ledger_test", "scripts/run-ledger.py")
 
 
 class PlanningLockTests(unittest.TestCase):
     def test_official_question_recorder_supports_stdin_for_large_windows_payloads(self) -> None:
-        source = (ROOT / "scripts" / "planning-lock.py").read_text(encoding="utf-8")
+        source = (ROOT / "scripts" / "planning_lock.py").read_text(encoding="utf-8")
         self.assertIn('official_question_source.add_argument("--questions-stdin"', source)
         self.assertIn("questions_json = sys.stdin.readline()", source)
 

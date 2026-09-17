@@ -32,7 +32,7 @@ def load_script(name: str, relative: str):
 
 
 mcp = load_module()
-lock = load_script("mcp_execution_lock_test", "scripts/planning-lock.py")
+lock = load_script("mcp_execution_lock_test", "scripts/planning_lock.py")
 anchor = load_script("mcp_execution_anchor_test", "scripts/change-intent-anchor.py")
 reproduction = load_script("mcp_reproduction_guidance_test", "scripts/debug-reproduction.py")
 requirement_discovery = load_script("mcp_requirement_discovery_test", "scripts/requirement_discovery.py")

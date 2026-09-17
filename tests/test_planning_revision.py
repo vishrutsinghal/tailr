@@ -23,7 +23,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("planning_revision_lock_test", "scripts/planning-lock.py")
+lock = load("planning_revision_lock_test", "scripts/planning_lock.py")
 revision = load("planning_revision_test", "scripts/planning-revision.py")
 ledger = load("planning_revision_ledger_test", "scripts/run-ledger.py")
 spec_import = load("planning_revision_spec_import_test", "scripts/spec-kit-import.py")

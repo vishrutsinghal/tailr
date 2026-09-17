@@ -32,7 +32,7 @@ CAL = load("ns8_scope_calibration_test", "scripts/navigator-scope-calibration.py
 V3 = load("ns8_learning_v3_test", "scripts/learning-v3.py")
 RETRIEVAL = load("ns8_learning_retrieval_test", "scripts/learning-retrieval.py")
 RECEIPTS = load("ns8_learning_receipts_test", "scripts/learning-use-receipt.py")
-LOCK = load("ns8_planning_lock_test", "scripts/planning-lock.py")
+LOCK = load("ns8_planning_lock_test", "scripts/planning_lock.py")
 ANCHOR = load("ns8_anchor_test", "scripts/change-intent-anchor.py")
 CONTRACTS = load("ns8_contracts_test", "scripts/workflow_runtime/contracts.py")
 

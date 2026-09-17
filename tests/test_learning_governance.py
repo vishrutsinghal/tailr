@@ -26,7 +26,7 @@ V3 = load("pm_l4_v3", "scripts/learning-v3.py")
 GOV = load("pm_l4_governance", "scripts/learning-governance.py")
 RETRIEVAL = load("pm_l4_retrieval", "scripts/learning-retrieval.py")
 RECEIPTS = load("pm_l4_receipts", "scripts/learning-use-receipt.py")
-LOCK = load("pm_l4_lock", "scripts/planning-lock.py")
+LOCK = load("pm_l4_lock", "scripts/planning_lock.py")
 ANCHOR = load("pm_l4_anchor", "scripts/change-intent-anchor.py")
 
 

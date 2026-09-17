@@ -957,7 +957,7 @@ class DebugStartPlanningTests(unittest.TestCase):
                 "import requirement_discovery\n",
                 encoding="utf-8",
             )
-            (scripts / "planning-lock.py").write_text(
+            (scripts / "planning_lock.py").write_text(
                 "import requirement_discovery\n",
                 encoding="utf-8",
             )

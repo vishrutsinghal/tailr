@@ -29,7 +29,7 @@ def load(name: str, script: str) -> Any:
 
 L = load("closure_recorder_ledger", "run-ledger.py")
 CONTRACT = load("closure_recorder_contract", "closure-contract.py")
-LOCK = load("closure_recorder_lock", "planning-lock.py")
+LOCK = load("closure_recorder_lock", "planning_lock.py")
 CHECKPOINT = load("closure_recorder_checkpoint", "harness-checkpoint.py")
 REVIEW = load("closure_recorder_review", "completion-review.py")
 GATE = load("closure_recorder_gate", "requirement-completion.py")

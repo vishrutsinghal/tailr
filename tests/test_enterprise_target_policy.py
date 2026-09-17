@@ -22,7 +22,7 @@ def load(name: str, relative: str):
 
 
 policy = load("enterprise_target_policy_test", "scripts/enterprise-target-policy.py")
-lock = load("enterprise_target_policy_lock_test", "scripts/planning-lock.py")
+lock = load("enterprise_target_policy_lock_test", "scripts/planning_lock.py")
 
 
 def write_policy(path: Path, root: Path, *, restricted: list[str] | None = None, owners: list[str] | None = None) -> None:

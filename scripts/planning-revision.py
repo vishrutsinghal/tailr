@@ -42,7 +42,7 @@ def module(name: str, filename: str) -> Any:
     return loaded
 
 
-LOCK = module("planning_revision_lock", "planning-lock.py")
+LOCK = module("planning_revision_lock", "planning_lock.py")
 LEDGER = module("planning_revision_ledger", "run-ledger.py")
 ANCHOR = module("planning_revision_anchor", "change-intent-anchor.py")
 REQUIREMENTS = module("planning_revision_requirements", "requirement_discovery.py")

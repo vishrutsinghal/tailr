@@ -82,7 +82,7 @@ def bootstrap_snapshot_status(root: Path, should_check: bool, command_prefix: st
         return {
             "status": "unavailable",
             "reason": "bootstrap-snapshot.py is not available in this TailTrail pack",
-            "command": f"{command_prefix} bootstrap snapshot --root {quoted(root.as_posix())} --write-result",
+            "command": f"{command_prefix} bootstrap snapshot --root {core.quoted(root.as_posix())} --write-result",
             "recommended_action": "Continue with normal focused discovery.",
         }
     try:
@@ -91,12 +91,12 @@ def bootstrap_snapshot_status(root: Path, should_check: bool, command_prefix: st
         return {
             "status": "unavailable",
             "reason": "bootstrap snapshot status could not be computed",
-            "command": f"{command_prefix} bootstrap snapshot --root {quoted(root.as_posix())} --write-result",
+            "command": f"{command_prefix} bootstrap snapshot --root {core.quoted(root.as_posix())} --write-result",
             "recommended_action": "Continue with normal focused discovery.",
         }
     action = "reuse" if status.get("status") == "fresh" else "create_or_refresh"
     command_action = "refresh" if status.get("exists") else "snapshot"
-    command = f"{command_prefix} bootstrap {command_action} --root {quoted(root.as_posix())}"
+    command = f"{command_prefix} bootstrap {command_action} --root {core.quoted(root.as_posix())}"
     if command_action == "snapshot":
         command += " --write-result"
     return {
@@ -424,7 +424,7 @@ def meta_harness_hints(root: Path, relevant_feature_ids: list[str]) -> dict[str,
 
 
 def root_arg(root: Path) -> str:
-    return f"--root {quoted(root.as_posix())}"
+    return f"--root {core.quoted(root.as_posix())}"
 
 
 def cross_repo_reference_requested(goal: str) -> bool:
@@ -448,11 +448,11 @@ def cross_repo_reference_plan(goal: str, root: Path, command_prefix: str) -> dic
         return None
     target = labeled_path(goal, ("target", "target repo", "target repository")) or root.as_posix()
     reference = labeled_path(goal, ("reference", "reference repo", "reference repository", "ref repo", "other repo", "other repository"))
-    command = f"{command_prefix} reference --target {quoted(target)} --reference "
+    command = f"{command_prefix} reference --target {core.quoted(target)} --reference "
     if reference:
-        command += f"{quoted(reference)} --goal {quoted(goal)}"
+        command += f"{core.quoted(reference)} --goal {core.quoted(goal)}"
     else:
-        command += f"{quoted('/path/to/reference-repo')} --goal {quoted(goal)}"
+        command += f"{core.quoted('/path/to/reference-repo')} --goal {core.quoted(goal)}"
     return {
         "target": target,
         "reference": reference or "not parsed from prompt",
@@ -471,24 +471,24 @@ def learning_capture_suggestion(goal: str, root: Path, tiny: bool, tasks: list[s
         return None
     mode = core.capture_mode(goal)
     tags = ",".join(core.normalized_learning_tags(tasks, risks)[:5])
-    root_arg = quoted(root.as_posix())
+    root_arg = core.quoted(root.as_posix())
     summary = goal[:140] if goal else "REPLACE_WITH_SHORT_TASK_SUMMARY"
     candidate = "REPLACE_WITH_REUSABLE_PATTERN_OR_DECISION"
     reason = "REPLACE_WITH_EXPLICIT_REASON"
     parts = [
         "python3",
-        quoted((ROOT / "hooks" / "learning-capture-hook.py").as_posix()),
-        quoted(summary),
+        core.quoted((ROOT / "hooks" / "learning-capture-hook.py").as_posix()),
+        core.quoted(summary),
         "--root",
         root_arg,
     ]
     if tags:
-        parts.extend(["--tags", quoted(tags)])
-    parts.extend(["--candidate", quoted(candidate)])
+        parts.extend(["--tags", core.quoted(tags)])
+    parts.extend(["--candidate", core.quoted(candidate)])
     if mode == "accepted":
         parts.extend(["--acceptance", "accepted", "--validation-outcome", "REPLACE_WITH_pass_or_fail_or_not_run"])
     else:
-        parts.extend(["--acceptance", mode, "--reason", quoted(reason), "--validation-outcome", "REPLACE_WITH_pass_or_fail_or_not_run"])
+        parts.extend(["--acceptance", mode, "--reason", core.quoted(reason), "--validation-outcome", "REPLACE_WITH_pass_or_fail_or_not_run"])
     return {
         "mode": mode,
         "command": " ".join(parts),
@@ -525,7 +525,7 @@ def learning_refresh_awareness(
         return None
     return {
         "reasons": list(dict.fromkeys(reasons)),
-        "command": f"{command_prefix} learn refresh recommend --root {quoted(root.as_posix())}",
+        "command": f"{command_prefix} learn refresh recommend --root {core.quoted(root.as_posix())}",
         "rule": "Refresh is advisory. It can recommend keep/improve/demote/mark-stale/suppress/archive/merge/delete, but it should not change learnings without explicit approval.",
     }
 
@@ -822,7 +822,7 @@ def context_strategy(goal: str, root: Path, changed: list[str], tasks: list[str]
         "profile_load": profile["load"],
         "profile_avoid": profile["avoid"],
         "receipt_command": (
-            f"{command_prefix} receipt capture --root {quoted(root.as_posix())} --task {quoted(goal[:120] or 'task')} "
+            f"{command_prefix} receipt capture --root {core.quoted(root.as_posix())} --task {core.quoted(goal[:120] or 'task')} "
             f"--profile {profile['profile']} --loaded REPLACE_WITH_FILE --loaded-exactness REPLACE_WITH_exactness "
             "--loaded-strategy REPLACE_WITH_strategy --avoided REPLACE_WITH_FILE --avoided-exactness REPLACE_WITH_exactness "
             "--avoided-strategy REPLACE_WITH_strategy --route-source token-harness "

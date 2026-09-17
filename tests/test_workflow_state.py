@@ -22,7 +22,7 @@ def load(name: str, relative: str):
     return module
 
 
-lock = load("workflow_state_lock_test", "scripts/planning-lock.py")
+lock = load("workflow_state_lock_test", "scripts/planning_lock.py")
 from workflow_runtime import capabilities, state, task_scope
 
 

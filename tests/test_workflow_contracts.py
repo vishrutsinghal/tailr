@@ -19,7 +19,7 @@ def load(name: str, path: Path):
     sys.modules[name] = module; spec.loader.exec_module(module); return module
 
 
-LOCK = load("dwr0_contract_lock", ROOT / "scripts" / "planning-lock.py")
+LOCK = load("dwr0_contract_lock", ROOT / "scripts" / "planning_lock.py")
 from workflow_runtime import capabilities, compiler, contracts, evidence, ownership, reason_codes, storage, task_scope, templates
 
 

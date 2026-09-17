@@ -27,7 +27,7 @@ def module(name: str, filename: str) -> Any:
     return loaded
 
 
-LOCK = module("aidlc_question_lock", "planning-lock.py")
+LOCK = module("aidlc_question_lock", "planning_lock.py")
 LEDGER = module("aidlc_question_ledger", "run-ledger.py")
 OFFICIAL = module("aidlc_question_official", "official-aidlc-requirements.py")
 

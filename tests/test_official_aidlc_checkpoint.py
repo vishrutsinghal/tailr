@@ -24,7 +24,7 @@ def load(name: str, relative: str):
 checkpoint = load("official_checkpoint_test", "scripts/official-aidlc-checkpoint.py")
 bridge = load("official_checkpoint_bridge", "scripts/aidlc-official-bridge.py")
 runtime = load("official_checkpoint_runtime_test", "scripts/official-aidlc-runtime.py")
-lock = load("official_checkpoint_lock", "scripts/planning-lock.py")
+lock = load("official_checkpoint_lock", "scripts/planning_lock.py")
 anchor = load("official_checkpoint_anchor", "scripts/change-intent-anchor.py")
 
 

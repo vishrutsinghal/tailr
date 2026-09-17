@@ -24,7 +24,7 @@ def module(file: str, name: str):
 
 bridge = module("spec-kit-bridge.py", "spec_kit_navigator_bridge_test")
 importer = module("spec-kit-import.py", "spec_kit_navigator_import_test")
-lock = module("planning-lock.py", "spec_kit_navigator_lock_test")
+lock = module("planning_lock.py", "spec_kit_navigator_lock_test")
 task_start = module("task-start.py", "spec_kit_navigator_task_start_test")
 
 

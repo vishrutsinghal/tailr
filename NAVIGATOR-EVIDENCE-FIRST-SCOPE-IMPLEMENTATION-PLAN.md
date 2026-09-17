@@ -90,7 +90,7 @@ Correct evidence-led result in this repository:
 
 - implementation owner: `scripts/requirement_discovery.py`;
 - direct runtime callers: `scripts/task-start.py` and
-  `scripts/planning-lock.py`;
+  `scripts/planning_lock.py`;
 - focused proof: `tests/test_requirement_discovery.py`;
 - `tests/test_aidlc_requirements.py` is not an implementation owner and must
   not be selected merely because its filename contains `requirements`;
@@ -990,7 +990,7 @@ Exit criteria:
 | `scripts/navigator.py` | Workflow classification and v2 scope orchestration |
 | `scripts/task-start.py` | Correct operation order, no-lock boundaries, atomic persistence, rendering projection |
 | `scripts/target_workspace.py` | Separate identity result from scope-quality result; remove explicit-root bypass |
-| `scripts/planning-lock.py` | Validate and bind v2 evidence fingerprint into lock/anchor |
+| `scripts/planning_lock.py` | Validate and bind v2 evidence fingerprint into lock/anchor |
 | `scripts/planning-discussion.py` | Evidence-backed explanations and exact unknowns |
 | `scripts/planning-investigation.py` | Optional post-lock inspection over saved v2 candidates |
 | `scripts/planning-revision.py` | Evidence-aware material scope revisions and v1 compatibility |

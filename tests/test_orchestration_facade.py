@@ -18,7 +18,7 @@ def load(name: str, filename: str):
     sys.modules[name] = module; spec.loader.exec_module(module); return module
 
 FACADE = load("pm2_facade_test", "orchestration_facade.py")
-LOCK = load("pm2_facade_lock_test", "planning-lock.py")
+LOCK = load("pm2_facade_lock_test", "planning_lock.py")
 from workflow_runtime import start_integration
 
 class OrchestrationFacadeTests(unittest.TestCase):

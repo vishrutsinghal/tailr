@@ -20,7 +20,7 @@ def module(file: str, name: str):
 
 importer = module("spec-kit-import.py", "spec_kit_observability_import")
 bridge = module("spec-kit-bridge.py", "spec_kit_observability_bridge")
-lock = module("planning-lock.py", "spec_kit_observability_lock")
+lock = module("planning_lock.py", "spec_kit_observability_lock")
 ci = module("ci-evidence-ingest.py", "spec_kit_observability_ci")
 observability = module("spec-kit-observability.py", "spec_kit_observability_test")
 gate = module("spec-kit-ci-gate.py", "spec_kit_observability_gate")

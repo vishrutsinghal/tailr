@@ -33,7 +33,7 @@ def load(name: str, filename: str) -> Any:
 
 L = load("debug_reproduction_ledger", "run-ledger.py")
 ANCHOR = load("debug_reproduction_anchor", "change-intent-anchor.py")
-PLANNING = load("debug_reproduction_planning", "planning-lock.py")
+PLANNING = load("debug_reproduction_planning", "planning_lock.py")
 EVIDENCE = load("debug_reproduction_evidence", "execution-evidence.py")
 PRIVACY = load("debug_reproduction_privacy", "debug-privacy.py")
 SHORT_TEXT = load("debug_reproduction_contract_text", "closure-contract.py")
@@ -264,7 +264,7 @@ def approve_start_plan_and_draft(root: Path, run_id: str) -> dict[str, Any]:
 
 def ensure_investigation_prerequisites(root: Path, run_id: str, contract: dict[str, Any]) -> None:
     """Approve the run's Planning Lock and draft+approve a minimal investigation
-    requirement via the existing anchor mechanism, reusing planning-lock.py and
+    requirement via the existing anchor mechanism, reusing planning_lock.py and
     change-intent-anchor.py rather than parallel evidence machinery.
     execution-evidence.py requires both an approved, writes-allowed Planning
     Lock and an approved anchor before any evidence can be recorded, so both

@@ -398,7 +398,7 @@ def suggested_run_id(root: Path, goal: str) -> str:
     return candidate
 
 
-def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None, target_identity: dict[str, Any] | None = None, input_roles: dict[str, Any] | None = None, host_workspace: dict[str, Any] | None = None, enterprise_policy: dict[str, Any] | None = None, scope_decision: dict[str, Any] | None = None) -> dict[str, Any]:
+def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None, target_identity: dict[str, Any] | None = None, input_roles: dict[str, Any] | None = None, host_workspace: dict[str, Any] | None = None, enterprise_policy: dict[str, Any] | None = None, scope_decision: dict[str, Any] | None = None, re_evaluation_suggestion: dict[str, Any] | None = None) -> dict[str, Any]:
     root = root.resolve()
     selected_run_id = run_id or suggested_run_id(root, goal)
     if Path(selected_run_id).name != selected_run_id:
@@ -417,6 +417,7 @@ def create(root: Path, goal: str, run_id: str | None = None, reference_roots: li
         "host_workspace": host_workspace,
         "enterprise_policy": enterprise_policy or {"status": "not-configured", "blocking": False},
         "scope_decision": scope_decision,
+        "re_evaluation_suggestion": re_evaluation_suggestion,
         "approval": None,
         "pipeline": {
             "active_stage": "PENDING",

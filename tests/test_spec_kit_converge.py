@@ -20,7 +20,7 @@ def module(file: str, name: str):
 
 importer = module("spec-kit-import.py", "spec_kit_converge_import")
 bridge = module("spec-kit-bridge.py", "spec_kit_converge_bridge")
-lock = module("planning-lock.py", "spec_kit_converge_lock")
+lock = module("planning_lock.py", "spec_kit_converge_lock")
 converge = module("spec-kit-converge.py", "spec_kit_converge_test")
 ci = module("ci-evidence-ingest.py", "spec_kit_converge_ci")
 
