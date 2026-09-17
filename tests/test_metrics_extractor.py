@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import io
 import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 
@@ -55,6 +57,43 @@ class LoadThresholdsTests(unittest.TestCase):
             )
             thresholds = metrics_extractor.load_thresholds(root)
         self.assertEqual(thresholds, metrics_extractor.DEFAULT_THRESHOLDS)
+
+    def test_invalid_entries_dropped_with_warnings(self):
+        clean, warnings = metrics_extractor.validate_thresholds({
+            "affected_files_standard": 7,
+            "call_chain_depth_stddev_standard": 2,  # int accepted for float key
+            "affected_file_standard": 3,  # typo: unknown key
+            "cross_layer_edges_standard": "many",
+            "module_resolution_ambiguous_standard": -1,
+            "behavior_chain_incomplete_standard": 1,  # not a strict bool
+            "affected_files_lite_floor": True,  # bool is not a number
+        })
+        self.assertEqual(clean, {
+            "affected_files_standard": 7,
+            "call_chain_depth_stddev_standard": 2,
+        })
+        self.assertEqual(len(warnings), 5)
+
+    def test_load_thresholds_keeps_defaults_for_invalid_entries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_dir = root / ".tailtrail"
+            config_dir.mkdir()
+            (config_dir / "aidlc-scope-thresholds.json").write_text(
+                json.dumps({
+                    "affected_files_standard": 7,
+                    "cross_layer_edges_standard": "many",
+                    "bogus_key": 1,
+                }),
+                encoding="utf-8",
+            )
+            thresholds = metrics_extractor.load_thresholds(root)
+        self.assertEqual(thresholds["affected_files_standard"], 7)
+        self.assertEqual(
+            thresholds["cross_layer_edges_standard"],
+            metrics_extractor.DEFAULT_THRESHOLDS["cross_layer_edges_standard"],
+        )
+        self.assertNotIn("bogus_key", thresholds)
 
 
 class CheapScopeMetricsTests(unittest.TestCase):
@@ -183,6 +222,24 @@ class MapperScopeMetricsTests(unittest.TestCase):
         self.assertEqual(metrics["endpoints_in_scope"], 1)
         self.assertEqual(metrics["external_dependency_edges"], 1)
 
+    def test_mapper_service_edges_counted_when_in_scope(self) -> None:
+        cache = {
+            "graph": {
+                "symbols": [],
+                "endpoints": [],
+                "edges": [],
+                "service_edges": [
+                    {"edge_type": "http-url", "source_file": "src/api.py", "target": "payments.example.com"},
+                    {"edge_type": "service-config", "source_file": "src/api.py", "target": "stripe"},
+                    {"edge_type": "http-url", "source_file": "src/other.py", "target": "other.example.com"},
+                    {"edge_type": "dotnet-project-reference", "source_file": "src/api.py", "target": "../lib.csproj"},
+                ],
+            }
+        }
+        metrics = metrics_extractor.mapper_scope_metrics(cache, ["src/api.py"])
+        # In-scope external types only; out-of-scope and repo-local refs excluded.
+        self.assertEqual(metrics["external_dependency_edges"], 2)
+
 
 class ComputeComplexityTests(unittest.TestCase):
     def test_tier1_only_when_no_scope_evidence(self):
@@ -242,6 +299,95 @@ class ComputeComplexityTests(unittest.TestCase):
         self.assertEqual(complexity["source"], "scope_evidence+mapper")
         self.assertEqual(complexity["symbols_in_scope"], 1)
         self.assertEqual(complexity["external_dependency_edges"], 1)
+        # Gate key consumed by evaluate_scope_signal (new_external_deps_standard).
+        self.assertEqual(complexity["new_external_deps"], 1)
+
+    def test_tier3_skipped_when_cached_file_changed(self) -> None:
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "src" / "a.py"
+            target.parent.mkdir()
+            target.write_text("def f():\n    return 1\n", encoding="utf-8")
+            sha = hashlib.sha256(target.read_bytes()).hexdigest()
+            (root / "tailtrail-meta").mkdir()
+            (root / "tailtrail-meta" / "code-graph-cache.json").write_text(
+                json.dumps({
+                    "source_files": {"src/a.py": {"sha256": sha, "mtime": 0, "size": 1}},
+                    "graph": {"symbols": [{"file": "src/a.py", "name": "stale_name"}],
+                              "endpoints": [], "edges": []},
+                }),
+                encoding="utf-8",
+            )
+            scope_evidence = {
+                "candidates": [
+                    {"candidate_id": "c1", "path": "src/a.py",
+                     "role": "implementation-owner", "layer": "api"}
+                ],
+                "edges": [],
+            }
+            fresh = metrics_extractor.compute_complexity([], scope_evidence, root)
+            self.assertEqual(fresh["source"], "scope_evidence+mapper")
+            self.assertNotIn("tier3_skipped", fresh)
+            target.write_text("def f():\n    return 2\n", encoding="utf-8")
+            stale = metrics_extractor.compute_complexity([], scope_evidence, root)
+            self.assertEqual(stale["source"], "scope_evidence")
+            self.assertIn("src/a.py", stale["tier3_skipped"])
+            self.assertNotIn("symbols_in_scope", stale)
+
+    def test_tier3_skipped_when_cached_file_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "tailtrail-meta").mkdir()
+            (root / "tailtrail-meta" / "code-graph-cache.json").write_text(
+                json.dumps({
+                    "source_files": {"src/gone.py": {"sha256": "0" * 64}},
+                    "graph": {"symbols": [], "endpoints": [], "edges": []},
+                }),
+                encoding="utf-8",
+            )
+            scope_evidence = {
+                "candidates": [
+                    {"candidate_id": "c1", "path": "src/gone.py",
+                     "role": "implementation-owner", "layer": "api"}
+                ],
+                "edges": [],
+            }
+            complexity = metrics_extractor.compute_complexity([], scope_evidence, root)
+            self.assertEqual(complexity["source"], "scope_evidence")
+            self.assertIn("tier3_skipped", complexity)
+
+    def test_new_external_deps_fires_scope_signal(self) -> None:
+        complexity = {
+            "affected_files": 1,
+            "changed_lines_estimate": 5,
+            "cross_layer_edges": 0,
+            "call_chain_depth_stddev": 0.0,
+            "module_resolution_ambiguous": 0,
+            "new_external_deps": 1,
+            "behavior_chain_incomplete": False,
+            "thresholds": dict(metrics_extractor.DEFAULT_THRESHOLDS),
+        }
+        scope_signal, scope_floor_lite = metrics_extractor.evaluate_scope_signal(complexity)
+        self.assertTrue(scope_signal)
+        self.assertTrue(scope_floor_lite)
+
+    def test_behavior_gate_respects_project_override(self) -> None:
+        base = {
+            "affected_files": 1,
+            "changed_lines_estimate": 5,
+            "cross_layer_edges": 0,
+            "call_chain_depth_stddev": 0.0,
+            "module_resolution_ambiguous": 0,
+            "new_external_deps": 0,
+            "behavior_chain_incomplete": True,
+        }
+        enabled = dict(base, thresholds=dict(metrics_extractor.DEFAULT_THRESHOLDS))
+        self.assertTrue(metrics_extractor.evaluate_scope_signal(enabled)[0])
+        disabled_thresholds = dict(metrics_extractor.DEFAULT_THRESHOLDS, behavior_chain_incomplete_standard=False)
+        disabled = dict(base, thresholds=disabled_thresholds)
+        self.assertFalse(metrics_extractor.evaluate_scope_signal(disabled)[0])
 
 
 class ExtractScopeComplexityMetricsTests(unittest.TestCase):
@@ -514,6 +660,96 @@ class ModeSelectionCalibrationWiringTests(unittest.TestCase):
             )
             log = metrics_extractor.mode_decision_log_path(root)
             self.assertFalse(log.exists())
+
+    def test_selection_and_reevaluation_agree_when_behavior_gate_disabled(self):
+        """Phase 6 single-definition: initial selection shares
+        evaluate_scope_signal with compute_re_evaluation, so a project
+        override disabling the behavior gate holds at both decision points."""
+        task_start = self._load_task_start()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".tailtrail").mkdir()
+            (root / ".tailtrail" / "aidlc-scope-thresholds.json").write_text(
+                json.dumps({"behavior_chain_incomplete_standard": False}),
+                encoding="utf-8",
+            )
+            plan = {
+                "likely_impacted_files": [
+                    {"path": "src/a.py", "changed_lines_estimate": 10}
+                ],
+                "scope_evidence": {
+                    "candidates": [
+                        {"candidate_id": "c1", "path": "src/a.py",
+                         "role": "implementation-owner", "layer": "api"}
+                    ],
+                    "edges": [],
+                    "behavior_chains": [{"state": "partial", "depth": 2}],
+                },
+            }
+            selected = task_start.aidlc_mode_selection(
+                "fix the validation bug", None, root, plan, None
+            )
+            # Behavior is the only signal and the project disabled its gate.
+            self.assertEqual(selected["mode"], "lite")
+            self.assertEqual(selected["selection"], "default")
+            complexity = metrics_extractor.compute_complexity(
+                plan["likely_impacted_files"], plan["scope_evidence"], root
+            )
+            self.assertTrue(complexity["behavior_chain_incomplete"])
+            self.assertEqual(
+                metrics_extractor.evaluate_scope_signal(complexity), (False, True)
+            )
+            self.assertIsNone(metrics_extractor.compute_re_evaluation(
+                "lite", complexity, complexity_available=True
+            ))
+
+
+class CalibrationReviewCliTests(unittest.TestCase):
+    def _run(self, root: Path, *argv: str) -> tuple[int, str]:
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = metrics_extractor.main(["--root", root.as_posix(), *argv])
+        return code, buffer.getvalue()
+
+    def test_thresholds_reports_effective_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".tailtrail").mkdir()
+            (root / ".tailtrail" / "aidlc-scope-thresholds.json").write_text(
+                json.dumps({"affected_files_standard": 7, "bogus_key": 1}),
+                encoding="utf-8",
+            )
+            code, text = self._run(root, "thresholds")
+            self.assertEqual(code, 0)
+            self.assertIn("`affected_files_standard`: `7` (override)", text)
+            self.assertIn("bogus_key", text)
+            code, raw = self._run(root, "thresholds", "--format", "json")
+            self.assertEqual(code, 0)
+            payload = json.loads(raw)
+            self.assertEqual(payload["effective_thresholds"]["affected_files_standard"], 7)
+            self.assertTrue(payload["override_present"])
+            self.assertTrue(
+                any("bogus_key" in warning for warning in payload["override_warnings"])
+            )
+
+    def test_calibration_reviews_logged_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            metrics_extractor.append_mode_decision(root, {
+                "scope_signal": True, "keyword_signal": False,
+                "scope_floor_lite": False, "mode": "standard",
+            })
+            code, text = self._run(root, "calibration")
+            self.assertEqual(code, 0)
+            self.assertIn("Decisions logged: `1`", text)
+            self.assertIn("Scope-signal escalations: `1`", text)
+
+    def test_calibration_empty_log_notes_next_step(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            code, text = self._run(Path(tmp), "calibration")
+            self.assertEqual(code, 0)
+            self.assertIn("Decisions logged: `0`", text)
+            self.assertIn("No decisions logged yet", text)
 
 
 if __name__ == "__main__":

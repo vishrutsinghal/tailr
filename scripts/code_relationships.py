@@ -29,6 +29,41 @@ LANGUAGE_BY_SUFFIX = {
 
 CONFIGURATION_SUFFIXES = {".cfg", ".conf", ".ini", ".json", ".properties", ".toml", ".yaml", ".yml"}
 
+# Phase 9 capability registry: the single declared contract for what each
+# language's extractor provides. Level 2 = full local structure
+# (definitions + imports + relationships); level 1 = partial (regex
+# subset). Consumers (e.g. the mapper's language_profiles) derive levels
+# from here instead of hardcoding per-language carve-outs. Richer
+# techniques (dynamic analysis, type resolution) stay opt-in passes
+# outside this table — see docs/arch/code-graphing.md §3.9.
+LANGUAGE_SUPPORT: dict[str, dict[str, Any]] = {
+    "python": {"level": 2, "parser": "ast",
+               "techniques": ["definitions", "imports", "loaders", "registrations"]},
+    "terraform": {"level": 2, "parser": "structured-regex",
+                  "techniques": ["definitions", "imports", "references"]},
+    "javascript": {"level": 1, "parser": "regex",
+                   "techniques": ["definitions", "imports", "registrations", "behavior"]},
+    "typescript": {"level": 1, "parser": "regex",
+                   "techniques": ["definitions", "imports", "registrations", "behavior"]},
+    "java": {"level": 1, "parser": "regex",
+             "techniques": ["definitions", "imports", "registrations"]},
+    "csharp": {"level": 1, "parser": "regex",
+               "techniques": ["definitions", "imports", "registrations"]},
+    "go": {"level": 1, "parser": "regex",
+           "techniques": ["definitions", "imports", "registrations"]},
+}
+
+
+def support_for(language: str) -> dict[str, Any] | None:
+    """Return the registry entry for a language, or None when unlisted."""
+    return LANGUAGE_SUPPORT.get(str(language or "").lower())
+
+
+def support_level(language: str) -> int | None:
+    """Return the support level for a language, or None when unlisted."""
+    entry = support_for(language)
+    return int(entry["level"]) if entry else None
+
 
 def _line(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
@@ -200,8 +235,26 @@ def _regex_facts(text: str, language: str) -> dict[str, list[dict[str, Any]]]:
         ):
             for match in re.finditer(pattern, text, re.MULTILINE):
                 imports.append(_row("import", match.group(1), _line(text, match.start())))
-        for match in re.finditer(r"\b(?:class|function|interface|type|enum)\s+([A-Za-z_$][\w$]*)", text):
-            definitions.append(_row("definition", match.group(1), _line(text, match.start())))
+        seen_definitions: set[tuple[str, int]] = set()
+
+        def _define(value: str, offset: int) -> None:
+            key = (value, _line(text, offset))
+            if key not in seen_definitions:
+                seen_definitions.add(key)
+                definitions.append(_row("definition", value, key[1]))
+
+        for match in re.finditer(
+            r"(?:^|[^\w$])(?:export\s+(?:default\s+)?)?(?:async\s+)?"
+            r"(?:class|function|interface|type|enum)\s+([A-Za-z_$][\w$]*)",
+            text,
+        ):
+            _define(match.group(1), match.start(1))
+        for match in re.finditer(
+            r"(?:^|[^\w$])(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)"
+            r"\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>",
+            text,
+        ):
+            _define(match.group(1), match.start(1))
         for match in re.finditer(r"\b(?:register|use|route)\(\s*['\"]?([A-Za-z0-9_./:-]+)", text):
             registrations.append(_row("registration", match.group(1), _line(text, match.start())))
         behavior.extend(_javascript_typescript_behavior(text))

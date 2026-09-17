@@ -52,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.changed,
                 "tailtrail",
                 detect_git_changes=False,
+                allow_passive_capture=False,
             )
             result = {
                 "type": "tailtrail-navigator-scope-inspection",

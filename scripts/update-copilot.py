@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import pipeline_manager
-from write_guardian import guarded_write
+from write_guardian import guard_write
 
 # ... existing imports ...
 
@@ -91,14 +91,17 @@ def backup_file(path: Path, target_root: Path, backup_root: Path, report: Update
     report.backed_up.append(relative_display(destination, target_root))
 
 
-@guarded_write
-def write_text_file(path: Path, body: str) -> None:
+def write_text_file(root: Path, path: Path, body: str) -> None:
+    # Installer context: no pipeline run exists, so the unenforced write
+    # is declared openly instead of silently bypassed.
+    guard_write(root, path, permissive=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
 
 
-@guarded_write
-def copy_file(path: Path, source: Path) -> None:
+def copy_file(root: Path, path: Path, source: Path) -> None:
+    # Installer context: see write_text_file.
+    guard_write(root, path, permissive=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, path)
 
@@ -166,7 +169,7 @@ def update_file(
     if destination.exists() and strategy == "backup-overwrite":
         backup_file(destination, target_root, backup_root, report)
     if not dry_run:
-        copy_file(destination, source)
+        copy_file(target_root, destination, source)
     report.updated.append(relative_path)
 
 
@@ -188,7 +191,7 @@ def update_rendered_text(
     if destination.exists() and strategy == "backup-overwrite":
         backup_file(destination, target_root, backup_root, report)
     if not dry_run:
-        write_text_file(destination, content)
+        write_text_file(target_root, destination, content)
     report.updated.append(relative_path)
 
 
@@ -220,7 +223,7 @@ def update_copilot(
         if copilot_destination.exists() and strategy == "backup-overwrite":
             backup_file(copilot_destination, target_root, backup_root, report)
         if not dry_run:
-            write_text_file(copilot_destination, copilot_body)
+            write_text_file(target_root, copilot_destination, copilot_body)
         report.updated.append(COPILOT_PATH.as_posix())
 
     prompt_relative = ".github/prompts/tailtrail-start.prompt.md"

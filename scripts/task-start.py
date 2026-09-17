@@ -1187,34 +1187,22 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
     routing = navigator_standard_evidence(goal, plan)
     signals = routing["signals"]
 
-    # --- Phase 3 wiring: quantitative scope-complexity metrics (dual-gate) ---
-    from metrics_extractor import compute_complexity
+    # --- Dual-gate Dimension 2: quantitative scope-complexity metrics ---
+    # Single definition shared with compute_re_evaluation (Phase 6):
+    # evaluate_scope_signal owns every threshold comparison so the two
+    # decision points cannot drift apart.
+    from metrics_extractor import compute_complexity, evaluate_scope_signal
 
     complexity = compute_complexity(
         plan.get("likely_impacted_files", []),
         plan.get("scope_evidence"),
         root,
     )
-    thresholds = complexity.get("thresholds", {})
-    scope_signal = (
-        complexity.get("affected_files", 0) >= thresholds.get("affected_files_standard", 20)
-        or complexity.get("cross_layer_edges", 0) >= thresholds.get("cross_layer_edges_standard", 2)
-        or complexity.get("call_chain_depth_stddev", 0.0) >= thresholds.get("call_chain_depth_stddev_standard", 3.0)
-        or complexity.get("module_resolution_ambiguous", 0) >= thresholds.get("module_resolution_ambiguous_standard", 3)
-        or complexity.get("new_external_deps", 0) >= thresholds.get("new_external_deps_standard", 1)
-        or complexity.get("behavior_chain_incomplete", False) is True
-    )
+    scope_signal, scope_floor_lite = evaluate_scope_signal(complexity)
     # Derive host-agent intent signal: when _aidlc_intent returns "requested" or "standard",
     # the user's natural-language goal already contains an AIDLC mode request
     # (the host agent reliably captures this; the keyword table is retired).
     keyword_signal = intent in ("requested", "standard")
-    # Scope floor: explicitly tiny task (few files, low changed-lines estimate).
-    # When this fires AND only a lone keyword is present, keep Lite to avoid
-    # over-escalation from a trivial task.
-    scope_floor_lite = (
-        complexity.get("affected_files", 9999) <= thresholds.get("affected_files_lite_floor", 5)
-        and complexity.get("changed_lines_estimate", 9999) <= thresholds.get("changed_lines_lite_floor", 50)
-    )
     # R1 calibration runway: publish the decision signals for the mode-decision log.
     calibration.update({
         "intent": intent,

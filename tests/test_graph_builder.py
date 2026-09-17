@@ -1,13 +1,16 @@
-"""Phase 2 focused check: explicit graph build pipeline.
+"""Phase 3 focused check: explicit graph build pipeline.
 
 Run: python -m unittest tests.test_graph_builder -v
 """
 
 from __future__ import annotations
 
+import io
+import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -69,10 +72,10 @@ class GraphBuilderTests(unittest.TestCase):
         )
         self.assertEqual(summary["passive_cleared"], 1)
         self.assertEqual(summary["passive_residual"], 2)
-        residual = capture_hooks.get_cache(self.root).file_entry("src/c.py")
-        self.assertIsNotNone(residual)
+        residual = capture_hooks.pending(self.root)
+        self.assertIn("src/c.py", residual)
         # b.py was not in the build scope, so it remains residual too.
-        self.assertIsNotNone(capture_hooks.get_cache(self.root).file_entry("src/b.py"))
+        self.assertIn("src/b.py", residual)
 
     def test_medium_commit_has_symbols_and_call_chains(self) -> None:
         summary = graph_builder.commit_graph(
@@ -91,7 +94,20 @@ class GraphBuilderTests(unittest.TestCase):
         self.assertEqual(summary["status"], "committed")
         self.assertEqual(sorted(summary["built_files"]), ["src/a.py", "src/b.py"])
 
+    def test_scope_falls_back_to_phase1_cache(self) -> None:
+        import capture_hooks
+        capture_hooks.reset_for_tests()
+        capture_hooks.on_file_read(self.root, "src/a.py")
+        capture_hooks.on_file_read(self.root, "src/b.py")
+        capture_hooks.flush(self.root)
+        capture_hooks.reset_for_tests()
+        summary = graph_builder.commit_graph(self.root, depth="medium", write_shared=False)
+        self.assertEqual(summary["status"], "committed")
+        self.assertEqual(sorted(summary["built_files"]), ["src/a.py", "src/b.py"])
+
     def test_no_scope_raises_value_error(self) -> None:
+        import capture_hooks
+        capture_hooks.reset_for_tests()
         with self.assertRaises(ValueError):
             graph_builder.commit_graph(self.root, depth="medium")
 
@@ -111,6 +127,33 @@ class GraphBuilderTests(unittest.TestCase):
     def test_validate_payload_reports_missing_fields(self) -> None:
         self.assertIn("missing required field: root", graph_builder.validate_payload({"graph": {}}))
         self.assertEqual(graph_builder.validate_payload("nope"), ["payload is not an object"])
+
+    def test_cli_builds_explicit_scope(self) -> None:
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = graph_builder.main([
+                "--root", self.root.as_posix(),
+                "--changed", "src/a.py",
+                "--changed", "src/b.py",
+                "--depth", "medium",
+                "--local",
+                "--format", "json",
+            ])
+        self.assertEqual(code, 0)
+        summary = json.loads(buffer.getvalue())
+        self.assertEqual(summary["status"], "committed")
+        self.assertEqual(summary["depth"], "medium")
+        self.assertGreater(summary["symbols"], 0)
+        self.assertTrue((self.root / ".tailtrail" / "code-graph-cache.json").is_file())
+
+    def test_cli_no_scope_exits_2(self) -> None:
+        import capture_hooks
+        capture_hooks.reset_for_tests()
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = graph_builder.main(["--root", self.root.as_posix(), "--local"])
+        self.assertEqual(code, 2)
+        self.assertEqual(json.loads(buffer.getvalue())["status"], "no-scope")
 
 
 if __name__ == "__main__":

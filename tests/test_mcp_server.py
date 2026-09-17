@@ -678,6 +678,66 @@ class McpServerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             mcp.harness_control_check({"run_id": "demo", "controls": "controls.json", "approved": False})
 
+    def _patch_gate_repo(self, stage):
+        import os
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+        subprocess.run(["git", "config", "user.email", "t@t.t"], cwd=root, check=True)
+        subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True)
+        (root / "src").mkdir()
+        (root / "src" / "app.py").write_text("print('hello')", encoding="utf-8")
+        (root / "tests").mkdir()
+        lock_dir = root / ".tailtrail" / "runs" / "patch-gate-1" / "planning"
+        lock_dir.mkdir(parents=True)
+        (lock_dir / "lock-v1.json").write_text(json.dumps({
+            "schema_version": "2", "run_id": "patch-gate-1", "status": "approved",
+            "pipeline": {"active_stage": stage, "completed_stages": [],
+                         "stage_sequence": ["IMPLEMENTATION", "TESTING", "INFRA"]},
+        }), encoding="utf-8")
+        os.environ.pop("TAILTRAIL_ACTIVE_RUN_ID", None)
+        self.addCleanup(os.environ.pop, "TAILTRAIL_ACTIVE_RUN_ID", None)
+        original = mcp.require_approved_planning_lock
+        mcp.require_approved_planning_lock = lambda *a, **k: None
+        self.addCleanup(setattr, mcp, "require_approved_planning_lock", original)
+        return root
+
+    @staticmethod
+    def _new_file_patch(rel):
+        body = "def test_x(): pass\n"
+        return (
+            f"diff --git a/{rel} b/{rel}\nnew file mode 100644\n"
+            f"--- /dev/null\n+++ b/{rel}\n@@ -0,0 +1 @@\n+{body}"
+        )
+
+    def test_source_patch_blocked_by_active_badge(self):
+        root = self._patch_gate_repo("TESTING")
+        with self.assertRaisesRegex(ValueError, "blocked by active TESTING badge"):
+            mcp.source_patch_apply({
+                "root": root.as_posix(), "run_id": "patch-gate-1",
+                "approved": True, "patch": self._new_file_patch("src/app2.py"),
+            })
+        self.assertFalse((root / "src" / "app2.py").exists())
+
+    def test_source_patch_allowed_in_badge(self):
+        root = self._patch_gate_repo("TESTING")
+        result = mcp.source_patch_apply({
+            "root": root.as_posix(), "run_id": "patch-gate-1",
+            "approved": True, "patch": self._new_file_patch("tests/test_x.py"),
+        })
+        self.assertTrue(result["result"]["applied"])
+        self.assertTrue((root / "tests" / "test_x.py").exists())
+
+    def test_source_patch_skips_gate_without_active_stage(self):
+        root = self._patch_gate_repo("PENDING")
+        result = mcp.source_patch_apply({
+            "root": root.as_posix(), "run_id": "patch-gate-1",
+            "approved": True, "patch": self._new_file_patch("src/app2.py"),
+        })
+        self.assertTrue(result["result"]["applied"])
+
     def test_source_patch_requires_an_approved_planning_lock(self):
         original = mcp.command_result
 

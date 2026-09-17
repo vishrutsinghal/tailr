@@ -1265,6 +1265,7 @@ def decide(
     graph_mode: str = "auto",
     requirement_interpretation: dict[str, Any] | None = None,
     debug_diagnosis: dict[str, Any] | None = None,
+    allow_passive_capture: bool = True,
 ) -> dict[str, Any]:
     workflow_classification = core.classify_workflow_intent(
         goal,
@@ -1970,6 +1971,7 @@ def decide(
         ["debug", *tasks] if debug_planning else tasks,
         allow_git_inventory=not debug_planning,
         allow_persistent_cache=graph_mode != "off",
+        allow_passive_capture=allow_passive_capture,
     )
     deduplicated_impacted = navigator_scope.project_likely_impacted(scope_candidates)
     scope_evidence = navigator_scope.evidence_document(

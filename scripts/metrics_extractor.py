@@ -41,20 +41,65 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
 }
 
 
-def load_thresholds(root: Path) -> dict[str, Any]:
-    """Load project-specific thresholds from .tailtrail/aidlc-scope-thresholds.json."""
-    threshold_path = root / ".tailtrail" / "aidlc-scope-thresholds.json"
+THRESHOLD_OVERRIDE_RELPATH = Path(".tailtrail") / "aidlc-scope-thresholds.json"
+
+
+def read_threshold_override(root: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Read the raw project override file. Never raises.
+
+    Returns (raw dict or None, error or None). Missing file is not an
+    error — it means defaults apply.
+    """
+    threshold_path = Path(root) / THRESHOLD_OVERRIDE_RELPATH
     if not threshold_path.is_file():
-        return dict(DEFAULT_THRESHOLDS)
+        return None, None
     try:
-        user_thresholds = json.loads(threshold_path.read_text(encoding="utf-8"))
-        if isinstance(user_thresholds, dict):
-            merged = dict(DEFAULT_THRESHOLDS)
-            merged.update(user_thresholds)
-            return merged
-    except (json.JSONDecodeError, OSError):
-        pass
-    return dict(DEFAULT_THRESHOLDS)
+        raw = json.loads(threshold_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        return None, f"unparseable: {error}"
+    if not isinstance(raw, dict):
+        return None, "override root is not an object"
+    return raw, None
+
+
+def validate_thresholds(values: Any) -> tuple[dict[str, Any], list[str]]:
+    """Split a raw override into (clean entries, warnings). Never raises.
+
+    Unknown keys, wrong types, and negative numerics are dropped with a
+    warning so safe defaults always win. Booleans are strict (``1``/``0``
+    are not accepted for flag keys, and vice versa).
+    """
+    if not isinstance(values, dict):
+        return {}, ["override is not an object"]
+    clean: dict[str, Any] = {}
+    warnings: list[str] = []
+    for key, value in values.items():
+        default = DEFAULT_THRESHOLDS.get(key)
+        if default is None:
+            warnings.append(f"unknown threshold ignored: {key}")
+            continue
+        if isinstance(default, bool):
+            if type(value) is bool:
+                clean[key] = value
+            else:
+                warnings.append(f"{key} must be true/false; keeping default {default}")
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            warnings.append(f"{key} must be a number; keeping default {default}")
+        elif value < 0:
+            warnings.append(f"{key} must be >= 0; keeping default {default}")
+        else:
+            clean[key] = value
+    return clean, warnings
+
+
+def load_thresholds(root: Path) -> dict[str, Any]:
+    """Load effective thresholds: defaults overlaid with validated overrides."""
+    raw, _ = read_threshold_override(root)
+    clean, _ = validate_thresholds(raw or {})
+    merged = dict(DEFAULT_THRESHOLDS)
+    merged.update(clean)
+    return merged
 
 
 def _infer_layer(path: str) -> str:
@@ -182,16 +227,70 @@ def graph_scope_metrics(scope_evidence: dict[str, Any]) -> dict[str, Any]:
     return metrics
 
 
+_EXTERNAL_SERVICE_EDGE_TYPES = frozenset({"http-url", "service-config"})
+
+
+def _file_sha256(path: Path) -> str | None:
+    """Hex digest of a file, or None when unreadable.
+
+    Local duplicate of the mapper's helper: importing code-graph-mapper
+    here would burden every Start with that module's full load.
+    """
+    import hashlib
+
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
+def mapper_cache_freshness(
+    root: Path, cache: dict[str, Any], affected_paths: list[str]
+) -> tuple[bool, str | None]:
+    """Check whether a mapper cache is fresh enough to trust for Tier 3.
+
+    Verifies only in-scope files that carry cached sha256 metadata
+    (``source_files`` / ``watch_files`` / ``scanner_evidence``): a missing
+    or content-changed file means the cached symbols for this scope may
+    mislead, so the cache is stale. Caches with no metadata at all
+    (legacy/test shapes) cannot be verified and are trusted as before.
+    Never raises; verification cost is bounded by the affected set.
+    """
+    metadata: dict[str, Any] = {}
+    for group in ("source_files", "watch_files", "scanner_evidence"):
+        rows = cache.get(group, {})
+        if isinstance(rows, dict):
+            metadata.update(rows)
+    if not metadata:
+        return True, None
+    for relative in affected_paths:
+        entry = metadata.get(relative)
+        if not isinstance(entry, dict) or not isinstance(entry.get("sha256"), str):
+            continue
+        actual = _file_sha256(Path(root) / relative)
+        if actual is None:
+            return False, f"stale: {relative} is missing after the graph was built"
+        if actual != entry["sha256"]:
+            return False, f"stale: {relative} changed after the graph was built"
+    return True, None
+
+
 def mapper_scope_metrics(cache: dict[str, Any], affected_paths: list[str]) -> dict[str, Any]:
     """Compute Tier-3 metrics from code-graph-cache.json (mapper output).
 
-    Only called when the cache file exists and is not stale.
+    Call only with a cache approved by :func:`mapper_cache_freshness`.
     """
     metrics: dict[str, Any] = {"available": True, "source": "mapper"}
 
-    symbols = cache.get("graph", {}).get("symbols", [])
-    endpoints = cache.get("graph", {}).get("endpoints", [])
-    edges = cache.get("graph", {}).get("edges", [])
+    graph = cache.get("graph", {}) if isinstance(cache.get("graph"), dict) else {}
+    symbols = graph.get("symbols", [])
+    endpoints = graph.get("endpoints", [])
+    edges = graph.get("edges", [])
+    service_edges = graph.get("service_edges", [])
 
     affected_set = set(affected_paths)
     metrics["symbols_in_scope"] = sum(
@@ -202,10 +301,19 @@ def mapper_scope_metrics(cache: dict[str, Any], affected_paths: list[str]) -> di
         1 for e in endpoints
         if isinstance(e, dict) and str(e.get("file", "")) in affected_set
     )
-    metrics["external_dependency_edges"] = sum(
+    external = sum(
         1 for e in edges
         if isinstance(e, dict) and e.get("kind") == "external_dep"
     )
+    # The mapper emits external references as service_edges (http-url,
+    # service-config), not as graph.edges — count in-scope ones too.
+    external += sum(
+        1 for e in service_edges
+        if isinstance(e, dict)
+        and e.get("edge_type") in _EXTERNAL_SERVICE_EDGE_TYPES
+        and str(e.get("source_file", "")) in affected_set
+    )
+    metrics["external_dependency_edges"] = external
 
     return metrics
 
@@ -276,12 +384,21 @@ def compute_complexity(
 
             cache = load_code_graph_cache(root)
             if cache:
-                mapper_metrics = mapper_scope_metrics(cache, complexity.get("affected_paths", []))
-                if mapper_metrics.get("available"):
-                    complexity["source"] = "scope_evidence+mapper"
-                    complexity["symbols_in_scope"] = mapper_metrics.get("symbols_in_scope", 0)
-                    complexity["endpoints_in_scope"] = mapper_metrics.get("endpoints_in_scope", 0)
-                    complexity["external_dependency_edges"] = mapper_metrics.get("external_dependency_edges", 0)
+                affected = complexity.get("affected_paths", [])
+                fresh, stale_reason = mapper_cache_freshness(root, cache, affected)
+                if not fresh:
+                    # Phase 7: degrade to Tier 1+2 with a logged reason instead
+                    # of trusting symbols from a drifted graph.
+                    complexity["tier3_skipped"] = stale_reason
+                else:
+                    mapper_metrics = mapper_scope_metrics(cache, affected)
+                    if mapper_metrics.get("available"):
+                        complexity["source"] = "scope_evidence+mapper"
+                        complexity["symbols_in_scope"] = mapper_metrics.get("symbols_in_scope", 0)
+                        complexity["endpoints_in_scope"] = mapper_metrics.get("endpoints_in_scope", 0)
+                        complexity["external_dependency_edges"] = mapper_metrics.get("external_dependency_edges", 0)
+                        # Gate key read by evaluate_scope_signal (new_external_deps_standard).
+                        complexity["new_external_deps"] = mapper_metrics.get("external_dependency_edges", 0)
 
     complexity["thresholds"] = thresholds
     return complexity
@@ -396,6 +513,7 @@ def build_mode_decision_entry(
         "cross_layer_edges": complexity.get("cross_layer_edges", 0),
         "call_chain_depth_stddev": complexity.get("call_chain_depth_stddev", 0.0),
         "module_resolution_ambiguous": complexity.get("module_resolution_ambiguous", 0),
+        "new_external_deps": complexity.get("new_external_deps", 0),
         "behavior_chain_incomplete": bool(complexity.get("behavior_chain_incomplete", False)),
         "thresholds": dict(thresholds),
     }
@@ -530,7 +648,13 @@ def evaluate_scope_signal(
         >= thresholds.get("module_resolution_ambiguous_standard", DEFAULT_THRESHOLDS["module_resolution_ambiguous_standard"])
         or complexity.get("new_external_deps", 0)
         >= thresholds.get("new_external_deps_standard", DEFAULT_THRESHOLDS["new_external_deps_standard"])
-        or complexity.get("behavior_chain_incomplete", False) is True
+        or (
+            thresholds.get(
+                "behavior_chain_incomplete_standard",
+                DEFAULT_THRESHOLDS["behavior_chain_incomplete_standard"],
+            )
+            and complexity.get("behavior_chain_incomplete", False) is True
+        )
     )
     scope_floor_lite = (
         complexity.get("affected_files", 9999)
@@ -608,6 +732,130 @@ def compute_re_evaluation(
             "official lifecycle transition."
         ),
     }
+
+
+# --- Phase 5: calibration review CLI ---------------------------------------
+#
+# The feedback loop needs a runnable surface: `thresholds` shows the
+# effective configuration (defaults + validated overrides), and
+# `calibration` summarizes the R1 decision log into fire rates a human
+# can act on. Both are read-only.
+
+
+def calibration_report(root: Path) -> dict[str, Any]:
+    """Summarize the R1 log plus threshold status for calibration review."""
+    summary = summarize_mode_decisions(root)
+    raw, read_error = read_threshold_override(root)
+    _, warnings = validate_thresholds(raw or {})
+    report: dict[str, Any] = {
+        "threshold_path": str(Path(root) / THRESHOLD_OVERRIDE_RELPATH),
+        "override_present": raw is not None,
+        "override_error": read_error,
+        "override_warnings": warnings,
+        "effective_thresholds": load_thresholds(root),
+        "log": summary,
+    }
+    entries = summary.get("entry_count", 0)
+    notes: list[str] = []
+    if not entries:
+        notes.append("No decisions logged yet - run Starts to accumulate calibration data.")
+    if (summary.get("threshold_variants") or 1) > 1:
+        notes.append(
+            "Thresholds changed during the observation window; "
+            "compare fire rates before/after before tuning further."
+        )
+    if summary.get("zero_metrics_count"):
+        notes.append(
+            f"{summary['zero_metrics_count']} zero-metrics run(s): "
+            "improve discovery input before touching thresholds."
+        )
+    report["notes"] = notes
+    return report
+
+
+def _render_thresholds(root: Path) -> str:
+    raw, read_error = read_threshold_override(root)
+    clean, warnings = validate_thresholds(raw or {})
+    lines = [
+        "# TailTrail Scope Thresholds",
+        "",
+        f"- Source: `{'project override' if raw else 'defaults'}` (`{THRESHOLD_OVERRIDE_RELPATH.as_posix()}`)",
+    ]
+    if read_error:
+        lines.append(f"- Override error: {read_error} (defaults apply)")
+    for warning in warnings:
+        lines.append(f"- Warning: {warning}")
+    lines.extend(["", "## Effective thresholds", ""])
+    for key in sorted(load_thresholds(root)):
+        marker = " (override)" if key in clean else ""
+        lines.append(f"- `{key}`: `{load_thresholds(root)[key]}`{marker}")
+    return "\n".join(lines) + "\n"
+
+
+def _render_calibration(root: Path) -> str:
+    report = calibration_report(root)
+    summary = report["log"]
+    lines = [
+        "# TailTrail Calibration Review",
+        "",
+        f"- Decisions logged: `{summary.get('entry_count', 0)}`",
+        f"- Window: `{summary.get('first_ts', '-')}` -> `{summary.get('last_ts', '-')}`",
+        f"- By mode: `{json.dumps(summary.get('by_mode', {}), sort_keys=True)}`",
+        f"- Scope-signal escalations: `{summary.get('scope_signal_count', 0)}`",
+        f"- Keyword escalations held to Standard: `{summary.get('keyword_standard_count', 0)}`",
+        f"- Scope-floor Lite holds: `{summary.get('scope_floor_lite_count', 0)}`",
+        f"- Zero-metrics runs: `{summary.get('zero_metrics_count', 0)}`",
+        f"- Threshold variants in window: `{summary.get('threshold_variants', '-')}`",
+    ]
+    for warning in report["override_warnings"]:
+        lines.append(f"- Threshold warning: {warning}")
+    if report["override_error"]:
+        lines.append(f"- Threshold error: {report['override_error']} (defaults apply)")
+    for note in report["notes"]:
+        lines.append(f"- Note: {note}")
+    return "\n".join(lines) + "\n"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Inspect scope thresholds and calibration data (read-only).")
+    parser.add_argument("--root", type=Path, default=Path.cwd(), help="Project root.")
+    parser.add_argument("--format", choices=("text", "json"), default="text", help="Output format.")
+    parser.add_argument(
+        "command", choices=("thresholds", "calibration"), help="thresholds: effective config; calibration: R1 log review."
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    root = Path(args.root)
+    if args.command == "thresholds":
+        if args.format == "json":
+            raw, read_error = read_threshold_override(root)
+            clean, warnings = validate_thresholds(raw or {})
+            print(json.dumps({
+                "path": str(root / THRESHOLD_OVERRIDE_RELPATH),
+                "override_present": raw is not None,
+                "override_error": read_error,
+                "override_warnings": warnings,
+                "effective_thresholds": load_thresholds(root),
+            }, indent=2, sort_keys=True))
+        else:
+            print(_render_thresholds(root), end="")
+    else:
+        if args.format == "json":
+            print(json.dumps(calibration_report(root), indent=2, sort_keys=True, default=str))
+        else:
+            print(_render_calibration(root), end="")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    raise SystemExit(main(sys.argv[1:]))
 
 
 

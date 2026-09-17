@@ -12,7 +12,7 @@ This document describes the code graphing subsystem in TailTrail, including:
 - The R1 calibration decision log for threshold tuning
 - The Phase 6 post-discovery re-evaluation hook (implemented)
 - Metrics confidence model
-- Phased implementation plan (Phases 3 and 6 implemented; Phase 5 split by R0)
+- Phased implementation plan (Phases 1–9 implemented except the Phase 5 tuning loop, which is ongoing by nature; host-agent fallback split by R0 — see §3.6/§3.10)
 
 This document is intended for anyone implementing or reviewing the graphing subsystem, the AIDLC mode selection enhancement, or the code-graph acceleration model.
 
@@ -383,53 +383,137 @@ For the specific goal of feeding quantitative complexity metrics into AIDLC mode
 
 ## 3. Phased Implementation Plan
 
-This section defines the phased implementation of the graphing subsystem. Each phase is independently testable; dependencies are explicit.
+This section defines the phased implementation of the graphing subsystem. Each phase is independently testable; dependencies are explicit. Order rationale is summarized in §3.10.
 
-### 3.1 Phase 1: Passive Capture Infrastructure
+> **Numbering note (revised):** this plan was revised to a 9-phase breakdown (cache → passive capture → explicit build → metrics → thresholds → mode-selection wiring → lifecycle/staleness → commit prompt → multi-language). The prior 6-phase numbering is superseded here. Mapping to prior references (e.g. `navigator_aidlc_improvements.md`): old Phase 3 (metrics extraction) = new Phase 4; old Phase 6 (post-discovery re-evaluation) = part of new Phase 6; old Phase 5 (host-agent fallback, split by R0) = see §3.6 note below, not on the critical path.
 
-**Goal**: Capture file reads, edits, import edges, symbols, call sites, and traceback fragments as byproducts of worker/agent activity — never as separate analysis work.
+### 3.1 Phase 1 — Core Cache Infrastructure (foundation everything else builds on)
+
+**Goal**: Establish the central cache artifact and its read/write contract. Without it, none of the metrics, prompts, or staleness detection work.
 
 **Deliverables**:
-- `scripts/capture_cache.py` — `PassiveCaptureCache` managing `.tailtrail/capture-cache.json` (local, not git-shared)
-- `scripts/capture_hooks.py` — thin `on_file_read/on_file_edit/on_import_encountered/on_symbol_observed/on_call_site_encountered/on_traceback_observed` functions wired into worker/agent read and write paths
-- All hooks are best-effort: failures are swallowed and never break the task
 
-**Cache shape**: `updated_at`, `files_touched[]` (path, first_seen, last_seen, times_seen, edit_count), `import_edges_captured[]`, `symbols_observed[]`, `call_edges_captured[]`, `traceback_chains_captured[]`
+| Item | What it is |
+|---|---|
+| Cache data model | Schema for a graph entry: file → symbols, endpoints, cross-file edges, last-read timestamp, file size, etc. Canonical paths: `.tailtrail/code-graph-cache.json` or `tailtrail-meta/code-graph-cache.json`. |
+| `load()` / `save()` | Read/write the JSON with validation so a corrupt cache doesn't crash the agent. |
+| `update(source_files)` | Incremental update: given files the agent actually read, merge new info rather than rebuilding from scratch. |
+| `clear()` / selective invalidation | When to wipe: by file path, by session, by staleness age. |
 
-**Principle**: capture only what is already observed for task reasons. No new reads, no extra token cost.
+**Why first:** storage layer. Every other phase reads from or writes to it. Get the contract right early; the rest is mostly wiring.
+
+**Sensible default shape (start simple — file-level granularity is enough for v1):**
+
+```json
+{
+  "version": 1,
+  "last_updated": "<iso timestamp>",
+  "files": {
+    "src/auth.py": {
+      "last_read": "<iso>",
+      "symbols": ["login_user", "validate_token"],
+      "endpoints": [],
+      "imports": ["src/db.py", "src/config.py"],
+      "size_bytes": 2048
+    }
+  }
+}
+```
+
+Don't over-engineer v1. File-level granularity with symbols, imports, and read timestamp is enough to start. `last_read` must exist from day one because Phase 7 (staleness) needs it — adding it later forces a migration.
+
+**Status**: ✅ Implemented — `scripts/code_graph_cache.py` (`empty_cache` / `normalize_cache` / `load` / `save` / `inspect_file` / `update` / `clear` / `invalidate` / `prune_missing` / `prune_older_than` / `stale_files`; checked by `tests/test_code_graph_cache.py`, 7 tests). Corrupt cache returns empty + reason instead of crashing; writes are atomic; `update()` merges incrementally with one batched save. Cheap extraction reuses dependency-free `code_relationships.extract` (plus a small Python decorator-route scan for `endpoints`). Default write path is local (`.tailtrail/code-graph-cache.json`); reads prefer existing shared (`tailtrail-meta/`) then local, matching `metrics_extractor.load_code_graph_cache()` order.
 
 **Effort**: 1-2 days · **Dependencies**: none · **Risk**: low
 
-### 3.2 Phase 2: Explicit Graph Build Pipeline
+### 3.2 Phase 2 — Passive Capture During Agent Work
 
-**Goal**: When the user accepts the commit prompt, build the explicit AST graph: validate, gap-fill, assemble, write cache, clear passive capture.
+**Goal**: Silently update the Phase 1 cache as a side effect of normal agent work (reading/exploring), via `update()`.
 
-**Deliverables**:
-- `scripts/graph_builder.py` — `build_graph(root, target_files, depth)` with depth `shallow | medium | deep`
-- Schema validation of node/edge fields (Section 3.2 table of this document)
-- Gap-fill from `likely_impacted_files` / scope candidates not present in the passive cache
-- Selective clear: residual cache data for untouched files is preserved
+**Status**: ✅ Implemented — `scripts/capture_hooks.py` (`on_file_read` / `on_file_edit` / `on_import_encountered` / `on_symbol_observed` / `on_call_site_encountered` queue repo-relative paths in memory with zero disk I/O; `flush(root)` merges them into the Phase 1 cache in one batched `code_graph_cache.update()`; `pending()` / `discard()` support scope warm-up and selective clear; checked by `tests/test_capture_hooks.py`, 9 tests). The prior parallel-store draft (`scripts/capture_cache.py` → `.tailtrail/capture-cache.json`) is retired and removed; the Phase 1 cache shape is the single system of record. `graph_builder.commit_graph()` resolves scope from explicit targets → pending queue → Phase 1 cache files, and discards built paths from the queue (residual preserved).
 
-**Flow**: parse each target file's AST → extract symbols/imports/call edges → cross-check passive cache (warmed files validate fast, only gaps are filled) → classify layers from path conventions → assemble nodes + edges with `metadata.built_at` → write `.tailtrail/code-graph-cache.json` (git-shareable) → clear the passive capture cache.
+**Key design decisions:**
 
-**Depth**: shallow = imports only; medium = symbols + call edges (recommended for AIDLC metrics); deep = semantic, optional.
+- **Invisible to the main task.** Capture must not interrupt or slow down real work. All hooks are best-effort: failures are swallowed and never break the task.
+- **Batched, not per-line.** Don't flush on every read. Flush on a natural boundary: end of a file-read session, end of a tool call touching multiple files, or on a timer.
 
-**Effort**: 2-3 days · **Dependencies**: Phase 1 · **Risk**: medium (AST failures need graceful degradation)
+**What gets captured (start minimal):**
 
-### 3.3 Phase 3: Metrics Extraction from Graph
+- Which files were read
+- Symbols/functions defined in those files (cheap extraction)
+- Import references between files
+- Rough line count or size
+
+**What NOT to capture yet:**
+
+- Full AST
+- Dynamic call graphs
+- Runtime behavior
+
+That's Phase 3+ territory. Phase 2 is "agent read these files, here's what we can cheaply infer." Capture only what is already observed for task reasons — no new reads, no extra token cost. Symbol/import/size detail is derived at `flush()` time from file content already on disk; `on_traceback_observed` is kept as a signature-compatible no-op.
+
+Flush boundaries: end of a file-read session, end of a multi-file tool call, or the 50-path auto-flush safety net. Every hook is best-effort and never raises.
+
+**In-repo wiring (implemented):** `navigator_scope.investigate()` queues every file it actually reads (`facts` keys: broad + targeted discovery reads) and calls `flush(root)` once — passive capture as a side effect of scope discovery, via new opt-out flag `allow_passive_capture` (default `True`, mirroring `allow_git_inventory` / `allow_persistent_cache`). Threaded through `navigator.decide()`; the read-only `navigator scope inspect` CLI (`scripts/navigator-scope.py`) passes `allow_passive_capture=False` to honor its non-persisting contract. Checked by `tests/test_scope_capture_wiring.py` (capture populates the Phase 1 cache with correct symbols; opt-out writes nothing; results unchanged either way). Host-agent wiring beyond this (calling hooks from a specific external agent loop) remains per-host integration, not a TailTrail phase.
+
+**Effort**: 1-2 days · **Dependencies**: Phase 1 · **Risk**: low
+
+### 3.3 Phase 3 — Explicit Graph Build (on demand, not passive)
+
+**Goal**: A deliberate, possibly expensive pass that builds a richer graph than passive capture can. Triggered by an explicit user command, a policy rule (e.g. before a large refactor), or session start for a known large project.
+
+**Why separate from Phase 2:** passive capture is optimized for speed and non-intrusiveness; an explicit build can afford AST parsing, import-chain following, symlink resolution, etc. Don't make Phase 2 do Phase 3's job — different constraints, different triggers.
+
+**Deliverables:**
+
+| Item | Notes |
+|---|---|
+| AST-based symbol extraction | More accurate than regex inference. Per language; start with the primary language (Python, given TailTrail's stack). |
+| Import/usage edge extraction | Which symbols are imported where — the cross-file edges. |
+| Optional: call graph (limited) | Function A calls function B. Expensive; optional and language-specific. |
+| Validation step | After building, validate the graph isn't empty or obviously broken before trusting it. |
+
+**Flow (implemented):** parse each target file's AST → extract symbols/imports/call edges → cross-check passive queue (warmed files in scope when no explicit targets given; Phase 1 cache files as second fallback) → assemble nodes + edges → validate → write cache (shared `tailtrail-meta/` by default, `--local` for `.tailtrail/`) → discard built paths from the passive queue (residual preserved). Depth: `shallow` = imports only; `medium` = symbols + call edges (recommended for AIDLC metrics); `deep` = full mapper output. AST failures degrade gracefully (unparseable files yield no symbols, never break the build).
+
+**Language strategy:** Python leads via AST (`extract_python`); other languages via the dependency-free `code_relationships` extractor + mapper heuristics. No universal-semantic pass — deliberately out of scope.
+
+**Status**: ✅ Implemented — `scripts/graph_builder.py::commit_graph(root, target_files, depth, write_shared, clear_passive)` orchestrating the existing mapper (reuse-first: AST extraction, hashing, cache write stay in `code-graph-mapper.py`), plus `validate_payload()`, depth post-filtering, and a runnable CLI trigger (`python scripts/graph_builder.py --root . --changed <file> --depth medium [--local]`, exit 2 on empty scope). Checked by `tests/test_graph_builder.py` (11 tests: depth behavior, passive/Phase 1 scope fallback, residual preservation, validation round-trip, CLI build + CLI no-scope).
+
+Layer classification stays a metrics-time concern (`metrics_extractor._infer_layer` from path conventions, no type resolution) — intentionally not duplicated into the build (see deferred item D1 below).
+
+**Deferred / explicitly skipped (tracked):**
+
+| ID | Item | Decision | Revisit trigger |
+|---|---|---|---|
+| D1 | Stamp `layer` into build output | **Skip** — layers are derived at metrics time from paths, always current; stamping creates a second source of truth that drifts when conventions change. Single consumer (`metrics_extractor`) needs no shared copy. | A second layer-consumer appears → extract `_infer_layer` into a shared helper instead of stamping. |
+| D2 | Repoint Navigator's suggested `graph map`/`graph refresh` commands (`navigator.py`) at the builder CLI | **Done in Phase 8** — the commit prompt suggests `graph_builder --depth shallow\|medium` from live coverage/scope data; Navigator's default suggestions intentionally stay on the mapper path. | Closed. |
+
+**Effort**: 2-3 days · **Dependencies**: Phase 1 (Phase 2 warms it but is not strictly required) · **Risk**: medium (AST failures need graceful degradation)
+
+### 3.4 Phase 4 — Metrics Extraction (the AIDLC integration point)
 
 **Status**: ✅ Implemented.
 
-**Goal**: Extract quantitative complexity metrics and feed them into AIDLC mode selection as Dimension 2.
+**Goal**: Read the graph (Phase 2 passive cache or Phase 3 explicit build) and produce quantitative signals that feed into `aidlc_mode_selection()`. This is where `metrics_extractor.py`-style logic lives.
 
-**Deliverables**:
+**Implementation principle:** the metrics module must be **standalone and testable** — not deeply embedded in the agent loop. It takes a scope document or file list and returns a metrics dict (testable like the R1/R2 suites, reusable across the dual-gate and the re-evaluation hook).
+
+**Tiered approach:**
+
+| Tier | Source | Cost | When available |
+|---|---|---|---|
+| Tier 1 | `likely_impacted_files` + file list | Near-zero | Always |
+| Tier 2 | `scope_evidence` document (from `investigate()`) | Low | After scope discovery |
+| Tier 3 | Full `code-graph-cache.json` | Medium | After graph is built/populated |
+
+**Deliverables (implemented):**
 - `scripts/metrics_extractor.py`
 - `extract_scope_complexity_metrics(document, root)` — dispatches on `plan["scope_evidence"]` vs `plan.get("likely_impacted_files", [])`
-- `compute_complexity(likely_impacted_files, scope_evidence, root)` — the tier plumbing: Tier 1 always from `likely_impacted_files`; Tier 2 from `scope_evidence` if present; Tier 3 from `code-graph-cache.json` if present and covering included paths
+- `compute_complexity(likely_impacted_files, scope_evidence, root)` — Tier 1 always from `likely_impacted_files`; Tier 2 from `scope_evidence` if present; Tier 3 from `code-graph-cache.json` if present and covering included paths
 - `load_thresholds(root)` — loads project overrides from `.tailtrail/aidlc-scope-thresholds.json` or falls back to `DEFAULT_THRESHOLDS`
-- `assess_scope_quality(document, goal, tags, root, ..., compute_complexity=False)` — Phase 4 integration point; when `compute_complexity=True` returns `complexity_metrics` from the same code path
+- `assess_scope_quality(document, goal, tags, root, ..., compute_complexity=False)` — when `compute_complexity=True` returns `complexity_metrics` from the same code path
 
-**Signals actually extracted**:
+**Signals actually extracted:**
 
 | Layer | Signal | Source | Used in dual-gate |
 |---|---|---|---|
@@ -439,15 +523,45 @@ This section defines the phased implementation of the graphing subsystem. Each p
 | Tier 2 | `affected_paths` (implementation-owner only) | `scope_evidence.candidates` roles | Informational |
 | Tier 2 | `cross_layer_edges` | `scope_evidence.edges` + candidate layers | Yes — `cross_layer_edges_standard` |
 | Tier 2 | `call_chain_depths`, `call_chain_depth_stddev` | `scope_evidence.behavior_chains` | Yes — `call_chain_depth_stddev_standard` |
-| Tier 2 | `behavior_chain_incomplete` | `scope_evidence.behavior_chains.state` | Informational |
+| Tier 2 | `behavior_chain_incomplete` | `scope_evidence.behavior_chains.state` | Dual-gate (Standard/Full thresholds) |
 | Tier 2 | `module_resolution_ambiguous` | `scope_evidence.module_resolution` | Yes — `module_resolution_ambiguous_standard` |
 | Tier 2 | `investigation_files_read` | `scope_evidence.investigation` | Informational |
 | Tier 3 | `symbols_in_scope`, `endpoints_in_scope` | `code-graph-cache.json` | Informational |
-| Tier 3 | `external_dependency_edges` | `code-graph-cache.json` | Yes — `new_external_deps_standard` |
+| Tier 3 | `external_dependency_edges` → `new_external_deps` (gate key) | `code-graph-cache.json` `service_edges` (`http-url`/`service-config`, in-scope) + legacy `edges[kind=external_dep]` | Yes — `new_external_deps_standard` |
+
+Dual-gate signals to prioritize going forward: `affected_files`, `changed_lines_estimate`, `cross_layer_edges`, `call_chain_depth_stddev`, `module_resolution_ambiguous`, `new_external_deps`. Additive (extract but don't gate on yet, except where already thresholded): `symbols_in_scope`, `endpoints_in_scope`, `behavior_chain_incomplete`.
 
 Every metric dict carries a `source` field (`"likely_impacted_files_only"`, `"scope_evidence"`, or `"scope_evidence+mapper"`) plus a `thresholds` snapshot so the decision is auditable.
 
-**Default thresholds** (project-tunable via `.tailtrail/aidlc-scope-thresholds.json`; loaded by `load_thresholds(root)`):
+**Fallback chain** (in `compute_complexity`):
+- `scope_evidence` missing or not a dict → Tier 1 only; `source = "likely_impacted_files_only"`
+- `scope_evidence` present, no graph cache → Tier 1 + Tier 2; `source = "scope_evidence"`
+- `scope_evidence` + graph cache with mapper coverage → Tier 1 + Tier 2 + Tier 3; `source = "scope_evidence+mapper"`
+
+Mode selection never blocks on graph availability.
+
+**Phase 4 hardening (implemented):** audit found the `new_external_deps` gate was dead — `compute_complexity` set `external_dependency_edges` while `evaluate_scope_signal` read `new_external_deps`, and `mapper_scope_metrics` read `graph.edges`, a key the real mapper never emits (it emits `service_edges`). Fixed: mapper counts in-scope external `service_edges` (`http-url`/`service-config`; legacy `edges[kind=external_dep]` still accepted), `compute_complexity` maps the count onto the `new_external_deps` gate key, `evaluate_scope_signal` honors a project `behavior_chain_incomplete_standard: False` override, and the R1 log entry carries `new_external_deps` for calibration. Verified against the repo's own `tailtrail-meta` cache (real `service_edges` key present, no `edges` key). Checked by 4 new tests in `tests/test_metrics_extractor.py`; existing `test_aidlc_reevaluation.py` unaffected.
+
+**Effort**: 1-2 days · **Dependencies**: Phase 1 minimum, Phase 2 to populate; Phase 3 enriches Tier 3 but Tier 1+2 work without it · **Risk**: low
+
+### 3.5 Phase 5 — Thresholds and Calibration
+
+**Status**: ✅ Implemented (defaults + validated overrides + R1 log + review CLI; the *tuning itself* stays an ongoing loop by nature).
+
+**Goal**: Metrics are useless without thresholds to interpret them. Make thresholds (1) configurable per project, (2) observable, (3) calibratable.
+
+**Deliverables:**
+
+| Item | Notes | Status |
+|---|---|---|
+| Default thresholds | Reasonable documented values (see below). | ✅ in `DEFAULT_THRESHOLDS` |
+| Project override file | `.tailtrail/aidlc-scope-thresholds.json` — tune without code changes. | ✅ via `load_thresholds(root)` + `validate_thresholds()` |
+| Calibration log | R1 decision log — every dual-gate fire/non-fire logs metrics + path taken. | ✅ R1 log + `new_external_deps` field |
+| Observability | Answer: how often did scope_signal fire? keyword_signal? how often did they disagree? | ✅ via review CLI (below) |
+
+**Phase 5 hardening (implemented):** audit found overrides were merged unvalidated — a typo'd key was silently ignored, a mistyped value (e.g. `"many"`) could crash comparisons downstream. Fixed: `read_threshold_override()` + `validate_thresholds()` (unknown keys, wrong types, negative numerics dropped with warnings; strict bools; safe defaults always win; `load_thresholds()` signature unchanged). The loop also had no runnable surface — fixed with a read-only CLI: `python scripts/metrics_extractor.py --root . thresholds` (effective config + override warnings) and `... calibration` (fire rates, scope-floor holds, zero-metrics runs, threshold-drift warning). Checked by 5 new tests in `tests/test_metrics_extractor.py`.
+
+**Current defaults** (project-tunable; loaded by `load_thresholds(root)`):
 
 ```python
 DEFAULT_THRESHOLDS = {
@@ -457,26 +571,107 @@ DEFAULT_THRESHOLDS = {
     "call_chain_depth_stddev_standard": 3.0,
     "module_resolution_ambiguous_standard": 3,
     "new_external_deps_standard": 1,
+    "behavior_chain_incomplete_standard": True,
+    # Standard floor (minimum scope to qualify for Standard)
+    "affected_files_standard_floor": 10,
+    "cross_layer_edges_standard_floor": 1,
+    # Full escalation thresholds (any one fires Full candidate)
+    "affected_files_full": 80,
+    "cross_layer_edges_full": 6,
+    "call_chain_depth_stddev_full": 5.0,
+    "behavior_chain_incomplete_full": True,
     # Lite floor (keeps Lite even if keyword_signal fires)
     "affected_files_lite_floor": 5,
     "changed_lines_lite_floor": 50,
 }
 ```
 
-**Fallback chain** (also in `compute_complexity`):
-- `scope_evidence` missing or not a dict → Tier 1 only; `source = "likely_impacted_files_only"`
-- `scope_evidence` present, no graph cache → Tier 1 + Tier 2; `source = "scope_evidence"`
-- `scope_evidence` + graph cache with mapper coverage → Tier 1 + Tier 2 + Tier 3; `source = "scope_evidence+mapper"`
+**Calibration is iterative, not one-shot.** Set defaults → run real tasks → `calibration` review → adjust the override file → repeat. The tooling for the loop is done; the tuning itself never closes.
 
-Mode selection never blocks on graph availability.
+**Known non-goal (tracked):** the `*_full` thresholds are defined but consumed by no gate — Full escalation policy lives in the Start path, not the extractor. If Full ever needs the same single-definition treatment as Standard got in Phase 6, that's a Phase 6 follow-up, not Phase 5 work.
 
-**Effort**: 1-2 days · **Dependencies**: Phase 2 (Tier 3 only; Tier 1+2 work without it) · **Risk**: low
+**Effort**: ongoing · **Dependencies**: Phase 4 · **Risk**: low
 
-### 3.4 Phase 4: Commit Prompt with Task-Relevant Coverage
+### 3.6 Phase 6 — Wiring into Mode Selection (the actual integration)
 
-**Goal**: At plan completion, prompt the user to commit an AST graph when passive-cache coverage of task-relevant files is high enough (Option C trigger).
+**Status**: ✅ Implemented (dual-gate + R2 post-discovery re-evaluation).
 
-**Trigger**: coverage = ready_files / task_relevant_files, where task_relevant = scope candidates ∪ likely_impacted files and a file is "ready" when the cache holds its imports + symbols.
+**Goal**: `aidlc_mode_selection()` gains a dual-gate: Gate 1 (intent) + Gate 2 (scope metrics from Phase 4 crossing Phase 5 thresholds → scope_signal).
+
+**Decision logic (simplified):**
+
+```
+if explicit_flag:
+    use explicit mode
+elif intent == "off":
+    Off
+elif intent == "full":
+    Full
+elif keyword_signal OR scope_signal:
+    Standard  (with scope_floor check to prevent over-escalation on tiny scopes)
+else:
+    Lite
+```
+
+**The scope_floor is important:** even if scope_signal fires, a genuinely tiny scope (few files, low lines) stays Lite. Prevents a 1-file change with one cross-layer edge from escalating incorrectly.
+
+**Implementation** (see `navigator_aidlc_improvements.md` dual-gate + Phase 6 design, R2 run):
+
+- `scripts/task-start.py` — Start plan assembly; `aidlc_mode_selection()` reads `scope_signal` + `scope_floor_lite` as Dimension 2 of the dual-gate. Gate 1 is `_aidlc_intent()` (explicit full/standard/off captured directly; bare "use AIDLC" → Standard); keyword fallback applies only when host intent is unavailable.
+- `compute_re_evaluation(lite_mode, hands_free, scope_evidence, likely_impacted_files, root)` in `scripts/metrics_extractor.py` — post-discovery re-check reusing the **exact same** `compute_complexity()` → `scope_signal` / `scope_floor_lite` pipeline. No separate trigger set.
+- `planning_lock.create(..., re_evaluation_suggestion=None)` — consumes the suggestion; lock draft records `re_evaluation_suggested` + complexity snapshot before approval.
+- `task-start.py` post-discovery path wires the call just before lock creation.
+
+**Properties:**
+
+- **Escalation-only**: Lite → Standard when `scope_signal=True` and not `scope_floor_lite` and not already escalated. Never modifies `off` or `full`.
+- **Pre-lock only**: mode frozen after lock approval; draft requires explicit user approval, never silently advances.
+- **Approval-bound**: draft carries `re_evaluation_suggested=True` + snapshot (`source`, `scope_signal`, `scope_floor_lite`, metrics).
+- **Single threshold set**: initial decision and re-check share the same calibrated `scope_signal` / `scope_floor_lite` — literally the same function (`evaluate_scope_signal`), not a copy (see hardening note).
+
+**Phase 6 hardening (implemented):** audit found `_aidlc_mode_selection_inner()` in `task-start.py` duplicated the signal/floor comparisons inline instead of calling `evaluate_scope_signal()` — the Phase 4 behavior-gate fix therefore applied to re-evaluation but not to initial selection, so the two points could disagree on identical complexity. Fixed: initial selection now calls `evaluate_scope_signal(complexity)` directly (net −12 lines); the duplicated hardcoded fallbacks are gone. Proven by `test_selection_and_reevaluation_agree_when_behavior_gate_disabled` (fails pre-fix, passes post-fix).
+
+**Host-agent qualitative fallback note (old Phase 5, R0 split — not on the critical path):** 5A host-intent roundtrip ⏸ deferred (live `_aidlc_intent()` + dual-gate already covers the agreed outcome; revisit only if R1 logs show regex-missed explicit intents); 5B qualitative complexity fallback ❌ rejected unless R1 logs show real `zero_metrics` runs unfixable via better discovery. Retained as history only.
+
+**Effort**: ~2 days (R2 portion) · **Dependencies**: Phase 4 + Phase 5 (placeholder thresholds suffice for wiring) · **Risk**: low-medium (approval-boundary care; escalation-only keeps it contained)
+
+### 3.7 Phase 7 — Cache Lifecycle and Staleness Management
+
+**Goal**: Handle cache aging — files change, projects evolve.
+
+- **Staleness detection:** file mtime vs cache `last_read` — changed since last read → mark stale.
+- **Selective invalidation:** clear stale entries without wiping the whole cache.
+- **Full invalidation triggers:** new session, project reset, explicit user request.
+- **Garbage collection:** drop entries for files that no longer exist.
+
+**Why not first:** Phases 1–6 can ship with simple "clear on session start." Staleness management is a refinement that matters more as the cache persists across sessions. **But design it early:** the schema includes `last_read` timestamps from day one (see Phase 1) to avoid a later migration.
+
+**Status**: ✅ Implemented — primitives existed since Phase 1; this phase added the Tier 3 trust gate and the explicit-request trigger surface.
+
+**What was already there (Phase 1):** `stale_files()` (mtime vs `last_read`), `invalidate()` (selective), `clear()` (full), `prune_missing()` (GC), `prune_older_than()` (age-based).
+
+**Phase 7 additions:**
+
+- **Tier 3 trust gate (the tracked Phase 4 pickup — done):** `mapper_cache_freshness()` in `metrics_extractor.py` re-hashes in-scope files carrying cached sha256 metadata (`source_files`/`watch_files`/`scanner_evidence`); a missing or changed file makes the cache stale for that scope. `compute_complexity()` degrades to Tier 1+2 with a logged `tier3_skipped` reason instead of trusting drifted symbols. Cost is bounded by the affected set (no full-repo scan on the Start path). Caches with no metadata (legacy/test shapes) are trusted as before — verified when verifiable, backward compatible otherwise.
+- **Lifecycle CLI (explicit-request trigger):** `python scripts/code_graph_cache.py --root . status|prune-missing|prune-older-than|invalidate|clear` (text/JSON). Session-start and project-reset clears remain host behaviors; this is how a user requests them.
+- **Shape guard (found by testing):** the Phase 1 and mapper caches share canonical paths but not schemas — lifecycle writes *refuse* (exit 2) mapper-shaped files instead of normalizing them into oblivion, and `status` reports the kind honestly.
+
+Checked by 2 freshness tests in `tests/test_metrics_extractor.py` (changed/missing file → skip + reason) and 5 CLI tests in `tests/test_code_graph_cache.py` (status/prune/invalidate/clear + mapper-shape refusal).
+
+**Explicitly skipped (tracked):**
+
+| ID | Item | Decision | Revisit trigger |
+|---|---|---|---|
+| D3 | Automatic session-start / project-reset clearing | **Skip** — clearing is a host lifecycle behavior and no host loop lives in-repo; the CLI is the trigger surface hosts call. Auto-clearing inside library functions would surprise long-lived hosts holding warmed state. | A host integration exists that needs it → wire `clear()`/`prune_missing()` into that host's session boundary, not into shared library code. |
+| D4 | Freshness *weighting* (partial trust in stale graphs) | **Skip** — the gate is binary (trust/skip), the conservative posture: a stale symbol set misleads silently, while a skip only loses Tier 3 enrichment. | Real runs show Tier 3 skipping so often it starves metrics → consider per-file freshness (trust fresh entries, drop drifted ones) instead of whole-cache skip. |
+
+**Effort**: 1-2 days · **Dependencies**: Phase 1 · **Risk**: low-medium
+
+### 3.8 Phase 8 — Commit Prompt and Reporting (augmentation, not gating)
+
+**Goal**: At plan completion / commit time, report graph coverage: what the graph knows about touched files, related-but-unread files, and coverage % of affected files with symbol-level detail. Guides better investigation; does not gate Phases 4–6.
+
+**Trigger (Option C):** coverage = ready_files / task_relevant_files, where task_relevant = scope candidates ∪ likely_impacted files and a file is "ready" when the cache holds its imports + symbols.
 
 | Coverage | Prompt? |
 |---|---|
@@ -484,59 +679,59 @@ Mode selection never blocks on graph availability.
 | 25-40% | Consider — only for large tasks |
 | 40%+ | Yes — build validates and gap-fills most task files |
 
-**Prompt content**: files touched, import edges, symbols observed, call edges, coverage %. Accept → Phase 2 build + cache clear. Decline/silence → cache persists. Silence for 7 days after a recent commit reduces noise.
+**Prompt content:** files touched, import edges, symbols observed, call edges, coverage %. Bounded and cheap — a few curated observations, never a full graph dump. Accept → Phase 3 build + selective clear (untouched-file data preserved). Decline/silence → cache persists. Silence for 7 days after a recent commit reduces noise.
 
-**Effort**: 1 day · **Dependencies**: Phase 1 · **Risk**: low (non-blocking)
+**Status**: ✅ Implemented — `scripts/commit_prompt.py::assess(root, task_files)` (read-only; CLI always exits 0, never gates) + `tests/test_commit_prompt.py` (8 tests). Coverage = ready/task per Option C, with the 0–25 / 25–40 / 40+ decision table (mid band prompts only for tasks ≥10 files). Related-unread comes from import overlap in both directions (task→dependency and dependent→task), capped at 10 with best-effort `dotted.module` → path mapping. Suppression reads the mapper cache commit timestamp (passive `last_updated` doesn't count as a commit). stdout is ASCII-only (Windows consoles).
 
-### 3.5 Phase 5: Host-Agent Qualitative Fallback
+**Picked up from Phase 3 (D2 — done):** the suggested build carries depth from live data — `shallow` for sprawling scopes (≥20 files), `medium` otherwise — with gap scope (task files outside mapper scope) and an exact runnable command. D2 is closed.
 
-**Status**: Split (R0 decision); not implemented.
+**Effort**: 1 day · **Dependencies**: Phase 1 (Phase 2 warms coverage) · **Risk**: low (non-blocking)
 
-**R0 decision (see `navigator_aidlc_improvements.md`)**:
+### 3.9 Phase 9 — Multi-Language and Richer Graph Techniques (extension, not foundation)
 
-- **5A — Host-Agent Intent Roundtrip**: ⏸ **Deferred**. The agreed user-facing outcome (bare "use AIDLC" → Standard, explicit full/standard/off captured directly) is already live via `task-start.py`'s `_aidlc_intent()` + dual-gate without a host roundtrip. A host roundtrip would add a model call per Start and reintroduce host-LLM non-determinism at a control point. Revisit trigger: R1 calibration log shows regex-missed explicit intents in real runs.
-- **5B — Qualitative Complexity Fallback**: ❌ **Rejected unless evidence reopens it**. `cheap_scope_metrics()` always extracts file counts and line estimates from `likely_impacted_files`, so true zero-metrics requires both empty discovery input **and** an unparseable language. The honest fix for zero-metrics runs is better discovery, not host guessing. Single reopen criterion: R1 logs show real `zero_metrics` runs that cannot be resolved by improving discovery input.
+**Goal**: More languages, richer techniques (dynamic analysis, runtime tracing, dependency scanners), richer edge types. Explicitly extension work — the techniques catalog in §3 describes many options, but implementation starts narrow and grows.
 
-**Legacy note**: The original layout (1-day effort, host-agent bounded question returning `complexity_tier: low | medium | high`) was replaced by the R0 split. This section is retained as history only.
-### 3.6 Phase 6: Post-Discovery Re-Evaluation Hook
+**Capability matrix (declared in code as `code_relationships.LANGUAGE_SUPPORT`):**
 
-**Status**: ✅ Implemented (R2).
+| Language | Level | Parser | Techniques |
+|---|---|---|---|
+| Python | 2 | AST | definitions, imports, loaders, registrations |
+| Terraform | 2 | structured-regex | definitions, imports, references |
+| JavaScript / TypeScript | 1 | regex | definitions (incl. arrow consts, export-prefixed), imports, registrations, behavior |
+| Java / C# / Go | 1 | regex | definitions, imports, registrations |
 
-**Goal**: After scope discovery, re-check whether a Lite-selected mode should escalate when scope data is richer than Start-time signals.
+Level 2 = full local structure; level 1 = regex subset (documented heuristic). Unlisted suffixes (Vue, Svelte, SQL, configs) degrade to level 1 or reference-only — never crash, never block.
 
-**Implementation** (see `navigator_aidlc_improvements.md` Phase 6 design + R2 run):
+**Status**: ✅ Implemented as the extension pattern — step 1 (Python AST + import graph) predates this plan; step 2 landed here as JS/TS parity (arrow-function consts + `export`-prefixed declarations, deduped) plus the registry itself, with the mapper's `language_profiles()` deriving levels from it instead of a hardcoded Python carve-out (one behavior change: Terraform correctly reports level 2). Checked by `tests/test_code_relationships.py` (10 tests: registry levels, Python baseline, JS/TS syntax, no-crash on garbage, mapper derivation).
 
-- `compute_re_evaluation(lite_mode, hands_free, scope_evidence, likely_impacted_files, root)` in `scripts/metrics_extractor.py` — the single re-evaluation trigger, reusing the **exact same** `compute_complexity()` → `scope_signal` / `scope_floor_lite` pipeline from the dual-gate. No separate trigger set to maintain.
-- `planning_lock.create(..., re_evaluation_suggestion=None)` — consumes the suggestion; lock draft records `re_evaluation_suggested` + the complexity snapshot at the time of discovery.
-- `task-start.py` post-discovery path wires the call just before lock creation, so escalation is visible in the lock draft before approval.
+**Extension policy (how language N+1 lands):** add a `LANGUAGE_SUPPORT` entry → add the extractor branch → add tests → mapper levels follow automatically. Richer techniques (dynamic analysis, type resolution) stay separate opt-in passes outside this table — none adopted; static analysis remains the posture.
 
-**Properties** (per R0 design):
+**Effort**: per language/technique · **Dependencies**: Phases 1–3 pattern proven on one language first · **Risk**: medium (scope creep — keep opt-in)
 
-- **Escalation-only**: Lite → Standard when `scope_signal=True` and not `scope_floor_lite` and not already escalated. Never modifies `off` or `full`.
-- **Pre-lock only**: mode is frozen after lock approval. The guard lives in the finalization path itself — the draft records the suggestion and requires explicit user approval; it does not silently advance.
-- **Approval-bound**: lock draft carries `re_evaluation_suggested=True` for any proposed Lite→Standard escalation, plus the complexity snapshot (`source`, `scope_signal`, `scope_floor_lite`, metrics) so the approval decision is evidence-grounded.
-- **Reuses dual-gate thresholds** — the same calibrated `scope_signal` / `scope_floor_lite` that governs the initial decision also governs the re-check, so there is only one threshold set to maintain.
+### 3.10 Phase Summary and Order Rationale
 
-**History note**: the earlier draft (Lite + scope reveals ≥10 candidates or ≥2 cross-layer edges → propose Standard) was replaced by the R2 reuse-of-dual-gate design. This section summarizes the implemented behavior.
+| Order | Phase | Reason it goes here | Status |
+|---|---|---|---|
+| **1** | Core cache infrastructure (§3.1) | Everything reads/writes this; get the contract right | ✅ Implemented — `scripts/code_graph_cache.py` + `tests/test_code_graph_cache.py` |
+| **2** | Passive capture (§3.2) | Populates cache from real work; needed before metrics have anything to read | ✅ Implemented — `scripts/capture_hooks.py` + `tests/test_capture_hooks.py` |
+| **3** | Explicit graph build (§3.3) | Richer source, separate from passive; can parallel Phase 4 once cache exists | ✅ Implemented — `scripts/graph_builder.py` + CLI + `tests/test_graph_builder.py` |
+| **4** | Metrics extraction (§3.4) | Reads cache/scope evidence; needs Phases 1–2 minimum, Phase 3 optional but helpful | ✅ Implemented — `scripts/metrics_extractor.py` |
+| **5** | Thresholds + calibration (§3.5) | Needs metrics to exist; R1 log starts once wiring exists | ✅ Implemented — validated overrides + review CLI + R1 log (tuning loop itself is ongoing by nature) |
+| **6** | Wiring into mode selection (§3.6) | Needs metrics + thresholds; the integration point | ✅ Implemented (dual-gate + R2 re-evaluation) |
+| **7** | Cache lifecycle / staleness (§3.7) | Refinement; simple invalidation suffices initially | ✅ Implemented — Tier 3 freshness gate + lifecycle CLI + shape guard |
+| **8** | Commit prompt / reporting (§3.8) | Augmentation; gates nothing | ✅ Implemented — `scripts/commit_prompt.py` + `tests/test_commit_prompt.py` (closes D2) |
+| **9** | Multi-language / richer techniques (§3.9) | Extension after foundation works | ✅ Implemented — registry + JS/TS parity + extension policy (richer techniques stay opt-in, none adopted) |
 
-**Effort**: ~2 days (R2) · **Dependencies**: Phase 3 (`compute_complexity`); Phase 1/2 not strictly required because Tier 1+2 metrics already produce a `scope_signal` · **Risk**: low-medium (approval-boundary care required; escalation-only constraint keeps it contained)
+**Implemented portions**: Phases 1–9 (tooling complete), plus the R1 calibration decision log. Remaining: Phase 5 threshold *tuning* continues as real runs accumulate; new languages follow the §3.9 extension policy.
 
-### 3.7 Phase Summary
+**Recommended order**: 1 → 2 → 3 → 4 (already delivered ahead via Tier 1+2, which need no populated cache); R2's Phase 6 work was implemented ahead of Phases 1–3 because it reuses Tier 1+2 metrics that exist today.
 
-| Phase | Goal | Effort | Dependencies | Status |
-|---|---|---|---|---|
-| 1 | Passive capture infrastructure | 1-2 days | none | Not implemented |
-| 2 | Explicit graph build pipeline | 2-3 days | 1 | Not implemented |
-| 3 | Metrics extraction from graph | 1-2 days | 2 | ✅ Implemented — `scripts/metrics_extractor.py` |
-| 4 | Commit prompt (task-relevant coverage) | 1 day | 1 | Not implemented |
-| 5 | Host-agent qualitative fallback | 1 day | none | Split (R0): 5A deferred, 5B rejected |
-| 6 | Post-discovery re-evaluation | 2-3 days | 1+2+3 | ✅ Implemented (R2) — `compute_re_evaluation()` + `planning_lock.create(re_evaluation_suggestion)` |
+**Two implementation principles:**
 
-**Implemented portions**: Phases 3 + 6, plus the R1 calibration decision log (see Section 3.8.1). Remaining roadmap: Phases 1, 2, 4, and the deferred/rejected portions of Phase 5.
+1. **Passive and explicit are different modes, not one thing.** Passive capture is cheap, incremental, non-blocking; explicit build is deliberate, can be expensive, richer. Different constraints, different triggers.
+2. **Metrics is a standalone layer, not embedded in the agent loop.** `metrics_extractor.py` is importable, testable, stateless — scope document/file list in, metrics dict out. Reusable across dual-gate and re-evaluation, independent of agent implementation.
 
-**Recommended order**: 1 → 2 → 3 → 4 (already partially delivered by Phase 3 + R1); R2's Phase 6 was implemented ahead of Phases 1/2 because it reuses Tier 1+2 metrics that exist today.
-
-### 3.8 Key Risks and Mitigations
+### 3.11 Key Risks and Mitigations
 
 | Risk | Mitigation |
 |---|---|
@@ -546,7 +741,7 @@ Mode selection never blocks on graph availability.
 | Stale graph misleads metrics | Weight by freshness; files modified after `updated_at` flagged unmapped |
 | Threshold calibration | Conservative defaults, `source` logging, tune from override rates |
 
-### 3.9 Success Metrics
+### 3.12 Success Metrics
 
 - scope_signal vs keyword_signal fire rate; scope_floor_lite volume; user override rate
 - Start latency impact (<5%); graph build success rate; passive capture coverage per cycle

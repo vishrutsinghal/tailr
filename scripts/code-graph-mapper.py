@@ -801,16 +801,21 @@ def endpoint_service_table_flows(graph_data: dict[str, list[dict[str, Any]]], li
     return flows[:limit]
 
 
+_REGISTRY_ALIASES = {"dotnet": "csharp"}
+
+
 def language_profiles(paths: list[Path]) -> dict[str, dict[str, Any]]:
+    from code_relationships import support_level
+
     profiles: dict[str, dict[str, Any]] = {}
     for path in paths:
         language = language_for(path)
         if not language:
             continue
-        profile = profiles.setdefault(language, {"level": 1, "files": 0})
+        level = support_level(_REGISTRY_ALIASES.get(language, language)) or 1
+        profile = profiles.setdefault(language, {"level": level, "files": 0})
         profile["files"] += 1
-        if language == "python":
-            profile["level"] = max(profile["level"], 2)
+        profile["level"] = max(profile["level"], level)
     return profiles
 
 

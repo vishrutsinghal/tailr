@@ -45,10 +45,12 @@ The Navigator will now vary its prompts based on the `active_stage` retrieved fr
   - *Judge Gate:* Prohibits `production-source` and `test` roles.
 
 ### 4.2 The "Write-Access Gate" (The "Lock")
-The system implements a hard-stop at the file-write layer:
-1. Every `write_file` call is intercepted.
+The system implements a hard-stop at the approval layer (plus guarded in-repo writes):
+1. Every patch/proposal path is validated before approval or application.
 2. The `PipelineJudge` checks the path's role.
-3. If `role` $\in$ `ProhibitedRoles[active_badge]`, the write is aborted with a `SecurityBoundaryError`.
+3. If `role` $\in$ `ProhibitedRoles[active_badge]`, the approval/application is aborted (`source_patch_apply` raises; `guard_write` raises `SecurityBoundaryError`).
+
+`WriteGuardian` denies by default when no pipeline run exists; only an explicit `permissive=True` declares an unenforced write (installer flows, which have no run by nature). Intercepting host-agent writes in-process is out of scope — those are gated at proposal/approval time instead.
 
 ### 4.3 The Drift-Corrected Handoff
 Transitions between stages are not automatic; they are **evidence-gated**.

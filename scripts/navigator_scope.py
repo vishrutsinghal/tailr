@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
+import capture_hooks
 import code_relationships
 import requirement_discovery
 from code_graph_inventory import snapshot as inventory_snapshot
@@ -1627,8 +1628,16 @@ def investigate(
     limits: InvestigationLimits = DEFAULT_LIMITS,
     allow_git_inventory: bool = True,
     allow_persistent_cache: bool = True,
+    allow_passive_capture: bool = True,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-    """Resolve implementation ownership with bounded, static local evidence."""
+    """Resolve implementation ownership with bounded, static local evidence.
+
+    When ``allow_passive_capture`` is true (default), every file actually
+    read above is queued via ``capture_hooks`` and merged into the Phase 1
+    code-graph cache in one batched ``flush`` — passive capture as a side
+    effect of discovery (docs/arch/code-graphing.md §3.2). Best-effort and
+    never raises; investigation results are unaffected.
+    """
     frames = [dict(frame) for frame in requirement_frames]
     initial = [dict(row) for row in candidates]
     seed_paths = {str(row["path"]) for row in initial if row.get("status") not in {"excluded", "rejected"}}
@@ -1785,6 +1794,14 @@ def investigate(
         else "broad-file-read-limit-reached" if broad_limit_reached
         else "inventory-exhausted"
     )
+
+    if allow_passive_capture and facts:
+        try:
+            for read_path in facts:
+                capture_hooks.on_file_read(root, read_path)
+            capture_hooks.flush(root)
+        except Exception:
+            pass
 
     if cache_status.get("status") != "fresh" and facts:
         cache_status = dict(cache_status)

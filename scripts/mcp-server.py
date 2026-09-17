@@ -376,7 +376,7 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "planning_aidlc_question_challenge": {"name": "planning_aidlc_question_challenge", "description": "Create a sanitized proposal to correct one AIDLC question. It does not change the active question yet.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question_id": {"type": "string"}, "reason_code": {"type": "string", "enum": ["unclear", "incorrect-assumption", "missing-option", "unclear-reasoning", "other"]}, "approved": {"type": "boolean"}}, ["run_id", "question_id", "reason_code", "approved"])},
         "planning_aidlc_question_record": {"name": "planning_aidlc_question_record", "description": "Record one authority-generated replacement AIDLC question. User approval is still required before it becomes active.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "question", "approved"])},
         "planning_aidlc_question_approve": {"name": "planning_aidlc_question_approve", "description": "Approve one recorded AIDLC question revision and reopen the current requirements answer set.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
-        "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
+        "source_patch_apply": {"name": "source_patch_apply", "description": "Apply one supplied unified patch only after explicit approval and an approved matching Planning Lock. Validates patch paths stay inside the repository and, when the run has an active pipeline stage, that each path is allowed by the stage badge; never commits, pushes, or runs arbitrary commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "patch": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "patch", "approved"])},
         "planning_lock_start": {"name": "planning_lock_start", "description": "Create an awaiting-approval Planning Lock after the user explicitly asks to start TailTrail. Writes only TailTrail local metadata; it never edits project source or runs project commands.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["goal", "approved"])},
         "planning_investigate": {"name": "planning_investigate", "description": "Perform an explicitly approved, path-bounded, read-only source investigation for an awaiting Planning Lock. It writes only a sanitized TailTrail receipt and never edits source, runs tests, scanners, builds, package managers, Git, or plan revisions.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "paths": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "paths", "approved"])},
         "planning_revision_propose": {"name": "planning_revision_propose", "description": "Persist one explicitly approved, versioned material plan delta for an awaiting Planning Lock. It can preserve and supersede an incorrect unapproved pending revision; it never edits source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "changes": {"type": "array", "minItems": 1, "items": {"type": "object"}}, "supersede_pending": {"type": "boolean"}, "approved": {"type": "boolean"}}, ["run_id", "changes", "approved"])},
@@ -1004,14 +1004,46 @@ def harness_control_check(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "harness_control_check", "result": parse_stdout(result, "json"), "execution": result}
 
 
+def _patch_touched_paths(patch: str) -> list[str]:
+    touched: list[str] = []
+    for line in patch.splitlines():
+        if line.startswith(("+++ b/", "--- a/")):
+            value = line[6:].strip()
+            if value and value != "/dev/null" and value not in touched:
+                touched.append(value)
+    return touched
+
+
+def _enforce_patch_badge(root: Path, identifier: str, touched: list[str]) -> None:
+    """Block patch paths prohibited by the run's active pipeline badge.
+
+    Runs without pipeline state (missing lock or PENDING stage) skip the
+    gate unchanged. An active stage with an out-of-badge path raises.
+    """
+    from pipeline_manager import PipelineManager
+    from write_guardian import validate_planned_paths
+
+    try:
+        stage = PipelineManager(root, identifier).get_current_stage()
+    except Exception:
+        return
+    if not stage or stage == "PENDING":
+        return
+    denied = [row for row in validate_planned_paths(root, identifier, touched) if not row["allowed"]]
+    if denied:
+        detail = "; ".join(f"`{row['path']}`: {row['reason']}" for row in denied)
+        raise ValueError(f"source_patch_apply blocked by active {stage} badge: {detail}")
+
+
 def source_patch_apply(args: dict[str, Any]) -> dict[str, Any]:
     if args.get("approved") is not True: raise ValueError("source_patch_apply requires approved: true")
     root = root_from(args); identifier = run_id(args); patch = str(args.get("patch", ""))
     require_approved_planning_lock(root, identifier, "source_patch_apply", source_write=True)
     if not patch.startswith("diff --git "): raise ValueError("patch must be a unified git diff")
-    for line in patch.splitlines():
-        if line.startswith(("+++ b/", "--- a/")):
-            safe_relative(root, line[6:])
+    touched = _patch_touched_paths(patch)
+    for value in touched:
+        safe_relative(root, value)
+    _enforce_patch_badge(root, identifier, touched)
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".patch", dir=root, delete=False) as handle:
         handle.write(patch); patch_path = Path(handle.name)
     try:

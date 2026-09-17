@@ -17,8 +17,10 @@ Each stage in the pipeline is assigned a "Badge" (a set of permissions). The bad
 | **Infra** | `infra-badge` | `configuration`, `manifests` | All | `production-source`, `test-paths` |
 
 ### 2.2 Enforcement Mechanism (The Judge)
-The CLI acts as the "Judge." Every write request is intercepted and validated:
+The CLI acts as the "Judge." Every write request in scope is validated:
 `if path_role in ProhibitedRoles[active_badge]: Block_Write()`
+
+Enforcement has two implemented layers: (a) planned/patch paths are validated against the active badge *before* approval or application (`validate_planned_paths`, enforced in `source_patch_apply` for runs with an active pipeline stage); (b) in-repo installer writes go through explicit `guard_write` calls. Host-agent writes happen outside this repo and cannot be intercepted in-process — gating those requires host integration. The drift gate (`drift_analysis.analyze`, fail-closed) is wired into TESTING → INFRA transitions and covered by pipeline tests.
 
 ## 3. Pipeline Lifecycle & Handoffs
 
