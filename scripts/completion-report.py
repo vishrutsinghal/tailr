@@ -48,9 +48,49 @@ def learning_receipts_module() -> Any:
     return module
 
 
+def planning_lock_module() -> Any:
+    spec = importlib.util.spec_from_file_location("completion_report_planning_lock", ROOT / "scripts" / "planning_lock.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 L = ledger()
 STATE = canonical_state_module()
 RECEIPTS = learning_receipts_module()
+LOCK = planning_lock_module()
+
+STAGE_BADGES = {"IMPLEMENTATION": "impl-badge", "TESTING": "test-badge", "INFRA": "infra-badge"}
+
+
+def pipeline_summary(root: Path, run_id: str) -> dict[str, Any]:
+    """Report the run's badge-gated pipeline state without changing closure status.
+
+    Badged runs (Standard/Full/Debug, hands-free) constrain managed patch
+    writes per stage; unbadged runs (Lite/Off, PENDING) skip those gates.
+    Missing locks predate pipeline tracking and report as not-recorded.
+    """
+    try:
+        pipeline = LOCK.show(root.resolve(), run_id).get("pipeline", {})
+    except (OSError, ValueError):
+        pipeline = {}
+    if not isinstance(pipeline, dict) or not pipeline:
+        return {"status": "not-recorded", "active_stage": None, "active_badge": None, "completed_stages": [], "unvisited_stages": [], "handoff_count": 0}
+    sequence = [str(stage) for stage in pipeline.get("stage_sequence", []) if isinstance(stage, str)] or ["IMPLEMENTATION", "TESTING", "INFRA"]
+    active = str(pipeline.get("active_stage") or "PENDING")
+    completed = [str(stage) for stage in pipeline.get("completed_stages", []) if isinstance(stage, str)]
+    history = pipeline.get("handoff_history", [])
+    unvisited = [stage for stage in sequence if stage not in completed and stage != active]
+    return {
+        "status": "badged" if active in STAGE_BADGES else "unbadged",
+        "active_stage": active,
+        "active_badge": STAGE_BADGES.get(active),
+        "completed_stages": completed,
+        "unvisited_stages": unvisited,
+        "handoff_count": len(history) if isinstance(history, list) else 0,
+    }
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -728,6 +768,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "auto_granted_action_classes": [], "separate_gate_triggers": [],
             "boundary": "No execution-authority artifact was saved for this run.",
         },
+        "pipeline": pipeline_summary(root, run_id),
         "source_artifacts": {
             "approved_anchor": "anchors/approved-v1.json",
             "checkpoint": checkpoint_path,
@@ -960,6 +1001,9 @@ def render(payload: dict[str, Any]) -> str:
             attention.append(f"Changed scope is {report_text(payload['changed_scope'].get('status'))}.")
         if payload.get("drift", {}).get("status") == "unresolved":
             attention.append(f"{len(payload['drift'].get('findings', []))} unresolved drift finding(s) remain.")
+    pipeline_attention = payload.get("pipeline", {}) if isinstance(payload.get("pipeline"), dict) else {}
+    if pipeline_attention.get("status") == "badged" and pipeline_attention.get("unvisited_stages"):
+        attention.append(f"Pipeline stages {', '.join(str(stage) for stage in pipeline_attention['unvisited_stages'])} were never visited; badge gates applied only to the visited stages.")
     lines.extend(f"- {item}" for item in attention)
 
     lines.extend(["", "## Requirement status", ""])
@@ -1095,6 +1139,22 @@ def render(payload: dict[str, Any]) -> str:
             f"Supporting checks: **{len(supporting_receipts)} consolidated observation(s)** retained in JSON; "
             f"authoritative failures: **{authoritative_failures}**.",
         ])
+
+    pipeline = payload.get("pipeline", {}) if isinstance(payload.get("pipeline"), dict) else {}
+    if pipeline.get("status") == "badged":
+        unvisited = [str(stage) for stage in pipeline.get("unvisited_stages", [])]
+        lines.extend([
+            "",
+            "## Pipeline badges",
+            "",
+            f"Active stage: **{report_text(pipeline.get('active_stage'))}** (`{report_text(pipeline.get('active_badge'))}`).",
+            f"Completed stages: **{report_text(', '.join(str(stage) for stage in pipeline.get('completed_stages', [])) or 'none')}**.",
+            f"Stage handoffs recorded: **{report_text(pipeline.get('handoff_count'))}**.",
+        ])
+        if unvisited:
+            lines.append(f"Unvisited stages: **{report_text(', '.join(unvisited))}** (informational; closure status is unchanged).")
+    elif pipeline.get("status") == "unbadged":
+        lines.extend(["", "## Pipeline badges", "", "Unbadged run (Lite/Off); no stage write gates applied."])
 
     lines.extend(["", "### Harness result", ""])
     used_harnesses = [item for item in payload["harnesses"] if item.get("used") or item.get("status") == "required-evidence-missing"]

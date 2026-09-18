@@ -292,6 +292,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "debug_section": {"status": debug_section.get("debug_status"), "artifact": DEBUG_SECTION.report_path(root, run_id).relative_to(root).as_posix()} if debug_section else None,
         "recovery": report["recovery_checkpoint"],
         "context_continuity": report["drift_learning"],
+        "pipeline": report.get("pipeline", {"status": "not-recorded"}),
         "graph_lifecycle": graph_lifecycle,
         "run_mapping": run_mapping,
         "correction": correction,

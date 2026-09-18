@@ -5941,6 +5941,7 @@ def main() -> int:
                     enterprise_policy=policy_result,
                     scope_decision=scope_decision,
                     re_evaluation_suggestion=report.get("aidlc_mode", {}).get("re_evaluation_suggestion"),
+                    pipeline_stage=planning_lock.initial_pipeline_stage(effective_aidlc_mode, bool(report.get("debug_plan"))),
                 )
                 created_run_id = report["planning_lock"]["run_id"]
                 report["workflow_runtime"] = workflow_start_integration.draft(

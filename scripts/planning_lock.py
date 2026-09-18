@@ -398,12 +398,28 @@ def suggested_run_id(root: Path, goal: str) -> str:
     return candidate
 
 
-def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None, target_identity: dict[str, Any] | None = None, input_roles: dict[str, Any] | None = None, host_workspace: dict[str, Any] | None = None, enterprise_policy: dict[str, Any] | None = None, scope_decision: dict[str, Any] | None = None, re_evaluation_suggestion: dict[str, Any] | None = None) -> dict[str, Any]:
+def initial_pipeline_stage(aidlc_mode: str | None, debug_plan: bool = False) -> str | None:
+    """Return the lock-creation pipeline stage for a Start run.
+
+    Every mode starts badged at IMPLEMENTATION — Lite, Off, Standard,
+    Full (including hands-free/end-to-end, which resolve into those
+    modes), and Debug — so the impl/test/infra write gates apply from
+    approval onward. Debug keeps its own exact-scope correction
+    approvals; the badge only constrains managed patch application
+    for the run. The arguments are retained so the single decision
+    point stays explicit if modes ever diverge again.
+    """
+    return "IMPLEMENTATION"
+
+
+def create(root: Path, goal: str, run_id: str | None = None, reference_roots: list[str] | None = None, target_identity: dict[str, Any] | None = None, input_roles: dict[str, Any] | None = None, host_workspace: dict[str, Any] | None = None, enterprise_policy: dict[str, Any] | None = None, scope_decision: dict[str, Any] | None = None, re_evaluation_suggestion: dict[str, Any] | None = None, pipeline_stage: str | None = None) -> dict[str, Any]:
     root = root.resolve()
     selected_run_id = run_id or suggested_run_id(root, goal)
     if Path(selected_run_id).name != selected_run_id:
         raise ValueError("run_id must be a single local run identifier")
     L.init_run(root, selected_run_id, goal)
+    stage_sequence = ["IMPLEMENTATION", "TESTING", "INFRA"]
+    active_stage = pipeline_stage if pipeline_stage in stage_sequence else "PENDING"
     payload = {
         "schema_version": "2",
         "type": "tailtrail-planning-lock",
@@ -420,9 +436,9 @@ def create(root: Path, goal: str, run_id: str | None = None, reference_roots: li
         "re_evaluation_suggestion": re_evaluation_suggestion,
         "approval": None,
         "pipeline": {
-            "active_stage": "PENDING",
+            "active_stage": active_stage,
             "completed_stages": [],
-            "stage_sequence": ["IMPLEMENTATION", "TESTING", "INFRA"],
+            "stage_sequence": stage_sequence,
             "handoff_manifest": None,
         },
         "boundary": "Planning Lock permits read-only planning artifacts only. Source edits, Git mutations, project commands, scanners, and managed patch application require a separate approval for this run.",
