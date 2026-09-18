@@ -82,6 +82,34 @@ class ExpandIntentTests(unittest.TestCase):
         self.assertEqual(envelope["action"], "guide")
         self.assertEqual(envelope["authority"]["classification"], "read-only")
 
+    def test_informational_question_routes_to_guide_not_start(self) -> None:
+        self.assertEqual(
+            expand.resolve_intent("Run TailTrail Navigator for: tell me the important features of this repo. Show the plan only"),
+            "guide",
+        )
+        for phrase in (
+            "tell me the important features of this repo",
+            "what are the main services here?",
+            "explain how validation works",
+        ):
+            with self.subTest(phrase=phrase):
+                envelope = expand.resolve_request(phrase)
+                self.assertEqual(envelope["action"], "guide")
+                self.assertEqual(envelope["authority"]["classification"], "read-only")
+
+    def test_question_with_change_verb_keeps_task_routing(self) -> None:
+        self.assertEqual(expand.resolve_intent("list the failing files then fix the bug"), "implementation")
+        envelope = expand.resolve_request("explain the validation defect and fix it")
+        self.assertEqual(envelope["action"], "start")
+
+    def test_generate_graph_then_summarize_routes_to_guide(self) -> None:
+        phrase = "Use TailTrail deeper discovery. Generate the code graph for this repo, then summarize modules, endpoints, tests, configs, and suggested read order."
+        self.assertEqual(expand.resolve_intent(phrase), "guide")
+        envelope = expand.resolve_request(phrase)
+        self.assertEqual(envelope["action"], "guide")
+        self.assertEqual(envelope["authority"]["classification"], "read-only")
+        self.assertIn("graph", expand.FLOWS["guide"].prompt)
+
     def test_active_run_question_routes_to_discussion_only(self) -> None:
         envelope = expand.resolve_request(
             "Why did you choose these files?",
@@ -165,6 +193,31 @@ class ExpandIntentTests(unittest.TestCase):
     def test_oversized_input_is_rejected_without_resolution(self) -> None:
         with self.assertRaisesRegex(ValueError, "must not exceed 8192"):
             expand.resolve_request("x" * 8193)
+
+    def test_read_only_questions_resolve_to_guide_in_host_guidance(self) -> None:
+        guidance = (
+            "AGENTS.md",
+            "CLAUDE.md",
+            "GEMINI.md",
+            "adapters/claude.md",
+            "adapters/copilot-instructions.md",
+            "adapters/chatgpt-instructions.md",
+            "adapters/gemini.md",
+            "adapters/cursor.mdc",
+            ".github/copilot-instructions.md",
+            ".openai/chatgpt-instructions.md",
+            ".cursor/rules/tailtrail.mdc",
+            "skills/tailtrail/SKILL.md",
+            "context/intent-aliases.md",
+        )
+        for relative_path in guidance:
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
+                body = " ".join(body.split())
+                if relative_path != "context/intent-aliases.md":
+                    self.assertIn("read-only questions", body)
+                self.assertIn("guide", body)
+                self.assertIn("never create a planning lock", body)
 
 
 if __name__ == "__main__":

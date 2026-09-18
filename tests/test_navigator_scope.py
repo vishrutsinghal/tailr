@@ -599,6 +599,33 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
             evidence["ownership_selection"]["selected_rule"],
         )
 
+    def test_qa_test_candidate_without_strong_edges_is_not_high_confidence(self) -> None:
+        # Same-module-name yields a medium tested-by edge only. A test-role
+        # row must not claim high confidence without a strong edge, matching
+        # the production-owner rule.
+        self.write("src/service.py", "def serve():\n    return True\n")
+        self.write("tests/test_service.py", "def test_serve():\n    assert True\n")
+        seeds = [
+            navigator_scope.seed("src/service.py", "lexical-path", "query-term-in-path"),
+            navigator_scope.seed("tests/test_service.py", "lexical-path", "query-term-in-path"),
+        ]
+        candidates = navigator_scope.candidates_from_seeds(self.root, seeds, ["qa"])
+        frames = requirement_discovery.frames("Summarize test coverage.")
+        investigated, edges, _ = navigator_scope.investigate(
+            self.root, frames, candidates, ["qa"]
+        )
+        by_path = {row["path"]: row for row in investigated}
+        test_row = by_path["tests/test_service.py"]
+        strengths = {
+            edge["strength"]
+            for edge in edges
+            if edge["edge_id"] in set(test_row["evidence_edge_ids"])
+        }
+        self.assertEqual(test_row["role"], "test")
+        self.assertTrue(test_row["evidence_edge_ids"])
+        self.assertNotIn("strong", strengths)
+        self.assertNotEqual(test_row["confidence"], "high")
+
     def test_schema_and_fingerprint_are_deterministic(self) -> None:
         self.write("src/service.py")
         seeds = [navigator_scope.seed("src/service.py", "explicit-path", "user-provided-path")]

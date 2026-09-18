@@ -284,7 +284,12 @@ def render_plan(envelope: dict[str, Any], *, verbose: bool = False, lock: dict[s
     navigator = report.get("navigator") or {}
     planning_lock = report.get("planning_lock") or {}
     lines: list[str] = []
+    # Fence the banner so chat surfaces cannot collapse its fixed-width
+    # spacing the way hello's fenced banner is preserved. Raw CLI bytes
+    # are unchanged apart from the two fence markers.
+    lines.append("```text")
     lines.extend(_banner_lines())
+    lines.append("```")
     lines.append("")
     lines.append(_HEAVY)
     lines.append(f" TAILTRAIL START PLAN — run {envelope.get('run_id', 'unknown')}")

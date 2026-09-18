@@ -56,6 +56,26 @@ FLOWS: dict[str, IntentFlow] = {
         validation=["project-specific focused test or check when available"],
         notes=["Use lean mode when the user asks for the smallest useful version."],
     ),
+    "guide": IntentFlow(
+        name="guide",
+        title="TailTrail Guide",
+        prompt=(
+            "Answer the user's read-only question from the relevant files. "
+            "Do not create a Planning Lock, do not implement, and do not run project commands. "
+            "Read-only TailTrail inspection commands (graph, map) may be run to gather facts. "
+            "For a repo-overview question, structure the answer in this order: "
+            "1) functional idea first — what the system does and who it serves, with a simple text flow diagram and flow lines showing how a request moves through the parts; "
+            "2) how it is built — language, frameworks, dependencies, build and test commands; "
+            "3) deployment pattern — containers, compose, orchestration, infrastructure-as-code, environments; "
+            "4) code map — important files and folders with one line each on what lives there. "
+            "If the answer reveals follow-up work, propose it and wait for approval instead of starting it."
+        ),
+        load=["AGENTS.md", "tailtrail-policy.md when present", "README.md", "requirements.txt or manifest", "infra/ and services/ layout", "exact relevant source files"],
+        avoid=["ROADMAP.md", "DESIGN.md", "all examples", "unrelated lifecycle artifacts", "Planning Lock creation", "implementation edits", "project command execution"],
+        run_order=["understand question", "inspect relevant code read-only", "run read-only tailtrail graph or map commands when the question needs them", "answer functional idea with flow diagram first", "answer build, tech, and deployment", "answer code map", "propose follow-up work without starting it"],
+        validation=["no Planning Lock was created", "no source file was modified", "no project command was run", "answer covers function, flow, build, deployment, and code map in order"],
+        notes=["Route here for tell-me/show-me/explain questions with no change verb. A later explicit task still needs its own Start and approval."],
+    ),
     "delivery": IntentFlow(
         name="delivery",
         title="TailTrail Delivery Flow",
@@ -631,6 +651,8 @@ def resolve_request(value: str, *, active_state: str = "none") -> dict[str, Any]
         return _envelope(value, active_state, "guide", goal=guide_goal, matched_by="explicit-guide")
     if re.search(r"\b(show me (?:how|an approach)|how should|safest approach|guide me|what approach)\b", normalized):
         return _envelope(value, active_state, "guide", goal=raw, confidence="medium", matched_by="advisory-language")
+    if active_state == "none" and is_informational_question(raw):
+        return _envelope(value, active_state, "guide", goal=raw, confidence="medium", matched_by="informational-question")
 
     start_goal = _extract_wrapped_goal(raw, "start")
     if start_goal:
@@ -708,10 +730,30 @@ def normalize_prompt(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower())
 
 
+TASK_VERBS = r"\b(fix|add|change|create|debug|diagnose|implement|refactor|reject|remove|replace|update)\b"
+QUESTION_PATTERN = r"\b(tell me|what are|what is|what's|list|describe|explain|summarize|summarise|show me|overview|which features|what features|code graph|call graph|read order|generate the .* graph|show .* graph)\b"
+
+
+def is_informational_question(value: str) -> bool:
+    """Detect read-only questions that must not become a Planning Lock.
+
+    A change verb or hands-free cue keeps task routing; otherwise tell-me /
+    explain-style asks route to guide (answer only, no implementation).
+    """
+    text = normalize_prompt(value)
+    return (
+        bool(re.search(QUESTION_PATTERN, text))
+        and not re.search(TASK_VERBS, text)
+        and not _explicit_hints(value)["hands_free"]
+    )
+
+
 def resolve_intent(value: str) -> str:
     text = normalize_prompt(value)
     if text in FLOWS:
         return text
+    if is_informational_question(value):
+        return "guide"
     for name, pattern in ALIASES:
         if re.search(pattern, text):
             return name

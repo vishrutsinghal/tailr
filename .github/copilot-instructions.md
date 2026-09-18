@@ -138,7 +138,7 @@ If these files are not present, still follow the Core Rules above.
 
 ## Short TailTrail Commands
 
-When the user says a short command such as `hello tailtrail`, `tailtrail hello`, `use TailTrail`, `use review`, `use dependency gate`, `use AIDLC`, `use AIDLC and review`, `review then AIDLC`, `use handoff`, or `save tokens`, resolve it before acting.
+When the user says a short command such as `hello tailtrail`, `tailtrail hello`, `use TailTrail`, `use review`, `use dependency gate`, `use AIDLC`, `use AIDLC and review`, `review then AIDLC`, `use handoff`, or `save tokens`, resolve it before acting. Read-only questions (tell me, what are, list, describe, explain, or generate/show a graph or summary with no change verb) resolve to the guide flow: answer directly and never create a Planning Lock for them.
 
 For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, `hello tailtrial`, or `tailtrail hello`, run `tailtrail hello` when the launcher is installed, otherwise run `python3 scripts/tailtrail.py hello`. Return the ASCII TailTrail banner and installation result **verbatim as the complete response**. Preserve the command-emitted `text` fence so chat Markdown cannot distort the fixed-width banner; never strip the fence or reconstruct the banner. Do not preface it with narration, summarize it, add a todo/status update, omit the banner, or suggest `doctor` after it. If the command fails, return its actual error output verbatim instead.
 

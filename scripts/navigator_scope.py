@@ -2151,7 +2151,7 @@ def investigate(
         elif repository_role == "test" and path in owner_paths:
             row["role"] = "test"
             row["status"] = "included" if test_only_task else "proof-only"
-            row["confidence"] = "high" if row["evidence_edge_ids"] else "medium"
+            row["confidence"] = "high" if any(edge["strength"] == "strong" and row["candidate_id"] in {edge["from_candidate_id"], edge["to_candidate_id"]} for edge in edges) else "medium"
             reasons.add(
                 "test-only-task-owner"
                 if test_only_task
@@ -2179,7 +2179,7 @@ def investigate(
             # silently discard every lexically-discovered test candidate below.
             row["role"] = "test"
             row["status"] = "included"
-            row["confidence"] = "high" if row["evidence_edge_ids"] else "medium"
+            row["confidence"] = "high" if any(edge["strength"] == "strong" and row["candidate_id"] in {edge["from_candidate_id"], edge["to_candidate_id"]} for edge in edges) else "medium"
             reasons.add("test-only-task")
         elif row["role"] == "test" and set(row["seed_sources"]) <= {"lexical-body", "lexical-path", "repository-structure"}:
             row["status"] = "excluded"

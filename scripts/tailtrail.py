@@ -188,7 +188,11 @@ def json_output_requested(args: list[str]) -> bool:
 
 
 def startup_banner_lines(columns: int | None = None) -> list[str]:
-    """Render a terminal-safe banner without assuming the host panel width."""
+    """Render the canonical TailTrail banner.
+
+    The banner is always wrapped in a markdown fence by the caller when
+    output is captured, which preserves its fixed-width alignment in chat.
+    """
     feature_rows = (
         "PLAN     Navigator | AIDLC | Intent Bridge",
         "MAP      Code Graph | Req Map | UI Guard",
@@ -206,8 +210,7 @@ def startup_banner_lines(columns: int | None = None) -> list[str]:
         else:
             # Captured output is commonly pasted into a narrower chat panel.
             columns = 46
-    # Category rows remain single-line. Markdown-fenced Start output scrolls on
-    # panels narrower than this minimum instead of reflowing the ASCII design.
+    # Borders carry no spaces so any panel width renders them intact.
     outer_width = max(46, min(int(columns), 72))
     content_width = outer_width - 4
     rendered_rows = ["TAILTRAIL"]

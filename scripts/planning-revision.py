@@ -181,6 +181,23 @@ def _sync_requirement_projections(report: dict[str, Any], rows: list[dict[str, A
         str(row.get("requirement_id") or REQUIREMENTS.stable_requirement_id(str(row.get("statement", ""))))
         for row in rows
     }
+    navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else {}
+    frame = navigator.get("requirement_query_frame") if isinstance(navigator, dict) else None
+    superseded_ids: dict[str, str] = {}
+    if isinstance(frame, dict):
+        previous = {
+            str(item.get("display_id", "")): str(item.get("requirement_id", ""))
+            for item in frame.get("requirements", [])
+            if isinstance(item, dict)
+        }
+        current = {
+            str(row.get("display_id")): str(row.get("requirement_id") or REQUIREMENTS.stable_requirement_id(str(row.get("statement", ""))))
+            for row in rows
+        }
+        for display_id, old_id in previous.items():
+            new_id = current.get(display_id)
+            if new_id and old_id and new_id != old_id and display_id not in removed_display_ids:
+                superseded_ids[old_id] = new_id
     # Derived projections use both human-facing display IDs and stable query
     # frame IDs. Resolve the stable IDs of removed rows before pruning so a
     # revision cannot retain either representation, while active stable IDs do
@@ -218,6 +235,24 @@ def _sync_requirement_projections(report: dict[str, Any], rows: list[dict[str, A
                 prune(item)
 
     prune(report)
+    if superseded_ids:
+        # A requirement-update rewords the statement, which regenerates its
+        # stable ID. Remap surviving references (e.g. the scope host packet
+        # route) to the new ID so the revision converges instead of failing
+        # closed. References to removed requirements are left alone and the
+        # stale-reference gate below still rejects them.
+        def remap(value: Any) -> None:
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    if key == "requirement_ids" and isinstance(item, list):
+                        value[key] = [superseded_ids.get(str(identifier), identifier) for identifier in item]
+                    else:
+                        remap(item)
+            elif isinstance(value, list):
+                for item in value:
+                    remap(item)
+
+        remap(report)
     navigator = report.setdefault("navigator", {})
     frame = navigator.get("requirement_query_frame")
     if isinstance(frame, dict):
@@ -295,7 +330,17 @@ def _candidate(evidence: dict[str, Any], path: str) -> dict[str, Any] | None:
 
 def _ensure_v2_requirement(evidence: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
     try:
-        return _scope_requirement(evidence, row)
+        matched = _scope_requirement(evidence, row)
+        # A requirement-update rewords the statement, regenerating its stable
+        # ID. Carry the new identity into the evidence row so rebuilt packets
+        # (route.requirement_ids) converge instead of retaining the old ID.
+        current_id = str(row.get("requirement_id") or REQUIREMENTS.stable_requirement_id(str(row.get("statement", ""))))
+        if matched.get("requirement_id") != current_id:
+            matched["requirement_id"] = current_id
+            matched["query_terms"] = REQUIREMENTS.query_terms(str(row.get("statement", "")))
+            if "statement_fingerprint" in matched:
+                matched["statement_fingerprint"] = SCOPE.fingerprint(str(row.get("statement", "")))
+        return matched
     except ValueError:
         candidates = [item for item in evidence.get("candidates", []) if isinstance(item, dict)]
         created = {

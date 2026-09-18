@@ -313,6 +313,44 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(approved.returncode, 0, approved.stderr + approved.stdout)
         self.assertIn("# TailTrail Execution Handoff", approved.stdout)
 
+    def test_requirement_update_remaps_scope_packet_references(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self.v2_plan(root, "v2-reword")
+            before = lock.active_start_report(root, "v2-reword")["report"]
+            old_ids = {
+                str(item.get("requirement_id", ""))
+                for item in before["navigator"]["requirement_query_frame"]["requirements"]
+                if isinstance(item, dict)
+            }
+            change = json.dumps([{
+                "kind": "requirement-update", "requirement_uid": "REQ-01",
+                "statement": "Fix owner behavior and reject empty names.",
+                "retain_scope_confirmed": True,
+                "reason": "Clarify acceptance without changing ownership.",
+            }])
+            proposed = revision.propose(root, "v2-reword", change, True)
+            shown = revision.show(root, "v2-reword", 2)
+            revised = shown["proposed_report"]
+
+            def requirement_id_lists(value, path="report"):
+                found = []
+                if isinstance(value, dict):
+                    for key, item in value.items():
+                        if key == "requirement_ids" and isinstance(item, list):
+                            found.extend((path, str(identifier)) for identifier in item)
+                        else:
+                            found.extend(requirement_id_lists(item, f"{path}.{key}"))
+                elif isinstance(value, list):
+                    for index, item in enumerate(value):
+                        found.extend(requirement_id_lists(item, f"{path}[{index}]"))
+                return found
+
+        self.assertEqual(proposed["revision"], 2)
+        self.assertIn("Fix owner behavior and reject empty names.", revised["navigator"]["requirement_matrix"][0]["statement"])
+        leftovers = [(path, identifier) for path, identifier in requirement_id_lists(revised) if identifier in old_ids]
+        print("LEFTOVER:", leftovers)
+        self.assertFalse(leftovers, "superseded frame IDs must not survive the revision")
+
     def test_public_cli_switches_lite_to_standard_without_activating_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); compatible_pack(root); self.plan(root, "cli-standard")

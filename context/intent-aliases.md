@@ -27,6 +27,7 @@ grants execution authority.
 | Flow | Common User Phrases | Purpose |
 |---|---|---|
 | `hello` | `hello tailtrail`, `hello TailTrail`, `hello taitrail`, `hello tailtrial`, `tailtrail hello`, `hi tailtrail`, `ping tailtrail` | Run the TailTrail install smoke check and return its banner/status output exactly, preserving the command-emitted `text` fence in chat. |
+| `guide` | `tell me ...`, `what are ...`, `list ...`, `describe ...`, `explain ...` (with no change verb) | Answer the read-only question directly from the relevant files. Never create a Planning Lock, implement, or run project commands for it. |
 | `implementation` | `use tailtrail`, `implement`, `small change`, `fix this` | Normal TailTrail coding discipline. |
 | `delivery` | `use delivery flow`, `feature flow`, `end-to-end flow` | Plan, implement, validate, review, and hand off meaningful feature work. |
 | `risk` | `use risk flow`, `risk review`, `production risk` | Review dependency, security, validation, data integrity, rollout, and ownership risk. |
