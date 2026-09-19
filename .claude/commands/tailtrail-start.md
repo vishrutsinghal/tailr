@@ -17,7 +17,7 @@ Exception for a saved Standard or Full official-AIDLC stage with
 `official-aidlc-host-generation-required`: read its pinned official
 Requirements Analysis and question-format rules, generate and record the
 official questions/options with TailTrail advisory recommendation and reasoning,
-then return that same run's complete Official AI-DLC Requirements report. Do not
+then return that same run's complete Official AI-DLC Requirements report. Do this in the same turn: for an official run, never end the turn at the Start Report — read the rules, generate and record the questions, and return the Requirements report before stopping. Do not
 inspect source or implement work.
 Do not implement, edit source, run tests/scanners/Terraform, or mutate Git.
 

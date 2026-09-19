@@ -2732,6 +2732,9 @@ def focused_validation_command(root: Path, impacted: list[dict[str, Any]], comma
     ]
     if not test_paths:
         return None
+    # Package markers discover no tests; prefer a real test module so the
+    # suggested command cannot pass vacuously with zero tests.
+    test_paths = sorted(test_paths, key=lambda path: Path(path).name == "__init__.py")
     test_path = Path(test_paths[0])
     candidate = root / test_path
     try:

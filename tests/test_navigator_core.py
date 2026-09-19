@@ -844,6 +844,19 @@ class NavigatorCoreTests(unittest.TestCase):
             )
         self.assertEqual(command, "python3 -m unittest discover -s tests/unit -p test_validation.py -v")
 
+    def test_start_focused_validation_prefers_real_test_module_over_init(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests").mkdir(parents=True)
+            (root / "tests" / "__init__.py").write_text("", encoding="utf-8")
+            (root / "tests" / "test_notify.py").write_text("import unittest\n", encoding="utf-8")
+            command = task_start.focused_validation_command(
+                root,
+                [{"path": "tests/__init__.py", "role": "test"}, {"path": "tests/test_notify.py", "role": "test"}],
+                "python3",
+            )
+        self.assertEqual(command, "python3 -m unittest discover -s tests -p test_notify.py -v")
+
     def test_start_verbose_report_has_required_feature_and_evidence_sections(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

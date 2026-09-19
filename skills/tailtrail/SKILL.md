@@ -102,7 +102,7 @@ When the current user message explicitly names TailTrail and includes a task
 goal, treat it as a planning-only Start even without command syntax or file
 paths. Preserve the task words as the goal and let Navigator discover scope and
 controls. Requests asking only for an approach route to `guide`; active-run why
-questions route to `discuss`. Read-only questions (tell me, what are, list, describe, explain, or generate/show a graph or summary with no change verb) resolve to the guide flow: answer directly and never create a Planning Lock for them. Never treat `looks good`, `go ahead`, or similar
+questions route to `discuss`. Read-only questions (tell me, what are, list, describe, explain, or generate/show a graph or summary with no change verb) resolve to the guide flow: run the intent expander first (`tailtrail intent "<words>"`), follow its briefing to answer directly, and never create a Planning Lock for them. Never treat `looks good`, `go ahead`, or similar
 wording as approval. `tailtrail intent resolve "<words>"` and MCP
 `intent_resolve` are read-only recommendations and grant no authority.
 

@@ -218,6 +218,7 @@ class ExpandIntentTests(unittest.TestCase):
                     self.assertIn("read-only questions", body)
                 self.assertIn("guide", body)
                 self.assertIn("never create a planning lock", body)
+                self.assertIn('tailtrail intent "<words>"', body)
 
 
 if __name__ == "__main__":

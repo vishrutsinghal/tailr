@@ -37,8 +37,7 @@ the report. Generate only material official questions and options; include
 requirement IDs, decision class and impact, known context, evidence references,
 and attach a TailTrail advisory recommendation and evidence-grounded reasoning to each,
 record them with `tailtrail planning official-aidlc-questions`, and return the
-complete `TailTrail Official AI-DLC Requirements` report for the same run. Do
-not inspect project source, present inventory hypotheses as confirmed source
+complete `TailTrail Official AI-DLC Requirements` report for the same run. Do this in the same turn: for an official run, never end the turn at the Start Report — read the rules, generate and record the questions, and return the Requirements report before stopping. Do not inspect project source, present inventory hypotheses as confirmed source
 behavior, implement work, or claim the recommendations are
 official-pack text; the user may choose any option or Other with detail.
 

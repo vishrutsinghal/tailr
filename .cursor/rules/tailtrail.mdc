@@ -61,7 +61,7 @@ For broad or noisy work, load `context/TailTrail.map.md` first and select one sl
 
 If local scripts are available, use `python3 scripts/token-auto.py "<prompt>"` for the backend decision.
 
-Use short TailTrail commands through the intent expander. Read-only questions (tell me, what are, list, describe, explain, or generate/show a graph or summary with no change verb) resolve to the guide flow: answer directly and never create a Planning Lock for them.
+Use short TailTrail commands through the intent expander. Read-only questions (tell me, what are, list, describe, explain, or generate/show a graph or summary with no change verb) resolve to the guide flow: run the intent expander first (`tailtrail intent "<words>"`), follow its briefing to answer directly, and never create a Planning Lock for them.
 
 - `hello tailtrail`, `hello TailTrail`, `hello taitrail`, `hello tailtrial`, or `tailtrail hello`: run `tailtrail hello` when available, otherwise run `python3 scripts/tailtrail.py hello`. Return the ASCII TailTrail banner and installation result **verbatim as the complete response**. Preserve the command-emitted `text` fence so chat Markdown cannot distort the fixed-width banner; never strip the fence or reconstruct the banner. Do not preface it with narration, summarize it, add a todo/status update, omit the banner, or suggest `doctor` after it. If the command fails, return its actual error output verbatim instead.
 - `use TailTrail`

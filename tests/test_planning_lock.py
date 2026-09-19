@@ -25,6 +25,77 @@ ledger = load("planning_lock_ledger_test", "scripts/run-ledger.py")
 
 
 class PlanningLockTests(unittest.TestCase):
+    def test_proof_runner_uses_bare_interpreter_not_launcher_path(self) -> None:
+        self.assertEqual(lock._proof_runner("python3 D:/proj/.tailtrail/install/payload/codex/scripts/tailtrail.py"), "python3")
+        self.assertEqual(lock._proof_runner("python D:/proj/scripts/tailtrail.py"), "python")
+        self.assertEqual(lock._proof_runner("py -3 D:/proj/tailtrail.py"), "py -3")
+        self.assertEqual(lock._proof_runner("python3"), "python3")
+        self.assertEqual(lock._proof_runner(""), "python3")
+
+    def test_resolved_validation_prefers_real_test_module_over_init(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "notify on status change", "plan-proof-cmd")
+            report = {
+                "goal": "notify on status change",
+                "command_prefix": "python3 D:/proj/.tailtrail/install/payload/codex/scripts/tailtrail.py",
+                "navigator": {"likely_impacted_files": [{"path": "tests/__init__.py"}, {"path": "tests/test_notify.py"}]},
+                "guided_delivery": {},
+            }
+            path = lock.start_report_path(root, "plan-proof-cmd")
+            ledger.atomic_json(path, {"report": report})
+            resolved = lock._resolved_aidlc_plan(root, "plan-proof-cmd", {"requirements": [{
+                "requirement_uid": "req-1", "display_id": "REQ-01",
+                "validation_contract": {"tiers": ["e2e"]},
+            }]})
+        self.assertEqual(resolved["validation"], [{
+            "tier": "e2e", "candidate": "tests/test_notify.py",
+            "command": "python3 -m unittest discover -s tests -p test_notify.py -v",
+        }])
+
+    def test_official_revision_binds_saved_v2_scope_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "notify on status change", "plan-official-scope")
+            scope = {
+                "decision_fingerprint": "sha256:abc",
+                "implementation_owners": ["src/notify.py"],
+                "inspection_paths": [],
+                "proof_paths": ["tests/test_notify.py"],
+            }
+            ledger.atomic_json(lock.start_report_path(root, "plan-official-scope"), {"report": {
+                "goal": "notify on status change",
+                "navigator": {"requirement_matrix": [{
+                    "requirement_uid": "req-1", "display_id": "REQ-01",
+                    "statement": "Notify on status change.",
+                    "likely_paths": ["tests/test_notify.py"], "scope_evidence": scope,
+                    "validation_contract": {"state": "required", "tiers": ["unit"]},
+                }], "scope_evidence": {"schema_version": "2", "decision_fingerprint": "sha256:abc"}},
+            }})
+            revision = {"requirements": [{"requirement_uid": "req-1", "display_id": "REQ-01", "statement": "Notify on status change.", "validation_contract": {"state": "required", "tiers": ["unit"]}}]}
+            bound = lock._bind_official_scope_mapping(root, "plan-official-scope", revision)
+            result = lock._validate_aidlc_scope_mapping(root, "plan-official-scope", bound)
+        row = bound["requirements"][0]
+        self.assertEqual(row["likely_paths"], ["src/notify.py"])
+        self.assertEqual(row["scope_evidence"]["decision_fingerprint"], "sha256:abc")
+        self.assertEqual(row["validation_contract"]["editable_paths"], ["tests/test_notify.py"])
+        self.assertEqual(result["status"], "matched")
+
+    def test_official_revision_without_saved_mapping_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "notify on status change", "plan-official-scope-missing")
+            ledger.atomic_json(lock.start_report_path(root, "plan-official-scope-missing"), {"report": {
+                "goal": "notify on status change",
+                "navigator": {"requirement_matrix": [{
+                    "requirement_uid": "req-1", "display_id": "REQ-01", "statement": "Notify.",
+                }]},
+            }})
+            with self.assertRaisesRegex(ValueError, "no saved v2 scope mapping"):
+                lock._bind_official_scope_mapping(root, "plan-official-scope-missing", {"requirements": [{
+                    "requirement_uid": "req-1", "display_id": "REQ-01", "statement": "Notify.",
+                }]})
+
     def test_official_question_recorder_supports_stdin_for_large_windows_payloads(self) -> None:
         source = (ROOT / "scripts" / "planning_lock.py").read_text(encoding="utf-8")
         self.assertIn('official_question_source.add_argument("--questions-stdin"', source)

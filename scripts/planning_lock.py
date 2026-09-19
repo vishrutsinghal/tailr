@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
 import hashlib
 import importlib.util
 import json
@@ -827,6 +828,23 @@ def _ensure_evidence_capability(path: Path, revision: dict[str, Any]) -> dict[st
     return capability
 
 
+def _proof_runner(command_prefix: str) -> str:
+    """Derive a bare interpreter for proof commands from a launcher invocation.
+
+    The saved command prefix names the TailTrail launcher (for example
+    `python3 path/to/tailtrail.py`); proof must run under the interpreter,
+    never by appending unittest flags to the launcher path.
+    """
+    lowered = str(command_prefix or "").lower().lstrip()
+    if lowered.startswith("py -3 "):
+        return "py -3"
+    if lowered.startswith("python3 "):
+        return "python3"
+    if lowered.startswith("python "):
+        return "python"
+    return "python3"
+
+
 def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> dict[str, Any]:
     """Project the saved Navigator plan through resolved AIDLC decisions."""
     report = _saved_start_report(root, run_id)
@@ -840,6 +858,9 @@ def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> d
             candidates = [str(row.get("path")) for row in impacted if f"/tests/{tier}/" in f"/{str(row.get('path', '')).replace(chr(92), '/')}" or (tier == "behaviour" and "/tests/behavior/" in f"/{str(row.get('path', '')).replace(chr(92), '/')}")]
             if not candidates:
                 candidates = [str(row.get("path")) for row in impacted if str(row.get("path", "")).replace("\\", "/").startswith("tests/")]
+            # Package markers discover no tests; prefer a real test module so
+            # the resolved command cannot pass vacuously with zero tests.
+            candidates = sorted(candidates, key=lambda path: Path(path).name == "__init__.py")
             candidate = candidates[0] if candidates else "approved evidence receipt"
             key = (str(tier), candidate)
             if key in seen:
@@ -847,7 +868,7 @@ def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> d
             seen.add(key)
             if candidate.startswith("tests/"):
                 path = Path(candidate)
-                command = f"{report.get('command_prefix', 'python3')} -m unittest discover -s {path.parent.as_posix()} -p {path.name} -v"
+                command = f"{_proof_runner(report.get('command_prefix', 'python3'))} -m unittest discover -s {path.parent.as_posix()} -p {path.name} -v"
             else:
                 command = "Record a requirement-linked approved evidence receipt."
             validation.append({"tier": str(tier), "candidate": candidate, "command": command})
@@ -1281,6 +1302,42 @@ def _official_aidlc_artifact(root: Path, run_id: str, name: str) -> Path:
     return path
 
 
+def _bind_official_scope_mapping(root: Path, run_id: str, revision: dict[str, Any]) -> dict[str, Any]:
+    """Bind authority-owned official rows to the saved Navigator scope truth.
+
+    Official wording and decisions stay untouched; each row receives the
+    local implementation-owner, inspection, and proof mapping (plus the
+    matching editable paths) from the Start matrix row with the same
+    display ID. Without this binding the approval gate cannot verify the
+    saved v2 decision fingerprint.
+    """
+    saved = _saved_start_report(root, run_id)
+    navigator = saved.get("navigator", {}) if isinstance(saved, dict) else {}
+    matrix = {
+        str(row.get("display_id")): row
+        for row in navigator.get("requirement_matrix", [])
+        if isinstance(row, dict)
+    }
+    for row in revision.get("requirements", []):
+        if not isinstance(row, dict):
+            continue
+        source = matrix.get(str(row.get("display_id")))
+        if not isinstance(source, dict) or not isinstance(source.get("scope_evidence"), dict):
+            raise ValueError(f"Official requirement `{row.get('display_id')}` has no saved v2 scope mapping to bind")
+        scope = copy.deepcopy(source["scope_evidence"])
+        row["scope_evidence"] = scope
+        # The editable scope is exactly the saved v2 owners. Start rows in
+        # test-only/supporting modes list proof paths as likely paths; those
+        # belong to the validation contract, not the editable union.
+        row["likely_paths"] = sorted({str(path) for path in scope.get("implementation_owners", []) if str(path).strip()})
+        contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
+        if isinstance(contract, dict):
+            proof = sorted({str(path) for path in scope.get("proof_paths", []) if str(path).strip()})
+            editable = {str(path) for path in contract.get("editable_paths", []) if str(path).strip()}
+            contract["editable_paths"] = sorted(editable | set(proof))
+    return revision
+
+
 def submit_official_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str, Any]:
     root = root.resolve()
     if show(root, run_id)["status"] != "awaiting-approval":
@@ -1290,6 +1347,7 @@ def submit_official_aidlc_answers(root: Path, run_id: str, answers_json: str) ->
         raise ValueError("The configured host must first record official Requirements Analysis questions with `official-aidlc-questions`; TailTrail will not substitute a local questionnaire.")
     stage = {**document["official_stage"], "requirements": document["requirements"], "questions": document["questions"]}
     revision = _official_aidlc_requirements_module().revise(stage, json.loads(answers_json))
+    revision = _bind_official_scope_mapping(root, run_id, revision)
     evidence_capability = _evidence_tiers_module().compile_requirements(revision["requirements"])
     revision_path = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
     payload = {"schema_version": "1", "type": "tailtrail-official-aidlc-revised-requirements", "run_id": run_id, "source_boundary": document["source_boundary"], "question_revision": document.get("question_revision", 1), "official_references": document["official_stage"]["official_references"], "evidence_capability": evidence_capability, "resolved_plan": _resolved_aidlc_plan(root, run_id, revision), **revision}

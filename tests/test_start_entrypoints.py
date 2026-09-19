@@ -149,6 +149,22 @@ class StartEntrypointTests(unittest.TestCase):
                 self.assertIn("Intent Bridge", body)
                 self.assertIn("closure", body.lower())
 
+    def test_official_runs_require_same_turn_question_generation(self) -> None:
+        guidance = (
+            "AGENTS.md",
+            "CLAUDE.md",
+            "adapters/claude.md",
+            "adapters/copilot-instructions.md",
+            ".github/copilot-instructions.md",
+            ".claude/commands/tailtrail-start.md",
+            ".github/prompts/tailtrail-start.prompt.md",
+        )
+        for relative_path in guidance:
+            with self.subTest(path=relative_path):
+                body = (ROOT / relative_path).read_text(encoding="utf-8").lower()
+                body = " ".join(body.split())
+                self.assertIn("never end the turn at the start report", body)
+
     def test_host_entrypoints_consume_scope_v2_before_planning_lock(self) -> None:
         guidance = (
             "AGENTS.md",
