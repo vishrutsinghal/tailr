@@ -9,13 +9,13 @@ import hashlib
 import importlib.util
 import json
 import re
-import shlex
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import requirement_evidence
+from shell_quote import quote
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,14 +90,14 @@ def _continuation(
             "lite-questions": "lite",
         }[intake_identity["route"]]
         host = intake_identity.get("host", "none")
-        host_argument = "" if host == "none" else f" --host {shlex.quote(host)}"
+        host_argument = "" if host == "none" else f" --host {quote(host)}"
         return {
             "action": "requirements-resume",
             "intake_id": intake_id,
             "prompt": f"Resume TailTrail requirement intake {intake_id} and continue its {mode} route.",
             "command": (
-                f"{command_prefix} start {shlex.quote(intake_identity['goal'])} "
-                f"--root {shlex.quote(intake_identity['root'])} "
+                f"{command_prefix} start {quote(intake_identity['goal'])} "
+                f"--root {quote(intake_identity['root'])} "
                 f"--requirement-intake-id {intake_id} --aidlc {mode}{host_argument}"
             ),
             "boundary": "Resuming consumes only this goal/root/host-bound answered intake, then re-evaluates requirements before graph, scope, or Planning Lock work.",

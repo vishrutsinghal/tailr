@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import subprocess
 from datetime import datetime, timezone
@@ -71,7 +72,7 @@ ALLOWED_PYTHON_MODULES = {"pytest", "ruff", "mypy", "tox"}
 
 def classify(command: str) -> dict[str, Any]:
     try:
-        parts = shlex.split(command)
+        parts = shlex.split(command, posix=os.name != "nt")
     except ValueError as error:
         return {"allowed": False, "classification": "blocked", "reasons": [f"Command could not be parsed: {error}"], "parts": []}
     lowered = [part.lower() for part in parts]

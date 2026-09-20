@@ -20,6 +20,7 @@ Use TailTrail as the project workflow for local development.
 
 - Intent: `scripts/expand-intent.py` or `tailtrail intent ...`; fallback `context/intent-aliases.md` (+ `.tailtrail/intent-overrides.json`).
 - Commands and flows: `TAILTRAIL-COMMANDS.md`; lifecycle: `AIDLC.md` + `aidlc-docs/aidlc-state.md`; bugs: `DEBUG-HARNESS.md`; risks: `GUARDRAILS.md` + `context/guardrail-layers.md`; deps: `DEPENDENCY-GATE.md`.
+- Portable commands: quote for the host shell (POSIX single-quotes break `cmd.exe`; `list2cmdline` quoting on Windows); prefer `sys.executable -m ...` proofs that run on sh, cmd, and PowerShell.
 
 <!-- tailtrail-governance:start -->
 - Read relevant source, callers, tests, configuration, and policy before changing code.
@@ -34,4 +35,4 @@ Use TailTrail as the project workflow for local development.
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `537aff1de58f` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `3817a1a4aba4` — quote this line if asked whether instructions are current._

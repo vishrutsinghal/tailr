@@ -1269,6 +1269,10 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
         selected = official_aidlc_bridge.preflight(root, "standard", manifest)
         selected["selection"] = "explicit-natural-language-standard"
         selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Standard mode covers the requested AIDLC depth without a Full official lifecycle transition."}
+    elif routing["selected"]:
+        selected = official_aidlc_bridge.preflight(root, "standard", manifest)
+        selected["selection"] = "navigator-risk-routing"
+        selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Navigator found multiple consequential requirement or risk signals; Standard mode covers this depth without a Full official lifecycle transition."}
     elif scope_signal:
         selected = official_aidlc_bridge.preflight(root, "standard", manifest)
         selected["selection"] = "scope-complexity-standard"

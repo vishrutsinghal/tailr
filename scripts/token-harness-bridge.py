@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -373,7 +374,7 @@ def command_from_policy_or_arg(root: Path, adapter_command: str | None) -> str:
 def run_adapter(adapter_command: str, payload: dict[str, Any]) -> tuple[int, str, str]:
     if not adapter_command.strip():
         raise SystemExit("Bridge run blocked.\nReason: no adapter command configured\nFallback: exact original or internal structured reducer")
-    command = shlex.split(adapter_command)
+    command = shlex.split(adapter_command, posix=os.name != "nt")
     if not command:
         raise SystemExit("Bridge run blocked.\nReason: adapter command is empty\nFallback: exact original or internal structured reducer")
     result = subprocess.run(

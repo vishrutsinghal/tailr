@@ -428,7 +428,7 @@ def _extract_wrapped_goal(value: str, action: str) -> str | None:
             goal = match.group(1).strip()
             if action in {"start", "guide"} and goal.startswith(('"', "'")):
                 try:
-                    tokens = shlex.split(goal)
+                    tokens = shlex.split(goal, posix=os.name != "nt")
                 except ValueError:
                     tokens = []
                 if tokens:

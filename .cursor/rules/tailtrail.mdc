@@ -27,6 +27,7 @@ Use TailTrail when editing, reviewing, refactoring, or planning code in this wor
 
 - Intent: `scripts/expand-intent.py` or `tailtrail intent ...`; fallback `context/intent-aliases.md` (+ `.tailtrail/intent-overrides.json`).
 - Commands and flows: `TAILTRAIL-COMMANDS.md`; lifecycle: `AIDLC.md` + `aidlc-docs/aidlc-state.md`; bugs: `DEBUG-HARNESS.md`; risks: `GUARDRAILS.md` + `context/guardrail-layers.md`; deps: `DEPENDENCY-GATE.md`.
+- Portable commands: quote for the host shell (POSIX single-quotes break `cmd.exe`; `list2cmdline` quoting on Windows); prefer `sys.executable -m ...` proofs that run on sh, cmd, and PowerShell.
 
 <!-- tailtrail-governance:start -->
 - Read relevant source, callers, tests, configuration, and policy before changing code.
@@ -41,4 +42,4 @@ Use TailTrail when editing, reviewing, refactoring, or planning code in this wor
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `ab5d69b9652e` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `9747ecc7df20` — quote this line if asked whether instructions are current._

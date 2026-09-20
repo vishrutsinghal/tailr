@@ -20,6 +20,7 @@ TailTrail keeps coding work small, clear, and reuse-first.
 
 - Intent: `scripts/expand-intent.py` or `tailtrail intent ...`; fallback `context/intent-aliases.md` (+ `.tailtrail/intent-overrides.json`).
 - Commands and flows: `TAILTRAIL-COMMANDS.md`; lifecycle: `AIDLC.md` + `aidlc-docs/aidlc-state.md`; bugs: `DEBUG-HARNESS.md`; risks: `GUARDRAILS.md` + `context/guardrail-layers.md`; deps: `DEPENDENCY-GATE.md`.
+- Portable commands: quote for the host shell (POSIX single-quotes break `cmd.exe`; `list2cmdline` quoting on Windows); prefer `sys.executable -m ...` proofs that run on sh, cmd, and PowerShell.
 
 ## Synchronized Governance Block
 
@@ -36,4 +37,4 @@ TailTrail keeps coding work small, clear, and reuse-first.
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `1b861a550f34` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `a886a618d8cc` — quote this line if asked whether instructions are current._

@@ -1,0 +1,29 @@
+# Deterministic checkouts across Windows, macOS, and Linux.
+#
+# TailTrail verifies byte hashes in several places (official-pack manifests,
+# adapter integrity, revision stamps). A CRLF checkout of an LF-pinned file
+# changes every hash, so verification would pass on one OS and fail on
+# another. These rules override per-machine core.autocrlf and keep worktree
+# bytes identical everywhere.
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.mdc text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+*.sql text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
+*.diff text eol=lf
+*.log text eol=lf
+*.in text eol=lf
+*.gitignore text eol=lf
+*.png binary
+*.whl binary
+*.zip binary
+*.tar.gz binary

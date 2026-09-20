@@ -1,19 +1,25 @@
-"""Platform-aware shell quoting for managed-command proof strings.
+"""Re-export of the canonical platform-aware shell quoter.
 
-`shlex.quote` emits POSIX single-quote syntax, which `cmd.exe` cannot parse,
-so tests that build proof commands with it fail on Windows with exit code 1
-before the command runs. Use `quote` instead: POSIX behavior on POSIX hosts,
-`subprocess.list2cmdline` quoting on Windows.
+The implementation lives in `scripts/shell_quote.py` (single source of
+truth, reusable by product code); this module keeps the `tests.proc_quote`
+import path stable for existing tests.
 """
 
 from __future__ import annotations
 
-import os
-import shlex
-import subprocess
+import importlib.util
+from pathlib import Path
 
 
-def quote(arg: str) -> str:
-    if os.name == "nt":
-        return subprocess.list2cmdline([arg])
-    return shlex.quote(arg)
+def _load_quote():
+    spec = importlib.util.spec_from_file_location(
+        "tailtrail_shell_quote",
+        Path(__file__).resolve().parents[1] / "scripts" / "shell_quote.py",
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.quote
+
+
+quote = _load_quote()

@@ -20,6 +20,7 @@ Use this file when ChatGPT is working with this repository or when these instruc
 
 - Intent: `scripts/expand-intent.py` or `tailtrail intent ...`; fallback `context/intent-aliases.md` (+ `.tailtrail/intent-overrides.json`).
 - Commands and flows: `TAILTRAIL-COMMANDS.md`; lifecycle: `AIDLC.md` + `aidlc-docs/aidlc-state.md`; bugs: `DEBUG-HARNESS.md`; risks: `GUARDRAILS.md` + `context/guardrail-layers.md`; deps: `DEPENDENCY-GATE.md`.
+- Portable commands: quote for the host shell (POSIX single-quotes break `cmd.exe`; `list2cmdline` quoting on Windows); prefer `sys.executable -m ...` proofs that run on sh, cmd, and PowerShell.
 
 <!-- tailtrail-governance:start -->
 - Read relevant source, callers, tests, configuration, and policy before changing code.
@@ -34,4 +35,4 @@ Use this file when ChatGPT is working with this repository or when these instruc
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `71f0d0f00827` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `99e63d1861b1` — quote this line if asked whether instructions are current._

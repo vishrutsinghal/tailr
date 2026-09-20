@@ -67,6 +67,7 @@ COMMANDS = {
     "quality-loop": "Capture and review TailTrail workflow quality signals.",
     "outcome": "Capture and summarize local TailTrail adoption outcomes.",
     "harness": "Review local TailTrail workflow fit and metric confidence.",
+    "host-reply": "Score a host chat reply against TailTrail command output.",
     "completion-report": "Create the required end-of-task TailTrail Completion Report for one approved run.",
     "closure": "Validate, record, finalize, or route bounded correction for closure evidence.",
     "bootstrap": "Create or inspect a safe pre-task repo/runtime snapshot.",
@@ -1381,6 +1382,11 @@ def main() -> int:
         return run_script("outcome-telemetry.py", args)
     if command == "harness":
         return harness(args)
+    if command == "host-reply":
+        if not args or args[0] != "score":
+            print("Usage: tailtrail host-reply score --report <stdout-file> --reply <reply-file> [--format markdown|json]")
+            return 2
+        return run_script("host-reply-validate.py", args)
     if command == "completion-report":
         return run_script("completion-report.py", args)
     if command == "closure":
