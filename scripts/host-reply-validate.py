@@ -30,12 +30,17 @@ RULES = {
     "fence-altered": "Preserve the command-emitted fenced banner, table pipes, backticks, and spacing; never retype or normalize.",
     "content-added": "Return the report verbatim and stop: no implementation plan, steps, analysis, or guidance after it.",
     "content-removed": "Copy the complete report: no summarizing, trimming, or rewording.",
+    "official-questions-missing": "Official exception: for an official run, never end the turn at the Start Report — generate and record the questions, then return the Requirements report in the same turn.",
 }
 
 RUN_ID_PATTERN = re.compile(r"^- Run ID: `([^`]+)`", re.MULTILINE)
 HEADING_PATTERN = re.compile(r"^(#{1,3} .+?)\s*$", re.MULTILINE)
 FENCE_PATTERN = re.compile(r"^```.*$", re.MULTILINE)
 RUN_ID_CLAIM_PATTERN = re.compile(r"run.?id\s*:", re.IGNORECASE)
+# Rendered stdout never prints the state id; the generation-required report
+# is recognized by its directives to the host.
+OFFICIAL_GENERATION_MARKER = "must load the recorded official rules"
+OFFICIAL_REPORT_MARKER = "Official AI-DLC Requirements"
 
 
 def _lines(text: str) -> list[str]:
@@ -70,6 +75,24 @@ def validate_host_reply(stdout: str, reply: str) -> list[dict[str, str]]:
         add("content-removed", "reply is empty; the complete report is missing")
         return violations
 
+    official_required = OFFICIAL_GENERATION_MARKER in stdout
+    if official_required and OFFICIAL_REPORT_MARKER not in reply:
+        add(
+            "official-questions-missing",
+            "official run ended at the Start Report without the Official AI-DLC Requirements report",
+        )
+    # For official runs the Requirements report is appended after the Start
+    # stdout; verbatim checks apply to the pre-report lines only.
+    if official_required:
+        pre_lines = []
+        for line in reply_lines:
+            if OFFICIAL_REPORT_MARKER in line:
+                break
+            pre_lines.append(line)
+        verbatim_lines = pre_lines
+    else:
+        verbatim_lines = reply_lines
+
     if reply_lines[0].strip() != stdout_lines[0].strip():
         add(
             "report-start",
@@ -98,13 +121,13 @@ def validate_host_reply(stdout: str, reply: str) -> list[dict[str, str]]:
         )
 
     stdout_set = set(stdout_lines)
-    added = [line for line in reply_lines if line not in stdout_set]
+    added = [line for line in verbatim_lines if line not in stdout_set]
     meaningful_added = [line for line in added if line.strip()]
     if meaningful_added:
         shown = "; ".join(line.strip()[:60] for line in meaningful_added[:3])
         add("content-added", f"{len(meaningful_added)} non-report line(s): {shown}")
 
-    reply_set = set(reply_lines)
+    reply_set = set(verbatim_lines)
     removed = [line for line in stdout_lines if line not in reply_set]
     meaningful_removed = [line for line in removed if line.strip()]
     if meaningful_removed:

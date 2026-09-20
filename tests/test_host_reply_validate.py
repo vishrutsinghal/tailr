@@ -46,6 +46,8 @@ CASES = (
     ("scope_stdout.md", "reply_claims_lock.md", ("lock-claimed", "content-added")),
     ("scope_stdout.md", "reply_dropped_question.md", ("content-removed",)),
     ("hello_stdout.md", "hello_narrated.md", ("report-start", "content-added")),
+    ("official_stdout.md", "reply_official_stop.md", ("official-questions-missing",)),
+    ("official_stdout.md", "reply_official_ok.md", ()),
 )
 
 

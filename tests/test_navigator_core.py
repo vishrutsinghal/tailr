@@ -660,6 +660,26 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertEqual(report["guided_delivery"]["mode"], "lean")
         self.assertIn("Lean delivery", {item["name"] for item in report["guided_delivery"]["selected"]})
 
+    def test_official_runs_prepend_the_same_turn_questions_checklist(self) -> None:
+        report = {
+            "aidlc_requirements": {"state": "official-aidlc-host-generation-required"},
+            "next_actions": [{"action": "review", "label": "Review", "when": "Always.", "prompt": "Review."}],
+        }
+        task_start.append_official_questions_action(report, "run-1")
+        first = report["next_actions"][0]
+        self.assertEqual(first["action"], "official-questions")
+        self.assertIn("--run-id run-1", first["prompt"])
+        self.assertIn("Official AI-DLC Requirements report", first["prompt"])
+        self.assertEqual(report["next_actions"][-1]["action"], "review")
+
+    def test_non_official_runs_keep_next_actions_unchanged(self) -> None:
+        report = {"aidlc_requirements": {"state": "authority-bound-in-start-plan"}, "next_actions": []}
+        task_start.append_official_questions_action(report, "run-1")
+        self.assertEqual(report["next_actions"], [])
+        plain: dict[str, object] = {"next_actions": []}
+        task_start.append_official_questions_action(plain, "run-1")
+        self.assertEqual(plain["next_actions"], [])
+
     def test_start_detects_an_inaccessible_target_repo_in_the_goal_before_discovery(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             missing = Path(temp) / "repository-that-does-not-exist"

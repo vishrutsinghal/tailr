@@ -49,6 +49,7 @@ REQUIRED_PHRASES = (
     "CLI fallback",
     "not persisted",
     "quote the `TailTrail instructions revision`",
+    "paste the stdout again",
 )
 
 

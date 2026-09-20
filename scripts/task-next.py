@@ -26,6 +26,7 @@ ACTION_LABELS = {
     "scan-approval": "Approve exactly one scan command, or decline scans.",
     "learning-approval": "Choose how to handle surfaced learnings.",
     "learning-review": "Review learning refresh actions.",
+    "official-questions": "Generate the official Requirements Analysis questions in this same turn.",
     "defer-heavy": "Make the workflow leaner.",
 }
 

@@ -1246,6 +1246,7 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
     if hands_free and (routing["selected"] or scope_signal):
         selected = official_aidlc_bridge.preflight(root, "full", manifest)
         if selected.get("state") == "official-pack-unavailable-fallback":
+            selected["selection"] = "navigator-hands-free-escalation"
             selected["full_escalation"] = {
                 "state": "eligible-awaiting-compatible-pack",
                 "signals": signals,
@@ -1911,6 +1912,34 @@ def next_actions(plan: dict[str, Any]) -> list[dict[str, str]]:
         }
     )
     return actions
+
+
+def append_official_questions_action(report: dict[str, Any], run_id: str) -> dict[str, Any]:
+    """Prepend the deterministic official-questions checklist to a report whose
+    aidlc_requirements state is official-aidlc-host-generation-required.
+
+    The host must read the pinned rules, generate material questions, record
+    them, and return the Requirements report in the same turn instead of
+    stopping at the Start Report. No-op for any other state.
+    """
+    aidlc = report.get("aidlc_requirements")
+    if not isinstance(aidlc, dict) or aidlc.get("state") != "official-aidlc-host-generation-required":
+        return report
+    existing = [item for item in report.get("next_actions", []) if isinstance(item, dict)]
+    official = {
+        "action": "official-questions",
+        "label": "Generate the official Requirements Analysis questions in this same turn.",
+        "when": "Use when the Start report requires official host question generation: never end the turn at the Start Report.",
+        "prompt": (
+            "Read the pinned official Requirements Analysis and question-format rules plus the saved "
+            "Question Orchestrator context, generate only material official questions with requirement IDs, "
+            "decision class and impact, known context, evidence references, advisory recommendation, and reasoning, "
+            f"record them with `tailtrail planning official-aidlc-questions --run-id {run_id} --questions '<json>'`, "
+            "then return the complete Official AI-DLC Requirements report before stopping."
+        ),
+    }
+    report["next_actions"] = [official, *(item for item in existing if item.get("action") != "official-questions")]
+    return report
 
 
 def deterministic_requirement_parser_contract(goal: str) -> dict[str, Any] | None:
@@ -6023,6 +6052,8 @@ def main() -> int:
                 elif effective_aidlc_mode == "full":
                     report["aidlc_requirements"] = planning_lock.request_official_aidlc_requirements(root, created_run_id)
                     report["planning_report"] = planning_lock.enrich_start_report(root, created_run_id, report)
+                if isinstance(report.get("aidlc_requirements"), dict) and report["aidlc_requirements"].get("state") == "official-aidlc-host-generation-required":
+                    append_official_questions_action(report, created_run_id)
                 session_control.attach(root, created_run_id, reason_code="tailtrail-start")
             except Exception:
                 if created_run_id is not None:
