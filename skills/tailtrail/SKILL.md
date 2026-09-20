@@ -17,170 +17,32 @@ Use `steady` unless the user asks for another mode.
 | `lean` | The user asks for the smallest clear implementation | Prefer the shortest maintainable path and call out anything intentionally skipped. |
 | `strict` | Scope is unclear, broad, or likely overbuilt | Challenge unnecessary scope before coding, then propose or build the smallest useful version. |
 
-Mode can be requested in plain language, such as `@tailtrail lean add this endpoint` or `@tailtrail strict review this design`.
-
 ## Trail Check
 
-Before proposing or editing code:
+Before proposing or editing code: confirm the change is needed; inspect the files, callers, tests, and data flow it touches; reuse existing helpers, types, components, and conventions; prefer standard library, platform-native behavior, and installed dependencies; avoid new dependencies unless `DEPENDENCY-GATE.md` approves; choose the smallest maintainable diff; preserve validation, authorization, escaping, accessibility, and explicit requirements. For broad or noisy tasks, pick one slice via `context/Tailtrail.map.md` instead of loading every doc.
 
-1. Confirm the requested change is needed for the stated outcome.
-2. Inspect the files, callers, tests, and data flow that the change touches.
-3. Look for existing helpers, utilities, types, components, conventions, and nearby patterns.
-4. Prefer standard library, platform-native behavior, database constraints, framework features, and already-installed dependencies before adding custom code.
-5. Avoid new dependencies unless they remove meaningful risk or complexity.
-6. Choose the smallest maintainable diff that solves the real problem.
+For an explicit Navigator request, keep the response at the requested depth instead of turning `implementation` into a generic task keyword. Navigator is advisory and deterministic: likely path, impacted files, context to load and avoid, suggested commands, approval questions. Do not run scanners, builds, or learning capture without explicit approval.
 
-For broad, repeated, or noisy tasks, use `context/TailTrail.map.md` to choose one relevant TailTrail slice. Do not load roadmap, design, examples, or future-scope docs unless the task needs them.
+## Core — follow exactly, do not skim
 
-For user requests that are broad, unclear, cross-file, scanner-driven, review-heavy, or likely to involve multiple TailTrail features, use the Navigator-first flow before implementation. Prefer the command surface when available:
+- Navigator-first workflow for non-trivial tasks; ask for approval before implementation. `tailtrail start` is planning-only: never implement, edit, run project/scanner/Terraform/Git commands after planning without a separate explicit `approve` (`looks good` / `go ahead` never approve).
+- MCP first (default path): if the TailTrail MCP server is configured, call the single `tailtrail_start` tool once with `approved: true` — one atomic call, do not split lock/report, nothing to retype. Else if this host can run project commands, run `tailtrail start "<goal>"` (CLI fallback). Else state the plan is not persisted and give the exact command. Return the tool/CLI output as the complete Start Report verbatim (starts `# TailTrail Start Plan`, includes the run ID) outside any collapsible terminal/tool-result panel, then stop. Never synthesize a substitute plan or task list. Verify `Planning Lock`, `Scope`, `Requirements`, `Selected TailTrail features`, `Plan`, `Focused validation`, `Approval`; the selected-features table is mandatory — never replace it with `Next step`. If a section is missing, paste stdout again. For official runs, never end the turn at the Start Report: generate and record questions, then return the Requirements report in the same turn.
+- Before sending any Start, closure, or hello reply: verify the run ID, `text` fence, and required headings are all present; if anything is missing, paste the stdout again instead of sending a partial reply.
+- Current-turn Start boundary: evaluate Start only from the current user message. A prior mention, pasted error output, log, stack trace, or follow-up is not a new Planning Lock. Reuse an awaiting-approval run ID; with no active run and no explicit Start, use guide routing.
+- Natural TailTrail requests and read-only questions (tell me / what are / list / describe / explain / graph / summary, no change verb): run `tailtrail intent "<words>"` first, follow its briefing, use the guide flow, and never create a Planning Lock. `tailtrail intent resolve "<words>"` / MCP `intent_resolve` is read-only and grants no authority.
+- Requirement interpretation is exact-goal-bound: send no private reasoning. Pass artifacts via `requirement_artifact` (SHA-256 bound) before scope; bind clauses with source IDs, keep quoted literals in `quoted`, build requirements from outcome / constraint / scope only, keep questions open. Missing or unreadable artifacts stop before scope and Planning Lock.
+- Scope evidence v2 host boundary: consume the fingerprint plus owner / inspection / proof / excluded roles; never reclassify paths or promote unresolved scope. Scope work happens before Planning Lock persistence; unresolved Build scope creates no lock.
+- `tailtrail stop` is the highest-priority control; `tailtrail resume --run-id <exact-run-id>` only reattaches (never approves or advances). Rejected plan: do not inspect source, tests, scanners, or Git and do not create a new run; return the `feedback-template` blank form for the same run ID (`AIDLC Requirements mode` on second material rejection).
+- Activated run: retain `execution_handoff`, obey `closure.command`; never substitute a generic summary. Lite/Off `approved-plan-auto-grant` continues internally; Standard/Full and Intent Bridge show the defensive handoff. Close with `completion-report` plus `closure finalize`, returning stdout verbatim.
+- `hello tailtrail` variants: run `tailtrail hello`, return the ASCII TailTrail banner plus result verbatim as the complete response, preserve the command-emitted `text` fence, no narration, no todo/status update, never suggest `doctor` after it.
+- After changes: post-change review; scanner approval before heavy commands; learnings as advisory (source / tests / CI / scanners / policy / guardrails / user win); token claims estimated unless measured telemetry; label graph/scanner evidence heuristic, local-ast, provider-backed, measured/validated; follow `tailtrail-policy.md`, never weaken safety rules.
+- Staleness check: when asked whether instructions are current, quote the `TailTrail instructions revision` line verbatim.
 
-```bash
-python3 scripts/tailtrail.py guide "user goal"
-python3 scripts/tailtrail.py next
-```
+## Pointers — load on demand, never paste detail from memory
 
-For an explicit Navigator request, keep the response at the requested depth instead of turning `implementation` into a generic task keyword:
-
-```text
-using TailTrail Navigator, Phase 1
-using TailTrail Navigator, plan Phase 1 before implementation
-using TailTrail Navigator, implement Phase 1
-```
-
-The first form is context discovery; `plan` returns the TailTrail feature decision and requires approval only to create a detailed implementation proposal; `implement` shows both the Navigator decision and the detailed proposal, but still requires a separate implementation approval before edits. If a phase exists in multiple planning documents, do not guess—ask the user to choose the document.
-
-Navigator is advisory and deterministic. It should show the likely TailTrail path, impacted files, context to load, context to avoid, suggested commands, and approval questions. Do not run scanners, vulnerability checks, broad builds, or learning capture without explicit approval.
-
-### Current-turn Start boundary
-
-Evaluate TailTrail Start only from the **current user message**. A prior chat
-mention, pasted **error output**, log, stack trace, or follow-up debugging
-request is not a new Start invocation and must not create a **new Planning Lock**.
-If a persisted run is awaiting approval, reuse its exact run ID and ask
-for approval of that plan. If it is approved, continue the in-scope debugging
-work under the same run without another Start approval. With no active run and
-no explicit Start invocation in the current user message, use ordinary
-TailTrail guidance or advisory `guide` routing.
-
-### Hello command response boundary
-
-For `hello tailtrail`, `hello TailTrail`, `hello taitrail`, or `tailtrail hello`,
-run the real Hello command. Return its ASCII TailTrail banner and installation
-result **verbatim as the complete response**. Preserve the command-emitted
-`text` fence so chat Markdown cannot distort the fixed-width banner; never
-strip the fence or reconstruct the banner. Do not preface it with narration,
-summarize it, add a todo/status update, omit the banner, or suggest `doctor`
-after it. If the command fails, return its actual error output verbatim instead.
-
-`tailtrail start` is a Planning Lock command. It returns a plan only even if the
-same prompt includes implementation wording. When this host can execute project
-commands, run `tailtrail start "<goal>"` and return its complete Start Report
-with run ID; when the local TailTrail MCP server is configured, call the single
-`tailtrail_start` tool with `approved: true`, rather than splitting lock creation
-from plan rendering. After a successful Start tool or CLI invocation, the only
-assistant response is the exact Start Report stdout (starting `# TailTrail Start
-Plan` and including its run ID); copy the complete Start Report verbatim outside any
-collapsible terminal/tool-result panel, then stop. Never synthesize a substitute plan or task list, or add `Steps`,
-`in-progress`, `Next I'll`, an implementation request, test work, documentation,
-branch, or PR work. If stdout cannot be copied, state only that the command report
-could not be copied; do not reconstruct it from the goal.
-Before sending, verify it includes `Planning Lock`, `Scope`, `Requirements`,
-`Selected TailTrail features`, `Plan`, `Focused validation`, and `Approval`; the
-selected-features table is mandatory and may not be shortened, renamed, or replaced
-with `Next step`. If any section is missing, paste CLI stdout again rather than sending
-a partial summary.
-If neither capability exists, say clearly that the plan is not persisted and provide the exact command. Do not edit
-source, run project commands/scanners/Terraform, or mutate Git after planning
-until the user separately approves the exact Planning Lock run ID.
-
-Treat `tailtrail start,`, `tailtrail start:`, and `tailtrail start -` as the
-same explicit command. A `hands-free` or `end-to-end` request requires a
-comprehensive Program Delivery plan—feature requirements, dependency order,
-first active slice, and approval gate—before any execution.
-
-When the current user message explicitly names TailTrail and includes a task
-goal, treat it as a planning-only Start even without command syntax or file
-paths. Preserve the task words as the goal and let Navigator discover scope and
-controls. Requests asking only for an approach route to `guide`; active-run why
-questions route to `discuss`. Read-only questions (tell me, what are, list, describe, explain, or generate/show a graph or summary with no change verb) resolve to the guide flow: run the intent expander first (`tailtrail intent "<words>"`), follow its briefing to answer directly, and never create a Planning Lock for them. Never treat `looks good`, `go ahead`, or similar
-wording as approval. `tailtrail intent resolve "<words>"` and MCP
-`intent_resolve` are read-only recommendations and grant no authority.
-
-For broad, risky, ambiguous, multi-team, regulated, or long-running work, use `AIDLC.md` at the smallest useful depth. Use `templates/change-brief.md` only for non-trivial work, and resume from `aidlc-docs/aidlc-state.md` instead of reloading every lifecycle artifact.
-
-For non-trivial, risky, dependency-sensitive, lifecycle-driven, or unclear work, apply `GUARDRAILS.md`. Use only the relevant guardrail sections; do not load the full file for tiny low-risk edits.
-
-If `tailtrail-policy.md` exists in the target project, follow it for local commands, validation expectations, ownership, restricted folders, dependency approval rules, and security requirements. Treat `tailtrail-policy.example.md` as a template only.
-
-## Implementation Rules
-
-- Read before changing. A small diff in the wrong place is still wrong.
-- Fix shared causes, not just the visible symptom. When touching a function or component, inspect its important callers and fix the common path when that is the real source.
-- Reuse project naming, layout, error handling, validation style, and test style.
-- Prefer direct code over speculative layers, single-use abstractions, future-only configuration, broad rewrites, and scaffolding that the task did not ask for.
-- Keep important guards even when they add lines: trust-boundary validation, authorization, escaping, error handling that prevents data loss, accessibility basics, and explicit user requirements.
-- Do not claim tests passed, code was pushed, a deployment happened, or an approval was granted unless that action actually succeeded.
-- Label unknowns and assumptions instead of inventing project behavior.
-- Before adding or changing a dependency, apply `DEPENDENCY-GATE.md` and prefer existing project capabilities first.
-- For non-trivial logic, add one focused runnable check that would fail if the behavior regresses. Do not add large test scaffolding unless the change already uses that pattern.
-- If a shortcut is intentional and has a clear limit, name the limit briefly in a `tailtrail:` comment near the code.
-
-## Token And Context Discipline
-
-Use Token Harness when context is large, repetitive, scanner/log-heavy, or when token-saving claims may be discussed.
-
-Useful commands:
-
-```bash
-python3 scripts/tailtrail.py token-harness route --path path/to/file
-python3 scripts/tailtrail.py token-harness reduce --path path/to/artifact
-python3 scripts/tailtrail.py token-harness proof report
-python3 scripts/tailtrail.py token-harness bridge plan --path build.log
-```
-
-Rules:
-
-- Source, diffs, configs, dependency manifests, lock files, security policy, secrets, unknown content, and `must-be-exact` evidence must stay exact.
-- Structured reducers can compact safe bulky artifacts while preserving retrieval pointers.
-- The Runtime Compression Bridge is disabled by default, requires local policy opt-in, requires `--approved` to run an adapter, and must reject adapter output that violates exactness.
-- Do not claim exact token savings unless measured model/API telemetry is supplied. Otherwise label results as estimated or local evidence.
-
-## Learning And Metrics
-
-Learning, outcome capture, quality loop, and Meta-Harness evidence are advisory. They can improve future guidance only when confidence, validation, and approval rules are satisfied.
-
-- Do not record raw prompts, source, logs, secrets, repo names, user identity, PII, PHI, or customer data.
-- Do not promote low-confidence or stale learning as fact.
-- Current source, tests, CI, scanners, policy, guardrails, and explicit user instructions always override learnings.
-- Meta-Harness proposals should remain proposal-first, human-approved, test-backed, and reversible.
-
-## Response Shape
-
-Lead with the change or recommendation. Keep the explanation short unless the user asks for detail.
-
-When useful, include:
-
-- Active mode, only when it affects the decision.
-- What was reused.
-- What was intentionally skipped.
-- Evidence or assumptions, when the work is non-trivial or risky.
-- When the skipped work should be added.
-
-Do not pad the answer with broad design notes, feature tours, or optional architectures that the task does not need.
-
-## Review Mode
-
-When reviewing code or a diff, look first for:
-
-- Duplicate helpers or logic that can reuse existing code.
-- New dependencies that standard library, platform, framework, or installed packages already cover.
-- Abstractions with only one real use.
-- Large changes that can be split into a smaller root-cause fix.
-- Removed validation, authorization, accessibility, or data-loss protections.
-- Tests that are too broad for the change, or missing one focused check for non-trivial logic.
-- Whether the implementation actually satisfies the user request, AIDLC requirements, or approved Navigator plan.
-
-Return concrete findings and suggested reductions. Do not ask for rewrites only to satisfy style preference.
+- Intent: `scripts/expand-intent.py` or `tailtrail intent ...`; fallback `context/intent-aliases.md` (+ `.tailtrail/intent-overrides.json`).
+- Commands and flows: `TAILTRAIL-COMMANDS.md`; lifecycle: `AIDLC.md` + `aidlc-docs/aidlc-state.md`; bugs: `DEBUG-HARNESS.md`; risks: `GUARDRAILS.md` + `context/guardrail-layers.md`; deps: `DEPENDENCY-GATE.md`.
+- Portable commands: quote for the host shell (POSIX single-quotes break `cmd.exe`; `list2cmdline` quoting on Windows); prefer `sys.executable -m ...` proofs that run on sh, cmd, and PowerShell.
 
 ---
-_TailTrail instructions revision: `82babe10e624` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `265b0eb4e59a` — quote this line if asked whether instructions are current._

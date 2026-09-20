@@ -5,139 +5,26 @@ description: Use when the user explicitly asks TailTrail to handle a task, inclu
 
 # TailTrail Start
 
-## AIDLC question discussion
+## Core — follow exactly, do not skim
 
-For an awaiting-approval AIDLC run, when the user asks to explain, simplify, or
-rephrase a numbered question such as `Q5`, run `tailtrail planning
-aidlc-question clarify --run-id <id> --question-id Q5`. Explain only from the
-saved artifact; do not change the question, plan, anchor, answers, or source.
-If the user challenges the question, options, or reasoning as incorrect, create
-an `aidlc-question challenge`, have the active AIDLC authority generate the
-replacement, record it, show it, and require explicit `aidlc-question approve`.
-For Standard and Full, replacements must use the pinned official AIDLC
-Requirements rules rather than a TailTrail-generated substitute.
+- Navigator-first workflow for non-trivial tasks; ask for approval before implementation. `tailtrail start` is planning-only: never implement, edit, run project/scanner/Terraform/Git commands after planning without a separate explicit `approve` (`looks good` / `go ahead` never approve). A `hands-free` or `end-to-end` request needs a full Program Delivery plan first, never immediate execution.
+- MCP first (default path): if the TailTrail MCP server is configured, call the single `tailtrail_start` tool once with `approved: true` — one atomic call, nothing to retype. Do not split lock/report into separate calls. Else if this host can run project commands, resolve the launcher (`.tailtrail/install/payload/<host>/scripts/tailtrail.py`, then `tailtrail/scripts/tailtrail.py`, then `scripts/tailtrail.py`) and run `tailtrail start "<goal>"` (CLI fallback). Else state the plan is not persisted and give the exact command.
+- Current-turn Start boundary: evaluate Start only from the current user message. A prior mention, pasted error output, log, stack trace, or follow-up is not a new Planning Lock. Reuse an awaiting-approval run ID; with no active run and no explicit Start, use guide routing.
+- Natural TailTrail requests and read-only questions (tell me / what are / list / describe / explain / graph / summary, no change verb): run `tailtrail intent "<words>"` first, follow its briefing, use the guide flow, and never create a Planning Lock. `tailtrail intent resolve "<words>"` / MCP `intent_resolve` is read-only and grants no authority.
+- Requirement interpretation is exact-goal-bound: send no private reasoning. Pass artifacts via `requirement_artifact` (SHA-256 bound) before scope; bind clauses with source IDs, keep quoted literals in `quoted`, build requirements from outcome / constraint / scope only, keep questions open. Missing or unreadable artifacts stop before scope and Planning Lock. Pass `--verbose` through (never inside the goal); on Windows prefer `--answers-base64` so quoting cannot corrupt JSON.
+- Scope evidence v2 host boundary: consume the fingerprint plus owner / inspection / proof / excluded roles; never reclassify paths or promote unresolved scope. Scope work happens before Planning Lock persistence; unresolved Build scope creates no lock. A symptom-first request uses the same machinery for a Debug Start Plan (planning metadata only, no intake, reproduction, source, tests, or correction authority).
+- Return the tool/CLI output as the complete Start Report verbatim (starts `# TailTrail Start Plan`, includes the run ID) outside any collapsible terminal/tool-result panel, then stop. Never synthesize a substitute plan or task list. Verify `Planning Lock`, `Scope`, `Requirements`, `Selected TailTrail features`, `Plan`, `Focused validation`, `Approval`; the selected-features table is mandatory — never replace it with `Next step`. Preserve fences, table pipes, backticks, spacing; never retype, normalize, or HTML-escape. If a section is missing, paste stdout again. If stdout cannot be copied, say only that; never reconstruct a plan from the goal. For official runs, never end the turn at the Start Report: generate and record questions, then return the Requirements report in the same turn.
+- Before sending any Start, closure, or hello reply: verify the run ID, `text` fence, and required headings are all present; if anything is missing, paste the stdout again instead of sending a partial reply.
+- `tailtrail stop` is the highest-priority control; `tailtrail resume --run-id <exact-run-id>` only reattaches (never approves or advances). Rejected plan: do not inspect source, tests, scanners, or Git and do not create a new run; return the `feedback-template` blank form for the same run ID (`AIDLC Requirements mode` on second material rejection). Record feedback with `tailtrail planning feedback`, `reject-all --reason`, or `aidlc-cycle`; answer AIDLC reports with `aidlc-cycle --answers '<json>'`, approve the boundary with `aidlc-cycle --approved`, and retain the Execution Handoff.
+- Activated run: retain `execution_handoff`, obey `closure.command`; never substitute a generic summary. Lite/Off `approved-plan-auto-grant` continues internally; Standard/Full and Intent Bridge show the defensive handoff. Close with `completion-report` plus `closure finalize`, returning stdout verbatim (never invent token use: measured only with linked host/provider telemetry).
+- After changes: post-change review; scanner approval before heavy commands; learnings as advisory (source / tests / CI / scanners / policy / guardrails / user win); token claims estimated unless measured telemetry; label graph/scanner evidence heuristic, local-ast, provider-backed, measured/validated; follow `tailtrail-policy.md`, never weaken safety rules.
+- Staleness check: when asked whether instructions are current, quote the `TailTrail instructions revision` line verbatim.
 
-Treat an explicit TailTrail Start request as a planning-only command, not as
-permission to implement. When commands are available, run:
+## Pointers — load on demand, never paste detail from memory
 
-Evaluate that explicit request only from the **current user message**. A prior
-chat mention, pasted **error output**, log, stack trace, or follow-up debugging
-request is not a new Start invocation and must not create a **new Planning Lock**.
-If a persisted run is awaiting approval, reuse its exact run ID and ask
-for approval of that plan. If it is approved, continue the in-scope debugging
-work under the same run without another Start approval. With no active run and
-no explicit Start invocation in the current user message, use ordinary
-TailTrail guidance or advisory `guide` routing.
-
-```text
-tailtrail start "<user goal>"
-```
-
-When the local TailTrail MCP server is available, call the single
-`tailtrail_start` tool with `approved: true` and the user goal. Do not split it
-into separate lock and report calls. Otherwise, resolve the launcher in this
-order: `tailtrail/scripts/tailtrail.py` (installed pack), then
-`scripts/tailtrail.py` (source checkout), then run:
-
-```text
-python3 tailtrail/scripts/tailtrail.py start "<user goal>"
-```
-
-When the user explicitly references a local requirement or specification file,
-pass it through MCP `requirement_artifacts` or repeated CLI
-`--requirement-artifact`. TailTrail must boundedly inspect it before requirement
-sufficiency and return its input ID and SHA-256. Read that exact artifact,
-create only evidence-grounded clauses, bind them with `source_input_id` and
-`artifact_evidence`, and resubmit the typed interpretation. Missing, unreadable,
-unsupported, truncated, or unbound required artifacts stop before scope and
-Planning Lock; never replace them with a generic requirement.
-
-When the user includes `--verbose`, pass `verbose: true` to the MCP tool (or
-append `--verbose` to the CLI invocation); do not leave the flag inside the
-goal text.
-
-**The complete and only normal assistant response must be the exact Start Report
-stdout (starting `# TailTrail Start Plan` or `# TailTrail Debug Start Plan` and including its returned run ID). Copy the
-complete Start Report verbatim outside any collapsible terminal/tool-result panel.
-Stop immediately after it.
-Never synthesize a substitute plan or task list. Do not write `Steps`, `in-progress`,
-`Next I'll`, `shall I proceed`, or implementation/testing/PR/documentation work. If
-stdout is unavailable, state only that the command report could not be copied; do not
-reconstruct a plan from the goal.**
-
-Before sending the report, verify it includes every required heading: `Planning Lock`,
-`Scope`, `Requirements`, `Selected TailTrail features`, `Plan`, `Focused validation`,
-and `Approval`. The selected-features table is mandatory. Do not shorten, rename, or
-replace it with `Next step`; paste the CLI stdout again if any section is missing.
-
-For a symptom-first request, Start returns the canonical Debug Start Plan under
-the same Planning Lock machinery. It may persist only planning metadata; it
-must not create Debug Intake, approve a reproduction contract, inspect source,
-run tests/scanners, or grant correction authority. The debug report also shows
-the Navigator decision, material unknowns, proposed reproduction questions,
-evidence tiers, exactness/safety posture, required later-stage proof, and conditional controls.
-
-Return the complete Start Report and its Planning Lock run ID. For `hands-free`
-or `end-to-end`, include the Program Delivery plan: proposed requirements,
-dependency order, first active slice, and explicit approval gate. Do not edit
-source, run project commands, scanners, tests, Terraform, or Git mutations
-until a separate approval is recorded for that exact run.
-
-## Rejected Start plans
-
-If the user rejects or declines an awaiting-approval Start plan, preserve its
-run ID and do **not** inspect source, offer inspection, run tests/scanners,
-edit files, mutate Git, or create a new Start run. Read only the saved Planning
-Lock and Start report, then run:
-
-```text
-tailtrail planning feedback-template --run-id <active-run-id>
-```
-
-Return that blank requirement-by-requirement form; never invent a decision or
-comment. The user may review every row with `approve` or `reject — <reason>`,
-say `Reject all — <reason>`, or say `Use AIDLC Requirements mode`. Record
-individual feedback through `tailtrail planning feedback`, reject-all feedback
-through `tailtrail planning reject-all`, or the AIDLC choice through `tailtrail
-planning aidlc-cycle`. For that last path, return the complete `TailTrail
-AIDLC Requirements` report with the current boundary, focused questions, and
-next response format. The first material rejection offers AIDLC; the second
-requires it before a revised material proposal.
-
-When the user answers an active AIDLC Requirements report, record all answers
-with `tailtrail planning aidlc-cycle --run-id <active-run-id> --answers '<json>'`
-and return the resulting revised boundary for approval. When the user approves
-that boundary, run `tailtrail planning aidlc-cycle --run-id <active-run-id>
---approved` and retain the internal Execution Handoff. For Lite/Off
-`approved-plan-auto-grant`, continue implementation immediately and expose the
-handoff/authority only in closure. Standard/Full and Intent Bridge retain the
-visible defensive handoff and their material authority gate.
-
-On Windows native shells, use `--answers-base64 <base64-utf8-json>` in place of
-`--answers` so native argument quoting cannot corrupt the JSON.
-
-## Approved-run closure
-
-After implementation of an approved run and its selected review and validation
-steps, run:
-
-```text
-tailtrail completion-report --root . --run-id <active-run-id>
-```
-
-Return its full stdout instead of a generic implementation summary. The report
-shows requirement delivery and TailTrail controls separately. Never invent
-actual token use: it is measured only when host/provider telemetry is linked to
-the exact run ID.
-
-When approval returns an `execution_handoff`, persist its exact run ID and obey
-its `closure.command`. Treat Lite/Off `approved-plan-auto-grant` as an internal
-handoff and continue safe implementation without a user-facing pause. Show
-Standard/Full or Intent Bridge defensive handoffs because their material gate
-remains. Before any final response after a source edit, execute the closure
-command and return its stdout verbatim; closure exposes the Lite/Off authority
-record. `Changes made`, `Validation`, and next-step narratives are not valid
-replacements for the closure response.
+- Intent: `scripts/expand-intent.py` or `tailtrail intent ...`; fallback `context/intent-aliases.md` (+ `.tailtrail/intent-overrides.json`).
+- Commands and flows: `TAILTRAIL-COMMANDS.md`; lifecycle: `AIDLC.md` + `aidlc-docs/aidlc-state.md`; bugs: `DEBUG-HARNESS.md`; risks: `GUARDRAILS.md` + `context/guardrail-layers.md`; deps: `DEPENDENCY-GATE.md`.
+- Portable commands: quote for the host shell (POSIX single-quotes break `cmd.exe`; `list2cmdline` quoting on Windows); prefer `sys.executable -m ...` proofs that run on sh, cmd, and PowerShell.
 
 ---
-_TailTrail instructions revision: `f2d76bef73aa` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `0d6f4903d5e2` — quote this line if asked whether instructions are current._

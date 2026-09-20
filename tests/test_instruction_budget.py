@@ -18,6 +18,8 @@ BUDGETED_FILES = (
     "adapters/chatgpt-instructions.md",
     "adapters/cursor.mdc",
     "adapters/gemini.md",
+    "skills/tailtrail/SKILL.md",
+    "skills/tailtrail-start/SKILL.md",
 )
 
 # Every budgeted file must keep the hard-rule contract phrases inline.
