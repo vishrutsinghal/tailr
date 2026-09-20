@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -269,6 +270,11 @@ class TransactionalInstallerTests(unittest.TestCase):
             self.assertTrue(repeated.ok)
 
     def test_symlink_traversal_and_inaccessible_targets_fail_closed(self) -> None:
+        try:
+            with tempfile.TemporaryDirectory() as probe:
+                (Path(probe) / "link").symlink_to(Path(probe), target_is_directory=True)
+        except OSError:
+            self.skipTest("symlink creation needs admin/Developer Mode on this host")
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
             target = Path(temp)
             (target / ".codex-plugin").symlink_to(Path(outside), target_is_directory=True)
@@ -288,10 +294,16 @@ class TransactionalInstallerTests(unittest.TestCase):
             target = Path(temp)
             lock = target / ".tailtrail" / "install" / "lifecycle.lock"
             lock.parent.mkdir(parents=True)
-            lock.write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
+            lock.write_text(
+                json.dumps({"pid": os.getpid(), "created_at": int(time.time())}),
+                encoding="utf-8",
+            )
             with self.assertRaisesRegex(InstallFailure, "another installer"):
                 InstallEngine(target).apply("install", "claude", "core")
-            lock.write_text(json.dumps({"pid": 99999999}), encoding="utf-8")
+            lock.write_text(
+                json.dumps({"pid": 99999999, "created_at": 1}),
+                encoding="utf-8",
+            )
             result = InstallEngine(target).apply("install", "claude", "core")
             self.assertTrue(result.ok, result.issues)
 
