@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import shlex
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.proc_quote import quote
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +52,7 @@ class ManagedExecutionEvidenceTests(unittest.TestCase):
         return uid
 
     def test_executes_exact_approved_command_and_captures_trusted_facts(self) -> None:
-        command = f"{shlex.quote(sys.executable)} -c {shlex.quote('print(\"proof ok\")')}"
+        command = f"{quote(sys.executable)} -c {quote('print(\"proof ok\")')}"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             uid = self.setup_run(root, command)
@@ -71,7 +71,7 @@ class ManagedExecutionEvidenceTests(unittest.TestCase):
 
     def test_failure_exit_and_redacted_output_are_factual(self) -> None:
         source = "import sys; print('token=visible-secret', file=sys.stderr); raise SystemExit(7)"
-        command = f"{shlex.quote(sys.executable)} -c {shlex.quote(source)}"
+        command = f"{quote(sys.executable)} -c {quote(source)}"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             uid = self.setup_run(root, command)
@@ -84,7 +84,7 @@ class ManagedExecutionEvidenceTests(unittest.TestCase):
         self.assertNotIn("visible-secret", stderr)
 
     def test_rejects_unapproved_command_and_tier_without_execution(self) -> None:
-        command = f"{shlex.quote(sys.executable)} -c {shlex.quote('print(1)')}"
+        command = f"{quote(sys.executable)} -c {quote('print(1)')}"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             uid = self.setup_run(root, command)
@@ -94,7 +94,7 @@ class ManagedExecutionEvidenceTests(unittest.TestCase):
                 evidence.run_command(root, "run", [uid], ["unit"], command, "wrong tier", [], True)
 
     def test_command_specific_check_authorizes_static_tier_for_legacy_anchor(self) -> None:
-        command = f"{shlex.quote(sys.executable)} -c {shlex.quote('print(\"static ok\")')}"
+        command = f"{quote(sys.executable)} -c {quote('print(\"static ok\")')}"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             uid = self.setup_run(root, command)

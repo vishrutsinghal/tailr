@@ -1,12 +1,12 @@
 import importlib.util
 import copy
 import json
-import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.proc_quote import quote
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -554,7 +554,7 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(shown["result"]["count"], 1)
 
     def test_execution_evidence_mcp_runs_only_approved_proof_and_returns_exit_code(self):
-        command = f"{shlex.quote(sys.executable)} -c {shlex.quote('print(\"mcp proof\")')}"
+        command = f"{quote(sys.executable)} -c {quote('print(\"mcp proof\")')}"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "src").mkdir()

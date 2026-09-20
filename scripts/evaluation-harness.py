@@ -644,7 +644,7 @@ def workflow(args: list[str]) -> int:
 
 def meta(args: list[str]) -> int:
     if not args:
-        print("Usage: tailtrail eval meta quick|review|readiness|analyze|propose|proposal-status|proposal-record [args]")
+        print("Usage: tailtrail eval meta quick|review|readiness|analyze|propose|proposal-status|proposal-record|proposal-apply [args]")
         return 2
     action, rest = args[0], args[1:]
     if action in {"quick", "review"}:
@@ -659,7 +659,9 @@ def meta(args: list[str]) -> int:
         return run_script("meta-harness-propose.py", ["status", *rest])
     if action == "proposal-record":
         return run_script("meta-harness-propose.py", ["record", *rest])
-    print("Usage: tailtrail eval meta quick|review|readiness|analyze|propose|proposal-status|proposal-record [args]")
+    if action == "proposal-apply":
+        return run_script("meta-harness-propose.py", ["apply", *rest])
+    print("Usage: tailtrail eval meta quick|review|readiness|analyze|propose|proposal-status|proposal-record|proposal-apply [args]")
     return 2
 
 

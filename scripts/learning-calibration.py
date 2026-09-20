@@ -11,7 +11,7 @@ import json
 import math
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -456,6 +456,92 @@ def write_report(root: Path, report: dict[str, Any], output: Path) -> Path:
     return target
 
 
+RECALIBRATE_MIN_DECISIONS = 10
+RECALIBRATE_STEP = 5
+RECALIBRATE_BOUNDS = (30, 90)
+RETRIEVAL_DEFAULTS = {"lite": 60, "standard": 50, "full": 45}
+THRESHOLD_OVERRIDE = Path(".tailtrail/learning-thresholds.json")
+THRESHOLD_PROPOSAL = Path(".tailtrail/learning-threshold-proposal.json")
+
+
+def threshold_decisions(root: Path) -> tuple[int, int]:
+    """Count applied vs ignored learning use decisions across all runs."""
+    receipts = load_module("learning_calibration_use_receipts", "learning-use-receipt.py")
+    applied = ignored = 0
+    for event in receipts.project_events(root.resolve()):
+        if not isinstance(event, dict) or event.get("event_kind") != "decision":
+            continue
+        if event.get("decision") == "applied":
+            applied += 1
+        elif event.get("decision") in {"ignored", "rejected"}:
+            ignored += 1
+    return applied, ignored
+
+
+def propose_thresholds(root: Path) -> dict[str, Any]:
+    """Propose retrieval threshold moves from measured receipt decisions.
+
+    Never writes the override: use `recalibrate --approved` to activate.
+    Fewer than RECALIBRATE_MIN_DECISIONS decisions means insufficient-data.
+    """
+    root = root.resolve()
+    applied, ignored = threshold_decisions(root)
+    decided = applied + ignored
+    current: dict[str, int] = dict(RETRIEVAL_DEFAULTS)
+    try:
+        raw = json.loads((root / THRESHOLD_OVERRIDE).read_text(encoding="utf-8"))
+        if isinstance(raw, dict) and isinstance(raw.get("thresholds"), dict) and raw.get("approved") is True:
+            current = {key: int(raw["thresholds"][key]) for key in RETRIEVAL_DEFAULTS}
+    except (OSError, ValueError, json.JSONDecodeError, KeyError, TypeError):
+        pass
+    base = {"schema_version": "1", "type": "tailtrail-learning-threshold-proposal", "decided": decided,
+            "applied": applied, "ignored": ignored, "current": current,
+            "boundary": "Proposal only; thresholds change only through an approved recalibration."}
+    if decided < RECALIBRATE_MIN_DECISIONS:
+        return {**base, "state": "insufficient-data",
+                "reason": f"Only {decided} use decisions recorded; at least {RECALIBRATE_MIN_DECISIONS} are required before moving thresholds."}
+    rate = applied / decided
+    if rate >= 0.7:
+        direction, step = "loosen", -RECALIBRATE_STEP
+    elif rate <= 0.3:
+        direction, step = "tighten", RECALIBRATE_STEP
+    else:
+        return {**base, "state": "steady", "applied_rate": round(rate, 4),
+                "reason": f"Applied rate {rate:.2f} is inside the hold band; thresholds stay."}
+    suggestion = {key: max(RECALIBRATE_BOUNDS[0], min(RECALIBRATE_BOUNDS[1], value + step)) for key, value in current.items()}
+    if suggestion == current:
+        return {**base, "state": "steady", "applied_rate": round(rate, 4),
+                "reason": "Evidence points past a bound; thresholds stay."}
+    proposal = {**base, "state": "proposed", "applied_rate": round(rate, 4), "direction": direction,
+                "suggestion": suggestion,
+                "reason": f"Applied rate {rate:.2f} over {decided} decisions points {direction}; moving every mode by {RECALIBRATE_STEP} within bounds {list(RECALIBRATE_BOUNDS)}.",
+                "digest": digest({"decided": decided, "applied": applied, "suggestion": suggestion})}
+    target = root / THRESHOLD_PROPOSAL
+    target.write_text(json.dumps(proposal, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return {**proposal, "artifact": target.relative_to(root).as_posix()}
+
+
+def recalibrate(root: Path, approved: bool) -> dict[str, Any]:
+    """Activate a proposed threshold move only with explicit approval."""
+    root = root.resolve()
+    proposal = propose_thresholds(root)
+    if approved is not True:
+        return {**proposal, "activated": False,
+                "boundary": proposal.get("boundary", "") + " Rerun with --approved to activate a proposed move."}
+    if proposal.get("state") != "proposed":
+        raise CalibrationError(f"nothing to approve: recalibration state is `{proposal.get('state')}`")
+    override = {
+        "schema_version": "1", "type": "tailtrail-learning-thresholds",
+        "thresholds": proposal["suggestion"], "approved": True,
+        "proposal_digest": proposal["digest"],
+        "approved_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "boundary": "Approved retrieval thresholds. Retrieval falls back to built-in defaults if this file is ever malformed or unapproved.",
+    }
+    (root / THRESHOLD_OVERRIDE).write_text(json.dumps(override, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return {**proposal, "activated": True,
+            "artifact": (root / THRESHOLD_OVERRIDE).relative_to(root).as_posix()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -477,6 +563,10 @@ def main() -> int:
     meta_parser.add_argument("--root", type=Path, default=Path.cwd())
     meta_parser.add_argument("--catalog", type=Path, default=DEFAULT_CATALOG)
     meta_parser.add_argument("--output", type=Path, default=META_SIGNALS)
+    recalibrate_parser = sub.add_parser("recalibrate")
+    recalibrate_parser.add_argument("--root", type=Path, default=Path.cwd())
+    recalibrate_parser.add_argument("--approved", action="store_true")
+    recalibrate_parser.add_argument("--format", choices=("json", "summary"), default="summary")
     args = parser.parse_args()
     try:
         if args.command == "evaluate":
@@ -507,6 +597,17 @@ def main() -> int:
             report_path = args.report if args.report.is_absolute() else root / args.report
             value = apply_report(root, report_path, args.approved)
             print(json.dumps(value, indent=2, sort_keys=True))
+            return 0
+        if args.command == "recalibrate":
+            try:
+                value = recalibrate(args.root.resolve(), args.approved)
+            except CalibrationError as error:
+                print(f"Learning calibration error: {error}")
+                return 2
+            if args.format == "json" or value.get("state") != "steady":
+                print(json.dumps(value, indent=2, sort_keys=True))
+            else:
+                print(f"Learning recalibration: {value['state']} ({value['reason']})")
             return 0
         root = args.root.resolve()
         catalog = read_json(args.catalog, "calibration catalog")

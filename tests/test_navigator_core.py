@@ -831,6 +831,14 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("## Behaviour Harness Plan", narrow_rendered)
         self.assertGreaterEqual(narrow_rendered.count("State: `not-selected`."), 2)
 
+    def test_cold_start_learning_proposal_names_the_empty_store(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            proposal = navigator.learning_use_proposal(Path(temp), "fix validation", [], ["qa"], [])
+        self.assertEqual(proposal["state"], "blocked")
+        reasons = proposal["blocked"][0]["reasons"]
+        self.assertIn("No learning store exists yet", reasons)
+        self.assertTrue(any("accepted closures" in str(reason) for reason in reasons))
+
     def test_start_focused_validation_uses_only_the_interpreter_when_pack_path_contains_tailtrail(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -856,6 +864,19 @@ class NavigatorCoreTests(unittest.TestCase):
                 "python3",
             )
         self.assertEqual(command, "python3 -m unittest discover -s tests -p test_notify.py -v")
+
+    def test_start_reports_show_active_pipeline_badge(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = task_start.build_report("fix zero quantity validation", root, ["src/order_service/validation.py"], "tailtrail")
+            report["planning_lock"] = task_start.planning_lock.create(
+                root, report["goal"], "start-badge-report", pipeline_stage="IMPLEMENTATION")
+            verbose = task_start.render_markdown(report, verbose=True)
+            compact = task_start.compact_start_report(report)
+        for rendered in (verbose, compact):
+            self.assertIn("## Pipeline badges", rendered)
+            self.assertIn("IMPLEMENTATION", rendered)
+            self.assertIn("impl-badge", rendered)
 
     def test_start_verbose_report_has_required_feature_and_evidence_sections(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

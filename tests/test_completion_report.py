@@ -360,5 +360,23 @@ class CompletionReportTests(unittest.TestCase):
             self.assertIn("  - **Drift:** new-drift", rendered)
 
 
+    def test_undecided_learning_proposals_are_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            planning = root / ".tailtrail" / "runs" / "run" / "planning"
+            planning.mkdir(parents=True)
+            (planning / "start-report-v1.json").write_text(json.dumps({"report": {"navigator": {"learning_use_proposal": {
+                "matches": [{"learning_id": "lrn-a"}, {"learning_id": "lrn-b"}],
+            }}}}), encoding="utf-8")
+            learning_use = {"receipts": [{"learning_id": "lrn-a"}]}
+            self.assertEqual(report.undecided_learning_proposals(root, "run", learning_use), ["lrn-b"])
+            learning_use["receipts"].append({"learning_id": "lrn-b"})
+            self.assertEqual(report.undecided_learning_proposals(root, "run", learning_use), [])
+
+    def test_missing_start_report_means_no_undecided_proposals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            self.assertEqual(report.undecided_learning_proposals(Path(temp), "run", {"receipts": []}), [])
+
+
 if __name__ == "__main__":
     unittest.main()

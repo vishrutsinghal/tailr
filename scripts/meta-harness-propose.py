@@ -443,6 +443,55 @@ def write_proposal(root: Path, proposal: dict[str, Any]) -> None:
     (root / LATEST_PROPOSAL_MD).write_text(render_markdown(proposal), encoding="utf-8")
 
 
+def apply_proposal(root: Path, proposal_id: str) -> dict[str, Any]:
+    """Emit the bounded work order for an accepted proposal.
+
+    Read-only: never edits source. Requires a recorded `accepted` decision
+    for the proposal; the host performs the edit through the normal
+    read-source, smallest-change, focused-test path, then records
+    `implemented` (or `rolled_back`) itself.
+    """
+    root = root.resolve()
+    rows = read_jsonl(root / PROPOSALS)
+    proposals = [row for row in rows if isinstance(row, dict) and row.get("proposal_id") == proposal_id and row.get("type") == "tailtrail-meta-harness-proposal"]
+    if not proposals:
+        raise SystemExit(f"No proposal `{proposal_id}` has been recorded; run propose with --write-result first.")
+    proposal = proposals[-1]
+    if proposal.get("status") != "proposed":
+        raise SystemExit(f"Proposal `{proposal_id}` is `{proposal.get('status')}`, not proposed.")
+    decisions = [row for row in rows if isinstance(row, dict) and row.get("proposal_id") == proposal_id and row.get("type") == "tailtrail-meta-harness-proposal-record"]
+    if not any(row.get("status") == "accepted" for row in decisions):
+        raise SystemExit(f"Proposal `{proposal_id}` has no recorded `accepted` decision; record acceptance first.")
+    edits = proposal.get("candidate_edits", []) if isinstance(proposal.get("candidate_edits"), list) else []
+    verification = list(proposal.get("verification_plan", [])) if isinstance(proposal.get("verification_plan"), list) else []
+    candidate_files = sorted({str(item.get("file", "")) for item in edits if isinstance(item, dict) and item.get("file")})
+    test_files = []
+    for path in candidate_files:
+        stem = Path(path).stem.replace("-", "_")
+        candidate = Path("tests") / f"test_{stem}.py"
+        if (root / candidate).is_file() and candidate.as_posix() not in test_files:
+            test_files.append(candidate.as_posix())
+    steps = [
+        "Read each listed file and its callers/tests before changing anything.",
+        "Apply the smallest deterministic change per candidate edit; do not weaken guardrails, policy, validation, security, or explicit requirements.",
+        "Run the listed focused tests, then the related suites; record `implemented` only when they pass, `rolled_back` with reason otherwise.",
+    ]
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-meta-harness-apply-order",
+        "proposal_id": proposal_id,
+        "finding_id": (proposal.get("source_finding", {}) or {}).get("finding_id"),
+        "candidate_edits": edits,
+        "verification_plan": verification,
+        "focused_tests": test_files,
+        "degradation_checks": proposal.get("degradation_checks", []),
+        "rollback_plan": proposal.get("rollback_plan", ""),
+        "steps": steps,
+        "record_command": f"tailtrail meta record --root . --proposal-id {proposal_id} --status implemented --reason \"<what changed and test evidence>\"",
+        "boundary": "Authorization and instructions only. No source file was edited, no test was run, and no status was changed by this command.",
+    }
+
+
 def status_summary(root: Path) -> dict[str, Any]:
     rows = read_jsonl(root / PROPOSALS)
     counts = Counter(str(row.get("status", "unknown")) for row in rows)
@@ -526,6 +575,11 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--note")
     record.add_argument("--reason")
     record.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    apply = subparsers.add_parser("apply", help="Emit the bounded work order for an accepted proposal.")
+    apply.add_argument("--root", type=Path, default=Path("."))
+    apply.add_argument("--proposal-id", required=True)
+    apply.add_argument("--approved", action="store_true", help="Required: authorizes emitting the work order.")
+    apply.add_argument("--format", choices=("markdown", "json"), default="markdown")
     return parser
 
 
@@ -558,6 +612,25 @@ def main() -> int:
             print(json.dumps(record, indent=2, sort_keys=True))
         else:
             print(f"Recorded `{args.status}` for `{args.proposal_id}` in `{PROPOSALS.as_posix()}`.\n")
+        return 0
+
+    if args.command == "apply":
+        if not args.approved:
+            print("Proposal apply requires --approved; without it nothing is authorized.")
+            return 2
+        order = apply_proposal(args.root, args.proposal_id)
+        if args.format == "json":
+            print(json.dumps(order, indent=2, sort_keys=True))
+        else:
+            print(f"# TailTrail Meta-Harness Apply Order for `{order['proposal_id']}`")
+            print(f"Finding: `{order['finding_id']}`")
+            for step in order["steps"]:
+                print(f"- {step}")
+            for edit in order["candidate_edits"]:
+                print(f"- File `{edit.get('file')}` ({edit.get('line_hint', '')}): {edit.get('prompt_change', '')}")
+            if order["focused_tests"]:
+                print("- Focused tests: " + ", ".join(f"`{item}`" for item in order["focused_tests"]))
+            print(f"- {order['record_command']}")
         return 0
 
     return 2

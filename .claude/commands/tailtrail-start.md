@@ -29,3 +29,6 @@ create a sanitized `aidlc-question challenge`; the active AIDLC authority must
 generate the replacement, then TailTrail records it and requires explicit
 `aidlc-question approve`. Standard/Full replacements must follow the pinned
 official AIDLC Requirements rules.
+
+---
+_TailTrail instructions revision: `2f9de47578c1` — quote this line if asked whether instructions are current._

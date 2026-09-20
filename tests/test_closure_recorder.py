@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.proc_quote import quote
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +31,7 @@ evidence = load("closure_recorder_evidence_test", "scripts/execution-evidence.py
 
 class ClosureRecorderTests(unittest.TestCase):
     def proof_command(self) -> str:
-        return f"{shlex.quote(sys.executable)} -m unittest discover -s tests -p test_service.py -v"
+        return f"{quote(sys.executable)} -m unittest discover -s tests -p test_service.py -v"
 
     def setup_run(self, root: Path, *, approved: bool = True) -> list[str]:
         (root / "src").mkdir()

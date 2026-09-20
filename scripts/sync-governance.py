@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 START = "<!-- tailtrail-governance:start -->"
 END = "<!-- tailtrail-governance:end -->"
+STAMP_PATTERN = re.compile(r"\n---\n_TailTrail instructions revision: `[0-9a-f]{12}`[^`\n]*")
 
 TARGETS = (
     "AGENTS.md",
@@ -39,6 +42,70 @@ SNAPSHOT_TARGETS = (
     "demo-project-layout/tailtrail-demo-workspace/tailtrail/adapters/gemini.md",
     "demo-project-layout/tailtrail-demo-workspace/tailtrail/context/guardrail-layers.md",
 )
+
+STAMP_TARGETS = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "adapters/claude.md",
+    "adapters/chatgpt-instructions.md",
+    "adapters/copilot-instructions.md",
+    "adapters/cursor.mdc",
+    "adapters/gemini.md",
+    ".github/copilot-instructions.md",
+    ".openai/chatgpt-instructions.md",
+    ".cursor/rules/tailtrail.mdc",
+    "skills/tailtrail/SKILL.md",
+    "skills/tailtrail-start/SKILL.md",
+    ".claude/commands/tailtrail-start.md",
+    ".github/prompts/tailtrail-start.prompt.md",
+)
+
+
+def strip_stamp(body: str) -> str:
+    # Canonical form always ends with exactly one newline so stamped and
+    # unstamped inputs hash identically.
+    return STAMP_PATTERN.sub("", body).rstrip("\n") + "\n"
+
+
+def stamp_revision(body: str) -> str:
+    digest = hashlib.sha256(strip_stamp(body).replace("\r\n", "\n").encode("utf-8")).hexdigest()[:12]
+    return digest
+
+
+def stamp_text(body: str) -> str:
+    stripped = strip_stamp(body)
+    return (
+        stripped
+        + "\n---\n"
+        + f"_TailTrail instructions revision: `{stamp_revision(body)}` — quote this line if asked whether instructions are current._\n"
+    )
+
+
+def stamp_status(path: Path) -> str:
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return "missing"
+    matches = list(STAMP_PATTERN.finditer(body))
+    if not matches:
+        return "unstamped"
+    current = re.search(r"`([0-9a-f]{12})`", matches[-1].group(0)).group(1)
+    return "ok" if stamp_revision(body) == current else "stale"
+
+
+def stamp_files(root: Path = ROOT, targets: tuple[str, ...] = STAMP_TARGETS) -> list[str]:
+    written: list[str] = []
+    for relative_path in targets:
+        path = root / relative_path
+        if not path.is_file():
+            continue
+        body = path.read_text(encoding="utf-8")
+        stamped = stamp_text(body)
+        if stamped != body:
+            path.write_text(stamped, encoding="utf-8")
+            written.append(relative_path)
+    return written
 
 
 def read(relative_path: str, root: Path = ROOT) -> str:
@@ -190,11 +257,26 @@ def sync(root: Path = ROOT, include_snapshots: bool = False) -> None:
     targets = [*TARGETS, *SNAPSHOT_TARGETS] if include_snapshots else TARGETS
     for target in targets:
         write(target, replace_block(read(target, root), canonical, target), root)
+    stamp_files(root)
+
+
+def stamp_check(root: Path = ROOT) -> list[str]:
+    errors: list[str] = []
+    for relative_path in STAMP_TARGETS:
+        path = root / relative_path
+        if not path.is_file():
+            continue
+        status = stamp_status(path)
+        if status == "unstamped":
+            errors.append(f"{relative_path}: instruction revision stamp is missing; run sync to stamp it")
+        elif status == "stale":
+            errors.append(f"{relative_path}: instruction revision stamp is stale; run sync to restamp after editing")
+    return errors
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check or sync TailTrail repeated governance text.")
-    parser.add_argument("action", choices=["check", "sync", "inventory"], help="Check drift, rewrite marked governance blocks, or print an inventory.")
+    parser.add_argument("action", choices=["check", "sync", "inventory", "stamp"], help="Check drift, rewrite marked governance blocks, print an inventory, or refresh instruction revision stamps.")
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--strict", action="store_true", help="Fail check when unregistered files carry governance markers.")
     parser.add_argument("--include-snapshots", action="store_true", help="Allow sync to rewrite demo snapshot files.")
@@ -205,6 +287,11 @@ def main() -> int:
     if args.action == "sync":
         sync(root, include_snapshots=args.include_snapshots)
 
+    if args.action == "stamp":
+        written = stamp_files(root)
+        print(f"Stamped {len(written)} instruction file(s).")
+        return 0
+
     if args.action == "inventory":
         rows = inventory(root)
         if args.format == "json":
@@ -214,6 +301,7 @@ def main() -> int:
         return 0
 
     errors = check(root, strict=args.strict)
+    errors.extend(stamp_check(root))
     if errors:
         for error in errors:
             print(f"Governance sync failed: {error}", file=sys.stderr)

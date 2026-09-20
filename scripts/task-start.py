@@ -225,6 +225,27 @@ def append_stacked_records(
             lines.append(f"  - **{label}:** {value}")
 
 
+def pipeline_badge_lines(lock: dict[str, Any] | None, *, compact: bool = False) -> list[str]:
+    """Render the run's badge-gated pipeline stage for Start reports."""
+    pipeline = lock.get("pipeline", {}) if isinstance(lock, dict) else {}
+    active = str(pipeline.get("active_stage") or "PENDING")
+    info = planning_lock.PIPELINE_STAGE_BADGES.get(active)
+    if info is None:
+        if compact:
+            return ["- Pipeline badges: `unbadged` (no stage write gates apply)."]
+        return ["", "## Pipeline badges", "", "- Status: `unbadged` (no stage write gates apply)."]
+    if compact:
+        return [f"- Pipeline badge: `{active}` (`{info['badge']}`; may write {info['may_write']}; {info['blocked']} blocked)."]
+    completed = [str(stage) for stage in pipeline.get("completed_stages", []) if str(stage).strip()]
+    return [
+        "", "## Pipeline badges", "",
+        f"- Active stage: `{active}` (`{info['badge']}`).",
+        f"- May write: {info['may_write']}; blocked: {info['blocked']}.",
+        f"- Completed stages: `{', '.join(completed) or 'none'}`.",
+        "- Managed patch writes outside the active badge are blocked; advance stages only through approved handoffs.",
+    ]
+
+
 def append_testing_plan(lines: list[str], plan: dict[str, Any]) -> None:
     """Render assertion-level proof as a compact, host-stable checklist."""
     if not isinstance(plan, dict) or not plan.get("selected"):
@@ -816,7 +837,7 @@ def delivery_run_signals(root: Path, run_id: str | None) -> dict[str, Any]:
     if not run_id:
         return {"status": "not-requested", "run_id": None, "correction_cycle": False, "recovery_risk": False, "drift": []}
     if Path(run_id).name != run_id:
-        raise ValueError("run_id must be a single local run identifier")
+        raise ValueError("run_id must be a single local run identifier; pass one exact `--run-id` value as returned by `tailtrail start \"<goal>\"`")
     directory = root / ".tailtrail" / "runs" / run_id
     if not directory.is_dir():
         return {"status": "missing", "run_id": run_id, "correction_cycle": False, "recovery_risk": False, "drift": []}
@@ -1046,7 +1067,7 @@ def official_requirement_authority(
         return None
     manifest = compatibility.get("manifest")
     if not isinstance(manifest, str) or not manifest:
-        raise ValueError("official AIDLC requirement authority has no verified compatibility manifest")
+        raise ValueError("official AIDLC requirement authority has no verified compatibility manifest; run `tailtrail start \"<goal>\" --aidlc standard` for a new official run")
     references = official_aidlc_requirements.stage_contract(
         root,
         {"compatibility_manifest": manifest},
@@ -1073,13 +1094,13 @@ def validate_official_requirement_interpretation(
     if authority is None:
         return
     if interpreted.get("authority") != "official-ai-dlc-pack":
-        raise ValueError("Standard/Full AIDLC requires official Requirements authority before scope discovery")
+        raise ValueError("Standard/Full AIDLC requires official Requirements authority before scope discovery; resubmit the same `tailtrail start \"<goal>\"` with `authority: official-ai-dlc-pack` matching the receipt")
     if interpreted.get("authority_mode") != authority["mode"]:
-        raise ValueError("official AIDLC requirement interpretation mode does not match Navigator routing")
+        raise ValueError("official AIDLC requirement interpretation mode does not match Navigator routing; resubmit the same `tailtrail start \"<goal>\"` with the mode from the receipt")
     if interpreted.get("authority_stage") != authority["stage"]:
-        raise ValueError("official AIDLC requirement interpretation is not bound to the Requirements stage")
+        raise ValueError("official AIDLC requirement interpretation is not bound to the Requirements stage; resubmit the same `tailtrail start \"<goal>\"` with the stage from the receipt")
     if interpreted.get("authority_references") != authority["references"]:
-        raise ValueError("official AIDLC requirement interpretation does not match the verified governing rules")
+        raise ValueError("official AIDLC requirement interpretation does not match the verified governing rules; resubmit the same `tailtrail start \"<goal>\"` with byte-identical `authority_references`")
 
 
 def scope_question_precondition(
@@ -1214,8 +1235,8 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
         "complexity": complexity,
     })
     # Dual-gate routing: host-agent intent OR quantitative scope signal → Standard.
-    # Scope floor prevents over-escalation when a lone keyword fires on a trivially
-    # small task (few files, low changed-lines estimate).
+    # scope_floor_lite stays published to calibration and the Phase 6
+    # re-evaluation hook; it no longer vetoes an explicit mode request here.
     if intent == "none" and not hands_free and not routing["selected"] and not scope_signal:
         selected = official_aidlc_bridge.preflight(root, "lite", manifest)
         selected["selection"] = "default"
@@ -1230,6 +1251,7 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
                 "signals": signals,
                 "reason": "Navigator found programme-scale signals or scope-complexity evidence, but no compatible pinned official pack is installed; TailTrail Lite remains active. Full mode requires a verified pack and a new Full-mode Planning Lock; this run cannot be silently upgraded.",
             }
+            return selected
         else:
             selected["selection"] = "navigator-hands-free-escalation"
             selected["full_escalation"] = {
@@ -1238,7 +1260,12 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
                 "reason": "Navigator found programme-scale signals or scope-complexity evidence and a compatible pinned official pack; Full execution still requires a new Full-mode Planning Lock and cannot silently upgrade an existing run.",
             }
             return selected
-    if keyword_signal and not scope_floor_lite:
+    # Dual-gate routing: host-agent intent OR quantitative scope signal → Standard.
+    # An explicit bare "using AIDLC" request always counts: the scope floor only
+    # tempers inferred escalation, never an explicit mode request. Without a
+    # compatible pack the Standard preflight still falls back to Lite
+    # transparently (requested_mode/state record the request).
+    if keyword_signal:
         selected = official_aidlc_bridge.preflight(root, "standard", manifest)
         selected["selection"] = "explicit-natural-language-standard"
         selected["full_escalation"] = {"state": "not-eligible", "signals": signals, "reason": "Standard mode covers the requested AIDLC depth without a Full official lifecycle transition."}
@@ -1537,7 +1564,7 @@ def apply_requirement_scope_evidence(
     # their local scope binding, so those routes remain strict.
     if not evidence:
         if authority is not None:
-            raise ValueError("authority requirement mapping requires valid v2 scope evidence")
+            raise ValueError("authority requirement mapping requires valid v2 scope evidence; run `tailtrail start \"<goal>\" --aidlc standard` for a new official run")
         return
     mappings = navigator_scope.authority_requirement_mappings(
         evidence,
@@ -2050,7 +2077,7 @@ def resolve_host_identity(args_host: str | None) -> tuple[str | None, str]:
         if args_host != launcher_host:
             raise ValueError(
                 f"Host identity conflict: explicit flag `{args_host}` mismatches "
-                f"installed launcher identity `{launcher_host}`."
+                f"installed launcher identity `{launcher_host}`; omit `--host` or match the launcher in `tailtrail start \"<goal>\"`."
             )
         return args_host, "explicit-flag"
     
@@ -2459,7 +2486,7 @@ def build_report(
     # typed projection; they may not redefine ownership.
     if isinstance(plan.get("scope_evidence"), dict):
         if not navigator_scope.verify_decision_fingerprint(plan["scope_evidence"]):
-            raise ValueError("Navigator scope evidence fingerprint is invalid before Start composition")
+            raise ValueError("Navigator scope evidence fingerprint is invalid before Start composition; run `tailtrail start \"<goal>\"` for a new run")
         plan["likely_impacted_files"] = navigator_scope.project_likely_impacted(
             plan.get("scope_candidates", [])
         )
@@ -3290,6 +3317,7 @@ def debug_start_report(report: dict[str, Any], verbose: bool = False) -> str:
         ])
     else:
         lines.append("- No persisted Planning Lock is attached to this rendered report.")
+    lines.extend(pipeline_badge_lines(lock if isinstance(lock, dict) else None))
     lines.extend([
         "",
         "## Start Here",
@@ -3782,6 +3810,7 @@ def compact_debug_start_report(report: dict[str, Any]) -> str:
         ])
     else:
         lines.append("- Not persisted; this report grants no implementation authority.")
+    lines.extend(pipeline_badge_lines(lock if isinstance(lock, dict) else None, compact=True))
 
     lines.extend(["", "## Requirements", ""])
     for row in requirements:
@@ -4064,6 +4093,7 @@ def compact_start_report(report: dict[str, Any]) -> str:
             lines.append(f"  {index}. {stage}")
         lines.append(f"- First active slice: {hands_free_program['first_active_slice']}")
         lines.append(f"- Program approval gate: {hands_free_program['approval_gate']}")
+    lines.extend(pipeline_badge_lines(lock if isinstance(lock, dict) else None))
     append_testing_plan(lines, report.get("testing_plan", {}))
     lines.extend(["", "## Required later in this run", ""])
     for row in required_later_rows(delivery):
@@ -4855,6 +4885,7 @@ def verbose_start_report(
     if report.get("ui_consistency", {}).get("selected"):
         lines.extend(["- UI discovery before implementation: `" + str(report["ui_consistency"]["command"]) + "`", "- UI preservation boundary: " + str(report["ui_consistency"]["boundary"])])
     lines.extend([f"- Boundary: {delivery['execution_boundary']}"])
+    lines.extend(pipeline_badge_lines(lock if isinstance(lock, dict) else None))
     lines.extend(["", "## Token estimate", ""])
     lines.extend(token_estimate_lines(token, detailed=include_token_details))
     lines.extend(["", "## Evidence posture", "", "- Code intelligence: local-only `lite`, `v1`, and `v2`; provider-backed V3 is not default.", "- Evidence: local upper bound only; no exact token-savings claim.", "", "## Approval", ""])
@@ -5884,7 +5915,7 @@ def main() -> int:
             and effective_aidlc_mode != required_official_authority["mode"]
         ):
             raise ValueError(
-                "Navigator changed the AIDLC mode after official requirement authority was bound; restart requirement interpretation for the selected mode"
+                "Navigator changed the AIDLC mode after official requirement authority was bound; restart with `tailtrail start \"<goal>\" --aidlc <standard|full>` for the selected mode"
             )
         if required_official_authority is not None:
             report["aidlc_requirements"] = {

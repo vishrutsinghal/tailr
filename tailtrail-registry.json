@@ -767,7 +767,14 @@
         "scripts/start_posture.py",
         "scripts/task-start.py",
         "scripts/task-next.py",
-        "scripts/expand-intent.py"
+        "scripts/expand-intent.py",
+        "scripts/pipeline_judge.py",
+        "scripts/pipeline_manager.py",
+        "scripts/pipeline_orchestrator.py",
+        "scripts/write_guardian.py",
+        "scripts/drift_analysis.py",
+        "scripts/plan_render.py",
+        "scripts/test_scope.py"
       ],
       "tests": [
         "tests/test_navigator_core.py",
@@ -857,7 +864,9 @@
       "scripts": [
         "scripts/aidlc-init.py",
         "scripts/aidlc-check.py",
-        "scripts/aidlc-requirements.py"
+        "scripts/aidlc-requirements.py",
+        "scripts/metrics_extractor.py",
+        "scripts/_resume_check_extractor.py"
       ],
       "tests": [
         "tests/test_navigator_core.py"
@@ -1331,7 +1340,11 @@
         "scripts/cache-summary.py",
         "scripts/graph-learning.py",
         "scripts/code_graph_inventory.py",
-        "scripts/navigator_graph_lifecycle.py"
+        "scripts/navigator_graph_lifecycle.py",
+        "scripts/graph_builder.py",
+        "scripts/code_graph_cache.py",
+        "scripts/capture_hooks.py",
+        "scripts/commit_prompt.py"
       ],
       "tests": [
         "tests/test_navigator_core.py",

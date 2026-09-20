@@ -48,6 +48,15 @@ def learning_receipts_module() -> Any:
     return module
 
 
+def learning_refresh_module() -> Any:
+    spec = importlib.util.spec_from_file_location("completion_report_learning_refresh", ROOT / "scripts" / "learning-refresh.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def planning_lock_module() -> Any:
     spec = importlib.util.spec_from_file_location("completion_report_planning_lock", ROOT / "scripts" / "planning_lock.py")
     module = importlib.util.module_from_spec(spec)
@@ -61,6 +70,7 @@ L = ledger()
 STATE = canonical_state_module()
 RECEIPTS = learning_receipts_module()
 LOCK = planning_lock_module()
+REFRESH = learning_refresh_module()
 
 STAGE_BADGES = {"IMPLEMENTATION": "impl-badge", "TESTING": "test-badge", "INFRA": "infra-badge"}
 
@@ -419,8 +429,52 @@ def token_usage_summary(root: Path, run_id: str, directory: Path) -> dict[str, A
     }
 
 
-def reconcile_learning_saving_evidence(
-    token_usage: dict[str, Any], learning_use: dict[str, Any]
+def finalizer_stale_learnings(root: Path, run_id: str) -> dict[str, Any]:
+    """Best-effort stale-learning preview for the attention section.
+
+    Never raises: an unreadable store yields empty lists, not a closure
+    failure. Informational only; overall_status is unchanged.
+    """
+    try:
+        sweep = REFRESH.sweep_v3(root.resolve())
+    except (OSError, ValueError):
+        return {"triggered": [], "needs_backfill": []}
+    return {
+        "triggered": [str(row.get("learning_id")) for row in sweep.get("triggered", []) if isinstance(row, dict)],
+        "needs_backfill": [str(item) for item in sweep.get("needs_backfill", [])],
+    }
+
+
+def undecided_learning_proposals(root: Path, run_id: str, learning_use: dict[str, Any]) -> list[str]:
+    """List proposed learning IDs with no recorded use decision for this run.
+
+    A Navigator use-proposal without a matching learn receipt means advice
+    may have influenced the work without an explicit applied/ignored record.
+    Runs without a proposal, or with every proposal decided, return [].
+    """
+    try:
+        saved = read(L.state_dir(root.resolve(), run_id) / "planning" / "start-report-v1.json")
+    except (OSError, ValueError):
+        return []
+    report = saved.get("report", saved) if isinstance(saved, dict) else {}
+    navigator = report.get("navigator", {}) if isinstance(report, dict) else {}
+    proposal = navigator.get("learning_use_proposal") or {}
+    proposed = {
+        str(item.get("learning_id"))
+        for item in proposal.get("matches", [])
+        if isinstance(item, dict) and item.get("learning_id")
+    }
+    if not proposed:
+        return []
+    decided = {
+        str(row.get("learning_id"))
+        for row in learning_use.get("receipts", [])
+        if isinstance(row, dict) and row.get("learning_id")
+    }
+    return sorted(proposed - decided)
+
+
+def reconcile_learning_saving_evidence(    token_usage: dict[str, Any], learning_use: dict[str, Any]
 ) -> None:
     """Claim learning reuse only when an applied receipt proves it."""
     context = token_usage.get("context_estimate")
@@ -769,6 +823,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "boundary": "No execution-authority artifact was saved for this run.",
         },
         "pipeline": pipeline_summary(root, run_id),
+        "stale_learnings": finalizer_stale_learnings(root, run_id),
         "source_artifacts": {
             "approved_anchor": "anchors/approved-v1.json",
             "checkpoint": checkpoint_path,
@@ -828,6 +883,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     payload["learning_use"] = RECEIPTS.attribute_completion(
         root, run_id, payload, record=record, completion_ref=report_ref,
     )
+    payload["learning_use"]["undecided_proposals"] = undecided_learning_proposals(root, run_id, payload["learning_use"])
     reconcile_learning_saving_evidence(payload["token_usage"], payload["learning_use"])
     payload["drift_learning"] = drift_learning_observation(directory, payload, record)
     payload["completion_learning"] = completion_learning_intake(root, directory, payload, record)
@@ -1004,6 +1060,14 @@ def render(payload: dict[str, Any]) -> str:
     pipeline_attention = payload.get("pipeline", {}) if isinstance(payload.get("pipeline"), dict) else {}
     if pipeline_attention.get("status") == "badged" and pipeline_attention.get("unvisited_stages"):
         attention.append(f"Pipeline stages {', '.join(str(stage) for stage in pipeline_attention['unvisited_stages'])} were never visited; badge gates applied only to the visited stages.")
+    undecided = payload.get("learning_use", {}).get("undecided_proposals", []) if isinstance(payload.get("learning_use"), dict) else []
+    if undecided:
+        attention.append(f"{len(undecided)} proposed learning(s) have no recorded use decision ({', '.join(str(item) for item in undecided)}); record each with `tailtrail learn receipt record --root . --run-id {report_text(payload['run_id'])} --learning-id <id> --decision applied|ignored --decision-type <type> --requirement-uid <uid> --rationale \"<why>\" --approved`.")
+    stale = payload.get("stale_learnings", {}) if isinstance(payload.get("stale_learnings"), dict) else {}
+    if stale.get("triggered"):
+        attention.append(f"{len(stale['triggered'])} learning(s) look stale against current content ({', '.join(str(item) for item in stale['triggered'])}); review with `tailtrail learn refresh sweep --root .`.")
+    if stale.get("needs_backfill"):
+        attention.append(f"{len(stale['needs_backfill'])} learning(s) predate content snapshots; backfill with an approved `tailtrail learn v3 revalidate`.")
     lines.extend(f"- {item}" for item in attention)
 
     lines.extend(["", "## Requirement status", ""])

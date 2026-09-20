@@ -202,11 +202,14 @@ def learning_retrieval_mode(goal: str) -> str:
 
 
 def learning_use_proposal(root: Path, goal: str, changed: list[str], tasks: list[str], risks: list[str]) -> dict[str, Any] | None:
-    if not (root / ".tailtrail" / "learning-v3" / "events.jsonl").is_file():
-        return None
     mode = learning_retrieval_mode(goal)
 
     def blocked(reason: str) -> dict[str, Any]:
+        try:
+            retrieval = load_learning_retrieval_module()
+            thresholds = retrieval.effective_thresholds(root)[0] if retrieval else None
+        except (OSError, ValueError):
+            thresholds = None
         return {
             "schema_version": "1",
             "type": "tailtrail-learning-use-proposal",
@@ -219,13 +222,21 @@ def learning_use_proposal(root: Path, goal: str, changed: list[str], tasks: list
                 "requirement_ids": [],
                 "mode": mode,
             },
-            "threshold": {"lite": 60, "standard": 50, "full": 45}[mode],
+            "threshold": (thresholds or {"lite": 60, "standard": 50, "full": 45})[mode],
             "result_cap": 3,
             "matches": [],
             "blocked": [{"learning_id": "store", "record_id": "unknown", "reasons": [reason], "invalidator_checks": []}],
             "approval": {"required": False, "default": "do-not-use", "choices": ["ignore all learnings"]},
             "boundary": "Fail closed: invalid, stale, conflicting, or unreadable learning state cannot influence implementation.",
         }
+    if not (root / ".tailtrail" / "learning-v3" / "events.jsonl").is_file():
+        # Cold start is explicit, not silent: there is no store to evaluate,
+        # so report the empty state instead of implying matches were checked.
+        proposal = blocked("No learning store exists yet")
+        proposal["blocked"][0]["reasons"].append(
+            "V3 learnings accrue automatically from accepted closures; this project has none recorded yet"
+        )
+        return proposal
 
     module = load_learning_retrieval_module()
     if module is None:
@@ -1860,7 +1871,11 @@ def decide(
                 command += f" --tags {core.quoted(','.join(tags))}"
             commands.append(command)
         elif proposal_state == "blocked":
-            graph_learning_skip_reason = "all applicable V3 learnings were blocked by freshness, invalidator, exclusion, privacy, threshold, or contradiction checks"
+            reasons = [reason for row in (use_proposal.get("blocked", []) if isinstance(use_proposal, dict) else []) if isinstance(row, dict) for reason in row.get("reasons", [])]
+            if any("No learning store exists yet" in str(reason) for reason in reasons):
+                graph_learning_skip_reason = "no learning store exists yet; V3 learnings accrue automatically from accepted closures"
+            else:
+                graph_learning_skip_reason = "all applicable V3 learnings were blocked by freshness, invalidator, exclusion, privacy, threshold, or contradiction checks"
             skipped.append(FeatureDecision("Graph-Aware Learning", graph_learning_skip_reason))
         else:
             graph_learning_skip_reason = "no high-value project-framed V3 learning matched; Lite remains quiet"

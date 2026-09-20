@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import shlex
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.proc_quote import quote
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,7 +39,7 @@ class ClosureFinalizerTests(unittest.TestCase):
             (root / "src" / "unapproved_helper.py").write_text("def helper():\n    return True\n", encoding="utf-8")
         lock.create(root, "cancel an order", "run")
         proposal = root / "proposal.json"
-        command = f"{shlex.quote(sys.executable)} -m unittest discover -s tests -p test_service.py -v"
+        command = f"{quote(sys.executable)} -m unittest discover -s tests -p test_service.py -v"
         proposal.write_text(json.dumps({"requirements": [{
             "statement": "Cancel an eligible order exactly once.", "acceptance_criteria": ["cancelled once"],
             "preserve_rules": ["shipped orders remain rejected"],
@@ -232,6 +232,18 @@ class ClosureFinalizerTests(unittest.TestCase):
         self.assertEqual(checkpoint["scope_assessment"]["unexpected_paths"], ["src/unapproved_helper.py"])
         self.assertEqual(report["drift"]["status"], "unresolved")
         self.assertTrue(any(item.get("path") == "src/unapproved_helper.py" for item in report["drift"]["findings"]))
+
+    def test_finalize_records_closure_review_event_for_later_analysis(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.setup_run(root)
+            result = finalizer.finalize(root, "run")
+            events = (root / ".tailtrail" / "quality-events.jsonl").read_text(encoding="utf-8").splitlines()
+            review_events = [json.loads(line) for line in events if "tailtrail-closure-review" in line]
+        self.assertTrue(result["harness_review"]["recorded"])
+        self.assertEqual(len(review_events), 1)
+        self.assertEqual(review_events[0]["run_id"], "run")
+        self.assertIn("overall_status", review_events[0])
 
 
 if __name__ == "__main__":

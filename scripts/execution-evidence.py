@@ -34,7 +34,7 @@ def canonical(value: Any) -> str: return json.dumps(value, sort_keys=True, separ
 
 
 def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
-    if not isinstance(event, dict): raise ValueError("execution evidence must be a JSON object")
+    if not isinstance(event, dict): raise ValueError("execution evidence must be a JSON object; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     allowed = {
         "kind", "requirement_uids", "changed_paths", "tier", "tiers", "scenario_ids",
         "command_label", "command", "outcome", "environment", "asserted_behavior",
@@ -43,17 +43,17 @@ def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
         "stderr_artifact", "stdout_sha256", "stderr_sha256",
     }
     unknown = set(event) - allowed
-    if unknown: raise ValueError(f"execution evidence has unsupported fields: {', '.join(sorted(unknown))}")
+    if unknown: raise ValueError(f"execution evidence has unsupported fields: {', '.join(sorted(unknown))}; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     kind = event.get("kind")
-    if kind not in KINDS: raise ValueError("execution evidence kind is not supported")
+    if kind not in KINDS: raise ValueError("execution evidence kind is not supported; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     known = CONTRACT.approved_requirement_uids(root, run_id)
     uids = event.get("requirement_uids")
-    if not isinstance(uids, list) or not uids or not all(isinstance(item, str) for item in uids): raise ValueError("requirement_uids must be a non-empty string list")
-    if set(uids) - known: raise ValueError("execution evidence references unknown approved requirement UID(s)")
+    if not isinstance(uids, list) or not uids or not all(isinstance(item, str) for item in uids): raise ValueError("requirement_uids must be a non-empty string list; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
+    if set(uids) - known: raise ValueError("execution evidence references unknown approved requirement UID(s); use a UID from the approved anchor (check `tailtrail planning show --root . --run-id <run-id>`)")
     changed = event.get("changed_paths", [])
-    if not isinstance(changed, list) or not all(isinstance(item, str) for item in changed): raise ValueError("changed_paths must be a path list")
+    if not isinstance(changed, list) or not all(isinstance(item, str) for item in changed): raise ValueError("changed_paths must be a path list; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     normalized = {"schema_version": "2", "type": "tailtrail-execution-evidence", "run_id": run_id, "kind": kind, "requirement_uids": sorted(set(uids)), "changed_paths": sorted({CONTRACT.repository_path(item, "changed_paths item") for item in changed}), "evidence_boundary": "Host-supplied execution fact. TailTrail did not execute, reinterpret, or infer this event."}
-    if kind == "source-edit" and not normalized["changed_paths"]: raise ValueError("source-edit evidence requires at least one changed path")
+    if kind == "source-edit" and not normalized["changed_paths"]: raise ValueError("source-edit evidence requires at least one changed path; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     if kind in {"command-result", "ci-receipt"}:
         receipt = CONTRACT.validate_receipt({key: event[key] for key in (
             "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
@@ -86,7 +86,7 @@ def _redact(value: str, limit: int = 262144) -> str:
 def _anchor_requirements(root: Path, run_id: str) -> dict[str, dict[str, Any]]:
     path = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
     if not path.is_file():
-        raise ValueError(f"approved anchor for run `{run_id}` does not exist")
+        raise ValueError(f"approved anchor for run `{run_id}` does not exist; activate the run first with `tailtrail planning activate --root . --run-id {run_id} --approved`")
     anchor = json.loads(path.read_text(encoding="utf-8"))
     return {
         str(row.get("requirement_uid")): row
@@ -108,7 +108,7 @@ def run_command(
 ) -> dict[str, Any]:
     """Execute one exact approved proof command and atomically capture its facts."""
     if approved is not True:
-        raise ValueError("managed execution requires --approved")
+        raise ValueError(f"managed execution requires --approved; run `tailtrail execution-evidence run --approved --root . --run-id {run_id} --requirement <uid> --tier <tier> --label <label> --command <cmd>`")
     root = root.resolve()
     LOCK.assert_write_allowed(root, run_id)
     requirements = _anchor_requirements(root, run_id)
@@ -116,7 +116,7 @@ def run_command(
     for uid in sorted(set(requirement_uids)):
         row = requirements.get(uid)
         if row is None:
-            raise ValueError(f"managed execution references unknown approved requirement `{uid}`")
+            raise ValueError(f"managed execution references unknown approved requirement `{uid}`; use a UID from the approved anchor (check `tailtrail planning show --root . --run-id {run_id}`)")
         contract = row.get("validation_contract", {}) if isinstance(row.get("validation_contract"), dict) else {}
         approved_commands = {str(value) for value in contract.get("commands", []) if str(value)}
         checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
@@ -128,14 +128,14 @@ def run_command(
             if str(value)
         } or {str(value) for value in contract.get("tiers", []) if str(value)}
         if command not in approved_commands:
-            raise ValueError(f"command is not approved for requirement `{uid}`; revise the plan before execution")
+            raise ValueError(f"command is not approved for requirement `{uid}`; revise the plan with `tailtrail planning revise --root . --run-id {run_id} --changes '<json>' --approved-proposal` before execution")
         if not set(tiers) or set(tiers) - approved_tiers:
-            raise ValueError(f"requested evidence tiers are not approved for requirement `{uid}`")
+            raise ValueError(f"requested evidence tiers are not approved for requirement `{uid}`; use only approved tiers (check `tailtrail planning show --root . --run-id {run_id}`)")
         selected.append(row)
     if not selected:
-        raise ValueError("managed execution requires at least one approved requirement")
+        raise ValueError(f"managed execution requires at least one approved requirement; pass `--requirement <approved-uid>` from `tailtrail planning show --root . --run-id {run_id}`")
     if not isinstance(timeout_seconds, int) or timeout_seconds < 1 or timeout_seconds > 3600:
-        raise ValueError("timeout must be between 1 and 3600 seconds")
+        raise ValueError("timeout must be between 1 and 3600 seconds; pass `--timeout <1-3600>` to `tailtrail execution-evidence run --approved`")
 
     scenario_ids = sorted({
         str(scenario.get("scenario_id"))
@@ -233,7 +233,7 @@ def run_command(
 
 
 def append(root: Path, run_id: str, event: Any, approved: bool) -> dict[str, Any]:
-    if approved is not True: raise ValueError("execution evidence recording requires --approved")
+    if approved is not True: raise ValueError("execution evidence recording requires --approved; run `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     root = root.resolve(); LOCK.assert_write_allowed(root, run_id)
     normalized = validate(root, run_id, event); target = stream(root, run_id); target.parent.mkdir(parents=True, exist_ok=True)
     fingerprint = hashlib.sha256(canonical(normalized).encode()).hexdigest()[:16]

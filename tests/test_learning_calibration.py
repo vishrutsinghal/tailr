@@ -186,6 +186,77 @@ class LearningCalibrationTests(unittest.TestCase):
             self.assertEqual("proposed", proposal["status"])
             self.assertEqual("learning-calibration-gap", proposal["source_finding"]["category"])
 
+    def record_decisions(self, root, count, decision="applied"):
+        helper = PM3.LearningUseReceiptTests()
+        made = 0
+        run_index = 0
+        while made < count:
+            run_id = f"recal-{run_index}"
+            fresh = []
+            for _ in range(3):
+                if made >= count:
+                    break
+                # Rising confidence per batch keeps each run's fresh learnings
+                # atop the capped proposal ranking (task hit 35 + 20% of
+                # confidence must clear the standard threshold of 50).
+                record = PM3.V3.build_record(
+                    root, learning_id=f"lrn-recal-{made:03d}", learning_class="positive-pattern",
+                    summary=f"summary {made}", advice=f"advice {made}",
+                    source_kind="test", source_ref="fixture.json",
+                    source_fingerprint="sha256:" + "0" * 64, captured_by="test",
+                    task_types=["test"], tags=[], path_patterns=[], exclusions=[],
+                    invalidators=[], confidence_score=85 + made,
+                )
+                fresh.append(PM3.V3.append_record(root, record))
+                made += 1
+            _, uid, proposal = helper.setup_run(root, run_id)
+            surfaced = {
+                str(item.get("learning_id"))
+                for item in proposal.get("matches", [])
+                if isinstance(item, dict)
+            }
+            pending = [learning for learning in fresh if learning["learning_id"] in surfaced]
+            self.assertTrue(pending, "fresh learnings must surface in the run proposal")
+            for learning in pending:
+                helper.record(root, learning, uid, run_id=run_id, decision=decision)
+            run_index += 1
+            self.assertLess(run_index, 40, "proposal ranking did not surface fresh learnings")
+
+    def test_recalibrate_needs_minimum_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            proposal = CAL.propose_thresholds(Path(temp))
+        self.assertEqual(proposal["state"], "insufficient-data")
+        self.assertEqual(proposal["decided"], 0)
+
+    def test_recalibrate_proposes_and_activates_only_with_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.record_decisions(root, 12, decision="applied")
+            proposal = CAL.propose_thresholds(root)
+            self.assertEqual(proposal["state"], "proposed")
+            self.assertEqual(proposal["direction"], "loosen")
+            self.assertEqual(proposal["suggestion"], {"lite": 55, "standard": 45, "full": 40})
+            self.assertFalse((root / ".tailtrail" / "learning-thresholds.json").exists())
+            preview = CAL.recalibrate(root, False)
+            self.assertFalse(preview["activated"])
+            self.assertFalse((root / ".tailtrail" / "learning-thresholds.json").exists())
+            activated = CAL.recalibrate(root, True)
+            self.assertTrue(activated["activated"])
+            thresholds, source = RETRIEVAL.effective_thresholds(root)
+            self.assertEqual(source, "approved-override")
+            self.assertEqual(thresholds, {"lite": 55, "standard": 45, "full": 40})
+
+    def test_effective_thresholds_falls_back_on_unapproved_or_invalid_override(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            thresholds, source = RETRIEVAL.effective_thresholds(root)
+            self.assertEqual((thresholds, source), ({"lite": 60, "standard": 50, "full": 45}, "defaults"))
+            (root / ".tailtrail").mkdir(parents=True)
+            (root / ".tailtrail" / "learning-thresholds.json").write_text(
+                json.dumps({"thresholds": {"lite": 1, "standard": 2}}), encoding="utf-8")
+            thresholds, source = RETRIEVAL.effective_thresholds(root)
+            self.assertEqual(source, "defaults")
+
     def test_cli_routes_learning_evaluation(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "scripts/tailtrail.py"), "eval", "learning", "evaluate", "--format", "summary"],

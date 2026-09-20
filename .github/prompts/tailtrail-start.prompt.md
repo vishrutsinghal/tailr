@@ -97,3 +97,6 @@ narrative is never a substitute for the Completion Report.
 
 Until the Start plan or revised AIDLC boundary is explicitly approved, do not
 edit source, run project commands, scanners, tests, Terraform, or Git mutations.
+
+---
+_TailTrail instructions revision: `0940fb0fe7a8` — quote this line if asked whether instructions are current._

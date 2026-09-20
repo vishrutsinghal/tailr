@@ -115,6 +115,16 @@ class ClosureCloseTests(unittest.TestCase):
         self.assertNotIn("acceptance_prompt", result)
         self.assertFalse(learning_exists)
 
+    def test_acceptance_surfaces_pending_learning_review_count(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.setup_complete_run(root)
+            result = close.close(root, "run", "accept-user")
+
+        self.assertEqual(result["state"], "accepted")
+        self.assertGreaterEqual(result["learning_review"]["pending"], 1)
+        self.assertIn("tailtrail learn review", result["learning_review"]["command"])
+
 
 if __name__ == "__main__":
     unittest.main()

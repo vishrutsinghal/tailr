@@ -43,6 +43,8 @@ DEBUG_SECTION = load("closure_finalizer_debug_section", "debug-completion.py")
 CORRECTION = load("closure_finalizer_correction", "closure-correction.py")
 WORKFLOW_EVIDENCE = load("closure_finalizer_workflow_evidence", "workflow_runtime/evidence.py")
 NAVIGATOR_GRAPH = load("closure_finalizer_navigator_graph", "navigator_graph_lifecycle.py")
+REFRESH = load("closure_finalizer_refresh", "learning-refresh.py")
+HARNESS = load("closure_finalizer_harness", "harness-review.py")
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -70,7 +72,7 @@ def latest_record(root: Path, run_id: str) -> dict[str, Any]:
             digits = "".join(character for character in Path(checkpoint).stem if character.isdigit())
             candidates.append((int(digits or 0), path.stat().st_mtime_ns, path.name, item))
     if not candidates:
-        raise ValueError("no closure record exists; run tailtrail closure record first or provide --input")
+        raise ValueError("no closure record exists; run `tailtrail closure record --root . --run-id <run-id>` first or provide --input")
     return max(candidates, key=lambda row: row[:3])[3]
 
 
@@ -88,7 +90,7 @@ def selected_harnesses(root: Path, run_id: str) -> list[str]:
                     }
                 ]
             return []
-        raise ValueError("execution handoff is required; activate the approved Planning Lock first")
+        raise ValueError("execution handoff is required; activate the approved Planning Lock first with `tailtrail planning activate --root . --run-id <run-id> --approved`")
     closure = read(path).get("closure", {})
     values = closure.get("selected_harnesses", []) if isinstance(closure, dict) else []
     return [str(value) for value in values if isinstance(value, str)]
@@ -187,7 +189,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
     if input_path is not None:
         resolved_input = input_path.resolve()
         if read(resolved_input).get("run_id") != run_id:
-            raise ValueError("closure input run_id must match --run-id")
+            raise ValueError("closure input run_id must match --run-id; pass `--input <artifact>` with a matching run_id to `tailtrail closure finalize --root . --run-id <run-id>`")
         closure = RECORDER.record(root, resolved_input)
     else:
         # Rebuild managed evidence when the stream contains executable
@@ -270,6 +272,26 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
             "error": str(error),
             "boundary": "Graph metadata refresh failed without changing closure evidence or source authority.",
         }
+    try:
+        sweep = REFRESH.sweep_v3(root)
+        stale_learnings = {
+            "triggered": [row["learning_id"] for row in sweep.get("triggered", [])],
+            "needs_backfill": list(sweep.get("needs_backfill", [])),
+        }
+    except (OSError, ValueError):
+        stale_learnings = {"triggered": [], "needs_backfill": [], "unavailable": True}
+    try:
+        harness_event = HARNESS.record_closure_event(root, run_id, {
+            "requirements": {"complete": report["requirement_status"]["complete"], "total": report["requirement_status"]["total"]},
+            "tests_status": report["tests"]["status"],
+            "drift_status": report["drift"]["status"],
+            "overall_status": report["overall_status"],
+            "pipeline_stage": (report.get("pipeline", {}) or {}).get("active_stage", "unknown"),
+            "token_estimate": str(report.get("token_usage", {}).get("status", "unknown")),
+        })
+        harness_review = {"recorded": harness_event is not None}
+    except (OSError, ValueError, KeyError):
+        harness_review = {"recorded": False, "unavailable": True}
     correction = None
     if report["overall_status"] != "complete":
         if debug_section and debug_section.get("debug_status") != "pass":
@@ -293,6 +315,8 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "recovery": report["recovery_checkpoint"],
         "context_continuity": report["drift_learning"],
         "pipeline": report.get("pipeline", {"status": "not-recorded"}),
+        "stale_learnings": stale_learnings,
+        "harness_review": harness_review,
         "graph_lifecycle": graph_lifecycle,
         "run_mapping": run_mapping,
         "correction": correction,

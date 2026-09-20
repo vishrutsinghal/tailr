@@ -165,6 +165,51 @@ class LearningV3Tests(unittest.TestCase):
             malformed["lifecycle"] = []
             self.assertIn("lifecycle must be an object", V3.validate_record(malformed))
 
+    def test_secret_scan_blocks_provider_tokens_and_post_limit_secrets(self) -> None:
+        with self.assertRaisesRegex(V3.LearningV3Error, r"\(aws-access-key\)"):
+            V3.clean_text("rotate key AKIAIOSFODNN7EXAMPLE now")
+        with self.assertRaisesRegex(V3.LearningV3Error, r"\(private-key-block\)"):
+            V3.clean_text("-----BEGIN RSA PRIVATE KEY-----\nMIIE")
+        with self.assertRaisesRegex(V3.LearningV3Error, r"\(github-token\)"):
+            V3.clean_text("token ghp_123456789012345678901234567890123456 is live")
+        # Secrets past the 500-char display limit must still block capture.
+        padded = "ok advice " + "x " * 300 + "xoxb-123456789012-abcdefghij"
+        with self.assertRaisesRegex(V3.LearningV3Error, r"\(slack-token\)"):
+            V3.clean_text(padded)
+        # Clean input still truncates to the display limit.
+        self.assertEqual(V3.clean_text("w " * 400, limit=10), "w w w w w ")
+
+    def test_declaration_warnings_flag_narrow_coverage(self) -> None:
+        full = {"freshness": {"invalidators": sorted(V3.INVALIDATOR_KINDS), "revalidate_after": "2030-01-01T00:00:00+00:00"}}
+        self.assertEqual(V3.declaration_warnings(full), [])
+        narrow = {"freshness": {"invalidators": ["source-change"], "revalidate_after": "2030-01-01T00:00:00+00:00"}}
+        warnings = V3.declaration_warnings(narrow)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("narrow invalidator declaration", warnings[0])
+        self.assertIn("policy-change", warnings[0])
+        missing = {"freshness": {"invalidators": sorted(V3.INVALIDATOR_KINDS), "revalidate_after": None}}
+        self.assertEqual(V3.declaration_warnings(missing), ["no revalidation deadline; record relies solely on content fingerprints"])
+
+    def test_cli_surfaces_declaration_warnings_on_stderr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            record = V3.build_record(
+                root, learning_id="lrn-narrow-warn", learning_class="general",
+                summary="narrow", advice="narrow advice",
+                source_kind="test", source_ref="evidence.json",
+                source_fingerprint="sha256:" + "0" * 64, captured_by="test",
+                invalidators=["source-change"],
+            )
+            V3.append_record(root, record)
+            completed = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "learning-v3.py"),
+                 "amend", "--root", str(root), "--approved",
+                 "--learning-id", "lrn-narrow-warn", "--reason", "reword"],
+                text=True, capture_output=True, check=False,
+            )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("narrow invalidator declaration", completed.stderr)
+
     def test_cli_requires_approval_for_migration_and_terminal_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

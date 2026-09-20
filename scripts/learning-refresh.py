@@ -422,6 +422,86 @@ def command_apply(args: argparse.Namespace) -> int:
     return 0
 
 
+def load_sweep_v3():
+    spec = importlib.util.spec_from_file_location("tailtrail_refresh_sweep_v3", ROOT / "scripts" / "learning-v3.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load Learning V3 for sweep")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def sweep_v3(root: Path) -> dict[str, Any]:
+    """Proactively evaluate every current V3 record against saved fingerprints.
+
+    Read-only: uses the same shared comparison as retrieval gating, so a
+    sweep verdict and a later retrieval verdict cannot disagree. Mutations
+    stay on the existing approved `apply` path and `revalidate` backfill.
+    """
+    V3 = load_sweep_v3()
+    root = root.resolve()
+    if not (root / ".tailtrail" / "learning-v3" / "events.jsonl").is_file():
+        return {"schema_version": "1", "type": "tailtrail-learning-refresh-sweep",
+                "state": "no-store", "triggered": [], "needs_backfill": [], "clean": 0,
+                "boundary": "No V3 store exists yet; learnings accrue from accepted closures."}
+    try:
+        latest = V3.latest_records(V3.read_records(root))
+    except (OSError, ValueError):
+        return {"schema_version": "1", "type": "tailtrail-learning-refresh-sweep",
+                "state": "no-store", "triggered": [], "needs_backfill": [], "clean": 0,
+                "boundary": "No V3 store is readable; nothing was evaluated."}
+    triggered: list[dict[str, Any]] = []
+    needs_backfill: list[str] = []
+    clean = 0
+    for learning_id in sorted(latest):
+        record = latest[learning_id]
+        if record.get("freshness", {}).get("status") != "current":
+            continue
+        if not isinstance(record.get("freshness", {}).get("invalidator_snapshot"), dict):
+            needs_backfill.append(learning_id)
+            continue
+        reasons, _ = V3.compare_snapshot(root, record)
+        deadline = parse_time(record.get("freshness", {}).get("revalidate_after"))
+        if deadline and deadline <= datetime.now(timezone.utc):
+            reasons = [*reasons, "revalidation deadline has elapsed"]
+        if reasons:
+            triggered.append({
+                "learning_id": learning_id,
+                "reasons": sorted(set(reasons)),
+                "apply_command": f"tailtrail learn refresh apply --root . --learning-id {learning_id} --action mark-stale --reason \"sweep-detected drift\" --approved",
+            })
+        else:
+            clean += 1
+    return {"schema_version": "1", "type": "tailtrail-learning-refresh-sweep",
+            "state": "evaluated", "triggered": triggered, "needs_backfill": sorted(needs_backfill), "clean": clean,
+            "backfill_command": "tailtrail learn v3 revalidate --root . --learning-id <id> --reason \"snapshot backfill\" --evidence-ref <file> --approved",
+            "boundary": "Read-only evaluation; triggering actions and backfills each require their own explicit approval."}
+
+
+def command_sweep(args: argparse.Namespace) -> int:
+    result = sweep_v3(args.root)
+    if args.format == "json":
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    print("# TailTrail Learning Refresh Sweep")
+    print(f"- State: `{result['state']}`")
+    print(f"- Clean: `{result['clean']}`")
+    if result["triggered"]:
+        print("", "## Triggered", "", sep="\n")
+        for row in result["triggered"]:
+            print(f"- `{row['learning_id']}`: {'; '.join(row['reasons'])}")
+            print(f"  - `{row['apply_command']}`")
+    if result["needs_backfill"]:
+        print("", "## Needs snapshot backfill", "", sep="\n")
+        for learning_id in result["needs_backfill"]:
+            print(f"- `{learning_id}`")
+        print(f"- `{result['backfill_command']}`")
+    if not result["triggered"] and not result["needs_backfill"]:
+        print("- No stale learnings detected.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Inspect and recommend TailTrail learning refresh actions.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -449,6 +529,10 @@ def build_parser() -> argparse.ArgumentParser:
     apply.add_argument("--approved", action="store_true")
     apply.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
+    sweep = subparsers.add_parser("sweep", help="Proactively evaluate V3 record freshness.")
+    sweep.add_argument("--root", type=Path, default=Path.cwd())
+    sweep.add_argument("--format", choices=("markdown", "json"), default="markdown")
+
     return parser
 
 
@@ -462,6 +546,8 @@ def main() -> int:
         return command_stale(args)
     if args.command == "apply":
         return command_apply(args)
+    if args.command == "sweep":
+        return command_sweep(args)
     raise SystemExit(f"Unknown command: {args.command}")
 
 

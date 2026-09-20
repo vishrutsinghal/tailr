@@ -17,7 +17,33 @@ ROOT = Path(__file__).resolve().parents[1]
 REFRESH_ACTIONS = Path(".tailtrail/learning-refresh-actions.json")
 MAX_MATCHES = 3
 THRESHOLDS = {"lite": 60, "standard": 50, "full": 45}
+THRESHOLD_OVERRIDE = Path(".tailtrail/learning-thresholds.json")
+THRESHOLD_BOUNDS = (30, 90)
 BLOCKING_REFRESH_ACTIONS = {"mark-stale", "suppress", "archive", "delete"}
+
+
+def effective_thresholds(root: Path | None = None) -> tuple[dict[str, int], str]:
+    """Return retrieval score thresholds plus their provenance.
+
+    An approved override (`.tailtrail/learning-thresholds.json`, written only
+    by `tailtrail learn recalibrate --approved`) replaces the defaults. Any
+    missing, malformed, unapproved, or out-of-bounds override fails open to
+    the defaults so retrieval can never break on a bad file.
+    """
+    if root is not None:
+        try:
+            raw = json.loads((Path(root).resolve() / THRESHOLD_OVERRIDE).read_text(encoding="utf-8"))
+        except (OSError, ValueError, json.JSONDecodeError):
+            return dict(THRESHOLDS), "defaults"
+        if (
+            isinstance(raw, dict)
+            and isinstance(raw.get("thresholds"), dict)
+            and set(raw["thresholds"]) == set(THRESHOLDS)
+            and all(isinstance(value, int) and THRESHOLD_BOUNDS[0] <= value <= THRESHOLD_BOUNDS[1] for value in raw["thresholds"].values())
+            and raw.get("approved") is True
+        ):
+            return {key: int(raw["thresholds"][key]) for key in THRESHOLDS}, "approved-override"
+    return dict(THRESHOLDS), "defaults"
 
 
 def load_v3():
@@ -237,20 +263,9 @@ def freshness_reasons(
         blocked.append("source-change invalidator triggered")
     saved_snapshot = record["freshness"].get("invalidator_snapshot")
     if isinstance(saved_snapshot, dict):
-        current_snapshot = V3.invalidator_snapshot(
-            root,
-            path_patterns=record["applicability"]["path_patterns"],
-            source_ref=record["provenance"]["source_ref"],
-        )
-        for invalidator in record["freshness"]["invalidators"]:
-            triggered = saved_snapshot.get(invalidator) != current_snapshot.get(invalidator)
-            checks.append({
-                "invalidator": invalidator,
-                "state": "triggered" if triggered else "not-triggered",
-                "evidence": f"{invalidator} content fingerprint changed" if triggered else "content fingerprint matches captured snapshot",
-            })
-            if triggered:
-                blocked.append(f"{invalidator} invalidator triggered")
+        snapshot_blocked, snapshot_checks = V3.compare_snapshot(root, record)
+        blocked.extend(snapshot_blocked)
+        checks.extend(snapshot_checks)
         return sorted(set(blocked)), checks
     captured_at = parse_time(record["freshness"].get("captured_at"))
     captured_timestamp = captured_at.timestamp() if captured_at else None
@@ -358,7 +373,8 @@ def build_proposal(
     utility = RECEIPTS.utility_adjustments(root)
     eligible: list[dict[str, Any]] = []
     blocked: list[dict[str, Any]] = []
-    threshold = THRESHOLDS[mode]
+    thresholds, threshold_source = effective_thresholds(root)
+    threshold = thresholds[mode]
     for record in records:
         observed = utility.get(record["learning_id"], {"total_delta": 0, "attribution_count": 0})
         observed_delta = int(observed["total_delta"])
@@ -412,6 +428,7 @@ def build_proposal(
         "state": state,
         "task_frame": frame,
         "threshold": threshold,
+        "threshold_source": threshold_source,
         "result_cap": MAX_MATCHES,
         "matches": selected,
         "blocked": sorted(blocked, key=lambda item: item["learning_id"]),

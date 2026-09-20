@@ -119,6 +119,17 @@ class GovernanceSyncTests(unittest.TestCase):
         self.assertEqual(default_errors, [])
         self.assertTrue(any("UNREGISTERED.md: unregistered governance marker block" in error for error in strict_errors))
 
+    def test_instruction_stamps_are_stable_and_detect_drift(self) -> None:
+        self.write("AGENTS.md", "title\nbody\n")
+        first = self.module.stamp_files(self.root, ("AGENTS.md",))
+        self.assertEqual(first, ["AGENTS.md"])
+        self.assertEqual(self.module.stamp_status(self.root / "AGENTS.md"), "ok")
+        second = self.module.stamp_files(self.root, ("AGENTS.md",))
+        self.assertEqual(second, [])
+        self.write("AGENTS.md", self.read("AGENTS.md") + "more guidance\n")
+        self.assertEqual(self.module.stamp_status(self.root / "AGENTS.md"), "stale")
+        self.assertTrue(any("stale" in error for error in self.module.stamp_check(self.root)))
+
     def test_real_root_sync_is_noop_after_sync(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             copy_root = Path(temp) / "repo"

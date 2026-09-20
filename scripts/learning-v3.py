@@ -37,9 +37,14 @@ FORBIDDEN_KEYS = {
     "secret", "password", "token", "credential", "customer_data", "user_identity",
 }
 SENSITIVE_PATTERNS = (
-    re.compile(r"(?i)(api[_-]?key|secret|token|password|passwd|authorization)\s*[:=]\s*\S+"),
-    re.compile(r"(?i)bearer\s+[a-z0-9._\-]+"),
-    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    ("assigned-credential", re.compile(r"(?i)(api[_-]?key|secret|token|password|passwd|authorization)\s*[:=]\s*\S+")),
+    ("bearer-token", re.compile(r"(?i)bearer\s+[a-z0-9._\-]+")),
+    ("national-id", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
+    ("aws-access-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("private-key-block", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----")),
+    ("github-token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}\b|\bgithub_pat_[A-Za-z0-9_]{22,}\b")),
+    ("slack-token", re.compile(r"\bxox[bpars]-[A-Za-z0-9-]{10,}\b")),
+    ("stripe-live-key", re.compile(r"\bsk_live_[0-9a-zA-Z]{16,}\b")),
 )
 
 
@@ -127,6 +132,37 @@ def invalidator_snapshot(
     return {name: "sha256:" + sha256(_snapshot_rows(root, paths)) for name, paths in sorted(domains.items())}
 
 
+def compare_snapshot(root: Path, record: dict[str, Any]) -> tuple[list[str], list[dict[str, str]]]:
+    """Compare saved content fingerprints against current files.
+
+    Shared by retrieval gating and the refresh sweep so both reach the
+    same verdict on the same record. Returns (blocked_reasons, checks)
+    using the canonical invalidator messages. Records without a saved
+    snapshot report no comparison (the sweep flags them for backfill
+    instead of judging them on clock time).
+    """
+    blocked: list[str] = []
+    checks: list[dict[str, str]] = []
+    saved_snapshot = record.get("freshness", {}).get("invalidator_snapshot")
+    if not isinstance(saved_snapshot, dict):
+        return blocked, checks
+    current_snapshot = invalidator_snapshot(
+        root,
+        path_patterns=record.get("applicability", {}).get("path_patterns"),
+        source_ref=record.get("provenance", {}).get("source_ref"),
+    )
+    for invalidator in record.get("freshness", {}).get("invalidators", []):
+        triggered = saved_snapshot.get(invalidator) != current_snapshot.get(invalidator)
+        checks.append({
+            "invalidator": invalidator,
+            "state": "triggered" if triggered else "not-triggered",
+            "evidence": f"{invalidator} content fingerprint changed" if triggered else "content fingerprint matches captured snapshot",
+        })
+        if triggered:
+            blocked.append(f"{invalidator} invalidator triggered")
+    return sorted(set(blocked)), checks
+
+
 def project_frame(root: Path, *, create: bool = False) -> str:
     path = root / PROJECT_FRAME
     if path.is_file():
@@ -145,11 +181,14 @@ def project_frame(root: Path, *, create: bool = False) -> str:
 
 
 def clean_text(value: str, *, limit: int = 500) -> str:
-    text = " ".join(str(value).split())[:limit]
-    for pattern in SENSITIVE_PATTERNS:
+    text = " ".join(str(value).split())
+    # Scan the full text before truncating: secrets past the display limit
+    # must still block capture. The error names only the pattern category,
+    # never the matched content.
+    for name, pattern in SENSITIVE_PATTERNS:
         if pattern.search(text):
-            raise LearningV3Error("learning text contains sensitive material")
-    return text
+            raise LearningV3Error(f"learning text contains sensitive material ({name})")
+    return text[:limit]
 
 
 def safe_relative(value: str) -> bool:
@@ -394,6 +433,24 @@ def _validate_lifecycle(records: list[dict[str, Any]]) -> None:
         if prior and prior["freshness"]["status"] in {"superseded", "revoked"}:
             raise LearningV3Error(f"learning `{learning_id}` changes after a terminal transition")
         latest[learning_id] = record
+
+
+def declaration_warnings(record: dict[str, Any]) -> list[str]:
+    """Name staleness-detection blind spots without blocking capture.
+
+    A narrow invalidator declaration or a missing revalidation deadline is
+    the author's explicit choice, so this warns instead of failing. The
+    sweep and retrieval gates consume the declared values unchanged.
+    """
+    warnings: list[str] = []
+    freshness = record.get("freshness", {})
+    declared = set(freshness.get("invalidators", [])) if isinstance(freshness, dict) else set()
+    uncovered = sorted(INVALIDATOR_KINDS - {str(item) for item in declared})
+    if uncovered:
+        warnings.append(f"narrow invalidator declaration; uncovered drift domains: {', '.join(uncovered)}")
+    if not (isinstance(freshness, dict) and freshness.get("revalidate_after")):
+        warnings.append("no revalidation deadline; record relies solely on content fingerprints")
+    return warnings
 
 
 def append_record(root: Path, record: dict[str, Any]) -> dict[str, Any]:
@@ -797,6 +854,9 @@ def main() -> int:
     except (OSError, json.JSONDecodeError, LearningV3Error) as error:
         print(f"Learning V3 error: {error}")
         return 2
+    if isinstance(value, dict) and isinstance(value.get("freshness"), dict):
+        for warning in declaration_warnings(value):
+            print(f"Learning V3 warning: {warning}", file=sys.stderr)
     if args.format == "json":
         print(json.dumps(value, indent=2, sort_keys=True))
     else:

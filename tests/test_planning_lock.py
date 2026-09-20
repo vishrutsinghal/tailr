@@ -96,6 +96,20 @@ class PlanningLockTests(unittest.TestCase):
                     "requirement_uid": "req-1", "display_id": "REQ-01", "statement": "Notify.",
                 }]})
 
+    def test_fail_closed_errors_carry_corrective_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with self.assertRaisesRegex(ValueError, r"tailtrail start"):
+                lock.show(root, "no-such-run")
+            lock.create(root, "do work", "plan-err")
+            lock.save_start_report(root, "plan-err", {
+                "goal": "do work",
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"likely_impacted_files": [{"path": "src/work.py"}]},
+            })
+            with self.assertRaisesRegex(ValueError, "aidlc-standard"):
+                lock.record_official_aidlc_questions(root, "plan-err", "[]")
+
     def test_official_question_recorder_supports_stdin_for_large_windows_payloads(self) -> None:
         source = (ROOT / "scripts" / "planning_lock.py").read_text(encoding="utf-8")
         self.assertIn('official_question_source.add_argument("--questions-stdin"', source)

@@ -181,3 +181,6 @@ When reviewing code or a diff, look first for:
 - Whether the implementation actually satisfies the user request, AIDLC requirements, or approved Navigator plan.
 
 Return concrete findings and suggested reductions. Do not ask for rewrites only to satisfy style preference.
+
+---
+_TailTrail instructions revision: `82babe10e624` — quote this line if asked whether instructions are current._

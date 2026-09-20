@@ -30,6 +30,24 @@ EVALUATION = load("closure_close_evaluation", "closure-evaluation.py")
 STATE = load("closure_close_official_state", "official-aidlc-state.py")
 SAN = load("closure_close_official_sanitizer", "official-aidlc-sanitize.py")
 RUNTIME = load("closure_close_official_runtime", "official-aidlc-runtime.py")
+V3 = load("closure_close_learning_v3", "learning-v3.py")
+
+
+def pending_learning_reviews(root: Path) -> int | None:
+    """Count current, uncurated V3 learnings awaiting explicit review.
+
+    Returns None when the store cannot be read so close-out never fails
+    on review accounting.
+    """
+    try:
+        latest = V3.latest_records(V3.read_records(root.resolve()))
+    except (OSError, ValueError):
+        return None
+    return sum(
+        1 for record in latest.values()
+        if record.get("freshness", {}).get("status") == "current"
+        and not record.get("utility", {}).get("curated", False)
+    )
 
 
 def official_closure_link(root: Path, run_id: str, completion_report: str, acceptance: str) -> dict[str, Any] | None:
@@ -48,7 +66,7 @@ def official_closure_link(root: Path, run_id: str, completion_report: str, accep
     try:
         completion_reference = completion_path.relative_to(root.resolve()).as_posix()
     except ValueError as error:
-        raise ValueError("completion report reference must stay inside the project root") from error
+        raise ValueError("completion report reference must stay inside the project root; pass a project-relative path to `tailtrail closure close --root . --run-id <run-id>`") from error
     payload = {
         "schema_version": "1",
         "type": "tailtrail-official-aidlc-closure-link",
@@ -82,7 +100,7 @@ def resolve_run(root: Path, run_id: str | None) -> str:
             except (OSError, ValueError, json.JSONDecodeError):
                 pass
     if len(candidates) == 1: return candidates[0]
-    if not candidates: raise ValueError("no approved run with closure evidence was found; provide --run-id")
+    if not candidates: raise ValueError("no approved run with closure evidence was found; approve a run with `tailtrail planning approve --root . --run-id <run-id> --approved`, then retry with `--run-id <exact-run-id>`")
     raise ValueError("multiple approved closure runs exist; provide --run-id: " + ", ".join(candidates))
 
 
@@ -90,7 +108,7 @@ def baseline(root: Path, run_id: str) -> Path:
     directory = L.state_dir(root, run_id); path = directory / "closure-baselines" / "approved-anchor-v1.json"
     if path.is_file(): return path
     anchor = json.loads((directory / "anchors" / "approved-v1.json").read_text(encoding="utf-8")); total = len(anchor.get("requirements", []))
-    if total < 1: raise ValueError("approved anchor has no requirements; cannot derive a baseline")
+    if total < 1: raise ValueError("approved anchor has no requirements; run `tailtrail start \"<goal>\"` for a new run with requirements")
     L.atomic_json(path, {"type": "tailtrail-closure-baseline", "baseline_kind": "approved-anchor-delivery-start", "requirements_complete": 0, "requirements_total": total, "unresolved_drift": 0, "tests_pass": False, "boundary": "Derived automatically from the immutable pre-implementation approved anchor as a delivery-start snapshot. It measures delivery progression, not agent or quality performance."})
     return path
 
@@ -115,17 +133,17 @@ def record_decision(root: Path, run_id: str, state: str, completion_report: str,
 
 def trusted_ci(root: Path, run_id: str, receipt: Path | None) -> str:
     if receipt is None or not receipt.is_file():
-        raise ValueError("CI acceptance requires a saved linked CI ingestion artifact via --ci-receipt")
+        raise ValueError("CI acceptance requires a saved linked CI ingestion artifact; pass `--ci-receipt <artifact>` to `tailtrail closure close --root . --run-id <run-id> --decision accept-ci`")
     resolved = receipt.resolve()
     try:
         relative = resolved.relative_to(root.resolve()).as_posix()
     except ValueError as error:
-        raise ValueError("CI receipt must be inside the project root") from error
+        raise ValueError("CI receipt must be inside the project root; pass a project-relative receipt to `tailtrail closure close --root . --run-id <run-id> --decision accept-ci --ci-receipt <artifact>`") from error
     payload = json.loads(resolved.read_text(encoding="utf-8"))
     if payload.get("type") != "tailtrail-ci-evidence-ingestion" or payload.get("run_id") != run_id:
-        raise ValueError("CI receipt must be a linked TailTrail CI ingestion artifact for this run")
+        raise ValueError("CI receipt must be a linked TailTrail CI ingestion artifact for this run; link one, then pass it via `tailtrail closure close --root . --run-id <run-id> --decision accept-ci --ci-receipt <artifact>`")
     if not payload.get("receipts") or not isinstance(payload.get("provenance"), dict):
-        raise ValueError("CI receipt must include saved receipts and provenance")
+        raise ValueError("CI receipt must include saved receipts and provenance, then pass it via `tailtrail closure close --root . --run-id <run-id> --decision accept-ci --ci-receipt <artifact>`")
     return relative
 
 
@@ -152,12 +170,17 @@ def close(root: Path, run_id: str | None = None, decision: str | None = None, in
     if decision == "reopen":
         recorded = record_decision(root, selected, "reopened", str(report_artifact), decision=decision, baseline_path=baseline_path)
         return {"type": "tailtrail-closure-close", "run_id": selected, "state": "reopened", "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "reopened"), "acceptance_record": recorded, "next_action": "Use bounded correction or approved replan; prior evidence remains preserved."}
-    if decision not in {"accept-user", "accept-ci"}: raise ValueError("decision must be accept-user, wait-ci, accept-ci, or reopen")
+    if decision not in {"accept-user", "accept-ci"}: raise ValueError("decision must be accept-user, wait-ci, accept-ci, or reopen; run `tailtrail closure close --root . --run-id <run-id> --decision <accept-user|wait-ci|accept-ci|reopen>`")
     accepted_by = "trusted-ci" if decision == "accept-ci" else "user"
     ci_reference = trusted_ci(root, selected, ci_receipt) if decision == "accept-ci" else None
     learned = LEARNING.capture(root, selected, accepted_by); evaluated = EVALUATION.evaluate(root, selected, baseline_path)
     recorded = record_decision(root, selected, "accepted", str(report_artifact), decision=decision, baseline_path=baseline_path, ci_receipt=ci_reference)
-    return {"type": "tailtrail-closure-close", "run_id": selected, "state": "accepted", "accepted_by": accepted_by, "ci_receipt": ci_reference, "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "accepted-ci" if decision == "accept-ci" else "accepted-user"), "acceptance_record": recorded, "baseline": baseline_path.relative_to(root).as_posix(), "positive_learning": learned, "evaluation": evaluated, "boundary": "Acceptance created candidate-only learning and deterministic evaluation; it did not promote guidance or claim quality improvement."}
+    pending_reviews = pending_learning_reviews(root)
+    learning_review = (
+        {"pending": pending_reviews, "command": "tailtrail learn review --root ."}
+        if pending_reviews is not None else {"pending": None, "command": "tailtrail learn review --root ."}
+    )
+    return {"type": "tailtrail-closure-close", "run_id": selected, "state": "accepted", "accepted_by": accepted_by, "ci_receipt": ci_reference, "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "accepted-ci" if decision == "accept-ci" else "accepted-user"), "acceptance_record": recorded, "baseline": baseline_path.relative_to(root).as_posix(), "positive_learning": learned, "evaluation": evaluated, "learning_review": learning_review, "boundary": "Acceptance created candidate-only learning and deterministic evaluation; it did not promote guidance or claim quality improvement."}
 
 
 def main() -> int:

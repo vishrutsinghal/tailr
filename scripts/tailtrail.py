@@ -973,8 +973,8 @@ def learn(args: list[str]) -> int:
         return run_script("learning-use-receipt.py", args[1:])
     if args and args[0] == "governance":
         return run_script("learning-governance.py", args[1:])
-    if args and args[0] in {"calibrate", "calibration"}:
-        return run_script("learning-calibration.py", args[1:])
+    if args and args[0] in {"calibrate", "calibration", "recalibrate"}:
+        return run_script("learning-calibration.py", args[1:] if args[0] != "recalibrate" else ["recalibrate", *args[1:]])
     if args and args[0] == "graph":
         return run_script("graph-learning.py", args[1:])
     if args and args[0] == "refresh":

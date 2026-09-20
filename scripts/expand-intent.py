@@ -70,9 +70,9 @@ FLOWS: dict[str, IntentFlow] = {
             "4) code map — important files and folders with one line each on what lives there. "
             "If the answer reveals follow-up work, propose it and wait for approval instead of starting it."
         ),
-        load=["AGENTS.md", "tailtrail-policy.md when present", "README.md", "requirements.txt or manifest", "infra/ and services/ layout", "exact relevant source files"],
-        avoid=["ROADMAP.md", "DESIGN.md", "all examples", "unrelated lifecycle artifacts", "Planning Lock creation", "implementation edits", "project command execution"],
-        run_order=["understand question", "inspect relevant code read-only", "run read-only tailtrail graph or map commands when the question needs them", "answer functional idea with flow diagram first", "answer build, tech, and deployment", "answer code map", "propose follow-up work without starting it"],
+        load=["AGENTS.md", "tailtrail-policy.md when present", "README.md", "requirements.txt or manifest", "infra/ and services/ layout", "bootstrap snapshot status (`tailtrail bootstrap status --root .`)", "exact relevant source files"],
+        avoid=["ROADMAP.md", "DESIGN.md", "all examples", "unrelated lifecycle artifacts", "Planning Lock creation", "implementation edits", "project command execution", "bootstrap refresh without explicit approval"],
+        run_order=["understand question", "check bootstrap snapshot status and reuse its recorded facts", "inspect relevant code read-only", "run read-only tailtrail graph or map commands when the question needs them", "answer functional idea with flow diagram first", "answer build, tech, and deployment", "answer code map", "propose follow-up work without starting it"],
         validation=["no Planning Lock was created", "no source file was modified", "no project command was run", "answer covers function, flow, build, deployment, and code map in order"],
         notes=["Route here for tell-me/show-me/explain questions with no change verb. A later explicit task still needs its own Start and approval."],
     ),

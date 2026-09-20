@@ -138,3 +138,6 @@ remains. Before any final response after a source edit, execute the closure
 command and return its stdout verbatim; closure exposes the Lite/Off authority
 record. `Changes made`, `Validation`, and next-step narratives are not valid
 replacements for the closure response.
+
+---
+_TailTrail instructions revision: `f2d76bef73aa` — quote this line if asked whether instructions are current._

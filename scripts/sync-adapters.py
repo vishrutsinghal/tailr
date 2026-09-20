@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -72,6 +73,23 @@ def check_contract(name: str, source: str, body: str) -> list[str]:
 def sync() -> None:
     for source, target in ADAPTERS.values():
         write(target, read(source))
+    governance = _load_governance_sync()
+    if governance is not None:
+        governance.stamp_files(ROOT)
+
+
+def _load_governance_sync():
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "tailtrail_sync_governance", ROOT / "scripts" / "sync-governance.py")
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    except (OSError, ValueError):
+        return None
 
 
 def main() -> int:

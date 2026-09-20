@@ -229,5 +229,38 @@ class MetaHarnessTests(unittest.TestCase):
         self.assertEqual(status["path"], ".tailtrail/meta-harness-proposals.jsonl")
 
 
+    def test_apply_emits_bounded_work_order_only_for_accepted_proposals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_example.py").write_text("x = 1\n", encoding="utf-8")
+            path = root / ".tailtrail" / "meta-harness-proposals.jsonl"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            proposal = {
+                "schema_version": "1", "type": "tailtrail-meta-harness-proposal",
+                "proposal_id": "MH-TEST-001", "status": "proposed",
+                "source_finding": {"finding_id": "F-1"},
+                "candidate_edits": [{"file": "scripts/example.py", "line_hint": "def ",
+                                     "prompt_change": "Tighten the check."}],
+                "verification_plan": ["run focused tests"],
+                "degradation_checks": ["doctor still passes"],
+                "rollback_plan": "Revert and record rolled_back.",
+            }
+            with self.assertRaises(SystemExit):
+                meta_harness_propose.apply_proposal(root, "MH-TEST-001")
+            path.write_text(json.dumps(proposal) + "\n", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                meta_harness_propose.apply_proposal(root, "MH-TEST-001")
+            record = meta_harness_propose.record_status(root, "MH-TEST-001", "accepted", None, "reviewed")
+            self.assertEqual(record["status"], "accepted")
+            order = meta_harness_propose.apply_proposal(root, "MH-TEST-001")
+        self.assertEqual(order["proposal_id"], "MH-TEST-001")
+        self.assertEqual(order["finding_id"], "F-1")
+        self.assertIn("tailtrail meta record", order["record_command"])
+        self.assertIn("tests/test_example.py", order["focused_tests"])
+        self.assertEqual(order["candidate_edits"][0]["file"], "scripts/example.py")
+        self.assertTrue(any("focused test" in step for step in order["steps"]))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -588,6 +588,37 @@ Supported shared files:
 """
 
 
+def record_closure_event(root: Path, run_id: str, summary: dict[str, Any]) -> dict[str, Any] | None:
+    """Append one sanitized per-closure review event so later analysis has input.
+
+    Categorical counts and statuses only; never source bodies, prompts, or
+    identities. Returns the event, or None when there is nothing to record.
+    Called automatically at closure finalize; analysis stays a separate step.
+    """
+    if not isinstance(summary, dict):
+        return None
+    requirements = summary.get("requirements", {}) if isinstance(summary.get("requirements"), dict) else {}
+    event = {
+        "schema_version": "1",
+        "type": "tailtrail-closure-review",
+        "created_at": now(),
+        "run_id": str(run_id),
+        "requirements_complete": int(requirements.get("complete", 0) or 0),
+        "requirements_total": int(requirements.get("total", 0) or 0),
+        "tests_status": str(summary.get("tests_status", "unknown")),
+        "drift_status": str(summary.get("drift_status", "unknown")),
+        "overall_status": str(summary.get("overall_status", "unknown")),
+        "pipeline_stage": str(summary.get("pipeline_stage", "unknown")),
+        "token_estimate": str(summary.get("token_estimate", "unknown")),
+        "privacy": "Categorical closure counts only; no prompts, source, logs, secrets, PII, or identities.",
+    }
+    path = root.resolve() / QUALITY_EVENTS
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, sort_keys=True) + "\n")
+    return event
+
+
 def write_shared_companions(root: Path) -> None:
     directory = root / SHARED_META_DIR
     directory.mkdir(parents=True, exist_ok=True)
