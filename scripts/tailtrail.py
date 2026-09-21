@@ -1246,6 +1246,11 @@ def adapters(args: list[str]) -> int:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:
+            pass
     warn_if_stale_checkout()
     if len(sys.argv) < 2 or sys.argv[1] in {"help", "-h", "--help"}:
         print_help()

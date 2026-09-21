@@ -5371,7 +5371,23 @@ def _parse_json_flag(flag: str, raw: str | None, raw_base64: str | None) -> dict
         raise ValueError(f"{flag} must be valid JSON: {error}") from error
 
 
+def _ensure_utf8_stdio() -> None:
+    """Let reports emit box-drawing and arrow runes on legacy consoles.
+
+    Windows pipes and consoles default to a locale encoding that cannot
+    represent characters like U+2192, which turns report printing into an
+    internal error. UTF-8 output with backslash replacement never crashes;
+    POSIX behavior is unchanged.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def main() -> int:
+    _ensure_utf8_stdio()
     parser = argparse.ArgumentParser(description="Start a TailTrail task with Navigator-first plan, metrics, setup posture, and learning quality.")
     parser.add_argument("goal", nargs="*", help="User goal or task description.")
     parser.add_argument("--root", type=Path, default=None, help="Project root to inspect. Overrides a target repository explicitly named in the goal.")

@@ -111,13 +111,6 @@ def _scope_module() -> Any | None:
     return _load_module("scripts/navigator_scope.py", "plan_render_navigator_scope")
 
 
-def _clean_command(command: str) -> str:
-    """Make REPLACE_WITH placeholders visibly non-executable."""
-    return command.replace("REPLACE_WITH_", "<you decide: ").replace(
-        " ", " ", 1
-    ) if "REPLACE_WITH_" not in command else command
-
-
 def _deplaceholderize(text: str) -> str:
     if "REPLACE_WITH_" not in text:
         return text
@@ -259,7 +252,7 @@ def _render_commands(lines: list[str], navigator: dict[str, Any]) -> None:
     validation = [
         _deplaceholderize(str(command))
         for command in commands
-        if any(word in str(command) for word in ("test plan", "pytest", "quality run", "validation"))
+        if any(word in str(command) for word in ("test plan", "pytest", "quality run", "validation", "receipt"))
     ]
     if not validation:
         validation = [_deplaceholderize(str(command)) for command in commands[:2]]

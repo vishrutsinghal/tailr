@@ -160,17 +160,9 @@ class TestPlanRender(unittest.TestCase):
         self.assertNotIn("REPLACE_WITH_FILE", output)
         self.assertNotIn("REPLACE_WITH_strategy", output)
         self.assertIn("<you decide>", output)
-        self.assertIn("<you decide: >", output)
         self.assertIn("tailtrail receipt capture", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
-        self.assertIn("<you decide: >", output)
+        # Both placeholders in the receipt command must be neutralized.
+        self.assertEqual(output.count("<you decide>"), 2)
 
     def test_next_actions_are_summarized(self):
         output = render_plan(self.envelope, lock=self.lock)

@@ -523,7 +523,11 @@ class DebugStartPlanningTests(unittest.TestCase):
             self.assertIn("# TailTrail Debug Diagnosis Required", result.stdout)
             self.assertIn("Plan detail:** `Quick`", result.stdout)
             self.assertIn("schemas/debug-host-diagnosis.schema.json", result.stdout)
-            self.assertFalse((root / ".tailtrail").exists())
+            # No Planning Lock may exist before diagnosis: no runs directory
+            # and no lock artifacts. (Calibration telemetry may still record
+            # the refused mode decision; that is not a lock.)
+            self.assertFalse((root / ".tailtrail" / "runs").exists())
+            self.assertEqual(list(root.glob(".tailtrail/**/planning-lock.json")), [])
 
     def test_persisted_debug_start_uses_canonical_planning_lock_only(self):
         with tempfile.TemporaryDirectory() as temp:
