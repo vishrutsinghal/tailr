@@ -36,6 +36,48 @@ CONFIGURATION_SUFFIXES = {".cfg", ".conf", ".ini", ".json", ".properties", ".tom
 # from here instead of hardcoding per-language carve-outs. Richer
 # techniques (dynamic analysis, type resolution) stay opt-in passes
 # outside this table — see docs/arch/code-graphing.md §3.9.
+#
+# Uniform behavior-row contract (language-neutral): every language emits
+# only these `behavior` row kinds, and downstream consumers
+# (behavior chains, ownership evidence, module resolution) must branch on
+# row kinds, never on file suffixes or languages. `value` is always a
+# static identifier (never an expression); `detail` carries the linked
+# name (callee, module, setter) or a short sanitized token list.
+# `scope` names the enclosing function or "module".
+BEHAVIOR_ROW_KINDS = {
+    # Local name bound to an imported module symbol.
+    # value=local name, detail=module reference.
+    # Consumers: behavior chains (call origin), module resolution.
+    "import-binding": ["navigator_scope._bounded_behavior_chain"],
+    # A call to a static name. value=callee name.
+    # Consumers: behavior chains (call step), caller edges.
+    "call": ["navigator_scope._bounded_behavior_chain"],
+    # An assignment capturing a call result. value=assigned name,
+    # detail=callee name. Consumers: behavior chains (returned-value flow).
+    "call-result": ["navigator_scope._bounded_behavior_chain"],
+    # A returned identifier. value=name.
+    # Consumers: behavior chains (returned-value flow).
+    "return": ["navigator_scope._bounded_behavior_chain"],
+    # An error raised/thrown with a static type. value=error type.
+    # Consumers: backend validation evidence (rejection behavior).
+    "raise": ["navigator_scope behavior evidence"],
+    # An assertion on a name. value=asserted name.
+    # Consumers: backend validation evidence (guard behavior).
+    "assert": ["navigator_scope behavior evidence"],
+    # Framework state binding. value=state name, detail=setter name.
+    # Consumers: behavior chains (state flow), UI evidence.
+    "state-binding": ["navigator_scope._bounded_behavior_chain"],
+    # A write through a state setter. value=state name,
+    # detail=identifier list or "static-value".
+    # Consumers: behavior chains (state flow), UI evidence.
+    "state-write": ["navigator_scope._bounded_behavior_chain"],
+    # A tracked value used in a render/output position. value=name.
+    # Consumers: behavior chains (render flow), UI evidence.
+    "render-use": ["navigator_scope._bounded_behavior_chain"],
+    # An error caught into a name. value=name.
+    # Consumers: behavior chains (error flow).
+    "catch-binding": ["navigator_scope._bounded_behavior_chain"],
+}
 LANGUAGE_SUPPORT: dict[str, dict[str, Any]] = {
     "python": {"level": 2, "parser": "ast",
                "techniques": ["definitions", "imports", "loaders", "registrations"]},
