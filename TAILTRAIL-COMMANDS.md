@@ -2923,3 +2923,11 @@ telemetry, and live-system debugging remain later work. Use the
 `tailtrail-registry.json` and Section 21 of `DEBUG-HARNESS.md` as the status
 authority. DI-1 through DI-12 close those gaps without replacing these
 prototype artifacts.
+
+## Host-Reply Scoring
+
+```bash
+tailtrail host-reply score --report <stdout-file> --reply <reply-file> [--format markdown|json]
+```
+
+Score a host chat reply against TailTrail command output: same first line, same run ID, same headings, same fenced blocks, nothing added, nothing removed. Exit code is 0 when compliant, 1 otherwise. Official runs additionally require the appended Official AI-DLC Requirements report. Golden transcripts live in `tests/golden/host-replies/`; a new repeated violation class becomes a fixture there before any instruction wording changes.

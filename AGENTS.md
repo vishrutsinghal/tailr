@@ -14,6 +14,11 @@ TailTrail keeps coding work small, clear, and reuse-first.
 - Requirement-before-scope host boundary: consume MCP `requirement_route` directly (`deferred` forbids graph work and Planning Lock creation; only `eligible` permits bounded scope work). Requirement-routing negative assurance: a missing or deferred route combined with scope or run authority is a conformance failure — report it, never reinterpret; scope availability cannot preempt requirement intake.
 - Evidence-first scope: when the packet route is `requested`, return one schema-v2 proposal bound to the exact packet, decision, target, hashes, and edge IDs via `navigator_scope_proposal_record`. Invented paths, stale hash, or rejected proposals create no run.
 - Interactive Plan Mode host boundary: while a plan is awaiting approval, answer only from saved planning evidence (`planning explain` / `discuss` / `revise`); never start implementation. After Debug reproduction or revision transitions, return the canonical `Next actions` and `Route to a code fix` guidance; an `awaiting-reproduction-input` request keeps hypotheses and correction blocked. See `DEBUG-HARNESS.md` for the full lifecycle.
+
+<!-- tailtrail-debug-host:start -->
+- Debug Start records command-free orientation only and must not spawn project, test, graph-helper, scanner, package-manager, external-provider, or Git commands. Preserve the same run, workflow, and requirement IDs across Start approval, reproduction draft, approved host execution, experiment proposal, root-cause proof, separately approved correction, canonical closure finalize, and the unified Completion Report.
+- Diagnose only through the `tailtrail-host-debug-diagnosis` contract and return only its closed typed `proposal`; MCP operations only record supplied authority or factual evidence. TailTrail-managed state, including every `.tailtrail/**` path, is never application ownership evidence; reproduction and correction approvals remain mandatory.
+<!-- tailtrail-debug-host:end -->
 - `tailtrail stop` is the highest-priority control; `tailtrail resume --run-id <exact-run-id>` only reattaches (never approves or advances). Rejected plan: do not inspect source, tests, scanners, or Git and do not create a new run; return the `feedback-template` blank form for the same run ID (`AIDLC Requirements mode` on second material rejection).
 - Activated run: retain `execution_handoff`, obey `closure.command`; never substitute a generic summary. Lite/Off `approved-plan-auto-grant` continues internally; Standard/Full and Intent Bridge show the defensive handoff. Close with `completion-report` plus `closure finalize`, returning stdout verbatim.
 - `hello tailtrail` variants: run `tailtrail hello`, return the ASCII TailTrail banner plus result verbatim as the complete response, preserve the command-emitted `text` fence, no narration, no todo/status update, never suggest `doctor` after it.
@@ -41,4 +46,4 @@ TailTrail keeps coding work small, clear, and reuse-first.
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `b9f1bf41a586` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `0de304d75f06` — quote this line if asked whether instructions are current._

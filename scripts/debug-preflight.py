@@ -636,7 +636,14 @@ def _artifact_paths(root: Path, goal: str) -> list[Path]:
     for value in values[:4]:
         parsed = urlparse(value.rstrip(".,"))
         if parsed.scheme.casefold() == "file":
-            candidates = [Path(unquote(parsed.path))]
+            # urlparse puts a Windows drive letter ("file://C:/path") into
+            # netloc, leaving a drive-relative path that resolves against the
+            # current drive. Reattach the drive so temp-dir artifacts on one
+            # drive resolve while the host runs on another.
+            if re.fullmatch(r"[A-Za-z]:", parsed.netloc or ""):
+                candidates = [Path(f"{parsed.netloc}{unquote(parsed.path)}")]
+            else:
+                candidates = [Path(unquote(parsed.path))]
         elif (parsed.hostname or "").casefold() in {"localhost", "127.0.0.1", "::1"}:
             url_path = Path(unquote(parsed.path))
             parts = list(url_path.parts)

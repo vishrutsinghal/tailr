@@ -1844,11 +1844,12 @@
       "roadmap_ref": "Phase 6 + Official AI-DLC Phase F",
       "owner": "tailtrail-core",
       "governance_class": "dev-experience",
-      "commands": [
-        "tailtrail adapters check",
-        "tailtrail adapters sync",
-        "tailtrail adapters conformance"
-      ],
+ "commands": [
+  "tailtrail adapters check",
+  "tailtrail adapters sync",
+  "tailtrail adapters conformance",
+  "tailtrail host-reply score"
+ ],
       "docs": [
         "ASSISTANT-COMPATIBILITY.md",
         "adapters/README.md",
@@ -1856,13 +1857,17 @@
         "USER-GUIDE.md",
         "TAILTRAIL-COMMANDS.md"
       ],
-      "scripts": [
-        "scripts/host-adapter-conformance.py"
-      ],
-      "tests": [
-        "tests/test_cli_dispatch.py",
-        "tests/test_host_adapter_conformance.py"
-      ],
+ "scripts": [
+  "scripts/host-adapter-conformance.py",
+  "scripts/host-reply-validate.py",
+  "scripts/shell_quote.py"
+ ],
+ "tests": [
+  "tests/test_cli_dispatch.py",
+  "tests/test_host_adapter_conformance.py",
+  "tests/test_host_reply_validate.py",
+  "tests/test_shell_quote.py"
+ ],
       "mcp_tools": [],
       "requires_approval": false,
       "read_only": true,
