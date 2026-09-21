@@ -313,12 +313,17 @@ def inspect_requirement_artifacts(
                         if not content.strip() or "\x00" in content:
                             item.update({"status": "unreadable", "reason_code": "requirement-artifact-has-no-readable-text"})
                         else:
-                            digest = hashlib.sha256(raw).hexdigest()
+                            # The SHA-256 receipt binds the logical document across
+                            # hosts, so a CRLF checkout must hash like its LF
+                            # twin: normalize line endings before hashing.
+                            content = content.replace("\r\n", "\n").replace("\r", "\n")
+                            normalized = content.encode("utf-8")
+                            digest = hashlib.sha256(normalized).hexdigest()
                             item.update({
                                 "status": "inspected",
                                 "inspection": "bounded-read-only-text",
                                 "sha256": digest,
-                                "size_bytes": len(raw),
+                                "size_bytes": len(normalized),
                                 "media_type": "text/plain",
                                 "reason_code": "requirement-artifact-inspected",
                             })
@@ -326,7 +331,7 @@ def inspect_requirement_artifacts(
                                 "input_id": input_id,
                                 "locator": locator,
                                 "sha256": digest,
-                                "size_bytes": len(raw),
+                                "size_bytes": len(normalized),
                                 "content": content,
                             })
                             continue

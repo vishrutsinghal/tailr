@@ -152,7 +152,7 @@ def append_event(root: Path, run_id: str, event_type: str, payload: dict[str, An
         issues = validate_event(event, sequence)
         if issues:
             raise ValueError("invalid event: " + "; ".join(issues))
-        with events_path.open("a", encoding="utf-8") as handle:
+        with events_path.open("a", encoding="utf-8", newline="\n") as handle:
             handle.write(canonical(event) + "\n")
             handle.flush()
             os.fsync(handle.fileno())

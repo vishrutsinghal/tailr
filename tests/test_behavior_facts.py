@@ -111,9 +111,22 @@ class BehaviorFactSnapshotTests(unittest.TestCase):
             [("import", "."), ("import", "shop.orders.models")],
         )
         self.assertEqual(facts["registrations"], [])
-        # Phase 0 gap, pinned: the AST parser emits no behavior rows yet.
-        # Phase 1 must populate import-binding/call/call-result/raise rows.
-        self.assertEqual(facts["behavior"], [])
+        # Phase 1: the AST parser emits uniform behavior rows (import
+        # bindings, scoped calls, assertions, error emissions).
+        self.assertEqual(
+            sorted(
+                (row["kind"], row["value"], row.get("scope"))
+                for row in facts["behavior"]
+            ),
+            [
+                ("assert", "order", "reject_zero_quantity"),
+                ("call", "ValueError", "reject_zero_quantity"),
+                ("call", "log", "reject_zero_quantity"),
+                ("import-binding", "Order", None),
+                ("import-binding", "helpers", None),
+                ("raise", "ValueError", "reject_zero_quantity"),
+            ],
+        )
 
     def test_tsx_snapshot(self) -> None:
         facts = self.module.extract(

@@ -183,7 +183,8 @@ OWNER_QUALIFICATION_PRECEDENCE = (
     "task-specific-behavior",
     "unique-exact-literal",
     "task-specific-relationship",
-    "task-specific-definition",
+    "definition-with-edges",
+    "ambiguous-definition-fork",
 )
 BEHAVIOR_CHAIN_LINE_SPAN = 160
 SCOPE_QUESTION_OPTION_CAP = 3
@@ -1297,22 +1298,29 @@ def _quoted_phrases(requirement_frames: Iterable[dict[str, Any]]) -> tuple[str, 
     return tuple(phrases[:8])
 
 
-def _ui_behavior_evidence(
+def _behavior_evidence(
     path: str,
     text: str,
     ordered_query_terms: tuple[str, ...],
     exact_phrases: tuple[str, ...],
+    behavior: Iterable[dict[str, Any]] | None = None,
+    definitions: Iterable[dict[str, Any]] | None = None,
 ) -> tuple[tuple[tuple[str, str], ...], int, bool]:
-    """Return static UI ownership signals without retaining source text.
+    """Return static ownership signals without retaining source text.
+
+    Language-blind: every signal below is computed from uniform behavior
+    rows (see code_relationships.BEHAVIOR_ROW_KINDS) and plain text, never
+    from a file suffix. UI flows (bindings, handlers, navigation, render
+    destinations) and backend flows (behavior handlers, error emissions,
+    guard assertions) earn the same qualification.
 
     Imports describe dependency direction, not necessarily behavioral
     ownership.  A component that binds the requested action, defines its
     handler, changes navigation state, and renders the destination is stronger
     evidence for an interaction defect than a helper imported by that page.
+    The same holds for a backend handler that guards input and rejects it:
+    the raise site, not the importer, owns the behavior.
     """
-    suffix = PurePosixPath(path).suffix.lower()
-    if suffix not in {".html", ".js", ".jsx", ".svelte", ".ts", ".tsx", ".vue"}:
-        return (), 0, False
     lowered = text.casefold()
     action_terms = {
         term for term in ordered_query_terms
@@ -1345,9 +1353,40 @@ def _ui_behavior_evidence(
         evidence.append(("writes-navigation-state", "static-navigation-state-write"))
     if has_rendered_destination:
         evidence.append(("renders-destination", "query-matched-rendered-destination"))
+    # Backend behavior rows: a handler definition that both matches the
+    # query and guards or rejects (same-scope raise/assert), plus the
+    # error-emission and guard rows themselves. These require query terms
+    # in the file text so unrelated raising code cannot qualify.
+    terms_in_text = {term for term in ordered_query_terms if term in lowered}
+    backend_rows: list[tuple[str, str]] = []
+    behavior_rows = [row for row in (behavior or []) if isinstance(row, dict)]
+    if terms_in_text:
+        guard_scopes = {
+            str(row.get("scope"))
+            for row in behavior_rows
+            if row.get("kind") in {"raise", "assert"} and row.get("scope")
+        }
+        for row in behavior_rows:
+            if row.get("kind") == "raise":
+                backend_rows.append(("raises-behavior-error", "query-matched-error-emission"))
+            elif row.get("kind") == "assert":
+                backend_rows.append(("asserts-behavior-guard", "query-matched-guard-assertion"))
+        for item in definitions or []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("value", "")).lower()
+            if (
+                item.get("kind") in {"functiondef", "asyncfunctiondef", "definition"}
+                and any(len(term) >= 4 and term in name for term in terms_in_text)
+                and name in guard_scopes
+            ):
+                backend_rows.append(("defines-behavior-handler", "query-matched-behavior-handler"))
+    evidence.extend(backend_rows)
     qualifies = (
         bool(phrase_matches) and sum((has_binding, has_handler, has_navigation, has_rendered_destination)) >= 2
     ) or (has_binding and has_handler and has_navigation and has_rendered_destination)
+    if not qualifies:
+        qualifies = bool(phrase_matches) and len(backend_rows) >= 1 or len(backend_rows) >= 2
     score = 200 + 40 * len(evidence) + 20 * len(adjacent_phrases) if qualifies else 0
     return tuple(evidence), score, qualifies
 
@@ -1580,7 +1619,11 @@ def _resolve_reference(
         variants = [raw_path, PurePosixPath(raw.lstrip("/"))]
         if not raw_path.suffix:
             variants.extend(PurePosixPath(str(raw_path) + suffix) for suffix in code_relationships.LANGUAGE_BY_SUFFIX)
-            variants.extend(raw_path / ("index" + suffix) for suffix in (".js", ".ts", ".tsx", ".jsx"))
+            variants.extend(
+                raw_path / ("index" + suffix)
+                for suffix in code_relationships.LANGUAGE_BY_SUFFIX
+                if suffix not in code_relationships.CONFIGURATION_SUFFIXES
+            )
         for value in variants:
             normalized, rejection = normalize_repository_path(root, value.as_posix())
             if normalized and not rejection and normalized in identities:
@@ -1722,7 +1765,10 @@ def investigate(
         content_hashes[path] = content_hash
         lowered_text = text.lower()
         semantic_matches[path] = {term for term in query_terms if term in lowered_text or term in path.lower()}
-        behavior_evidence[path] = _ui_behavior_evidence(path, text, ordered_query_terms, exact_phrases)
+        behavior_evidence[path] = _behavior_evidence(
+            path, text, ordered_query_terms, exact_phrases,
+            facts[path].get("behavior", []), facts[path].get("definitions", []),
+        )
         if any(phrase in lowered_text for phrase in exact_phrases) and re.search(
             r"\b(?:throw\s+new\s+error|raise\s+[a-z_]*error|toast\.(?:error|warning|info)|"
             r"set(?:error|message|banner)|render|return)\b",
@@ -2009,8 +2055,12 @@ def investigate(
 
     # A production candidate needs a behavior-specific term in its local
     # basename or an extracted definition. Generic directory segments and
-    # action words remain read-ranking inputs and never qualify ownership.
+    # action words remain read-ranking inputs. Definition matches prioritize
+    # bounded reads and stay diagnostic (query-specific-definition-evidence),
+    # but a name match alone never qualifies ownership: only behavior,
+    # relationship, literal, or explicit-scope evidence mints owners.
     definition_owner_paths: set[str] = set()
+    definition_match_terms: dict[str, frozenset[str]] = {}
     semantic_owner_terms = _owner_query_terms(query_terms)
     for path, value in facts.items():
         if classify_repository_role(root, path)[0] != "implementation-owner" or not value.get("definitions"):
@@ -2020,7 +2070,7 @@ def investigate(
         matching = semantic_owner_terms & _local_owner_identity_terms(path, value)
         if matching:
             definition_owner_paths.add(path)
-            qualify_owner(path, "task-specific-definition")
+            definition_match_terms[path] = frozenset(matching)
             relevant_paths.add(path)
             relationship_rows.append((path, path, "defines-symbol", "strong", "query-matched-definition-symbol"))
 
@@ -2045,6 +2095,34 @@ def investigate(
             rules.difference_update({"task-specific-definition", "task-specific-relationship"})
             if not rules:
                 owner_qualifications.pop(path, None)
+
+    # Definition matches alone never qualify ownership. As a last resort,
+    # when no behavior, relationship, literal, or explicit evidence qualified
+    # anything, a sole definition-backed candidate with caller or proof edges
+    # may resolve instead of asking a question with no options. Contested
+    # definitions (any other qualified evidence exists) stay unqualified.
+    if not owner_qualifications and len(definition_owner_paths) == 1:
+        sole = next(iter(definition_owner_paths))
+        supported = any(
+            (target == sole and kind in {"imports-module", "loads-module", "registered-by"})
+            or (source == sole and kind == "tested-by")
+            for source, target, kind, _, _ in relationship_rows
+        )
+        if supported:
+            qualify_owner(sole, "definition-with-edges")
+    if not owner_qualifications and definition_owner_paths:
+        # Genuine fork: several files share the same matched definition
+        # identity with no stronger evidence separating them. Surface the
+        # fork as ambiguity (asking which one) instead of silently
+        # dropping every candidate or picking by path order.
+        by_signature: dict[frozenset[str], list[str]] = {}
+        for path in sorted(definition_owner_paths):
+            signature = definition_match_terms.get(path, frozenset())
+            by_signature.setdefault(signature, []).append(path)
+        for signature, paths in by_signature.items():
+            if signature and len(paths) >= 2:
+                for path in paths:
+                    qualify_owner(path, "ambiguous-definition-fork")
 
     owner_paths, selected_qualification = _select_qualified_owners(owner_qualifications)
     owner_paths = set(sorted(owner_paths)[: limits.retained_owners])

@@ -94,6 +94,11 @@ class StrideThreatModelFixtureTests(unittest.TestCase):
 
     # Elevation of privilege
     def test_symlink_escape_and_path_traversal_fail_closed(self) -> None:
+        try:
+            with tempfile.TemporaryDirectory() as probe:
+                (Path(probe) / "link").symlink_to(Path(probe), target_is_directory=True)
+        except OSError:
+            self.skipTest("symlink creation needs admin/Developer Mode on this host")
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
             target = Path(temp)
             (target / ".codex-plugin").symlink_to(Path(outside), target_is_directory=True)

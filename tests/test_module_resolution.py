@@ -166,6 +166,22 @@ class ModuleResolutionTests(unittest.TestCase):
         self.assertEqual(["src/helper.ts"], rows[0]["module_resolution"]["resolved_targets"])
         self.assertIn("module-alias-reference-resolved", rows[0]["module_resolution"]["reason_codes"])
 
+    def test_no_root_level_shadow_module_collides_with_scripts(self) -> None:
+        # A stale `<name>.py` at the repository root shadows `scripts/<name>.py`
+        # whenever the root precedes scripts/ on sys.path, silently swapping
+        # the implementation under test and production hosts alike.
+        script_names = {
+            path.stem
+            for path in (ROOT / "scripts").glob("*.py")
+            if path.name != "__init__.py"
+        }
+        shadows = sorted(
+            path.name
+            for path in ROOT.glob("*.py")
+            if path.stem in script_names
+        )
+        self.assertEqual(shadows, [])
+
 
 if __name__ == "__main__":
     unittest.main()

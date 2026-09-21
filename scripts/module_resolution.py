@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Bounded, configuration-aware repository module resolution.
 
-The resolver is intentionally static and dependency-free.  It understands the
-repository-local parts of JavaScript and TypeScript resolution that Navigator
-can safely use before a Planning Lock: relative references, ``baseUrl``,
-``paths`` aliases, and repository-local ``extends`` chains.  It never executes
-project configuration or resolves packages from dependency directories.
+The resolver is intentionally static and dependency-free. Relative
+references resolve for every parsed source language through pure path
+semantics (relative/absolute paths, extension probing, index files).
+Alias (`paths`) and `baseUrl` profiles remain scoped to the
+JavaScript/TypeScript configuration files that declare them; a
+language without such configuration resolves relative references only.
+It never executes project configuration or resolves packages from
+dependency directories.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 
-SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".json")
+SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".py", ".java", ".cs", ".go", ".json")
 CONFIG_PATTERN = re.compile(r"^(?:tsconfig|jsconfig)(?:\.[A-Za-z0-9_-]+)*\.json$")
 
 

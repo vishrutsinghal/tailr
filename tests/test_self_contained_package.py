@@ -72,6 +72,12 @@ def run(command: list[str], *, cwd: Path | None = None, env: dict[str, str] | No
 class SelfContainedPackageTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        try:
+            import setuptools.build_meta  # noqa: F401
+        except ImportError:
+            raise unittest.SkipTest(
+                "wheel/sdist build needs the exact pinned setuptools build backend"
+            )
         cls.temp = tempfile.TemporaryDirectory()
         cls.output = Path(cls.temp.name)
         cls.repro_output = cls.output / "repro"

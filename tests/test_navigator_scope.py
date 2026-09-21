@@ -846,7 +846,7 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
             for reason in edge["reason_codes"]
         })
 
-    def test_fsr2_behavior_specific_local_identity_can_qualify_owner(self) -> None:
+    def test_fsr2_definition_only_match_cannot_qualify_owner(self) -> None:
         self.write(
             "src/order_quantity.py",
             "def validate_quantity(value):\n    return value > 0\n",
@@ -865,8 +865,13 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
         rows, edges, investigation = navigator_scope.investigate(self.root, frames, candidates, ["bug"])
         owners = [row["path"] for row in rows if row["status"] == "included"]
 
-        self.assertEqual(["src/order_quantity.py"], owners)
-        self.assertEqual("task-specific-definition", investigation["ownership_selection"]["selected_rule"])
+        # A name match with no behavior, caller, or proof edge must not
+        # mint an owner; the host is asked for a concrete clue instead.
+        self.assertEqual([], owners)
+        self.assertIsNone(investigation["ownership_selection"]["selected_rule"])
+        self.assertEqual(0, investigation["ownership_selection"]["qualified_candidates"])
+        # Definition evidence still prioritizes bounded reads and stays
+        # diagnostic for the question path.
         self.assertIn("query-matched-definition-symbol", {
             reason
             for edge in edges
@@ -1645,6 +1650,71 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
         self.assertEqual(
             report["scope_quality"]["question"]["options"],
             ["src/pages/alpha/ValidatePage.tsx", "src/pages/beta/ValidatePage.tsx"],
+        )
+
+    def test_python_validation_behavior_wins_over_ui_distractor(self) -> None:
+        self.write(
+            "shop/orders/service.py",
+            '"""Order quantity validation."""\n'
+            "\n"
+            "\n"
+            "class OrderValidator:\n"
+            '    """Validates order quantities before checkout."""\n'
+            "\n"
+            "    def reject_zero_quantity(self, order):\n"
+            '        """Reject zero quantities but keep positive quantities working."""\n'
+            "        assert order is not None\n"
+            "        if order.quantity == 0:\n"
+            '            raise ValueError("quantity must be positive")\n'
+            "        return True\n",
+        )
+        self.write(
+            "shop/orders/tests/test_service.py",
+            "from shop.orders.service import OrderValidator\n",
+        )
+        self.write(
+            "shop/ui/order_page.tsx",
+            "export function OrderPage({ order }) {\n"
+            "  const [error, setError] = useState(null);\n"
+            "  async function handleQuantitySubmit() {\n"
+            "    if (order.quantity === 0) {\n"
+            '      setError("quantity must be positive");\n'
+            "      return;\n"
+            "    }\n"
+            "  }\n"
+            "  return (\n"
+            "    <form onSubmit={handleQuantitySubmit}>\n"
+            "      <button type=\"submit\">quantity checkout</button>\n"
+            "      {error && <aside>{error}</aside>}\n"
+            "    </form>\n"
+            "  );\n"
+            "}\n",
+        )
+
+        report = navigator.decide(
+            "reject zero quantities but keep positive quantities working",
+            self.root, [], "tailtrail", detect_git_changes=False,
+        )
+
+        self.assertEqual(
+            report["scope_evidence"]["requirements"][0]["implementation_owners"],
+            ["shop/orders/service.py"],
+        )
+        owners = {
+            row["path"]: row
+            for row in navigator_scope.role_projection(
+                report["scope_evidence"]
+            )["implementation_owners"]
+        }
+        # Language-blind behavior evidence: the backend validator qualifies
+        # through its guard/assertion/error rows, not just its symbol names.
+        self.assertIn(
+            "behavior-specific-owner-evidence",
+            owners["shop/orders/service.py"].get("reason_codes", []),
+        )
+        self.assertIn(
+            "owner-qualified-by-task-specific-behavior",
+            owners["shop/orders/service.py"].get("reason_codes", []),
         )
 
     def test_host_proposals_validate_for_all_hosts_and_reject_unsupported_confidence(self) -> None:

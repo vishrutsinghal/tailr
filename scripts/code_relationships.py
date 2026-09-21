@@ -80,7 +80,7 @@ BEHAVIOR_ROW_KINDS = {
 }
 LANGUAGE_SUPPORT: dict[str, dict[str, Any]] = {
     "python": {"level": 2, "parser": "ast",
-               "techniques": ["definitions", "imports", "loaders", "registrations"]},
+               "techniques": ["definitions", "imports", "loaders", "registrations", "behavior"]},
     "terraform": {"level": 2, "parser": "structured-regex",
                   "techniques": ["definitions", "imports", "references"]},
     "javascript": {"level": 1, "parser": "regex",
@@ -210,6 +210,101 @@ def _static_loader_path(node: ast.AST) -> str | None:
     return None
 
 
+def _python_call_name(node: ast.Call) -> str:
+    """Return the static callee identifier for uniform behavior rows."""
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def _python_first_name(node: ast.AST | None) -> str:
+    """Return the first identifier in an expression, or "" when none."""
+    if node is None:
+        return ""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Name):
+            return child.id
+    return ""
+
+
+def _python_error_name(node: ast.Raise) -> str:
+    """Return the raised exception type, or "reraise" for a bare raise."""
+    exc = node.exc
+    if exc is None:
+        return "reraise"
+    if isinstance(exc, ast.Call):
+        return _python_call_name(exc) or "error"
+    if isinstance(exc, ast.Name):
+        return exc.id
+    if isinstance(exc, ast.Attribute):
+        return exc.attr
+    return "error"
+
+
+class _PythonBehaviorVisitor(ast.NodeVisitor):
+    """Emit uniform behavior rows using real scope information.
+
+    Row kinds match BEHAVIOR_ROW_KINDS so downstream consumers stay
+    language-blind: import-binding carries the module in `detail`, calls
+    and error emissions carry the enclosing function in `scope`.
+    """
+
+    def __init__(self) -> None:
+        self.rows: list[dict[str, Any]] = []
+        self._scope: list[str] = ["module"]
+
+    def _scoped(self, kind: str, value: str, line: int, detail: str = "") -> None:
+        if not value:
+            return
+        row = _row(kind, value, line, detail=detail)
+        if kind != "import-binding":
+            row["scope"] = self._scope[-1]
+        self.rows.append(row)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._scope.append(node.name)
+        self.generic_visit(node)
+        self._scope.pop()
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            self._scoped("import-binding", (alias.asname or alias.name).split(".")[0], node.lineno, detail=alias.name)
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        module = "." * node.level + (node.module or "")
+        for alias in node.names:
+            if alias.name == "*":
+                continue
+            self._scoped("import-binding", alias.asname or alias.name, node.lineno, detail=module)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        self._scoped("call", _python_call_name(node), node.lineno)
+        self.generic_visit(node)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and isinstance(node.value, ast.Call):
+            self._scoped("call-result", node.targets[0].id, node.lineno, detail=_python_call_name(node.value))
+        self.generic_visit(node)
+
+    def visit_Return(self, node: ast.Return) -> None:
+        self._scoped("return", _python_first_name(node.value), node.lineno)
+        self.generic_visit(node)
+
+    def visit_Raise(self, node: ast.Raise) -> None:
+        self._scoped("raise", _python_error_name(node), node.lineno)
+        self.generic_visit(node)
+
+    def visit_Assert(self, node: ast.Assert) -> None:
+        self._scoped("assert", _python_first_name(node.test), node.lineno)
+        self.generic_visit(node)
+
+
 def _python(text: str) -> dict[str, list[dict[str, Any]]]:
     definitions: list[dict[str, Any]] = []
     imports: list[dict[str, Any]] = []
@@ -222,6 +317,8 @@ def _python(text: str) -> dict[str, list[dict[str, Any]]]:
             "definitions": [], "imports": [], "loaders": [],
             "registrations": [], "references": [], "behavior": [],
         }
+    visitor = _PythonBehaviorVisitor()
+    visitor.visit(tree)
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             definitions.append(_row(type(node).__name__.lower(), node.name, node.lineno))
@@ -259,7 +356,7 @@ def _python(text: str) -> dict[str, list[dict[str, Any]]]:
         "loaders": sorted(loaders, key=lambda item: (item["line"], item["value"])),
         "registrations": sorted(registrations, key=lambda item: (item["line"], item["value"])),
         "references": [],
-        "behavior": [],
+        "behavior": sorted(visitor.rows, key=lambda item: (item["line"], item["kind"], item["value"])),
     }
 
 

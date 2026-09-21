@@ -241,7 +241,7 @@ def append(root: Path, run_id: str, event: Any, approved: bool) -> dict[str, Any
     prior = next((item for item in existing if item.get("fingerprint") == fingerprint), None)
     if prior: return {**prior, "reused": True, "artifact": target.relative_to(root).as_posix()}
     saved = {**normalized, "sequence": len(existing) + 1, "fingerprint": fingerprint}
-    with target.open("a", encoding="utf-8") as handle: handle.write(canonical(saved) + "\n")
+    with target.open("a", encoding="utf-8", newline="\n") as handle: handle.write(canonical(saved) + "\n")
     index = {"schema_version": "1", "type": "tailtrail-execution-evidence-index", "run_id": run_id, "events": len(existing) + 1, "changed_paths": sorted({path for item in [*existing, saved] for path in item.get("changed_paths", [])}), "requirement_uids": sorted({uid for item in [*existing, saved] for uid in item.get("requirement_uids", [])}), "boundary": "Index of saved host-supplied evidence only; it does not evaluate completion."}
     L.atomic_json(target.parent / "receipt-index-v1.json", index)
     L.append_event(root, run_id, "execution_evidence_recorded", {"kind": saved["kind"], "fingerprint": fingerprint, "sequence": saved["sequence"], "artifact": target.relative_to(root).as_posix()})

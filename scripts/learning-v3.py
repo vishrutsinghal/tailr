@@ -469,7 +469,7 @@ def append_record(root: Path, record: dict[str, Any]) -> dict[str, Any]:
         _validate_lifecycle([*records, record])
         project_frame(root, create=True)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
+        with path.open("a", encoding="utf-8", newline="\n") as handle:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
         rebuild_compatibility_index(root)
     return record

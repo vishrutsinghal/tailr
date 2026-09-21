@@ -292,7 +292,7 @@ def append_event(root: Path, run_id: str, payload: dict[str, Any]) -> dict[str, 
         issues = validate_event(saved, expected_frame=V3.project_frame(root))
         if issues:
             raise ValueError("invalid learning receipt write: " + "; ".join(issues))
-        with target.open("a", encoding="utf-8") as handle:
+        with target.open("a", encoding="utf-8", newline="\n") as handle:
             handle.write(canonical(saved) + "\n")
     return saved
 

@@ -34,6 +34,11 @@ class AccessibleOutputTests(unittest.TestCase):
     """
 
     def _symlink_trap(self, target: Path) -> None:
+        try:
+            with tempfile.TemporaryDirectory() as probe:
+                (Path(probe) / "link").symlink_to(Path(probe), target_is_directory=True)
+        except OSError:
+            self.skipTest("symlink creation needs admin/Developer Mode on this host")
         outside = target.parent / "outside"
         outside.mkdir(exist_ok=True)
         (target / ".codex-plugin").symlink_to(outside, target_is_directory=True)

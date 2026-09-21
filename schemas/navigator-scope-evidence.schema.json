@@ -155,21 +155,22 @@
             "strategy": { "const": "qualification-precedence" },
             "selected_rule": {
               "type": ["string", "null"],
-              "enum": [null, "explicit-user-scope", "ui-renderer-behavior", "task-specific-behavior", "unique-exact-literal", "task-specific-relationship", "task-specific-definition"]
+              "enum": [null, "explicit-user-scope", "ui-renderer-behavior", "task-specific-behavior", "unique-exact-literal", "task-specific-relationship", "definition-with-edges", "ambiguous-definition-fork"]
             },
             "qualified_candidates": { "type": "integer", "minimum": 0 },
             "selected_candidates": { "type": "integer", "minimum": 0 },
             "rule_counts": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["explicit-user-scope", "ui-renderer-behavior", "task-specific-behavior", "unique-exact-literal", "task-specific-relationship", "task-specific-definition"],
+              "required": ["explicit-user-scope", "ui-renderer-behavior", "task-specific-behavior", "unique-exact-literal", "task-specific-relationship", "definition-with-edges", "ambiguous-definition-fork"],
               "properties": {
                 "explicit-user-scope": { "type": "integer", "minimum": 0 },
                 "ui-renderer-behavior": { "type": "integer", "minimum": 0 },
                 "task-specific-behavior": { "type": "integer", "minimum": 0 },
                 "unique-exact-literal": { "type": "integer", "minimum": 0 },
                 "task-specific-relationship": { "type": "integer", "minimum": 0 },
-                "task-specific-definition": { "type": "integer", "minimum": 0 }
+                "definition-with-edges": { "type": "integer", "minimum": 0 },
+                "ambiguous-definition-fork": { "type": "integer", "minimum": 0 }
               }
             },
             "reason_codes": { "$ref": "#/$defs/reasonCodes" }
