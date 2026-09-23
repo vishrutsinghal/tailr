@@ -66,12 +66,34 @@ export function OrderPage({ order }) {
 
 JAVA_GUARD = """package shop.orders;
 
+import shop.orders.models.Order;
+
 public class OrderValidator {
     public boolean rejectZeroQuantity(Order order) {
+        assert order != null;
         if (order.quantity == 0) {
             throw new IllegalArgumentException("quantity must be positive");
         }
         return true;
+    }
+}
+"""
+
+CS_GUARD = """using Shop.Orders.Models;
+
+namespace Shop.Orders
+{
+    public class OrderValidator
+    {
+        public bool RejectZeroQuantity(Order order)
+        {
+            System.Diagnostics.Debug.Assert(order != null);
+            if (order.Quantity == 0)
+            {
+                throw new System.ArgumentException("quantity must be positive");
+            }
+            return true;
+        }
     }
 }
 """
@@ -82,7 +104,8 @@ import "errors"
 
 func RejectZeroQuantity(quantity int) error {
 	if quantity == 0 {
-		return errors.New("quantity must be positive")
+		err := errors.New("quantity must be positive")
+		return err
 	}
 	return nil
 }
@@ -154,8 +177,31 @@ class BehaviorFactSnapshotTests(unittest.TestCase):
         go = self.module.extract(
             Path("shop/orders/service.go"), Path("."), GO_GUARD
         )
-        self.assertEqual(self.rows(java), [])
-        self.assertEqual(self.rows(go), [])
+        self.assertEqual(
+            self.rows(java),
+            [
+                ("assert", "order"),
+                ("import-binding", "Order"),
+                ("raise", "IllegalArgumentException"),
+            ],
+        )
+        self.assertEqual(
+            self.rows(go),
+            [("import-binding", "errors"), ("return", "err")],
+        )
+
+    def test_csharp_snapshot(self) -> None:
+        facts = self.module.extract(
+            Path("shop/orders/OrderValidator.cs"), Path("."), CS_GUARD
+        )
+        self.assertEqual(
+            self.rows(facts),
+            [
+                ("assert", "order"),
+                ("import-binding", "Models"),
+                ("raise", "ArgumentException"),
+            ],
+        )
 
     def test_emitted_kinds_stay_within_declared_contract(self) -> None:
         fixtures = (

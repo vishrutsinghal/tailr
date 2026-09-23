@@ -88,11 +88,11 @@ LANGUAGE_SUPPORT: dict[str, dict[str, Any]] = {
     "typescript": {"level": 1, "parser": "regex",
                    "techniques": ["definitions", "imports", "registrations", "behavior"]},
     "java": {"level": 1, "parser": "regex",
-             "techniques": ["definitions", "imports", "registrations"]},
+             "techniques": ["definitions", "imports", "registrations", "behavior"]},
     "csharp": {"level": 1, "parser": "regex",
-               "techniques": ["definitions", "imports", "registrations"]},
+               "techniques": ["definitions", "imports", "registrations", "behavior"]},
     "go": {"level": 1, "parser": "regex",
-           "techniques": ["definitions", "imports", "registrations"]},
+           "techniques": ["definitions", "imports", "registrations", "behavior"]},
 }
 
 
@@ -404,6 +404,7 @@ def _regex_facts(text: str, language: str) -> dict[str, list[dict[str, Any]]]:
             imports.append(_row("import", match.group(1), _line(text, match.start())))
         for match in re.finditer(r"\b(?:class|interface|record|enum)\s+([A-Za-z_]\w*)", text):
             definitions.append(_row("definition", match.group(1), _line(text, match.start())))
+        behavior.extend(_c_like_behavior(text))
     elif language == "csharp":
         for match in re.finditer(r"^\s*namespace\s+([\w.]+)\s*[;{]", text, re.MULTILINE):
             registrations.append(_row("namespace", match.group(1), _line(text, match.start())))
@@ -411,6 +412,7 @@ def _regex_facts(text: str, language: str) -> dict[str, list[dict[str, Any]]]:
             imports.append(_row("import", match.group(1), _line(text, match.start())))
         for match in re.finditer(r"\b(?:class|interface|record|struct|enum)\s+([A-Za-z_]\w*)", text):
             definitions.append(_row("definition", match.group(1), _line(text, match.start())))
+        behavior.extend(_c_like_behavior(text))
     elif language == "go":
         for match in re.finditer(r"^\s*package\s+([A-Za-z_]\w*)", text, re.MULTILINE):
             registrations.append(_row("package", match.group(1), _line(text, match.start())))
@@ -421,6 +423,7 @@ def _regex_facts(text: str, language: str) -> dict[str, list[dict[str, Any]]]:
                 imports.append(_row("import", match.group(1), _line(text, block.start() + match.start())))
         for match in re.finditer(r"^\s*(?:func|type)\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)", text, re.MULTILINE):
             definitions.append(_row("definition", match.group(1), _line(text, match.start())))
+        behavior.extend(_c_like_behavior(text))
     return {
         "definitions": sorted(definitions, key=lambda item: (item["line"], item["value"])),
         "imports": sorted(imports, key=lambda item: (item["line"], item["value"])),
@@ -570,6 +573,85 @@ def _javascript_typescript_behavior(text: str) -> list[dict[str, Any]]:
                     rendered_names.add(key)
                     rows.append(_row("render-use", value, key[1]))
     scopes = _javascript_function_scopes(text)
+    for row in rows:
+        if row["kind"] != "import-binding":
+            row["scope"] = _behavior_scope(int(row["line"]), scopes)
+    return rows
+
+
+def _c_like_behavior(text: str) -> list[dict[str, Any]]:
+    """Extract uniform behavior rows for brace-delimited languages.
+
+    Covers Java, C#, and Go with the same row kinds Python emits via AST:
+    import bindings, scoped calls, returns, error emissions, and assertions.
+    Patterns stay deliberately narrow (identifiers and short structural
+    shapes only); anything ambiguous is skipped rather than guessed.
+    """
+    rows: list[dict[str, Any]] = []
+    scopes: list[tuple[int, int, str]] = []
+    def_starts: set[tuple[str, int]] = set()
+    for pattern in (
+        # Java/C# methods: [modifiers] ReturnType Name(...)
+        r"(?:^|[^\w])(?:(?:public|private|protected|internal|static|virtual|override|async|sealed|readonly|unsafe|extern|abstract)\s+)+[\w<>\[\],\s]+\s+([A-Za-z_]\w*)\s*\(",
+        # Go functions and methods.
+        r"^\s*func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\s*\(",
+    ):
+        for match in re.finditer(pattern, text, re.MULTILINE):
+            name = match.group(1)
+            opening = text.find("{", match.end() - 1)
+            if opening < 0:
+                continue
+            closing = _matching_javascript_brace(text, opening)
+            if closing is None:
+                continue
+            start = _line(text, match.start(1))
+            scopes.append((start, _line(text, closing), name))
+            def_starts.add((name, start))
+    for match in re.finditer(
+        r"^\s*import\s+(?:static\s+)?([\w.]+)\s*;", text, re.MULTILINE
+    ):
+        full = match.group(1)
+        rows.append(_row("import-binding", full.split(".")[-1], _line(text, match.start()), detail=full))
+    for match in re.finditer(
+        r"^\s*using\s+(?:static\s+)?([\w.]+)\s*;", text, re.MULTILINE
+    ):
+        full = match.group(1)
+        rows.append(_row("import-binding", full.split(".")[-1], _line(text, match.start()), detail=full))
+    for match in re.finditer(
+        r"^\s*import\s+(?:([A-Za-z_.]\w*)\s+)?\"([^\"]+)\"", text, re.MULTILINE
+    ):
+        alias, path = match.group(1), match.group(2)
+        local = alias or path.rstrip("/").split("/")[-1]
+        if re.fullmatch(r"[A-Za-z_]\w*", local):
+            rows.append(_row("import-binding", local, _line(text, match.start()), detail=path))
+
+    keywords = {
+        "if", "for", "while", "switch", "catch", "return", "new", "throw",
+        "assert", "else", "do", "try", "sizeof", "typeof", "nameof",
+        "using", "lock", "fixed", "checked", "unchecked", "defer", "go",
+        "select", "case", "default", "break", "continue", "goto",
+        "fallthrough", "yield", "await",
+    }
+    for match in re.finditer(r"(?<![.\w])([A-Za-z_]\w*)\s*\(", text):
+        name = match.group(1)
+        if name in keywords:
+            continue
+        line = _line(text, match.start(1))
+        if (name, line) in def_starts:
+            continue
+        prefix = text[max(0, match.start() - 24):match.start()]
+        if re.search(r"\bnew\s*$", prefix):
+            continue
+        rows.append(_row("call", name, line))
+    for match in re.finditer(r"\breturn\s+([A-Za-z_]\w*)(?:\s*;|\s*$)", text, re.MULTILINE):
+        if match.group(1) not in {"true", "false", "nil", "null"}:
+            rows.append(_row("return", match.group(1), _line(text, match.start(1))))
+    for match in re.finditer(r"\bthrow\s+(?:new\s+)?(?:[A-Za-z_]\w*\.)*([A-Za-z_]\w*)", text):
+        rows.append(_row("raise", match.group(1), _line(text, match.start(1))))
+    for match in re.finditer(r"\bassert\s+([A-Za-z_]\w*)", text):
+        rows.append(_row("assert", match.group(1), _line(text, match.start(1))))
+    for match in re.finditer(r"\bDebug\.Assert\s*\(\s*([A-Za-z_]\w*)", text):
+        rows.append(_row("assert", match.group(1), _line(text, match.start(1))))
     for row in rows:
         if row["kind"] != "import-binding":
             row["scope"] = _behavior_scope(int(row["line"]), scopes)
