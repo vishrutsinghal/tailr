@@ -901,14 +901,16 @@
         "schemas/host-requirement-routing-conformance.schema.json",
         "adapters/requirement-routing-scenarios-v1.json"
       ],
-      "scripts": [
-        "scripts/requirement_evidence.py",
-        "scripts/requirement_intake.py"
-      ],
-      "tests": [
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_mcp_server.py"
-      ],
+ "scripts": [
+  "scripts/requirement_evidence.py",
+  "scripts/requirement_intake.py",
+  "scripts/visual_requirement.py"
+ ],
+ "tests": [
+  "tests/test_requirement_routing_phase0.py",
+  "tests/test_mcp_server.py",
+  "tests/test_visual_requirement.py"
+ ],
       "mcp_tools": [
         "requirement_intake_show",
         "requirement_intake_answer"

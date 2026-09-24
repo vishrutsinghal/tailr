@@ -447,6 +447,7 @@ PACK_SCRIPTS = [
     "scripts/vulnerability-run.py",
     "scripts/vulnerability-scan.py",
     "scripts/vulnerability-summary.py",
+    "scripts/visual_requirement.py",
     "scripts/workflow-dashboard.py",
     "scripts/debug-intake.py",
     "scripts/debug-preflight.py",

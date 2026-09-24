@@ -672,6 +672,7 @@ def interpretation(
     proposal: dict[str, Any] | None = None,
     host: str | None = None,
     artifact_inputs: list[dict[str, Any]] | None = None,
+    visual_decisions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Return one validated requirement interpretation for every Start surface."""
     artifacts = {
@@ -704,6 +705,15 @@ def interpretation(
             for index, row in enumerate(requirement_rows, start=1)
         ]) + scope_clauses
         decisions = _deterministic_material_decisions(requirement_goal)
+        for row in visual_decisions or []:
+            if isinstance(row, dict) and str(row.get("question", "")).strip():
+                decisions.append({
+                    "id": str(row.get("id") or f"VIS-{len(decisions) + 1:02d}"),
+                    "decision_class": str(row.get("decision_class") or "visual-artifact-required"),
+                    "question": str(row["question"]).strip(),
+                    "impact": list(row.get("impact", ["acceptance-criteria", "implementation-scope"])),
+                    "evidence_refs": list(row.get("evidence_refs", ["host-interpretation"])),
+                })
         questions = [str(item["question"]) for item in decisions]
         sufficiency = requirement_sufficiency_contract(
             clauses,

@@ -55,6 +55,16 @@ def host_adapter() -> Any:
     return module
 
 
+def _visual_module() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "tailtrail_visual_requirement", Path(__file__).with_name("visual_requirement.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def enterprise_policy() -> Any:
     spec = importlib.util.spec_from_file_location("tailtrail_enterprise_target_policy", Path(__file__).with_name("enterprise-target-policy.py"))
     module = importlib.util.module_from_spec(spec)
@@ -288,7 +298,12 @@ def inspect_requirement_artifacts(
         elif not path.is_file():
             item.update({"status": "unreadable", "reason_code": "requirement-artifact-not-a-file"})
         elif path.suffix.casefold() not in REQUIREMENT_ARTIFACT_SUFFIXES:
-            item.update({"status": "unsupported", "reason_code": "requirement-artifact-format-unsupported"})
+            visual = _visual_module().inspect_visual_artifact(locator)
+            if visual.get("status") == "inspected":
+                item.update({**visual, "input_id": input_id})
+                continue
+            else:
+                item.update({"status": "unsupported", "reason_code": "requirement-artifact-format-unsupported"})
         else:
             try:
                 size = path.stat().st_size

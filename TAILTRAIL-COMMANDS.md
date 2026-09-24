@@ -881,6 +881,15 @@ under `Conditional TailTrail controls`.
 
 The token posture is a local estimate from file character counts. It is useful for demos and planning, but it is not exact model/API token usage. Learning quality is advisory only; surfaced learnings still require `use learnings`, `ignore learnings`, or `edit plan`.
 
+## Visual requirements
+
+```bash
+tailtrail start "Add the table in the attached image" --visual-artifact ./mockup.png --visual-observations '<json>'
+tailtrail start "Add the table in the attached image" --visual-artifact ./mockup.png --visual-observations-base64 <base64-utf8-json>
+```
+
+The host sees attached images; TailTrail binds and gates. Pass each image with `--visual-artifact` and describe it with `--visual-observations` (`locator`, `summary`, `open_questions`, `complete`). TailTrail hashes the original bytes, binds observations to the digest, and turns open questions into blocking material decisions — scope work waits until they are answered. An attached-but-unbound image is a material question, never a silent drop. Raw image bytes are never persisted.
+
 ## Next
 
 ```bash

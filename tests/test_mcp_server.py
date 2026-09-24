@@ -965,6 +965,42 @@ class McpServerTests(unittest.TestCase):
             ["/tmp/requirements.md", "/tmp/contracts.txt"],
         )
 
+    def test_atomic_tailtrail_start_forwards_visual_artifacts_and_observations(self):
+        calls = []
+        original = mcp.command_result
+        observations = {
+            "locator": "/tmp/mockup.png",
+            "summary": "ECG section with dropdown and table.",
+            "open_questions": ["What are the exact headers?"],
+            "complete": False,
+        }
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 2, "stdout": "{}", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            mcp.tailtrail_start({
+                "goal": "Add a table shown in the attached image.",
+                "root": ROOT.as_posix(),
+                "host": "codex",
+                "visual_artifacts": ["/tmp/mockup.png"],
+                "visual_observations": observations,
+                "format": "json",
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        self.assertIn("--visual-artifact", calls[0])
+        self.assertEqual(
+            calls[0][calls[0].index("--visual-artifact") + 1],
+            "/tmp/mockup.png",
+        )
+        forwarded = json.loads(calls[0][calls[0].index("--visual-observations") + 1])
+        self.assertEqual(forwarded, observations)
+
     def test_atomic_tailtrail_start_forwards_answered_requirement_intake(self):
         calls = []
         original = mcp.command_result

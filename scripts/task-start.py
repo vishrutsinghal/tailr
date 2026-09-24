@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import target_workspace
+import visual_requirement
 import start_posture
 import requirement_discovery
 import requirement_evidence
@@ -741,7 +742,7 @@ def target_fit_boundary_report(
     navigator_plan = planned.get("navigator", {}) if isinstance(planned, dict) else {}
     program = delivery.get("hands_free_program") if isinstance(delivery, dict) else None
     requirements = program.get("feature_requirements", []) if isinstance(program, dict) else navigator_plan.get("requirement_matrix", [])
-    return {
+    boundary_report = {
         "goal": goal,
         "root": root.as_posix(),
         "command_prefix": command_prefix,
@@ -753,6 +754,9 @@ def target_fit_boundary_report(
         "selected_features": delivery.get("selected", []) if isinstance(delivery, dict) else [],
         "technical_scope": requested_technical_scope(goal),
     }
+    if isinstance(planned, dict) and planned.get("visual_requirements"):
+        boundary_report["visual_requirements"] = planned["visual_requirements"]
+    return boundary_report
 
 
 def render_target_fit_boundary_report(report: dict[str, Any]) -> str:
@@ -4248,7 +4252,7 @@ def scope_quality_boundary_report(report: dict[str, Any]) -> dict[str, Any]:
             "rejected_candidates": 0,
             "truncated": False,
         }
-    return {
+    boundary_report = {
         "goal": report.get("goal", ""),
         "root": report.get("root", ""),
         "command_prefix": report.get("command_prefix", "tailtrail"),
@@ -4280,6 +4284,9 @@ def scope_quality_boundary_report(report: dict[str, Any]) -> dict[str, Any]:
             else "No Planning Lock, workflow, target receipt, learning receipt, graph-cache write, or implementation authority was created."
         ),
     }
+    if isinstance(report, dict) and report.get("visual_requirements"):
+        boundary_report["visual_requirements"] = report["visual_requirements"]
+    return boundary_report
 
 
 def render_scope_quality_boundary_report(report: dict[str, Any], *, verbose: bool = False) -> str:
@@ -5413,6 +5420,16 @@ def main() -> int:
     parser.add_argument("--related-repo", action="append", default=[], help="Read-only sibling/related repository path. Repeat as needed.")
     parser.add_argument("--design-reference", action="append", default=[], help="Read-only local or external design reference. Repeat as needed.")
     parser.add_argument("--requirement-artifact", action="append", default=[], help="Read-only local requirement/specification artifact. Repeat as needed.")
+    parser.add_argument("--visual-artifact", action="append", default=[], help="Read-only local image file bound as a visual requirement artifact. Repeat as needed.")
+    visual_observations_group = parser.add_mutually_exclusive_group()
+    visual_observations_group.add_argument(
+        "--visual-observations",
+        help="Host visual observation record JSON (summary, open_questions, complete) for bound visual artifacts.",
+    )
+    visual_observations_group.add_argument(
+        "--visual-observations-base64",
+        help="Base64 UTF-8 host visual observation record JSON for native-shell safety.",
+    )
     requirement_interpretation_group = parser.add_mutually_exclusive_group()
     requirement_interpretation_group.add_argument(
         "--requirement-interpretation",
@@ -5509,7 +5526,7 @@ def main() -> int:
             reference_roots=args.reference_root,
             related_repos=args.related_repo,
             design_references=args.design_reference,
-            requirement_artifacts=args.requirement_artifact,
+            requirement_artifacts=[*args.requirement_artifact, *args.visual_artifact],
             evidence_artifacts=args.evidence_artifact,
         )
         artifact_preparation = target_workspace.inspect_requirement_artifacts(
@@ -5517,6 +5534,31 @@ def main() -> int:
         )
         input_roles_registry = artifact_preparation["registry"]
         requirement_artifact_inputs = artifact_preparation["planning_inputs"]
+        visual_records: list[dict[str, Any]] = []
+        visual_decisions: list[dict[str, Any]] = []
+        if args.visual_artifact or args.visual_observations or args.visual_observations_base64:
+            raw_observations = _parse_json_flag(
+                "--visual-observations", args.visual_observations, args.visual_observations_base64
+            )
+            inspected_visual = [
+                item for item in input_roles_registry.get("inputs", [])
+                if isinstance(item, dict) and item.get("kind") == "visual-artifact"
+            ]
+            bound, visual_issues = visual_requirement.bind_observations(raw_observations, inspected_visual)
+            if visual_issues:
+                parser.error(
+                    "visual observations are invalid: " + "; ".join(visual_issues)
+                    + "; record summary, open_questions, and complete through MCP `visual_observations` or CLI `--visual-observations`"
+                )
+            for index, record in enumerate(bound, start=1):
+                if not record.get("complete", False):
+                    visual_decisions.append(
+                        visual_requirement.visual_material_decision(
+                            "; ".join(record["open_questions"]),
+                            decision_id=f"VIS-{index:02d}",
+                        )
+                    )
+            visual_records = bound
         if not artifact_preparation["ready"]:
             report = requirement_artifact_boundary_report(
                 goal, root, artifact_preparation
@@ -5713,6 +5755,7 @@ def main() -> int:
                 host_requirement_proposal,
                 args.host or (str(host_requirement_proposal.get("host")) if host_requirement_proposal else None),
                 requirement_artifact_inputs,
+                visual_decisions=visual_decisions or None,
             )
         )
         if required_official_authority is not None:
@@ -5786,6 +5829,8 @@ def main() -> int:
                 "authority": intake["authority"],
                 "boundary": intake["boundary"],
             }
+            if visual_records:
+                report["visual_requirements"] = visual_records
             if args.format == "json":
                 print(json.dumps(report, indent=2, sort_keys=True))
             else:
@@ -5864,6 +5909,8 @@ def main() -> int:
         )
         report["graph_lifecycle"] = graph_lifecycle
         report["scope_question_precondition"] = scope_precondition
+        if visual_records:
+            report["visual_requirements"] = visual_records
         if required_official_authority is not None:
             report["requirement_authority"] = required_official_authority
         if saved_requirement_intake is not None:
