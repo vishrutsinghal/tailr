@@ -1311,8 +1311,8 @@ def main() -> int:
             return run_script("planning-revision.py", revision_args)
         return run_script("planning_lock.py", args)
     if command == "requirements":
-        if not args or args[0] not in {"show", "answer"}:
-            print("Usage: tailtrail requirements show|answer --intake-id <id> [args]")
+        if not args or args[0] not in {"show", "answer", "attach-visual"}:
+            print("Usage: tailtrail requirements show|answer|attach-visual --intake-id <id> [args]")
             return 2
         return run_script("requirement_intake.py", args)
     if command == "next":

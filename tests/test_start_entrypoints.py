@@ -223,6 +223,13 @@ class StartEntrypointTests(unittest.TestCase):
                 self.assertIn("sha-256", body)
                 self.assertIn("before scope", body)
 
+    def test_codex_cli_fallback_forwards_visual_attachments(self) -> None:
+        body = (ROOT / "skills" / "tailtrail-start" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Attachment forwarding is mandatory", body)
+        self.assertIn("visual_attachments", body)
+        self.assertIn("--visual-artifact <absolute-path>", body)
+        self.assertIn("never drop the attachment", body)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,4 @@
-"""Phase 0 visual requirement plumbing: contract shape only.
-
-Nothing here is wired into Start yet: these tests pin the vocabulary,
-bounds-free hashing, attachment states, and the observation validator so
-Phase 1 can gate on them. Planning behavior is byte-identical with or
-without this module.
-"""
+"""Visual requirement intake and pre-scope gate tests."""
 
 from __future__ import annotations
 
@@ -66,6 +60,58 @@ class VisualRequirementPhase0Tests(unittest.TestCase):
             self.module.attachment_state(["https://example.invalid/a.png"], []),
             "none",
         )
+
+    def test_visual_reference_detection_is_narrow(self) -> None:
+        self.assertTrue(
+            self.module.requires_visual_contract(
+                "Add the table columns shown in the attached image."
+            )
+        )
+        self.assertTrue(
+            self.module.requires_visual_contract(
+                "Following columns - check the screenshot"
+            )
+        )
+        self.assertFalse(
+            self.module.requires_visual_contract("Add an image upload field."))
+
+    def test_missing_visual_contract_creates_pre_scope_decision(self) -> None:
+        decisions = self.module.intake_decisions(
+            "Add controls shown in the attached image.",
+            visual_artifact_declared=False,
+            records=[],
+        )
+        self.assertEqual(len(decisions), 1)
+        self.assertEqual(decisions[0]["id"], "VIS-01")
+        self.assertIn("Attach the referenced image", decisions[0]["question"])
+
+    def test_host_visual_attachment_contract_requires_a_local_image_path(self) -> None:
+        attachment = self.module.normalize_visual_attachments([{
+            "attachment_id": "chat-image-1",
+            "local_path": "/tmp/mockup.png",
+            "media_type": "image/png",
+        }])
+        self.assertEqual(attachment[0]["attachment_id"], "chat-image-1")
+        with self.assertRaisesRegex(ValueError, "local_path"):
+            self.module.normalize_visual_attachments([{
+                "attachment_id": "chat-image-1",
+                "local_path": "https://example.invalid/mockup.png",
+            }])
+
+    def test_staged_attachments_are_private_and_cleaned_up(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            image = Path(temp) / "mockup.png"
+            image.write_bytes(PNG_BYTES)
+            attachment = self.module.normalize_visual_attachments([{
+                "attachment_id": "chat-image-1",
+                "local_path": image.as_posix(),
+            }])
+            with self.module.staged_attachments(attachment) as staged:
+                staged_path = Path(staged[0]["local_path"])
+                self.assertTrue(staged_path.is_file())
+                self.assertNotEqual(staged_path, image)
+                self.assertEqual(staged_path.read_bytes(), PNG_BYTES)
+            self.assertFalse(staged_path.exists())
 
     def test_remote_and_missing_paths_never_hash(self) -> None:
         self.assertIsNone(
@@ -320,6 +366,77 @@ class VisualGatePhase1Tests(unittest.TestCase):
 
 class VisualStartEndToEndTests(unittest.TestCase):
     """Bound image plus open visual questions stop before scope and lock."""
+
+    def test_unbound_visual_reference_returns_clarification_before_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "tailtrail.py"),
+                    "start",
+                    "Add a table with columns shown in the attached image",
+                    "--root",
+                    temp,
+                    "--format",
+                    "json",
+                    "--no-planning-lock",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["type"], "tailtrail-requirement-clarification")
+        self.assertFalse(payload["scope_question_precondition"]["scope_question_allowed"])
+        self.assertIn("Attach the referenced image", payload["material_questions"][0])
+
+    def test_complete_visual_can_attach_to_and_resume_existing_intake(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            png = root / "mockup.png"
+            png.write_bytes(PNG_BYTES)
+            started = subprocess.run(
+                [
+                    sys.executable, str(ROOT / "scripts" / "tailtrail.py"), "start",
+                    "Add a table with columns shown in the attached image",
+                    "--root", str(root), "--format", "json", "--no-planning-lock",
+                ],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(started.returncode, 0, started.stderr)
+            intake_id = json.loads(started.stdout)["intake_id"]
+            observation = {
+                "summary": "Fully legible table with all controls and headers.",
+                "open_questions": [],
+                "complete": True,
+            }
+            attached = subprocess.run(
+                [
+                    sys.executable, str(ROOT / "scripts" / "tailtrail.py"),
+                    "requirements", "attach-visual", "--root", str(root),
+                    "--intake-id", intake_id, "--attachment-id", "chat-image-1",
+                    "--visual-artifact", str(png), "--visual-observations",
+                    json.dumps(observation), "--format", "json",
+                ],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(attached.returncode, 0, attached.stderr)
+            attached_payload = json.loads(attached.stdout)
+            self.assertEqual(attached_payload["state"], "answered")
+            self.assertEqual(attached_payload["visual_requirements"][0]["attachment_id"], "chat-image-1")
+            resumed = subprocess.run(
+                [
+                    sys.executable, str(ROOT / "scripts" / "tailtrail.py"), "start",
+                    "Add a table with columns shown in the attached image",
+                    "--root", str(root), "--requirement-intake-id", intake_id,
+                    "--aidlc", "lite", "--format", "json", "--no-planning-lock",
+                ],
+                cwd=ROOT, text=True, capture_output=True, check=False,
+            )
+        self.assertNotIn("Attach the referenced image", resumed.stdout)
+        self.assertNotIn("tailtrail-requirement-clarification", resumed.stdout)
 
     def test_bound_visual_with_questions_returns_clarification(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

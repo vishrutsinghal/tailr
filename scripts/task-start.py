@@ -4641,6 +4641,38 @@ def render_requirement_artifact_boundary_report(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_requirement_clarification_report(report: dict[str, Any]) -> str:
+    """Render the pre-Navigator requirement route for every host surface."""
+    report_type = str(report.get("type", ""))
+    title = (
+        "# TailTrail Full AIDLC Routing"
+        if report_type == "tailtrail-aidlc-full-routing"
+        else "# TailTrail Standard AIDLC Routing"
+        if report_type == "tailtrail-aidlc-standard-routing"
+        else "# TailTrail Requirement Clarification"
+    )
+    lines = [
+        title,
+        "",
+        str(report.get("boundary", "")),
+        "",
+        f"- **Intake ID:** `{report.get('intake_id', '')}`",
+        f"- **Route:** `{report.get('recommended_route', '')}`",
+        "- **Scope questions:** deferred until requirements are sufficient.",
+    ]
+    route_posture = report.get("route_posture")
+    if isinstance(route_posture, dict):
+        lines.append(f"- **Official pack posture:** `{route_posture.get('state')}`")
+    for index, question in enumerate(report.get("material_questions", []), start=1):
+        lines.append(f"- **Q{index}:** {question}")
+    lines.append("")
+    lines.extend(requirement_intake.evidence_lines(report.get("requirement_evidence")))
+    continuation = report.get("continuation")
+    if isinstance(continuation, dict) and continuation.get("prompt"):
+        lines.append(f"- **Continue:** {continuation['prompt']}")
+    return "\n".join(lines) + "\n"
+
+
 def render_debug_diagnosis_boundary_report(report: dict[str, Any]) -> str:
     lines = [
         "# TailTrail Debug Diagnosis Required",
@@ -5559,6 +5591,13 @@ def main() -> int:
                         )
                     )
             visual_records = bound
+        visual_decisions.extend(
+            visual_requirement.intake_decisions(
+                goal,
+                visual_artifact_declared=bool(args.visual_artifact),
+                records=visual_records,
+            )
+        )
         if not artifact_preparation["ready"]:
             report = requirement_artifact_boundary_report(
                 goal, root, artifact_preparation
@@ -5745,6 +5784,15 @@ def main() -> int:
                 parser.error("a host scope proposal requires --host codex, copilot, or claude")
             if host_scope_proposal.get("host") != args.host:
                 parser.error("host scope proposal host does not match the active --host")
+        if saved_requirement_intake is not None:
+            saved_visual = saved_requirement_intake.get("visual_requirements", [])
+            if isinstance(saved_visual, list) and saved_visual:
+                visual_records = [row for row in saved_visual if isinstance(row, dict)]
+                # A completed, hash-bound visual contract already resolved the
+                # exact VIS decision in this intake. Do not recreate it merely
+                # because the original goal still mentions an attached image.
+                if visual_records and all(row.get("complete") is True for row in visual_records):
+                    visual_decisions = []
         interpreted_requirements = (
             requirement_intake.resolved_interpretation(saved_requirement_intake)
             if saved_requirement_intake is not None
@@ -5757,6 +5805,10 @@ def main() -> int:
                 requirement_artifact_inputs,
                 visual_decisions=visual_decisions or None,
             )
+        )
+        interpreted_requirements = requirement_discovery.add_material_decisions(
+            interpreted_requirements,
+            visual_decisions,
         )
         if required_official_authority is not None:
             validate_official_requirement_interpretation(
@@ -5834,27 +5886,7 @@ def main() -> int:
             if args.format == "json":
                 print(json.dumps(report, indent=2, sort_keys=True))
             else:
-                print(
-                    "# TailTrail Full AIDLC Routing\n"
-                    if full_route
-                    else "# TailTrail Standard AIDLC Routing\n"
-                    if official_route
-                    else "# TailTrail Requirement Clarification\n"
-                )
-                print(report["boundary"] + "\n")
-                print(f"- **Intake ID:** `{report['intake_id']}`")
-                print(f"- **Route:** `{report['recommended_route']}`")
-                print("- **Scope questions:** deferred until requirements are sufficient.")
-                if isinstance(report.get("route_posture"), dict):
-                    print(
-                        f"- **Official pack posture:** "
-                        f"`{report['route_posture'].get('state')}`"
-                    )
-                for index, question in enumerate(report["material_questions"], start=1):
-                    print(f"- **Q{index}:** {question}")
-                print("")
-                print("\n".join(requirement_intake.evidence_lines(report["requirement_evidence"], intake.get("answers"))), end="")
-                print(f"- **Continue:** {report['continuation']['prompt']}")
+                print(render_requirement_clarification_report(report), end="")
             return 0
         scope_precondition = scope_question_precondition(interpreted_requirements)
         if scope_precondition["scope_question_allowed"] is not True:

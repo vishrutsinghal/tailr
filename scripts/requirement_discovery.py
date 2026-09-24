@@ -933,6 +933,58 @@ def interpretation(
     return result
 
 
+def add_material_decisions(
+    interpreted: dict[str, Any],
+    decisions_to_add: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Merge pre-scope decisions into any validated interpretation.
+
+    This lets intake gates apply equally to deterministic and host-assisted
+    requirements without teaching the gate about a programming language,
+    framework, or source-file layout.
+    """
+    additions = [
+        row for row in decisions_to_add or []
+        if isinstance(row, dict) and str(row.get("question", "")).strip()
+    ]
+    if not additions:
+        return interpreted
+    clauses = interpreted.get("clauses")
+    requirements = interpreted.get("requirements")
+    sufficiency = interpreted.get("sufficiency")
+    if not isinstance(clauses, list) or not isinstance(requirements, list):
+        raise ValueError("requirement interpretation lacks clauses or requirements")
+    existing = (
+        list(sufficiency.get("material_decisions", []))
+        if isinstance(sufficiency, dict)
+        else []
+    )
+    existing_questions = {
+        str(row.get("question", "")).strip()
+        for row in existing if isinstance(row, dict)
+    }
+    for row in additions:
+        question = str(row["question"]).strip()
+        if question not in existing_questions:
+            existing.append(row)
+            existing_questions.add(question)
+    refreshed = requirement_sufficiency_contract(
+        clauses,
+        requirements,
+        [],
+        source=str(interpreted.get("source") or "deterministic-fallback"),
+        material_decisions=existing,
+    )
+    interpreted["sufficiency"] = refreshed
+    interpreted["state"] = refreshed["state"]
+    interpreted["material_questions"] = [
+        str(row["question"])
+        for row in refreshed["material_decisions"]
+        if isinstance(row, dict) and str(row.get("question", "")).strip()
+    ]
+    return interpreted
+
+
 def query_terms(statement: str) -> list[str]:
     """Derive bounded, salient discovery terms for exactly one requirement.
 

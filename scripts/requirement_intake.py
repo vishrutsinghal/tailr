@@ -41,6 +41,16 @@ def _ledger() -> Any:
 LEDGER = _ledger()
 
 
+def _visual_requirement() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "tailtrail_requirement_intake_visual", ROOT / "scripts" / "visual_requirement.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -361,6 +371,81 @@ def answer(
         return updated
 
 
+def attach_visual(
+    root: Path,
+    intake_id: str,
+    attachment: dict[str, Any],
+    observation: dict[str, Any],
+    *,
+    command_prefix: str,
+) -> dict[str, Any]:
+    """Bind one host-resolved image to an existing visual requirement intake.
+
+    This is metadata-only. The image remains at the host-provided local path;
+    the intake stores a hash-bound receipt and the host's bounded observation.
+    """
+    visual = _visual_requirement()
+    normalized = visual.normalize_visual_attachments([attachment])[0]
+    with visual.staged_attachments([normalized]) as staged:
+        staged_attachment = staged[0]
+        inspected = visual.inspect_visual_artifact(staged_attachment["local_path"])
+        if inspected.get("status") != "inspected":
+            raise ValueError(
+                "visual attachment is not readable: "
+                + str(inspected.get("reason_code", "visual-artifact-unavailable"))
+            )
+        inspected["locator"] = staged_attachment["local_path"]
+        payload = dict(observation)
+        payload["locator"] = staged_attachment["local_path"]
+        bound, issues = visual.bind_observations(payload, [inspected])
+        if issues:
+            raise ValueError("visual observations are invalid: " + "; ".join(issues))
+        record = {
+            **bound[0],
+            "attachment_id": normalized["attachment_id"],
+        }
+    # The staging path is intentionally not durable: it was deleted above.
+    record.pop("locator", None)
+    directory = intake_dir(root.resolve(), intake_id)
+    with LEDGER.RunLock(directory / ".lock"):
+        current_path = directory / "current.json"
+        if not current_path.is_file():
+            raise ValueError(f"requirement intake `{intake_id}` does not exist")
+        current = LEDGER.read_json(current_path)
+        questions = list(current.get("questions", []))
+        visual_questions = [row for row in questions if row.get("decision_class") == visual.VISUAL_DECISION_CLASS]
+        if not visual_questions:
+            raise ValueError("requirement intake has no unresolved visual requirement")
+        answers = dict(current.get("answers", {}))
+        for question in visual_questions:
+            decision_id = str(question["decision_id"])
+            if record["complete"]:
+                answers[decision_id] = record["summary"]
+            else:
+                question["question"] = "; ".join(record["open_questions"])
+        offered = {str(row["decision_id"]) for row in questions}
+        state = "answered" if offered and offered <= set(answers) else "awaiting-requirements"
+        revision = int(current.get("revision", 0)) + 1
+        updated = {
+            **current,
+            "revision": revision,
+            "state": state,
+            "updated_at": utc_now(),
+            "questions": questions,
+            "answers": answers,
+            "visual_requirements": [
+                *[row for row in current.get("visual_requirements", []) if isinstance(row, dict) and row.get("attachment_id") != record["attachment_id"]],
+                record,
+            ],
+            "continuation": _continuation(
+                intake_id, state, command_prefix, dict(current.get("identity", {}))
+            ),
+        }
+        LEDGER.atomic_json(directory / "revisions" / f"revision-{revision:04d}.json", updated)
+        LEDGER.atomic_json(current_path, updated)
+        return updated
+
+
 def evidence_lines(evidence: dict[str, Any] | None, answers: dict[str, Any] | None = None) -> list[str]:
     if not isinstance(evidence, dict):
         return []
@@ -463,7 +548,8 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     show_parser = sub.add_parser("show")
     answer_parser = sub.add_parser("answer")
-    for item in (show_parser, answer_parser):
+    attach_visual_parser = sub.add_parser("attach-visual")
+    for item in (show_parser, answer_parser, attach_visual_parser):
         item.add_argument("--root", type=Path, default=Path.cwd())
         item.add_argument("--intake-id", required=True)
         item.add_argument("--format", choices=("markdown", "json"), default="markdown")
@@ -472,18 +558,37 @@ def main() -> int:
     group.add_argument("--answers")
     group.add_argument("--answers-base64")
     group.add_argument("--answers-stdin", action="store_true")
+    attach_visual_parser.add_argument("--attachment-id", required=True)
+    attach_visual_parser.add_argument("--visual-artifact", required=True)
+    observation_group = attach_visual_parser.add_mutually_exclusive_group(required=True)
+    observation_group.add_argument("--visual-observations")
+    observation_group.add_argument("--visual-observations-base64")
     args = parser.parse_args()
     try:
-        artifact = (
-            load(args.root, args.intake_id)
-            if args.command == "show"
-            else answer(
+        if args.command == "show":
+            artifact = load(args.root, args.intake_id)
+        elif args.command == "answer":
+            artifact = answer(
                 args.root,
                 args.intake_id,
                 _read_answers(args),
                 command_prefix=args.command_prefix,
             )
-        )
+        else:
+            raw_observation = (
+                json.loads(args.visual_observations)
+                if args.visual_observations is not None
+                else json.loads(base64.b64decode(args.visual_observations_base64, validate=True).decode("utf-8"))
+            )
+            if not isinstance(raw_observation, dict):
+                raise ValueError("visual observations must be a JSON object")
+            artifact = attach_visual(
+                args.root,
+                args.intake_id,
+                {"attachment_id": args.attachment_id, "local_path": args.visual_artifact},
+                raw_observation,
+                command_prefix=args.command_prefix,
+            )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"TailTrail requirement intake error: {error}", file=sys.stderr)
         return 2

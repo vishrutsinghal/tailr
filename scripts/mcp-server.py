@@ -84,7 +84,7 @@ DEFAULT_READ_ONLY_TOOLS = (
 LEGACY_CONTROLLED_TOOLS = ("tailtrail_stop", "tailtrail_resume", "harness_control_check", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "navigator_scope_proposal_record", "execution_evidence_record", "execution_evidence_run", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest", "debug_start", "debug_reproduction_draft", "debug_reproduction_revise", "debug_reproduction_reopen", "debug_reproduction_approve", "debug_reproduction_attempt_record", "debug_orientation_create", "debug_hypothesis_add", "debug_hypothesis_reprioritize", "debug_experiment_propose", "debug_experiment_record", "debug_root_cause_prove", "debug_correction_propose", "debug_correction_approve", "debug_correction_scope_check", "debug_harness_convergence_finalize", "debug_closure_finalize", "debug_evaluation_run")
 WORKFLOW_READ_ONLY_TOOLS = ("workflow_list", "workflow_show", "workflow_status", "workflow_current", "workflow_compiler_show", "workflow_approvals_show", "workflow_freshness_show", "workflow_evidence_show", "workflow_resume", "workflow_doctor", "workflow_replay", "workflow_ci_show", "workflow_assurance_inspect", "workflow_denials_show", "workflow_retention_show", "workflow_retention_plan", "workflow_release_catalog", "workflow_release_show", "workflow_release_compatibility", "workflow_release_evaluate", "workflow_enterprise_entry", "workflow_enterprise_show", "workflow_enterprise_replay", "workflow_enterprise_observe", "workflow_enterprise_restore_validate", "workflow_enterprise_migration_plan", "workflow_enterprise_conformance")
 WORKFLOW_CONTROLLED_TOOLS = ("workflow_create", "workflow_approval_decide", "workflow_state_control", "workflow_adapter_record", "workflow_correction_request", "workflow_closure_finalize", "workflow_ci_ingest", "workflow_retention_cleanup", "workflow_release_scenario_record", "workflow_real_run_record", "workflow_release_retire", "workflow_enterprise_policy_record", "workflow_enterprise_activate", "workflow_enterprise_link", "workflow_enterprise_lease_acquire", "workflow_enterprise_lease_release", "workflow_enterprise_ingest", "workflow_enterprise_backup", "workflow_enterprise_migrate", "workflow_enterprise_rollback")
-LEGACY_CONTROLLED_TOOLS = ("requirement_intake_answer", *LEGACY_CONTROLLED_TOOLS)
+LEGACY_CONTROLLED_TOOLS = ("requirement_intake_answer", "requirement_intake_attach_visual", *LEGACY_CONTROLLED_TOOLS)
 WORKFLOW_MCP_TOOLS = (*WORKFLOW_READ_ONLY_TOOLS, *WORKFLOW_CONTROLLED_TOOLS)
 CONTROLLED_TOOLS = (*LEGACY_CONTROLLED_TOOLS, *WORKFLOW_CONTROLLED_TOOLS)
 DENIED_TOOL_TERMS = (
@@ -370,6 +370,7 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "debug_preflight": {"name": "debug_preflight", "description": "Create one deterministic, bounded, read-only evidence packet before host-assisted Debug Start. It inspects capped current-source slices, focused tests, configuration, and explicitly referenced local artifacts; it never runs project commands or creates a Planning Lock. An unresolved local helper remains a partial trace with correction scope blocked, but the handoff continues when an artifact or bounded reproduction route exists. Ask for user evidence only when reproduction and external context are unavailable. The active host should perform one reasoning pass over this packet rather than scanning the repository independently.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "host": {"type": "string", "enum": ["codex", "copilot", "claude"]}}, ["goal", "host"]), "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True}},
         "tailtrail_session_status": {"name": "tailtrail_session_status", "description": "Read the current common TailTrail conversation attachment and safe point. It never scans source, attaches a run, or grants authority.", "inputSchema": json_schema({"root": {"type": "string"}, "context_key": {"type": "string"}}), "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True}},
         "requirement_intake_answer": {"name": "requirement_intake_answer", "description": "Record bounded user answers as a new pre-lock intake revision. Requires approved: true and grants no delivery authority.", "inputSchema": json_schema({"root": {"type": "string"}, "intake_id": {"type": "string"}, "answers": {"type": "object", "additionalProperties": {"type": "string"}, "maxProperties": 3}, "approved": {"type": "boolean"}}, ["intake_id", "answers", "approved"])},
+        "requirement_intake_attach_visual": {"name": "requirement_intake_attach_visual", "description": "Bind one host-resolved local image and bounded observation to an existing VIS requirement intake. Requires approved: true, writes only intake metadata, and grants no scope or implementation authority.", "inputSchema": json_schema({"root": {"type": "string"}, "intake_id": {"type": "string"}, "visual_attachment": {"type": "object", "properties": {"attachment_id": {"type": "string"}, "local_path": {"type": "string"}, "media_type": {"type": "string"}}, "required": ["attachment_id", "local_path"]}, "visual_observations": {"type": "object"}, "approved": {"type": "boolean"}}, ["intake_id", "visual_attachment", "visual_observations", "approved"])},
         "tailtrail_stop": {"name": "tailtrail_stop", "description": "Detach TailTrail routing at the next atomic metadata boundary while preserving the exact run. The host must supply confirmed: true for the explicit user stop request. It never rejects, cancels, approves, executes, or deletes the run.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "context_key": {"type": "string"}, "confirmed": {"type": "boolean"}}, ["confirmed"]), "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True}},
         "tailtrail_resume": {"name": "tailtrail_resume", "description": "Reattach one exact saved TailTrail run after integrity and target freshness checks. It never resumes workflow execution, approves a plan, or restores expired authority.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "context_key": {"type": "string"}}, ["run_id"]), "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True}},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
@@ -384,7 +385,7 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "planning_aidlc_standard_propose": {"name": "planning_aidlc_standard_propose", "description": "Propose a versioned Lite-to-Standard AIDLC mode switch for an awaiting TailTrail run. Requires explicit approval and writes only local planning metadata; it does not begin questions, inspect source, or permit implementation.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
         "planning_aidlc_standard_approve": {"name": "planning_aidlc_standard_approve", "description": "Approve exactly one Lite-to-Standard mode-switch proposal and begin Standard AIDLC requirements under the same run. It does not approve implementation or run project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "revision": {"type": "integer", "minimum": 2}, "approved": {"type": "boolean"}}, ["run_id", "revision", "approved"])},
         "planning_lock_approve": {"name": "planning_lock_approve", "description": "Explicitly approve one existing Planning Lock run for managed execution. For a saved TailTrail Start report, it also activates that exact plan's canonical requirement anchor. It never edits project source or runs project commands.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "approved": {"type": "boolean"}}, ["run_id", "approved"])},
-        "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically inspect and hash-bind declared requirement artifacts and validate typed host requirement interpretation. Agent-host Standard/Full Build Start returns verified official requirement authority before scope and accepts only a proposal bound to the exact official mode, Requirements stage, and governing references; TailTrail maps but never rewrites those official rows. It may consume one fully answered goal/root/host-bound requirement intake. It validates evidence-bound scope, manages reusable graph metadata, and creates a Planning Lock only after requirements and scope pass. Missing, unreadable, unsupported, truncated, unbound, unofficial, or stale required inputs fail before scope. Non-agent clients retain deterministic fallback and the legacy post-lock official stage. Before Debug Start, call debug_preflight and perform one reasoning pass over only that packet, then submit a hash-bound advisory debug_diagnosis with its closed typed proposal and complete behavior graph. Preserve every evidence-backed branch and convergence point. No host proposal may include unrestricted reasoning, invented facts, approval, or execution authority. Use only after the user explicitly asks to start TailTrail.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "host": {"type": "string", "enum": ["codex", "copilot", "claude"]}, "host_scope_proposal": {"type": "object"}, "debug_diagnosis": {"type": "object"}, "changed": {"type": "array", "items": {"type": "string"}}, "graph": {"type": "string", "enum": ["auto", "reuse", "refresh", "rebuild", "off"]}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "requirement_artifacts": {"type": "array", "items": {"type": "string"}}, "workflow": {"type": "string", "enum": ["build", "debug"]}, "error_artifact_supplied": {"type": "boolean"}, "reproduction_command_supplied": {"type": "boolean"}, "requirement_interpretation": {"type": "object"}, "requirement_intake_id": {"type": "string", "pattern": "^intake-[a-f0-9]{16}$"}, "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]}, "official_aidlc_manifest": {"type": "string"}, "official_intent_id": {"type": "string"}, "official_session_id": {"type": "string"}, "official_stage": {"type": "string", "enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]}, "visual_artifacts": {"type": "array", "items": {"type": "string"}}, "visual_observations": {"type": "object"}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"]), "outputSchema": scope_tool_output_schema(), "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False}},
+        "tailtrail_start": {"name": "tailtrail_start", "description": "Atomically inspect and hash-bind declared requirement artifacts and validate typed host requirement interpretation. Visual chat attachments use the host-neutral visual_attachments contract; the host resolves each attachment to a local read-only path and supplies bounded observations. Missing or incomplete visual contracts stop before scope. Agent-host Standard/Full Build Start returns verified official requirement authority before scope and accepts only a proposal bound to the exact official mode, Requirements stage, and governing references; TailTrail maps but never rewrites those official rows. It may consume one fully answered goal/root/host-bound requirement intake. It validates evidence-bound scope, manages reusable graph metadata, and creates a Planning Lock only after requirements and scope pass.", "inputSchema": json_schema({"goal": {"type": "string"}, "root": {"type": "string"}, "host": {"type": "string", "enum": ["codex", "copilot", "claude"]}, "host_scope_proposal": {"type": "object"}, "debug_diagnosis": {"type": "object"}, "changed": {"type": "array", "items": {"type": "string"}}, "graph": {"type": "string", "enum": ["auto", "reuse", "refresh", "rebuild", "off"]}, "run_id": {"type": "string"}, "reference_roots": {"type": "array", "items": {"type": "string"}}, "requirement_artifacts": {"type": "array", "items": {"type": "string"}}, "workflow": {"type": "string", "enum": ["build", "debug"]}, "error_artifact_supplied": {"type": "boolean"}, "reproduction_command_supplied": {"type": "boolean"}, "requirement_interpretation": {"type": "object"}, "requirement_intake_id": {"type": "string", "pattern": "^intake-[a-f0-9]{16}$"}, "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]}, "official_aidlc_manifest": {"type": "string"}, "official_intent_id": {"type": "string"}, "official_session_id": {"type": "string"}, "official_stage": {"type": "string", "enum": ["requirements", "design", "implementation", "build-and-test", "handoff", "operations"]}, "visual_artifacts": {"type": "array", "items": {"type": "string"}}, "visual_attachments": {"type": "array", "items": {"type": "object", "properties": {"attachment_id": {"type": "string"}, "local_path": {"type": "string"}, "media_type": {"type": "string"}}, "required": ["attachment_id", "local_path"]}}, "visual_observations": {"type": "object"}, "verbose": {"type": "boolean"}, "format": {"type": "string", "enum": ["json", "markdown"]}, "approved": {"type": "boolean"}}, ["goal", "approved"]), "outputSchema": scope_tool_output_schema(), "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False}},
         "navigator_scope_proposal_record": {"name": "navigator_scope_proposal_record", "description": "Validate and return one host scope proposal against an exact bounded evidence packet. Supply the packet returned by tailtrail_start, or canonical evidence for a full projected decision. Requires explicit approval, writes nothing, creates no run or Planning Lock, and grants no execution authority.", "inputSchema": json_schema({"root": {"type": "string"}, "packet": {"type": "object"}, "evidence": {"type": "object"}, "proposal": {"type": "object"}, "approved": {"type": "boolean"}}, ["proposal", "approved"])},
         "execution_evidence_record": {"name": "execution_evidence_record", "description": "Record one factual, requirement-linked host execution event after explicit approval and an approved matching Planning Lock. The event is schema-validated and stored locally; this tool never executes, reinterprets, or invents command, test, CI, or Harness evidence.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "event": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "event", "approved"])},
         "execution_evidence_run": {"name": "execution_evidence_run", "description": "Execute one exact validation command already approved in the run anchor, then capture its exit code, duration, environment, and bounded redacted stdout/stderr as trusted evidence. It cannot execute an unapproved command or tier.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "requirement_uids": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "tiers": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "changed": {"type": "array", "items": {"type": "string"}}, "command": {"type": "string"}, "command_label": {"type": "string"}, "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}, "approved": {"type": "boolean"}}, ["run_id", "requirement_uids", "tiers", "command", "command_label", "approved"])},
@@ -662,6 +663,12 @@ def render_transport(tool: str, value: Any, fmt: str, *, verbose: bool = False) 
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
+    if value.get("type") in {
+        "tailtrail-requirement-clarification",
+        "tailtrail-aidlc-standard-routing",
+        "tailtrail-aidlc-full-routing",
+    }:
+        return module.render_requirement_clarification_report(value)
     return module.render_markdown(value, verbose=verbose)
 
 
@@ -1151,6 +1158,16 @@ def _requirement_intake_module() -> Any:
     return module
 
 
+def _visual_requirement_module() -> Any:
+    spec = importlib.util.spec_from_file_location(
+        "visual_requirement_mcp", script("visual_requirement.py")
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def requirement_intake_show(args: dict[str, Any]) -> dict[str, Any]:
     intake_id = str(args.get("intake_id", ""))
     result = _requirement_intake_module().load(root_from(args), intake_id)
@@ -1175,6 +1192,32 @@ def requirement_intake_answer(args: dict[str, Any]) -> dict[str, Any]:
     )
     return {
         "tool": "requirement_intake_answer",
+        "result": result,
+        "execution": {
+            "read_only": False,
+            "requires_approval": True,
+            "local_metadata_only": True,
+            "exit_code": 0,
+        },
+    }
+
+
+def requirement_intake_attach_visual(args: dict[str, Any]) -> dict[str, Any]:
+    if args.get("approved") is not True:
+        raise ValueError("requirement_intake_attach_visual requires approved: true")
+    attachment = args.get("visual_attachment")
+    observation = args.get("visual_observations")
+    if not isinstance(attachment, dict) or not isinstance(observation, dict):
+        raise ValueError("requirement_intake_attach_visual requires visual_attachment and visual_observations objects")
+    result = _requirement_intake_module().attach_visual(
+        root_from(args),
+        str(args.get("intake_id", "")),
+        attachment,
+        observation,
+        command_prefix="tailtrail",
+    )
+    return {
+        "tool": "requirement_intake_attach_visual",
         "result": result,
         "execution": {
             "read_only": False,
@@ -1396,12 +1439,33 @@ def tailtrail_start(args: dict[str, Any]) -> dict[str, Any]:
         command.extend(["--reference-root", reference])
     for artifact in as_string_list(args.get("requirement_artifacts")):
         command.extend(["--requirement-artifact", artifact])
-    for artifact in as_string_list(args.get("visual_artifacts")):
+    visual_attachments = _visual_requirement_module().normalize_visual_attachments(
+        args.get("visual_attachments")
+    )
+    visual_paths = [
+        *as_string_list(args.get("visual_artifacts")),
+        *[row["local_path"] for row in visual_attachments],
+    ]
+    for artifact in dict.fromkeys(visual_paths):
         command.extend(["--visual-artifact", artifact])
-    if isinstance(args.get("visual_observations"), dict):
+    observations = args.get("visual_observations")
+    if isinstance(observations, dict):
+        observations = dict(observations)
+        locator = str(observations.get("locator") or "").strip()
+        if visual_attachments and not locator:
+            if len(visual_attachments) != 1:
+                raise ValueError("visual_observations must name an attachment when multiple visual_attachments are supplied")
+            observations["locator"] = visual_attachments[0]["local_path"]
+        elif locator:
+            matching = next(
+                (row for row in visual_attachments if row["attachment_id"] == locator),
+                None,
+            )
+            if matching is not None:
+                observations["locator"] = matching["local_path"]
         command.extend([
             "--visual-observations",
-            json.dumps(args["visual_observations"], separators=(",", ":")),
+            json.dumps(observations, separators=(",", ":")),
         ])
     if args.get("workflow") in {"build", "debug"}:
         command.append("--" + str(args["workflow"]))
@@ -1427,7 +1491,29 @@ def tailtrail_start(args: dict[str, Any]) -> dict[str, Any]:
             command.extend([flag, str(args[argument])])
     if args.get("verbose") is True:
         command.append("--verbose")
-    result = command_result(command, root, stdin_data=diagnosis_stdin) if diagnosis_stdin is not None else command_result(command, root)
+    visual_module = _visual_requirement_module()
+    with visual_module.staged_attachments(visual_attachments) as staged:
+        staged_paths = {
+            original["local_path"]: staged_row["local_path"]
+            for original, staged_row in zip(visual_attachments, staged)
+        }
+        staged_command = [staged_paths.get(item, item) for item in command]
+        if "--visual-observations" in staged_command:
+            observation_index = staged_command.index("--visual-observations") + 1
+            staged_observation = json.loads(staged_command[observation_index])
+            if isinstance(staged_observation, dict):
+                staged_observation["locator"] = staged_paths.get(
+                    str(staged_observation.get("locator") or ""),
+                    str(staged_observation.get("locator") or ""),
+                )
+                staged_command[observation_index] = json.dumps(
+                    staged_observation, separators=(",", ":")
+                )
+        result = (
+            command_result(staged_command, root, stdin_data=diagnosis_stdin)
+            if diagnosis_stdin is not None
+            else command_result(staged_command, root)
+        )
     result["read_only"] = False
     result["requires_approval"] = True
     result["local_metadata_only"] = True
@@ -1884,6 +1970,7 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "intent_resolve": intent_resolve,
     "requirement_intake_show": requirement_intake_show,
     "requirement_intake_answer": requirement_intake_answer,
+    "requirement_intake_attach_visual": requirement_intake_attach_visual,
     "debug_preflight": debug_preflight,
     "tailtrail_session_status": tailtrail_session_status,
     "tailtrail_stop": tailtrail_stop,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Visual requirement intake plumbing (Phase 0: no behavior change).
+"""Visual requirement intake and scope gate.
 
 The host agent sees attached images; TailTrail only binds and gates.
 This module provides the pieces Phase 1 will wire into planning:
@@ -10,18 +10,24 @@ This module provides the pieces Phase 1 will wire into planning:
 - observation-contract validation (host summary + open questions with a
   ban on embedded data blobs).
 
-Nothing here is called by Start yet.
+The gate is intentionally language- and framework-agnostic. It acts on the
+request contract before source discovery, never on project source syntax.
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import shutil
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 from urllib.parse import urlparse
 
 CHUNK_BYTES = 1024 * 1024
+MAX_STAGED_ATTACHMENT_BYTES = 50 * 1024 * 1024
 
 REMOTE_SCHEMES = {"http", "https", "ftp", "data"}
 
@@ -29,6 +35,20 @@ REMOTE_SCHEMES = {"http", "https", "ftp", "data"}
 # prefix is indistinguishable from dense prose without length heuristics,
 # so it is a documented residual risk, not an enforced rule.
 DATA_URI_PATTERN = re.compile(r"data:[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+;base64,", re.IGNORECASE)
+
+# These phrases say that acceptance criteria live outside the text request.
+# Keep this intentionally narrow: asking to add an image upload or a CSS
+# background is not itself a request to inspect an external visual reference.
+VISUAL_REFERENCE_PATTERN = re.compile(
+    r"\b(?:"
+    r"(?:attached|provided|shared)\s+(?:image|screenshot|mockup|design)|"
+    r"(?:see|check|review|use|follow)\s+(?:the\s+)?(?:attached\s+)?(?:image|screenshot|mockup|design)|"
+    r"(?:shown|specified|described)\s+in\s+(?:the\s+)?(?:attached\s+)?(?:image|screenshot|mockup|design)|"
+    r"(?:as\s+(?:shown|specified)\s+(?:in|on)|according\s+to)\s+(?:the\s+)?(?:attached\s+)?(?:image|screenshot|mockup|design)|"
+    r"following\s+(?:columns|fields|controls|layout)\s*(?:-|:)?\s*(?:check|see)\b"
+    r")",
+    re.IGNORECASE,
+)
 
 
 def normalize_attachment(value: object) -> Path | None:
@@ -40,6 +60,79 @@ def normalize_attachment(value: object) -> Path | None:
     if parsed.scheme.casefold() in REMOTE_SCHEMES:
         return None
     return Path(text)
+
+
+def normalize_visual_attachments(value: object) -> list[dict[str, str]]:
+    """Validate the host-neutral visual attachment transport contract.
+
+    Hosts resolve their own chat attachment identifiers to local, read-only
+    paths. TailTrail accepts no remote URL or image bytes and does not invent
+    a path from an attachment ID.
+    """
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError("visual_attachments must be an array")
+    normalized: list[dict[str, str]] = []
+    seen_ids: set[str] = set()
+    for index, item in enumerate(value, start=1):
+        if not isinstance(item, dict):
+            raise ValueError("every visual attachment must be an object")
+        attachment_id = str(item.get("attachment_id") or "").strip()
+        local_path = str(item.get("local_path") or "").strip()
+        media_type = str(item.get("media_type") or "").strip().lower()
+        if not attachment_id or len(attachment_id) > 256:
+            raise ValueError(f"visual attachment {index} needs an attachment_id")
+        if attachment_id in seen_ids:
+            raise ValueError("visual attachment IDs must be unique")
+        if normalize_attachment(local_path) is None:
+            raise ValueError(f"visual attachment {attachment_id} needs a local_path")
+        if media_type and not media_type.startswith("image/"):
+            raise ValueError(f"visual attachment {attachment_id} has a non-image media_type")
+        seen_ids.add(attachment_id)
+        normalized.append({
+            "attachment_id": attachment_id,
+            "local_path": Path(local_path).expanduser().as_posix(),
+            **({"media_type": media_type} if media_type else {}),
+        })
+    return normalized
+
+
+@contextmanager
+def staged_attachments(attachments: list[dict[str, str]]) -> Iterator[list[dict[str, str]]]:
+    """Copy host-resolved attachments into a private, short-lived directory.
+
+    The host owns attachment resolution. This function accepts only its local
+    path, creates an unreadable-to-other-users temporary copy for TailTrail,
+    and removes all copies on every exit path.
+    """
+    if not attachments:
+        yield []
+        return
+    directory = Path(tempfile.mkdtemp(prefix="tailtrail-visual-"))
+    os.chmod(directory, 0o700)
+    staged: list[dict[str, str]] = []
+    try:
+        for index, attachment in enumerate(attachments, start=1):
+            source = Path(attachment["local_path"])
+            try:
+                size = source.stat().st_size
+            except OSError as error:
+                raise ValueError(f"visual attachment {attachment['attachment_id']} is unavailable") from error
+            if not source.is_file() or size > MAX_STAGED_ATTACHMENT_BYTES:
+                raise ValueError(f"visual attachment {attachment['attachment_id']} is not a permitted local file")
+            destination = directory / f"attachment-{index:02d}.bin"
+            try:
+                with source.open("rb") as reader, destination.open("xb") as writer:
+                    os.chmod(destination, 0o600)
+                    for chunk in iter(lambda: reader.read(CHUNK_BYTES), b""):
+                        writer.write(chunk)
+            except OSError as error:
+                raise ValueError(f"visual attachment {attachment['attachment_id']} could not be staged") from error
+            staged.append({**attachment, "local_path": destination.as_posix()})
+        yield staged
+    finally:
+        shutil.rmtree(directory, ignore_errors=True)
 
 
 def hash_visual_artifact(path: Path) -> dict[str, Any]:
@@ -132,6 +225,36 @@ def attachment_state(session_attachments: list[str], bound_paths: list[str]) -> 
     if all(path in bound for path in local):
         return "bound"
     return "unbound"
+
+
+def requires_visual_contract(goal: str) -> bool:
+    """Return whether the request delegates material details to a visual."""
+    return bool(VISUAL_REFERENCE_PATTERN.search(str(goal or "")))
+
+
+def intake_decisions(
+    goal: str,
+    *,
+    visual_artifact_declared: bool,
+    records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return pre-scope visual decisions for a visual-dependent request.
+
+    A readable image still needs a host-produced, hash-bound observation
+    contract. TailTrail hashes bytes but does not infer pixels, so a missing
+    observation is a material requirement gap rather than a scope problem.
+    """
+    if not requires_visual_contract(goal):
+        return []
+    if not visual_artifact_declared:
+        return [visual_material_decision(
+            "Attach the referenced image or provide the missing visual contract, including the exact table columns, controls, row actions, and validations."
+        )]
+    if not records:
+        return [visual_material_decision(
+            "Provide a hash-bound visual observation for the attached image: summarize the UI contract and list any unreadable or unspecified controls, columns, row actions, or validations."
+        )]
+    return []
 
 
 # Decision class for unbound-visual material decisions. Hosts may submit

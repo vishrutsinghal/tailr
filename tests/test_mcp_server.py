@@ -1001,6 +1001,77 @@ class McpServerTests(unittest.TestCase):
         forwarded = json.loads(calls[0][calls[0].index("--visual-observations") + 1])
         self.assertEqual(forwarded, observations)
 
+    def test_tailtrail_start_renders_requirement_clarification_without_navigator(self):
+        original = mcp.command_result
+        clarification = {
+            "type": "tailtrail-requirement-clarification",
+            "boundary": "No graph lifecycle or Planning Lock was created.",
+            "intake_id": "intake-0123456789abcdef",
+            "recommended_route": "lite-questions",
+            "material_questions": ["Which source supplies the account list?"],
+            "requirement_evidence": {},
+            "continuation": {"prompt": "Answer the material question."},
+            "scope_question_precondition": {"state": "deferred"},
+        }
+
+        def fake_command_result(command, cwd):
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0,
+                    "stdout": json.dumps(clarification), "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            result = mcp.tailtrail_start({
+                "goal": "Add the ECG configuration view.",
+                "root": ROOT.as_posix(),
+                "format": "markdown",
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        self.assertIn("# TailTrail Requirement Clarification", result["result"])
+        self.assertIn("Which source supplies the account list?", result["result"])
+
+    def test_atomic_tailtrail_start_normalizes_host_visual_attachment(self):
+        calls = []
+        original = mcp.command_result
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 2, "stdout": "{}", "stderr": ""}
+
+        with tempfile.TemporaryDirectory() as temp:
+            image = Path(temp) / "mockup.png"
+            image.write_bytes(bytes.fromhex("89504e470d0a1a0a") + b"\x00" * 64)
+            try:
+                mcp.command_result = fake_command_result
+                mcp.tailtrail_start({
+                    "goal": "Add the section shown in the attached image.",
+                    "root": ROOT.as_posix(),
+                    "host": "codex",
+                    "visual_attachments": [{
+                        "attachment_id": "chat-image-1",
+                        "local_path": image.as_posix(),
+                        "media_type": "image/png",
+                    }],
+                    "visual_observations": {
+                        "locator": "chat-image-1",
+                        "summary": "ECG section with a dropdown and table.",
+                        "open_questions": ["What are the exact table headers?"],
+                        "complete": False,
+                    },
+                    "format": "json",
+                    "approved": True,
+                })
+            finally:
+                mcp.command_result = original
+
+        staged_path = calls[0][calls[0].index("--visual-artifact") + 1]
+        self.assertNotEqual(staged_path, image.as_posix())
+        self.assertFalse(Path(staged_path).exists())
+        forwarded = json.loads(calls[0][calls[0].index("--visual-observations") + 1])
+        self.assertEqual(forwarded["locator"], staged_path)
+
     def test_atomic_tailtrail_start_forwards_answered_requirement_intake(self):
         calls = []
         original = mcp.command_result
