@@ -152,46 +152,86 @@ def source_fact(relative: str, path: Path) -> dict[str, Any]:
     }
 
 
-def graph_evidence(root: Path, facts: list[dict[str, Any]]) -> dict[str, Any]:
-    """Check cache freshness only for the explicitly approved source paths.
+def _unrecorded_files(facts: list[dict[str, Any]], reason: str) -> list[dict[str, Any]]:
+    """Per-file facts with no cached expectation (Stage 3+)."""
+    return [{
+        "path": str(fact.get("path", "")),
+        "expected_sha256": None,
+        "actual_sha256": str(fact.get("sha256", "")).removeprefix("sha256:"),
+        "changed": True,
+        "reason": reason,
+    } for fact in facts if isinstance(fact, dict)]
 
-    A generic cache checker may hash every cache entry. That would violate this
-    investigation's source boundary, so this checks only the requested paths.
+
+def graph_evidence(root: Path, facts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Per-file hash facts for the explicitly approved source paths (Stage 3+).
+
+    Reads through the unified v1/v2 container reader, so v1 mapper files,
+    v2 containers, and Phase-1-only files are all legible. The ``status``
+    verdict is informational only — reuse routing is relevance-led, never
+    freshness-gated. A generic cache checker may hash every cache entry;
+    that would violate this investigation's source boundary, so this checks
+    only the requested paths.
     """
+    import code_graph_cache
     candidates = [root / "tailtrail-meta" / "code-graph-cache.json", root / ".tailtrail" / "code-graph-cache.json"]
     cache_path = next((path for path in candidates if path.is_file()), None)
     if cache_path is None:
-        return {"status": "missing", "reused": False, "reasons": ["No Code Graph Mapper cache exists; no graph evidence was reused."]}
-    try:
-        cache = json.loads(cache_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        return {"status": "invalid", "reused": False, "reasons": [f"Graph cache could not be read: {error}"]}
+        return {"status": "missing", "reused": False,
+                "reasons": ["No Code Graph Mapper cache exists; no graph evidence was reused."],
+                "files": _unrecorded_files(facts, "no cache file")}
+    container, error = code_graph_cache.read_container(cache_path)
+    if error is not None:
+        return {"status": "invalid", "reused": False, "reasons": [error], "files": []}
+    if container["kind"] == "phase1":
+        return {"status": "missing", "reused": False,
+                "reasons": ["Shared container holds no mapper graph; no graph evidence was reused."],
+                "files": _unrecorded_files(facts, "no mapper graph section")}
+    cache = container["mapper_graph"]
     if not isinstance(cache, dict) or cache.get("schema_version") != GRAPH_SCHEMA_VERSION:
-        return {"status": "invalid", "reused": False, "reasons": ["Graph cache schema is unsupported."]}
+        return {"status": "invalid", "reused": False,
+                "reasons": ["Graph cache schema is unsupported."], "files": []}
     if cache.get("root") and Path(str(cache["root"])).resolve() != root.resolve():
-        return {"status": "invalid", "reused": False, "reasons": ["Graph cache root does not match the current project root."]}
+        return {"status": "invalid", "reused": False,
+                "reasons": ["Graph cache root does not match the current project root."], "files": []}
     scope = {str(item) for item in cache.get("scope", []) if isinstance(item, str)}
     requested = {str(item["path"]) for item in facts}
     if not requested.issubset(scope):
-        return {"status": "missing", "reused": False, "reasons": ["Requested planned paths are outside the cached graph scope; no graph evidence was reused."]}
+        return {"status": "missing", "reused": False,
+                "reasons": ["Requested planned paths are outside the cached graph scope; no graph evidence was reused."],
+                "files": _unrecorded_files(facts, "outside cached graph scope")}
     cached_sources = cache.get("source_files")
     if not isinstance(cached_sources, dict):
-        return {"status": "invalid", "reused": False, "reasons": ["Graph cache source metadata is invalid."]}
+        return {"status": "invalid", "reused": False,
+                "reasons": ["Graph cache source metadata is invalid."],
+                "files": _unrecorded_files(facts, "no source metadata")}
     reasons: list[str] = []
+    files: list[dict[str, Any]] = []
     for fact in facts:
         metadata = cached_sources.get(fact["path"])
         expected = metadata.get("sha256") if isinstance(metadata, dict) else None
         actual = str(fact["sha256"]).removeprefix("sha256:")
         if not isinstance(expected, str) or not expected:
             reasons.append(f"{fact['path']} has no usable cached source hash.")
+            files.append({"path": fact["path"], "expected_sha256": None,
+                          "actual_sha256": actual, "changed": True,
+                          "reason": "no usable cached source hash"})
         elif expected != actual:
             reasons.append(f"{fact['path']} changed after the graph was created.")
+            files.append({"path": fact["path"], "expected_sha256": expected,
+                          "actual_sha256": actual, "changed": True,
+                          "reason": "content hash differs from cached source hash"})
+        else:
+            files.append({"path": fact["path"], "expected_sha256": expected,
+                          "actual_sha256": actual, "changed": False,
+                          "reason": "content hash matches cached source hash"})
     if reasons:
-        return {"status": "stale", "reused": False, "reasons": reasons}
+        return {"status": "stale", "reused": False, "reasons": reasons, "files": files}
     return {
         "status": "fresh",
         "reused": True,
         "reasons": ["Approved paths match cached source hashes; repository-wide inventory was not checked by this bounded investigation."],
+        "files": files,
     }
 
 

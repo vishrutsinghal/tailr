@@ -180,6 +180,54 @@ class NavigatorGraphLifecycleTests(unittest.TestCase):
         lifecycle_schema = json.loads((ROOT / "schemas" / "navigator-graph-lifecycle.schema.json").read_text(encoding="utf-8"))
         self.assertEqual(contracts.validate_document(result, lifecycle_schema), [])
 
+    def test_stale_relevant_refreshes_instead_of_reusing(self) -> None:
+        import os
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "from src.b import thing\ndef run():\n    return thing()\n")
+            self.write(root, "src/b.py", "def thing():\n    return 1\n")
+            home = scope.anchor_slice([{
+                "anchor_id": "anchor:entrypoint:src/a.py", "role": "entrypoint",
+                "path": "src/a.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }, {
+                "anchor_id": "anchor:entrypoint:src/b.py", "role": "entrypoint",
+                "path": "src/b.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }])
+            graph.manage(root, "run thing", ["src/a.py", "src/b.py"], mode="auto",
+                         attempt_id="run-1", anchor_slice=home)
+            target = root / "src" / "b.py"
+            target.write_text("def thing():\n    return 2\n", encoding="utf-8")
+            stamp = target.stat().st_mtime + 5
+            os.utime(target, (stamp, stamp))
+            result = graph.manage(root, "run thing", ["src/a.py", "src/b.py"], mode="auto",
+                                  attempt_id="run-2", anchor_slice=home)
+        self.assertEqual(result["freshness"], "stale")
+        self.assertEqual(result["relevance"], "relevant")
+        self.assertEqual(result["cache_reuse_state"], "stale-relevant")
+        self.assertEqual(result["action"], "refresh")
+
+    def test_explicit_reuse_mode_still_requires_freshness(self) -> None:
+        import os
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "def a():\n    return 1\n")
+            home = scope.anchor_slice([{
+                "anchor_id": "anchor:entrypoint:src/a.py", "role": "entrypoint",
+                "path": "src/a.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }])
+            graph.manage(root, "cover a", ["src/a.py"], mode="auto", attempt_id="run-1", anchor_slice=home)
+            target = root / "src" / "a.py"
+            target.write_text("def a():\n    return 2\n", encoding="utf-8")
+            stamp = target.stat().st_mtime + 5
+            os.utime(target, (stamp, stamp))
+            result = graph.manage(root, "cover a", ["src/a.py"], mode="reuse",
+                                  attempt_id="run-2", anchor_slice=home)
+        self.assertEqual(result["action"], "defer")
+        self.assertNotEqual(result["cache_reuse_state"], "fresh-relevant")
+
     def test_receipt_reports_cache_shape_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

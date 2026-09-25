@@ -99,6 +99,57 @@ class PlanningInvestigationTests(unittest.TestCase):
         self.assertFalse(result["graph_evidence"]["reused"])
         self.assertTrue(any("changed after" in item for item in result["graph_evidence"]["reasons"]))
 
+    def test_graph_evidence_reports_per_file_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); source = self.plan(root)
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            meta = root / "tailtrail-meta"; meta.mkdir()
+            meta.joinpath("code-graph-cache.json").write_text(json.dumps({
+                "schema_version": "1",
+                "scope": ["src/service.py", "tests/test_service.py"],
+                "source_files": {"src/service.py": {"sha256": digest}},
+            }), encoding="utf-8")
+            result = investigation.investigate(root, "investigation", ["src/service.py"], True)
+            files = result["graph_evidence"].get("files", [])
+        self.assertEqual(result["graph_evidence"]["status"], "fresh")
+        entry = next(item for item in files if item["path"] == "src/service.py")
+        self.assertFalse(entry["changed"])
+        self.assertEqual(entry["expected_sha256"], digest)
+        self.assertEqual(entry["actual_sha256"], digest)
+        self.assertEqual(entry["reason"], "content hash matches cached source hash")
+
+    def test_graph_evidence_reads_v2_container_and_phase1_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); source = self.plan(root)
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            meta = root / "tailtrail-meta"; meta.mkdir()
+            meta.joinpath("code-graph-cache.json").write_text(json.dumps({
+                "schema_version": 2,
+                "sections": {
+                    "phase1_files": {"version": 1, "last_updated": None, "files": {}},
+                    "mapper_graph": {
+                        "schema_version": "1",
+                        "scope": ["src/service.py", "tests/test_service.py"],
+                        "source_files": {"src/service.py": {"sha256": digest}},
+                    },
+                },
+            }), encoding="utf-8")
+            result = investigation.investigate(root, "investigation", ["src/service.py"], True)
+            self.assertEqual(result["graph_evidence"]["status"], "fresh")
+            entry = next(item for item in result["graph_evidence"]["files"]
+                         if item["path"] == "src/service.py")
+            self.assertFalse(entry["changed"])
+            meta.joinpath("code-graph-cache.json").write_text(json.dumps({
+                "version": 1, "last_updated": None,
+                "files": {"src/service.py": {"last_read": None, "symbols": [],
+                                             "endpoints": [], "imports": [], "size_bytes": 1}},
+            }), encoding="utf-8")
+            result = investigation.investigate(root, "investigation", ["src/service.py"], True)
+            self.assertEqual(result["graph_evidence"]["status"], "missing")
+            entry = next(item for item in result["graph_evidence"]["files"]
+                         if item["path"] == "src/service.py")
+            self.assertIsNone(entry["expected_sha256"])
+
     def test_v2_receipt_preserves_saved_roles_edges_exclusions_and_limits(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
