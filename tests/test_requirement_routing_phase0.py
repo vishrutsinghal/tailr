@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -507,6 +508,68 @@ class RequirementRoutingPhase0Tests(unittest.TestCase):
             )
             self.assertFalse((root / ".tailtrail" / "runs").exists())
             self.assertFalse((root / "tailtrail-meta").exists())
+
+    def _write_intake(self, root: Path, intake_id: str, goal: str, questions: list[dict], answers: dict | None = None) -> None:
+        evidence_module = load("tailtrail_phase0_requirement_evidence", "scripts/requirement_evidence.py")
+        directory = requirement_intake.intake_dir(root, intake_id)
+        directory.mkdir(parents=True)
+        (directory / "current.json").write_text(json.dumps({
+            "intake_id": intake_id,
+            "type": "tailtrail-requirement-intake",
+            "identity": {"root": root.resolve().as_posix(), "goal": goal},
+            "requirement_evidence": evidence_module.gather(root, goal, {}),
+            "questions": questions,
+            "answers": answers or {},
+        }), encoding="utf-8")
+
+    def test_interactive_prompt_collects_open_answers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._write_intake(root, "intake-0123456789abcdef", "fix the widget", [
+                {"decision_id": "MAT-01", "question": "Pick one?"},
+                {"decision_id": "MAT-02", "question": "Pick two?"},
+            ], {"MAT-02": "already answered"})
+            with mock.patch("builtins.input", side_effect=["first answer"]) as prompted:
+                collected = requirement_intake.prompt_for_answers(root, "intake-0123456789abcdef")
+            self.assertEqual(prompted.call_count, 1)
+        self.assertEqual(collected, {"MAT-01": "first answer"})
+
+    def test_interactive_prompt_handles_eof(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._write_intake(root, "intake-0123456789abcdef", "fix the widget", [
+                {"decision_id": "MAT-01", "question": "Pick one?"},
+            ])
+            with mock.patch("builtins.input", side_effect=EOFError):
+                with self.assertRaisesRegex(ValueError, "no answers provided"):
+                    requirement_intake.prompt_for_answers(root, "intake-0123456789abcdef")
+
+    def test_interactive_answer_without_tty_ends_cleanly(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first = self.run_start(root, host_proposal=self.host_interpretation())
+            intake_id = json.loads(first.stdout)["intake_id"]
+            answered = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "tailtrail.py"),
+                    "requirements",
+                    "answer",
+                    "--root",
+                    str(root),
+                    "--intake-id",
+                    intake_id,
+                    "--interactive",
+                    "--format",
+                    "json",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                stdin=subprocess.DEVNULL,
+            )
+        self.assertEqual(answered.returncode, 2, answered.stderr or answered.stdout)
+        self.assertIn("no answers provided", answered.stderr)
 
     def test_requirement_intake_is_idempotent_and_answers_are_append_only(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

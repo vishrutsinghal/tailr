@@ -6,6 +6,7 @@ approved edit target.
 """
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -149,10 +150,37 @@ def _evidence(tiers: list[str], asserted: str) -> list[dict[str, str]]:
     return [{"tier": tier, "asserted_behavior": asserted} for tier in tiers]
 
 
-def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+PROVENANCE_RANK = {"host-declared": 0, "repo-derived": 1, "template-hypothesis": 2}
+
+_JOURNEY_FAMILY_MARKERS = ("service", "repositor", "model", "state", "inventory", "allocation", "shipment")
+_NOTIFICATION_FAMILY_MARKERS = ("notif", "publisher", "event", "subscriber")
+_CONTRACT_FAMILY_MARKERS = ("contract", "manifest", "test", "spec", "pyproject", "package.json", "go.mod")
+
+
+def _family_hit(impacted_paths: set[str], markers: tuple[str, ...]) -> bool:
+    """Check repository inventory corroboration without new I/O (Stage 5+)."""
+    return any(
+        marker in path.lower()
+        for path in impacted_paths
+        for marker in markers
+    )
+
+
+def _provenance_for(trigger: str, corroborated: bool) -> str:
+    if trigger == "host-declared":
+        return "host-declared"
+    return "repo-derived" if corroborated else "template-hypothesis"
+
+
+def _scenarios(
+    goal: str,
+    requirements: list[dict[str, Any]],
+    impacted_paths: set[str] | None = None,
+) -> list[dict[str, Any]]:
     if _ui_only(goal, requirements):
-        return _ui_scenarios(requirements)
+        return _ui_scenarios(requirements, impacted_paths)
     lowered = goal.lower(); scenarios: list[dict[str, Any]] = []
+    repo = impacted_paths or set()
     journey_ids = _ids(requirements, ("journey", "workflow", "status", "state", "transition", "creation", "allocation", "shipment"))
     preserve_ids = _ids(requirements, ("preserve", "existing api", "response", "contract", "unchanged"))
     explicit_notification_delivery = bool(re.search(
@@ -168,6 +196,7 @@ def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, 
     if journey_ids:
         scenarios.append({
             "scenario_id": "BHV-01", "requirement_ids": journey_ids,
+            "provenance": _provenance_for("inventory", _family_hit(repo, _JOURNEY_FAMILY_MARKERS)),
             "scenario": f"Observe {journey} through the approved interface.",
             "preconditions": ["The starting state and actor are confirmed after approval."],
             "action": f"Execute {journey} using the existing application boundaries.",
@@ -180,6 +209,7 @@ def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, 
         if api_specific:
             scenarios.append({
                 "scenario_id": "BHV-02", "requirement_ids": preserve_ids,
+                "provenance": _provenance_for("inventory", _family_hit(repo, _CONTRACT_FAMILY_MARKERS)),
                 "scenario": "Exercise the existing API response at each affected workflow stage.",
                 "preconditions": ["The current response contract is captured before implementation."],
                 "action": "Compare the affected API responses before and after the approved change.",
@@ -190,6 +220,7 @@ def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, 
         else:
             scenarios.append({
                 "scenario_id": "BHV-02", "requirement_ids": preserve_ids,
+                "provenance": _provenance_for("inventory", _family_hit(repo, _CONTRACT_FAMILY_MARKERS)),
                 "scenario": "Exercise the affected existing public behaviour before and after the refactor.",
                 "preconditions": ["The observable behaviour and its existing proof path are confirmed after approval."],
                 "action": "Compare the approved observable behaviour through the existing project boundary before and after the change.",
@@ -200,6 +231,7 @@ def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, 
     if notification_ids:
         scenarios.append({
             "scenario_id": "BHV-03", "requirement_ids": notification_ids,
+            "provenance": _provenance_for("inventory", _family_hit(repo, _NOTIFICATION_FAMILY_MARKERS)),
             "scenario": "Replay or retry the logical transition that publishes a notification.",
             "preconditions": ["A logical transition identity and notification observation point are confirmed."],
             "action": "Deliver the same logical transition more than once through the approved path.",
@@ -210,8 +242,13 @@ def _scenarios(goal: str, requirements: list[dict[str, Any]]) -> list[dict[str, 
     return scenarios
 
 
-def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _ui_scenarios(
+    requirements: list[dict[str, Any]],
+    impacted_paths: set[str] | None = None,
+) -> list[dict[str, Any]]:
     """Create UI-observable scenarios only from explicit requirement rows."""
+    repo = impacted_paths or set()
+    ui_hit = _family_hit(repo, (".tsx", ".jsx", ".vue", ".svelte", ".css", ".html"))
     scenarios: list[dict[str, Any]] = []
     visibility_ids = [
         str(row.get("display_id", "REQ"))
@@ -223,6 +260,7 @@ def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
         scenarios.append({
             "scenario_id": "BHV-UI-01",
             "requirement_ids": visibility_ids,
+            "provenance": "host-declared",
             "scenario": "Exercise the UI state that previously displayed the named banner or message.",
             "preconditions": ["The named UI surface and targeted message are confirmed from the approved requirement."],
             "action": "Reach the affected state through the existing project-owned UI path.",
@@ -263,6 +301,7 @@ def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
         scenarios.append({
             "scenario_id": f"BHV-UI-{len(scenarios) + 1:02d}",
             "requirement_ids": ids,
+            "provenance": _provenance_for("inventory", ui_hit),
             "scenario": scenario,
             "preconditions": ["The existing action, success notification, and navigation-state convention are confirmed after approval."],
             "action": "Exercise the named action through the project-owned interface.",
@@ -283,6 +322,7 @@ def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
         scenarios.append({
             "scenario_id": f"BHV-UI-{len(scenarios) + 1:02d}",
             "requirement_ids": ids,
+            "provenance": _provenance_for("inventory", ui_hit),
             "scenario": scenario,
             "preconditions": ["The repository-owned UI shell, tokens, and interaction conventions are confirmed after approval."],
             "action": "Exercise the named UI outcome through the project-owned interface.",
@@ -294,6 +334,7 @@ def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if page_ids and not scenarios:
         scenarios.append({
             "scenario_id": "BHV-UI-01", "requirement_ids": page_ids,
+            "provenance": _provenance_for("inventory", ui_hit),
             "scenario": "Render the requested UI within the existing project shell.",
             "preconditions": ["The nearest comparable UI and shared conventions are confirmed after approval."],
             "action": "Open the requested interface at its approved route or entry point.",
@@ -304,11 +345,103 @@ def _ui_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return scenarios
 
 
-def build(goal: str, impacted: list[dict[str, Any]], requirements: list[dict[str, Any]], selected: bool) -> dict[str, Any]:
+def _declared_scenarios(requirements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Lift host-declared scenarios from requirement behavior contracts (Stage 5+)."""
+    lifted: list[dict[str, Any]] = []
+    for row in requirements:
+        if not isinstance(row, dict):
+            continue
+        contract = row.get("behavior_contract", {})
+        declared = contract.get("scenarios", []) if isinstance(contract, dict) else []
+        display_id = str(row.get("display_id", "REQ"))
+        for index, item in enumerate(declared):
+            if not isinstance(item, dict):
+                continue
+            scenario = dict(item)
+            scenario.setdefault("scenario_id", f"HOST-{len(lifted) + 1:02d}")
+            scenario["requirement_ids"] = sorted(dict.fromkeys(
+                [str(value) for value in scenario.get("requirement_ids", [display_id]) if str(value).strip()]
+                or [display_id]
+            ))
+            scenario["provenance"] = "host-declared"
+            scenario.setdefault("evidence", [])
+            lifted.append(scenario)
+    return lifted
+
+
+def calibration_from_history(root: Path, limit_runs: int = 20, limit_files: int = 50) -> dict[str, Any]:
+    """Per-template-family verification rates from past assessments (Stage 5+).
+
+    Best-effort and bounded: unreadable history yields empty calibration,
+    never an error.
+    """
+    families: dict[str, dict[str, int]] = {}
+    scanned = 0
+    try:
+        run_dirs = sorted((root / ".tailtrail" / "runs").iterdir()) if (root / ".tailtrail" / "runs").is_dir() else []
+    except OSError:
+        return {"families": {}, "runs_scanned": 0}
+    try:
+        for run_dir in run_dirs:
+            if scanned >= limit_files:
+                break
+            behavior_dir = run_dir / "behavior"
+            if not behavior_dir.is_dir():
+                continue
+            try:
+                assessments = sorted(behavior_dir.glob("assessment-*.json"))
+            except OSError:
+                continue
+            for path in assessments:
+                if scanned >= limit_files:
+                    break
+                try:
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                scanned += 1
+                for row in payload.get("scenarios", []) if isinstance(payload, dict) else []:
+                    if not isinstance(row, dict):
+                        continue
+                    family = str(row.get("scenario_id", "")).rsplit("-", 1)[0] or "unknown"
+                    tally = families.setdefault(family, {"verified": 0, "total": 0})
+                    tally["total"] += 1
+                    if row.get("state") == "validated":
+                        tally["verified"] += 1
+    except OSError:
+        pass
+    return {"families": families, "runs_scanned": scanned}
+
+
+def build(
+    goal: str,
+    impacted: list[dict[str, Any]],
+    requirements: list[dict[str, Any]],
+    selected: bool,
+    calibration: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if not selected:
         return {"selected": False, "scenarios": [], "scope_roles": [], "post_change_checks": []}
     ui_only = _ui_only(goal, requirements)
-    scenarios = _scenarios(goal, requirements)
+    impacted_paths = {str(item.get("path", "")) for item in impacted if isinstance(item, dict) and item.get("path")}
+    declared = _declared_scenarios(requirements)
+    covered_ids = {rid for item in declared for rid in item.get("requirement_ids", [])}
+    generated = [
+        scenario for scenario in _scenarios(goal, requirements, impacted_paths)
+        if not (set(scenario.get("requirement_ids", [])) <= covered_ids)
+    ]
+    scenarios = sorted(
+        [*declared, *generated],
+        key=lambda row: (PROVENANCE_RANK.get(str(row.get("provenance", "")), 9), str(row.get("scenario_id", ""))),
+    )
+    covered = {rid for scenario in scenarios for rid in scenario.get("requirement_ids", [])}
+    required_ids = sorted({
+        str(row.get("display_id", "REQ")) for row in requirements if isinstance(row, dict)
+    })
+    uncovered = sorted(set(required_ids) - {str(item) for item in covered})
+    unknowns = [f"no scenario covers {rid}" for rid in uncovered]
+    if scenarios:
+        unknowns.append("behaviour outside the impacted file slice is unobserved")
     roles = [{
         "path": str(item.get("path", "")), "role": _path_role(str(item.get("path", ""))),
         "planned_use": "Required proof candidate; run only after approval." if "evidence" in _path_role(str(item.get("path", ""))) else "Inspect after approval; edit only when the confirmed behaviour path requires it.",
@@ -317,6 +450,13 @@ def build(goal: str, impacted: list[dict[str, Any]], requirements: list[dict[str
     return {
         "selected": True, "state": "planning-hypothesis", "scenarios": scenarios,
         "scope_roles": roles,
+        "coverage": {
+            "impacted_files": len(impacted_paths),
+            "requirements_covered": sorted(covered),
+            "requirements_uncovered": uncovered,
+            "unknowns": unknowns,
+        },
+        "calibration": calibration if isinstance(calibration, dict) else {"families": {}, "runs_scanned": 0},
         "required_tiers": list(dict.fromkeys(tier for scenario in scenarios for item in scenario["evidence"] for tier in [item["tier"]])),
         "post_change_checks": [
             "Confirm the comparable UI, shared conventions, applicable states, and observable interface before the first edit.",
@@ -372,6 +512,7 @@ def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = Fals
             lines.extend([
                 f"- **{', '.join(scenario.get('requirement_ids', [])) or 'Unassigned requirement'}**",
                 f"  - **Scenario:** {scenario.get('scenario', '')}",
+                f"  - **Provenance:** {scenario.get('provenance', 'template-hypothesis')}",
                 f"  - **Observable result:** {scenario.get('expected_outcome', '')}",
                 f"  - **Preservation rule:** {'; '.join(scenario.get('preservation', []))}",
                 f"  - **Required proof:** {proof}",
@@ -396,6 +537,23 @@ def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = Fals
             ])
         else:
             lines.append("| unresolved | The user-facing scenario must be clarified before approval. | No behavioural outcome inferred. | Existing behaviour remains authoritative. | evidence-incomplete |")
+    coverage = plan.get("coverage", {}) if isinstance(plan.get("coverage"), dict) else {}
+    unknowns = [str(item) for item in coverage.get("unknowns", []) if str(item).strip()]
+    lines.extend(["", "### Coverage and unknowns", ""])
+    lines.append(f"- Impacted files: `{coverage.get('impacted_files', 0)}`; "
+                 f"requirements covered: `{len(coverage.get('requirements_covered', []))}`; "
+                 f"uncovered: `{len(coverage.get('requirements_uncovered', []))}`.")
+    if unknowns:
+        lines.extend(f"- Unknown: {item}" for item in unknowns)
+    else:
+        lines.append("- Unknown: none declared.")
+    calibration = plan.get("calibration", {}) if isinstance(plan.get("calibration"), dict) else {}
+    families = calibration.get("families", {}) if isinstance(calibration.get("families"), dict) else {}
+    if families:
+        lines.append(f"- Calibration runs scanned: `{calibration.get('runs_scanned', 0)}`.")
+        for family in sorted(families):
+            tally = families[family] if isinstance(families[family], dict) else {}
+            lines.append(f"- Family `{family}`: verified `{tally.get('verified', 0)}` of `{tally.get('total', 0)}`.")
     if detailed:
         lines.extend(["", "### Behaviour scope roles", ""])
         if responsive:

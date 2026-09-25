@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -8,6 +9,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -312,6 +314,112 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertIn("src/claims_api/validation.py", data["files"])
         self.assertIn("tests/test_claim_validation.py", data["files"])
+
+    def _repair_fixture(self, root: Path) -> tuple:
+        goal = "add widget handling in widget_store"
+        artifact = root / "spec.md"
+        artifact.write_text("widget_store keeps widget facts", encoding="utf-8")
+        artifact_inputs = [{
+            "input_id": "IN-02",
+            "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+            "content": artifact.read_text(encoding="utf-8"),
+        }]
+        bad = {
+            "schema_version": "1",
+            "type": "tailtrail-host-requirement-interpretation",
+            "host": "codex",
+            "goal": goal,
+            "private_reasoning_excluded": True,
+            "clauses": [
+                {"clause_id": "C-01", "role": "outcome", "text": "add widget handling in widget_store"},
+                {"clause_id": "C-02", "role": "outcome", "source_input_id": "IN-02",
+                 "text": "unrelated banana hammock"},
+            ],
+            "artifact_evidence": [{
+                "input_id": "IN-02",
+                "sha256": artifact_inputs[0]["sha256"],
+                "source_clause_ids": ["C-02"],
+            }],
+            "requirements": [{
+                "display_id": "REQ-01",
+                "statement": "Add widget handling in widget_store keeping widget facts",
+                "kind": "change",
+                "source_clause_ids": ["C-01", "C-02"],
+                "intent_terms": ["widget", "widget_store"],
+                "quoted_literals": [],
+            }],
+            "material_questions": [],
+        }
+        return goal, "codex", [str(artifact)], artifact_inputs, bad
+
+    def _good_draft(self, root: Path) -> Path:
+        draft = root / "good.json"
+        draft.write_text(json.dumps({
+            "host": "codex",
+            "clauses": [
+                {"clause_id": "C-01", "role": "outcome", "text": "add widget handling in widget_store"},
+                {"clause_id": "C-02", "role": "outcome", "source_input_id": "IN-02",
+                 "text": "widget_store keeps widget facts"},
+            ],
+            "requirements": [{
+                "display_id": "REQ-01",
+                "statement": "Add widget handling in widget_store keeping widget facts",
+                "kind": "change",
+                "source_clause_ids": ["C-01", "C-02"],
+                "intent_terms": ["widget", "widget_store"],
+                "quoted_literals": [],
+            }],
+            "material_questions": [],
+        }), encoding="utf-8")
+        return draft
+
+    def test_repair_loop_accepts_corrected_draft(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            goal, host, paths, inputs, bad = self._repair_fixture(root)
+            good = self._good_draft(root)
+            with mock.patch.object(task_start.sys, "stdin") as stdin:
+                stdin.isatty.return_value = True
+                with mock.patch("builtins.input", side_effect=[str(good)]) as prompted:
+                    fixed = task_start.repair_interpretation_loop(goal, host, paths, bad, inputs)
+            self.assertEqual(prompted.call_count, 1)
+        self.assertEqual(fixed["goal"], goal)
+        self.assertIn("widget_store keeps widget facts", fixed["clauses"][1]["text"])
+
+    def test_repair_loop_quit_reraises_named_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            goal, host, paths, inputs, bad = self._repair_fixture(root)
+            with mock.patch.object(task_start.sys, "stdin") as stdin:
+                stdin.isatty.return_value = True
+                with mock.patch("builtins.input", side_effect=[""]) as prompted:
+                    with self.assertRaisesRegex(ValueError, "C-02"):
+                        task_start.repair_interpretation_loop(goal, host, paths, bad, inputs)
+            self.assertEqual(prompted.call_count, 1)
+
+    def test_repair_loop_eof_reraises_named_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            goal, host, paths, inputs, bad = self._repair_fixture(root)
+            with mock.patch("builtins.input", side_effect=EOFError) as prompted:
+                with self.assertRaisesRegex(ValueError, "C-02"):
+                    task_start.repair_interpretation_loop(goal, host, paths, bad, inputs)
+            self.assertEqual(prompted.call_count, 1)
+
+    def test_repair_loop_exhausts_attempts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            goal, host, paths, inputs, bad = self._repair_fixture(root)
+            still_bad = root / "bad.json"
+            still_bad.write_text(json.dumps({
+                "host": "codex", "clauses": [], "requirements": [], "material_questions": [],
+            }), encoding="utf-8")
+            with mock.patch.object(task_start.sys, "stdin") as stdin:
+                stdin.isatty.return_value = True
+                with mock.patch("builtins.input", side_effect=[str(still_bad)] * 5):
+                    with self.assertRaises(ValueError):
+                        task_start.repair_interpretation_loop(
+                            goal, host, paths, bad, inputs, max_attempts=2)
 
     def test_review_graph_capture_opt_out_persists_nothing(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -1051,6 +1159,52 @@ class NavigatorCoreTests(unittest.TestCase):
             )
         self.assertEqual(command, "python3 -m unittest discover -s tests -p test_notify.py -v")
 
+    def test_declared_test_file_fills_proof_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_fix.py").write_text("import unittest\n", encoding="utf-8")
+            rows = task_start.focused_validation_plan(root, [], [], "python3", ["tests/test_fix.py"])
+        self.assertEqual(rows[0]["candidate"], "tests/test_fix.py")
+        self.assertIn("unittest", rows[0]["command"])
+        self.assertEqual(rows[0]["candidate_state"], "existing")
+
+    def test_declared_paths_supplement_never_replace(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_mined.py").write_text("import unittest\n", encoding="utf-8")
+            (root / "tests" / "test_declared.py").write_text("import unittest\n", encoding="utf-8")
+            rows = task_start.focused_validation_plan(
+                root,
+                [{"path": "tests/test_mined.py", "role": "test"}],
+                [], "python3", ["tests/test_declared.py"],
+            )
+        self.assertEqual(rows[0]["candidate"], "tests/test_mined.py")
+
+    def test_declared_paths_ignore_non_test_missing_and_unsafe(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
+            rows = task_start.focused_validation_plan(
+                root, [], [], "python3",
+                ["src/a.py", "tests/test_missing.py", "../escape.py", ".env"],
+            )
+        self.assertEqual(rows[0]["candidate_state"], "unresolved")
+        self.assertEqual(rows[0]["command"], "")
+
+    def test_build_report_threads_changed_test_into_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_fix.py").write_text("import unittest\n", encoding="utf-8")
+            report = task_start.build_report("fix the thing", root, ["tests/test_fix.py"], "tailtrail")
+            unit_rows = [row for row in report["focused_validation"] if row.get("tier") == "unit"]
+        self.assertTrue(unit_rows)
+        self.assertEqual(unit_rows[0]["candidate"], "tests/test_fix.py")
+        self.assertIn("unittest", unit_rows[0]["command"])
+
     def test_start_reports_show_active_pipeline_badge(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -1269,6 +1423,42 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertFalse(report["evaluation_harness"]["selected"])
         self.assertNotIn("eval scenario", commands)
         self.assertNotIn("## Evaluation Harness", rendered)
+
+    def test_declared_paths_veto_evaluation_only_routing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+            report = navigator.decide(
+                "Review harness scenario evidence", root, ["src/a.py"], "tailtrail")
+        self.assertNotEqual(report.get("navigator_mode"), "evaluation_harness")
+        self.assertIn("scope_evidence", report)
+        self.assertIn("src/a.py", {
+            row["path"] for row in report["scope_evidence"].get("candidates", [])})
+
+    def test_improve_verb_vetoes_evaluation_only_routing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = navigator.decide(
+                "Improve behaviour harness generation with scenario evidence",
+                root, [], "tailtrail")
+        self.assertNotEqual(report.get("navigator_mode"), "evaluation_harness")
+
+    def test_evaluation_only_reports_routing_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = navigator.decide("show evaluation harness evidence", root, [], "tailtrail")
+        evidence = report.get("routing_evidence", {})
+        self.assertIn("evidence", evidence.get("triggered_terms", []))
+        self.assertEqual(evidence.get("declared_paths", []), [])
+        self.assertEqual(report.get("navigator_mode"), "evaluation_harness")
+
+    def test_skip_eval_override_keeps_code_routing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = navigator.decide(
+                "show evaluation harness evidence skip eval", root, [], "tailtrail")
+        self.assertNotEqual(report.get("navigator_mode"), "evaluation_harness")
 
 
 if __name__ == "__main__":

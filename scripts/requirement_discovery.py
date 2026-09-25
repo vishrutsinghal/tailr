@@ -527,6 +527,7 @@ def _validate_requirement_coverage(
         raise ValueError(
             "host requirement interpretation omitted explicit outcome/constraint clauses: "
             + ", ".join(uncovered)
+            + " [each listed clause needs at least one requirement referencing it]"
         )
     if not any(row.get("role") == "outcome" for row in material_clauses):
         raise ValueError("host requirement interpretation needs at least one explicit outcome clause")
@@ -541,9 +542,18 @@ def _validate_requirement_coverage(
         ))
         missing_targets = sorted(required_targets - retained_targets)
         if missing_targets:
+            sourcing = sorted(
+                str(raw.get("display_id") or f"REQ-{index:02d}")
+                for index, raw in enumerate(requirements, start=1)
+                if isinstance(raw, dict) and clause_id in [
+                    str(value) for value in raw.get("source_clause_ids", [])
+                    if isinstance(raw.get("source_clause_ids"), list)
+                ]
+            )
             raise ValueError(
                 f"requirements for clause {clause_id} omitted exact named target(s): "
                 + ", ".join(missing_targets)
+                + f" [sourcing requirements: {', '.join(sourcing) or 'none'}]"
             )
 
 
@@ -583,8 +593,9 @@ def requirement_sufficiency_contract(
             known_questions.add(normalized)
     if len(decisions) > 3:
         raise ValueError("requirement sufficiency supports at most three material decisions")
-    state = "clarification-required" if decisions else "sufficient"
-    route = "lite-questions" if decisions else "scope"
+    blocking = [item for item in decisions if item.get("decision_class") != "kind-clarification-advisory"]
+    state = "clarification-required" if blocking else "sufficient"
+    route = "lite-questions" if blocking else "scope"
     confidence = "medium" if decisions or source == "deterministic-fallback" else "high"
     outcome_refs = [str(row["clause_id"]) for row in clauses if row.get("role") == "outcome"]
     constraint_refs = [str(row["clause_id"]) for row in clauses if row.get("role") == "constraint"]
@@ -687,24 +698,38 @@ def interpretation(
         normalized_goal = WORKFLOW_PREFIX.sub("", PREFIX.sub("", goal.strip()))
         requirement_goal, scope_clauses = _extract_scope_paths(normalized_goal)
         special = _symptom_action_contract(requirement_goal)
-        requirement_rows = special["requirements"] if special else [
-            {
-                "display_id": f"REQ-{index:02d}",
-                "statement": statement,
-                "kind": _kind(statement),
-                "source_clause_ids": [f"C-{index:02d}"],
-                "intent_terms": query_terms(statement),
-                "quoted_literals": [],
-                "intent_class": inferred_intent_class(statement),
-                "confidence": "deterministic",
-            }
-            for index, statement in enumerate(statements(requirement_goal), start=1)
-        ]
+        if special:
+            requirement_rows = special["requirements"]
+        else:
+            requirement_rows = []
+            for index, statement in enumerate(statements(requirement_goal), start=1):
+                kind, kind_confidence = _kind_with_confidence(statement)
+                requirement_rows.append({
+                    "display_id": f"REQ-{index:02d}",
+                    "statement": statement,
+                    "kind": kind,
+                    "kind_confidence": kind_confidence,
+                    "source_clause_ids": [f"C-{index:02d}"],
+                    "intent_terms": query_terms(statement),
+                    "quoted_literals": [],
+                    "intent_class": inferred_intent_class(statement),
+                    "confidence": "deterministic",
+                })
         clauses = (special["clauses"] if special else [
             {"clause_id": f"C-{index:02d}", "role": "outcome", "text": row["statement"]}
             for index, row in enumerate(requirement_rows, start=1)
         ]) + scope_clauses
         decisions = _deterministic_material_decisions(requirement_goal)
+        if not special:
+            for row in requirement_rows:
+                if row.get("kind_confidence") == "low" and len(decisions) < 3:
+                    decisions.append({
+                        "id": f"KIND-{len(decisions) + 1:02d}",
+                        "decision_class": "kind-clarification-advisory",
+                        "question": _kind_clarification_question(row["statement"]),
+                        "impact": ["acceptance-criteria", "implementation-scope"],
+                        "evidence_refs": ["host-interpretation"],
+                    })
         for row in visual_decisions or []:
             if isinstance(row, dict) and str(row.get("question", "")).strip():
                 decisions.append({
@@ -794,9 +819,15 @@ def interpretation(
         if source_input_id:
             artifact = artifacts.get(source_input_id)
             if artifact is None or _grounding_text(text) not in _grounding_text(str(artifact["content"])):
-                raise ValueError("every artifact clause must be grounded in its inspected requirement artifact")
+                raise ValueError(
+                    "every artifact clause must be grounded in its inspected requirement artifact"
+                    f" [clause {clause_id} has no contiguous match in {source_input_id}]"
+                )
         elif _grounding_text(text) not in grounded_goal:
-            raise ValueError("every interpreted clause must be grounded in the exact goal or an inspected requirement artifact")
+            raise ValueError(
+                "every interpreted clause must be grounded in the exact goal or an inspected requirement artifact"
+                f" [clause {clause_id} matches neither the goal nor a bound artifact]"
+            )
         clause_ids.add(clause_id)
         clause_roles[clause_id] = role
         clause = {"clause_id": clause_id, "role": role, "text": text}
@@ -812,17 +843,29 @@ def interpretation(
         sha256 = str(raw.get("sha256", "")).strip()
         source_ids = [str(value) for value in raw.get("source_clause_ids", [])] if isinstance(raw.get("source_clause_ids"), list) else []
         artifact = artifacts.get(input_id)
-        if (
-            artifact is None
-            or sha256 != str(artifact.get("sha256"))
-            or not source_ids
-            or any(value not in clause_ids for value in source_ids)
-            or any(
-                next((row.get("source_input_id") for row in normalized_clauses if row["clause_id"] == value), None) != input_id
-                for value in source_ids
+        evidence_detail = ""
+        if artifact is None:
+            evidence_detail = f"unknown artifact {input_id or 'missing input_id'}"
+        elif sha256 != str(artifact.get("sha256")):
+            evidence_detail = f"hash mismatch for {input_id}"
+        elif not source_ids:
+            evidence_detail = f"no source clauses listed for {input_id}"
+        else:
+            unknown_ids = sorted({value for value in source_ids if value not in clause_ids})
+            unbound_ids = sorted(
+                value for value in source_ids
+                if value in clause_ids
+                and next((row.get("source_input_id") for row in normalized_clauses if row["clause_id"] == value), None) != input_id
             )
-        ):
-            raise ValueError("artifact evidence must match inspected hashes and artifact-grounded clauses")
+            if unknown_ids:
+                evidence_detail = f"unknown source clauses for {input_id}: {', '.join(unknown_ids)}"
+            elif unbound_ids:
+                evidence_detail = f"clauses not artifact-grounded to {input_id}: {', '.join(unbound_ids)}"
+        if evidence_detail:
+            raise ValueError(
+                "artifact evidence must match inspected hashes and artifact-grounded clauses"
+                f" [{evidence_detail}]"
+            )
         evidenced_input_ids.add(input_id)
         normalized_artifact_evidence.append({
             "input_id": input_id,
@@ -848,12 +891,25 @@ def interpretation(
             raise ValueError("every interpreted requirement must reference an outcome, constraint, or scope clause")
         display_ids.add(display_id)
         raw_intent_terms = raw.get("intent_terms", [])
-        if (
-            not isinstance(raw_intent_terms, list)
-            or not 1 <= len(raw_intent_terms) <= 24
-            or any(not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{1,63}", str(value)) for value in raw_intent_terms)
-        ):
-            raise ValueError("host requirement interpretation contains invalid semantic intent terms")
+        if not isinstance(raw_intent_terms, list):
+            raise ValueError(
+                "host requirement interpretation contains invalid semantic intent terms"
+                f" [requirement {display_id}: intent_terms must be a list]"
+            )
+        if not 1 <= len(raw_intent_terms) <= 24:
+            raise ValueError(
+                "host requirement interpretation contains invalid semantic intent terms"
+                f" [requirement {display_id}: need 1-24 terms, got {len(raw_intent_terms)}]"
+            )
+        bad_terms = sorted({
+            str(value) for value in raw_intent_terms
+            if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]{1,63}", str(value))
+        })
+        if bad_terms:
+            raise ValueError(
+                "host requirement interpretation contains invalid semantic intent terms"
+                f" [requirement {display_id}: malformed terms: {', '.join(bad_terms)}]"
+            )
         intent_terms = [str(value).casefold() for value in raw_intent_terms]
         raw_literals = raw.get("quoted_literals", [])
         if (
@@ -871,8 +927,12 @@ def interpretation(
         for literal in quoted_literals:
             semantic_goal = re.sub(re.escape(literal), " ", semantic_goal, flags=re.IGNORECASE)
         semantic_goal_terms = set(re.findall(r"[a-zA-Z][a-zA-Z0-9_-]{1,63}", semantic_goal.casefold()))
-        if any(term not in semantic_goal_terms for term in intent_terms):
-            raise ValueError("semantic intent terms must be grounded outside quoted literals")
+        ungrounded_terms = sorted({term for term in intent_terms if term not in semantic_goal_terms})
+        if ungrounded_terms:
+            raise ValueError(
+                "semantic intent terms must be grounded outside quoted literals"
+                f" [requirement {display_id}: ungrounded terms: {', '.join(ungrounded_terms)}]"
+            )
         kind = str(raw.get("kind") or _kind(statement)).lower()
         intent_class = inferred_intent_class(
             statement,
@@ -1138,6 +1198,40 @@ def _kind(statement: str) -> str:
     if any(word in lowered for word in ("avoid", "do not", "must not", "only ", "forbid", "without weakening")): return "constraint"
     if any(word in lowered for word in ("security", "authorization", "authentication", "secret", "privacy")): return "safety"
     return "change"
+
+
+_CHANGE_LEADING_VERBS = (
+    "add", "implement", "create", "build", "fix", "introduce", "update",
+    "support", "extend", "refactor", "remove", "migrate",
+)
+
+
+def _kind_with_confidence(statement: str) -> tuple[str, str]:
+    """Classify a requirement kind with a confidence verdict (confident-or-ask).
+
+    High confidence only when an explicit signal fires: a preserve /
+    constraint / safety trigger, or a clear change-leading verb. Anything
+    else is a low-confidence default that callers should clarify with the
+    host instead of filing silently.
+    """
+    lowered = statement.lower()
+    if any(word in lowered for word in ("preserve", "keep ", "remain unchanged", "retain existing")):
+        return "preserve", "high"
+    if any(word in lowered for word in ("avoid", "do not", "must not", "only ", "forbid", "without weakening")):
+        return "constraint", "high"
+    if any(word in lowered for word in ("security", "authorization", "authentication", "secret", "privacy")):
+        return "safety", "high"
+    first = re.split(r"\s+", lowered.strip(), maxsplit=1)[0].rstrip(".,:;!?") if lowered.strip() else ""
+    if first in _CHANGE_LEADING_VERBS:
+        return "change", "high"
+    return "change", "low"
+
+
+def _kind_clarification_question(statement: str) -> str:
+    short = " ".join(str(statement).split())
+    if len(short) > 300:
+        short = short[:297] + "..."
+    return f"Is '{short}' new work, a preserve constraint, or a rule?"
 
 
 def _tiers(statement: str) -> list[str]:

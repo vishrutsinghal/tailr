@@ -1073,7 +1073,12 @@ def review_scope_plan(goal: str, root: Path, changed: list[str], tasks: list[str
     }
 
 
-def evaluation_harness_plan(goal: str, tasks: list[str], command_prefix: str) -> dict[str, Any]:
+def evaluation_harness_plan(
+    goal: str,
+    tasks: list[str],
+    command_prefix: str,
+    declared_paths: list[str] | None = None,
+) -> dict[str, Any]:
     lowered = goal.lower()
     task_types = {str(item).lower() for item in tasks}
     triggered_terms = sorted(word for word in EVALUATION_TRIGGER_WORDS if word in lowered)
@@ -1081,7 +1086,8 @@ def evaluation_harness_plan(goal: str, tasks: list[str], command_prefix: str) ->
     selected_by_task = bool({"review", "qa", "ci", "ci-sonar", "security"} & task_types) and any(
         word in lowered for word in {"proof", "metrics", "evidence", "report"}
     )
-    selected = selected_by_goal or selected_by_task
+    declared = sorted({str(item) for item in declared_paths or [] if str(item).strip()})
+    selected = (selected_by_goal or selected_by_task) and not declared
 
     scenario = "validation-bug"
     if "security" in lowered or "vulnerability" in lowered or "cve" in lowered or "ghsa" in lowered:
@@ -1094,9 +1100,13 @@ def evaluation_harness_plan(goal: str, tasks: list[str], command_prefix: str) ->
         scenario = "review-only"
 
     reason = "triggered by " + ", ".join(triggered_terms) if triggered_terms else "no evidence, benchmark, demo, proof, report, or scenario signal detected"
+    if declared:
+        reason += "; declared code paths take precedence"
     return {
         "selected": selected,
         "reason": reason,
+        "triggered_terms": triggered_terms,
+        "declared_paths": declared,
         "scenario": scenario,
         "commands": [
             f"{command_prefix} eval scenario list",
@@ -1116,6 +1126,9 @@ def evaluation_only_requested(goal: str, evaluation_plan: dict[str, Any]) -> boo
     code_action_terms = (
         "fix ",
         "implement",
+        "improve",
+        "enhance",
+        "rework",
         "add ",
         "change ",
         "update ",
@@ -1130,7 +1143,7 @@ def evaluation_only_requested(goal: str, evaluation_plan: dict[str, Any]) -> boo
         "vulnerability fix",
         "security fix",
     )
-    if any(term in lowered for term in code_action_terms):
+    if any(re.search(rf"(?<![a-z0-9_]){re.escape(term.strip())}(?![a-z0-9_])", lowered) for term in code_action_terms):
         return False
     return True
 
@@ -1434,7 +1447,7 @@ def decide(
         risks = sorted({*risks, "over-broad UI feedback suppression"})
     tiny = core.is_tiny(goal, risks, early_risk_paths)
     state = existing_state(root)
-    evaluation_plan = evaluation_harness_plan(goal, tasks, command_prefix)
+    evaluation_plan = evaluation_harness_plan(goal, tasks, command_prefix, changed_args or [])
 
     if "repo-overview" in tasks:
         graph_command = f"{command_prefix} graph map --root {core.quoted(root.as_posix())}"
@@ -1529,7 +1542,7 @@ def decide(
             ],
         }
 
-    if evaluation_only_requested(goal, evaluation_plan):
+    if evaluation_only_requested(goal, evaluation_plan) and not core.has_override(goal, "skip eval"):
         scenario = evaluation_plan["scenario"]
         return {
             "navigator_mode": "evaluation_harness",
@@ -1539,6 +1552,11 @@ def decide(
             "risk_indicators": [],
             "existing_state": state,
             "recommended_workflow": ["evaluation_harness"],
+            "routing_evidence": {
+                "triggered_terms": list(evaluation_plan.get("triggered_terms", [])),
+                "declared_paths": list(evaluation_plan.get("declared_paths", [])),
+                "scenario": scenario,
+            },
             "registry_workflow": registry_workflow("evaluation") or {"workflow": "evaluation", "feature_ids": ["evaluation-harness"]},
             "selected_features": [
                 {

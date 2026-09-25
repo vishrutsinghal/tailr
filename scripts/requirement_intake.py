@@ -531,6 +531,36 @@ def render(artifact: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def prompt_for_answers(root: Path, intake_id: str) -> dict[str, str]:
+    """Collect answers to open intake questions from standard input (Stage 5+).
+
+    Skipped questions stay open; EOF ends prompting. Only ever invoked
+    behind explicit --interactive, so a closed pipe simply ends the session
+    with an error instead of hanging.
+    """
+    current = load(root.resolve(), intake_id)
+    answered = current.get("answers", {}) if isinstance(current.get("answers"), dict) else {}
+    open_questions = [
+        row for row in current.get("questions", [])
+        if isinstance(row, dict) and str(row.get("decision_id", "")) not in answered
+    ]
+    if not open_questions:
+        raise ValueError(f"requirement intake `{intake_id}` has no open questions")
+    collected: dict[str, str] = {}
+    for row in open_questions:
+        decision_id = str(row.get("decision_id", ""))
+        print(f"{decision_id}: {row.get('question', '')}")
+        try:
+            text = input("Answer (empty to skip): ").strip()
+        except EOFError:
+            break
+        if text:
+            collected[decision_id] = text
+    if not collected:
+        raise ValueError("no answers provided")
+    return collected
+
+
 def _read_answers(args: argparse.Namespace) -> dict[str, Any]:
     if args.answers is not None:
         value = json.loads(args.answers)
@@ -554,10 +584,12 @@ def main() -> int:
         item.add_argument("--intake-id", required=True)
         item.add_argument("--format", choices=("markdown", "json"), default="markdown")
         item.add_argument("--command-prefix", default="tailtrail")
-    group = answer_parser.add_mutually_exclusive_group(required=True)
+    group = answer_parser.add_mutually_exclusive_group(required=False)
     group.add_argument("--answers")
     group.add_argument("--answers-base64")
     group.add_argument("--answers-stdin", action="store_true")
+    answer_parser.add_argument("--interactive", action="store_true",
+                               help="Prompt for open questions on a terminal instead of requiring --answers. Never enabled implicitly.")
     attach_visual_parser.add_argument("--attachment-id", required=True)
     attach_visual_parser.add_argument("--visual-artifact", required=True)
     observation_group = attach_visual_parser.add_mutually_exclusive_group(required=True)
@@ -568,10 +600,16 @@ def main() -> int:
         if args.command == "show":
             artifact = load(args.root, args.intake_id)
         elif args.command == "answer":
+            if args.answers is None and args.answers_base64 is None and not args.answers_stdin:
+                if not args.interactive:
+                    parser.error("answer requires --answers, --answers-base64, --answers-stdin, or --interactive")
+                supplied = prompt_for_answers(args.root, args.intake_id)
+            else:
+                supplied = _read_answers(args)
             artifact = answer(
                 args.root,
                 args.intake_id,
-                _read_answers(args),
+                supplied,
                 command_prefix=args.command_prefix,
             )
         else:

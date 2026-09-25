@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import base64
+import hashlib
 import json
 import subprocess
 import sys
@@ -635,6 +636,219 @@ breaking valid addresses.
 
         with self.assertRaisesRegex(ValueError, "canonical requirement set"):
             discovery.bind_canonical_matrix(matrix, canonical)
+
+
+class InterpretationErrorDetailTests(unittest.TestCase):
+    """Fix 1: rejection errors name the clause, requirement, and failed check."""
+
+    GOAL = "add widget handling in widget_store"
+    ARTIFACT_TEXT = "widget_store keeps widget facts"
+
+    def artifact_inputs(self):
+        digest = hashlib.sha256(self.ARTIFACT_TEXT.encode("utf-8")).hexdigest()
+        return [{"input_id": "IN-02", "sha256": digest, "content": self.ARTIFACT_TEXT}]
+
+    def proposal(self, clause_text=None, requirement_text=None, **overrides):
+        clauses = [
+            {"clause_id": "C-01", "role": "outcome", "text": "add widget handling in widget_store"},
+            {"clause_id": "C-02", "role": "outcome", "source_input_id": "IN-02",
+             "text": self.ARTIFACT_TEXT if clause_text is None else clause_text},
+        ]
+        requirements = [{
+            "display_id": "REQ-01",
+            "statement": ("Add widget handling in widget_store keeping widget facts"
+                          if requirement_text is None else requirement_text),
+            "kind": "change",
+            "source_clause_ids": ["C-01", "C-02"],
+            "intent_terms": ["widget", "widget_store"],
+            "quoted_literals": [],
+        }]
+        top = {
+            "schema_version": "1",
+            "type": "tailtrail-host-requirement-interpretation",
+            "host": "codex",
+            "goal": self.GOAL,
+            "private_reasoning_excluded": True,
+            "clauses": clauses,
+            "artifact_evidence": [{
+                "input_id": "IN-02",
+                "sha256": hashlib.sha256(self.ARTIFACT_TEXT.encode("utf-8")).hexdigest(),
+                "source_clause_ids": ["C-02"],
+            }],
+            "requirements": requirements,
+            "material_questions": [],
+        }
+        top.update(overrides)
+        return top
+
+    def interpret(self, proposal):
+        return discovery.interpretation(self.GOAL, proposal, "codex", self.artifact_inputs())
+
+    def test_valid_proposal_passes(self):
+        result = self.interpret(self.proposal())
+        self.assertEqual(result["type"], "tailtrail-requirement-interpretation")
+
+    def test_artifact_grounding_names_clause_and_artifact(self):
+        with self.assertRaisesRegex(ValueError, r"C-02.*IN-02|IN-02.*C-02") as raised:
+            self.interpret(self.proposal(clause_text="unrelated banana hammock"))
+        self.assertIn("grounded in its inspected requirement artifact", str(raised.exception))
+
+    def test_goal_grounding_names_clause(self):
+        top = self.proposal()
+        top["clauses"][0] = {"clause_id": "C-01", "role": "outcome", "text": "unrelated banana"}
+        with self.assertRaisesRegex(ValueError, "C-01") as raised:
+            self.interpret(top)
+        self.assertIn("grounded in the exact goal", str(raised.exception))
+
+    def test_evidence_hash_mismatch_names_artifact(self):
+        top = self.proposal()
+        top["artifact_evidence"][0]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "IN-02") as raised:
+            self.interpret(top)
+        self.assertIn("hash mismatch", str(raised.exception))
+
+    def test_uncovered_clause_is_named(self):
+        top = self.proposal()
+        top["requirements"][0]["source_clause_ids"] = ["C-01"]
+        top["requirements"][0]["statement"] = "Add widget handling in widget_store"
+        with self.assertRaisesRegex(ValueError, "C-02") as raised:
+            self.interpret(top)
+        self.assertIn("omitted explicit outcome/constraint clauses", str(raised.exception))
+
+    def test_named_targets_name_clause_and_sourcing_requirement(self):
+        with self.assertRaisesRegex(ValueError, "widget_store") as raised:
+            self.interpret(self.proposal(requirement_text="Add widget handling"))
+        message = str(raised.exception)
+        self.assertRegex(message, r"C-0[12]")
+        self.assertIn("REQ-01", message)
+
+    def test_malformed_intent_terms_name_requirement(self):
+        top = self.proposal()
+        top["requirements"][0]["intent_terms"] = ["widget", "bad term!"]
+        with self.assertRaisesRegex(ValueError, "REQ-01") as raised:
+            self.interpret(top)
+        self.assertIn("bad term!", str(raised.exception))
+
+    def test_ungrounded_intent_term_is_named(self):
+        top = self.proposal()
+        top["requirements"][0]["intent_terms"] = ["widget", "zzznosuch"]
+        with self.assertRaisesRegex(ValueError, "zzznosuch") as raised:
+            self.interpret(top)
+        self.assertIn("REQ-01", str(raised.exception))
+
+    def test_kind_vocabulary_and_confidence(self):
+        self.assertEqual(discovery._kind("preserve existing behavior"), "preserve")
+        self.assertEqual(discovery._kind("add a new endpoint"), "change")
+        self.assertEqual(discovery._kind_with_confidence("preserve existing behavior"), ("preserve", "high"))
+        self.assertEqual(discovery._kind_with_confidence("do not mutate state"), ("constraint", "high"))
+        self.assertEqual(discovery._kind_with_confidence("add a new endpoint"), ("change", "high"))
+        self.assertEqual(
+            discovery._kind_with_confidence("keeping all rejection semantics unchanged"),
+            ("change", "low"),
+        )
+
+    def test_low_confidence_kind_asks_host_instead_of_guessing(self):
+        result = discovery.interpretation("keeping all rejection semantics unchanged")
+        rows = result["requirements"]
+        self.assertTrue(rows)
+        self.assertEqual(rows[0]["kind_confidence"], "low")
+        self.assertTrue(result["material_questions"])
+        self.assertIn("new work", result["material_questions"][0])
+        self.assertEqual(result["state"], "sufficient")
+        clear = discovery.interpretation("add a new endpoint")
+        self.assertEqual(clear["requirements"][0]["kind_confidence"], "high")
+        self.assertEqual(clear["material_questions"], [])
+
+    def _draft_payload(self):
+        return {
+            "host": "codex",
+            "clauses": [
+                {"clause_id": "C-01", "role": "outcome", "text": "add widget handling in widget_store"},
+                {"clause_id": "C-02", "role": "outcome", "source_input_id": "IN-02",
+                 "text": self.ARTIFACT_TEXT},
+            ],
+            "requirements": [{
+                "display_id": "REQ-01",
+                "statement": "Add widget handling in widget_store keeping widget facts",
+                "kind": "change",
+                "source_clause_ids": ["C-01", "C-02"],
+                "intent_terms": ["widget", "widget_store"],
+                "quoted_literals": [],
+            }],
+            "material_questions": [],
+        }
+
+    def _run_draft(self, root, draft, artifacts):
+        import subprocess
+        command = [
+            sys.executable, str(ROOT / "scripts" / "requirement-interpretation-draft.py"),
+            "--goal", self.GOAL, "--draft", str(draft),
+        ]
+        for artifact in artifacts:
+            command.extend(["--requirement-artifact", str(artifact)])
+        return subprocess.run(command, cwd=root, text=True, capture_output=True, check=False)
+
+    def test_draft_helper_passes_and_emits_envelope(self):
+        import base64
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            artifact = root / "spec.md"
+            artifact.write_text(self.ARTIFACT_TEXT, encoding="utf-8")
+            draft = root / "draft.json"
+            draft.write_text(json.dumps(self._draft_payload()), encoding="utf-8")
+            runs_before = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+            result = self._run_draft(root, draft, [artifact])
+            runs_after = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        envelope = json.loads(base64.b64decode(result.stdout.strip()).decode("utf-8"))
+        self.assertEqual(envelope["goal"], self.GOAL)
+        self.assertEqual(envelope["artifact_evidence"][0]["source_clause_ids"], ["C-02"])
+        digest = hashlib.sha256(self.ARTIFACT_TEXT.encode("utf-8")).hexdigest()
+        self.assertEqual(envelope["artifact_evidence"][0]["sha256"], digest)
+        self.assertEqual(runs_before, runs_after)
+
+    def test_draft_helper_fails_with_named_error_and_no_side_effects(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            artifact = root / "spec.md"
+            artifact.write_text(self.ARTIFACT_TEXT, encoding="utf-8")
+            payload = self._draft_payload()
+            payload["clauses"][1]["text"] = "unrelated banana hammock"
+            draft = root / "draft.json"
+            draft.write_text(json.dumps(payload), encoding="utf-8")
+            runs_before = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+            result = self._run_draft(root, draft, [artifact])
+            runs_after = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("C-02", result.stderr)
+        self.assertEqual(result.stdout.strip(), "")
+        self.assertEqual(runs_before, runs_after)
+
+    def test_draft_helper_rejects_missing_artifact(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            draft = root / "draft.json"
+            draft.write_text(json.dumps(self._draft_payload()), encoding="utf-8")
+            result = self._run_draft(root, draft, [root / "absent.md"])
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("absent.md", result.stderr)
+
+    def test_validate_draft_engine_contract(self):
+        draft_engine = load("draft_engine_contract_test", "scripts/requirement-interpretation-draft.py")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            artifact = root / "spec.md"
+            artifact.write_text(self.ARTIFACT_TEXT, encoding="utf-8")
+            envelope, errors = draft_engine.validate_draft(
+                self.GOAL, [str(artifact)], self._draft_payload(), "codex")
+            self.assertEqual(errors, [])
+            self.assertEqual(envelope["goal"], self.GOAL)
+            bad = self._draft_payload()
+            bad["clauses"][1]["text"] = "unrelated banana hammock"
+            envelope, errors = draft_engine.validate_draft(
+                self.GOAL, [str(artifact)], bad, "codex")
+            self.assertIsNone(envelope)
+            self.assertTrue(any("C-02" in message for message in errors))
 
 
 if __name__ == "__main__":

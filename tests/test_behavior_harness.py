@@ -10,6 +10,16 @@ class BehaviorHarnessTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);ledger.init_run(root,"run","behavior");p=root/"p.json";p.write_text(json.dumps({"requirements":[{"statement":"reject zero","acceptance_criteria":[],"preserve_rules":[],"likely_paths":["src/a.py"],"evidence_plan":[]}]}),encoding="utf-8");draft=anchor.draft(root,"run",p);approved=anchor.approve(root,"run");uid=approved["requirements"][0]["requirement_uid"];s=root/"s.json";s.write_text(json.dumps({"scenarios":[{"scenario_id":"zero-rejected","requirement_uid":uid,"preconditions":["claim exists"],"action":"submit zero","expected_outcome":"validation error","preservation":["positive remains valid"],"evidence":[{"tier":"integration","asserted_behavior":"zero rejected through service"}]}]}),encoding="utf-8");e=root/"e.json";e.write_text(json.dumps({"receipts":[{"requirement_uid":uid,"tier":"integration","outcome":"pass","asserted_behavior":"zero rejected through service","evidence_quality":"attested"}]}),encoding="utf-8");result=behavior.assess(root,"run",s,e);activity=ledger.projection(root,"run")["activity"]
   self.assertTrue(result["complete"]);self.assertEqual(activity["behavior_assessed"],1)
- def test_missing_flow_evidence_stays_incomplete(self):
-  with tempfile.TemporaryDirectory() as temp:
-   root=Path(temp);ledger.init_run(root,"run","behavior");p=root/"p.json";p.write_text(json.dumps({"requirements":[{"statement":"x","acceptance_criteria":[],"preserve_rules":[],"likely_paths":[],"evidence_plan":[]}]}),encoding="utf-8");anchor.draft(root,"run",p);uid=anchor.approve(root,"run")["requirements"][0]["requirement_uid"];s=root/"s.json";s.write_text(json.dumps({"scenarios":[{"scenario_id":"x","requirement_uid":uid,"evidence":[{"tier":"e2e","asserted_behavior":"x"}]}]}),encoding="utf-8");e=root/"e.json";e.write_text('{"receipts":[]}',encoding="utf-8");self.assertFalse(behavior.assess(root,"run",s,e)["complete"])
+  def test_missing_flow_evidence_stays_incomplete(self):
+   with tempfile.TemporaryDirectory() as temp:
+    root=Path(temp);ledger.init_run(root,"run","behavior");p=root/"p.json";p.write_text(json.dumps({"requirements":[{"statement":"x","acceptance_criteria":[],"preserve_rules":[],"likely_paths":[],"evidence_plan":[]}]}),encoding="utf-8");anchor.draft(root,"run",p);uid=anchor.approve(root,"run")["requirements"][0]["requirement_uid"];s=root/"s.json";s.write_text(json.dumps({"scenarios":[{"scenario_id":"x","requirement_uid":uid,"evidence":[{"tier":"e2e","asserted_behavior":"x"}]}]}),encoding="utf-8");e=root/"e.json";e.write_text('{"receipts":[]}',encoding="utf-8");result=behavior.assess(root,"run",s,e)
+   self.assertFalse(result["complete"])
+   self.assertEqual(result["coverage"],{"scenarios":1,"validated":0,"incomplete":1})
+   self.assertIn("x",result["unknowns"])
+  def test_validated_assessment_reports_coverage(self):
+   with tempfile.TemporaryDirectory() as temp:
+    root=Path(temp);ledger.init_run(root,"run","behavior");p=root/"p.json";p.write_text(json.dumps({"requirements":[{"statement":"y","acceptance_criteria":[],"preserve_rules":[],"likely_paths":[],"evidence_plan":[]}]}),encoding="utf-8");anchor.draft(root,"run",p);uid=anchor.approve(root,"run")["requirements"][0]["requirement_uid"];s=root/"s.json";s.write_text(json.dumps({"scenarios":[{"scenario_id":"y","requirement_uid":uid,"provenance":"host-declared","evidence":[{"tier":"unit","asserted_behavior":"y"}]}]}),encoding="utf-8");e=root/"e.json";e.write_text(json.dumps({"receipts":[{"requirement_uid":uid,"tier":"unit","outcome":"pass","asserted_behavior":"y","evidence_quality":"attested"}]}),encoding="utf-8");result=behavior.assess(root,"run",s,e)
+   self.assertTrue(result["complete"])
+   self.assertEqual(result["coverage"],{"scenarios":1,"validated":1,"incomplete":0})
+   self.assertEqual(result["unknowns"],[])
+   self.assertEqual(result["scenarios"][0]["provenance"],"host-declared")

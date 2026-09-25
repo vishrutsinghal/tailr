@@ -12,7 +12,7 @@ import re
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import target_workspace
 import visual_requirement
@@ -997,7 +997,10 @@ def navigator_requirement_route(
     it is preserved to prevent silent degradation after interpretation.
     """
     routed = dict(sufficiency)
-    decisions = list(routed.get("material_decisions", []))
+    decisions = [
+        item for item in list(routed.get("material_decisions", []))
+        if not isinstance(item, dict) or item.get("decision_class") != "kind-clarification-advisory"
+    ]
     if not decisions:
         routed["state"] = "sufficient"
         routed["recommended_route"] = "scope"
@@ -1128,11 +1131,21 @@ def scope_question_precondition(
     raw_decisions = sufficiency.get("material_decisions", [])
     if not isinstance(raw_decisions, list):
         raw_decisions = ["invalid-material-decision-contract"]
+    # Advisory kind-clarification decisions never block scope investigation;
+    # only blocking material decisions gate it.
+    blocking_decisions = []
+    for row in raw_decisions:
+        if isinstance(row, dict) and (
+            row.get("decision_class") == "kind-clarification-advisory"
+            or str(row.get("id", "")).startswith("KIND-")
+        ):
+            continue
+        blocking_decisions.append(row)
     decisions = [
         str(row.get("id") or "unidentified-material-decision")
         if isinstance(row, dict)
         else "invalid-material-decision-contract"
-        for row in raw_decisions
+        for row in blocking_decisions
     ]
     state = str(sufficiency.get("state") or interpreted.get("state") or "unknown")
     allowed = state == "sufficient" and not decisions
@@ -2632,6 +2645,7 @@ def build_report(
         plan.get("likely_impacted_files", []),
         plan.get("requirement_matrix", []),
         behaviour_selected,
+        calibration=behaviour_planning.calibration_from_history(root),
     )
     behaviour_planning.apply_contracts(plan.get("requirement_matrix", []), behaviour_plan)
     maintainability_selected = any(
@@ -2659,6 +2673,7 @@ def build_report(
         [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)],
         [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)],
         command_prefix,
+        changed,
     )
     approved_owner_paths = list(dict.fromkeys(
         str(path)
@@ -3102,11 +3117,35 @@ def coalesce_focused_validation_rows(rows: list[dict[str, Any]]) -> list[dict[st
     return grouped
 
 
+def _declared_test_items(root: Path, changed: Iterable[str]) -> list[dict[str, Any]]:
+    """User-declared test files as proof candidates (supplement only, never invented).
+
+    Only existing files matching test conventions qualify; production paths,
+    missing files, and unsafe paths are skipped silently.
+    """
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for value in changed or []:
+        rel = str(value or "").replace("\\", "/").strip().strip("/")
+        if not rel or rel.startswith("/") or ".." in rel.split("/") or (len(rel) > 1 and rel[1] == ":"):
+            continue
+        lowered = rel.lower()
+        if "test" not in lowered and not any(
+            marker in Path(rel).name.lower() for marker in (".cy.", ".spec.")
+        ):
+            continue
+        if rel not in seen and (root / rel).is_file():
+            seen.add(rel)
+            items.append({"path": rel, "role": "test", "status": "declared-proof"})
+    return items
+
+
 def focused_validation_plan(
     root: Path,
     impacted: list[dict[str, Any]],
     requirements: list[dict[str, Any]],
     command_prefix: str,
+    declared_test_paths: Iterable[str] = (),
 ) -> list[dict[str, Any]]:
     """Return every requested validation tier without inventing a passing test.
 
@@ -3142,7 +3181,7 @@ def focused_validation_plan(
             or "test" in str(item.get("path", "")).lower()
             or any(marker in Path(str(item.get("path", ""))).name.lower() for marker in (".cy.", ".spec."))
         )
-    ]
+    ] or _declared_test_items(root, declared_test_paths)
     owner_paths = list(dict.fromkeys(
         str(path)
         for row in requirements if isinstance(row, dict)
@@ -5410,6 +5449,69 @@ def _parse_json_flag(flag: str, raw: str | None, raw_base64: str | None) -> dict
         raise ValueError(f"{flag} must be valid JSON: {error}") from error
 
 
+def _draft_engine() -> Any:
+    """Load the side-effect-free interpretation draft engine (Stage 5+)."""
+    spec = importlib.util.spec_from_file_location(
+        "task_start_interpretation_draft", ROOT / "scripts" / "requirement-interpretation-draft.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def repair_interpretation_loop(
+    goal: str,
+    host: str | None,
+    artifact_paths: list[str],
+    proposal: dict[str, Any],
+    artifact_inputs: list[dict[str, Any]],
+    max_attempts: int = 5,
+) -> dict[str, Any]:
+    """Repair a rejected interpretation interactively via draft files (Stage 5+).
+
+    Prompts for corrected draft JSON paths, revalidating each with the
+    side-effect-free engine. Empty input, EOF, or exhausted attempts re-raise
+    the last validator error, so non-interactive behavior is unchanged. Only
+    ever invoked behind explicit --interactive.
+    """
+    engine = _draft_engine()
+    current = proposal
+    last_error = "the supplied interpretation was rejected"
+    for _ in range(max(1, max_attempts)):
+        try:
+            requirement_discovery.interpretation(goal, current, host, artifact_inputs)
+            return current
+        except ValueError as error:
+            last_error = str(error)
+            print(f"TailTrail could not accept the interpretation:\n  {last_error}")
+            try:
+                answer = input("Provide a path to a corrected draft JSON (empty to quit): ").strip()
+            except EOFError:
+                break
+            if not answer:
+                break
+            try:
+                draft = json.loads(Path(answer).expanduser().read_text(encoding="utf-8"))
+            except (OSError, ValueError) as read_error:
+                print(f"Cannot read draft {answer}: {read_error}")
+                continue
+            if not isinstance(draft, dict):
+                print(f"Draft {answer} must be a JSON object.")
+                continue
+            try:
+                envelope, errors = engine.validate_draft(goal, artifact_paths, draft, host)
+            except ValueError as error:
+                print(f"Draft {answer} is still invalid:\n  {error}")
+                continue
+            if envelope is None:
+                for message in errors:
+                    print(f"Draft {answer} is still invalid:\n  {message}")
+                continue
+            current = envelope
+    raise ValueError(last_error)
+
+
 def _ensure_utf8_stdio() -> None:
     """Let reports emit box-drawing and arrow runes on legacy consoles.
 
@@ -5499,6 +5601,7 @@ def main() -> int:
         help="Base64 UTF-8 active-host scope proposal JSON for native-shell safety.",
     )
     parser.add_argument("--evidence-artifact", action="append", default=[], help="Read-only local CI, scan, or validation artifact. Repeat as needed.")
+    parser.add_argument("--interactive", action="store_true", help="On interpretation failure, prompt for corrected draft files and revalidate locally instead of exiting. Never enabled implicitly.")
     parser.add_argument("--aidlc", choices=("lite", "standard", "medium", "full", "off"), default=None, help="Optional AIDLC override. Without it: normal Start uses Lite, 'using AIDLC' uses Standard, hands-free uses Standard with eligible Full escalation, and full/official wording requires Full.")
     parser.add_argument("--official-aidlc-manifest", help="Optional in-root official AIDLC compatibility manifest used only with --aidlc full.")
     parser.add_argument("--official-intent-id", help="Optional official AIDLC intent identity to map to this TailTrail run in full mode.")
@@ -5793,19 +5896,42 @@ def main() -> int:
                 # because the original goal still mentions an attached image.
                 if visual_records and all(row.get("complete") is True for row in visual_records):
                     visual_decisions = []
-        interpreted_requirements = (
-            requirement_intake.resolved_interpretation(saved_requirement_intake)
-            if saved_requirement_intake is not None
-            else intent_bridge_requirement_interpretation(goal, intent_bridge_source)
-            if intent_bridge_source is not None
-            else requirement_discovery.interpretation(
-                goal,
-                host_requirement_proposal,
-                args.host or (str(host_requirement_proposal.get("host")) if host_requirement_proposal else None),
-                requirement_artifact_inputs,
-                visual_decisions=visual_decisions or None,
+        try:
+            interpreted_requirements = (
+                requirement_intake.resolved_interpretation(saved_requirement_intake)
+                if saved_requirement_intake is not None
+                else intent_bridge_requirement_interpretation(goal, intent_bridge_source)
+                if intent_bridge_source is not None
+                else requirement_discovery.interpretation(
+                    goal,
+                    host_requirement_proposal,
+                    args.host or (str(host_requirement_proposal.get("host")) if host_requirement_proposal else None),
+                    requirement_artifact_inputs,
+                    visual_decisions=visual_decisions or None,
+                )
             )
-        )
+        except ValueError:
+            if (
+                not args.interactive
+                or host_requirement_proposal is None
+                or saved_requirement_intake is not None
+                or intent_bridge_source is not None
+                or visual_decisions
+            ):
+                raise
+            repaired = repair_interpretation_loop(
+                goal,
+                args.host or (str(host_requirement_proposal.get("host")) if host_requirement_proposal else None),
+                list(args.requirement_artifact or []),
+                host_requirement_proposal,
+                requirement_artifact_inputs,
+            )
+            interpreted_requirements = requirement_discovery.interpretation(
+                goal,
+                repaired,
+                args.host or (str(repaired.get("host")) if isinstance(repaired, dict) else None),
+                requirement_artifact_inputs,
+            )
         interpreted_requirements = requirement_discovery.add_material_decisions(
             interpreted_requirements,
             visual_decisions,

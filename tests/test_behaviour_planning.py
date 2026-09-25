@@ -185,6 +185,81 @@ class BehaviourPlanningTests(unittest.TestCase):
         self.assertNotIn("Replay or retry", rendered)
         self.assertEqual(["behaviour", "integration"], plan["required_tiers"])
 
+    def test_scenarios_carry_provenance_in_preference_order(self) -> None:
+        requirements = [{"display_id": "REQ-01", "statement": "Prove the customer journey from creation to shipment."}]
+        impacted = [{"path": "src/order_service/service.py", "reason": "goal-matched target"}]
+        plan = behaviour.build("Prove the journey.", impacted, requirements, True)
+        provenances = [row["provenance"] for row in plan["scenarios"]]
+        self.assertTrue(provenances)
+        self.assertTrue(all(item in behaviour.PROVENANCE_RANK for item in provenances))
+        ranks = [behaviour.PROVENANCE_RANK[item] for item in provenances]
+        self.assertEqual(ranks, sorted(ranks))
+        self.assertIn("repo-derived", provenances)
+
+    def test_keyword_only_scenarios_stay_hypothesis(self) -> None:
+        requirements = [{"display_id": "REQ-01", "statement": "Prove the customer journey from creation to shipment."}]
+        plan = behaviour.build("Prove the journey.", [], requirements, True)
+        journey = [row for row in plan["scenarios"] if row["scenario_id"] == "BHV-01"]
+        self.assertEqual(len(journey), 1)
+        self.assertEqual(journey[0]["provenance"], "template-hypothesis")
+
+    def test_host_declared_scenarios_come_first(self) -> None:
+        requirements = [{
+            "display_id": "REQ-01",
+            "statement": "Prove the customer journey.",
+            "behavior_contract": {"scenarios": [{
+                "scenario_id": "HOST-01",
+                "action": "Run the declared check.",
+                "expected_outcome": "Declared outcome holds.",
+                "evidence": [],
+            }]},
+        }]
+        plan = behaviour.build(
+            "Prove the journey.",
+            [{"path": "src/order_service/service.py", "reason": "goal-matched target"}],
+            requirements, True,
+        )
+        self.assertEqual(plan["scenarios"][0]["scenario_id"], "HOST-01")
+        self.assertEqual(plan["scenarios"][0]["provenance"], "host-declared")
+
+    def test_coverage_names_uncovered_requirements(self) -> None:
+        requirements = [
+            {"display_id": "REQ-01", "statement": "Prove the customer journey from creation to shipment."},
+            {"display_id": "REQ-02", "statement": "Fix a typo."},
+        ]
+        plan = behaviour.build("Prove the journey.", [], requirements, True)
+        self.assertIn("REQ-01", plan["coverage"]["requirements_covered"])
+        self.assertIn("REQ-02", plan["coverage"]["requirements_uncovered"])
+        self.assertTrue(any("REQ-02" in item for item in plan["coverage"]["unknowns"]))
+
+    def test_calibration_reads_bounded_run_history(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            behavior = root / ".tailtrail" / "runs" / "r1" / "behavior"
+            behavior.mkdir(parents=True)
+            (behavior / "assessment-1.json").write_text(json.dumps({
+                "scenarios": [
+                    {"scenario_id": "BHV-01", "state": "validated"},
+                    {"scenario_id": "BHV-03", "state": "incomplete"},
+                ],
+            }), encoding="utf-8")
+            calibration = behaviour.calibration_from_history(root)
+            empty = behaviour.calibration_from_history(root / "missing")
+        self.assertEqual(calibration["families"]["BHV"], {"verified": 1, "total": 2})
+        self.assertEqual(calibration["runs_scanned"], 1)
+        self.assertEqual(empty, {"families": {}, "runs_scanned": 0})
+
+    def test_render_shows_provenance_and_coverage(self) -> None:
+        requirements = [{"display_id": "REQ-01", "statement": "Prove the customer journey from creation to shipment."}]
+        plan = behaviour.build(
+            "Prove the journey.",
+            [{"path": "src/order_service/service.py", "reason": "goal-matched target"}],
+            requirements, True,
+        )
+        rendered = "\n".join(behaviour.markdown_lines(plan, detailed=True, responsive=True))
+        self.assertIn("Provenance:", rendered)
+        self.assertIn("### Coverage and unknowns", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
