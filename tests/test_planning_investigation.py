@@ -127,6 +127,18 @@ class PlanningInvestigationTests(unittest.TestCase):
         self.assertTrue(any(row["path"] == "tests/test_aidlc_requirements.py" for row in typed["excluded_candidates"]))
         self.assertGreater(typed["limits"]["candidate_files"], 0)
 
+    def test_investigation_queues_served_reads_into_phase1_cache(self) -> None:
+        import capture_hooks
+        import code_graph_cache
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self.plan(root)
+            capture_hooks.reset_for_tests(root)
+            investigation.investigate(root, "investigation", ["src/service.py"], True)
+            data, error = code_graph_cache.load(code_graph_cache.default_cache_path(root))
+        self.assertIsNone(error)
+        self.assertIn("src/service.py", data["files"])
+        self.assertIn("cancel_order", data["files"]["src/service.py"]["symbols"])
+
 
 if __name__ == "__main__":
     unittest.main()

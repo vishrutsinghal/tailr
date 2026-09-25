@@ -105,6 +105,35 @@ class GraphBuilderTests(unittest.TestCase):
         self.assertEqual(summary["status"], "committed")
         self.assertEqual(sorted(summary["built_files"]), ["src/a.py", "src/b.py"])
 
+    def test_commit_preserves_phase1_section(self) -> None:
+        import code_graph_cache
+        local = self.root / ".tailtrail" / "code-graph-cache.json"
+        code_graph_cache.update(self.root, ["src/a.py", "src/b.py"], path=local)
+        summary = graph_builder.commit_graph(
+            self.root, target_files=["src/a.py", "src/b.py"], depth="medium", write_shared=False
+        )
+        self.assertEqual(summary["status"], "committed")
+        container, error = code_graph_cache.read_container(local)
+        self.assertIsNone(error)
+        self.assertEqual(container["kind"], "combined")
+        self.assertIn("src/a.py", container["phase1_files"]["files"])
+        self.assertIn("src/b.py", container["phase1_files"]["files"])
+        self.assertIn("src/a.py", container["mapper_graph"]["scope"])
+
+    def test_warm_reads_phase1_section_not_mapper_scope(self) -> None:
+        import capture_hooks
+        import code_graph_cache
+        capture_hooks.reset_for_tests()
+        local = self.root / ".tailtrail" / "code-graph-cache.json"
+        code_graph_cache.update(self.root, ["src/a.py"], path=local)
+        graph_builder.commit_graph(
+            self.root, target_files=["src/a.py", "src/b.py"], depth="medium", write_shared=False
+        )
+        capture_hooks.reset_for_tests()
+        summary = graph_builder.commit_graph(self.root, depth="medium", write_shared=False)
+        self.assertEqual(summary["status"], "committed")
+        self.assertEqual(sorted(summary["built_files"]), ["src/a.py"])
+
     def test_no_scope_raises_value_error(self) -> None:
         import capture_hooks
         capture_hooks.reset_for_tests()

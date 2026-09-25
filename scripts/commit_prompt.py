@@ -57,17 +57,21 @@ def _normalize(files: list[str]) -> list[str]:
 
 
 def _mapper_scope(root: Path) -> tuple[list[str], datetime | None]:
-    """Return (built scope, commit time) of the mapper-shaped cache, if any."""
+    """Return (built scope, commit time) of the mapper graph section, if any.
+
+    Reads through the unified v1/v2 container reader (Stage 0c) so mapper
+    graphs inside v2 containers are visible; the old top-level "graph"
+    check missed them entirely. Read-only.
+    """
     for rel in (code_graph_cache.SHARED_CACHE, code_graph_cache.LOCAL_CACHE):
-        path = root / rel
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        container, error = code_graph_cache.read_container(root / rel)
+        if error is not None:
             continue
-        if not isinstance(raw, dict) or not isinstance(raw.get("graph"), dict):
+        mapper = container["mapper_graph"]
+        if not isinstance(mapper, dict) or not isinstance(mapper.get("graph"), dict):
             continue
-        scope = raw.get("scope", [])
-        stamp = raw.get("updated_at") or raw.get("created_at")
+        scope = mapper.get("scope", [])
+        stamp = mapper.get("updated_at") or mapper.get("created_at")
         try:
             committed = datetime.fromisoformat(str(stamp)) if stamp else None
         except ValueError:

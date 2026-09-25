@@ -17,6 +17,23 @@
     "before_status": {"type": "object"},
     "after_status": {"type": "object"},
     "cache_fingerprint": {"type": ["string", "null"]},
+    "cache_shape": {"enum": ["missing", "phase1", "mapper", "combined", "invalid"]},
+    "cache_warnings": {"type": "array", "items": {"type": "string"}},
+    "freshness": {"enum": ["fresh", "stale", "missing"]},
+    "relevance": {"enum": ["relevant", "insufficient", "missing", "not-evaluated"]},
+    "cache_reuse_state": {"type": ["string", "null"]},
+    "outside_slice_nominations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "reason": {"type": "string", "minLength": 1}
+        }
+      }
+    },
     "written": {"type": "boolean"},
     "metadata_only": {"const": true},
     "implementation_authority": {"const": false},

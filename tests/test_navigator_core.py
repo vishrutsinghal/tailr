@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import subprocess
 import tempfile
@@ -292,6 +293,159 @@ class NavigatorCoreTests(unittest.TestCase):
             ["src/claims_api/validation.py", "tests/test_claim_validation.py"],
         )
 
+    def test_review_graph_serves_reads_into_phase1_cache(self) -> None:
+        import capture_hooks
+        import code_graph_cache
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src" / "claims_api").mkdir(parents=True)
+            (root / "tests").mkdir()
+            (root / "src" / "claims_api" / "validation.py").write_text("def valid(amount):\n    return amount > 0\n", encoding="utf-8")
+            (root / "tests" / "test_claim_validation.py").write_text("from claims_api.validation import valid\n", encoding="utf-8")
+            capture_hooks.reset_for_tests(root)
+            report = review_graph.graph(root, ["src/claims_api/validation.py"], limit=5)
+            data, error = code_graph_cache.load(root / ".tailtrail" / "code-graph-cache.json")
+        self.assertEqual(
+            report["suggested_read_order"],
+            ["src/claims_api/validation.py", "tests/test_claim_validation.py"],
+        )
+        self.assertIsNone(error)
+        self.assertIn("src/claims_api/validation.py", data["files"])
+        self.assertIn("tests/test_claim_validation.py", data["files"])
+
+    def test_review_graph_capture_opt_out_persists_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+            report = review_graph.graph(root, ["src/a.py"], 5, capture=False)
+            self.assertEqual(report["changed"], ["src/a.py"])
+            self.assertFalse((root / ".tailtrail" / "code-graph-cache.json").exists())
+            self.assertFalse((root / "tailtrail-meta" / "code-graph-cache.json").exists())
+
+    def test_mapper_reuses_fresh_per_file_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.ts").write_text(
+                "import { thing } from './b';\nexport function run(){ return thing(); }\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "b.ts").write_text(
+                "export function thing(){ return 1; }\n", encoding="utf-8"
+            )
+            first = code_graph_mapper.build_graph(root, ["src/a.ts", "src/b.ts"], "review", [], 5)
+            calls: list[str] = []
+            original = code_graph_mapper.extract_language_data
+
+            def spy(path: Path, scope: Path) -> dict:
+                calls.append(path.as_posix())
+                return original(path, scope)
+
+            code_graph_mapper.extract_language_data = spy  # type: ignore[method-assign]
+            try:
+                second = code_graph_mapper.build_graph(
+                    root, ["src/a.ts", "src/b.ts"], "review", [], 5, previous=first
+                )
+            finally:
+                code_graph_mapper.extract_language_data = original  # type: ignore[method-assign]
+            scrub = lambda payload: {
+                key: value for key, value in payload.items()
+                if key not in {"created_at", "updated_at", "freshness"}
+            }
+        self.assertEqual(calls, [])
+        self.assertEqual(scrub(first), scrub(second))
+
+    def test_mapper_reextracts_only_stale_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            a_path = root / "src" / "a.py"
+            b_path = root / "src" / "b.py"
+            a_path.write_text("def run():\n    return 1\n", encoding="utf-8")
+            b_path.write_text("def thing():\n    return 1\n", encoding="utf-8")
+            first = code_graph_mapper.build_graph(root, ["src/a.py", "src/b.py"], "review", [], 5)
+            b_path.write_text("def thing():\n    return 2\ndef extra():\n    return 3\n", encoding="utf-8")
+            stamp = b_path.stat().st_mtime + 5
+            os.utime(b_path, (stamp, stamp))
+            calls: list[str] = []
+            original = code_graph_mapper.extract_language_data
+
+            def spy(path: Path, scope: Path) -> dict:
+                calls.append(os.path.relpath(path, os.path.realpath(temp)).replace("\\", "/"))
+                return original(path, scope)
+
+            code_graph_mapper.extract_language_data = spy  # type: ignore[method-assign]
+            try:
+                second = code_graph_mapper.build_graph(
+                    root, ["src/a.py", "src/b.py"], "review", [], 5, previous=first
+                )
+            finally:
+                code_graph_mapper.extract_language_data = original  # type: ignore[method-assign]
+            names = sorted(symbol["name"] for symbol in second["graph"]["symbols"])
+        self.assertEqual(sorted(calls), ["src/b.py"])
+        self.assertIn("run", names)
+        self.assertIn("extra", names)
+
+    def test_mapper_narrower_previous_build_forces_full_reextract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+            (root / "src" / "b.py").write_text("def thing():\n    return 1\n", encoding="utf-8")
+            narrow = code_graph_mapper.build_graph(root, ["src/a.py", "src/b.py"], "review", [], 1)
+            calls: list[str] = []
+            original = code_graph_mapper.extract_language_data
+
+            def spy(path: Path, scope: Path) -> dict:
+                calls.append(os.path.relpath(path, os.path.realpath(temp)).replace("\\", "/"))
+                return original(path, scope)
+
+            code_graph_mapper.extract_language_data = spy  # type: ignore[method-assign]
+            try:
+                code_graph_mapper.build_graph(
+                    root, ["src/a.py", "src/b.py"], "review", [], 5, previous=narrow
+                )
+            finally:
+                code_graph_mapper.extract_language_data = original  # type: ignore[method-assign]
+        self.assertEqual(sorted(calls), ["src/a.py", "src/b.py"])
+
+    def test_mapper_drops_out_of_scope_previous_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+            (root / "src" / "c.py").write_text("def solo():\n    return 0\n", encoding="utf-8")
+            first = code_graph_mapper.build_graph(root, ["src/a.py"], "review", [], 5)
+            second = code_graph_mapper.build_graph(root, ["src/c.py"], "review", [], 5, previous=first)
+            files = {symbol["file"] for symbol in second["graph"]["symbols"]}
+        self.assertNotIn("src/a.py", files)
+        self.assertIn("src/c.py", files)
+
+    def test_mapper_query_slice_reports_anchor_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.ts").write_text(
+                "import { thing } from './b';\nexport function run(){ return thing(); }\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "b.ts").write_text(
+                "export function thing(){ return 1; }\n", encoding="utf-8"
+            )
+            graph = code_graph_mapper.build_graph(root, ["src/a.ts"], "review", [], 5)
+            covered = code_graph_mapper.query_slice(graph, ["src/a.ts"])
+            missing = code_graph_mapper.query_slice(graph, ["src/nope.ts"])
+            filtered = code_graph_mapper.query_slice(graph, ["src/a.ts"], relations=["text-or-import-token"])
+            narrowed = code_graph_mapper.query_slice(graph, ["src/a.ts"], relations=["import"])
+        self.assertEqual(covered["covered"], ["src/a.ts"])
+        self.assertIn("src/b.ts", covered["files"])
+        self.assertIn("import", covered["anchors"]["src/a.ts"]["relations"])
+        self.assertEqual(missing["covered"], [])
+        self.assertEqual(missing["uncovered"], ["src/nope.ts"])
+        self.assertEqual(filtered["files"], ["src/a.ts"])
+        self.assertIn("src/b.ts", narrowed["files"])
+
     def test_review_graph_excludes_installed_tailtrail_pack_from_suggested_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -306,6 +460,18 @@ class NavigatorCoreTests(unittest.TestCase):
             report = review_graph.graph(root, ["src/order_service/validation.py"], limit=5)
 
         self.assertNotIn("tailtrail/hooks/learning-capture-hook.py", report["suggested_read_order"])
+
+    def test_render_includes_anchor_section(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text(
+                "def calculate_total(items):\n    return sum(items)\n", encoding="utf-8"
+            )
+            report = navigator.decide("fix the calculate_total bug", root, [], "tailtrail")
+            rendered = navigator.markdown(report)
+        self.assertIn("### Anchors", rendered)
+        self.assertIn("Anchor state:", rendered)
 
     def test_semantic_v3_markdown_uses_a_provenance_table(self) -> None:
         report = {

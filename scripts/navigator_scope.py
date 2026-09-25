@@ -1662,6 +1662,243 @@ def _edge(from_id: str, to_id: str, kind: str, strength: str, reason: str) -> di
     }
 
 
+ANCHOR_ROLES = (
+    "entrypoint",
+    "orchestrator",
+    "domain-owner",
+    "integration-owner",
+    "verification-owner",
+    "convention-owner",
+)
+
+TOPOLOGY_TO_CANDIDATE_ROLES = {
+    "entrypoint": "implementation-owner",
+    "orchestrator": "implementation-owner",
+    "domain-owner": "implementation-owner",
+    "integration-owner": "implementation-owner",
+    "verification-owner": "test",
+    "convention-owner": "reference",
+}
+
+
+def project_topology_role(topology_role: str) -> str:
+    """Project one packet topology role onto exactly one candidate role (Stage 6).
+
+    Behavior-flow positions that own durable behavior map to the editable
+    implementation-owner posture; verification maps to test; the reusable
+    convention pattern maps to read-only reference.
+    """
+    try:
+        return TOPOLOGY_TO_CANDIDATE_ROLES[str(topology_role)]
+    except KeyError:
+        raise ValueError(f"unknown packet topology role: {topology_role}") from None
+
+_ANCHOR_CROSS_BOUNDARY_KINDS = {"imports-module", "loads-module", "registered-by", "configures-owner"}
+
+
+def derive_anchors(
+    exact_paths: Iterable[str],
+    explicit_paths: Iterable[str],
+    candidates_by_path: dict[str, Any],
+    edges: list[dict[str, Any]],
+    candidate_by_id: dict[str, Any],
+) -> tuple[list[dict[str, Any]], str]:
+    """Derive role-labeled anchor hypotheses from existing seed evidence (Stage 3).
+
+    Anchors carry confidence and evidence references and are never owners or
+    implementation authority. Pure lexical seeds never mint anchors.
+    Returns (anchors sorted by role and path, "sufficient" | "insufficient").
+    """
+    anchors: dict[str, dict[str, Any]] = {}
+
+    def add(role: str, path: str, confidence: str, reason: str, evidence: dict[str, Any]) -> None:
+        anchor_id = f"anchor:{role}:{path}"
+        if anchor_id not in anchors:
+            anchors[anchor_id] = {
+                "anchor_id": anchor_id,
+                "role": role,
+                "path": path,
+                "confidence": confidence,
+                "reason_codes": [reason],
+                "evidence_refs": evidence,
+            }
+
+    for path in sorted(set(exact_paths)):
+        add("entrypoint", path, "high", "anchor-exact-task-reference",
+            {"seeds": ["exact-phrase-in-bounded-body"]})
+    for path in sorted(set(explicit_paths) - set(exact_paths)):
+        add("entrypoint", path, "medium", "anchor-explicit-task-path",
+            {"seeds": ["explicit-path", "fresh-graph", "saved-graph"]})
+    for path in sorted(candidates_by_path):
+        row = candidates_by_path[path]
+        if not isinstance(row, dict) or row.get("status") != "included":
+            continue
+        if not (set(row.get("seed_sources", [])) - {"lexical-body", "lexical-path"}):
+            continue
+        reasons = [str(code) for code in row.get("reason_codes", [])]
+        candidate_id = str(row.get("candidate_id", ""))
+        if any("convention" in code for code in reasons):
+            add("convention-owner", path, "medium", "anchor-convention",
+                {"candidates": [candidate_id], "seeds": sorted({code for code in reasons if "convention" in code})})
+        if row.get("role") == "test":
+            add("verification-owner", path, "medium", "anchor-test", {"candidates": [candidate_id]})
+        if row.get("role") in {"configuration", "manifest"}:
+            add("domain-owner", path, "medium", "anchor-config", {"candidates": [candidate_id]})
+    id_to_path = {
+        str(candidate_id): str(row.get("path", ""))
+        for candidate_id, row in candidate_by_id.items()
+        if isinstance(row, dict) and row.get("path")
+    }
+    entrypoint_paths = {anchor["path"] for anchor in anchors.values() if anchor["role"] == "entrypoint"}
+    for edge in edges or []:
+        if not isinstance(edge, dict):
+            continue
+        frm = id_to_path.get(str(edge.get("from_candidate_id", "")))
+        to = id_to_path.get(str(edge.get("to_candidate_id", "")))
+        if not frm or not to:
+            continue
+        kind = str(edge.get("kind", ""))
+        edge_id = str(edge.get("edge_id", ""))
+        for path, other in ((frm, to), (to, frm)):
+            prow = candidates_by_path.get(path)
+            if (
+                isinstance(prow, dict)
+                and prow.get("status") == "included"
+                and prow.get("role") == "caller"
+                and set(prow.get("seed_sources", [])) - {"lexical-body", "lexical-path"}
+                and other in entrypoint_paths
+            ):
+                add("orchestrator", path, "medium", "anchor-caller-edge",
+                    {"candidates": [str(prow.get("candidate_id", ""))], "edges": [edge_id] if edge_id else []})
+        if kind in _ANCHOR_CROSS_BOUNDARY_KINDS:
+            if PurePosixPath(frm).parent.as_posix() != PurePosixPath(to).parent.as_posix():
+                for path in (frm, to):
+                    prow = candidates_by_path.get(path)
+                    if (
+                        isinstance(prow, dict)
+                        and prow.get("status") == "included"
+                        and set(prow.get("seed_sources", [])) - {"lexical-body", "lexical-path"}
+                    ):
+                        add("integration-owner", path, "medium", "anchor-cross-boundary-edge",
+                            {"candidates": [str(prow.get("candidate_id", ""))], "edges": [edge_id] if edge_id else []})
+    ordered = sorted(anchors.values(), key=lambda row: (row["role"], row["path"]))
+    return ordered, "sufficient" if ordered else "insufficient"
+
+
+def candidate_edge_adjacency(
+    edges: list[dict[str, Any]] | None,
+    candidate_by_id: dict[str, Any] | None,
+) -> dict[str, list[str]]:
+    """Build a directed path adjacency from candidate-ID relationship edges (Stage 3)."""
+    adjacency: dict[str, set[str]] = {}
+    for edge in edges or []:
+        if not isinstance(edge, dict):
+            continue
+        frm = (candidate_by_id or {}).get(str(edge.get("from_candidate_id", "")))
+        to = (candidate_by_id or {}).get(str(edge.get("to_candidate_id", "")))
+        frm_path = frm.get("path") if isinstance(frm, dict) else None
+        to_path = to.get("path") if isinstance(to, dict) else None
+        if frm_path and to_path:
+            adjacency.setdefault(str(frm_path), set()).add(str(to_path))
+    return {path: sorted(targets) for path, targets in adjacency.items()}
+
+
+def reference_adjacency(references: list[dict[str, Any]] | None) -> dict[str, list[str]]:
+    """Build a directed adjacency from mapper graph references (Stage 3).
+
+    Follows resolved repository-relative targets; raw specifiers that are not
+    paths never match cached scope and are harmless.
+    """
+    adjacency: dict[str, set[str]] = {}
+    for ref in references or []:
+        if not isinstance(ref, dict):
+            continue
+        source = ref.get("referring_file")
+        if not isinstance(source, str) or not source:
+            continue
+        targets: set[str] = set()
+        resolved = ref.get("module_resolution", {})
+        if isinstance(resolved, dict):
+            for target in resolved.get("resolved_targets", []) or []:
+                if isinstance(target, str) and target:
+                    targets.add(target.replace("\\", "/"))
+        raw = ref.get("target", "")
+        if isinstance(raw, str) and "/" in raw:
+            candidate = raw.strip().replace("\\", "/")
+            if candidate and "://" not in candidate:
+                targets.add(candidate)
+        if targets:
+            adjacency.setdefault(source.replace("\\", "/"), set()).update(targets)
+    return {path: sorted(targets) for path, targets in adjacency.items()}
+
+
+def connected_files(
+    seed_paths: Iterable[str],
+    adjacency: dict[str, list[str]] | None,
+    max_hops: int = 3,
+    limit: int = 200,
+) -> list[str]:
+    """Bounded directed BFS from anchor paths over collected edges (Stage 3)."""
+    seeds = [path for path in dict.fromkeys(str(item) for item in seed_paths or []) if path]
+    seen: set[str] = set(seeds)
+    frontier = list(seeds)
+    hops = 0
+    graph = adjacency or {}
+    while frontier and hops < max(0, max_hops) and len(seen) < limit:
+        nxt: list[str] = []
+        for path in frontier:
+            for target in graph.get(path, []):
+                if target not in seen and len(seen) < limit:
+                    seen.add(target)
+                    nxt.append(target)
+        frontier = nxt
+        hops += 1
+    return sorted(seen)[:limit]
+
+
+def anchor_slice(
+    anchors: list[dict[str, Any]] | None,
+    edges: list[dict[str, Any]] | None = None,
+    candidate_by_id: dict[str, Any] | None = None,
+    coverage_required: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Project anchors into the lifecycle anchor-slice contract (Stage 3)."""
+    anchor_list = [dict(item) for item in anchors or [] if isinstance(item, dict)]
+    relations: set[str] = set()
+    if edges and candidate_by_id:
+        id_to_role = {
+            str(candidate_id): str(row.get("role", "unknown"))
+            for candidate_id, row in candidate_by_id.items()
+            if isinstance(row, dict)
+        }
+        anchor_paths = {str(item.get("path", "")) for item in anchor_list}
+        id_to_path = {
+            str(candidate_id): str(row.get("path", ""))
+            for candidate_id, row in candidate_by_id.items()
+            if isinstance(row, dict)
+        }
+        for edge in edges:
+            if not isinstance(edge, dict):
+                continue
+            frm = id_to_path.get(str(edge.get("from_candidate_id", "")))
+            to = id_to_path.get(str(edge.get("to_candidate_id", "")))
+            if frm in anchor_paths or to in anchor_paths:
+                relations.add(
+                    f"{id_to_role.get(str(edge.get('from_candidate_id', '')), 'unknown')}"
+                    f"->{id_to_role.get(str(edge.get('to_candidate_id', '')), 'unknown')}"
+                )
+    ordered_ids = sorted(str(item.get("anchor_id", "")) for item in anchor_list)
+    ordered_paths = sorted({str(item.get("path", "")) for item in anchor_list if item.get("path")})
+    coverage = sorted(dict.fromkeys(str(item) for item in coverage_required if str(item).strip()))
+    body = {
+        "anchor_ids": ordered_ids,
+        "paths": ordered_paths,
+        "relations": sorted(relations),
+        "coverage_required": coverage,
+    }
+    return {**body, "fingerprint": fingerprint(body)}
+
+
 def investigate(
     root: Path,
     requirement_frames: Iterable[dict[str, Any]],
@@ -2403,6 +2640,12 @@ def investigate(
         status = "unresolved"
     if not owner_paths and status == "unresolved" and limit_state_value != "not-reached":
         status = "blocked-by-limits"
+    candidate_by_id = {
+        str(row["candidate_id"]): row for path, row in by_path.items() if row.get("candidate_id")
+    }
+    anchors, anchor_state = derive_anchors(
+        exact_anchor_paths, explicit_anchor_paths, by_path, edges, candidate_by_id
+    )
     ownership_selection = {
         "strategy": "qualification-precedence",
         "selected_rule": selected_qualification,
@@ -2433,11 +2676,14 @@ def investigate(
         "module_resolution": module_resolution,
         "behavior_chains": behavior_chains,
         "ownership_selection": ownership_selection,
+        "anchors": anchors,
+        "anchor_state": anchor_state,
         "limits": limits.as_dict(),
         "evidence_packet_fingerprint": fingerprint({
             "requirements": [str(frame.get("requirement_id")) for frame in frames],
             "candidates": sorted((path, row["candidate_id"]) for path, row in by_path.items()),
             "edges": sorted(edge["edge_id"] for edge in edges),
+            "anchors": sorted(row["anchor_id"] for row in anchors),
             "module_resolution": module_resolution,
             "behavior_chains": behavior_chains,
             "decision_reason": decision_reason,
@@ -2766,6 +3012,9 @@ def assess_scope_quality(
         if missing_requirements:
             errors.append("implementation-owner-required")
     investigation = document.get("investigation", {}) if isinstance(document.get("investigation"), dict) else {}
+    anchor_insufficient = (
+        str(investigation.get("anchor_state", "")) == "insufficient" and mode == "code-change"
+    )
     decision_reason = str(investigation.get("decision_reason") or investigation.get("stop_reason") or "")
     resolution_failure = investigation.get("resolution_failure_reason")
     if errors:
@@ -2800,6 +3049,15 @@ def assess_scope_quality(
                 "option_evidence": option_evidence,
                 "answer_format": "Reply with one listed path, or provide a different known implementation-owner path.",
                 "boundary": "Every listed path has a strong owner-qualification edge. Read hints, callers, emitters, proof paths, and lexical-only matches are excluded. This confirms scope only; it does not approve implementation or create a Planning Lock.",
+            }
+        elif anchor_insufficient:
+            question = {
+                "question_id": "SCOPE-QA",
+                "question": "Which named command, route, symbol, or existing path anchors this behavior? No task anchor could be derived from the request, so no file is promoted.",
+                "options": [],
+                "option_evidence": [],
+                "answer_format": "Provide one known module, symbol, path, or behavior label grounded in the request or repository; do not invent paths.",
+                "boundary": "This evidence-gap clarification grants no implementation authority or Planning Lock.",
             }
         else:
             question = {
@@ -2923,9 +3181,16 @@ def host_reasoning_route(document: dict[str, Any]) -> dict[str, Any]:
 
 
 def host_reasoning_packet(document: dict[str, Any]) -> dict[str, Any]:
-    """Project a sanitized, source-body-free packet for the active host."""
+    """Project a sanitized, source-body-free packet for the active host.
+
+    v2 (Stage 5) is a strict superset of v1: every v1 field is byte-stable
+    and new evidence sections are additive. Use packet_v1_projection() for
+    v1-only consumers.
+    """
     if not verify_decision_fingerprint(document):
         raise ValueError("scope evidence decision fingerprint is invalid")
+    investigation = document.get("investigation", {}) if isinstance(document.get("investigation"), dict) else {}
+    cache_section, v2_sections = _packet_v2_sections(document, investigation)
     packet = {
         "schema_version": "1",
         "type": "tailtrail-navigator-host-scope-packet",
@@ -2951,9 +3216,202 @@ def host_reasoning_packet(document: dict[str, Any]) -> dict[str, Any]:
                 "raw source bodies",
             ],
         },
+        "packet_version": _PACKET_VERSION,
+        **v2_sections,
+        "cache": cache_section,
     }
     packet["packet_fingerprint"] = fingerprint(packet)
     return packet
+
+
+_PACKET_VERSION = 2
+_SUPPORTED_PACKET_MAJORS = (1, 2)
+
+_V1_PACKET_KEYS = (
+    "schema_version", "type", "scope_evidence_fingerprint",
+    "evidence_packet_fingerprint", "target_identity_fingerprint",
+    "goal_fingerprint", "requirements", "candidates", "edges", "limits",
+    "route", "instructions",
+)
+
+
+def packet_v1_projection(packet: dict[str, Any]) -> dict[str, Any]:
+    """Server-side v1 projection: v1 fields byte-stable, v2 sections dropped (Stage 5)."""
+    if not isinstance(packet, dict):
+        raise ValueError("host packet must be an object")
+    return {key: packet[key] for key in _V1_PACKET_KEYS if key in packet}
+
+
+def negotiate_packet_version(packet: dict[str, Any]) -> int:
+    """Fail closed on unknown host packet major versions (Stage 5)."""
+    if not isinstance(packet, dict):
+        raise ValueError("host packet must be an object")
+    version = packet.get("packet_version", 1)
+    if version not in _SUPPORTED_PACKET_MAJORS:
+        raise ValueError(f"unsupported host packet version: {version!r}")
+    return int(version)
+
+
+def _packet_v2_sections(
+    document: dict[str, Any], investigation: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build the additive v2 evidence sections (Stage 5).
+
+    Paths, hashes, relation kinds, and role labels only — never source
+    bodies, credentials, or untrusted instructions.
+    """
+    candidates = [row for row in document.get("candidates", []) if isinstance(row, dict)]
+    edges = [row for row in document.get("edges", []) if isinstance(row, dict)]
+    candidate_by_id = {
+        str(row.get("candidate_id")): row for row in candidates if row.get("candidate_id")
+    }
+    by_path = {str(row.get("path")): row for row in candidates if row.get("path")}
+    anchors = [
+        {"id": str(item.get("anchor_id", "")), "role": str(item.get("role", "")),
+         "path": str(item.get("path", ""))}
+        for item in investigation.get("anchors", [])
+        if isinstance(item, dict) and item.get("anchor_id") and item.get("path")
+    ]
+    anchor_paths = {item["path"] for item in anchors}
+    adjacency = candidate_edge_adjacency(edges, candidate_by_id)
+    reached: set[str] = set()
+    for path in anchor_paths:
+        reached.update(p for p in connected_files([path], adjacency) if p != path)
+    covered_roles = sorted({
+        item["role"] for item in anchors
+        if item["path"] in by_path or item["path"] in reached
+    })
+    cache_status = str(investigation.get("cache", {}).get("status", "not-checked"))
+    if cache_status == "missing":
+        state = "missing"
+    elif cache_status in {"fresh", "stale", "invalid"}:
+        base = "stale" if cache_status == "invalid" else cache_status
+        state = f"{base}-relevant" if covered_roles else f"{base}-insufficient"
+    else:
+        state = cache_status
+    graph_fingerprint = fingerprint({
+        "candidates": sorted((str(row.get("path", "")), str(row.get("candidate_id", ""))) for row in candidates),
+        "edges": sorted(str(row.get("edge_id", "")) for row in edges),
+    })
+    slice_fingerprint = fingerprint({
+        "anchors": sorted(item["id"] for item in anchors),
+        "coverage": covered_roles,
+    })
+    relationships = []
+    for row in edges:
+        frm = candidate_by_id.get(str(row.get("from_candidate_id", "")), {})
+        to = candidate_by_id.get(str(row.get("to_candidate_id", "")), {})
+        if isinstance(frm, dict) and isinstance(to, dict) and frm.get("path") and to.get("path"):
+            relationships.append({
+                "from": str(frm["path"]), "to": str(to["path"]), "kind": str(row.get("kind", "")),
+            })
+    relationships.sort(key=lambda row: (row["from"], row["to"], row["kind"]))
+    existing = [
+        {"path": path, "roles": [str(by_path[path].get("role", "unknown"))]}
+        for path in sorted(by_path) if by_path[path].get("status") == "included"
+    ]
+    conventions = []
+    for path in sorted(by_path):
+        codes = [str(code) for code in by_path[path].get("reason_codes", []) if "convention" in str(code)]
+        if codes and by_path[path].get("status") in {"included", "inspection-only"}:
+            conventions.append({"path": path, "reason": sorted(codes)[0]})
+    excluded = []
+    for path in sorted(by_path):
+        row = by_path[path]
+        if row.get("status") in {"excluded", "rejected"}:
+            codes = [str(code) for code in row.get("reason_codes", [])]
+            excluded.append({"path": path, "reason": sorted(codes)[0] if codes else str(row.get("status"))})
+    read_order = list(dict.fromkeys(
+        [row["path"] for row in existing]
+        + [row["path"] for row in conventions if row["path"] not in {item["path"] for item in existing}]
+    ))
+    doc_limits = document.get("limits", {}) if isinstance(document.get("limits"), dict) else {}
+    read_budget = {
+        "files_read": int(investigation.get("files_read", 0) or 0),
+        "max_files": int(doc_limits.get("initial_file_reads", 0) or 0)
+        + int(doc_limits.get("escalation_file_reads", 0) or 0),
+    }
+    cache_section = {
+        "state": state,
+        "graph_fingerprint": graph_fingerprint,
+        "slice_fingerprint": slice_fingerprint,
+        "coverage": covered_roles,
+    }
+    sections = {
+        "anchors": anchors,
+        "relationships": relationships,
+        "existing_candidates": existing,
+        "conventions": conventions,
+        "excluded_candidates": excluded,
+        "suggested_read_order": read_order,
+        "read_budget": read_budget,
+    }
+    return cache_section, sections
+
+
+def resolve_anchor_slice(
+    root: Path,
+    paths: Iterable[str],
+    literals: Iterable[str] = (),
+    coverage_required: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Build a lifecycle anchor slice from task-supported paths (Stage 5).
+
+    No discovery: only existing files from explicit paths plus path-like
+    quoted literals. Sensitive and non-file inputs are skipped.
+    """
+    anchors: dict[str, dict[str, Any]] = {}
+
+    def add(path: str, confidence: str, reason: str, evidence: list[str]) -> None:
+        anchor_id = f"anchor:entrypoint:{path}"
+        if anchor_id not in anchors:
+            anchors[anchor_id] = {
+                "anchor_id": anchor_id,
+                "role": "entrypoint",
+                "path": path,
+                "confidence": confidence,
+                "reason_codes": [reason],
+                "evidence_refs": {"seeds": evidence},
+            }
+
+    for value in paths:
+        normalized, rejection = normalize_repository_path(root, str(value))
+        if rejection or not normalized or sensitive_path_reason(normalized):
+            continue
+        if (root.resolve() / normalized).is_file():
+            add(normalized, "medium", "anchor-explicit-task-path", ["explicit-path"])
+    for value in literals:
+        normalized, rejection = normalize_repository_path(root, str(value))
+        if rejection or not normalized or sensitive_path_reason(normalized):
+            continue
+        if (root.resolve() / normalized).is_file():
+            add(normalized, "high", "anchor-exact-task-reference", ["exact-phrase-in-bounded-body"])
+    ordered = sorted(anchors.values(), key=lambda row: (row["role"], row["path"]))
+    return anchor_slice(ordered, coverage_required=coverage_required)
+_CONVENTION_INTEGRATION_KINDS = {"imports-module", "loads-module", "registered-by", "configures-owner"}
+_CONVENTION_INTEGRATION_REASONS = {"static-configuration-reference", "static-registration-reference"}
+
+_NEW_PATH_DECISION = "host-proposed-new-path"
+
+
+def _convention_link_present(
+    candidates: dict[str, Any],
+    edges: dict[str, Any],
+    anchor_paths: list[str],
+    convention_refs: list[str],
+) -> bool:
+    """Check a proposed new path links to convention or integration evidence (Stage 2)."""
+    for ref in convention_refs:
+        edge = edges.get(ref, {})
+        if edge.get("kind") in _CONVENTION_INTEGRATION_KINDS:
+            return True
+        if edge.get("reason") in _CONVENTION_INTEGRATION_REASONS or "convention" in str(edge.get("reason", "")):
+            return True
+    for anchor in anchor_paths:
+        reason_codes = candidates.get(anchor, {}).get("reason_codes", [])
+        if any("convention" in str(code) for code in reason_codes):
+            return True
+    return False
 
 
 def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
@@ -2963,6 +3421,10 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
     observed_packet_fingerprint = packet_body.pop("packet_fingerprint", None)
     if not isinstance(observed_packet_fingerprint, str) or fingerprint(packet_body) != observed_packet_fingerprint:
         errors.append("host-evidence-packet-integrity-invalid")
+    try:
+        negotiate_packet_version(packet)
+    except ValueError:
+        errors.append("unsupported-packet-version")
     if proposal.get("schema_version") != "2" or proposal.get("type") != "tailtrail-navigator-host-scope-proposal":
         errors.append("host-proposal-contract-version-invalid")
     proposal_fields = {
@@ -3042,9 +3504,10 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
             "path_claims", "preservation_boundaries", "evidence_edge_ids",
             "confidence", "decision_reasons", "alternatives", "uncertainties",
         }
+        requirement_optional_fields = {"proposed_new_path", "anchor_paths", "convention_refs"}
         if requirement_fields - set(row):
             errors.append("requirement-proposal-required-fields-missing")
-        if set(row) - requirement_fields:
+        if set(row) - requirement_fields - requirement_optional_fields:
             errors.append("requirement-proposal-additional-fields-rejected")
         requirement_id = str(row.get("requirement_id", ""))
         expected_statement = packet_requirements.get(requirement_id, {}).get("statement_fingerprint")
@@ -3060,6 +3523,59 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
         uncertainties = [str(value) for value in row.get("uncertainties", []) if str(value).strip()]
         decision_reasons = [str(value) for value in row.get("decision_reasons", []) if str(value).strip()]
         preservation = [str(value) for value in row.get("preservation_boundaries", []) if str(value).strip()]
+        raw_new_path = row.get("proposed_new_path")
+        if "anchor_paths" in row and not isinstance(row.get("anchor_paths"), list):
+            errors.append(f"{requirement_id}:anchor-paths-invalid")
+        if "convention_refs" in row and not isinstance(row.get("convention_refs"), list):
+            errors.append(f"{requirement_id}:convention-refs-invalid")
+        anchor_paths = (
+            sorted(dict.fromkeys(
+                str(value).replace("\\", "/") for value in row.get("anchor_paths", [])
+                if isinstance(value, str) and str(value).strip()
+            )) if isinstance(row.get("anchor_paths"), list) else []
+        )
+        convention_refs = (
+            sorted(dict.fromkeys(str(value) for value in row.get("convention_refs", []) if isinstance(value, str)))
+            if isinstance(row.get("convention_refs"), list) else []
+        )
+        has_new_path_fields = "proposed_new_path" in row or "anchor_paths" in row or "convention_refs" in row
+        new_path: str | None = None
+        new_path_decision = "existing-candidate"
+        if has_new_path_fields:
+            new_path_decision = _NEW_PATH_DECISION
+            if not isinstance(raw_new_path, str) or not raw_new_path.strip():
+                errors.append(f"{requirement_id}:invalid-proposed-path")
+            else:
+                normalized_new, path_rejection = normalize_repository_path(root, raw_new_path.strip())
+                if path_rejection:
+                    errors.append(f"{requirement_id}:invalid-proposed-path:{path_rejection}")
+                elif sensitive_path_reason(normalized_new or ""):
+                    errors.append(f"{requirement_id}:sensitive-proposed-path")
+                elif (normalized_new or "") in candidates:
+                    errors.append(f"{requirement_id}:proposed-path-already-candidate")
+                else:
+                    new_path = normalized_new
+            if owners:
+                errors.append(f"{requirement_id}:new-path-cannot-claim-owner")
+            if not anchor_paths:
+                errors.append(f"{requirement_id}:anchor-paths-required")
+            for anchor in anchor_paths:
+                anchor_candidate = candidates.get(anchor)
+                if anchor_candidate is None:
+                    errors.append(f"{requirement_id}:unknown-anchor-path:{anchor}")
+                elif anchor_candidate.get("status") != "included":
+                    errors.append(f"{requirement_id}:anchor-not-included:{anchor}")
+            if anchor_paths and not set(anchor_paths).issubset(set(inspection)):
+                errors.append(f"{requirement_id}:anchor-missing-inspection-claim")
+            if not convention_refs:
+                errors.append(f"{requirement_id}:convention-refs-required")
+            for ref in convention_refs:
+                if ref not in edges:
+                    errors.append(f"{requirement_id}:unknown-convention-ref:{ref}")
+                elif ref not in references:
+                    errors.append(f"{requirement_id}:convention-ref-not-evidenced:{ref}")
+            if convention_refs and not _convention_link_present(candidates, edges, anchor_paths, convention_refs):
+                errors.append(f"{requirement_id}:convention-link-missing")
         claims = row.get("path_claims", [])
         if not isinstance(claims, list):
             claims = []
@@ -3114,9 +3630,9 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
                 errors.append(f"{requirement_id}:unsupported-owner:{owner}")
             if owner not in eligible_owner_paths:
                 errors.append(f"{requirement_id}:owner-not-host-eligible:{owner}")
-        if scope_state == "proposed-resolved" and not owners:
+        if scope_state == "proposed-resolved" and not owners and new_path_decision != _NEW_PATH_DECISION:
             errors.append(f"{requirement_id}:resolved-without-owner")
-        if scope_state == "proposed-resolved" and len(owners) != 1:
+        if scope_state == "proposed-resolved" and len(owners) != 1 and new_path_decision != _NEW_PATH_DECISION:
             errors.append(f"{requirement_id}:resolved-owner-must-be-singular")
         confidence = str(row.get("confidence", "none"))
         if confidence not in {"none", "low", "medium", "high"}:
@@ -3167,7 +3683,10 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
             ):
                 errors.append(f"{requirement_id}:path-claim-edge-unsupported:{path}")
             claim_edge_union.update(claim_edges)
-        if claim_edge_union != set(references):
+        covered_edges = set(claim_edge_union)
+        if new_path_decision == _NEW_PATH_DECISION:
+            covered_edges |= set(convention_refs) & set(edges)
+        if covered_edges != set(references):
             errors.append(f"{requirement_id}:evidence-edge-claim-coverage-mismatch")
 
         role_expectations = (
@@ -3200,6 +3719,10 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
             "decision_reasons": decision_reasons,
             "alternatives": alternatives,
             "uncertainties": uncertainties,
+            "proposed_new_path": new_path,
+            "anchor_paths": anchor_paths,
+            "convention_refs": convention_refs,
+            "decision": new_path_decision,
         })
     normalized = {
         "schema_version": "2",
@@ -3245,30 +3768,45 @@ def record_host_proposal(root: Path, document: dict[str, Any], proposal: dict[st
             for row in proposed_by_requirement.values()
             for path in row["implementation_owners"]
         }
+        owner_selected = bool(selected_paths)
         eligible_paths = {
             str(row.get("path"))
             for row in packet.get("route", {}).get("eligible_candidates", [])
             if isinstance(row, dict)
         }
-        candidates = []
-        for source in updated.get("candidates", []):
-            candidate = dict(source)
-            path = str(candidate.get("path", ""))
-            reasons = list(candidate.get("reason_codes", []))
-            if path in selected_paths:
-                candidate["status"] = "included"
-                reasons.append("host-evidence-supported-selection")
-            elif path in eligible_paths:
-                candidate["status"] = "inspection-only"
-                reasons.append("host-supported-alternative-not-selected")
-            candidate["reason_codes"] = sorted(dict.fromkeys(reasons))
-            candidates.append(candidate)
-        updated["candidates"] = candidates
+        if owner_selected:
+            candidates = []
+            for source in updated.get("candidates", []):
+                candidate = dict(source)
+                path = str(candidate.get("path", ""))
+                reasons = list(candidate.get("reason_codes", []))
+                if path in selected_paths:
+                    candidate["status"] = "included"
+                    reasons.append("host-evidence-supported-selection")
+                elif path in eligible_paths:
+                    candidate["status"] = "inspection-only"
+                    reasons.append("host-supported-alternative-not-selected")
+                candidate["reason_codes"] = sorted(dict.fromkeys(reasons))
+                candidates.append(candidate)
+            updated["candidates"] = candidates
         for requirement in updated.get("requirements", []):
             if not isinstance(requirement, dict):
                 continue
             selected = proposed_by_requirement.get(str(requirement.get("requirement_id")))
             if selected is None:
+                continue
+            if selected.get("decision") == _NEW_PATH_DECISION:
+                requirement["host_proposed_new_path"] = {
+                    "path": selected["proposed_new_path"],
+                    "anchor_paths": list(selected["anchor_paths"]),
+                    "convention_refs": list(selected["convention_refs"]),
+                    "decision": _NEW_PATH_DECISION,
+                }
+                requirement["reason_codes"] = sorted(dict.fromkeys(
+                    [*requirement.get("reason_codes", []), _NEW_PATH_DECISION]
+                ))
+                continue
+            if not owner_selected:
                 continue
             requirement["implementation_owners"] = list(selected["implementation_owners"])
             requirement["inspection_paths"] = sorted(dict.fromkeys([
@@ -3279,13 +3817,14 @@ def record_host_proposal(root: Path, document: dict[str, Any], proposal: dict[st
             requirement["scope_state"] = "resolved"
             requirement["confidence"] = "high"
             requirement["reason_codes"] = ["host-evidence-supported-owner-resolved"]
-        updated["state"] = "resolved"
-        investigation = dict(updated.get("investigation", {}))
-        investigation["state"] = "resolved"
-        investigation["stop_reason"] = "host-evidence-supported-owner-resolved"
-        investigation["decision_reason"] = "host-evidence-supported-owner-resolved"
-        investigation["resolution_failure_reason"] = None
-        updated["investigation"] = investigation
+        if owner_selected:
+            updated["state"] = "resolved"
+            investigation = dict(updated.get("investigation", {}))
+            investigation["state"] = "resolved"
+            investigation["stop_reason"] = "host-evidence-supported-owner-resolved"
+            investigation["decision_reason"] = "host-evidence-supported-owner-resolved"
+            investigation["resolution_failure_reason"] = None
+            updated["investigation"] = investigation
     updated["host_reasoning"] = {
         "state": "recorded" if validation["status"] == "accepted" else "rejected",
         "proposal": {

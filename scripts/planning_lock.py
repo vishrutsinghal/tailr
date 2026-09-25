@@ -38,6 +38,26 @@ def load_module(name: str, filename: str) -> Any:
     return module
 
 
+def _record_decision(
+    root: Path,
+    run_id: str,
+    verb: str,
+    decision: str,
+    rationale: str | None = None,
+    prior_state: str | None = None,
+    resulting_state: str | None = None,
+) -> None:
+    """Append a typed host decision; recording never blocks the verb itself."""
+    try:
+        decisions = load_module("planning_lock_host_decision", "host-decision.py")
+        decisions.record(
+            root, run_id, verb, decision, rationale=rationale,
+            prior_state=prior_state, resulting_state=resulting_state,
+        )
+    except OSError:
+        pass
+
+
 def _display_prose(value: Any) -> str:
     """Normalize host-escaped prose without mutating canonical artifacts."""
     text = re.sub(r"\\(?:r\\n|n|r)", " ", str(value))
@@ -596,7 +616,7 @@ def enrich_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict
     return {"artifact": path.relative_to(root).as_posix(), "run_id": run_id}
 
 
-def approve(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
+def approve(root: Path, run_id: str, approved: bool, rationale: str | None = None, record_decision: bool = True) -> dict[str, Any]:
     if approved is not True:
         raise ValueError(f"planning approval requires --approved; run `tailtrail planning approve --root . --run-id {run_id} --approved`")
     root = root.resolve()
@@ -613,6 +633,9 @@ def approve(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     payload.pop("artifact", None)
     L.atomic_json(path, payload)
     L.append_event(root, run_id, "planning_lock_approved", {"artifact": path.relative_to(L.state_dir(root, run_id)).as_posix(), "writes_allowed": True})
+    if record_decision:
+        _record_decision(root, run_id, "approve", "approved", rationale=rationale,
+                         prior_state="awaiting-approval", resulting_state="approved")
     return show(root, run_id)
 
 
@@ -1158,6 +1181,12 @@ def record_feedback(root: Path, run_id: str, feedback_json: str) -> dict[str, An
         L.atomic_json(proposal_path, proposal)
         anchor.draft(root, run_id, proposal_path)
     result = anchor.feedback(root, run_id, feedback_json)
+    rejected = [str(uid) for uid in result.get("rejected_requirement_uids", [])]
+    _record_decision(
+        root, run_id, "revise", "feedback-recorded",
+        rationale=(f"rejected {len(rejected)} requirement(s): {', '.join(sorted(set(rejected)))}"
+                   if rejected else "no requirements rejected"),
+    )
     payload = {
         "run_id": run_id,
         "state": "revision-required" if result["rejected_requirement_uids"] else "ready-for-approval",
@@ -1751,7 +1780,7 @@ def render_feedback_template(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
+def activate(root: Path, run_id: str, approved: bool, rationale: str | None = None, record_decision: bool = True) -> dict[str, Any]:
     """Approve a saved Start report and create its required immutable anchor.
 
     Lean tasks retain the lightweight Planning Lock only. Guided-delivery and
@@ -1780,7 +1809,11 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         raise ValueError(f"Enterprise target policy blocks activation for run `{run_id}`: {policy_check.get('reason', '; '.join(policy_check.get('issues', [])))} (resolve the policy issue, then re-check with `tailtrail planning show --root . --run-id {run_id}`)")
     if debug_orientation:
         module = load_module("tailtrail_debug_reproduction_bridge", "debug-reproduction.py")
-        return module.approve_start_plan_and_draft(root, run_id)
+        result = module.approve_start_plan_and_draft(root, run_id)
+        if record_decision:
+            _record_decision(root, run_id, "activate", "approved", rationale=rationale,
+                             resulting_state="debug-plan-only")
+        return result
     authority_scope = (saved_report.get("navigator", {}) or {}).get("authority_scope") if isinstance(saved_report, dict) else None
     if isinstance(authority_scope, dict) and authority_scope.get("blocking") is not False:
         missing = ", ".join(authority_scope.get("unresolved_requirement_ids", [])) or "unknown"
@@ -1803,6 +1836,9 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         revision = L.state_dir(root, run_id) / "planning" / "official-aidlc-revised-requirements-v1.json"
         if not revision.is_file():
             raise ValueError("Full AIDLC requires answers and explicit official Requirements Analysis approval before TailTrail can freeze the anchor; run `tailtrail planning aidlc-cycle --root . --run-id <run-id> --answers '<json>'`, then approve")
+        if record_decision:
+            _record_decision(root, run_id, "activate", "approved", rationale=rationale,
+                             resulting_state="official-aidlc-requirements")
         return approve_official_aidlc_requirements(root, run_id, True)
     hands_free = bool((saved_report.get("guided_delivery", {}) if isinstance(saved_report, dict) else {}).get("hands_free_program"))
     stage_path = L.state_dir(root, run_id) / "planning" / "aidlc-requirements-v1.json"
@@ -1822,6 +1858,9 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
             revision = _aidlc_requirements_module().revise(stage_document, answers)
             L.atomic_json(revision_path, {"schema_version": "1", "type": "tailtrail-aidlc-revised-requirements", "run_id": run_id, "source_boundary": stage_document["source_boundary"], **revision})
             L.append_event(root, run_id, "aidlc_recommendations_accepted", {"revision": revision_path.relative_to(root).as_posix(), "question_ids": [item["question_id"] for item in answers]})
+        if record_decision:
+            _record_decision(root, run_id, "activate", "approved", rationale=rationale,
+                             resulting_state="aidlc-requirements")
         return approve_aidlc_requirements(root, run_id, True)
     proposal = _proposal_from_start_report(root, run_id)
     anchor_result: dict[str, Any] | None = None
@@ -1841,7 +1880,7 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     if anchor_result and isinstance(source, dict):
         spec_kit_slice_result = spec_kit_slices().initialize(root, run_id)
         spec_kit_evidence_result = spec_kit_evidence().plan(root, run_id)
-    lock = current if current["status"] == "approved" else approve(root, run_id, True)
+    lock = current if current["status"] == "approved" else approve(root, run_id, True, record_decision=False)
     anchor_state = anchor_result or {"status": "not-required", "reason": "lean Start runs do not create canonical requirement state"}
     workflow_runtime = workflow_start_integration().activate(root, run_id, saved_report, str(anchor_result["artifact"]) if anchor_result and anchor_result.get("artifact") else None)
     handoff: dict[str, Any] | None = None
@@ -1917,6 +1956,9 @@ def activate(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
         "enterprise_policy_status": policy_check["status"],
         "workflow_runtime": workflow_runtime.get("state"),
     })
+    if record_decision:
+        _record_decision(root, run_id, "activate", "approved", rationale=rationale,
+                         prior_state="awaiting-approval", resulting_state="execution-ready")
     return {
         "planning_lock": lock,
         "anchor": anchor_state,
@@ -1974,10 +2016,12 @@ def main() -> int:
     approve_parser.add_argument("--root", type=Path, default=Path.cwd())
     approve_parser.add_argument("--run-id", required=True)
     approve_parser.add_argument("--approved", action="store_true")
+    approve_parser.add_argument("--rationale", default=None, help="Optional host rationale recorded with the approval decision.")
     activate_parser = sub.add_parser("activate", help="Approve the saved Start report and create its required requirement anchor.")
     activate_parser.add_argument("--root", type=Path, default=Path.cwd())
     activate_parser.add_argument("--run-id", required=True)
     activate_parser.add_argument("--approved", action="store_true")
+    activate_parser.add_argument("--rationale", default=None, help="Optional host rationale recorded with the activation decision.")
     activate_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
     feedback_template_parser = sub.add_parser("feedback-template", help="Show mandatory requirement-by-requirement feedback for a rejected Start plan.")
     feedback_template_parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -2026,9 +2070,9 @@ def main() -> int:
             roles = target_workspace().input_roles(args.root, reference_roots=args.reference_root, related_repos=args.related_repo, design_references=args.design_reference, requirement_artifacts=args.requirement_artifact, evidence_artifacts=args.evidence_artifact)
             payload = create(args.root, args.goal, args.run_id, args.reference_root, input_roles=roles)
         elif args.command == "approve":
-            payload = approve(args.root, args.run_id, args.approved)
+            payload = approve(args.root, args.run_id, args.approved, rationale=args.rationale)
         elif args.command == "activate":
-            payload = activate(args.root, args.run_id, args.approved)
+            payload = activate(args.root, args.run_id, args.approved, rationale=args.rationale)
         elif args.command == "feedback-template":
             payload = feedback_template(args.root, args.run_id)
         elif args.command == "feedback":

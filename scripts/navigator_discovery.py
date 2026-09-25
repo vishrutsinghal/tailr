@@ -335,11 +335,13 @@ def bounded_review_graph_paths(changed: list[str]) -> list[str]:
     return selected
 
 
-def run_review_graph(root: Path, changed: list[str]) -> dict[str, Any] | None:
+def run_review_graph(root: Path, changed: list[str], capture: bool = True) -> dict[str, Any] | None:
     graph_paths = bounded_review_graph_paths(changed)
     if not graph_paths:
         return None
     command = [PYTHON, (ROOT / "scripts" / "review-graph.py").as_posix(), "--root", root.as_posix(), "--format", "json"]
+    if not capture:
+        command.append("--no-capture")
     for item in graph_paths:
         command.extend(["--changed", item])
     result = subprocess.run(command, cwd=root, text=True, capture_output=True, check=False)

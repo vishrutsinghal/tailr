@@ -5,6 +5,7 @@ Run: python -m unittest tests.test_code_graph_cache -v
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import json
 import sys
@@ -18,6 +19,15 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
 import code_graph_cache as cgc  # noqa: E402
+
+
+def _load_mapper():
+    spec = importlib.util.spec_from_file_location(
+        "stage0a_code_graph_mapper", REPO / "scripts" / "code-graph-mapper.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 AUTH_PY = '''"""Auth module."""
@@ -163,7 +173,7 @@ class LifecycleCliTests(unittest.TestCase):
         data, _ = cgc.load(cgc.default_cache_path(self.root))
         self.assertEqual(data["files"], {})
 
-    def test_mapper_shaped_cache_is_reported_not_touched(self) -> None:
+    def test_mapper_shaped_cache_is_reported_and_preserved_on_clear(self) -> None:
         path = cgc.default_cache_path(self.root)
         path.write_text(
             json.dumps({"schema_version": "1", "scope": ["src/keep.py"],
@@ -174,10 +184,161 @@ class LifecycleCliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("mapper-shaped", text)
         code, _ = self._run("clear")
-        self.assertEqual(code, 2)
+        self.assertEqual(code, 0)
         raw = json.loads(path.read_text(encoding="utf-8"))
-        self.assertEqual(raw["schema_version"], "1")
-        self.assertEqual(len(raw["graph"]["symbols"]), 1)
+        self.assertEqual(raw["schema_version"], 2)
+        self.assertEqual(raw["sections"]["mapper_graph"]["graph"]["symbols"], [{"file": "src/keep.py"}])
+        self.assertEqual(raw["sections"]["phase1_files"]["files"], {})
+
+
+class Stage0bContainerTests(unittest.TestCase):
+    """Stage 0b: one v2 container, two sections; writers preserve each other."""
+
+    MAPPER_PAYLOAD = {
+        "schema_version": "1",
+        "graph_mode": "review",
+        "scope": ["src/keep.py"],
+        "source_files": {"src/keep.py": {"sha256": "x", "mtime": 0, "size": 1}},
+        "graph": {"symbols": [{"file": "src/keep.py"}]},
+    }
+    PHASE1_ENTRY = {
+        "last_read": None,
+        "symbols": ["keep"],
+        "endpoints": [],
+        "imports": [],
+        "size_bytes": 10,
+    }
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "src").mkdir()
+        (self.root / "src" / "keep.py").write_text("def keep():\n    return 1\n", encoding="utf-8")
+        self.cache_path = self.root / ".tailtrail" / "code-graph-cache.json"
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        self.mapper = _load_mapper()
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _write(self, payload: dict) -> bytes:
+        raw = (json.dumps(payload, indent=2) + "\n").encode("utf-8")
+        self.cache_path.write_bytes(raw)
+        return raw
+
+    def _phase1_payload(self) -> dict:
+        return {"version": 1, "last_updated": None, "files": {"src/keep.py": dict(self.PHASE1_ENTRY)}}
+
+    def test_phase1_load_still_surfaces_mapper_shape_mismatch(self) -> None:
+        self._write(dict(self.MAPPER_PAYLOAD))
+        data, error = cgc.load(self.cache_path)
+        self.assertTrue(str(error).startswith("shape-mismatch"))
+        self.assertEqual(data["files"], {})
+
+    def test_phase1_save_migrates_mapper_file_to_container(self) -> None:
+        self._write(dict(self.MAPPER_PAYLOAD))
+        cgc.save(self.cache_path, cgc.empty_cache())
+        raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["schema_version"], 2)
+        self.assertEqual(raw["sections"]["mapper_graph"]["graph"]["symbols"], [{"file": "src/keep.py"}])
+        self.assertEqual(raw["sections"]["phase1_files"]["files"], {})
+
+    def test_phase1_update_merges_into_mapper_file(self) -> None:
+        self._write(dict(self.MAPPER_PAYLOAD))
+        summary = cgc.update(self.root, ["src/keep.py"], path=self.cache_path)
+        self.assertEqual(summary["updated"], 1)
+        self.assertEqual(summary["errors"], [])
+        raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["schema_version"], 2)
+        self.assertIn("src/keep.py", raw["sections"]["phase1_files"]["files"])
+        self.assertEqual(raw["sections"]["mapper_graph"]["graph"]["symbols"], [{"file": "src/keep.py"}])
+
+    def test_invalidate_on_mapper_only_file_changes_nothing(self) -> None:
+        before = self._write(dict(self.MAPPER_PAYLOAD))
+        self.assertEqual(cgc.invalidate(self.cache_path, ["src/keep.py"]), 0)
+        self.assertEqual(self.cache_path.read_bytes(), before)
+
+    def test_mapper_load_on_phase1_file_reports_missing_section(self) -> None:
+        before = self._write(self._phase1_payload())
+        cache, error = self.mapper.load_cache(self.cache_path)
+        self.assertIsNone(cache)
+        self.assertIn("mapper_graph", str(error))
+        self.assertEqual(self.cache_path.read_bytes(), before)
+
+    def test_mapper_status_on_phase1_file_leaves_bytes_unchanged(self) -> None:
+        before = self._write(self._phase1_payload())
+        status = self.mapper.status_for(self.root, self._phase1_payload(), ["src/keep.py"])
+        self.assertEqual(status["status"], "invalid")
+        self.assertTrue(any("mapper_graph" in str(item) for item in status["reasons"]))
+        self.assertEqual(self.cache_path.read_bytes(), before)
+
+    def test_mapper_write_migrates_phase1_file_to_container(self) -> None:
+        self._write(self._phase1_payload())
+        graph = self.mapper.build_graph(self.root, ["src/keep.py"], "review", [], 5)
+        self.mapper.write_cache(self.cache_path, graph)
+        raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["schema_version"], 2)
+        self.assertEqual(raw["sections"]["phase1_files"]["files"]["src/keep.py"]["symbols"], ["keep"])
+        self.assertIn("src/keep.py", raw["sections"]["mapper_graph"]["scope"])
+
+    def test_both_writers_round_trip_without_loss(self) -> None:
+        cgc.update(self.root, ["src/keep.py"], path=self.cache_path)
+        graph = self.mapper.build_graph(self.root, ["src/keep.py"], "review", [], 5)
+        self.mapper.write_cache(self.cache_path, graph)
+        cgc.update(self.root, ["src/keep.py"], path=self.cache_path)
+        raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["schema_version"], 2)
+        self.assertIn("src/keep.py", raw["sections"]["phase1_files"]["files"])
+        self.assertIn("src/keep.py", raw["sections"]["mapper_graph"]["scope"])
+        data, error = cgc.load(self.cache_path)
+        self.assertIsNone(error)
+        cache, error = self.mapper.load_cache(self.cache_path)
+        self.assertIsNone(error)
+        self.assertIsNotNone(cache)
+
+    def test_unified_reader_classifies_and_warns(self) -> None:
+        container, error = cgc.read_container(self.cache_path)
+        self.assertEqual(error, "missing")
+        self._write(self._phase1_payload())
+        container, error = cgc.read_container(self.cache_path)
+        self.assertIsNone(error)
+        self.assertEqual(container["kind"], "phase1")
+        self.assertTrue(container["warnings"])
+        self.assertIsNotNone(container["phase1_files"])
+        self.assertIsNone(container["mapper_graph"])
+        self._write(dict(self.MAPPER_PAYLOAD))
+        container, error = cgc.read_container(self.cache_path)
+        self.assertIsNone(error)
+        self.assertEqual(container["kind"], "mapper")
+        self.assertTrue(container["warnings"])
+        graph = self.mapper.build_graph(self.root, ["src/keep.py"], "review", [], 5)
+        self.mapper.write_cache(self.cache_path, graph)
+        container, error = cgc.read_container(self.cache_path)
+        self.assertIsNone(error)
+        self.assertEqual(container["kind"], "mapper")
+        self.assertIsNone(container["phase1_files"])
+        self.assertIsNotNone(container["mapper_graph"])
+        cgc.save(self.cache_path, cgc.empty_cache())
+        container, error = cgc.read_container(self.cache_path)
+        self.assertIsNone(error)
+        self.assertEqual(container["kind"], "combined")
+        self.assertFalse(container["warnings"])
+        self.assertIsNotNone(container["phase1_files"])
+        self.assertIsNotNone(container["mapper_graph"])
+
+    def test_unknown_top_level_keys_survive_section_writes(self) -> None:
+        payload = dict(self.MAPPER_PAYLOAD)
+        payload["custom_tool_state"] = {"pinned": True}
+        self._write(payload)
+        cgc.save(self.cache_path, cgc.empty_cache())
+        raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["sections"]["mapper_graph"]["custom_tool_state"], {"pinned": True})
+        raw["tool_note"] = "keep-me"
+        self.cache_path.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+        cgc.update(self.root, ["src/keep.py"], path=self.cache_path)
+        raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["tool_note"], "keep-me")
+        self.assertEqual(raw["sections"]["mapper_graph"]["custom_tool_state"], {"pinned": True})
 
 
 if __name__ == "__main__":

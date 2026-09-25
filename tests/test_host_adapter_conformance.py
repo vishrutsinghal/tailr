@@ -70,6 +70,23 @@ def host_proposal(packet: dict, host: str) -> dict:
 
 
 class HostAdapterConformanceTests(unittest.TestCase):
+    def test_scope_inspect_keeps_non_persisting_opt_out(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "src").mkdir()
+            (root / "src" / "calculator.py").write_text(
+                "def calculate_total(items):\n    return sum(items)\n", encoding="utf-8"
+            )
+            inspected = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                "navigator", "scope", "inspect", "--root", root.as_posix(),
+                "--goal", "fix the calculate_total bug",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+            self.assertEqual(inspected.returncode, 0, inspected.stderr)
+            self.assertIn("host_packet", json.loads(inspected.stdout))
+            self.assertFalse((root / ".tailtrail" / "code-graph-cache.json").exists())
+            self.assertFalse((root / "tailtrail-meta" / "code-graph-cache.json").exists())
+
     def test_fsr5_cli_mcp_and_hosts_share_proposal_validation_truth(self) -> None:
         fixture = json.loads((ROOT / "tests" / "fixtures" / "navigator-scope" / "typescript-genuine-renderer-ambiguity.json").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as temporary:

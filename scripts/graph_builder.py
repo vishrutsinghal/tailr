@@ -112,8 +112,10 @@ def commit_graph(
     if not warmed and target_files is None:
         found = code_graph_cache.find_cache(root_path)
         if found is not None:
-            data, _ = code_graph_cache.load(found)
-            warmed = sorted(data.get("files", {}))
+            container, _ = code_graph_cache.read_container(found)
+            phase1 = container["phase1_files"]
+            section_files = phase1.get("files", {}) if isinstance(phase1, dict) else {}
+            warmed = sorted(section_files) if isinstance(section_files, dict) else []
 
     scope = [item for item in (target_files or warmed) if item]
     if not scope:
@@ -121,7 +123,8 @@ def commit_graph(
 
     mode, limit = _DEPTH_PROFILES[depth]
     mapper = _mapper()
-    payload = mapper.build_graph(root_path, scope, mode, [], limit)
+    previous, _ = load_graph(root_path, write_shared)
+    payload = mapper.build_graph(root_path, scope, mode, [], limit, previous=previous)
     _apply_depth(payload, depth)
 
     errors = validate_payload(payload)

@@ -133,7 +133,7 @@ def approve(root: Path, run_id: str, revision: int, approved: bool) -> dict[str,
             report["official_aidlc_bridge"] = OFFICIAL_BRIDGE.create(root, run_id, str(report.get("goal", "")), mode="standard")
             LEDGER.atomic_json(output, {**snapshot, "report": report})
             requirements = LOCK.request_official_aidlc_requirements(root, run_id); report["aidlc_requirements"] = requirements; LEDGER.atomic_json(output, {**snapshot, "report": report}); result = {"state": requirements["state"], "aidlc_requirements": requirements}
-    else: result = {"state": "execution-ready", **LOCK.activate(root, run_id, True)}
+    else: result = {"state": "execution-ready", **LOCK.activate(root, run_id, True, record_decision=False)}
     LEDGER.append_event(root, run_id, "planning_feature_controls_approved", {"revision": revision, "artifact": proposed["artifact"] if "artifact" in proposed else output.relative_to(root).as_posix(), "features": [item["feature"] for item in proposed["changes"]]})
     return {"run_id": run_id, "revision": revision, "changes": proposed["changes"], "active_report": output.relative_to(root).as_posix(), **result}
 

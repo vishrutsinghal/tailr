@@ -1841,6 +1841,348 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
             self.assertTrue(result["execution_blocked"])
         self.assertFalse((self.root / ".tailtrail" / "runs").exists())
 
+    def test_proposed_new_path_accepts_anchor_and_convention_link(self) -> None:
+        evidence, packet, _ = self.ambiguous_host_case()
+        requirement = packet["requirements"][0]
+        candidates = {row["path"]: row for row in packet["candidates"]}
+        anchor = next(
+            row["path"] for row in packet["candidates"] if row.get("status") == "included"
+        )
+        convention_edge = next(
+            row["edge_id"] for row in packet["edges"]
+            if row.get("kind") in {"imports-module", "loads-module", "registered-by", "configures-owner"}
+            or "convention" in str(row.get("reason", ""))
+            or str(row.get("reason", "")) in {"static-configuration-reference", "static-registration-reference"}
+        )
+        anchor_claim = {
+            "path": anchor,
+            "candidate_id": candidates[anchor]["candidate_id"],
+            "content_fingerprint": candidates[anchor]["content_fingerprint"],
+            "claim_role": "inspection",
+            "evidence_edge_ids": candidates[anchor]["evidence_edge_ids"],
+        }
+        edge_ids = sorted(set(candidates[anchor]["evidence_edge_ids"]) | {convention_edge})
+        alternative = packet["route"]["eligible_candidates"][1]["path"]
+        proposal = {
+            "schema_version": "2",
+            "type": "tailtrail-navigator-host-scope-proposal",
+            "host": "codex",
+            "evidence_packet_fingerprint": packet["packet_fingerprint"],
+            "scope_evidence_fingerprint": packet["scope_evidence_fingerprint"],
+            "target_identity_fingerprint": packet["target_identity_fingerprint"],
+            "goal_fingerprint": packet["goal_fingerprint"],
+            "scope_state": "proposed-resolved",
+            "authority": "evidence-refinement-only",
+            "requirements": [{
+                "requirement_id": requirement["requirement_id"],
+                "statement_fingerprint": requirement["statement_fingerprint"],
+                "implementation_owners": [],
+                "callers": [],
+                "inspection_paths": [anchor],
+                "proof_paths": [],
+                "excluded_candidates": [row["path"] for row in requirement["excluded_candidates"]],
+                "path_claims": [anchor_claim],
+                "preservation_boundaries": ["Keep the proposed page out of the build until approved."],
+                "evidence_edge_ids": edge_ids,
+                "confidence": "medium",
+                "decision_reasons": ["Host proposes a new page anchored to included evidence with convention linkage."],
+                "alternatives": [alternative],
+                "uncertainties": [],
+                "proposed_new_path": "src/pages/NewPage.tsx",
+                "anchor_paths": [anchor],
+                "convention_refs": [convention_edge],
+            }],
+            "private_reasoning_excluded": True,
+        }
+        schema = load_json(HOST_PROPOSAL_SCHEMA_PATH)
+        self.assertEqual(contracts.validate_document(proposal, schema), [])
+        validation = navigator_scope.validate_host_proposal(self.root, packet, proposal)
+        self.assertEqual(validation["status"], "accepted", validation["errors"])
+        normalized = validation["normalized_proposal"]["requirements"][0]
+        self.assertEqual(normalized["decision"], "host-proposed-new-path")
+        self.assertEqual(normalized["proposed_new_path"], "src/pages/NewPage.tsx")
+        self.assertEqual(normalized["anchor_paths"], [anchor])
+        recorded = navigator_scope.record_host_proposal(self.root, evidence, proposal)
+        self.assertEqual(recorded["host_reasoning"]["state"], "recorded")
+        self.assertNotEqual(recorded["state"], "resolved")
+        marker = recorded["requirements"][0].get("host_proposed_new_path", {})
+        self.assertEqual(marker.get("path"), "src/pages/NewPage.tsx")
+        self.assertEqual(marker.get("decision"), "host-proposed-new-path")
+        self.assertTrue(navigator_scope.verify_decision_fingerprint(recorded))
+        self.assertEqual(
+            recorded["requirements"][0]["implementation_owners"],
+            evidence["requirements"][0]["implementation_owners"],
+        )
+        self.assertEqual(
+            recorded["requirements"][0].get("confidence"),
+            evidence["requirements"][0].get("confidence"),
+        )
+
+    def test_proposed_new_path_rejects_unsafe_unlinked_and_overprivileged(self) -> None:
+        evidence, packet, _ = self.ambiguous_host_case()
+        requirement = packet["requirements"][0]
+        candidates = {row["path"]: row for row in packet["candidates"]}
+        anchor = next(
+            row["path"] for row in packet["candidates"] if row.get("status") == "included"
+        )
+        edge_id = packet["edges"][0]["edge_id"]
+        alternative = packet["route"]["eligible_candidates"][1]["path"]
+
+        def row_with(**overrides: Any) -> dict[str, Any]:
+            base: dict[str, Any] = {
+                "requirement_id": requirement["requirement_id"],
+                "statement_fingerprint": requirement["statement_fingerprint"],
+                "implementation_owners": [],
+                "callers": [],
+                "inspection_paths": [anchor],
+                "proof_paths": [],
+                "excluded_candidates": [],
+                "path_claims": [{
+                    "path": anchor,
+                    "candidate_id": candidates[anchor]["candidate_id"],
+                    "content_fingerprint": candidates[anchor]["content_fingerprint"],
+                    "claim_role": "inspection",
+                    "evidence_edge_ids": candidates[anchor]["evidence_edge_ids"],
+                }],
+                "preservation_boundaries": ["Hold."],
+                "evidence_edge_ids": sorted(set(candidates[anchor]["evidence_edge_ids"]) | {edge_id}),
+                "confidence": "medium",
+                "decision_reasons": ["Hold."],
+                "alternatives": [alternative],
+                "uncertainties": [],
+                "proposed_new_path": "src/pages/NewPage.tsx",
+                "anchor_paths": [anchor],
+                "convention_refs": [edge_id],
+            }
+            base.update(overrides)
+            return base
+
+        def validate(row: dict[str, Any]) -> list[str]:
+            proposal = {
+                "schema_version": "2",
+                "type": "tailtrail-navigator-host-scope-proposal",
+                "host": "codex",
+                "evidence_packet_fingerprint": packet["packet_fingerprint"],
+                "scope_evidence_fingerprint": packet["scope_evidence_fingerprint"],
+                "target_identity_fingerprint": packet["target_identity_fingerprint"],
+                "goal_fingerprint": packet["goal_fingerprint"],
+                "scope_state": "needs-confirmation",
+                "authority": "evidence-refinement-only",
+                "requirements": [row],
+                "private_reasoning_excluded": True,
+            }
+            result = navigator_scope.validate_host_proposal(self.root, packet, proposal)
+            self.assertEqual(result["status"], "rejected")
+            return result["errors"]
+
+        self.assertTrue(any("invalid-proposed-path" in code for code in validate(row_with(proposed_new_path="../escape.tsx"))))
+        self.assertTrue(any("proposed-path-already-candidate" in code for code in validate(row_with(proposed_new_path=anchor))))
+        chosen = packet["route"]["eligible_candidates"][0]["path"]
+        self.assertTrue(any("new-path-cannot-claim-owner" in code for code in validate(row_with(implementation_owners=[chosen]))))
+        self.assertTrue(any("anchor-paths-required" in code for code in validate(row_with(anchor_paths=[]))))
+        self.assertTrue(any("unknown-anchor-path" in code for code in validate(row_with(
+            anchor_paths=["src/pages/Missing.tsx"],
+            inspection_paths=[anchor, "src/pages/Missing.tsx"],
+        ))))
+        self.assertTrue(any("unknown-convention-ref" in code for code in validate(row_with(convention_refs=["edge-000000000000"]))))
+        dense = row_with()
+        dense["confidence"] = "high"
+        self.assertTrue(any("confidence-promotion-rejected" in code for code in validate(dense)))
+
+    def test_convention_link_helper_grades_edges_and_anchors(self) -> None:
+        edges = {
+            "edge-000000000001": {"kind": "imports-module", "reason": "static-import-reference"},
+            "edge-000000000002": {"kind": "discovery-seed", "reason": "lexical-match"},
+        }
+        self.assertTrue(navigator_scope._convention_link_present({}, edges, [], ["edge-000000000001"]))
+        self.assertFalse(navigator_scope._convention_link_present({}, edges, [], ["edge-000000000002"]))
+        self.assertFalse(navigator_scope._convention_link_present({}, edges, [], ["edge-ffffffffffff"]))
+        candidates = {"src/a.py": {"reason_codes": ["test-path-convention"]}}
+        self.assertTrue(navigator_scope._convention_link_present(candidates, edges, ["src/a.py"], ["edge-000000000002"]))
+
+    def test_investigate_reports_role_labeled_anchors(self) -> None:
+        evidence, packet, _ = self.ambiguous_host_case()
+        candidates = {row["path"]: row for row in packet["candidates"]}
+        investigation = evidence["investigation"]
+        report_anchors = investigation.get("anchors", [])
+        self.assertTrue(report_anchors)
+        for anchor in report_anchors:
+            self.assertIn(anchor["role"], navigator_scope.ANCHOR_ROLES)
+            self.assertIn(anchor["confidence"], {"high", "medium", "low"})
+            self.assertTrue(anchor["evidence_refs"])
+            self.assertNotEqual(anchor["role"], "implementation-owner")
+        self.assertIn(investigation.get("anchor_state"), {"sufficient", "insufficient"})
+        self.assertEqual(
+            [],
+            contracts.validate_document(evidence, load_json(EVIDENCE_SCHEMA_PATH)),
+        )
+
+    def test_lexical_only_seeds_mint_no_anchors(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write("src/a.py", "def a():\n    return 1\n")
+            seeds = navigator_scope.candidates_from_seeds(
+                root, [navigator_scope.seed("src/a.py", "lexical-path", "lexical-path-match")]
+            )
+            _, _, report = navigator_scope.investigate(
+                root,
+                [{"requirement_id": "r1", "statement": "a", "query_terms": ["a"], "quoted_literals": []}],
+                seeds,
+                [],
+            )
+        self.assertEqual(report["anchors"], [])
+        self.assertEqual(report["anchor_state"], "insufficient")
+
+    def test_anchor_path_query_is_bounded_and_directed(self) -> None:
+        adjacency = {"a": ["b"], "b": ["c"], "c": ["a"]}
+        self.assertEqual(
+            navigator_scope.connected_files(["a"], adjacency, max_hops=1), ["a", "b"]
+        )
+        self.assertEqual(
+            navigator_scope.connected_files(["b"], adjacency, max_hops=1), ["b", "c"]
+        )
+        self.assertEqual(
+            navigator_scope.connected_files(["a"], adjacency, max_hops=10, limit=2), ["a", "b"]
+        )
+
+    def test_anchor_slice_contract_is_stable(self) -> None:
+        anchors = [
+            {"anchor_id": "anchor:entrypoint:src/a.py", "role": "entrypoint", "path": "src/a.py",
+             "confidence": "high", "reason_codes": ["anchor-exact-task-reference"], "evidence_refs": {}},
+        ]
+        first = navigator_scope.anchor_slice(anchors, coverage_required=["entrypoint"])
+        second = navigator_scope.anchor_slice(list(reversed(anchors)), coverage_required=["entrypoint"])
+        self.assertEqual(first["anchor_ids"], ["anchor:entrypoint:src/a.py"])
+        self.assertEqual(first["paths"], ["src/a.py"])
+        self.assertEqual(first["coverage_required"], ["entrypoint"])
+        self.assertEqual(first["fingerprint"], second["fingerprint"])
+
+    def test_host_packet_v2_is_superset_validated_and_sanitized(self) -> None:
+        evidence, packet, _ = self.ambiguous_host_case()
+        candidate_paths = {row["path"] for row in packet["candidates"]}
+        self.assertEqual(packet.get("packet_version"), 2)
+        for section in ("anchors", "relationships", "existing_candidates", "conventions",
+                        "excluded_candidates", "suggested_read_order", "read_budget", "cache"):
+            self.assertIn(section, packet)
+        for anchor in packet["anchors"]:
+            self.assertEqual(set(anchor), {"id", "role", "path"})
+        for rel in packet["relationships"]:
+            self.assertEqual(set(rel), {"from", "to", "kind"})
+            self.assertIn(rel["from"], candidate_paths)
+            self.assertIn(rel["to"], candidate_paths)
+        self.assertIn(packet["cache"]["state"],
+                      {"fresh-relevant", "fresh-insufficient", "stale-relevant", "stale-insufficient",
+                       "missing", "not-checked", "disabled", "invalid", "not-run"})
+        self.assertEqual(
+            [], contracts.validate_document(packet, load_json(ROOT / "schemas" / "navigator-host-scope-packet-v2.schema.json")),
+        )
+        dumped = json.dumps(packet)
+        self.assertNotIn("return True", dumped)
+        self.assertNotIn("SECRET", dumped)
+
+    def test_packet_v1_projection_is_byte_stable(self) -> None:
+        _, packet, _ = self.ambiguous_host_case()
+        projected = navigator_scope.packet_v1_projection(packet)
+        self.assertEqual(
+            set(projected),
+            {"schema_version", "type", "scope_evidence_fingerprint", "evidence_packet_fingerprint",
+             "target_identity_fingerprint", "goal_fingerprint", "requirements", "candidates",
+             "edges", "limits", "route", "instructions"},
+        )
+        for key, value in projected.items():
+            self.assertIs(value, packet[key])
+        self.assertNotIn("packet_version", projected)
+        with self.assertRaises(ValueError):
+            navigator_scope.packet_v1_projection(None)  # type: ignore[arg-type]
+
+    def test_packet_version_negotiation_fails_closed(self) -> None:
+        evidence, packet, proposal = self.ambiguous_host_case()
+        self.assertEqual(navigator_scope.negotiate_packet_version(packet), 2)
+        legacy = {key: value for key, value in packet.items() if key != "packet_version"}
+        self.assertEqual(navigator_scope.negotiate_packet_version(legacy), 1)
+        forged = dict(packet)
+        forged["packet_version"] = 99
+        body = {key: value for key, value in forged.items() if key != "packet_fingerprint"}
+        forged["packet_fingerprint"] = navigator_scope.fingerprint(body)
+        proposal = dict(proposal)
+        proposal["evidence_packet_fingerprint"] = forged["packet_fingerprint"]
+        validation = navigator_scope.validate_host_proposal(self.root, forged, proposal)
+        self.assertEqual(validation["status"], "rejected")
+        self.assertIn("unsupported-packet-version", validation["errors"])
+        with self.assertRaises(ValueError):
+            navigator_scope.negotiate_packet_version(None)  # type: ignore[arg-type]
+
+    def test_resolve_anchor_slice_uses_task_paths_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+            aslice = navigator_scope.resolve_anchor_slice(
+                root, ["src/a.py", "src/missing.py", "../escape.py", ".env"],
+                literals=["src/a.py", "not a path"],
+            )
+        self.assertEqual(aslice["paths"], ["src/a.py"])
+        self.assertEqual(aslice["coverage_required"], [])
+        empty = navigator_scope.resolve_anchor_slice(root, ["src/missing.py"])
+        self.assertEqual(empty["paths"], [])
+
+    def test_anchor_gap_yields_scope_qa_not_file_choice(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+            seeds = navigator_scope.candidates_from_seeds(
+                root, [navigator_scope.seed("src/a.py", "lexical-path", "lexical-path-match")]
+            )
+            candidates, edges, investigation = navigator_scope.investigate(
+                root,
+                [{"requirement_id": "r1", "statement": "fix the a bug",
+                  "query_terms": ["bug"], "quoted_literals": []}],
+                seeds,
+                [],
+            )
+            self.assertEqual(investigation["anchor_state"], "insufficient")
+            evidence = navigator_scope.evidence_document(
+                root, "fix the a bug",
+                [{"requirement_id": "r1", "statement": "fix the a bug",
+                  "query_terms": ["bug"], "quoted_literals": []}],
+                candidates, edges=edges, investigation=investigation,
+            )
+            quality = navigator_scope.assess_scope_quality(root, "fix the a bug", ["bug"], evidence)
+        self.assertEqual(quality["status"], "blocked")
+        self.assertEqual(quality["question"]["question_id"], "SCOPE-QA")
+        self.assertEqual(quality["question"]["options"], [])
+
+    def test_topology_roles_project_onto_exactly_one_candidate_role(self) -> None:
+        self.assertEqual(
+            set(navigator_scope.TOPOLOGY_TO_CANDIDATE_ROLES), set(navigator_scope.ANCHOR_ROLES)
+        )
+        for role in navigator_scope.ANCHOR_ROLES:
+            projected = navigator_scope.project_topology_role(role)
+            self.assertIsInstance(projected, str)
+            self.assertIn(projected, navigator_scope.ROLES)
+        with self.assertRaises(ValueError):
+            navigator_scope.project_topology_role("not-a-role")
+
+    def test_layout_roles_are_language_neutral(self) -> None:
+        cases = [
+            ("src/App.tsx", "implementation-owner"),
+            ("src/App.test.tsx", "test"),
+            ("src/handler.py", "implementation-owner"),
+            ("tests/test_handler.py", "test"),
+            ("worker/consumer.go", "implementation-owner"),
+            ("worker/consumer_test.go", "test"),
+            ("src/cli.ts", "implementation-owner"),
+            ("src/command.java", "implementation-owner"),
+            ("deploy/app.yaml", "configuration"),
+            ("docs/guide.md", "documentation"),
+            ("package.json", "manifest"),
+        ]
+        for relative, expected in cases:
+            self.write(relative, "placeholder\n")
+            role, _ = navigator_scope.classify_repository_role(self.root, relative)
+            self.assertEqual(role, expected, relative)
+
     def test_scope_cli_is_non_persisting_and_uses_the_same_evidence(self) -> None:
         fixture = load_json(FIXTURE_ROOT / "wrong-file-selection.json")
         for relative, body in fixture["repository_files"].items():

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/navigator-host-scope-packet-v2.schema.json",
+  "title": "TailTrail Navigator Host Scope Packet v2",
+  "description": "Strict superset of the v1 host scope packet. Every v1 field is byte-stable; v2 sections are additive and source-body-free.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "scope_evidence_fingerprint",
+    "evidence_packet_fingerprint",
+    "target_identity_fingerprint",
+    "goal_fingerprint",
+    "requirements",
+    "candidates",
+    "edges",
+    "limits",
+    "route",
+    "instructions",
+    "packet_version",
+    "cache",
+    "anchors",
+    "relationships",
+    "existing_candidates",
+    "conventions",
+    "excluded_candidates",
+    "suggested_read_order",
+    "read_budget",
+    "packet_fingerprint"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-navigator-host-scope-packet" },
+    "scope_evidence_fingerprint": { "type": "string", "minLength": 1 },
+    "evidence_packet_fingerprint": { "type": ["string", "null"] },
+    "target_identity_fingerprint": { "type": "string", "minLength": 1 },
+    "goal_fingerprint": { "type": "string", "minLength": 1 },
+    "requirements": { "type": "array" },
+    "candidates": { "type": "array" },
+    "edges": { "type": "array" },
+    "limits": { "type": "object" },
+    "route": { "type": "object" },
+    "instructions": { "type": "object" },
+    "packet_version": { "const": 2 },
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "graph_fingerprint", "slice_fingerprint", "coverage"],
+      "properties": {
+        "state": { "type": "string", "minLength": 1 },
+        "graph_fingerprint": { "type": "string", "minLength": 1 },
+        "slice_fingerprint": { "type": "string", "minLength": 1 },
+        "coverage": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "anchors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role", "path"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "role": { "enum": ["entrypoint", "orchestrator", "domain-owner", "integration-owner", "verification-owner", "convention-owner"] },
+          "path": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "kind"],
+        "properties": {
+          "from": { "type": "string", "minLength": 1 },
+          "to": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "existing_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "roles"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "roles": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "conventions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "excluded_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "suggested_read_order": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "read_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files_read", "max_files"],
+      "properties": {
+        "files_read": { "type": "integer", "minimum": 0 },
+        "max_files": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "packet_fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

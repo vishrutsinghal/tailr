@@ -91,6 +91,28 @@ class CommitPromptTests(unittest.TestCase):
         self.assertEqual(report["decision"], "no")
         self.assertTrue(report["recent_commit"])
 
+    def test_mapper_scope_found_inside_v2_container(self) -> None:
+        meta = self.root / "tailtrail-meta"
+        meta.mkdir()
+        (meta / "code-graph-cache.json").write_text(
+            json.dumps({
+                "schema_version": 2,
+                "sections": {
+                    "phase1_files": {"version": 1, "last_updated": None, "files": {}},
+                    "mapper_graph": {
+                        "schema_version": "1",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "scope": ["src/linked.py"],
+                        "graph": {"symbols": []},
+                    },
+                },
+            }),
+            encoding="utf-8",
+        )
+        report = cp.assess(self.root, ["src/linked.py", "src/base.py"])
+        self.assertEqual(report["decision"], "no")
+        self.assertTrue(report["recent_commit"])
+
     def test_related_unread_surfaces_linked_files(self) -> None:
         report = cp.assess(self.root, ["src/linked.py"])
         self.assertIn("src/base.py", report["related_unread"])

@@ -180,8 +180,8 @@ def existing_state(root: Path) -> dict[str, bool]:
     }
 
 
-def run_review_graph(root: Path, changed: list[str]) -> dict[str, Any] | None:
-    return discovery.run_review_graph(root, changed)
+def run_review_graph(root: Path, changed: list[str], capture: bool = True) -> dict[str, Any] | None:
+    return discovery.run_review_graph(root, changed, capture)
 
 
 def run_graph_learning(root: Path, changed: list[str], tasks: list[str], risks: list[str]) -> dict[str, Any] | None:
@@ -1962,7 +1962,7 @@ def decide(
     # helper is still a spawned command, so defer it until the approved Debug
     # orientation stage. Build planning retains the existing bounded helper.
     graph = (
-        run_review_graph(root, changed)
+        run_review_graph(root, changed, allow_passive_capture)
         if not debug_planning and needs_graph and changed and target_origin != "repository-discovery"
         else None
     )

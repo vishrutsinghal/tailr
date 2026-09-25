@@ -102,6 +102,17 @@ def markdown(report: dict[str, Any], view: str = "full") -> str:
         else:
             lines.append("| none | none | none | no excluded candidate |")
         investigation = projection.get("investigation", {})
+        anchors = investigation.get("anchors", []) if isinstance(investigation, dict) else []
+        lines.extend(["", "### Anchors", "", "| Role | Path | Confidence |", "| --- | --- | --- |"])
+        if anchors:
+            lines.extend(
+                f"| `{row.get('role')}` | `{row.get('path')}` | `{row.get('confidence')}` |"
+                for row in anchors
+                if isinstance(row, dict)
+            )
+        else:
+            lines.append("| none | none | `none` |")
+        lines.append(f"- Anchor state: `{investigation.get('anchor_state', 'not-recorded') if isinstance(investigation, dict) else 'not-recorded'}`.")
         limits = projection.get("limits", {})
         limit_state = investigation.get("limit_state", {}) if isinstance(investigation.get("limit_state"), dict) else {}
         lines.extend([

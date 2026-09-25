@@ -869,7 +869,7 @@ def approve(root: Path, run_id: str, revision: int, approved: bool) -> dict[str,
         LEDGER.atomic_json(report_path, snapshot)
         LEDGER.atomic_json(LOCK.revision_state_path(root, run_id), next_state)
     try:
-        activated = LOCK.activate(root, run_id, True)
+        activated = LOCK.activate(root, run_id, True, record_decision=False)
     except Exception:
         LEDGER.atomic_json(LOCK.revision_state_path(root, run_id), old_state)
         raise

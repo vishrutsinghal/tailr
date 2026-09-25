@@ -71,6 +71,83 @@ class OrchestrationFacadeTests(unittest.TestCase):
                 result = FACADE.close(root, "close-run", None, None, None, None)
         close.assert_called_once(); self.assertEqual(result["state"], "awaiting-acceptance")
 
+    def test_host_decisions_record_list_and_validate(self) -> None:
+        decisions = load("pm2_host_decision_test", "host-decision.py")
+        schema = json.loads((ROOT / "schemas" / "host-decision.schema.json").read_text(encoding="utf-8"))
+        from workflow_runtime import contracts
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            LOCK.create(root, "decision contract test", "d-run")
+            self.assertEqual(decisions.latest(root, "d-run"), None)
+            first = decisions.record(root, "d-run", "approve", "approved", option="approve",
+                                     rationale="Plan looks right.", host="claude",
+                                     prior_state="awaiting-approval", resulting_state="plan-approved")
+            second = decisions.record(root, "d-run", "discuss", "asked")
+            entries = decisions.list_decisions(root, "no-run")
+            self.assertEqual(entries, [])
+            entries = decisions.list_decisions(root, "d-run")
+            self.assertEqual([entry["decision_id"] for entry in entries],
+                             [first["decision_id"], second["decision_id"]])
+            self.assertEqual(decisions.latest(root, "d-run")["decision_id"], second["decision_id"])
+            for entry in entries:
+                self.assertEqual(contracts.validate_document(entry, schema), [])
+            self.assertEqual(first["option"], "approve")
+            self.assertIsNone(second["option"])
+            self.assertIsNone(second["rationale"])
+        with self.assertRaises(ValueError):
+            decisions.record(root, "d-run", "execute", "approved")
+        with self.assertRaises(ValueError):
+            decisions.record(root, "d-run", "approve", "  ")
+        with self.assertRaises(ValueError):
+            decisions.record(root, "../escape", "approve", "approved")
+
+    def test_discuss_approve_close_record_decisions_and_status_surfaces_last(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self._planned(root, "decision-run")
+            FACADE.discuss(root, "decision-run", "Why this scope?")
+            FACADE.approve(root, "decision-run", rationale="Scope is bounded.", option="approve")
+            status = FACADE.status(root, "decision-run")
+            last = status["last_host_decision"]
+            self.assertEqual(last["verb"], "approve")
+            self.assertEqual(last["decision"], "approved")
+            self.assertEqual(last["rationale"], "Scope is bounded.")
+            with mock.patch.object(FACADE.CLOSURE, "close", return_value={"state": "awaiting-acceptance"}) as close:
+                FACADE.close(root, "decision-run", None, None, None, None, rationale="Evidence reviewed.")
+            close.assert_called_once()
+            again = FACADE.status(root, "decision-run")
+            self.assertEqual(again["last_host_decision"]["verb"], "close")
+            self.assertEqual(again["last_host_decision"]["rationale"], "Evidence reviewed.")
+
+    def test_planning_direct_verbs_record_decisions(self) -> None:
+        decisions = load("pm2_host_decision_direct_test", "host-decision.py")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self._planned(root, "direct-run")
+            LOCK.approve(root, "direct-run", True, rationale="Direct approval.")
+            self._planned(root, "feedback-run")
+            template = LOCK.feedback_template(root, "feedback-run")
+            uids = [row["requirement_uid"] for row in template["requirements"]]
+            self.assertTrue(uids)
+            LOCK.record_feedback(root, "feedback-run", json.dumps(
+                [{"requirement_uid": uids[0], "decision": "reject", "comment": "Needs a narrower path."}]
+            ))
+            entries = decisions.list_decisions(root, "direct-run")
+            feedback_entries = decisions.list_decisions(root, "feedback-run")
+        self.assertEqual([entry["verb"] for entry in entries], ["approve"])
+        self.assertEqual(entries[0]["rationale"], "Direct approval.")
+        self.assertEqual(entries[0]["resulting_state"], "approved")
+        self.assertEqual([entry["verb"] for entry in feedback_entries], ["revise"])
+        self.assertIn(uids[0], feedback_entries[0]["rationale"])
+
+    def test_planning_activate_records_decision(self) -> None:
+        decisions = load("pm2_host_decision_activate_test", "host-decision.py")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self._planned(root, "activate-run")
+            LOCK.activate(root, "activate-run", True, rationale="Activate it.")
+            entries = decisions.list_decisions(root, "activate-run")
+        activates = [entry for entry in entries if entry["verb"] == "activate"]
+        self.assertEqual(len(activates), 1)
+        self.assertEqual(activates[0]["rationale"], "Activate it.")
+
     def test_public_flow_status_and_direct_status_alias(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); self._planned(root, "cli-run")

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/host-decision.schema.json",
+  "title": "TailTrail Host Decision Record",
+  "description": "One typed host decision (selected option plus optional rationale) appended to a run decision log. Hosts render natively from this contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "decision_id",
+    "run_id",
+    "verb",
+    "decision",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-host-decision" },
+    "decision_id": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "verb": { "enum": ["approve", "activate", "revise", "discuss", "close"] },
+    "decision": { "type": "string", "minLength": 1 },
+    "option": { "type": ["string", "null"], "minLength": 1 },
+    "rationale": { "type": ["string", "null"], "minLength": 1 },
+    "host": { "type": ["string", "null"], "minLength": 1 },
+    "prior_state": { "type": ["string", "null"] },
+    "resulting_state": { "type": ["string", "null"] },
+    "decided_at": { "type": "string", "minLength": 1 }
+  }
+}

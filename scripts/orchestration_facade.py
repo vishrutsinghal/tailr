@@ -26,6 +26,7 @@ def _module(name: str, filename: str) -> Any:
 
 LOCK = _module("pm2_planning_lock", "planning_lock.py")
 DISCUSSION = _module("pm2_planning_discussion", "planning-discussion.py")
+DECISIONS = _module("pm2_host_decision", "host-decision.py")
 CLOSURE = _module("pm2_closure_close", "closure-close.py")
 PRESENTATION = _module("pm3_presentation", "presentation.py")
 from orchestration import run_resolution
@@ -60,6 +61,8 @@ def start(args: list[str]) -> int:
 def discuss(root: Path, run_id: str | None, question: str) -> dict[str, Any]:
     selected = resolve_run(root, run_id, states={"awaiting-approval"})
     result = DISCUSSION.discuss(root.resolve(), selected, question)
+    DECISIONS.record(root.resolve(), selected, "discuss", "asked", rationale=question,
+                     prior_state="awaiting-approval", resulting_state="awaiting-approval")
     return {"type":"tailtrail-orchestration-result","verb":"discuss","run_id":selected,"state":"awaiting-approval",
             "result":result,"next_action":_next({"state":"awaiting-approval"}),
             "boundary":"Saved-plan discussion only. No source inspection, plan approval, workflow execution, or project mutation occurred."}
@@ -73,12 +76,14 @@ def _stage(root: Path, workflow_id: str) -> tuple[dict[str, Any], dict[str, Any]
     return execution, row
 
 
-def approve(root: Path, run_id: str | None) -> dict[str, Any]:
+def approve(root: Path, run_id: str | None, rationale: str | None = None, option: str | None = None) -> dict[str, Any]:
     selected = resolve_run(root, run_id, states=ACTIVE_LOCK_STATES)
     lock = LOCK.show(root.resolve(), selected)
     if lock["status"] == "awaiting-approval":
-        activated = LOCK.activate(root.resolve(), selected, True)
+        activated = LOCK.activate(root.resolve(), selected, True, record_decision=False)
         workflow_id = (activated.get("workflow_runtime") or {}).get("workflow_id")
+        DECISIONS.record(root.resolve(), selected, "approve", "approved", option=option, rationale=rationale,
+                         prior_state="awaiting-approval", resulting_state="plan-approved")
         result = {"type":"tailtrail-orchestration-result","verb":"approve","run_id":selected,
                   "workflow_id":workflow_id,"state":"plan-approved","result":activated}
         result["next_action"] = _next({"state":"ready"}); result["boundary"] = "The exact Planning Lock was activated. No project command or source edit was executed."
@@ -94,10 +99,12 @@ def approve(root: Path, run_id: str | None) -> dict[str, Any]:
     operation = {"write_project":"fix-application","execute_project":"broad-test-build","scan_local":"scanner"}.get(action, "other-guarded")
     decision = approvals.decide(root.resolve(), workflow_id, stage_ids=[stage["stage_id"]], action_classes=[action],
         operation_kind=operation, operation_ref=compiler.show(root, workflow_id)["artifact"], decision="approved",
-        rationale=f"Approve the exact dependency-ready `{stage['stage_id']}` stage selected by the frozen workflow graph.")
+        rationale=rationale or f"Approve the exact dependency-ready `{stage['stage_id']}` stage selected by the frozen workflow graph.")
     advanced = executor.start(root.resolve(), workflow_id, stage["stage_id"], decision["record"]["approval_id"])
     workflow_status = advanced.get("workflow_status") or (advanced.get("execution") or {}).get("workflow_status")
     state_name = "completed" if workflow_status == "completed" else "blocked" if workflow_status in {"blocked","failed"} else "stage-running"
+    DECISIONS.record(root.resolve(), selected, "approve", "approved", option=option or stage["stage_id"],
+                     rationale=rationale, resulting_state=state_name)
     result = {"type":"tailtrail-orchestration-result","verb":"approve","run_id":selected,"workflow_id":workflow_id,
               "state":state_name,"stage_id":stage["stage_id"],"approval":decision["record"],"result":advanced}
     result["next_action"] = _next({"state":state_name}); result["boundary"] = "Approval is limited to the exact frozen stage/action class. TailTrail prepared metadata only; the host still owns factual execution."
@@ -142,14 +149,17 @@ def status(root: Path, run_id: str | None) -> dict[str, Any]:
         state_name = "stage-running" if stage_status == "running" else "stage-awaiting-approval" if stage_status == "awaiting_approval" else str(workflow.get("workflow_status", workflow.get("status", "blocked")))
     else: workflow = None; state_name = "approved-no-workflow"
     result = {"type":"tailtrail-orchestration-result","verb":"status","run_id":selected,"workflow_id":workflow_id,"state":state_name,
-              "planning":{"status":lock.get("status"),"writes_allowed":lock.get("writes_allowed") is True},"workflow":workflow}
+              "planning":{"status":lock.get("status"),"writes_allowed":lock.get("writes_allowed") is True},"workflow":workflow,
+              "last_host_decision":DECISIONS.latest(root.resolve(), selected)}
     result["next_action"] = _next({"state":state_name}); result["boundary"] = "Read-only canonical status. No plan, approval, source, evidence, or workflow state was changed."
     return result
 
 
-def close(root: Path, run_id: str | None, decision: str | None, input_path: Path | None, scenarios: Path | None, ci_receipt: Path | None) -> dict[str, Any]:
+def close(root: Path, run_id: str | None, decision: str | None, input_path: Path | None, scenarios: Path | None, ci_receipt: Path | None, rationale: str | None = None) -> dict[str, Any]:
     selected = resolve_run(root, run_id, states={"approved"})
     closed = CLOSURE.close(root.resolve(), selected, decision, input_path, scenarios, ci_receipt)
+    DECISIONS.record(root.resolve(), selected, "close", decision or closed.get("state", "unknown"),
+                     rationale=rationale, resulting_state=closed.get("state", "unknown"))
     return {"type":"tailtrail-orchestration-result","verb":"close","run_id":selected,"state":closed.get("state", "unknown"),
             "result":closed,"next_action":closed.get("next_action") or ("Choose one displayed acceptance option." if closed.get("state") == "awaiting-acceptance" else "Closure state recorded."),
             "boundary":"Closure uses the canonical finalizer and saved evidence. It does not infer missing proof or promote learning without acceptance."}
@@ -175,13 +185,14 @@ def main() -> int:
         item.add_argument("--presentation", "--presentation-mode", choices=("quick", "guided", "expert"), default=None, help=argparse.SUPPRESS)
         item.add_argument("--verbose", action="store_true", help="Render the complete canonical projection without changing workflow authority.")
         if verb == "discuss": item.add_argument("--question", required=True)
+        if verb == "approve": item.add_argument("--rationale"); item.add_argument("--option")
         if verb == "continue": item.add_argument("--result-ref")
         if verb == "close":
-            item.add_argument("--decision", choices=("accept-user","wait-ci","accept-ci","reopen")); item.add_argument("--input", type=Path); item.add_argument("--scenarios", type=Path); item.add_argument("--ci-receipt", type=Path)
+            item.add_argument("--decision", choices=("accept-user","wait-ci","accept-ci","reopen")); item.add_argument("--input", type=Path); item.add_argument("--scenarios", type=Path); item.add_argument("--ci-receipt", type=Path); item.add_argument("--rationale")
     args = parser.parse_args()
     if args.verb == "start": return start(args.args)
     try:
-        value = discuss(args.root,args.run_id,args.question) if args.verb == "discuss" else approve(args.root,args.run_id) if args.verb == "approve" else continue_run(args.root,args.run_id,args.result_ref) if args.verb == "continue" else status(args.root,args.run_id) if args.verb == "status" else close(args.root,args.run_id,args.decision,args.input,args.scenarios,args.ci_receipt)
+        value = discuss(args.root,args.run_id,args.question) if args.verb == "discuss" else approve(args.root,args.run_id,getattr(args,"rationale",None),getattr(args,"option",None)) if args.verb == "approve" else continue_run(args.root,args.run_id,args.result_ref) if args.verb == "continue" else status(args.root,args.run_id) if args.verb == "status" else close(args.root,args.run_id,args.decision,args.input,args.scenarios,args.ci_receipt,getattr(args,"rationale",None))
         print(json.dumps(value,indent=2,sort_keys=True) if args.format == "json" else render(value, mode=args.presentation, verbose=args.verbose)); return 0
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         print(f"TailTrail {args.verb} error: {error}", file=sys.stderr); return 2

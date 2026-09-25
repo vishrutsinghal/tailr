@@ -11,6 +11,21 @@ from pathlib import Path
 from typing import Any
 
 
+def _capture_served_reads(root: Path, paths: list[str]) -> None:
+    """Queue host-served reads for the next batched flush. Never raises (Stage 1).
+
+    Only files actually served to the host (changed files plus reported
+    matches) are queued — broad token-scan candidates are not evidence.
+    """
+    try:
+        import capture_hooks
+        for rel in paths:
+            capture_hooks.on_file_read(root, rel)
+        capture_hooks.flush(root)
+    except Exception:
+        pass
+
+
 ROOT = Path(__file__).resolve().parents[1]
 
 SKIP_DIRS = {
@@ -283,7 +298,7 @@ def nearby_manifests(root: Path, changed_files: list[Path]) -> list[dict[str, st
     return [{"path": path, "reason": reason} for path, reason in sorted(found.items())]
 
 
-def graph(root: Path, changed_items: list[str], limit: int) -> dict[str, Any]:
+def graph(root: Path, changed_items: list[str], limit: int, *, capture: bool = True) -> dict[str, Any]:
     changed_files = normalize_changed(root, changed_items or git_changed(root))
     candidates = list_candidates(root)
     per_file = []
@@ -314,6 +329,8 @@ def graph(root: Path, changed_items: list[str], limit: int) -> dict[str, Any]:
     manifests = nearby_manifests(root, changed_files)
     read_order.extend(item["path"] for item in manifests[:3])
     compact_order = list(dict.fromkeys(read_order))
+    if capture:
+        _capture_served_reads(root, compact_order[: limit * 4])
 
     return {
         "root": root.as_posix(),
@@ -405,10 +422,11 @@ def main() -> int:
     parser.add_argument("--changed", action="append", default=[], help="Changed file path. Repeat for multiple files.")
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format.")
     parser.add_argument("--limit", type=int, default=8, help="Maximum matches per section.")
+    parser.add_argument("--no-capture", action="store_true", help="Do not queue served reads into the code-graph cache.")
     args = parser.parse_args()
 
     root = args.root.resolve()
-    data = graph(root, args.changed, max(args.limit, 1))
+    data = graph(root, args.changed, max(args.limit, 1), capture=not args.no_capture)
     if args.format == "json":
         print(json.dumps(data, indent=2))
     else:

@@ -122,6 +122,17 @@ def safe_planned_path(root: Path, value: str, allowed: set[str]) -> tuple[str, P
     return normalized, resolved
 
 
+def _capture_served_reads(root: Path, paths: list[str]) -> None:
+    """Queue host-served reads for the next batched flush. Never raises (Stage 1)."""
+    try:
+        import capture_hooks
+        for relative in paths:
+            capture_hooks.on_file_read(root, relative)
+        capture_hooks.flush(root)
+    except Exception:
+        pass
+
+
 def source_fact(relative: str, path: Path) -> dict[str, Any]:
     raw = path.read_bytes()
     if len(raw) > MAX_BYTES_PER_FILE:
@@ -209,6 +220,7 @@ def investigate(root: Path, run_id: str, paths: list[str], approved_read_only: b
         existing = sorted(directory.glob("investigation-*.json")) if directory.is_dir() else []
         index = len(existing) + 1
         facts = [source_fact(relative, path) for relative, path in checked]
+        _capture_served_reads(root, [relative for relative, _ in checked])
         typed_scope = scope_context(report, [relative for relative, _ in checked])
         receipt = {
             "schema_version": "1",

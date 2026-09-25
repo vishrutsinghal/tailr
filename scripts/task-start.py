@@ -5909,6 +5909,13 @@ def main() -> int:
             if graph_mode == "auto":
                 graph_mode = "reuse"
         graph_attempt_id = args.planning_run_id or planning_lock.suggested_run_id(root, goal)
+        graph_canonical_literals = [
+            str(literal)
+            for requirement in interpreted_requirements.get("requirements", [])
+            for literal in requirement.get("quoted_literals", [])
+            if str(literal).strip()
+        ]
+        graph_anchor_slice = navigator_scope.resolve_anchor_slice(root, args.changed, graph_canonical_literals)
         graph_lifecycle = navigator_graph_lifecycle.manage(
             root,
             goal,
@@ -5916,12 +5923,8 @@ def main() -> int:
             mode=graph_mode,
             attempt_id=graph_attempt_id,
             phase="debug-start" if workflow_preview.workflow_type == "debug-investigation" else "start",
-            canonical_literals=[
-                str(literal)
-                for requirement in interpreted_requirements.get("requirements", [])
-                for literal in requirement.get("quoted_literals", [])
-                if str(literal).strip()
-            ],
+            canonical_literals=graph_canonical_literals,
+            anchor_slice=graph_anchor_slice if graph_anchor_slice.get("paths") else None,
         )
         report = build_report(
             goal,

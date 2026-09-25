@@ -20,6 +20,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from code_graph_inventory import snapshot as inventory_snapshot
+import code_graph_cache
 import code_relationships
 from module_resolution import RepositoryModuleResolver
 
@@ -836,7 +837,109 @@ def confidence_for(symbols: list[dict[str, Any]], refs: list[dict[str, Any]], te
     return "low"
 
 
-def build_graph(root: Path, changed_values: list[str], mode: str, scanner_values: list[str], limit: int) -> dict[str, Any]:
+_FILE_IDENTITY_KEYS = {
+    "symbols": "file",
+    "references": "referring_file",
+    "call_chains": "file",
+    "type_hierarchy": "file",
+    "endpoints": "file",
+    "db_tables": "file",
+    "config_usage": "file",
+    "service_edges": "source_file",
+}
+
+
+def _previous_file_hashes(previous: Any) -> dict[str, Any]:
+    """Merge per-file metadata across the previous payload's file groups (Stage 4)."""
+    hashes: dict[str, Any] = {}
+    if not isinstance(previous, dict):
+        return hashes
+    for group in ("source_files", "watch_files", "scanner_evidence"):
+        values = previous.get(group, {})
+        if isinstance(values, dict):
+            for rel, meta in values.items():
+                if isinstance(meta, dict):
+                    hashes.setdefault(str(rel), meta)
+    return hashes
+
+
+def _file_is_fresh(root: Path, rel: str, meta: Any) -> bool:
+    """Make-style freshness: recorded mtime and size still match (Stage 4)."""
+    if not isinstance(meta, dict):
+        return False
+    try:
+        stat = (root / rel).stat()
+    except OSError:
+        return False
+    return (
+        isinstance(meta.get("mtime"), int)
+        and isinstance(meta.get("size"), int)
+        and meta["mtime"] == int(stat.st_mtime)
+        and meta["size"] == stat.st_size
+    )
+
+
+def _partition_previous_extraction(
+    root: Path,
+    previous: dict[str, Any] | None,
+    limit: int,
+    extraction_paths: list[Path],
+) -> tuple[dict[str, list[dict[str, Any]]], list[Path]]:
+    """Split extraction into reusable previous rows plus paths to reparse (Stage 4).
+
+    Keeps previous rows only for files in the current extraction set whose
+    recorded metadata still matches disk, and only when the previous build
+    ran at an equal or wider limit. Anything else re-extracts, so a legacy
+    payload or a narrower previous build degrades to today's full build.
+    """
+    kept: dict[str, list[dict[str, Any]]] = {key: [] for key in _FILE_IDENTITY_KEYS}
+    if not isinstance(previous, dict):
+        return kept, list(extraction_paths)
+    if not isinstance(previous.get("build_limit"), int) or previous["build_limit"] < limit:
+        return kept, list(extraction_paths)
+    prior_graph = previous.get("graph", {})
+    if not isinstance(prior_graph, dict):
+        return kept, list(extraction_paths)
+    hashes = _previous_file_hashes(previous)
+    fresh: set[str] = set()
+    rel_of = {}
+    for path in extraction_paths:
+        rel = safe_relative(path, root)
+        if rel:
+            rel_of[path] = rel
+            if _file_is_fresh(root, rel, hashes.get(rel)):
+                fresh.add(rel)
+    for key, id_key in _FILE_IDENTITY_KEYS.items():
+        rows = prior_graph.get(key, [])
+        if isinstance(rows, list):
+            kept[key] = [
+                row for row in rows
+                if isinstance(row, dict) and str(row.get(id_key, "")) in fresh
+            ]
+    return kept, [path for path in extraction_paths if rel_of.get(path) not in fresh]
+
+
+def _dedupe_graph_rows(graph_data: dict[str, list[dict[str, Any]]]) -> None:
+    """Drop exact-duplicate rows in place (fresh scans may re-emit kept rows)."""
+    for key, rows in graph_data.items():
+        seen: set[str] = set()
+        unique: list[dict[str, Any]] = []
+        for row in rows:
+            tag = json.dumps(row, sort_keys=True, default=str)
+            if tag not in seen:
+                seen.add(tag)
+                unique.append(row)
+        graph_data[key] = unique
+
+
+def build_graph(
+    root: Path,
+    changed_values: list[str],
+    mode: str,
+    scanner_values: list[str],
+    limit: int,
+    previous: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     changed_paths = normalize_paths(root, changed_values or git_changed(root))
     scanner_paths = normalize_paths(root, scanner_values)
     candidates = list_text_files(root)
@@ -857,10 +960,14 @@ def build_graph(root: Path, changed_values: list[str], mode: str, scanner_values
         "config_usage": [],
         "service_edges": [],
     }
-    for path in extraction_paths:
+    kept_rows, extract_paths = _partition_previous_extraction(root, previous, limit, extraction_paths)
+    for key, rows in kept_rows.items():
+        graph_data[key].extend(rows)
+    for path in extract_paths:
         extracted = extract_language_data(path, root)
         for key, values in extracted.items():
             graph_data[key].extend(values)
+    _dedupe_graph_rows(graph_data)
 
     # Normalize repository-local JS/TS edges with the same bounded resolver
     # used by Navigator.  Raw references remain available for audit, while the
@@ -929,6 +1036,7 @@ def build_graph(root: Path, changed_values: list[str], mode: str, scanner_values
         "cache_key": hashlib.sha256(cache_key_seed.encode("utf-8")).hexdigest(),
         "graph_mode": mode,
         "scope": scope,
+        "build_limit": limit,
         "task_tags": sorted(set(mode.replace("-", " ").replace("_", " ").split())),
         "language_profiles": language_profiles(extraction_paths),
         "source_files": source_files,
@@ -962,6 +1070,81 @@ def build_graph(root: Path, changed_values: list[str], mode: str, scanner_values
             "reasons": [],
         },
     }
+
+
+def query_slice(
+    data: dict[str, Any] | None,
+    anchors: list[str],
+    relations: list[str] | None = None,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """Anchor/relation slice coverage over a mapper graph (Stage 4).
+
+    Traverses reference edges (filtered by ``reference_type`` when
+    ``relations`` is given) from each anchor path with the same bounded,
+    directed semantics as the Navigator path query. Returns per-anchor
+    coverage plus the union of reached files.
+    """
+    graph = data.get("graph", {}) if isinstance(data, dict) else {}
+    references = graph.get("references", []) if isinstance(graph, dict) else []
+    wanted = {str(item) for item in relations or [] if str(item).strip()}
+    adjacency: dict[str, set[str]] = {}
+    kinds: dict[tuple[str, str], set[str]] = {}
+    for ref in references:
+        if not isinstance(ref, dict):
+            continue
+        source = ref.get("referring_file")
+        if not isinstance(source, str) or not source:
+            continue
+        kind = str(ref.get("reference_type", ""))
+        if wanted and kind not in wanted:
+            continue
+        targets: set[str] = set()
+        resolved = ref.get("module_resolution", {})
+        if isinstance(resolved, dict):
+            for target in resolved.get("resolved_targets", []) or []:
+                if isinstance(target, str) and target:
+                    targets.add(target.replace("\\", "/"))
+        for target in targets:
+            adjacency.setdefault(source.replace("\\", "/"), set()).add(target)
+            kinds.setdefault((source.replace("\\", "/"), target), set()).add(kind or "unknown")
+    per_anchor: dict[str, dict[str, Any]] = {}
+    reached_all: set[str] = set()
+    for anchor in dict.fromkeys(str(item).replace("\\", "/") for item in anchors or [] if str(item).strip()):
+        seen = {anchor}
+        frontier = [anchor]
+        hops = 0
+        used: set[str] = set()
+        while frontier and hops < 3 and len(seen) < max(1, limit):
+            nxt: list[str] = []
+            for path in frontier:
+                for target in sorted(adjacency.get(path, ())):
+                    edge_kinds = kinds.get((path, target), set())
+                    if wanted and not (edge_kinds & wanted):
+                        continue
+                    used.update(edge_kinds)
+                    if target not in seen and len(seen) < max(1, limit):
+                        seen.add(target)
+                        nxt.append(target)
+            frontier = nxt
+            hops += 1
+        reached = sorted(seen)[: max(1, limit)]
+        reached_all.update(reached)
+        per_anchor[anchor] = {"covered": len(reached) > 1 or _anchor_in_scope(data, anchor), "files": reached, "relations": sorted(used)}
+    covered = sorted(anchor for anchor, info in per_anchor.items() if info["covered"])
+    return {
+        "anchors": per_anchor,
+        "covered": covered,
+        "uncovered": sorted(set(per_anchor) - set(covered)),
+        "files": sorted(reached_all)[: max(1, limit)],
+    }
+
+
+def _anchor_in_scope(data: dict[str, Any] | None, anchor: str) -> bool:
+    """Check whether an anchor sits in the payload scope (query_slice helper)."""
+    if not isinstance(data, dict):
+        return False
+    return anchor in {str(item) for item in data.get("scope", []) if item}
 
 
 def risk_tags(scope: list[str], graph_data: dict[str, list[dict[str, Any]]], watch_files: dict[str, Any], scanner_evidence: dict[str, Any]) -> list[str]:
@@ -1000,20 +1183,37 @@ def cache_path(root: Path, override: Path | None) -> Path:
 
 
 def load_cache(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Load the mapper graph section via the unified v1/v2 reader (Stage 0b).
+
+    A Phase-1-only file is legible but holds no mapper graph: (None, reason),
+    never a coercion. Callers already treat (None, error) as unusable.
+    """
     if not path.exists():
         return None, "missing"
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        return None, f"invalid: {error}"
-    if not isinstance(data, dict):
-        return None, "invalid: cache root is not an object"
-    return data, None
+    container, error = code_graph_cache.read_container(path)
+    if error is not None:
+        return None, error
+    section = container["mapper_graph"]
+    if not isinstance(section, dict):
+        return None, "missing: shared container has no mapper_graph section"
+    return section, None
 
 
 def status_for(root: Path, cache: dict[str, Any] | None, changed_values: list[str]) -> dict[str, Any]:
     if cache is None:
         return {"status": "missing", "reasons": ["No Code Graph Mapper cache exists."], "scope": changed_values}
+    kind = code_graph_cache.classify_cache_shape(cache)
+    if kind == "combined":
+        section = cache.get("sections", {}).get("mapper_graph")
+        if not isinstance(section, dict):
+            return {"status": "invalid", "reasons": ["missing: container has no mapper_graph section"], "scope": changed_values}
+        cache = section
+    elif kind == "phase1":
+        return {
+            "status": "invalid",
+            "reasons": ["missing: shared container has no mapper_graph section; Phase-1 data preserved"],
+            "scope": changed_values,
+        }
     reasons: list[str] = []
     invalid: list[str] = []
     if cache.get("schema_version") != SCHEMA_VERSION:
@@ -1063,8 +1263,21 @@ def status_for(root: Path, cache: dict[str, Any] | None, changed_values: list[st
 
 
 def write_cache(path: Path, data: dict[str, Any]) -> None:
+    """Atomically write the mapper graph section (Stage 0b).
+
+    Section-preserving: a combined file keeps its Phase-1 section plus
+    unknown keys; a v1 Phase-1 file migrates to a v2 container. Anything
+    else keeps today's single-shape mapper write. Atomicity unchanged.
+    """
+    container, error = code_graph_cache.read_container(path)
+    if error is None:
+        raw = code_graph_cache.merge_container_section(
+            container["raw"], container["kind"], code_graph_cache.MAPPER_SECTION, data
+        )
+    else:
+        raw = data
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = (json.dumps(data, indent=2) + "\n").encode("utf-8")
+    payload = (json.dumps(raw, indent=2) + "\n").encode("utf-8")
     handle = tempfile.NamedTemporaryFile(prefix=path.name + ".", suffix=".tmp", dir=path.parent, delete=False)
     temporary = Path(handle.name)
     try:
@@ -1188,8 +1401,9 @@ def markdown_report(data: dict[str, Any], status: dict[str, Any] | None = None, 
 
 def command_map(args: argparse.Namespace) -> int:
     root = args.root.resolve()
-    data = build_graph(root, args.changed, args.mode, args.scanner_evidence, max(args.limit, 1))
     path = cache_path(root, args.cache)
+    previous, _ = load_cache(path)
+    data = build_graph(root, args.changed, args.mode, args.scanner_evidence, max(args.limit, 1), previous=previous)
     write_cache(path, data)
     status = status_for(root, data, args.changed)
     if args.format == "json":
@@ -1221,7 +1435,7 @@ def command_refresh(args: argparse.Namespace) -> int:
     path = cache_path(root, args.cache)
     previous, _ = load_cache(path)
     previous_status = status_for(root, previous, args.changed) if previous else {"status": "missing", "reasons": ["No previous cache."], "scope": args.changed}
-    data = build_graph(root, args.changed, args.mode, args.scanner_evidence, max(args.limit, 1))
+    data = build_graph(root, args.changed, args.mode, args.scanner_evidence, max(args.limit, 1), previous=previous)
     data["refresh"] = {"previous_status": previous_status["status"], "previous_reasons": previous_status["reasons"]}
     write_cache(path, data)
     status = status_for(root, data, args.changed)

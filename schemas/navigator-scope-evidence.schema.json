@@ -177,6 +177,23 @@
           }
         },
         "limits": { "$ref": "#/$defs/limits" },
+        "anchors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["anchor_id", "role", "path", "confidence", "reason_codes", "evidence_refs"],
+            "properties": {
+              "anchor_id": { "type": "string", "minLength": 1 },
+              "role": { "enum": ["entrypoint", "orchestrator", "domain-owner", "integration-owner", "verification-owner", "convention-owner"] },
+              "path": { "type": "string", "minLength": 1 },
+              "confidence": { "enum": ["high", "medium", "low"] },
+              "reason_codes": { "$ref": "#/$defs/reasonCodes" },
+              "evidence_refs": { "type": "object" }
+            }
+          }
+        },
+        "anchor_state": { "enum": ["sufficient", "insufficient"] },
         "evidence_packet_fingerprint": { "$ref": "#/$defs/fingerprint" }
       }
     },

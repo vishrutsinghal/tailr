@@ -25,6 +25,7 @@ if SCRIPT_DIR.as_posix() not in sys.path:
 
 import navigator_discovery
 import navigator_scope
+import code_graph_cache
 
 
 CACHE_RELATIVE = Path("tailtrail-meta") / "code-graph-cache.json"
@@ -159,6 +160,39 @@ def _discovery_paths(
     return [], ["repository-orientation-required"]
 
 
+def _anchor_slice_relevance(
+    root: Path,
+    previous: dict[str, Any] | None,
+    slice_paths: list[str],
+) -> dict[str, Any]:
+    """Evaluate anchor connectivity against the cached graph (Stage 3).
+
+    Freshness comes from hashes elsewhere; relevance answers whether the
+    cached graph holds a connected path from task anchors into cached scope.
+    """
+    if previous is None:
+        return {"relevance": "missing", "connected": [], "reasons": ["no cached graph for anchor relevance"]}
+    graph = previous.get("graph", {}) if isinstance(previous, dict) else {}
+    references = graph.get("references", []) if isinstance(graph, dict) else []
+    adjacency = navigator_scope.reference_adjacency(references)
+    connected = navigator_scope.connected_files(slice_paths, adjacency)
+    cached_scope = {str(item) for item in (previous.get("scope", []) or []) if item}
+    reached = sorted(set(connected) & cached_scope)
+    present = sorted(set(slice_paths) & cached_scope)
+    if reached or present:
+        reasons = []
+        if present:
+            reasons.append(f"{len(present)} anchor paths present in cached scope")
+        if reached:
+            reasons.append(f"{len(reached)} anchor-connected cached files")
+        return {"relevance": "relevant", "connected": connected, "reasons": reasons}
+    reasons = ["no anchor-connected path into cached scope"]
+    absent = [path for path in slice_paths if not (root / path).is_file()]
+    if absent:
+        reasons.append(f"{len(absent)} anchor paths not found on disk")
+    return {"relevance": "insufficient", "connected": connected, "reasons": reasons}
+
+
 def manage(
     root: Path,
     goal: str,
@@ -168,6 +202,7 @@ def manage(
     attempt_id: str | None = None,
     phase: str = "start",
     canonical_literals: Iterable[str] = (),
+    anchor_slice: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Choose and execute one safe graph metadata transition."""
     if mode not in GRAPH_MODES:
@@ -181,6 +216,19 @@ def manage(
         "reasons": [load_error or "missing"],
         "scope": [],
     }
+    freshness = before["status"] if before["status"] in {"fresh", "stale", "missing"} else "stale"
+    relevance = "not-evaluated"
+    relevance_reasons: list[str] = []
+    cache_reuse_state: str | None = None
+    slice_paths: list[str] = []
+    slice_connected: list[str] = []
+    if anchor_slice is not None:
+        slice_paths = [str(item) for item in anchor_slice.get("paths", []) if str(item).strip()]
+        info = _anchor_slice_relevance(root, previous, slice_paths)
+        relevance = str(info["relevance"])
+        slice_connected = list(info["connected"])
+        relevance_reasons = list(info["reasons"])
+        cache_reuse_state = f"{freshness}-{relevance}"
     # Debug Start has not received reproduction authority yet. It may validate
     # and reuse an existing metadata graph, but it must not broaden orientation
     # by scanning source bodies or creating new discovery scope.
@@ -201,10 +249,33 @@ def manage(
         )
     action = "reuse"
     reasons = list(discovery_reasons)
+    if anchor_slice is not None and relevance != "not-evaluated":
+        on_disk = {path for path in slice_paths if (root / path).is_file()}
+        allowed = on_disk | set(slice_connected)
+        dropped = [path for path in target_paths if path not in allowed]
+        ordered = [path for path in target_paths if path in allowed]
+        ordered.extend(path for path in sorted(allowed) if path not in set(ordered))
+        target_paths = ordered[:200]
+        reasons.append("anchor-slice-bounded-targets")
+        if dropped:
+            reasons.append("unconnected-lexical-excluded")
+        reasons.extend(relevance_reasons)
+    outside_slice_nominations = []
+    if anchor_slice is not None and relevance != "not-evaluated":
+        nominated = [path for path in _safe_paths(root, explicit_paths) if path not in allowed]
+        outside_slice_nominations = [
+            {"path": path, "reason": "outside-anchor-slice"} for path in sorted(nominated)
+        ]
+        if nominated:
+            reasons.append("outside-slice-nomination-recorded")
     if mode == "off":
         action = "off"
     elif mode == "reuse":
-        action = "reuse" if before["status"] == "fresh" else "defer"
+        if anchor_slice is not None:
+            reusable = cache_reuse_state == "fresh-relevant"
+        else:
+            reusable = before["status"] == "fresh"
+        action = "reuse" if reusable else "defer"
         reasons.append("explicit-reuse" if action == "reuse" else "requested-reuse-not-fresh")
     elif mode == "rebuild":
         action = "rebuild"
@@ -225,12 +296,19 @@ def manage(
         action = "refresh"
         reasons.append("persistent-graph-stale")
     else:
-        cached_scope = {str(value) for value in (previous or {}).get("scope", [])}
-        if target_paths and not set(target_paths).issubset(cached_scope):
-            action = "refresh"
-            reasons.append("requested-scope-outside-cache")
+        if anchor_slice is not None:
+            if relevance == "relevant":
+                reasons.append("fresh-relevant-graph-reused")
+            else:
+                action = "refresh"
+                reasons.append("anchor-insufficient-extend")
         else:
-            reasons.append("fresh-relevant-graph-reused")
+            cached_scope = {str(value) for value in (previous or {}).get("scope", [])}
+            if target_paths and not set(target_paths).issubset(cached_scope):
+                action = "refresh"
+                reasons.append("requested-scope-outside-cache")
+            else:
+                reasons.append("fresh-relevant-graph-reused")
 
     written = False
     cache = previous
@@ -241,7 +319,7 @@ def manage(
             root,
             [*(prior_scope if action == "refresh" else []), *target_paths],
         )[:200]
-        cache = mapper.build_graph(root, effective_paths, f"navigator-{phase}", [], 40)
+        cache = mapper.build_graph(root, effective_paths, f"navigator-{phase}", [], 40, previous=previous if action == "refresh" else None)
         transition = {
             "action": action,
             "at": _now(),
@@ -255,6 +333,7 @@ def manage(
         mapper.write_cache(cache_path, cache)
         written = True
     after = mapper.status_for(root, cache, target_paths) if cache else before
+    container_state, _ = code_graph_cache.read_container(cache_path)
     unsigned = {
         "schema_version": "1",
         "type": "tailtrail-navigator-graph-lifecycle",
@@ -267,6 +346,12 @@ def manage(
         "cache_path": CACHE_RELATIVE.as_posix(),
         "before_status": before,
         "after_status": after,
+        "cache_shape": container_state["kind"],
+        "cache_warnings": list(container_state["warnings"]),
+        "freshness": freshness,
+        "relevance": relevance,
+        "cache_reuse_state": cache_reuse_state,
+        "outside_slice_nominations": outside_slice_nominations,
         "cache_fingerprint": fingerprint(cache) if cache else None,
         "written": written,
         "metadata_only": True,

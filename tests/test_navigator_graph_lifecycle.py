@@ -67,6 +67,133 @@ class NavigatorGraphLifecycleTests(unittest.TestCase):
         self.assertTrue(refreshed["written"])
         self.assertEqual(refreshed["after_status"]["status"], "fresh")
 
+    def test_anchor_slice_reuse_records_fresh_relevant(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "from src.b import thing\ndef run():\n    return thing()\n")
+            self.write(root, "src/b.py", "def thing():\n    return 1\n")
+            anchors = [
+                {"anchor_id": "anchor:entrypoint:src/a.py", "role": "entrypoint",
+                 "path": "src/a.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                 "evidence_refs": {}},
+            ]
+            aslice = scope.anchor_slice(anchors)
+            created = graph.manage(root, "run thing", ["src/a.py"], mode="auto", attempt_id="run-1", anchor_slice=aslice)
+            reused = graph.manage(
+                root, "run thing", ["src/a.py"], mode="auto", attempt_id="run-2", anchor_slice=aslice
+            )
+        self.assertEqual(created["cache_reuse_state"], "missing-missing")
+        self.assertEqual(reused["action"], "reuse")
+        self.assertEqual(reused["cache_reuse_state"], "fresh-relevant")
+        self.assertEqual(reused["freshness"], "fresh")
+        self.assertEqual(reused["relevance"], "relevant")
+        lifecycle_schema = json.loads((ROOT / "schemas" / "navigator-graph-lifecycle.schema.json").read_text(encoding="utf-8"))
+        self.assertEqual(contracts.validate_document(reused, lifecycle_schema), [])
+
+    def test_fresh_insufficient_extends_without_unconnected_lexical(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "from src.b import thing\ndef run():\n    return thing()\n")
+            self.write(root, "src/b.py", "def thing():\n    return 1\n")
+            self.write(root, "src/c.py", "def solo():\n    return 0\n")
+            self.write(root, "src/other.py", "def wobble():\n    return 2\n")
+            graph.manage(root, "run thing", ["src/a.py"], mode="auto", attempt_id="run-1")
+            anchors = [
+                {"anchor_id": "anchor:entrypoint:src/c.py", "role": "entrypoint",
+                 "path": "src/c.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                 "evidence_refs": {}},
+            ]
+            aslice = scope.anchor_slice(anchors)
+            extended = graph.manage(
+                root, "fix the wobble", mode="auto", attempt_id="run-2", anchor_slice=aslice
+            )
+        self.assertEqual(extended["cache_reuse_state"], "fresh-insufficient")
+        self.assertEqual(extended["action"], "refresh")
+        self.assertEqual(sorted(extended["target_paths"]), ["src/c.py"])
+        self.assertNotIn("src/other.py", extended["target_paths"])
+        lifecycle_schema = json.loads((ROOT / "schemas" / "navigator-graph-lifecycle.schema.json").read_text(encoding="utf-8"))
+        self.assertEqual(contracts.validate_document(extended, lifecycle_schema), [])
+
+    def test_fresh_unrelated_slice_defers_instead_of_reusing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "def a():\n    return 1\n")
+            self.write(root, "src/c.py", "def solo():\n    return 0\n")
+            home = scope.anchor_slice([{
+                "anchor_id": "anchor:entrypoint:src/a.py", "role": "entrypoint",
+                "path": "src/a.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }])
+            graph.manage(root, "cover a", ["src/a.py"], mode="auto", attempt_id="run-1", anchor_slice=home)
+            away = scope.anchor_slice([{
+                "anchor_id": "anchor:entrypoint:src/c.py", "role": "entrypoint",
+                "path": "src/c.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }])
+            held = graph.manage(root, "cover a", ["src/a.py"], mode="reuse", attempt_id="run-2", anchor_slice=away)
+        self.assertEqual(held["cache_reuse_state"], "fresh-insufficient")
+        self.assertEqual(held["action"], "defer")
+        self.assertNotIn("src/a.py", held["target_paths"])
+
+    def test_partial_slice_extends_cached_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "def a():\n    return 1\n")
+            self.write(root, "src/c.py", "def solo():\n    return 0\n")
+            home = scope.anchor_slice([{
+                "anchor_id": "anchor:entrypoint:src/a.py", "role": "entrypoint",
+                "path": "src/a.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }])
+            graph.manage(root, "cover a", ["src/a.py"], mode="auto", attempt_id="run-1", anchor_slice=home)
+            away = scope.anchor_slice([{
+                "anchor_id": "anchor:entrypoint:src/c.py", "role": "entrypoint",
+                "path": "src/c.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }])
+            extended = graph.manage(root, "cover c", mode="auto", attempt_id="run-2", anchor_slice=away)
+            import code_graph_cache
+            final, _ = code_graph_cache.read_container(root / "tailtrail-meta" / "code-graph-cache.json")
+        self.assertEqual(extended["action"], "refresh")
+        self.assertEqual(sorted(extended["target_paths"]), ["src/c.py"])
+        self.assertIn("src/a.py", final["mapper_graph"]["scope"])
+        self.assertIn("src/c.py", final["mapper_graph"]["scope"])
+
+    def test_outside_slice_nomination_is_recorded(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "def a():\n    return 1\n")
+            self.write(root, "src/outside.py", "def outside():\n    return 9\n")
+            home = scope.anchor_slice([{
+                "anchor_id": "anchor:entrypoint:src/a.py", "role": "entrypoint",
+                "path": "src/a.py", "confidence": "high", "reason_codes": ["anchor-exact"],
+                "evidence_refs": {},
+            }])
+            graph.manage(root, "cover a", ["src/a.py"], mode="auto", attempt_id="run-1", anchor_slice=home)
+            result = graph.manage(
+                root, "cover a", ["src/a.py", "src/outside.py"],
+                mode="auto", attempt_id="run-2", anchor_slice=home,
+            )
+        self.assertEqual(result["outside_slice_nominations"],
+                         [{"path": "src/outside.py", "reason": "outside-anchor-slice"}])
+        self.assertNotIn("src/outside.py", result["target_paths"])
+        lifecycle_schema = json.loads((ROOT / "schemas" / "navigator-graph-lifecycle.schema.json").read_text(encoding="utf-8"))
+        self.assertEqual(contracts.validate_document(result, lifecycle_schema), [])
+
+    def test_receipt_reports_cache_shape_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write(root, "src/a.py", "def a():\n    return 1\n")
+            created = graph.manage(root, "cover a with a test", ["src/a.py"], mode="auto", attempt_id="run-1")
+            reused = graph.manage(root, "cover a with a test", ["src/a.py"], mode="auto", attempt_id="run-2")
+        for receipt in (created, reused):
+            self.assertIn(receipt["cache_shape"], {"missing", "phase1", "mapper", "combined", "invalid"})
+            self.assertIsInstance(receipt["cache_warnings"], list)
+        self.assertEqual(reused["cache_shape"], "mapper")
+        lifecycle_schema = json.loads((ROOT / "schemas" / "navigator-graph-lifecycle.schema.json").read_text(encoding="utf-8"))
+        self.assertEqual(contracts.validate_document(created, lifecycle_schema), [])
+        self.assertEqual(contracts.validate_document(reused, lifecycle_schema), [])
+
     def test_plain_error_clause_is_treated_as_an_exact_literal(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
