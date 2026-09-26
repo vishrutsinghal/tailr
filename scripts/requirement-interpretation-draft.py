@@ -39,6 +39,11 @@ CONSTRAINT_CUES = ("must", "only ", "never", "always", "without", "capped", "sta
 CONTEXT_PREFIXES = ("owners ", "note:", "note ", "context:", "for reference", "background:")
 UNCERTAIN_CUES = ("maybe", "probably", "possibly", "something", "appropriate", "relevant", "etc", "as needed", "if needed", "where appropriate")
 QUOTED_SPAN = re.compile(r'"([^"]{4,160})"|`([^`]{4,160})`')
+STOP_WORDS = frozenset({
+    "the", "and", "for", "with", "from", "that", "this", "these", "those",
+    "are", "was", "were", "has", "have", "had", "will", "would", "can",
+    "its", "into", "over", "under", "such", "than", "then", "them",
+})
 
 
 def scaffold_rules() -> list[str]:
@@ -140,14 +145,23 @@ def _scaffold_clauses(goal: str, resolve_uncertain: bool = False) -> list[dict[s
 
 
 def _scaffold_terms(statement: str, goal: str, quoted_literals: list[str]) -> list[str]:
-    """Derive grounded intent terms with the validator's grounding semantics."""
-    semantic_goal = re.sub(r"[`*>#]+", " ", goal)
+    """Derive grounded intent terms with the validator's grounding semantics.
+
+    Tokenization reuses discovery's own grounding normalizer; quoted spans
+    are blanked first so literal words never leak into semantic terms.
+    Stop-words and sub-three-character tokens are dropped for the anchor
+    stage and downstream search; an emptied term list fails loudly in
+    validation instead of emitting an ungrounded requirement.
+    """
+    discovery = _load("scaffold_requirement_discovery", "requirement_discovery.py")
+    blanked = goal
     for literal in quoted_literals:
-        semantic_goal = re.sub(re.escape(literal), " ", semantic_goal, flags=re.IGNORECASE)
-    grounded = set(re.findall(INTENT_TERM_PATTERN, semantic_goal.casefold()))
+        blanked = re.sub(re.escape(literal), " ", blanked, flags=re.IGNORECASE)
+    grounded = set(discovery._grounding_text(blanked).split(" "))
+    grounded.update(re.findall(INTENT_TERM_PATTERN, blanked.casefold()))
     terms: list[str] = []
     for term in re.findall(INTENT_TERM_PATTERN, statement.casefold()):
-        if term in grounded and len(term) >= MIN_SCAFFOLD_TERM_LENGTH and term not in terms:
+        if term in grounded and len(term) >= MIN_SCAFFOLD_TERM_LENGTH and term not in STOP_WORDS and term not in terms:
             terms.append(term)
     return terms
 

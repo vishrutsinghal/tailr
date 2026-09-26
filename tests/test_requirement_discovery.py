@@ -902,6 +902,19 @@ class InterpretationErrorDetailTests(unittest.TestCase):
         self.assertTrue(interpreted["material_questions"])
         self.assertTrue(any("appropriately" in question for question in interpreted["material_questions"]))
 
+    def test_scaffold_terms_drop_stop_words_and_keep_compound_identifiers(self):
+        draft_engine = load("draft_terms_test", "scripts/requirement-interpretation-draft.py")
+        goal = "Split target_workspace.verify_identity into blocking parts for the widget"
+        draft = draft_engine.scaffold_draft(goal, "codex", [])
+        envelope, errors = draft_engine.validate_draft(goal, [], draft, "codex")
+        self.assertEqual(errors, [])
+        terms = draft["requirements"][0]["intent_terms"]
+        self.assertIn("target_workspace", terms)
+        self.assertIn("verify_identity", terms)
+        for noise in ("the", "for", "into"):
+            self.assertNotIn(noise, terms)
+        self.assertTrue(all(len(term) >= 3 for term in terms))
+
     def test_scaffold_cli_output_feeds_dry_run_first_try(self):
         import subprocess
         goal = "Remove the banner; the page must stay usable"
