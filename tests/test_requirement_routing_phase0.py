@@ -921,6 +921,95 @@ class RequirementRoutingPhase0Tests(unittest.TestCase):
             self.assertIn("without downgrade or escalation", resumed.stderr)
             self.assertFalse((root / ".tailtrail" / "runs").exists())
 
+    def _write_conversation_intake(self, root: Path, intake_id: str, goal: str, revision: int = 1) -> None:
+        evidence_module = load("tailtrail_phase0_conversation_evidence", "scripts/requirement_evidence.py")
+        evidence = evidence_module.gather(root, goal, {"material_decisions": [
+            {"id": "MAT-01", "decision_class": "material-requirement-decision", "question": "Which cache?"},
+        ]})
+        for row in evidence.get("decisions", []):
+            if isinstance(row, dict) and row.get("decision_id") == "MAT-01":
+                row["recommendation"] = {"option": "Use memory cache", "confidence": "medium"}
+        unsigned = {key: value for key, value in evidence.items() if key != "fingerprint"}
+        evidence["fingerprint"] = evidence_module.fingerprint(unsigned)
+        directory = requirement_intake.intake_dir(root, intake_id)
+        directory.mkdir(parents=True)
+        (directory / "current.json").write_text(json.dumps({
+            "intake_id": intake_id,
+            "type": "tailtrail-requirement-intake",
+            "revision": revision,
+            "state": "awaiting-requirements",
+            "identity": {"root": root.resolve().as_posix(), "goal": goal, "route": "lite-questions", "host": "none"},
+            "requirement_evidence": evidence,
+            "questions": [{"decision_id": "MAT-01", "decision_class": "material-requirement-decision",
+                           "question": "Which cache?", "impact": ["acceptance-criteria"],
+                           "evidence_refs": ["host-interpretation"]}],
+            "answers": {},
+            "continuation": {"action": "requirements-answer", "intake_id": intake_id,
+                             "prompt": "Answer the material questions.",
+                             "boundary": "Answers update only this pre-lock intake."},
+            "boundary": "Durable requirement intake only.",
+        }), encoding="utf-8")
+
+    def test_skip_records_advisory_default_and_resolves(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._write_conversation_intake(root, "intake-0123456789abcdef", "fix the widget")
+            updated = requirement_intake.answer(root, "intake-0123456789abcdef", {"MAT-01": "skip"}, command_prefix="tailtrail")
+            noted = requirement_intake.answer(root, "intake-0123456789abcdef", {"MAT-01": "skip: prefer disk"}, command_prefix="tailtrail")
+        self.assertEqual(updated["state"], "answered")
+        self.assertIn("Use memory cache", updated["answers"]["MAT-01"])
+        self.assertTrue(updated["answers"]["MAT-01"].startswith("skip:"))
+        self.assertIn("prefer disk", noted["answers"]["MAT-01"])
+
+    def test_skip_without_recommendation_defers_to_plan_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._write_conversation_intake(root, "intake-0123456789abcdef", "fix the widget")
+            directory = requirement_intake.intake_dir(root, "intake-0123456789abcdef")
+            payload = json.loads((directory / "current.json").read_text(encoding="utf-8"))
+            evidence_module = load("tailtrail_phase0_conversation_evidence", "scripts/requirement_evidence.py")
+            for row in payload["requirement_evidence"].get("decisions", []):
+                if isinstance(row, dict):
+                    row["recommendation"] = None
+            unsigned = {key: value for key, value in payload["requirement_evidence"].items() if key != "fingerprint"}
+            payload["requirement_evidence"]["fingerprint"] = evidence_module.fingerprint(unsigned)
+            (directory / "current.json").write_text(json.dumps(payload), encoding="utf-8")
+            updated = requirement_intake.answer(root, "intake-0123456789abcdef", {"MAT-01": "SKIP"}, command_prefix="tailtrail")
+        self.assertIn("host-decision-deferred-to-plan-approval", updated["answers"]["MAT-01"])
+
+    def test_revision_cap_fails_closed_with_diagnostic(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._write_conversation_intake(root, "intake-0123456789abcdef", "fix the widget",
+                                            revision=requirement_intake.INTAKE_MAX_REVISIONS)
+            with self.assertRaisesRegex(ValueError, "exceeded.*answer rounds") as raised:
+                requirement_intake.answer(root, "intake-0123456789abcdef", {"MAT-01": "Use memory cache"}, command_prefix="tailtrail")
+        self.assertIn("intake-0123456789abcdef", str(raised.exception))
+
+    def test_render_ships_reply_channel_why_and_skip_per_question(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._write_conversation_intake(root, "intake-0123456789abcdef", "fix the widget")
+            artifact = requirement_intake.load(root, "intake-0123456789abcdef")
+            rendered = requirement_intake.render(artifact, "tailtrail")
+        self.assertIn("intake-0123456789abcdef", rendered)
+        self.assertIn("Why it matters: acceptance-criteria", rendered)
+        self.assertIn("requirements answer --root . --intake-id intake-0123456789abcdef", rendered)
+        self.assertIn('"skip"', rendered)
+        self.assertIn("Use memory cache", rendered)
+        self.assertIn(f"capped at {requirement_intake.INTAKE_MAX_REVISIONS}", rendered)
+
+    def test_prompt_passes_explicit_skip_through_for_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._write_conversation_intake(root, "intake-0123456789abcdef", "fix the widget")
+            with mock.patch("builtins.input", side_effect=["skip"]):
+                collected = requirement_intake.prompt_for_answers(root, "intake-0123456789abcdef")
+            updated = requirement_intake.answer(root, "intake-0123456789abcdef", collected, command_prefix="tailtrail")
+        self.assertEqual(collected, {"MAT-01": "skip"})
+        self.assertEqual(updated["state"], "answered")
+        self.assertTrue(updated["answers"]["MAT-01"].startswith("skip:"))
+
 
 if __name__ == "__main__":
     unittest.main()

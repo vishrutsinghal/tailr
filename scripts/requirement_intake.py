@@ -20,6 +20,8 @@ from shell_quote import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 IDENTIFIER = re.compile(r"^intake-[a-f0-9]{16}$")
+INTAKE_MAX_REVISIONS = 10
+SKIP_DIRECTIVE = "skip"
 SENSITIVE = (
     re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----", re.IGNORECASE),
     re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b"),
@@ -326,6 +328,34 @@ def _safe_answer(value: Any) -> str:
     return answer
 
 
+def _skip_default(evidence: dict[str, Any] | None, decision_id: str) -> str:
+    """Return the advisory default recorded when a question is skipped."""
+    decisions = evidence.get("decisions", []) if isinstance(evidence, dict) else []
+    for row in decisions:
+        if isinstance(row, dict) and str(row.get("decision_id", "")) == decision_id:
+            recommendation = row.get("recommendation")
+            if isinstance(recommendation, dict) and str(recommendation.get("option", "")).strip():
+                return f"{recommendation.get('option')} ({recommendation.get('confidence', 'unknown')} confidence)"
+    return "host-decision-deferred-to-plan-approval"
+
+
+def _skip_record(value: str, default: str) -> str | None:
+    """Translate an explicit skip directive into its recorded assumption text.
+
+    Returns None for non-skip answers. A bare `skip` decides with the
+    advisory default; `skip: <note>` records the host note alongside it.
+    Anything else passes through untouched.
+    """
+    body = value.strip()
+    lowered = body.lower()
+    if lowered == SKIP_DIRECTIVE:
+        return f"skip: decided with advisory default `{default}`"
+    if lowered.startswith(SKIP_DIRECTIVE + ":"):
+        note = body[len(SKIP_DIRECTIVE) + 1:].strip()
+        return f"skip: decided with advisory default `{default}`" + (f" — host note: {note}" if note else "")
+    return None
+
+
 def answer(
     root: Path,
     intake_id: str,
@@ -352,8 +382,18 @@ def answer(
         unknown = sorted(set(answers) - offered)
         if unknown:
             raise ValueError("answers contain unknown decision IDs: " + ", ".join(unknown))
+        if int(current.get("revision", 0)) >= INTAKE_MAX_REVISIONS:
+            still_open = sorted(offered - set(current.get("answers", {})))
+            raise ValueError(
+                f"requirement intake `{intake_id}` exceeded {INTAKE_MAX_REVISIONS} answer rounds; "
+                f"still open: {', '.join(still_open) if still_open else 'none'}; "
+                f"restart with a refined goal or answer via `{command_prefix} requirements answer --root . --intake-id {intake_id} --answers '<JSON>'`"
+            )
         merged = dict(current.get("answers", {}))
-        merged.update({str(key): _safe_answer(value) for key, value in answers.items()})
+        for key, value in answers.items():
+            text = _safe_answer(value)
+            skipped = _skip_record(text, _skip_default(current.get("requirement_evidence"), str(key)))
+            merged[str(key)] = skipped if skipped is not None else text
         state = "answered" if offered and offered <= set(merged) else "awaiting-requirements"
         revision = int(current.get("revision", 0)) + 1
         updated = {
@@ -486,17 +526,20 @@ def evidence_lines(evidence: dict[str, Any] | None, answers: dict[str, Any] | No
     return lines
 
 
-def render(artifact: dict[str, Any]) -> str:
+def render(artifact: dict[str, Any], command_prefix: str = "tailtrail") -> str:
     lines = [
         "# TailTrail Requirement Intake",
         "",
         f"**Intake ID:** `{artifact['intake_id']}`",
         f"**State:** `{artifact['state']}`",
         f"**Route:** `{artifact['identity']['route']}`",
+        f"**Revision:** `{artifact.get('revision', 1)}` (answer rounds capped at {INTAKE_MAX_REVISIONS}; the cap fails closed with a diagnostic, never a hang)",
         "",
         artifact["boundary"],
         "",
         "## Material questions",
+        "",
+        "Every question ships its reply channel below. Answering is optional per question: reply `\"skip\"` to decide with the advisory default and record the assumption, or leave it open and return with this intake ID — the intake never dead-ends on silence.",
         "",
     ]
     route_posture = artifact.get("route_posture")
@@ -515,8 +558,15 @@ def render(artifact: dict[str, Any]) -> str:
     for row in artifact.get("questions", []):
         decision_id = str(row["decision_id"])
         lines.append(f"- **{decision_id}:** {row['question']}")
+        impacts = [str(value) for value in row.get("impact", []) if str(value).strip()]
+        if impacts:
+            lines.append(f"  - Why it matters: {'; '.join(impacts)}")
         if decision_id in answers:
-            lines.append(f"  - Recorded answer: {answers[decision_id]}")
+            lines.append(f"  - Recorded: {answers[decision_id]}")
+        else:
+            default = _skip_default(artifact.get("requirement_evidence"), decision_id)
+            lines.append(f"  - Answer: `{command_prefix} requirements answer --root . --intake-id {artifact['intake_id']}` with `--answers '{{\"{decision_id}\": \"...\"}}'`")
+            lines.append(f"  - Skip: answer `\"skip\"` to decide with the advisory default (`{default}`) and record the assumption")
     lines.extend(["", *evidence_lines(artifact.get("requirement_evidence"), answers)])
     continuation = artifact["continuation"]
     lines.extend([
@@ -551,7 +601,7 @@ def prompt_for_answers(root: Path, intake_id: str) -> dict[str, str]:
         decision_id = str(row.get("decision_id", ""))
         print(f"{decision_id}: {row.get('question', '')}")
         try:
-            text = input("Answer (empty to skip): ").strip()
+            text = input("Answer (empty to leave open, 'skip' to decide with the advisory default): ").strip()
         except EOFError:
             break
         if text:
@@ -633,7 +683,7 @@ def main() -> int:
     if args.format == "json":
         print(json.dumps(artifact, indent=2, sort_keys=True))
     else:
-        print(render(artifact), end="")
+        print(render(artifact, args.command_prefix), end="")
     return 0
 
 

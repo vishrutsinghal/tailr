@@ -850,6 +850,76 @@ class InterpretationErrorDetailTests(unittest.TestCase):
             self.assertIsNone(envelope)
             self.assertTrue(any("C-02" in message for message in errors))
 
+    def test_scaffold_generates_first_try_valid_drafts(self):
+        draft_engine = load("draft_scaffold_test", "scripts/requirement-interpretation-draft.py")
+        goals = [
+            "Fix the duplicated event handler logic",
+            "Remove the banner; the page must stay usable",
+            "Split target_workspace.verify_identity into blocking parts",
+        ]
+        for goal in goals:
+            with self.subTest(goal=goal):
+                draft = draft_engine.scaffold_draft(goal, "codex", [])
+                envelope, errors = draft_engine.validate_draft(goal, [], draft, "codex")
+                self.assertEqual(errors, [])
+                self.assertEqual(envelope["goal"], goal)
+                for row in draft["requirements"]:
+                    for term in row["intent_terms"]:
+                        self.assertGreaterEqual(len(term), 3)
+
+    def test_scaffold_keeps_named_targets_and_binds_quoted_literals(self):
+        draft_engine = load("draft_scaffold_quoted_test", "scripts/requirement-interpretation-draft.py")
+        goal = 'Remove the banner "Trace endpoint is not configured" but keep the page usable'
+        draft = draft_engine.scaffold_draft(goal, "codex", [])
+        envelope, errors = draft_engine.validate_draft(goal, [], draft, "codex")
+        self.assertEqual(errors, [])
+        quoted = draft["requirements"][0]["quoted_literals"]
+        self.assertTrue(quoted)
+        for row in draft["requirements"]:
+            for term in row["intent_terms"]:
+                self.assertNotIn(term, {"trace", "endpoint", "configured"})
+        named = draft_engine.scaffold_draft("Split target_workspace.verify_identity into blocking parts", "codex", [])
+        self.assertIn("target_workspace.verify_identity", named["requirements"][0]["statement"])
+
+    def test_scaffold_questions_opt_in_and_rejects_more_than_three(self):
+        draft_engine = load("draft_scaffold_questions_test", "scripts/requirement-interpretation-draft.py")
+        draft = draft_engine.scaffold_draft("Fix the widget", "codex", ["Which widget?"])
+        self.assertEqual(draft["material_questions"], ["Which widget?"])
+        with self.assertRaisesRegex(ValueError, "at most three"):
+            draft_engine.scaffold_draft("Fix the widget", "codex", ["one", "two", "three", "four"])
+
+    def test_scaffold_cli_output_feeds_dry_run_first_try(self):
+        import subprocess
+        goal = "Remove the banner; the page must stay usable"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            scaffolded = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-draft.py"),
+                 "--goal", goal, "--scaffold", "--host", "codex"],
+                cwd=root, text=True, capture_output=True, check=False)
+            self.assertEqual(scaffolded.returncode, 0, scaffolded.stderr)
+            draft_path = root / "scaffolded.json"
+            draft_path.write_text(scaffolded.stdout, encoding="utf-8")
+            checked = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-draft.py"),
+                 "--goal", goal, "--draft", str(draft_path)],
+                cwd=root, text=True, capture_output=True, check=False)
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        envelope = json.loads(base64.b64decode(checked.stdout.strip()).decode("utf-8"))
+        self.assertEqual(envelope["goal"], goal)
+
+    def test_scaffold_cli_refuses_artifacts(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-draft.py"),
+                 "--goal", "Fix the widget", "--scaffold", "--host", "codex",
+                 "--requirement-artifact", str(root / "spec.md")],
+                cwd=root, text=True, capture_output=True, check=False)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("goal text only", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,17 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
+
+
+# Scaffold rules mirror requirement_discovery term grounding exactly (same
+# token pattern, same literal subtraction); the anchor stage additionally
+# needs terms of at least three characters, so the scaffold enforces the
+# strictest downstream rule up front.
+INTENT_TERM_PATTERN = r"[A-Za-z][A-Za-z0-9_-]{1,63}"
+MIN_SCAFFOLD_TERM_LENGTH = 3
+CONSTRAINT_CUES = ("must", "only ", "never", "always", "without", "capped", "stateless", "fail closed", "required")
+CONTEXT_PREFIXES = ("owners ", "note:", "note ", "context:", "for reference", "background:")
+QUOTED_SPAN = re.compile(r'"([^"]{4,160})"|`([^`]{4,160})`')
 
 
 def _load(name: str, filename: str) -> Any:
@@ -72,6 +84,100 @@ def _build_evidence(
     return evidence
 
 
+def _scaffold_quoted_literals(goal: str) -> list[str]:
+    """Extract normalized quoted spans using the validator's own normalizer."""
+    discovery = _load("scaffold_requirement_discovery", "requirement_discovery.py")
+    literals: list[str] = []
+    for double_quoted, backticked in QUOTED_SPAN.findall(goal):
+        normalized = discovery.normalize_quoted_literal(double_quoted or backticked)
+        if normalized and normalized not in literals:
+            literals.append(normalized)
+    return literals[:8]
+
+
+def _scaffold_clauses(goal: str) -> list[dict[str, Any]]:
+    """Split goal text into conservative clauses; uncertain segments stay outcomes.
+
+    Scope paths come from discovery's own extractor. Only explicit cue
+    words divert a segment to constraint/question/context, so a missed cue
+    keeps the behavior as a requirement instead of silently dropping it.
+    """
+    discovery = _load("scaffold_requirement_discovery", "requirement_discovery.py")
+    without_paths, scopes = discovery._extract_scope_paths(goal)
+    clauses = [dict(row) for row in scopes]
+    segments = [part.strip(" .") for part in re.split(r"\s*;\s*", without_paths) if part.strip(" .")]
+    for index, segment in enumerate(segments, start=1):
+        lowered = segment.casefold()
+        if segment.endswith("?"):
+            role = "question"
+        elif any(segment.lower().startswith(prefix) for prefix in CONTEXT_PREFIXES):
+            role = "context"
+        elif any(cue in lowered for cue in CONSTRAINT_CUES):
+            role = "constraint"
+        else:
+            role = "outcome"
+        clauses.append({"clause_id": f"C-{index:02d}", "role": role, "text": segment})
+    return clauses
+
+
+def _scaffold_terms(statement: str, goal: str, quoted_literals: list[str]) -> list[str]:
+    """Derive grounded intent terms with the validator's grounding semantics."""
+    semantic_goal = re.sub(r"[`*>#]+", " ", goal)
+    for literal in quoted_literals:
+        semantic_goal = re.sub(re.escape(literal), " ", semantic_goal, flags=re.IGNORECASE)
+    grounded = set(re.findall(INTENT_TERM_PATTERN, semantic_goal.casefold()))
+    terms: list[str] = []
+    for term in re.findall(INTENT_TERM_PATTERN, statement.casefold()):
+        if term in grounded and len(term) >= MIN_SCAFFOLD_TERM_LENGTH and term not in terms:
+            terms.append(term)
+    return terms
+
+
+def scaffold_draft(goal: str, host: str | None, questions: list[str]) -> dict[str, Any]:
+    """Build a goal-derived draft; the caller must still run validate_draft.
+
+    Statements stay verbatim to their source clause so exact named targets
+    survive, and every outcome/constraint clause gets exactly one
+    requirement for coverage. Raises on any gap instead of emitting an
+    invalid draft. Requirement artifacts are out of scope: scaffold binds
+    goal text only.
+    """
+    if len(questions) > 3:
+        raise ValueError("scaffold supports at most three material questions")
+    quoted = _scaffold_quoted_literals(goal)
+    clauses = _scaffold_clauses(goal)
+    requirements: list[dict[str, Any]] = []
+    orphan_literals = list(quoted)
+    for clause in clauses:
+        if clause.get("role") not in {"outcome", "constraint"}:
+            continue
+        statement = str(clause.get("text", ""))
+        attached = [literal for literal in quoted if literal.casefold() in statement.casefold()]
+        for literal in attached:
+            if literal in orphan_literals:
+                orphan_literals.remove(literal)
+        requirements.append({
+            "display_id": f"REQ-{len(requirements) + 1:02d}",
+            "statement": statement,
+            "kind": "constraint" if clause.get("role") == "constraint" else "change",
+            "source_clause_ids": [str(clause.get("clause_id", ""))],
+            "intent_terms": _scaffold_terms(statement, goal, quoted),
+            "quoted_literals": attached,
+            "intent_class": "general",
+            "confidence": "medium",
+        })
+    if not requirements:
+        raise ValueError("scaffold found no outcome or constraint clause in the goal")
+    if orphan_literals and requirements:
+        requirements[0]["quoted_literals"] = sorted(dict.fromkeys([*requirements[0]["quoted_literals"], *orphan_literals]))
+    return {
+        "host": host,
+        "clauses": clauses,
+        "requirements": requirements,
+        "material_questions": [str(value) for value in questions],
+    }
+
+
 def validate_draft(
     goal: str,
     artifact_paths: list[str | Path],
@@ -115,21 +221,40 @@ def validate_draft(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Dry-run a requirement interpretation (no side effects).")
+    parser = argparse.ArgumentParser(description="Dry-run or scaffold a requirement interpretation (no side effects).")
     parser.add_argument("--goal", required=True, help="Exact goal string the draft is bound to.")
     parser.add_argument("--requirement-artifact", action="append", default=[],
                         help="Requirement artifact file. Repeatable; bound as IN-02, IN-03, ...")
-    parser.add_argument("--draft", type=Path, required=True,
+    parser.add_argument("--draft", type=Path, default=None,
                         help="Draft JSON with host, clauses, requirements, and material_questions.")
+    parser.add_argument("--scaffold", action="store_true",
+                        help="Build the draft from the goal string with the validator's own rules, then validate it. Fails loudly on any gap.")
+    parser.add_argument("--question", action="append", default=[],
+                        help="Material question for a scaffolded draft (opt-in; at most three). Repeat for each question.")
     parser.add_argument("--host", default=None, choices=("codex", "copilot", "claude"),
                         help="Active host; defaults to the draft host field.")
     args = parser.parse_args(argv)
 
-    try:
-        draft = json.loads(args.draft.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
-        print(f"dry-run error: cannot read draft {args.draft} ({error})", file=sys.stderr)
+    if args.scaffold == bool(args.draft):
+        print("dry-run error: provide exactly one of --draft or --scaffold", file=sys.stderr)
         return 2
+    if args.scaffold:
+        if args.requirement_artifact:
+            print("dry-run error: scaffold binds goal text only; pass artifacts with --draft", file=sys.stderr)
+            return 2
+        try:
+            draft = scaffold_draft(args.goal, args.host, list(args.question))
+        except ValueError as error:
+            print(f"dry-run error: {error}", file=sys.stderr)
+            return 2
+        print(json.dumps(draft, indent=2, sort_keys=True))
+    else:
+        assert args.draft is not None
+        try:
+            draft = json.loads(args.draft.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            print(f"dry-run error: cannot read draft {args.draft} ({error})", file=sys.stderr)
+            return 2
     try:
         proposal, errors = validate_draft(args.goal, args.requirement_artifact, draft, args.host)
     except ValueError as error:
@@ -139,7 +264,8 @@ def main(argv: list[str] | None = None) -> int:
         for message in errors:
             print(f"dry-run error: {message}", file=sys.stderr)
         return 2
-    print(base64.b64encode(json.dumps(proposal, separators=(",", ":")).encode("utf-8")).decode("ascii"))
+    if not args.scaffold:
+        print(base64.b64encode(json.dumps(proposal, separators=(",", ":")).encode("utf-8")).decode("ascii"))
     return 0
 
 
