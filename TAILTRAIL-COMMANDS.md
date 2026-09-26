@@ -858,6 +858,14 @@ python3 scripts/tailtrail.py start "triage GHSA in package.json" --changed packa
 python3 scripts/tailtrail.py start "fix validation bug and add tests" --changed src/service/foo.py --verbose
 ```
 
+When a Start stops at `SCOPE-Q1`, answer it on the next Start instead of exiting: repeat `--scope-owner <path>` for each answered requirement (`REQ-ID=path` when several requirements are unresolved; a bare path applies only when exactly one is). Answers must name route-eligible evidence-backed paths and bind the fresh evidence packet; `--scope-round N` tracks dialogue rounds (capped at 3, then fail closed). Scope answers require `--host codex, copilot, or claude`.
+
+```bash
+python3 scripts/tailtrail.py start "fix validation bug" --host claude --scope-owner src/service/foo.py
+python3 scripts/tailtrail.py start "fix validation bug" --host claude --scope-owner REQ-01=src/service/foo.py --scope-owner REQ-02=src/service/bar.py --scope-round 2
+```
+```
+
 Use `do`, `start`, or free-form task input as the preferred first command for non-trivial work. They run Navigator, then add a compact task report with:
 
 - a Start Here section with the immediate next step

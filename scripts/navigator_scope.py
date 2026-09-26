@@ -3885,3 +3885,165 @@ def host_packet_proposal_decision(root: Path, packet: dict[str, Any], proposal: 
         "authority": "none",
         "boundary": "Packet validation only; submit an accepted proposal to the same explicit Start request. No run or authority was created.",
     }
+
+
+SCOPE_ANSWER_MAX_ROUNDS = 3
+
+
+def parse_scope_answer(value: str) -> tuple[str | None, str]:
+    """Split a scope answer into an optional requirement reference and a path.
+
+    Accepts `REQ-ID=path` (requirement_id or display_id) or a bare path,
+    which applies only when exactly one requirement is unresolved.
+    """
+    text = str(value).strip()
+    head, separator, tail = text.partition("=")
+    if separator and head.strip() and tail.strip() and "/" not in head and "\\" not in head:
+        return head.strip(), tail.strip()
+    return None, text
+
+
+def proposal_from_scope_answers(
+    root: Path,
+    packet: dict[str, Any],
+    raw_answers: list[str],
+    answer_round: int,
+    host: str,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Build a host-scope proposal from plain-text scope answers.
+
+    Answers bind to the exact supplied packet: every unresolved packet
+    requirement must be mapped (all-or-nothing per round), each answered
+    path must be a route-eligible evidence-backed candidate, and rounds are
+    capped so the dialogue fails closed instead of looping. Returns
+    (proposal, []) on success or (None, reason codes) for the next round.
+    Rounds always bind the fresh evidence packet, never a post-record one.
+    """
+    if host not in {"codex", "claude", "copilot"}:
+        return None, ["unsupported-host"]
+    if answer_round > SCOPE_ANSWER_MAX_ROUNDS:
+        return None, ["scope-answer-rounds-exhausted", f"round-{answer_round}-exceeds-max-{SCOPE_ANSWER_MAX_ROUNDS}", "restart-with-a-refined-goal"]
+    packet_body = {key: value for key, value in packet.items() if key != "packet_fingerprint"}
+    if not isinstance(packet.get("packet_fingerprint"), str) or fingerprint(packet_body) != packet.get("packet_fingerprint"):
+        return None, ["host-evidence-packet-integrity-invalid"]
+    try:
+        negotiate_packet_version(packet)
+    except ValueError:
+        return None, ["unsupported-packet-version"]
+    route = packet.get("route", {}) if isinstance(packet.get("route"), dict) else {}
+    if route.get("state") != "requested":
+        return None, ["host-reasoning-not-requested"]
+    candidates = {str(row.get("path")): row for row in packet.get("candidates", []) if isinstance(row, dict)}
+    edges = {str(row.get("edge_id")): row for row in packet.get("edges", []) if isinstance(row, dict)}
+    eligible = {str(row.get("path")) for row in route.get("eligible_candidates", []) if isinstance(row, dict)}
+    packet_requirements = [row for row in packet.get("requirements", []) if isinstance(row, dict)]
+    if not packet_requirements:
+        return None, ["answer-requires-packet-requirements"]
+    by_id = {str(row.get("requirement_id", "")): row for row in packet_requirements}
+    by_display = {str(row.get("display_id", "")): row for row in packet_requirements if str(row.get("display_id", ""))}
+    unresolved = [str(row.get("requirement_id", "")) for row in packet_requirements if str(row.get("scope_state", "")) != "resolved"]
+    if not unresolved:
+        return None, ["scope-already-resolved"]
+    if not raw_answers:
+        return None, ["answer-required"]
+    parsed: list[tuple[str | None, str]] = [parse_scope_answer(value) for value in raw_answers]
+    mapped: dict[str, str] = {}
+    errors: list[str] = []
+    for reference, raw_path in parsed:
+        normalized, rejection = normalize_repository_path(root, raw_path)
+        if normalized is None:
+            errors.append(f"answer-path-rejected:{raw_path}:{rejection}")
+            continue
+        if reference is None:
+            if len(unresolved) != 1:
+                errors.append(f"answer-needs-requirement:{raw_path}:provide-REQ-ID=path")
+                continue
+            requirement_id = unresolved[0]
+        else:
+            match = by_id.get(reference, by_display.get(reference))
+            if match is None:
+                errors.append(f"unknown-requirement:{reference}")
+                continue
+            requirement_id = str(match.get("requirement_id", ""))
+            if requirement_id not in unresolved:
+                errors.append(f"requirement-already-resolved:{reference}")
+                continue
+        if requirement_id in mapped:
+            errors.append(f"duplicate-requirement-answer:{requirement_id}")
+            continue
+        candidate = candidates.get(normalized)
+        if candidate is None or candidate.get("role") != "implementation-owner" or candidate.get("status") != "included":
+            errors.append(f"answer-not-evidence-backed:{normalized}:ground-it-in-the-goal-or---changed")
+            continue
+        if normalized not in eligible:
+            errors.append(f"answer-not-host-eligible:{normalized}:ground-it-in-the-goal-or---changed")
+            continue
+        touching = sorted({
+            str(edge_id) for edge_id in candidate.get("evidence_edge_ids", [])
+            if str(edge_id) in edges and str(candidate.get("candidate_id", "")) in {
+                str(edges[str(edge_id)].get("from_candidate_id", "")),
+                str(edges[str(edge_id)].get("to_candidate_id", "")),
+            }
+        })
+        if not touching:
+            errors.append(f"answer-without-relationship-evidence:{normalized}")
+            continue
+        mapped[requirement_id] = normalized
+    missing = sorted(set(unresolved) - set(mapped))
+    if missing and not errors:
+        errors.append(f"answer-incomplete:unmapped-requirements:{','.join(missing)}")
+    if errors:
+        return None, sorted(dict.fromkeys(errors))
+    proposal_requirements: list[dict[str, Any]] = []
+    for row in packet_requirements:
+        requirement_id = str(row.get("requirement_id", ""))
+        owner = mapped[requirement_id]
+        candidate = candidates[owner]
+        claim_edges = sorted({
+            str(edge_id) for edge_id in candidate.get("evidence_edge_ids", [])
+            if str(edge_id) in edges and str(candidate.get("candidate_id", "")) in {
+                str(edges[str(edge_id)].get("from_candidate_id", "")),
+                str(edges[str(edge_id)].get("to_candidate_id", "")),
+            }
+        })
+        alternatives = sorted(path for path in eligible if path != owner)
+        if not alternatives:
+            return None, [f"answer-has-no-alternative:{requirement_id}"]
+        proposal_requirements.append({
+            "requirement_id": requirement_id,
+            "statement_fingerprint": row.get("statement_fingerprint"),
+            "implementation_owners": [owner],
+            "callers": [],
+            "inspection_paths": [],
+            "proof_paths": [],
+            "excluded_candidates": [],
+            "path_claims": [{
+                "path": owner,
+                "candidate_id": str(candidate.get("candidate_id", "")),
+                "content_fingerprint": str(candidate.get("content_fingerprint", "")),
+                "claim_role": "implementation-owner",
+                "evidence_edge_ids": claim_edges,
+            }],
+            "preservation_boundaries": ["An answered scope owner records explicit host selection; it grants no execution authority."],
+            "evidence_edge_ids": claim_edges,
+            "confidence": "high",
+            "decision_reasons": [
+                f"Host scope answer round {answer_round} selects {owner} for {requirement_id}.",
+                f"The answered path is evidence-backed with {len(claim_edges)} relationship edge(s).",
+            ],
+            "alternatives": alternatives,
+            "uncertainties": [],
+        })
+    return {
+        "schema_version": "2",
+        "type": "tailtrail-navigator-host-scope-proposal",
+        "host": host,
+        "evidence_packet_fingerprint": packet.get("packet_fingerprint"),
+        "scope_evidence_fingerprint": packet.get("scope_evidence_fingerprint"),
+        "target_identity_fingerprint": packet.get("target_identity_fingerprint"),
+        "goal_fingerprint": packet.get("goal_fingerprint"),
+        "scope_state": "proposed-resolved",
+        "authority": "evidence-refinement-only",
+        "requirements": proposal_requirements,
+        "private_reasoning_excluded": True,
+    }, []

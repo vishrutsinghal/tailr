@@ -2775,6 +2775,26 @@ def build_report(
     }
 
 
+def prepare_scope_answer_proposal(report: dict[str, Any], root: Path, raw_answers: list[str], answer_round: int, host: str | None) -> tuple[dict[str, Any] | None, list[str], str | None]:
+    """Build the navigator proposal for --scope-owner answers.
+
+    Returns (proposal, errors, fatal). `fatal` covers missing evidence/host
+    (the caller exits usage); `errors` are answer-level rejections rendered
+    as the next dialogue round. Rounds bind the fresh evidence packet.
+    """
+    if host not in {"codex", "copilot", "claude"}:
+        return None, [], "scope answers require --host codex, copilot, or claude"
+    navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else None
+    evidence = navigator.get("scope_evidence") if isinstance(navigator, dict) else None
+    if not isinstance(evidence, dict):
+        return None, [], "scope answers require canonical Navigator scope evidence"
+    packet = navigator_scope.host_reasoning_packet(evidence)
+    proposal, errors = navigator_scope.proposal_from_scope_answers(
+        root, packet, list(raw_answers), max(1, int(answer_round or 1)), host,
+    )
+    return proposal, errors, None
+
+
 def normalize_command_prefix(root: Path, command_prefix: str) -> str:
     """Render commands relative to the target project, not the agent's cwd."""
     normalized = command_prefix.replace("\\", "/")
@@ -5539,6 +5559,8 @@ def main() -> int:
     parser.add_argument("--target-alias", help="Optional target alias from the supplied enterprise target policy.")
     parser.add_argument("--actor", help="Optional declared actor label for a policy that requires target ownership. This is not authentication.")
     parser.add_argument("--changed", action="append", default=[], help="Changed or target file path. Repeat for multiple files.")
+    parser.add_argument("--scope-owner", action="append", default=[], help="Answer SCOPE-Q1 with an evidence-backed owner path (or REQ-ID=path for multi-requirement scope). Repeat for each answered requirement. Rounds are capped; answers bind the fresh evidence packet.")
+    parser.add_argument("--scope-round", type=int, default=1, help="Scope-answer dialogue round for --scope-owner (1-based; capped, then fail closed).")
     parser.add_argument(
         "--graph", choices=("auto", "reuse", "refresh", "rebuild", "off"), default="auto",
         help="Navigator graph lifecycle override. Default auto reuses, creates, or refreshes metadata as needed.",
@@ -6080,6 +6102,15 @@ def main() -> int:
             ]
         if isinstance(report.get("navigator"), dict):
             report["navigator"]["graph_lifecycle"] = graph_lifecycle
+            scope_answer_errors: list[str] = []
+            scope_answer_round = max(1, int(args.scope_round or 1))
+            if args.scope_owner and host_scope_proposal is None:
+                answer_host = args.host or os.environ.get("TAILTRAIL_ACTIVE_HOST")
+                host_scope_proposal, scope_answer_errors, fatal = prepare_scope_answer_proposal(
+                    report, root, list(args.scope_owner), scope_answer_round, answer_host,
+                )
+                if fatal is not None:
+                    parser.error(fatal)
             if host_scope_proposal is not None:
                 scope_evidence = report["navigator"].get("scope_evidence")
                 if not isinstance(scope_evidence, dict):
@@ -6106,6 +6137,31 @@ def main() -> int:
                     key: value for key, value in host_decision.items()
                     if key not in {"scope_evidence", "scope_contract"}
                 }
+            if scope_answer_errors:
+                report["host_scope_proposal_decision"] = {
+                    "schema_version": "1",
+                    "type": "tailtrail-navigator-host-scope-decision",
+                    "status": "answer-rejected",
+                    "reason_codes": scope_answer_errors,
+                    "round": scope_answer_round,
+                    "planning_lock_created": False,
+                    "run_created": False,
+                    "persisted": False,
+                    "execution_blocked": True,
+                    "authority": "none",
+                    "boundary": "Scope answers are validated without creating authority. Fix the answers and resubmit the same Start request.",
+                }
+                pending_quality = report["navigator"].get("scope_quality", {})
+                pending_question = pending_quality.get("question") if isinstance(pending_quality, dict) else None
+                if isinstance(pending_quality, dict) and isinstance(pending_question, dict):
+                    pending_quality = dict(pending_quality)
+                    pending_question = dict(pending_question)
+                    pending_question["boundary"] = (
+                        f"Scope answer round {scope_answer_round} rejected ({'; '.join(scope_answer_errors)}). "
+                        + str(pending_question.get("boundary", ""))
+                    )
+                    pending_quality["question"] = pending_question
+                    report["navigator"]["scope_quality"] = pending_quality
         selected_presentation = presentation_policy(
             report,
             verbose=bool(args.verbose),

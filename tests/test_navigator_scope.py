@@ -2522,7 +2522,121 @@ class NavigatorScopeAtomicStartTests(unittest.TestCase):
         self.assertIn("### Excluded candidates", verbose)
         self.assertIn("tests/test_aidlc_requirements.py", verbose)
         self.assertIn("### Investigation limits", verbose)
-        self.assertNotIn("| --- | --- | --- | --- |", verbose)
+        self.assertNotIn("| --- | --- |", verbose)
+
+
+class ScopeAnswerTests(unittest.TestCase):
+    def _document(self, root: Path):
+        (root / "owner-a.py").write_text("def alpha():\n    return 1\n", encoding="utf-8")
+        (root / "owner-b.py").write_text("def beta():\n    return 2\n", encoding="utf-8")
+        (root / "owner-c.py").write_text("def gamma():\n    return 3\n", encoding="utf-8")
+        _, _, hash_a = navigator_scope.safe_text(root, "owner-a.py")
+        _, _, hash_b = navigator_scope.safe_text(root, "owner-b.py")
+        _, _, hash_c = navigator_scope.safe_text(root, "owner-c.py")
+        candidates = [
+            {"path": "owner-a.py", "candidate_id": "cand-aaaaaaaaaaaa", "role": "implementation-owner",
+             "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+             "evidence_edge_ids": ["edge-aaaaaaaaaaaa"], "content_fingerprint": hash_a, "seed_sources": ["explicit-path"]},
+            {"path": "owner-b.py", "candidate_id": "cand-bbbbbbbbbbbb", "role": "implementation-owner",
+             "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+             "evidence_edge_ids": ["edge-bbbbbbbbbbbb"], "content_fingerprint": hash_b, "seed_sources": ["explicit-path"]},
+            {"path": "owner-c.py", "candidate_id": "cand-cccccccccccc", "role": "implementation-owner",
+             "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+             "evidence_edge_ids": [], "content_fingerprint": hash_c, "seed_sources": ["explicit-path"]},
+        ]
+        edges = [
+            {"edge_id": "edge-aaaaaaaaaaaa", "kind": "imports-module", "from_candidate_id": "cand-aaaaaaaaaaaa",
+             "to_candidate_id": "cand-bbbbbbbbbbbb", "strength": "strong", "reason_codes": ["static-relationship"]},
+            {"edge_id": "edge-bbbbbbbbbbbb", "kind": "imports-module", "from_candidate_id": "cand-bbbbbbbbbbbb",
+             "to_candidate_id": "cand-aaaaaaaaaaaa", "strength": "strong", "reason_codes": ["static-relationship"]},
+        ]
+        frames = [
+            {"requirement_id": "req-frame-000000000001", "display_id": "REQ-01", "statement": "Use alpha.", "query_terms": ["alpha"]},
+            {"requirement_id": "req-frame-000000000002", "display_id": "REQ-02", "statement": "Use beta.", "query_terms": ["beta"]},
+        ]
+        return navigator_scope.evidence_document(
+            root, "Use alpha and beta.", frames, candidates, edges=edges, investigation={"state": "ambiguous"},
+        )
+
+    def _packet(self, root: Path):
+        return navigator_scope.host_reasoning_packet(self._document(root))
+
+    def test_parse_scope_answer_forms(self) -> None:
+        self.assertEqual(navigator_scope.parse_scope_answer("owner-a.py"), (None, "owner-a.py"))
+        self.assertEqual(navigator_scope.parse_scope_answer("REQ-01=owner-a.py"), ("REQ-01", "owner-a.py"))
+        self.assertEqual(navigator_scope.parse_scope_answer("req-frame-1 = owner-a.py"), ("req-frame-1", "owner-a.py"))
+        self.assertEqual(navigator_scope.parse_scope_answer("  owner-a.py  "), (None, "owner-a.py"))
+
+    def test_mapped_answers_resolve_ambiguous_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            packet = self._packet(root)
+            self.assertEqual(packet["route"]["state"], "requested")
+            proposal, errors = navigator_scope.proposal_from_scope_answers(
+                root, packet, ["REQ-01=owner-a.py", "req-frame-000000000002=owner-b.py"], 1, "codex")
+            self.assertEqual(errors, [])
+            self.assertIsNotNone(proposal)
+            assert proposal is not None
+            validation = navigator_scope.validate_host_proposal(root, packet, proposal)
+            self.assertEqual(validation["errors"], [])
+            recorded = navigator_scope.record_host_proposal(root, self._document(root), proposal)
+            quality = navigator_scope.assess_scope_quality(root, "Use alpha and beta.", ["bug"], recorded)
+        self.assertEqual(recorded["state"], "resolved")
+        self.assertFalse(quality["blocking"])
+        owners = {row["requirement_id"]: row["implementation_owners"] for row in recorded["requirements"]}
+        self.assertEqual(owners["req-frame-000000000001"], ["owner-a.py"])
+        self.assertEqual(owners["req-frame-000000000002"], ["owner-b.py"])
+
+    def test_bare_answer_rejected_when_several_requirements_unresolved(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _, errors = navigator_scope.proposal_from_scope_answers(root, self._packet(root), ["owner-a.py"], 1, "codex")
+        self.assertTrue(any(error.startswith("answer-needs-requirement") for error in errors))
+
+    def test_unknown_path_requirement_and_edgeless_answer_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            packet = self._packet(root)
+            _, missing_errors = navigator_scope.proposal_from_scope_answers(root, packet, ["REQ-01=nope/missing.py"], 1, "codex")
+            _, requirement_errors = navigator_scope.proposal_from_scope_answers(root, packet, ["REQ-99=owner-a.py"], 1, "codex")
+            _, traversal_errors = navigator_scope.proposal_from_scope_answers(root, packet, ["REQ-01=../escape.py"], 1, "codex")
+            _, edgeless_errors = navigator_scope.proposal_from_scope_answers(root, packet, ["REQ-01=owner-c.py", "REQ-02=owner-b.py"], 1, "codex")
+        self.assertTrue(any(error.startswith("answer-not-evidence-backed") for error in missing_errors))
+        self.assertTrue(any(error.startswith("unknown-requirement") for error in requirement_errors))
+        self.assertTrue(any(error.startswith("answer-path-rejected") for error in traversal_errors))
+        self.assertTrue(any(error.startswith("answer-not-host-eligible") for error in edgeless_errors))
+
+    def test_round_cap_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _, errors = navigator_scope.proposal_from_scope_answers(
+                root, self._packet(root), ["REQ-01=owner-a.py", "REQ-02=owner-b.py"], 4, "codex")
+        self.assertIn("scope-answer-rounds-exhausted", errors)
+
+    def test_prepare_helper_rejects_missing_host_and_binds_fresh_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            document = self._document(root)
+            report = {"navigator": {"scope_evidence": document}}
+            proposal, errors, fatal = task_start.prepare_scope_answer_proposal(
+                report, root, ["REQ-01=owner-a.py", "REQ-02=owner-b.py"], 1, None)
+            self.assertIsNone(proposal)
+            self.assertEqual(fatal, "scope answers require --host codex, copilot, or claude")
+            proposal, errors, fatal = task_start.prepare_scope_answer_proposal(
+                report, root, ["REQ-01=owner-a.py", "REQ-02=owner-b.py"], 1, "codex")
+            self.assertIsNone(fatal)
+            self.assertEqual(errors, [])
+            assert proposal is not None
+            self.assertEqual(proposal["evidence_packet_fingerprint"], navigator_scope.host_reasoning_packet(document)["packet_fingerprint"])
+
+    def test_start_parser_exposes_scope_answer_flags(self) -> None:
+        result = subprocess.run(
+            [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "--help"],
+            cwd=ROOT, text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--scope-owner", result.stdout)
+        self.assertIn("--scope-round", result.stdout)
 
 
 if __name__ == "__main__":
