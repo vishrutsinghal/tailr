@@ -289,7 +289,6 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as error:
             print(f"dry-run error: {error}", file=sys.stderr)
             return 2
-        print(json.dumps(draft, indent=2, sort_keys=True))
     else:
         assert args.draft is not None
         try:
@@ -306,7 +305,9 @@ def main(argv: list[str] | None = None) -> int:
         for message in errors:
             print(f"dry-run error: {message}", file=sys.stderr)
         return 2
-    if not args.scaffold:
+    if args.scaffold:
+        print(json.dumps(draft, indent=2, sort_keys=True))
+    else:
         print(base64.b64encode(json.dumps(proposal, separators=(",", ":")).encode("utf-8")).decode("ascii"))
     return 0
 

@@ -915,6 +915,18 @@ class InterpretationErrorDetailTests(unittest.TestCase):
             self.assertNotIn(noise, terms)
         self.assertTrue(all(len(term) >= 3 for term in terms))
 
+    def test_scaffold_self_check_rejects_invalid_builder_output(self):
+        import io
+        from contextlib import redirect_stdout
+        from unittest import mock
+        draft_engine = load("draft_self_check_test", "scripts/requirement-interpretation-draft.py")
+        out = io.StringIO()
+        with mock.patch.object(draft_engine, "scaffold_draft", return_value={"host": "codex"}):
+            with redirect_stdout(out):
+                code = draft_engine.main(["--goal", "Fix the widget", "--scaffold", "--host", "codex"])
+        self.assertEqual(code, 2)
+        self.assertEqual(out.getvalue(), "")
+
     def test_scaffold_cli_output_feeds_dry_run_first_try(self):
         import subprocess
         goal = "Remove the banner; the page must stay usable"
