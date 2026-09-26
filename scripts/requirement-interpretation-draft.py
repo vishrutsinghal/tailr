@@ -40,6 +40,19 @@ CONTEXT_PREFIXES = ("owners ", "note:", "note ", "context:", "for reference", "b
 QUOTED_SPAN = re.compile(r'"([^"]{4,160})"|`([^`]{4,160})`')
 
 
+def scaffold_rules() -> list[str]:
+    """Render the live scaffold rules from the enforcing constants."""
+    return [
+        f"term pattern: {INTENT_TERM_PATTERN} (validator tokenization, matched whole)",
+        f"min term length: {MIN_SCAFFOLD_TERM_LENGTH} (anchor stage needs >=3; interpretation allows 2)",
+        f"constraint cues: {', '.join(CONSTRAINT_CUES)}",
+        f"context prefixes: {', '.join(CONTEXT_PREFIXES)}",
+        "questions: opt-in via repeatable --question, at most three, default none",
+        "artifacts: refused with --scaffold (goal text only; bind artifacts with --draft)",
+        "guarantee: scaffolded output always passes validate_draft or the command fails loudly",
+    ]
+
+
 def _load(name: str, filename: str) -> Any:
     spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
     module = importlib.util.module_from_spec(spec)
@@ -222,7 +235,7 @@ def validate_draft(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Dry-run or scaffold a requirement interpretation (no side effects).")
-    parser.add_argument("--goal", required=True, help="Exact goal string the draft is bound to.")
+    parser.add_argument("--goal", default=None, help="Exact goal string the draft is bound to.")
     parser.add_argument("--requirement-artifact", action="append", default=[],
                         help="Requirement artifact file. Repeatable; bound as IN-02, IN-03, ...")
     parser.add_argument("--draft", type=Path, default=None,
@@ -231,10 +244,17 @@ def main(argv: list[str] | None = None) -> int:
                         help="Build the draft from the goal string with the validator's own rules, then validate it. Fails loudly on any gap.")
     parser.add_argument("--question", action="append", default=[],
                         help="Material question for a scaffolded draft (opt-in; at most three). Repeat for each question.")
+    parser.add_argument("--show-rules", action="store_true",
+                        help="Print the live scaffold rules and exit without building anything.")
     parser.add_argument("--host", default=None, choices=("codex", "copilot", "claude"),
                         help="Active host; defaults to the draft host field.")
     args = parser.parse_args(argv)
 
+    if args.show_rules:
+        print("\n".join(scaffold_rules()))
+        return 0
+    if not args.goal:
+        parser.error("the following arguments are required: --goal")
     if args.scaffold == bool(args.draft):
         print("dry-run error: provide exactly one of --draft or --scaffold", file=sys.stderr)
         return 2

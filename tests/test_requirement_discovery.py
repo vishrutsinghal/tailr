@@ -920,6 +920,40 @@ class InterpretationErrorDetailTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("goal text only", result.stderr)
 
+    def test_show_rules_reports_live_constants(self):
+        import subprocess
+        draft_engine = load("draft_rules_test", "scripts/requirement-interpretation-draft.py")
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-draft.py"), "--show-rules"],
+            cwd=ROOT, text=True, capture_output=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(draft_engine.INTENT_TERM_PATTERN, result.stdout)
+        self.assertIn(str(draft_engine.MIN_SCAFFOLD_TERM_LENGTH), result.stdout)
+        for cue in draft_engine.CONSTRAINT_CUES:
+            self.assertIn(cue.strip(), result.stdout)
+
+    def test_scaffold_shim_matches_draft_module(self):
+        import subprocess
+        goal = "Remove the banner; the page must stay usable"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            direct = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-draft.py"),
+                 "--goal", goal, "--scaffold", "--host", "codex"],
+                cwd=root, text=True, capture_output=True, check=False)
+            shimmed = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-scaffold.py"),
+                 "--goal", goal, "--scaffold", "--host", "codex"],
+                cwd=root, text=True, capture_output=True, check=False)
+            helped = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-scaffold.py"), "--help"],
+                cwd=root, text=True, capture_output=True, check=False)
+        self.assertEqual(direct.returncode, 0, direct.stderr)
+        self.assertEqual(shimmed.returncode, 0, shimmed.stderr)
+        self.assertEqual(json.loads(shimmed.stdout), json.loads(direct.stdout))
+        self.assertEqual(helped.returncode, 0, helped.stderr)
+        self.assertIn("--scaffold", helped.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
