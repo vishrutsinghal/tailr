@@ -1010,6 +1010,30 @@ class RequirementRoutingPhase0Tests(unittest.TestCase):
         self.assertEqual(updated["state"], "answered")
         self.assertTrue(updated["answers"]["MAT-01"].startswith("skip:"))
 
+    def test_clarification_report_renders_continuation_command(self) -> None:
+        command = "tailtrail requirements answer --root . --intake-id intake-0123456789abcdef --answers '{\"?\": \"?\"}'"
+        rendered = task_start.render_requirement_clarification_report({
+            "type": "tailtrail-requirement-clarification",
+            "boundary": "No graph lifecycle or Planning Lock was created.",
+            "intake_id": "intake-0123456789abcdef",
+            "recommended_route": "lite-questions",
+            "material_questions": ["Which cache?"],
+            "requirement_evidence": {},
+            "continuation": {"prompt": "Answer the material question.", "command": command},
+        })
+        self.assertIn(command, rendered)
+        self.assertIn("Which cache?", rendered)
+        without_command = task_start.render_requirement_clarification_report({
+            "type": "tailtrail-requirement-clarification",
+            "boundary": "No graph lifecycle or Planning Lock was created.",
+            "intake_id": "intake-0123456789abcdef",
+            "recommended_route": "lite-questions",
+            "material_questions": ["Which cache?"],
+            "requirement_evidence": {},
+            "continuation": {"prompt": "Answer the material question."},
+        })
+        self.assertIn("Answer the material question.", without_command)
+
 
 if __name__ == "__main__":
     unittest.main()

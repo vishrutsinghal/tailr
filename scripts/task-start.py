@@ -4729,6 +4729,8 @@ def render_requirement_clarification_report(report: dict[str, Any]) -> str:
     continuation = report.get("continuation")
     if isinstance(continuation, dict) and continuation.get("prompt"):
         lines.append(f"- **Continue:** {continuation['prompt']}")
+        if continuation.get("command"):
+            lines.append(f"- `{continuation['command']}`")
     return "\n".join(lines) + "\n"
 
 
