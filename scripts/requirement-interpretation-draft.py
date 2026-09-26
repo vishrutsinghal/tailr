@@ -55,7 +55,7 @@ def scaffold_rules() -> list[str]:
         f"context prefixes: {', '.join(CONTEXT_PREFIXES)}",
         "questions: opt-in via repeatable --question, at most three, default none",
         "uncertain segments: default to outcome; --resolve-uncertain routes hedged segments to question clauses for host resolution",
-        "artifacts: refused with --scaffold (goal text only; bind artifacts with --draft)",
+        "artifacts: clauses matching artifact text verbatim are bound with source_input_id; unbound artifacts fail loudly",
         "guarantee: scaffolded output always passes validate_draft or the command fails loudly",
     ]
 
@@ -166,19 +166,31 @@ def _scaffold_terms(statement: str, goal: str, quoted_literals: list[str]) -> li
     return terms
 
 
-def scaffold_draft(goal: str, host: str | None, questions: list[str], resolve_uncertain: bool = False) -> dict[str, Any]:
+def scaffold_draft(goal: str, host: str | None, questions: list[str], resolve_uncertain: bool = False, artifact_paths: list[str | Path] | None = None) -> dict[str, Any]:
     """Build a goal-derived draft; the caller must still run validate_draft.
 
     Statements stay verbatim to their source clause so exact named targets
     survive, and every outcome/constraint clause gets exactly one
-    requirement for coverage. Raises on any gap instead of emitting an
-    invalid draft. Requirement artifacts are out of scope: scaffold binds
-    goal text only.
+    requirement for coverage. Clause text found verbatim in a requirement
+    artifact is bound to it with source_input_id (mechanical containment
+    only — never a support judgment); artifacts backing no clause fail
+    loudly in validation.
     """
     if len(questions) > 3:
         raise ValueError("scaffold supports at most three material questions")
+    discovery = _load("scaffold_requirement_discovery", "requirement_discovery.py")
+    artifacts = [
+        _read_artifact(Path(value).expanduser(), index)
+        for index, value in enumerate(artifact_paths or [], start=2)
+    ]
     quoted = _scaffold_quoted_literals(goal)
     clauses = _scaffold_clauses(goal, resolve_uncertain)
+    for clause in clauses:
+        grounded = discovery._grounding_text(str(clause.get("text", "")))
+        for artifact in artifacts:
+            if grounded and grounded in discovery._grounding_text(str(artifact["content"])):
+                clause["source_input_id"] = str(artifact["input_id"])
+                break
     requirements: list[dict[str, Any]] = []
     orphan_literals = list(quoted)
     for clause in clauses:
@@ -257,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Dry-run or scaffold a requirement interpretation (no side effects).")
     parser.add_argument("--goal", default=None, help="Exact goal string the draft is bound to.")
     parser.add_argument("--requirement-artifact", action="append", default=[],
-                        help="Requirement artifact file. Repeatable; bound as IN-02, IN-03, ...")
+                        help="Requirement artifact file. Repeatable; bound as IN-02, IN-03, .... With --scaffold, clauses matching artifact text verbatim are bound automatically.")
     parser.add_argument("--draft", type=Path, default=None,
                         help="Draft JSON with host, clauses, requirements, and material_questions.")
     parser.add_argument("--scaffold", action="store_true",
@@ -281,11 +293,8 @@ def main(argv: list[str] | None = None) -> int:
         print("dry-run error: provide exactly one of --draft or --scaffold", file=sys.stderr)
         return 2
     if args.scaffold:
-        if args.requirement_artifact:
-            print("dry-run error: scaffold binds goal text only; pass artifacts with --draft", file=sys.stderr)
-            return 2
         try:
-            draft = scaffold_draft(args.goal, args.host, list(args.question), args.resolve_uncertain)
+            draft = scaffold_draft(args.goal, args.host, list(args.question), args.resolve_uncertain, list(args.requirement_artifact))
         except ValueError as error:
             print(f"dry-run error: {error}", file=sys.stderr)
             return 2

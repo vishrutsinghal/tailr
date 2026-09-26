@@ -947,17 +947,33 @@ class InterpretationErrorDetailTests(unittest.TestCase):
         envelope = json.loads(base64.b64decode(checked.stdout.strip()).decode("utf-8"))
         self.assertEqual(envelope["goal"], goal)
 
-    def test_scaffold_cli_refuses_artifacts(self):
+    def test_scaffold_binds_matching_artifact_and_rejects_unbound_ones(self):
         import subprocess
+        draft_engine = load("draft_scaffold_artifact_test", "scripts/requirement-interpretation-draft.py")
+        goal = "Fix the duplicated event handler logic"
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            result = subprocess.run(
+            matching = root / "spec.md"
+            matching.write_text("Fix the duplicated event handler logic.\n", encoding="utf-8")
+            draft = draft_engine.scaffold_draft(goal, "codex", [], False, [str(matching)])
+            envelope, errors = draft_engine.validate_draft(goal, [str(matching)], draft, "codex")
+            self.assertEqual(errors, [])
+            self.assertEqual(draft["clauses"][0].get("source_input_id"), "IN-02")
+            self.assertEqual(envelope["artifact_evidence"][0]["source_clause_ids"], ["C-01"])
+            digest = hashlib.sha256("Fix the duplicated event handler logic.\n".encode("utf-8")).hexdigest()
+            self.assertEqual(envelope["artifact_evidence"][0]["sha256"], digest)
+            foreign = root / "other.md"
+            foreign.write_text("Unrelated content entirely.\n", encoding="utf-8")
+            stray = draft_engine.scaffold_draft(goal, "codex", [], False, [str(foreign)])
+            with self.assertRaisesRegex(ValueError, "no artifact-grounded clauses reference IN-02"):
+                draft_engine.validate_draft(goal, [str(foreign)], stray, "codex")
+            refused = subprocess.run(
                 [sys.executable, str(ROOT / "scripts" / "requirement-interpretation-draft.py"),
-                 "--goal", "Fix the widget", "--scaffold", "--host", "codex",
-                 "--requirement-artifact", str(root / "spec.md")],
+                 "--goal", goal, "--scaffold", "--host", "codex",
+                 "--requirement-artifact", str(root / "absent.md")],
                 cwd=root, text=True, capture_output=True, check=False)
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("goal text only", result.stderr)
+        self.assertEqual(refused.returncode, 2)
+        self.assertIn("absent.md", refused.stderr)
 
     def test_show_rules_reports_live_constants(self):
         import subprocess
