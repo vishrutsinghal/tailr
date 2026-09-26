@@ -37,6 +37,7 @@ INTENT_TERM_PATTERN = r"[A-Za-z][A-Za-z0-9_-]{1,63}"
 MIN_SCAFFOLD_TERM_LENGTH = 3
 CONSTRAINT_CUES = ("must", "only ", "never", "always", "without", "capped", "stateless", "fail closed", "required")
 CONTEXT_PREFIXES = ("owners ", "note:", "note ", "context:", "for reference", "background:")
+UNCERTAIN_CUES = ("maybe", "probably", "possibly", "something", "appropriate", "relevant", "etc", "as needed", "if needed", "where appropriate")
 QUOTED_SPAN = re.compile(r'"([^"]{4,160})"|`([^`]{4,160})`')
 
 
@@ -48,6 +49,7 @@ def scaffold_rules() -> list[str]:
         f"constraint cues: {', '.join(CONSTRAINT_CUES)}",
         f"context prefixes: {', '.join(CONTEXT_PREFIXES)}",
         "questions: opt-in via repeatable --question, at most three, default none",
+        "uncertain segments: default to outcome; --resolve-uncertain routes hedged segments to question clauses for host resolution",
         "artifacts: refused with --scaffold (goal text only; bind artifacts with --draft)",
         "guarantee: scaffolded output always passes validate_draft or the command fails loudly",
     ]
@@ -108,12 +110,14 @@ def _scaffold_quoted_literals(goal: str) -> list[str]:
     return literals[:8]
 
 
-def _scaffold_clauses(goal: str) -> list[dict[str, Any]]:
+def _scaffold_clauses(goal: str, resolve_uncertain: bool = False) -> list[dict[str, Any]]:
     """Split goal text into conservative clauses; uncertain segments stay outcomes.
 
     Scope paths come from discovery's own extractor. Only explicit cue
     words divert a segment to constraint/question/context, so a missed cue
     keeps the behavior as a requirement instead of silently dropping it.
+    With resolve_uncertain, hedged segments become question clauses so the
+    host agent resolves them through the intake conversation instead.
     """
     discovery = _load("scaffold_requirement_discovery", "requirement_discovery.py")
     without_paths, scopes = discovery._extract_scope_paths(goal)
@@ -127,6 +131,8 @@ def _scaffold_clauses(goal: str) -> list[dict[str, Any]]:
             role = "context"
         elif any(cue in lowered for cue in CONSTRAINT_CUES):
             role = "constraint"
+        elif resolve_uncertain and any(cue in lowered for cue in UNCERTAIN_CUES):
+            role = "question"
         else:
             role = "outcome"
         clauses.append({"clause_id": f"C-{index:02d}", "role": role, "text": segment})
@@ -146,7 +152,7 @@ def _scaffold_terms(statement: str, goal: str, quoted_literals: list[str]) -> li
     return terms
 
 
-def scaffold_draft(goal: str, host: str | None, questions: list[str]) -> dict[str, Any]:
+def scaffold_draft(goal: str, host: str | None, questions: list[str], resolve_uncertain: bool = False) -> dict[str, Any]:
     """Build a goal-derived draft; the caller must still run validate_draft.
 
     Statements stay verbatim to their source clause so exact named targets
@@ -158,7 +164,7 @@ def scaffold_draft(goal: str, host: str | None, questions: list[str]) -> dict[st
     if len(questions) > 3:
         raise ValueError("scaffold supports at most three material questions")
     quoted = _scaffold_quoted_literals(goal)
-    clauses = _scaffold_clauses(goal)
+    clauses = _scaffold_clauses(goal, resolve_uncertain)
     requirements: list[dict[str, Any]] = []
     orphan_literals = list(quoted)
     for clause in clauses:
@@ -244,6 +250,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Build the draft from the goal string with the validator's own rules, then validate it. Fails loudly on any gap.")
     parser.add_argument("--question", action="append", default=[],
                         help="Material question for a scaffolded draft (opt-in; at most three). Repeat for each question.")
+    parser.add_argument("--resolve-uncertain", action="store_true",
+                        help="Route hedged segments to question clauses for host resolution through intake instead of defaulting them to outcomes.")
     parser.add_argument("--show-rules", action="store_true",
                         help="Print the live scaffold rules and exit without building anything.")
     parser.add_argument("--host", default=None, choices=("codex", "copilot", "claude"),
@@ -263,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
             print("dry-run error: scaffold binds goal text only; pass artifacts with --draft", file=sys.stderr)
             return 2
         try:
-            draft = scaffold_draft(args.goal, args.host, list(args.question))
+            draft = scaffold_draft(args.goal, args.host, list(args.question), args.resolve_uncertain)
         except ValueError as error:
             print(f"dry-run error: {error}", file=sys.stderr)
             return 2

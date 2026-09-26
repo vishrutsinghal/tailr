@@ -888,6 +888,20 @@ class InterpretationErrorDetailTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at most three"):
             draft_engine.scaffold_draft("Fix the widget", "codex", ["one", "two", "three", "four"])
 
+    def test_resolve_uncertain_routes_hedged_segments_to_questions(self):
+        draft_engine = load("draft_resolve_uncertain_test", "scripts/requirement-interpretation-draft.py")
+        goal = "Fix the widget; handle the cache appropriately"
+        default = draft_engine.scaffold_draft(goal, "codex", [])
+        self.assertEqual([row["role"] for row in default["clauses"]], ["outcome", "outcome"])
+        resolved = draft_engine.scaffold_draft(goal, "codex", [], True)
+        self.assertEqual([row["role"] for row in resolved["clauses"]], ["outcome", "question"])
+        envelope, errors = draft_engine.validate_draft(goal, [], resolved, "codex")
+        self.assertEqual(errors, [])
+        interpreted = discovery.interpretation(goal, envelope, "codex", [])
+        self.assertEqual(interpreted["state"], "clarification-required")
+        self.assertTrue(interpreted["material_questions"])
+        self.assertTrue(any("appropriately" in question for question in interpreted["material_questions"]))
+
     def test_scaffold_cli_output_feeds_dry_run_first_try(self):
         import subprocess
         goal = "Remove the banner; the page must stay usable"
