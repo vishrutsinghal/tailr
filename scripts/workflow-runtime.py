@@ -17,6 +17,8 @@ def main() -> int:
     bind.add_argument("--root", type=Path, default=Path.cwd()); bind.add_argument("--run-id", required=True); bind.add_argument("--workflow-id")
     for name in ("show", "validate"):
         item = sub.add_parser(name); item.add_argument("--root", type=Path, default=Path.cwd()); item.add_argument("--workflow-id", required=True)
+    rebind_parser = sub.add_parser("rebind", help="Report target drift; record explicit acceptance only with confirmation.")
+    rebind_parser.add_argument("--root", type=Path, default=Path.cwd()); rebind_parser.add_argument("--workflow-id", required=True); rebind_parser.add_argument("--confirmed", action="store_true", help="Record the current workspace identity as an accepted rebind baseline (expires session approvals).")
     capabilities_parser = sub.add_parser("capabilities", help="Declare or validate DWR-B registered capabilities.")
     capabilities_sub = capabilities_parser.add_subparsers(dest="capability_command", required=True)
     propose = capabilities_sub.add_parser("propose", help="Declare registered capabilities only; does not execute them.")
@@ -61,6 +63,8 @@ def main() -> int:
     compile_sub = compile_parser.add_subparsers(dest="compile_command", required=True)
     for name in ("plan", "show", "validate"):
         item = compile_sub.add_parser(name); item.add_argument("--root", type=Path, default=Path.cwd()); item.add_argument("--workflow-id", required=True)
+    rebase_parser = compile_sub.add_parser("rebase", help="Report scope drift against the frozen plan; re-freeze only with explicit confirmation.")
+    rebase_parser.add_argument("--root", type=Path, default=Path.cwd()); rebase_parser.add_argument("--workflow-id", required=True); rebase_parser.add_argument("--confirmed", action="store_true", help="Re-freeze the compiler plan at current state (expires session approvals).")
     approvals_parser = sub.add_parser("approvals", help="DWR-2 stage-approval records for a frozen compiler graph.")
     approvals_sub = approvals_parser.add_subparsers(dest="approval_command", required=True)
     for name in ("show", "validate"):
@@ -176,6 +180,7 @@ def main() -> int:
         if args.command == "bind": result = ownership.bind(args.root, args.run_id, args.workflow_id)
         elif args.command == "show": result = ownership.show(args.root, args.workflow_id)
         elif args.command == "validate": result = ownership.validate(args.root, args.workflow_id)
+        elif args.command == "rebind": result = ownership.rebind(args.root, args.workflow_id, confirmed=args.confirmed)
         elif args.command == "capabilities":
             if args.capability_command == "propose": result = capabilities.propose(args.root, args.workflow_id, args.capability)
             elif args.capability_command == "show": result = capabilities.show(args.root, args.workflow_id)
@@ -213,6 +218,7 @@ def main() -> int:
         elif args.command == "compile":
             if args.compile_command == "plan": result = compiler.compile(args.root, args.workflow_id)
             elif args.compile_command == "show": result = compiler.show(args.root, args.workflow_id)
+            elif args.compile_command == "rebase": result = compiler.rebase(args.root, args.workflow_id, confirmed=args.confirmed)
             else: result = compiler.validate(args.root, args.workflow_id)
         elif args.command == "evidence":
             if args.evidence_command == "collect": result = evidence.collect(args.root, args.workflow_id)

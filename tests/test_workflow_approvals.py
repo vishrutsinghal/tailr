@@ -22,7 +22,7 @@ def load(name: str, relative: str):
 
 
 lock = load("workflow_approval_lock_test", "scripts/planning_lock.py")
-from workflow_runtime import approvals, compiler, start_integration, state, task_scope
+from workflow_runtime import approvals, compiler, ownership, start_integration, state, task_scope
 
 
 class WorkflowApprovalTests(unittest.TestCase):
@@ -149,6 +149,26 @@ class WorkflowApprovalTests(unittest.TestCase):
         self.assertFalse(cross["valid"])
         self.assertIn("cross-run", " ".join(cross["issues"]))
         self.assertFalse(next(row for row in drift["effective_status"] if row["approval_id"] == approved["approval_id"])["effective"])
+
+    def test_inventory_drift_stales_approval_until_rebind_and_reapproval(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); workflow_id, _runtime = self._activated(root, "approval-rebind")
+            first = approvals.grant_session(root, workflow_id, ["write_tailtrail_state"], True, "host-drift")["record"]
+            fresh = approvals.show(root, workflow_id)
+            self.assertTrue(next(row for row in fresh["effective_status"] if row["approval_id"] == first["approval_id"])["effective"])
+            (root / "src").mkdir(exist_ok=True)
+            (root / "src" / "extra.py").write_text("EXTRA = 1\n", encoding="utf-8")
+            drifted = approvals.show(root, workflow_id)
+            drifted_row = next(row for row in drifted["effective_status"] if row["approval_id"] == first["approval_id"])
+            self.assertFalse(drifted_row["effective"])
+            self.assertTrue(any("cross-target or stale target" in issue for issue in drifted_row["issues"]))
+            rebased = ownership.rebind(root, workflow_id, confirmed=True)
+            self.assertEqual(rebased["state"], "rebased")
+            second = approvals.grant_session(root, workflow_id, ["write_tailtrail_state"], True, "host-rebased")["record"]
+            reagreed = approvals.show(root, workflow_id)
+            reagreed_row = next(row for row in reagreed["effective_status"] if row["approval_id"] == second["approval_id"])
+            self.assertTrue(reagreed_row["effective"], reagreed_row["issues"])
+            self.assertFalse(any("cross-target or stale target" in issue for issue in reagreed_row["issues"]))
 
 
 if __name__ == "__main__":

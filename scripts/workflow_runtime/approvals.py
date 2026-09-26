@@ -229,7 +229,8 @@ def _issues(root: Path, workflow_id: str, row: dict[str, Any], context: dict[str
     issues = _integrity_issues(workflow_id, row, context)
     lock = ownership._read_ref(root, str(context["binding"]["planning_lock_ref"]))
     identity = ownership.TARGET.verify_identity(lock.get("target_identity", {}) if isinstance(lock, dict) else {}, root)
-    if row.get("target_identity_fingerprint") != context["plan"].get("target_identity_fingerprint") or not ownership.validate(root, workflow_id)["valid"] or identity.get("status") not in {"matched", "legacy"}: issues.append("cross-target or stale target approval")
+    identity_covered = identity.get("status") in {"matched", "legacy"} or (identity.get("status") in {"inventory-drift", "head-changed"} and ownership.rebind_covers(root, workflow_id))
+    if row.get("target_identity_fingerprint") != context["plan"].get("target_identity_fingerprint") or not ownership.validate(root, workflow_id)["valid"] or not identity_covered: issues.append("cross-target or stale target approval")
     if row.get("revision") != context["plan"].get("revision") or row.get("compiler_plan_fingerprint") != context["plan"].get("plan_fingerprint") or row.get("stage_graph_fingerprint") != context["stage_graph_fingerprint"]: issues.append("approval belongs to a stale compiler revision or stage graph")
     if row.get("scope_fingerprint") != context["scope_fingerprint"] or row.get("approved_anchor_fingerprint") != context["binding"].get("approved_anchor_fingerprint"): issues.append("approval scope or approved anchor is stale")
     try:

@@ -12,6 +12,8 @@ from workflow_runtime import adapter_catalog, capabilities, contracts, ownership
 LEDGER = ownership.LEDGER
 CONFLICTS = ({"aidlc-off", "aidlc-standard"}, {"aidlc-off", "aidlc-full"}, {"aidlc-standard", "aidlc-full"})
 
+FINGERPRINT_SCHEME = "content-sha256-crlf-normalized-v1"
+
 
 def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
@@ -62,6 +64,62 @@ def _repository_identity_fingerprint(root: Path, binding: dict[str, Any]) -> str
     return _hash({"target_identity_fingerprint": binding["target_identity_fingerprint"], "git": current.get("git", {}), "branch": ownership.TARGET._git(root, "branch", "--show-current")})
 
 
+def _current_branch(root: Path) -> str:
+    try:
+        return str(ownership.TARGET._git(root, "branch", "--show-current") or "").strip()
+    except (OSError, ValueError):
+        return ""
+
+
+def _canonical_file_bytes(path: Path) -> bytes | None:
+    """Read a file for content pinning, or None when unreadable/non-UTF-8.
+
+    Canonical form (LF endings, single trailing newline) keeps fingerprints
+    stable across platforms without touching user data.
+    """
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return None
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return ("\n".join(text.replace("\r\n", "\n").replace("\r", "\n").split("\n")) + "\n").encode("utf-8")
+
+
+def _scope_file_hashes(root: Path, paths: list[str]) -> dict[str, dict[str, str]]:
+    """Fingerprint approved scope file contents (content pinning, not pointers)."""
+    root = root.resolve()
+    pinned: dict[str, dict[str, str]] = {}
+    for rel in sorted(dict.fromkeys(str(item).replace("\\", "/") for item in paths if str(item).strip())):
+        data = _canonical_file_bytes(root / rel)
+        if data is None:
+            pinned[rel] = {"state": "missing-or-unreadable"}
+        else:
+            pinned[rel] = {"state": "present", "sha256": "sha256:" + hashlib.sha256(data).hexdigest()}
+    return pinned
+
+
+def approved_scope_paths(root: Path, workflow_id: str) -> list[str]:
+    """Collect approved scope file paths from the run anchor requirements."""
+    binding = ownership.show(root.resolve(), workflow_id)
+    anchor_path = LEDGER.state_dir(root.resolve(), binding["tailtrail_run_id"]) / "anchors" / "approved-v1.json"
+    try:
+        anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return []
+    paths: list[str] = []
+    requirements = anchor.get("requirements", [])
+    if isinstance(requirements, list):
+        for row in requirements:
+            if isinstance(row, dict):
+                for path in row.get("likely_paths", []) or []:
+                    if isinstance(path, str) and path.strip():
+                        paths.append(path.replace("\\", "/"))
+    return sorted(dict.fromkeys(paths))
+
+
 def _validate_features(feature_ids: set[str], registry: dict[str, dict[str, Any]], policy: dict[str, Any]) -> None:
     for conflict in CONFLICTS:
         if conflict <= feature_ids: raise ValueError("contradictory workflow features: " + ", ".join(sorted(conflict)))
@@ -107,7 +165,7 @@ def compile(root: Path, workflow_id: str) -> dict[str, Any]:
     declared_plan = capabilities.show(root, workflow_id); registry = _registry(); policy = _policy(root)
     declared = [str(stage["capability_id"]) for stage in declared_plan["stages"]]
     compiled = _compile(binding, declared, registry, policy)
-    stable = {"workflow_id": workflow_id, "tailtrail_run_id": binding["tailtrail_run_id"], "ownership_ref": binding["artifact"], "capability_plan_ref": declared_plan["artifact"], "capability_plan_fingerprint": declared_plan["plan_fingerprint"], "target_identity_fingerprint": binding["target_identity_fingerprint"], "repository_identity_fingerprint": _repository_identity_fingerprint(root, binding), "policy_fingerprint": _policy_guardrail_fingerprint(root, policy), **compiled}
+    stable = {"workflow_id": workflow_id, "tailtrail_run_id": binding["tailtrail_run_id"], "ownership_ref": binding["artifact"], "capability_plan_ref": declared_plan["artifact"], "capability_plan_fingerprint": declared_plan["plan_fingerprint"], "target_identity_fingerprint": binding["target_identity_fingerprint"], "repository_identity_fingerprint": _repository_identity_fingerprint(root, binding), "repository_branch": _current_branch(root), "scope_content": {"scheme": FINGERPRINT_SCHEME, "files": _scope_file_hashes(root, approved_scope_paths(root, workflow_id))}, "policy_fingerprint": _policy_guardrail_fingerprint(root, policy), **compiled}
     fingerprint = _hash(stable); destination = plan_path(root, workflow_id); revision = 1
     prior: dict[str, Any] | None = None
     if destination.is_file():
@@ -135,6 +193,81 @@ def show(root: Path, workflow_id: str) -> dict[str, Any]:
     return {"artifact": path.relative_to(root).as_posix(), **payload}
 
 
+def scope_drift(root: Path, workflow_id: str) -> dict[str, Any]:
+    """Compare live scope file contents against the frozen baseline (Stage 5+).
+
+    Informational only: drift is reported for audit and closure adjudication,
+    never as an execution gate. Unrelated files are ignored by construction.
+    """
+    root = root.resolve()
+    plan = show(root, workflow_id)
+    frozen = plan.get("scope_content", {}) if isinstance(plan.get("scope_content"), dict) else {}
+    frozen_files = frozen.get("files", {}) if isinstance(frozen.get("files"), dict) else {}
+    current = _scope_file_hashes(root, list(frozen_files))
+    changed: list[dict[str, str]] = []
+    for path in sorted(set(frozen_files) | set(current)):
+        before = frozen_files.get(path, {})
+        after = current.get(path, {})
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            continue
+        if before.get("sha256") != after.get("sha256") or before.get("state") != after.get("state"):
+            changed.append({
+                "path": path,
+                "before": str(before.get("sha256") or before.get("state", "?")),
+                "after": str(after.get("sha256") or after.get("state", "?")),
+            })
+    return {
+        "type": "tailtrail-workflow-scope-drift",
+        "workflow_id": workflow_id,
+        "scheme": frozen.get("scheme", FINGERPRINT_SCHEME),
+        "files_tracked": len(frozen_files),
+        "changed": changed,
+        "in_sync": not changed,
+        "boundary": "Informational drift report. It blocks nothing; closure adjudicates scope changes against approvals.",
+    }
+
+
+def rebase(root: Path, workflow_id: str, confirmed: bool = False) -> dict[str, Any]:
+    """Re-verify scope content and, on explicit confirmation, re-freeze the plan.
+
+    Without confirmation this only reports the delta. With confirmation it
+    re-freezes scope content plus the repository branch/identity in place
+    (bumping revision and expiring session approvals) instead of recompiling
+    from scratch. The in-place path deliberately bypasses the ownership and
+    capability revalidation gates: those bind the unchanged Planning Lock and
+    anchor, while exactly the drift being adopted is what trips them. Stages,
+    features, and policy are preserved, so continuation re-approves the same
+    graph against current state.
+    """
+    root = root.resolve()
+    drift = scope_drift(root, workflow_id)
+    if drift["in_sync"]:
+        return {"state": "in-sync", **drift}
+    if not confirmed:
+        return {"state": "rebase-required", **drift,
+                "next": "Review the delta, then re-run with explicit confirmation to re-freeze."}
+    plan = show(root, workflow_id)
+    binding = ownership.show(root, workflow_id)
+    content = {"scheme": FINGERPRINT_SCHEME, "files": _scope_file_hashes(root, approved_scope_paths(root, workflow_id))}
+    stable = {key: value for key, value in plan.items() if key not in {"artifact", "schema_version", "type", "revision", "plan_fingerprint", "compiler_trace", "approval_questions", "state", "boundary"}}
+    stable["scope_content"] = content
+    stable["repository_branch"] = _current_branch(root)
+    stable["repository_identity_fingerprint"] = _repository_identity_fingerprint(root, binding)
+    fingerprint = _hash(stable)
+    payload = {key: value for key, value in plan.items() if key != "artifact"}
+    payload.update({"scope_content": content, "repository_branch": stable["repository_branch"], "repository_identity_fingerprint": stable["repository_identity_fingerprint"],
+                    "revision": int(plan.get("revision", 1)) + 1, "plan_fingerprint": fingerprint, "state": "compiled"})
+    contracts.require_valid(payload)
+    destination = plan_path(root, workflow_id)
+    LEDGER.atomic_json(destination, payload)
+    from workflow_runtime import approvals
+    approvals.expire_session(root, workflow_id, None, "material-plan-rebase")
+    LEDGER.append_event(root, binding["tailtrail_run_id"], "workflow_compiler_plan_rebased", {"workflow_id": workflow_id, "artifact": destination.relative_to(root).as_posix(), "revision": payload["revision"], "plan_fingerprint": fingerprint, "changed": drift["changed"]})
+    return {"state": "rebased", **drift, "revision": payload["revision"],
+            "plan_fingerprint": payload["plan_fingerprint"],
+            "boundary": "Re-frozen at current state; session approvals expired and must be re-granted."}
+
+
 def validate(root: Path, workflow_id: str) -> dict[str, Any]:
     root = root.resolve(); issues: list[str] = []
     try:
@@ -144,7 +277,9 @@ def validate(root: Path, workflow_id: str) -> dict[str, Any]:
         if plan.get("plan_fingerprint") != _hash(stable): issues.append("compiler plan fingerprint differs from frozen graph")
         binding = ownership.show(root, workflow_id)
         if plan.get("policy_fingerprint") != _policy_guardrail_fingerprint(root, policy): issues.append("compiler plan policy fingerprint differs from the active policy/guardrails")
-        if plan.get("repository_identity_fingerprint") != _repository_identity_fingerprint(root, binding): issues.append("compiler plan repository identity differs from the current branch/HEAD")
+        frozen_branch = str(plan.get("repository_branch") or "")
+        if frozen_branch and frozen_branch != _current_branch(root):
+            issues.append(f"compiler plan branch switched from `{frozen_branch}`; rebase before continuing")
         _validate_features(set(plan.get("selected_capability_ids", [])), registry, policy)
         resolved = templates.resolve_graph(templates.merge_stages(plan.get("stages", [])))
         if resolved != plan.get("stages"): issues.append("compiler stage graph is not in deterministic resolved order")

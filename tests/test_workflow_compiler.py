@@ -113,6 +113,78 @@ class WorkflowCompilerTests(unittest.TestCase):
         body = (ROOT / "scripts" / "workflow_runtime" / "compiler.py").read_text(encoding="utf-8")
         self.assertNotIn("subprocess", body); self.assertNotIn("run_script(", body)
 
+    def test_unrelated_files_never_affect_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); workflow_id = self._workflow(root)
+            compiler.compile(root, workflow_id)
+            (root / "docs").mkdir()
+            (root / "docs" / "notes.md").write_text("# notes\n", encoding="utf-8")
+            validation = compiler.validate(root, workflow_id)
+            drift = compiler.scope_drift(root, workflow_id)
+        self.assertTrue(validation["valid"], validation["issues"])
+        self.assertTrue(drift["in_sync"])
+
+    def test_scope_drift_names_changed_files_without_blocking(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); workflow_id = self._workflow(root)
+            compiler.compile(root, workflow_id)
+            target = root / "src" / "validation.py"
+            target.parent.mkdir(parents=True)
+            target.write_text("def valid(value):\n    return True\n", encoding="utf-8")
+            drift = compiler.scope_drift(root, workflow_id)
+            validation = compiler.validate(root, workflow_id)
+        self.assertFalse(drift["in_sync"])
+        self.assertEqual([row["path"] for row in drift["changed"]], ["src/validation.py"])
+        self.assertTrue(validation["valid"], validation["issues"])
+
+    def test_branch_switch_blocks_with_named_cause(self) -> None:
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); workflow_id = self._workflow(root)
+            with mock.patch.object(compiler.ownership.TARGET, "_git", return_value="feature-x"):
+                compiler.compile(root, workflow_id)
+            validation = compiler.validate(root, workflow_id)
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("branch switched" in issue for issue in validation["issues"]))
+
+    def test_rebase_reports_then_refreezes_on_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); workflow_id = self._workflow(root)
+            compiler.compile(root, workflow_id)
+            self.assertEqual(compiler.rebase(root, workflow_id)["state"], "in-sync")
+            target = root / "src" / "validation.py"
+            target.parent.mkdir(parents=True)
+            target.write_text("def valid(value):\n    return True\n", encoding="utf-8")
+            pending = compiler.rebase(root, workflow_id)
+            self.assertEqual(pending["state"], "rebase-required")
+            self.assertEqual([row["path"] for row in pending["changed"]], ["src/validation.py"])
+            rebased = compiler.rebase(root, workflow_id, confirmed=True)
+            self.assertEqual(rebased["state"], "rebased")
+            self.assertEqual(rebased["revision"], 2)
+            self.assertTrue(compiler.scope_drift(root, workflow_id)["in_sync"])
+
+    def test_canonicalization_ignores_line_endings(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            crlf = root / "crlf.py"
+            crlf.write_bytes(b"def a():\r\n    return 1\r\n")
+            lf = root / "lf.py"
+            lf.write_bytes(b"def a():\n    return 1\n")
+            hashes = compiler._scope_file_hashes(root, ["crlf.py", "lf.py"])
+        self.assertEqual(hashes["crlf.py"], hashes["lf.py"])
+        self.assertEqual(hashes["crlf.py"]["state"], "present")
+
+    def test_rebase_cli_reports_without_recompiling(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); workflow_id = self._workflow(root, "compiler-rebase-cli", "ttw-compiler-rebase")
+            compiler.compile(root, workflow_id)
+            result = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "workflow-runtime.py").as_posix(),
+                 "compile", "rebase", "--root", root.as_posix(), "--workflow-id", workflow_id],
+                cwd=ROOT, text=True, capture_output=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["state"], "in-sync")
+
 
 if __name__ == "__main__":
     unittest.main()

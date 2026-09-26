@@ -139,7 +139,7 @@ class PlanningLockTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "--approved"):
                 lock.approve(root, "plan-2", False)
 
-    def test_new_lock_binds_target_identity_and_write_guard_blocks_inventory_mismatch(self) -> None:
+    def test_new_lock_binds_target_identity_and_write_guard_reports_inventory_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "src").mkdir()
@@ -148,13 +148,14 @@ class PlanningLockTests(unittest.TestCase):
             lock.approve(root, "plan-target", True)
             matched = lock.assert_write_allowed(root, "plan-target")
             (root / "src" / "new_module.py").write_text("value = 2\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "Target identity mismatch"):
-                lock.assert_write_allowed(root, "plan-target")
+            drifted = lock.assert_write_allowed(root, "plan-target")
         self.assertEqual(created["schema_version"], "2")
         self.assertTrue(created["target_identity"]["fingerprint"].startswith("sha256:"))
         self.assertEqual(matched["target_identity_check"]["status"], "matched")
+        self.assertEqual(drifted["target_identity_check"]["status"], "inventory-drift")
+        self.assertEqual(drifted["target_identity_check"]["inventory_drift"]["added"], ["src/new_module.py"])
 
-    def test_activation_blocks_target_identity_mismatch(self) -> None:
+    def test_activation_reports_inventory_drift_without_blocking(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "src").mkdir()
@@ -166,8 +167,27 @@ class PlanningLockTests(unittest.TestCase):
                 "navigator": {"likely_impacted_files": [{"path": "src/service.py"}]},
             })
             (root / "src" / "changed_after_plan.py").write_text("value = 2\n", encoding="utf-8")
+            activated = lock.activate(root, "plan-target-activation", True)
+        self.assertEqual(activated["target_identity"]["status"], "inventory-drift")
+        self.assertFalse(activated["target_identity"]["blocking"])
+
+    def test_activation_still_blocks_workspace_root_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "service.py").write_text("value = 1\n", encoding="utf-8")
+            lock.create(root, "add a service", "plan-target-root")
+            lock.save_start_report(root, "plan-target-root", {
+                "goal": "add a service",
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"likely_impacted_files": [{"path": "src/service.py"}]},
+            })
+            path = lock.lock_path(root, "plan-target-root")
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["target_identity"]["root"] = (root / "elsewhere").as_posix()
+            path.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Target identity mismatch"):
-                lock.activate(root, "plan-target-activation", True)
+                lock.activate(root, "plan-target-root", True)
 
     def test_lock_persists_input_roles_and_write_guard_rechecks_target_role(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

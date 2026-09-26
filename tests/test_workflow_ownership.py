@@ -83,15 +83,79 @@ class WorkflowOwnershipTests(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertIn("fingerprint", " ".join(result["issues"]))
 
-    def test_validate_blocks_when_bound_workspace_inventory_changes(self) -> None:
+    def test_validate_reports_bound_workspace_inventory_drift_without_blocking(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp); self._approved_run(root, "workflow-stale")
-            ownership.bind(root, "workflow-stale", "ttw-stale-workspace")
+            root = Path(temp); self._approved_run(root, "workflow-drift")
+            ownership.bind(root, "workflow-drift", "ttw-drift-workspace")
             (root / "new-module.py").write_text("VALUE = 1\n", encoding="utf-8")
-            result = ownership.validate(root, "ttw-stale-workspace")
+            result = ownership.validate(root, "ttw-drift-workspace")
 
-        self.assertFalse(result["valid"])
-        self.assertIn("target identity", " ".join(result["issues"]))
+        self.assertTrue(result["valid"], result["issues"])
+        self.assertTrue(any("rebind" in notice for notice in result["notices"]))
+        self.assertEqual(result["inventory_drift"]["added"], ["new-module.py"])
+
+    def test_validate_names_removed_and_modified_files_in_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "validation.py").write_text("def valid(value):\n    return True\n", encoding="utf-8")
+            (root / "keep.py").write_text("KEEP = 1\n", encoding="utf-8")
+            self._approved_run(root, "workflow-drift-names")
+            ownership.bind(root, "workflow-drift-names", "ttw-drift-names")
+            (root / "src" / "validation.py").unlink()
+            (root / "keep.py").write_text("KEEP = 2\n", encoding="utf-8")
+            (root / "other.py").write_text("OTHER = 3\n", encoding="utf-8")
+            result = ownership.validate(root, "ttw-drift-names")
+
+        self.assertTrue(result["valid"], result["issues"])
+        self.assertEqual(result["inventory_drift"]["added"], ["other.py"])
+        self.assertEqual(result["inventory_drift"]["removed"], ["src/validation.py"])
+        self.assertEqual([row["path"] for row in result["inventory_drift"]["changed"]], ["keep.py"])
+
+    def test_rebind_reports_then_records_acceptance_on_confirmation(self) -> None:
+        from unittest import mock
+        from workflow_runtime import approvals as workflow_approvals
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self._approved_run(root, "workflow-rebind")
+            ownership.bind(root, "workflow-rebind", "ttw-rebind")
+            self.assertEqual(ownership.rebind(root, "ttw-rebind")["state"], "in-sync")
+            (root / "new-module.py").write_text("VALUE = 1\n", encoding="utf-8")
+            pending = ownership.rebind(root, "ttw-rebind")
+            self.assertEqual(pending["state"], "rebind-required")
+            self.assertEqual([(row["path"], row["change"]) for row in pending["changed"]], [("<project-languages>", "changed"), ("new-module.py", "added")])
+            self.assertFalse(ownership.rebind_covers(root, "ttw-rebind"))
+            with mock.patch.object(workflow_approvals, "expire_session", return_value={"expired": 0}) as expired:
+                rebased = ownership.rebind(root, "ttw-rebind", confirmed=True)
+            self.assertEqual(rebased["state"], "rebased")
+            self.assertEqual(rebased["rebase_count"], 1)
+            expired.assert_called_once_with(root.resolve(), "ttw-rebind", None, "target-identity-changed")
+            self.assertTrue(ownership.rebind_covers(root, "ttw-rebind"))
+            self.assertEqual(len(ownership.show(root, "ttw-rebind")["rebases"]), 1)
+            self.assertTrue(ownership.validate(root, "ttw-rebind")["valid"])
+            (root / "another.py").write_text("ANOTHER = 1\n", encoding="utf-8")
+            self.assertFalse(ownership.rebind_covers(root, "ttw-rebind"))
+
+    def test_rebind_refuses_a_different_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self._approved_run(root, "workflow-rebind-root")
+            ownership.bind(root, "workflow-rebind-root", "ttw-rebind-root")
+            saved_lock = root / ".tailtrail" / "runs" / "workflow-rebind-root" / "planning" / "lock-v1.json"
+            payload = json.loads(saved_lock.read_text(encoding="utf-8"))
+            payload["target_identity"]["root"] = (root / "elsewhere").as_posix()
+            saved_lock.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "different workspace"):
+                ownership.rebind(root, "ttw-rebind-root")
+
+    def test_rebind_cli_reports_without_recording(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self._approved_run(root, "workflow-rebind-cli")
+            ownership.bind(root, "workflow-rebind-cli", "ttw-rebind-cli")
+            result = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "workflow-runtime.py").as_posix(),
+                 "rebind", "--root", root.as_posix(), "--workflow-id", "ttw-rebind-cli"],
+                cwd=ROOT, text=True, capture_output=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["state"], "in-sync")
 
     def test_public_cli_binds_and_validates_the_same_workflow_id(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

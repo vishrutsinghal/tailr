@@ -96,16 +96,15 @@ class SessionControlTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "safe local identifier"):
                 SESSION.resume(Path(temp), "../escape")
 
-    def test_resume_blocks_target_drift_and_late_attachment_generation(self) -> None:
+    def test_resume_reports_target_drift_without_blocking_and_still_guards_generation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); (root / "src").mkdir(); (root / "src" / "service.py").write_text("VALUE = 1\n", encoding="utf-8")
             run_id = self._run(root, "stale-run"); attached = SESSION.attach(root, run_id); SESSION.stop(root)
             (root / "src" / "new_owner.py").write_text("VALUE = 2\n", encoding="utf-8")
             resumed = SESSION.resume(root, run_id)
-            with self.assertRaisesRegex(ValueError, "not attached"):
+            with self.assertRaisesRegex(ValueError, "generation changed"):
                 SESSION.require_generation(root, attached["generation"])
-        self.assertEqual(resumed["state"], "resume-stale")
-        self.assertEqual(resumed["attachment"]["state"], "detached")
+        self.assertEqual(resumed["state"], "resumed-awaiting-approval")
 
     def test_stop_pauses_ready_workflow_expires_authority_and_releases_reservation(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

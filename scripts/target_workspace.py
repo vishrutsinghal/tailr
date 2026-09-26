@@ -45,6 +45,9 @@ REQUIREMENT_ARTIFACT_SUFFIXES = {
     ".adoc", ".json", ".md", ".rst", ".text", ".txt", ".yaml", ".yml",
 }
 REQUIREMENT_ARTIFACT_MAX_BYTES = 128 * 1024
+INVENTORY_CONTENT_SCHEME = "content-sha256-crlf-normalized-v1"
+INVENTORY_HASH_MAX_BYTES = 256 * 1024
+INVENTORY_DRIFT_LIST_CAP = 100
 
 
 def host_adapter() -> Any:
@@ -159,26 +162,126 @@ def identity(root: Path) -> dict[str, Any]:
         "git": {"remote_host": remote_host, "remote_path": remote_path, "head": _git(root, "rev-parse", "HEAD")},
         "project": {"manifests": manifests, "languages": sorted(languages), "inventory_count": len(inventory)},
         "fingerprint": f"sha256:{digest}",
+        "inventory_detail": {"scheme": INVENTORY_CONTENT_SCHEME, "files": _inventory_hashes(root, inventory)},
     }
+
+
+def _inventory_file_digest(path: Path) -> dict[str, Any]:
+    """Hash one inventoried source file for drift comparison.
+
+    Text hashes CRLF-normalized so a CRLF checkout matches its LF twin;
+    non-UTF-8 files hash as raw bytes. Failures record a state instead of
+    raising so one unreadable file cannot break identity verification.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return {"state": "missing"}
+    if size > INVENTORY_HASH_MAX_BYTES:
+        return {"state": "oversized", "size_bytes": size}
+    try:
+        with path.open("rb") as stream:
+            raw = stream.read(INVENTORY_HASH_MAX_BYTES + 1)
+    except OSError:
+        return {"state": "unreadable"}
+    if len(raw) > INVENTORY_HASH_MAX_BYTES:
+        return {"state": "oversized", "size_bytes": size}
+    try:
+        normalized = raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    except UnicodeDecodeError:
+        normalized = raw
+    return {"state": "present", "sha256": hashlib.sha256(normalized).hexdigest()}
+
+
+def _inventory_hashes(root: Path, inventory: list[str]) -> dict[str, dict[str, Any]]:
+    """Hash every inventoried path relative to a resolved root."""
+    files: dict[str, dict[str, Any]] = {}
+    for relative in sorted(set(inventory)):
+        if ".." in Path(relative).parts:
+            continue
+        files[relative] = _inventory_file_digest(root / relative)
+    return files
+
+
+def _empty_drift(baseline: str) -> dict[str, Any]:
+    """Return a blank inventory-drift report for non-comparable baselines."""
+    return {"baseline": baseline, "added": [], "removed": [], "changed": [],
+            "manifests": {"before": [], "after": []}, "languages": {"before": [], "after": []},
+            "truncated": False, "change_count": 0, "in_sync": True}
+
+
+def inventory_drift(baseline: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
+    """Compare working-tree file state between two target identities.
+
+    Informational only: drift never blocks. Detailed file comparison needs
+    both sides' inventory_detail; legacy baselines without one compare
+    manifests and languages only and report baseline `manifests-only`.
+    """
+    detail = baseline.get("inventory_detail") if isinstance(baseline.get("inventory_detail"), dict) else None
+    saved_files = detail.get("files") if isinstance(detail, dict) and isinstance(detail.get("files"), dict) else None
+    current_files = current.get("inventory_detail", {}).get("files", {})
+    if not isinstance(current_files, dict):
+        current_files = {}
+    if saved_files is None:
+        report = _empty_drift("manifests-only")
+    else:
+        added = sorted(set(current_files) - set(saved_files))
+        removed = sorted(set(saved_files) - set(current_files))
+        changed = []
+        for path in sorted(set(saved_files) & set(current_files)):
+            before = saved_files[path] if isinstance(saved_files[path], dict) else {}
+            after = current_files[path] if isinstance(current_files[path], dict) else {}
+            if before.get("sha256") != after.get("sha256") or before.get("state") != after.get("state"):
+                changed.append({"path": path,
+                                "before": str(before.get("sha256") or before.get("state", "?")),
+                                "after": str(after.get("sha256") or after.get("state", "?"))})
+        report = {"baseline": "detailed", "added": added, "removed": removed, "changed": changed,
+                  "manifests": {"before": [], "after": []}, "languages": {"before": [], "after": []},
+                  "truncated": False, "change_count": 0, "in_sync": True}
+    saved_project = baseline.get("project", {}) if isinstance(baseline.get("project"), dict) else {}
+    current_project = current.get("project", {}) if isinstance(current.get("project"), dict) else {}
+    report["manifests"] = {"before": list(saved_project.get("manifests", [])), "after": list(current_project.get("manifests", []))}
+    report["languages"] = {"before": list(saved_project.get("languages", [])), "after": list(current_project.get("languages", []))}
+    manifests_changed = report["manifests"]["before"] != report["manifests"]["after"]
+    languages_changed = report["languages"]["before"] != report["languages"]["after"]
+    total = len(report["added"]) + len(report["removed"]) + len(report["changed"])
+    if total > INVENTORY_DRIFT_LIST_CAP:
+        report["added"] = report["added"][:INVENTORY_DRIFT_LIST_CAP]
+        report["removed"] = report["removed"][:INVENTORY_DRIFT_LIST_CAP]
+        report["changed"] = report["changed"][:INVENTORY_DRIFT_LIST_CAP]
+        report["truncated"] = True
+    report["change_count"] = total + (1 if manifests_changed else 0) + (1 if languages_changed else 0)
+    report["in_sync"] = report["change_count"] == 0
+    return report
 
 
 def verify_identity(saved: dict[str, Any], root: Path) -> dict[str, Any]:
     """Compare a bound identity at activation/control time.
 
-    A Git HEAD change is visible but not blocking by itself. A different root,
-    repository identity, or material file inventory change blocks execution.
+    Workspace identity (root, repository remote) blocks execution on
+    mismatch. Working-tree file state (inventory contents, manifests,
+    languages) and Git HEAD movement are reported as informational drift:
+    they never block, and closure plus approvals adjudicate them against
+    recorded acceptance. Every outcome carries an `inventory_drift` block
+    with per-file detail for audit and rebind decisions.
     """
     current = identity(root)
     if saved.get("type") != "tailtrail-target-workspace-identity":
-        return {"status": "legacy", "blocking": False, "reason": "legacy Planning Lock has no target identity", "current": current}
-    for field in ("root", "fingerprint"):
+        return {"status": "legacy", "blocking": False, "reason": "legacy Planning Lock has no target identity", "expected": saved, "current": current, "inventory_drift": _empty_drift("none")}
+    for field in ("root",):
         if saved.get(field) != current.get(field):
-            return {"status": "mismatch", "blocking": True, "reason": f"target {field} differs from the Planning Lock", "expected": saved, "current": current}
+            return {"status": "mismatch", "blocking": True, "reason": f"target {field} differs from the Planning Lock", "expected": saved, "current": current, "inventory_drift": _empty_drift("uncompared")}
     expected_git = saved.get("git", {}) if isinstance(saved.get("git"), dict) else {}
     current_git = current["git"]
     if (expected_git.get("remote_host"), expected_git.get("remote_path")) != (current_git.get("remote_host"), current_git.get("remote_path")):
-        return {"status": "mismatch", "blocking": True, "reason": "target Git repository identity differs from the Planning Lock", "expected": saved, "current": current}
-    return {"status": "head-changed" if expected_git.get("head") != current_git.get("head") else "matched", "blocking": False, "reason": "Git HEAD changed after planning; target identity still matches." if expected_git.get("head") != current_git.get("head") else "target identity matches the Planning Lock", "expected": saved, "current": current}
+        return {"status": "mismatch", "blocking": True, "reason": "target Git repository identity differs from the Planning Lock", "expected": saved, "current": current, "inventory_drift": _empty_drift("uncompared")}
+    drift = inventory_drift(saved, current)
+    head_changed = expected_git.get("head") != current_git.get("head")
+    if drift["in_sync"] and not head_changed:
+        return {"status": "matched", "blocking": False, "reason": "target identity matches the Planning Lock", "expected": saved, "current": current, "inventory_drift": drift}
+    if drift["in_sync"]:
+        return {"status": "head-changed", "blocking": False, "reason": "Git HEAD changed after planning; target identity still matches.", "expected": saved, "current": current, "inventory_drift": drift}
+    return {"status": "inventory-drift", "blocking": False, "reason": f"target inventory drifted from the Planning Lock ({drift['change_count']} change(s)); informational — closure adjudicates scope changes against approvals.", "expected": saved, "current": current, "inventory_drift": drift}
 
 
 def _is_external(value: str) -> bool:

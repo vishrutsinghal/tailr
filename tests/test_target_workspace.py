@@ -338,6 +338,74 @@ class TargetWorkspaceTests(unittest.TestCase):
         self.assertEqual(payload["inputs"][1]["access"], "read-only")
         self.assertEqual(payload["reference_summary"][0]["project"]["manifests"], ["package.json"])
 
+    def test_added_source_file_reports_inventory_drift_without_blocking(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            saved = target_workspace.identity(root)
+            (root / "new-module.py").write_text("VALUE = 1\n", encoding="utf-8")
+            result = target_workspace.verify_identity(saved, root)
+        self.assertEqual(result["status"], "inventory-drift")
+        self.assertFalse(result["blocking"])
+        self.assertEqual(result["inventory_drift"]["added"], ["new-module.py"])
+        self.assertFalse(result["inventory_drift"]["in_sync"])
+
+    def test_removed_and_modified_files_are_named_in_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "gone.py").write_text("GONE = 1\n", encoding="utf-8")
+            (root / "keep.py").write_text("KEEP = 1\n", encoding="utf-8")
+            saved = target_workspace.identity(root)
+            (root / "gone.py").unlink()
+            (root / "keep.py").write_text("KEEP = 2\n", encoding="utf-8")
+            result = target_workspace.verify_identity(saved, root)
+        self.assertEqual(result["status"], "inventory-drift")
+        self.assertFalse(result["blocking"])
+        self.assertEqual(result["inventory_drift"]["removed"], ["gone.py"])
+        self.assertEqual([row["path"] for row in result["inventory_drift"]["changed"]], ["keep.py"])
+
+    def test_line_ending_twins_do_not_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "module.py").write_bytes(b"def value():\n    return 1\n")
+            saved = target_workspace.identity(root)
+            (root / "module.py").write_bytes(b"def value():\r\n    return 1\r\n")
+            result = target_workspace.verify_identity(saved, root)
+        self.assertEqual(result["status"], "matched")
+        self.assertTrue(result["inventory_drift"]["in_sync"])
+
+    def test_legacy_identity_without_file_detail_never_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            saved = target_workspace.identity(root)
+            del saved["inventory_detail"]
+            (root / "new-module.py").write_text("VALUE = 1\n", encoding="utf-8")
+            result = target_workspace.verify_identity(saved, root)
+        self.assertEqual(result["status"], "inventory-drift")
+        self.assertFalse(result["blocking"])
+        self.assertEqual(result["inventory_drift"]["baseline"], "manifests-only")
+        self.assertFalse(result["inventory_drift"]["in_sync"])
+
+    def test_different_root_or_remote_still_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            saved = target_workspace.identity(root)
+            moved = dict(saved, root=(root / "elsewhere").as_posix())
+            self.assertTrue(target_workspace.verify_identity(moved, root)["blocking"])
+            remote = json.loads(json.dumps(saved))
+            remote["git"]["remote_host"] = "example.org"
+            blocked = target_workspace.verify_identity(remote, root)
+        self.assertEqual(blocked["status"], "mismatch")
+        self.assertTrue(blocked["blocking"])
+
+    def test_identity_fingerprint_is_deterministic_alongside_detail(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first = target_workspace.identity(root)
+            second = target_workspace.identity(root)
+        self.assertEqual(first["fingerprint"], second["fingerprint"])
+        self.assertIn("inventory_detail", first)
+        self.assertEqual(first["inventory_detail"]["scheme"], "content-sha256-crlf-normalized-v1")
+
 
 if __name__ == "__main__":
     unittest.main()
