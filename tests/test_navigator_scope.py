@@ -2756,5 +2756,105 @@ class PacketIdentityTests(unittest.TestCase):
         self.assertFalse(navigator_scope.verify_decision_fingerprint(legacy))
 
 
+class UnavailableRouteAnswerTests(unittest.TestCase):
+    def _packet(self, root: Path):
+        candidates = [
+            {"path": "src/hints.py", "candidate_id": "cand-aaaaaaaaaaaa", "role": "implementation-owner",
+             "status": "inspection-only", "confidence": "low", "reason_codes": ["lexical-seed-needs-relationship-evidence"],
+             "evidence_edge_ids": [], "content_fingerprint": "sha256:" + "a" * 64, "seed_sources": ["lexical-path"]},
+        ]
+        frames = [{"requirement_id": "req-frame-000000000001", "display_id": "REQ-01",
+                   "statement": "Fix the handler.", "query_terms": ["handler"]}]
+        document = navigator_scope.evidence_document(
+            root, "Fix the handler.", frames, candidates, edges=[], investigation={"state": "ambiguous"},
+        )
+        return document, navigator_scope.host_reasoning_packet(document)
+
+    def test_answer_seeds_bounded_reresolution(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "handler.py").write_text("def handle(event):\n    return dispatch(event)\n", encoding="utf-8")
+            document, packet = self._packet(root)
+            self.assertEqual(packet["route"]["state"], "unavailable")
+            updated, errors = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, ["handler.py"], 1)
+            self.assertEqual(errors, [])
+            self.assertIsNotNone(updated)
+            assert updated is not None
+            self.assertTrue(navigator_scope.verify_decision_fingerprint(updated))
+            seeded = [row for row in updated["candidates"] if row["path"] == "handler.py"]
+            self.assertTrue(seeded)
+            self.assertIn("host-diagnosis", seeded[0]["seed_sources"])
+
+    def test_answer_rejections_name_the_cause(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _, packet = self._packet(root)
+            _, missing = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, ["nope/missing.py"], 1)
+            _, sensitive = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, [".ssh/id_rsa"], 1)
+            _, unknown = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, ["REQ-99=handler.py"], 1)
+            _, capped = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, ["handler.py"], 4)
+            _, empty = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, [], 1)
+        self.assertTrue(any(error.startswith("answer-path-missing") for error in missing))
+        self.assertTrue(any("sensitive-path-rejected" in error for error in sensitive))
+        self.assertTrue(any(error.startswith("unknown-requirement") for error in unknown))
+        self.assertIn("scope-answer-rounds-exhausted", capped)
+        self.assertIn("answer-required", empty)
+
+    def test_requested_route_stays_on_proposal_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            candidates = [
+                {"path": "owner-a.py", "candidate_id": "cand-aaaaaaaaaaaa", "role": "implementation-owner",
+                 "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+                 "evidence_edge_ids": ["edge-aaaaaaaaaaaa"], "content_fingerprint": "sha256:" + "a" * 64,
+                 "seed_sources": ["explicit-path"]},
+                {"path": "owner-b.py", "candidate_id": "cand-bbbbbbbbbbbb", "role": "implementation-owner",
+                 "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+                 "evidence_edge_ids": ["edge-bbbbbbbbbbbb"], "content_fingerprint": "sha256:" + "b" * 64,
+                 "seed_sources": ["explicit-path"]},
+            ]
+            edges = [
+                {"edge_id": "edge-aaaaaaaaaaaa", "kind": "defines-symbol", "from_candidate_id": "cand-aaaaaaaaaaaa",
+                 "to_candidate_id": "cand-aaaaaaaaaaaa", "strength": "strong", "reason_codes": ["static-relationship"]},
+                {"edge_id": "edge-bbbbbbbbbbbb", "kind": "defines-symbol", "from_candidate_id": "cand-bbbbbbbbbbbb",
+                 "to_candidate_id": "cand-bbbbbbbbbbbb", "strength": "strong", "reason_codes": ["static-relationship"]},
+            ]
+            frames = [{"requirement_id": "req-frame-000000000001", "display_id": "REQ-01",
+                       "statement": "Fix it.", "query_terms": ["fix"]}]
+            document = navigator_scope.evidence_document(
+                root, "Fix it.", frames, candidates, edges=edges, investigation={"state": "ambiguous"},
+            )
+            packet = navigator_scope.host_reasoning_packet(document)
+            self.assertEqual(packet["route"]["state"], "requested")
+            updated, errors = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix it.", ["bug"], packet, ["owner-a.py"], 1)
+        self.assertIsNone(updated)
+        self.assertIn("scope-answer-route-mismatch", errors)
+
+    def test_apply_helper_swaps_evidence_and_records_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "handler.py").write_text("def handle(event):\n    return 1\n", encoding="utf-8")
+            document, packet = self._packet(root)
+            updated, errors = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, ["handler.py"], 2)
+            self.assertEqual(errors, [])
+            assert updated is not None
+            report: dict[str, Any] = {"navigator": {"scope_evidence": document, "task_types": ["bug"]}}
+            task_start.apply_reresolved_evidence(report, root, "Fix the handler.", updated, 2)
+            navigator = report["navigator"]
+            self.assertEqual(navigator["scope_evidence"]["decision_fingerprint"], updated["decision_fingerprint"])
+            decision = report["host_scope_proposal_decision"]
+            self.assertEqual(decision["status"], "qa-reresolved")
+            self.assertEqual(decision["round"], 2)
+            self.assertIn("scope_evidence_fingerprint", navigator["scope_host_packet"])
+
+
 if __name__ == "__main__":
     unittest.main()

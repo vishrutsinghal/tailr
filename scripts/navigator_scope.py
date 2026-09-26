@@ -3950,6 +3950,16 @@ def host_packet_proposal_decision(root: Path, packet: dict[str, Any], proposal: 
 SCOPE_ANSWER_MAX_ROUNDS = 3
 
 
+def _candidate_dict(row: Any) -> dict[str, Any]:
+    """Normalize a candidate row to a plain dict without trusting its type."""
+    if isinstance(row, dict):
+        return dict(row)
+    as_dict = getattr(row, "as_dict", None)
+    if callable(as_dict):
+        return dict(as_dict())
+    return dict(row)
+
+
 def parse_scope_answer(value: str) -> tuple[str | None, str]:
     """Split a scope answer into an optional requirement reference and a path.
 
@@ -4107,3 +4117,87 @@ def proposal_from_scope_answers(
         "requirements": proposal_requirements,
         "private_reasoning_excluded": True,
     }, []
+
+
+def resolve_unavailable_scope_answers(
+    root: Path,
+    goal: str,
+    tasks: Iterable[str],
+    packet: dict[str, Any],
+    raw_answers: list[str],
+    answer_round: int,
+) -> tuple[dict[str, Any] | None, list[str]]:
+    """Answer SCOPE-QA by seeding exactly one bounded re-resolution.
+
+    Each answer must name an existing, non-sensitive repository file; answers
+    become host-diagnosis seeds merged with the packet candidates, then the
+    standard investigate/document path re-runs once inside existing limits.
+    Qualification still runs, so a wrong guess yields the next recorded
+    question instead of minted ownership. Passive graph capture stays off so
+    answer rounds are read-only. Returns (updated_document, []) or
+    (None, reason codes).
+    """
+    if answer_round > SCOPE_ANSWER_MAX_ROUNDS:
+        return None, ["scope-answer-rounds-exhausted", f"round-{answer_round}-exceeds-max-{SCOPE_ANSWER_MAX_ROUNDS}", "restart-with-a-refined-goal"]
+    packet_body = {key: value for key, value in packet.items() if key != "packet_fingerprint"}
+    if not isinstance(packet.get("packet_fingerprint"), str) or fingerprint(packet_body) != packet.get("packet_fingerprint"):
+        return None, ["host-evidence-packet-integrity-invalid"]
+    try:
+        negotiate_packet_version(packet)
+    except ValueError:
+        return None, ["unsupported-packet-version"]
+    route = packet.get("route", {}) if isinstance(packet.get("route"), dict) else {}
+    if route.get("state") == "requested":
+        return None, ["scope-answer-route-mismatch"]
+    packet_requirements = [row for row in packet.get("requirements", []) if isinstance(row, dict)]
+    if not packet_requirements:
+        return None, ["answer-requires-packet-requirements"]
+    by_id = {str(row.get("requirement_id", "")): row for row in packet_requirements}
+    by_display = {str(row.get("display_id", "")): row for row in packet_requirements if str(row.get("display_id", ""))}
+    if not raw_answers:
+        return None, ["answer-required"]
+    errors: list[str] = []
+    seen: set[str] = set()
+    for value in raw_answers:
+        reference, raw_path = parse_scope_answer(value)
+        if reference is not None and reference not in by_id and reference not in by_display:
+            errors.append(f"unknown-requirement:{reference}")
+            continue
+        normalized, rejection = normalize_repository_path(root, raw_path)
+        if normalized is None:
+            errors.append(f"answer-path-rejected:{raw_path}:{rejection}")
+            continue
+        if sensitive_path_reason(normalized):
+            errors.append(f"answer-path-rejected:{normalized}:sensitive-path-rejected")
+            continue
+        if not (root.resolve() / normalized).is_file():
+            errors.append(f"answer-path-missing:{normalized}")
+            continue
+        seen.add(normalized)
+    if errors:
+        return None, sorted(dict.fromkeys(errors))
+    if not seen:
+        return None, ["answer-required"]
+    seeds = [seed(path, "host-diagnosis", f"host-scope-answer-round-{answer_round}") for path in sorted(seen)]
+    task_list = [str(value) for value in tasks]
+    fresh = [_candidate_dict(row) for row in candidates_from_seeds(root, seeds, task_list)]
+    packet_paths = {str(row.get("path", "")) for row in packet.get("candidates", []) if isinstance(row, dict)}
+    merged = [_candidate_dict(row) for row in packet.get("candidates", []) if isinstance(row, dict)]
+    merged.extend(row for row in fresh if str(row.get("path", "")) not in packet_paths)
+    frames = [{
+        "requirement_id": str(row.get("requirement_id", "")),
+        "display_id": str(row.get("display_id", "")),
+        "statement": "",
+        "query_terms": [str(term) for term in row.get("query_terms", []) if isinstance(term, str)],
+    } for row in packet_requirements]
+    rows, edges, investigation = investigate(
+        root, frames, merged, task_list,
+        allow_git_inventory=True, allow_persistent_cache=True, allow_passive_capture=False,
+    )
+    packet_edges = {str(row.get("edge_id", "")): _candidate_dict(row) for row in packet.get("edges", []) if isinstance(row, dict) and str(row.get("edge_id", ""))}
+    for row in edges:
+        item = _candidate_dict(row)
+        if str(item.get("edge_id", "")):
+            packet_edges[str(item.get("edge_id", ""))] = item
+    document = evidence_document(root, goal, frames, [_candidate_dict(row) for row in rows], edges=list(packet_edges.values()), investigation=investigation)
+    return document, []

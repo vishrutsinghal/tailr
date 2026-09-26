@@ -2795,6 +2795,29 @@ def prepare_scope_answer_proposal(report: dict[str, Any], root: Path, raw_answer
     return proposal, errors, None
 
 
+def apply_reresolved_evidence(report: dict[str, Any], root: Path, goal: str, qa_document: dict[str, Any], answer_round: int) -> None:
+    """Swap re-resolved QA evidence into the Start report navigator section."""
+    navigator = report.get("navigator")
+    if not isinstance(navigator, dict):
+        return
+    navigator["scope_evidence"] = qa_document
+    navigator["scope_host_packet"] = navigator_scope.host_reasoning_packet(qa_document)
+    navigator["scope_quality"] = navigator_scope.assess_scope_quality(
+        root, goal, navigator.get("task_types", []), qa_document,
+    )
+    navigator["scope_candidates"] = qa_document.get("candidates", [])
+    navigator["likely_impacted_files"] = navigator_scope.project_likely_impacted(
+        qa_document.get("candidates", []))
+    report["host_scope_proposal_decision"] = {
+        "schema_version": "1", "type": "tailtrail-navigator-host-scope-decision",
+        "status": "qa-reresolved", "reason_codes": ["host-scope-answer-reresolved"],
+        "round": max(1, int(answer_round or 1)),
+        "planning_lock_created": False, "run_created": False, "persisted": False,
+        "execution_blocked": True, "authority": "none",
+        "boundary": "Scope answers seeded one bounded re-resolution without creating authority.",
+    }
+
+
 def normalize_command_prefix(root: Path, command_prefix: str) -> str:
     """Render commands relative to the target project, not the agent's cwd."""
     normalized = command_prefix.replace("\\", "/")
@@ -6107,12 +6130,25 @@ def main() -> int:
             scope_answer_errors: list[str] = []
             scope_answer_round = max(1, int(args.scope_round or 1))
             if args.scope_owner and host_scope_proposal is None:
-                answer_host = args.host or os.environ.get("TAILTRAIL_ACTIVE_HOST")
-                host_scope_proposal, scope_answer_errors, fatal = prepare_scope_answer_proposal(
-                    report, root, list(args.scope_owner), scope_answer_round, answer_host,
-                )
-                if fatal is not None:
-                    parser.error(fatal)
+                answer_evidence = report["navigator"].get("scope_evidence")
+                if not isinstance(answer_evidence, dict):
+                    parser.error("scope answers require canonical Navigator scope evidence")
+                answer_packet = navigator_scope.host_reasoning_packet(answer_evidence)
+                answer_route = answer_packet.get("route", {}) if isinstance(answer_packet.get("route"), dict) else {}
+                if answer_route.get("state") == "requested":
+                    answer_host = args.host or os.environ.get("TAILTRAIL_ACTIVE_HOST")
+                    host_scope_proposal, scope_answer_errors, fatal = prepare_scope_answer_proposal(
+                        report, root, list(args.scope_owner), scope_answer_round, answer_host,
+                    )
+                    if fatal is not None:
+                        parser.error(fatal)
+                else:
+                    qa_document, scope_answer_errors = navigator_scope.resolve_unavailable_scope_answers(
+                        root, goal, report["navigator"].get("task_types", []), answer_packet,
+                        list(args.scope_owner), scope_answer_round,
+                    )
+                    if qa_document is not None:
+                        apply_reresolved_evidence(report, root, goal, qa_document, scope_answer_round)
             if host_scope_proposal is not None:
                 scope_evidence = report["navigator"].get("scope_evidence")
                 if not isinstance(scope_evidence, dict):
