@@ -188,6 +188,8 @@ OWNER_QUALIFICATION_PRECEDENCE = (
 )
 BEHAVIOR_CHAIN_LINE_SPAN = 160
 SCOPE_QUESTION_OPTION_CAP = 3
+RESOLVED_OWNER_MIN_STRONG_EDGES = 2
+RESOLVED_OWNER_MIN_EDGE_KINDS = 2
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -2757,6 +2759,11 @@ def evidence_document(
     state = str(investigation_row.get("state", "resolved" if implementation_owners else "unresolved"))
     if state == "not-run":
         state = "resolved" if implementation_owners else "unresolved"
+    if state == "resolved" and implementation_owners:
+        thin = sorted({path for path in implementation_owners if _thin_owner_evidence(candidate_rows, edge_rows, path)})
+        if thin:
+            state = "ambiguous"
+            investigation_row["resolution_failure_reason"] = "thin-owner-evidence-requires-confirmation"
     requirements = []
     resolved_reason_codes = (
         ["bounded-static-owner-resolved"]
@@ -2809,6 +2816,36 @@ def evidence_document(
         }
     document["decision_fingerprint"] = fingerprint(document)
     return document
+
+
+def _owner_strong_support(candidate_rows: list[dict[str, Any]], edge_rows: list[dict[str, Any]], path: str) -> tuple[int, list[str]]:
+    """Count strong packet edges touching one owner candidate plus their kinds."""
+    edges = {str(row.get("edge_id")): row for row in edge_rows if isinstance(row, dict)}
+    candidate = next((row for row in candidate_rows if isinstance(row, dict) and str(row.get("path", "")) == path), {})
+    candidate_id = str(candidate.get("candidate_id", ""))
+    touching = sorted({
+        str(edge_id) for edge_id in candidate.get("evidence_edge_ids", [])
+        if str(edge_id) in edges
+        and str(edges[str(edge_id)].get("strength", "")) == "strong"
+        and candidate_id and candidate_id in {
+            str(edges[str(edge_id)].get("from_candidate_id", "")),
+            str(edges[str(edge_id)].get("to_candidate_id", "")),
+        }
+    })
+    kinds = sorted({str(edges[edge_id].get("kind", "?")) for edge_id in touching})
+    return len(touching), kinds
+
+
+def _thin_owner_evidence(candidate_rows: list[dict[str, Any]], edge_rows: list[dict[str, Any]], path: str) -> bool:
+    """Check whether one resolved owner rests on thin relationship evidence.
+
+    Calibrated against resolved run evidence: every healthy resolution
+    rests on at least two strong edges across two relationship kinds, so
+    anything weaker is sent back for host confirmation instead of
+    auto-resolving.
+    """
+    count, kinds = _owner_strong_support(candidate_rows, edge_rows, path)
+    return count < RESOLVED_OWNER_MIN_STRONG_EDGES or len(kinds) < RESOLVED_OWNER_MIN_EDGE_KINDS
 
 
 def verify_decision_fingerprint(document: dict[str, Any]) -> bool:
