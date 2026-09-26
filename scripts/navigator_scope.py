@@ -2814,8 +2814,19 @@ def evidence_document(
             "state": "requested" if route["state"] == "requested" else "not-requested",
             "proposal": None,
         }
-    document["decision_fingerprint"] = fingerprint(document)
+    document["decision_fingerprint"] = fingerprint(_fingerprintable_document(document))
     return document
+
+
+def _fingerprintable_document(document: dict[str, Any]) -> dict[str, Any]:
+    """Return the evidence-identity view of a scope document.
+
+    The host_reasoning block is a decision transcript (validations, verdicts,
+    round history), not evidence: hashing it makes every bound packet stale
+    the moment it is judged. Excluding it keeps packet identity stable across
+    runs so answers and proposals survive re-validation.
+    """
+    return {key: value for key, value in document.items() if key not in {"decision_fingerprint", "host_reasoning"}}
 
 
 def _owner_strong_support(candidate_rows: list[dict[str, Any]], edge_rows: list[dict[str, Any]], path: str) -> tuple[int, list[str]]:
@@ -2849,6 +2860,18 @@ def _thin_owner_evidence(candidate_rows: list[dict[str, Any]], edge_rows: list[d
 
 
 def verify_decision_fingerprint(document: dict[str, Any]) -> bool:
+    candidate = dict(document)
+    observed = candidate.pop("decision_fingerprint", None)
+    return isinstance(observed, str) and observed == fingerprint(_fingerprintable_document(candidate))
+
+
+def verify_decision_fingerprint_legacy(document: dict[str, Any]) -> bool:
+    """Verify the pre-split fingerprint scheme (transcript included).
+
+    Only the migration audit may use this: it distinguishes superseded
+    evidence (valid under the old scheme) from tampered evidence (valid
+    under neither). Never use it to authorize scope, locks, or runs.
+    """
     candidate = dict(document)
     observed = candidate.pop("decision_fingerprint", None)
     return isinstance(observed, str) and observed == fingerprint(candidate)
@@ -3880,7 +3903,7 @@ def record_host_proposal(root: Path, document: dict[str, Any], proposal: dict[st
         "excluded": sum(row.get("status") == "excluded" for row in updated.get("candidates", [])),
         "rejected": sum(row.get("status") == "rejected" for row in updated.get("candidates", [])),
     }
-    updated["decision_fingerprint"] = fingerprint(updated)
+    updated["decision_fingerprint"] = fingerprint(_fingerprintable_document(updated))
     return updated
 
 

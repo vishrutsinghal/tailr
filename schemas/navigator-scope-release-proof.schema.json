@@ -14,7 +14,7 @@
     "manifest_issues": {"$ref": "#/$defs/strings"}, "platforms": {"$ref": "#/$defs/strings"}, "hosts": {"$ref": "#/$defs/strings"},
     "migration": {"type": "object", "additionalProperties": false, "required": ["status", "counts", "immutability", "shadow_comparison"], "properties": {
       "status": {"enum": ["passed", "failed"]},
-      "counts": {"type": "object", "additionalProperties": false, "required": ["legacy-v1-immutable", "scope-v2", "invalid-v2"], "properties": {"legacy-v1-immutable": {"type": "integer", "minimum": 0}, "scope-v2": {"type": "integer", "minimum": 0}, "invalid-v2": {"type": "integer", "minimum": 0}}},
+      "counts": {"type": "object", "additionalProperties": false, "required": ["legacy-v1-immutable", "scope-v2", "superseded-v2", "invalid-v2"], "properties": {"legacy-v1-immutable": {"type": "integer", "minimum": 0}, "scope-v2": {"type": "integer", "minimum": 0}, "superseded-v2": {"type": "integer", "minimum": 0}, "invalid-v2": {"type": "integer", "minimum": 0}}},
       "immutability": {"type": "object", "additionalProperties": false, "required": ["files_before", "files_after", "content_unchanged", "background_rewrite"], "properties": {"files_before": {"type": "integer", "minimum": 0}, "files_after": {"type": "integer", "minimum": 0}, "content_unchanged": {"type": "boolean"}, "background_rewrite": {"const": false}}},
       "shadow_comparison": {"type": "object", "additionalProperties": false, "required": ["enabled", "raw_goals", "raw_source", "v1_may_override_v2"], "properties": {"enabled": {"const": false}, "raw_goals": {"const": false}, "raw_source": {"const": false}, "v1_may_override_v2": {"const": false}}}
     }},

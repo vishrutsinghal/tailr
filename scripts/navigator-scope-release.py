@@ -64,6 +64,16 @@ def migration_report(root: Path) -> dict[str, Any]:
             })
             continue
         if evidence.get("schema_version") != navigator_scope.SCHEMA_VERSION or not navigator_scope.verify_decision_fingerprint(evidence):
+            if isinstance(evidence, dict) and navigator_scope.verify_decision_fingerprint_legacy(evidence):
+                records.append({
+                    "artifact": relative,
+                    "classification": "superseded-v2",
+                    "saved_authority": "superseded-scheme",
+                    "revision_policy": "no-background-rewrite",
+                    "scope_interpretation": "superseded",
+                    "sha256": before[path],
+                })
+                continue
             records.append({
                 "artifact": relative,
                 "classification": "invalid-v2",
@@ -82,7 +92,7 @@ def migration_report(root: Path) -> dict[str, Any]:
             "sha256": before[path],
         })
     after = {path: _sha256(path) for path in paths}
-    counts = {name: sum(row["classification"] == name for row in records) for name in ("legacy-v1-immutable", "scope-v2", "invalid-v2")}
+    counts = {name: sum(row["classification"] == name for row in records) for name in ("legacy-v1-immutable", "scope-v2", "superseded-v2", "invalid-v2")}
     status = "passed" if before == after and counts["invalid-v2"] == 0 else "failed"
     return {
         "schema_version": "1",

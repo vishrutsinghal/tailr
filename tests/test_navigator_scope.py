@@ -2697,5 +2697,64 @@ class ThinEvidenceGateTests(unittest.TestCase):
         self.assertEqual([row["path"] for row in projection["proof_paths"]], ["tests/test_service.py"])
 
 
+class PacketIdentityTests(unittest.TestCase):
+    def _packet(self, root: Path):
+        candidates = [
+            {"path": "src/service.py", "candidate_id": "cand-aaaaaaaaaaaa", "role": "implementation-owner",
+             "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+             "evidence_edge_ids": ["edge-aaaaaaaaaaaa"], "content_fingerprint": "sha256:" + "a" * 64,
+             "seed_sources": ["explicit-path"]},
+        ]
+        edges = [
+            {"edge_id": "edge-aaaaaaaaaaaa", "kind": "defines-symbol", "from_candidate_id": "cand-aaaaaaaaaaaa",
+             "to_candidate_id": "cand-aaaaaaaaaaaa", "strength": "strong", "reason_codes": ["static-relationship"]},
+        ]
+        frames = [{"requirement_id": "req-frame-000000000001", "display_id": "REQ-01",
+                   "statement": "Fix the service.", "query_terms": ["service"]}]
+        document = navigator_scope.evidence_document(
+            root, "Fix the service.", frames, candidates, edges=edges, investigation={"state": "ambiguous"},
+        )
+        return document, navigator_scope.host_reasoning_packet(document)
+
+    def test_decision_transcript_does_not_move_evidence_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            document, _ = self._packet(root)
+            transcript = {"state": "recorded", "proposal": {"status": "rejected", "reason_codes": ["answer-not-evidence-backed"]}}
+            twin = navigator_scope.evidence_document(
+                root, "Fix the service.",
+                [{"requirement_id": "req-frame-000000000001", "display_id": "REQ-01",
+                  "statement": "Fix the service.", "query_terms": ["service"]}],
+                document["candidates"], edges=document["edges"],
+                investigation=document["investigation"], host_reasoning=transcript,
+            )
+        self.assertEqual(document["decision_fingerprint"], twin["decision_fingerprint"])
+        self.assertTrue(navigator_scope.verify_decision_fingerprint(twin))
+
+    def test_packet_survives_a_record_round(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            document, before = self._packet(root)
+            recorded = navigator_scope.record_host_proposal(root, document, {"host": "codex"})
+            after = navigator_scope.host_reasoning_packet(recorded)
+        self.assertEqual(before["packet_fingerprint"], after["packet_fingerprint"])
+        self.assertEqual(before["scope_evidence_fingerprint"], after["scope_evidence_fingerprint"])
+        self.assertEqual(recorded["host_reasoning"]["proposal"]["status"], "rejected")
+
+    def test_evidence_tampering_still_detected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            document, _ = self._packet(root)
+            tampered = dict(document)
+            tampered["candidates"] = [dict(row) for row in document["candidates"]]
+            tampered["candidates"][0] = dict(tampered["candidates"][0], path="src/other.py")
+            legacy = dict(document)
+            legacy.pop("decision_fingerprint")
+            legacy["decision_fingerprint"] = navigator_scope.fingerprint(
+                {key: value for key, value in legacy.items()})
+        self.assertFalse(navigator_scope.verify_decision_fingerprint(tampered))
+        self.assertFalse(navigator_scope.verify_decision_fingerprint(legacy))
+
+
 if __name__ == "__main__":
     unittest.main()

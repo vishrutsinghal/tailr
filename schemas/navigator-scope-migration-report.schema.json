@@ -13,10 +13,11 @@
     "records": {"type": "array", "items": {"$ref": "#/$defs/record"}},
     "counts": {
       "type": "object", "additionalProperties": false,
-      "required": ["legacy-v1-immutable", "scope-v2", "invalid-v2"],
+      "required": ["legacy-v1-immutable", "scope-v2", "superseded-v2", "invalid-v2"],
       "properties": {
         "legacy-v1-immutable": {"type": "integer", "minimum": 0},
         "scope-v2": {"type": "integer", "minimum": 0},
+        "superseded-v2": {"type": "integer", "minimum": 0},
         "invalid-v2": {"type": "integer", "minimum": 0}
       }
     },
@@ -41,7 +42,7 @@
       "required": ["artifact", "classification", "saved_authority", "revision_policy", "scope_interpretation", "sha256"],
       "properties": {
         "artifact": {"type": "string"},
-        "classification": {"enum": ["legacy-v1-immutable", "scope-v2", "invalid-v2"]},
+        "classification": {"enum": ["legacy-v1-immutable", "scope-v2", "superseded-v2", "invalid-v2"]},
         "saved_authority": {"type": "string"}, "revision_policy": {"type": "string"}, "scope_interpretation": {"type": "string"},
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }

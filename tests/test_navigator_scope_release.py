@@ -171,6 +171,55 @@ class NavigatorScopeReleaseTests(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertTrue(json.loads(result.stdout)["type"].startswith("tailtrail-navigator-scope-"))
 
+    def _migration_evidence(self, root: Path):
+        candidates = [
+            {"path": "src/service.py", "candidate_id": "cand-aaaaaaaaaaaa", "role": "implementation-owner",
+             "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+             "evidence_edge_ids": ["edge-aaaaaaaaaaaa", "edge-bbbbbbbbbbbb"],
+             "content_fingerprint": "sha256:" + "a" * 64, "seed_sources": ["explicit-path"]},
+        ]
+        edges = [
+            {"edge_id": "edge-aaaaaaaaaaaa", "kind": "defines-symbol", "from_candidate_id": "cand-aaaaaaaaaaaa",
+             "to_candidate_id": "cand-aaaaaaaaaaaa", "strength": "strong", "reason_codes": ["static-relationship"]},
+            {"edge_id": "edge-bbbbbbbbbbbb", "kind": "tested-by", "from_candidate_id": "cand-aaaaaaaaaaaa",
+             "to_candidate_id": "cand-aaaaaaaaaaaa", "strength": "strong", "reason_codes": ["static-relationship"]},
+        ]
+        frames = [{"requirement_id": "req-frame-000000000001", "display_id": "REQ-01",
+                   "statement": "Fix the service.", "query_terms": ["service"]}]
+        return SCOPE.evidence_document(
+            root, "Fix the service.", frames, candidates, edges=edges, investigation={"state": "resolved"},
+        )
+
+    def _write_run_report(self, root: Path, run_id: str, evidence: dict) -> None:
+        path = root / ".tailtrail" / "runs" / run_id / "planning" / "start-report-v1.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({"report": {"navigator": {"scope_evidence": evidence}}}), encoding="utf-8")
+
+    def test_migration_distinguishes_superseded_scheme_from_tampering(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            current = self._migration_evidence(root)
+            legacy = dict(current)
+            legacy.pop("decision_fingerprint")
+            legacy["decision_fingerprint"] = SCOPE.fingerprint(
+                {key: value for key, value in legacy.items()})
+            tampered = dict(current)
+            tampered["candidates"] = [dict(row) for row in current["candidates"]]
+            tampered["candidates"][0] = dict(tampered["candidates"][0], path="src/other.py")
+            self._write_run_report(root, "current-run", current)
+            self._write_run_report(root, "legacy-run", legacy)
+            self._write_run_report(root, "tampered-run", tampered)
+            report = RELEASE.migration_report(root)
+            schema = json.loads((ROOT / "schemas/navigator-scope-migration-report.schema.json").read_text(encoding="utf-8"))
+            by_artifact = {row["artifact"].split("/")[2]: row["classification"] for row in report["records"]}
+        self.assertEqual([], CONTRACTS.validate_document(report, schema))
+        self.assertEqual(by_artifact["current-run"], "scope-v2")
+        self.assertEqual(by_artifact["legacy-run"], "superseded-v2")
+        self.assertEqual(by_artifact["tampered-run"], "invalid-v2")
+        self.assertEqual(report["counts"]["superseded-v2"], 1)
+        self.assertEqual(report["counts"]["invalid-v2"], 1)
+        self.assertEqual(report["status"], "failed")
+
 
 if __name__ == "__main__":
     unittest.main()
