@@ -51,7 +51,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Learnings core (suites + refresh sweep) | fixed | stale backlog cleared: sweep showed 13 triggered (up from 9), all 13 approved mark-stale applied, retrieval proven blocking, sweep now reports triggered 0 / actioned 13 (product fix `de7f978`); 2 Windows file-locking concurrency errors repaired — `RunLock` now acquires the mandatory byte lock before reading plus leak guard (`run-ledger.py`), `load_ledger` made thread-safe against partial-module caching (`learning-v3.py`, `8b72f23`) — both suites green repeatedly; meta-feed green; 15 anchorless-approval errors fixed via fixture alignment (`871d690`) |
 | Learning consolidation track (Phases 0-4) | fixed | dedup collapse, proof-of-life touches, snapshots, proposal queue, supervised deletion, truth revalidation, sweep scores, gap candidates, threshold triggers, retrieval tiebreak — implemented + tested, pushed through `871d690` |
 | Review surfaces / rendering | healthy | boundary reports exercised throughout |
-| Intent systems | untested | used lightly, not verified |
+| Intent systems | healthy | 44 suite tests green (`expand_intent` 21, `change_intent_anchor` 4, MCP `intent_resolve` read-only + fail-closed 2, stop/resume intent + host conformance 17) plus 6 live probes: task→start, review→named-flow, hello→hello, vague approvals (`looks good`, `go ahead`) and ambiguous state all fail closed to clarify |
 
 ## Tier 2 — quality harnesses
 
