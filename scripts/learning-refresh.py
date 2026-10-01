@@ -454,8 +454,14 @@ def sweep_v3(root: Path) -> dict[str, Any]:
                 "boundary": "No V3 store is readable; nothing was evaluated."}
     triggered: list[dict[str, Any]] = []
     needs_backfill: list[str] = []
+    actioned: list[dict[str, Any]] = []
     clean = 0
     usefulness = _usefulness_scores(root)
+    blocking = {
+        str(item.get("learning_id")): str(item.get("action"))
+        for item in load_actions(root).get("actions", [])
+        if isinstance(item, dict) and item.get("action") in BLOCKING_ACTIONS
+    }
     for learning_id in sorted(latest):
         record = latest[learning_id]
         if record.get("freshness", {}).get("status") != "current":
@@ -468,26 +474,43 @@ def sweep_v3(root: Path) -> dict[str, Any]:
         if deadline and deadline <= datetime.now(timezone.utc):
             reasons = [*reasons, "revalidation deadline has elapsed"]
         if reasons:
-            triggered.append({
+            row = {
                 "learning_id": learning_id,
                 "reasons": sorted(set(reasons)),
-                "apply_command": f"tailtrail learn refresh apply --root . --learning-id {learning_id} --action mark-stale --reason \"sweep-detected drift\" --approved",
-            })
+            }
+            if learning_id in blocking:
+                row["action"] = blocking[learning_id]
+                row["apply_command"] = (
+                    f"tailtrail learn refresh apply --root . --learning-id {learning_id} "
+                    f"--action mark-stale --reason \"sweep-detected drift\" --approved"
+                )
+                actioned.append(row)
+                continue
+            row["apply_command"] = (
+                f"tailtrail learn refresh apply --root . --learning-id {learning_id} "
+                f"--action mark-stale --reason \"sweep-detected drift\" --approved"
+            )
+            triggered.append(row)
         else:
             clean += 1
     for row in triggered:
+        score = usefulness.get(row["learning_id"], {})
+        row["usefulness"] = {"score": score.get("score"), "band": score.get("band")}
+    for row in actioned:
         score = usefulness.get(row["learning_id"], {})
         row["usefulness"] = {"score": score.get("score"), "band": score.get("band")}
     triggered.sort(key=lambda row: (
         row.get("usefulness", {}).get("score") if isinstance(row.get("usefulness", {}).get("score"), int) else 999,
         row["learning_id"],
     ))
+    actioned.sort(key=lambda row: row["learning_id"])
 
     return {"schema_version": "1", "type": "tailtrail-learning-refresh-sweep",
-            "state": "evaluated", "triggered": triggered, "needs_backfill": sorted(needs_backfill), "clean": clean,
+            "state": "evaluated", "triggered": triggered, "actioned": actioned,
+            "needs_backfill": sorted(needs_backfill), "clean": clean,
             "usefulness": {key: {"score": value.get("score"), "band": value.get("band")} for key, value in usefulness.items()},
             "backfill_command": "tailtrail learn v3 revalidate --root . --learning-id <id> --reason \"snapshot backfill\" --evidence-ref <file> --approved",
-            "boundary": "Read-only evaluation; triggering actions and backfills each require their own explicit approval."}
+            "boundary": "Read-only evaluation; triggering actions and backfills each require their own explicit approval. Records with an approved blocking refresh action are reported under `actioned`, not `triggered`; retrieval already blocks them."}
 
 
 def _usefulness_scores(root: Path) -> dict[str, dict[str, Any]]:

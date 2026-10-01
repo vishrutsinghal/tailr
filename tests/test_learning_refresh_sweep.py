@@ -85,6 +85,48 @@ class RefreshSweepTests(unittest.TestCase):
             result = REFRESH.sweep_v3(Path(temp))
         self.assertEqual(result["state"], "no-store")
 
+    def _write_action(self, root: Path, learning_id: str, action: str) -> None:
+        store = root / ".tailtrail"
+        store.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": "1",
+            "updated_at": "2026-10-01T00:00:00+00:00",
+            "actions": [{
+                "learning_id": learning_id,
+                "action": action,
+                "reason": "fixture review",
+                "approved": True,
+                "created_at": "2026-10-01T00:00:00+00:00",
+            }],
+        }
+        (store / "learning-refresh-actions.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    def test_sweep_lists_actioned_records_separately(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            capture(root, "lrn-sweep-actioned")
+            (root / "src" / "a.py").write_text("v2 changed\n", encoding="utf-8")
+            self._write_action(root, "lrn-sweep-actioned", "mark-stale")
+            result = REFRESH.sweep_v3(root)
+            self.assertEqual(result["triggered"], [])
+            self.assertEqual([row["learning_id"] for row in result["actioned"]], ["lrn-sweep-actioned"])
+            self.assertEqual(result["actioned"][0]["action"], "mark-stale")
+            # Retrieval still blocks the actioned record.
+            record = next(iter(V3.latest_records(V3.read_records(root)).values()))
+            blocked, _ = RETRIEVAL.freshness_reasons(
+                root, record, {"lrn-sweep-actioned": "mark-stale"}, {record["record_id"]: record})
+            self.assertTrue(any("mark-stale" in reason for reason in blocked))
+
+    def test_sweep_keeps_non_blocking_actions_triggered(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            capture(root, "lrn-sweep-kept")
+            (root / "src" / "a.py").write_text("v2 changed\n", encoding="utf-8")
+            self._write_action(root, "lrn-sweep-kept", "keep")
+            result = REFRESH.sweep_v3(root)
+            self.assertEqual([row["learning_id"] for row in result["triggered"]], ["lrn-sweep-kept"])
+            self.assertEqual(result["actioned"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
