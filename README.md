@@ -1,10 +1,8 @@
-<p align="center">
-  <img src="assets/tailtrail-mark.png" width="150" alt="TailTrail logo" />
-</p>
+![TailTrail logo](assets/tailtrail-mark.png)
 
-<h1 align="center">TailTrail</h1>
+# TailTrail
 
-<p align="center"><strong>Plan first. Change with evidence. Finish without drift.</strong></p>
+**Plan first. Change with evidence. Finish without drift.**
 
 TailTrail is a local, approval-first workflow for AI-assisted software delivery.
 It helps an agent understand an existing project, propose a bounded change,
@@ -17,11 +15,71 @@ The self-contained `tailtrail` wheel and sdist support CPython 3.12, 3.13 and 3.
 have no runtime dependencies, verify their packaged resources before command
 dispatch, and do not need a source checkout. See [INSTALL.md](INSTALL.md).
 
+## Install TailTrail in a repository
+
+TailTrail 1.1.0 supports Python 3.12, 3.13, and 3.14. Create an isolated
+environment and install the published package:
+
+```bash
+python3.14 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade tailtrail==1.1.0
+```
+
+On Windows, create and activate the environment with:
+
+```powershell
+py -3.14 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade tailtrail==1.1.0
+```
+
+From the repository you want TailTrail to manage, install a host profile. The
+Extended profile comes first because it includes the complete TailTrail
+workflow, supporting scripts, and guidance.
+
+### Extended profile
+
+Choose the host used by the repository:
+
+```bash
+tailtrail setup --host codex --profile extended --target .
+tailtrail setup --host copilot --profile extended --target .
+tailtrail setup --host claude --profile extended --target .
+```
+
+For a repository intentionally used with all three hosts:
+
+```bash
+tailtrail setup --host all --profile extended --target .
+```
+
+### Core profile
+
+Use Core when the repository needs the smaller essential guidance surface:
+
+```bash
+tailtrail setup --host codex --profile core --target .
+tailtrail setup --host copilot --profile core --target .
+tailtrail setup --host claude --profile core --target .
+```
+
+After either profile is installed, restart the assistant or IDE session and
+verify the selected host. For example:
+
+```bash
+tailtrail verify --host codex --target .
+tailtrail doctor --host codex --target .
+```
+
+Replace `codex` with `copilot` or `claude` when appropriate. For update,
+repair, rollback, uninstall, and artifact-verification instructions, see the
+complete [installation guide](INSTALL.md).
+
 ## Get a plan in two minutes
 
-1. Install TailTrail into the project you want to work in. Use the one
-   [installation guide](INSTALL.md)—it has Windows, macOS/Linux, update, and
-   host-specific instructions.
+1. [Install TailTrail in the repository](#install-tailtrail-in-a-repository),
+   using Extended for the complete profile or Core for the smaller surface.
 2. Open a new chat in your AI host.
 3. Ask TailTrail to plan the task:
 
@@ -39,7 +97,7 @@ tailtrail stop
 ```
 
 Ordinary prompts then return to the host agent. Resume later with the exact
-saved identity: `tailtrail resume --run-id <run-id>`. Stop is not rejection or
+saved identity: `tailtrail resume --run-id RUN_ID`. Stop is not rejection or
 cancellation, and resume never approves or advances the workflow.
 
 ### Choose your host
@@ -101,7 +159,7 @@ These six verbs use one orchestration façade. TailTrail resolves a run only
 when it is unambiguous, approves only the exact plan or next frozen stage, and
 keeps advanced workflow commands available for diagnostics. Bare `tailtrail
 status` still means installer status; use `tailtrail flow status` for the
-auto-resolved task or `tailtrail status --run-id <run-id>` for an explicit one.
+auto-resolved task or `tailtrail status --run-id RUN_ID` for an explicit one.
 
 Start plans select detail automatically: AIDLC Off is Quick; AIDLC Lite is
 Expert without dedicated Architecture/Behaviour planning detail; Standard,
