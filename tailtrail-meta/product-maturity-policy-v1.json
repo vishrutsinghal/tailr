@@ -33,14 +33,32 @@
         {"id":"setup","approved_by":"User-approved installation experience implementation","reason":"Consolidate host selection, install/update, verification, diagnostics, and reload guidance behind the existing transactional lifecycle."},
         {"id":"upgrade","approved_by":"User-approved installation experience implementation","reason":"Provide one hash-pinned offline package and transactional project-payload upgrade path."},
         {"id":"release","approved_by":"User-approved installation experience implementation","reason":"Expose package-owned trusted release discovery without inferring publication."},
-        {"id":"qualify","approved_by":"User-approved installation experience implementation","reason":"Expose one fail-closed aggregate of host, platform, and signed-publication evidence. Validation: python3 -m unittest tests.test_installation_experience."}
+        {"id":"qualify","approved_by":"User-approved installation experience implementation","reason":"Expose one fail-closed aggregate of host, platform, and signed-publication evidence. Validation: python3 -m unittest tests.test_installation_experience."},
+        {"id":"stop","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose the idempotent stop control that preserves the canonical run and detaches TailTrail routing."},
+        {"id":"resume","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose exact-run resume reattachment without approving or advancing the workflow."},
+        {"id":"session","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose session status inspection for the common stop/resume control."},
+        {"id":"requirements","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose the read-only requirement intake surface for pre-lock requirement answers."},
+        {"id":"host-reply","approved_by":"Cross-platform quoting, routing fixes, and host-reply scoring (5ac950b)","reason":"Expose host reply scoring for Codex, Copilot, and Claude guidance conformance without changing planning authority."}
       ],
       "mcp_tools": [
         {"id":"presentation_conformance","approved_by":"PM-3 implementation authority","reason":"Expose read-only semantic presentation conformance to MCP hosts."},
         {"id":"maintainability_inventory","approved_by":"PM-4 implementation authority","reason":"Expose the same deterministic maintainability inventory through CLI and MCP."},
         {"id":"real_evaluation_portfolio_report","approved_by":"PM-5 implementation authority","reason":"Expose read-only coverage and claim-boundary reporting for the real evaluation portfolio."},
         {"id":"enterprise_conformance_report","approved_by":"PM-6 implementation authority","reason":"Expose a read-only consolidated enterprise control and evidence-boundary report."},
-        {"id":"adoption_validation_report","approved_by":"PM-7 implementation authority","reason":"Expose read-only usability coverage, friction gates, safety posture, and evidence-backed wording/default recommendations without recording trials or changing product behavior."}
+        {"id":"adoption_validation_report","approved_by":"PM-7 implementation authority","reason":"Expose read-only usability coverage, friction gates, safety posture, and evidence-backed wording/default recommendations without recording trials or changing product behavior."},
+        {"id":"tailtrail_stop","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose the idempotent stop control to MCP hosts without approving or advancing the workflow."},
+        {"id":"tailtrail_resume","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose exact-run resume reattachment to MCP hosts without approving or advancing the workflow."},
+        {"id":"tailtrail_session_status","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose session status inspection to MCP hosts for the common stop/resume control."},
+        {"id":"intent_resolve","approved_by":"Release TailTrail V1.1 improvements (101322e)","reason":"Expose read-only typed intent resolution to MCP hosts without performing actions or granting authority."},
+        {"id":"requirement_intake_show","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose read-only requirement intake inspection to MCP hosts before Planning Lock creation."},
+        {"id":"requirement_intake_answer","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Record requirement intake answers to MCP hosts without granting implementation scope."},
+        {"id":"requirement_intake_attach_visual","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Attach visual requirement material to MCP hosts as a material open question, never a silent drop."},
+        {"id":"navigator_scope_proposal_record","approved_by":"NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Record host scope proposals bound to packet, decision, target, hashes, and edge IDs."},
+        {"id":"execution_evidence_run","approved_by":"Release TailTrail V1.1 improvements (101322e)","reason":"Expose approved managed execution-evidence runs over exact runs to MCP hosts."},
+        {"id":"debug_preflight","approved_by":"DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)","reason":"Expose command-free Debug orientation to MCP hosts without spawning project commands."},
+        {"id":"debug_reproduction_attempt_record","approved_by":"DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)","reason":"Record factual pre-fix and post-fix reproduction attempts linked to command-result evidence."},
+        {"id":"debug_reproduction_attempt_show","approved_by":"DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)","reason":"Expose recorded reproduction attempts without granting hypotheses or correction."},
+        {"id":"debug_reproduction_reopen","approved_by":"DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)","reason":"Reopen reproduction contracts for new user evidence under a versioned revision."}
       ],
       "schema_paths": [
         {
@@ -137,10 +155,154 @@
           "id": "schemas/release-publication-receipt.schema.json",
           "approved_by": "User-approved installation experience implementation",
           "reason": "The support gate requires a closed observed identity-verified publication receipt rather than workflow inference."
+        },
+        {
+          "id": "schemas/tailtrail-session-attachment.schema.json",
+          "approved_by": "TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "The stop/resume control requires a closed durable session attachment, detach, and exact-run resume contract."
+        },
+        {
+          "id": "schemas/intent-envelope.schema.json",
+          "approved_by": "Release TailTrail V1.1 improvements (101322e)",
+          "reason": "Read-only intent resolution requires a closed versioned intent envelope that preserves the supplied goal."
+        },
+        {
+          "id": "schemas/requirement-intake.schema.json",
+          "approved_by": "VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Requirement intake requires a closed append-only pre-lock intake and answer revision contract."
+        },
+        {
+          "id": "schemas/requirement-evidence-assistance.schema.json",
+          "approved_by": "VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Requirement intake requires a closed bounded repository-evidence assistance contract."
+        },
+        {
+          "id": "schemas/requirement-interpretation.schema.json",
+          "approved_by": "VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Requirement intake requires a closed exact-goal-bound interpretation contract with typed clause roles."
+        },
+        {
+          "id": "schemas/requirement-sufficiency.schema.json",
+          "approved_by": "VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Requirement intake requires a closed requirement-sufficiency and material-decision contract."
+        },
+        {
+          "id": "schemas/canonical-requirement-set.schema.json",
+          "approved_by": "VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Requirement intake requires a closed pre-scope canonical requirement identity shared by planning and approval."
+        },
+        {
+          "id": "schemas/navigator-host-scope-proposal.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed host proposal contract bound to packet, decision, target, and hashes."
+        },
+        {
+          "id": "schemas/navigator-host-scope-packet-v2.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed schema-v2 packet contract for host scope decisions."
+        },
+        {
+          "id": "schemas/navigator-scope-baseline.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed scope baseline contract for known-gap tracking."
+        },
+        {
+          "id": "schemas/navigator-scope-evidence.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed scope evidence contract for owner and proof roles."
+        },
+        {
+          "id": "schemas/navigator-scope-quality.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed scope-quality contract for evidence-bound questions."
+        },
+        {
+          "id": "schemas/navigator-scope-release-policy.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed release policy contract for scope investigation availability."
+        },
+        {
+          "id": "schemas/navigator-scope-release-proof.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed release proof contract for planning-to-closure lifecycle evidence."
+        },
+        {
+          "id": "schemas/navigator-scope-migration-report.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed migration report contract for saved-run scope mapping."
+        },
+        {
+          "id": "schemas/navigator-run-mapping-index.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed immutable hash-bound cross-run mapping contract."
+        },
+        {
+          "id": "schemas/navigator-installed-release-proof.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed installed release proof contract for wheel and sdist lifecycles."
+        },
+        {
+          "id": "schemas/navigator-graph-lifecycle.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed machine-readable contract for Navigator graph lifecycle decisions."
+        },
+        {
+          "id": "schemas/navigator-scope-calibration-catalog.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed decision-receipt catalog contract for scope calibration."
+        },
+        {
+          "id": "schemas/navigator-scope-calibration-report.schema.json",
+          "approved_by": "NAVIGATOR-EVIDENCE-FIRST-SCOPE-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)",
+          "reason": "Evidence-first scope requires a closed aggregate metric and claim-boundary report contract."
+        },
+        {
+          "id": "schemas/host-decision.schema.json",
+          "approved_by": "Navigator graph packet stages 0a-6, host capture, packet v2, decision records (c507b1d)",
+          "reason": "Navigator graph packets require a closed host decision record contract."
+        },
+        {
+          "id": "schemas/host-requirement-routing-conformance.schema.json",
+          "approved_by": "Release TailTrail V1.1 improvements (101322e) for cross-host requirement-before-scope routing",
+          "reason": "Cross-host routing requires a closed requirement-before-scope routing and negative-assurance contract."
+        },
+        {
+          "id": "schemas/host-scope-conformance.schema.json",
+          "approved_by": "Release TailTrail V1.1 improvements (101322e) for cross-host scope conformance",
+          "reason": "Cross-host scope work requires a closed resolved, unresolved, conflicting, and docs-only scope contract."
+        },
+        {
+          "id": "schemas/host-scope-reasoning-conformance.schema.json",
+          "approved_by": "Release TailTrail V1.1 improvements (101322e) for cross-host scope reasoning conformance",
+          "reason": "Cross-host scope work requires a closed host reasoning contract for selections and authority escalation."
+        },
+        {
+          "id": "schemas/debug-host-diagnosis.schema.json",
+          "approved_by": "DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)",
+          "reason": "The Debug harness requires a closed host diagnosis proposal contract with evidence and trace."
+        },
+        {
+          "id": "schemas/debug-preflight.schema.json",
+          "approved_by": "DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)",
+          "reason": "The Debug harness requires a closed command-free orientation contract with refresh proposals."
+        },
+        {
+          "id": "schemas/debug-reproduction-attempt.schema.json",
+          "approved_by": "DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)",
+          "reason": "The Debug harness requires a closed factual pre-fix and post-fix reproduction attempt contract."
+        },
+        {
+          "id": "schemas/debug-reproduction-attempt-status.schema.json",
+          "approved_by": "DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)",
+          "reason": "The Debug harness requires a closed reproduction projection contract for attempt states."
         }
       ],
       "hosts": [],
-      "feature_ids": [],
+      "feature_ids": [
+        {"id":"stop-resume-control","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"The stop/resume control ships as a versioned product feature for common run preservation and exact-run reattachment."},
+        {"id":"session-attachment-status","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Session attachment status ships as a versioned product feature for durable stop/resume lifecycle visibility."},
+        {"id":"requirement-intake","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Requirement intake ships as a versioned product feature for pre-lock requirement answers and visual attachments."}
+      ],
       "ownership_domains": []
     }
   },
