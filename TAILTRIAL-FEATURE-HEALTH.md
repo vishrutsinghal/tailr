@@ -48,7 +48,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Planning revision cycle | fixed | fingerprint defect repaired; overlay shipped |
 | Planning proof-update commands | healthy | shipped + tested |
 | VCS verification in checkpoints | healthy | phantom detection proven live |
-| Learnings core (suites) | degraded | 3 remaining: 2 Windows file-locking concurrency errors (environmental), 1 meta-feed FAIL pre-existing on clean HEAD; 15 anchorless-approval errors fixed via fixture alignment (`871d690`) |
+| Learnings core (suites + refresh sweep) | degraded | stale backlog cleared this session: sweep showed 13 triggered (up from 9), all 13 approved mark-stale applied, retrieval proven blocking, sweep now reports triggered 0 / actioned 13 (product fix `de7f978`); suites: 2 Windows file-locking concurrency errors remain (environmental, proven pre-existing on clean HEAD), meta-feed green this session; 15 anchorless-approval errors fixed via fixture alignment (`871d690`) |
 | Learning consolidation track (Phases 0-4) | fixed | dedup collapse, proof-of-life touches, snapshots, proposal queue, supervised deletion, truth revalidation, sweep scores, gap candidates, threshold triggers, retrieval tiebreak — implemented + tested, pushed through `871d690` |
 | Review surfaces / rendering | healthy | boundary reports exercised throughout |
 | Intent systems | untested | used lightly, not verified |
