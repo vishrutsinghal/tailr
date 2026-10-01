@@ -10,6 +10,7 @@ import importlib.util
 import json
 import re
 import sys
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -65,17 +66,32 @@ def sha256(value: Any) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+_LEDGER_LOCK = threading.Lock()
+
+
 def load_ledger():
     name = "tailtrail_learning_v3_run_ledger"
-    if name in sys.modules:
-        return sys.modules[name]
-    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent / "run-ledger.py")
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load append lock")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+    module = sys.modules.get(name)
+    if module is not None and hasattr(module, "RunLock"):
+        return module
+    with _LEDGER_LOCK:
+        module = sys.modules.get(name)
+        if module is not None and hasattr(module, "RunLock"):
+            return module
+        # A concurrent first use may have cached a partially executed
+        # module; drop it so exactly one thread executes the loader and
+        # every caller receives the fully initialized module.
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent / "run-ledger.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Unable to load append lock")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None)
+            raise
+        return module
 
 
 def _snapshot_rows(root: Path, paths: list[Path]) -> list[dict[str, str | int | None]]:

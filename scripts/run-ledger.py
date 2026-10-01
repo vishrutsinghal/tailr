@@ -74,15 +74,24 @@ class RunLock:
     def __enter__(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.handle = self.path.open("a+", encoding="utf-8")
-        if fcntl is not None:
-            fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX)
-        elif msvcrt is not None:
-            self.handle.seek(0)
-            if not self.handle.read(1):
-                self.handle.write("0")
-                self.handle.flush()
-            self.handle.seek(0)
-            msvcrt.locking(self.handle.fileno(), msvcrt.LK_LOCK, 1)
+        try:
+            if fcntl is not None:
+                fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX)
+            elif msvcrt is not None:
+                # Windows locks are mandatory, not advisory: the byte lock
+                # must be acquired before any read, otherwise a concurrent
+                # holder turns read() into PermissionError instead of
+                # blocking until the lock is free.
+                self.handle.seek(0)
+                msvcrt.locking(self.handle.fileno(), msvcrt.LK_LOCK, 1)
+                self.handle.seek(0)
+                if not self.handle.read(1):
+                    self.handle.write("0")
+                    self.handle.flush()
+        except BaseException:
+            self.handle.close()
+            self.handle = None
+            raise
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         if self.handle is None:
