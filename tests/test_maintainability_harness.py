@@ -57,6 +57,60 @@ class MaintainabilityHarnessTests(unittest.TestCase):
         self.assertFalse(result["complete"])
         self.assertEqual(result["findings"][0]["category"], "test-chasing")
 
+    def mnt_setup(self, root: Path) -> None:
+        ledger.init_run(root, "mntrun", "maintainability")
+        (root / "src").mkdir()
+        body = "def calc(value):\n return value * 2\n"
+        (root / "src" / "a.py").write_text(body, encoding="utf-8")
+        (root / "src" / "b.py").write_text(body, encoding="utf-8")
+        (root / "src" / "m.py").write_text("class ThingManager:\n def run(self):\n  return 1\n", encoding="utf-8")
+        proposal = root / "proposal.json"
+        proposal.write_text(json.dumps({"requirements": [{"requirement_uid": "REQ-MNT-1", "statement": "reduce duplication", "likely_paths": ["src/a.py", "src/b.py", "src/m.py"], "acceptance_criteria": [], "preserve_rules": [], "evidence_plan": [], "maintainability_contract": {"candidate_paths": ["src/a.py", "src/b.py"], "rules": [{"rule_id": "MNT-01", "requirement_uid": "REQ-MNT-1"}]}}]}), encoding="utf-8")
+        anchor.draft(root, "mntrun", proposal)
+        anchor.approve(root, "mntrun")
+        harness.capture_baseline(root, "mntrun")
+
+    def test_mnt01_regressed_when_duplicates_persist(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.mnt_setup(root)
+            result = harness.assess(root, "mntrun", ["src/a.py", "src/b.py"])
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["rule_results"][0]["state"], "regressed")
+        self.assertEqual(result["findings"][0]["category"], "duplication-not-reduced")
+
+    def test_mnt01_improved_when_duplicates_shrink(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.mnt_setup(root)
+            (root / "src" / "b.py").write_text("def calc(value):\n return value * 3\n", encoding="utf-8")
+            result = harness.assess(root, "mntrun", ["src/a.py", "src/b.py"])
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["rule_results"][0]["state"], "improved")
+
+    def test_abstraction_advisory_does_not_block(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.mnt_setup(root)
+            result = harness.assess(root, "mntrun", ["src/m.py"])
+        self.assertTrue(any(item["category"] == "unnecessary-abstraction" and item["symbol"] == "ThingManager" for item in result["advisories"]))
+
+    def test_rule_with_unknown_requirement_uid_is_flagged(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ledger.init_run(root, "badrun", "maintainability")
+            (root / "src").mkdir()
+            (root / "src" / "a.py").write_text("x = 1\n", encoding="utf-8")
+            proposal = root / "proposal.json"
+            proposal.write_text(json.dumps({"requirements": [{"requirement_uid": "REQ-REAL", "statement": "x", "likely_paths": ["src/a.py"], "acceptance_criteria": [], "preserve_rules": [], "evidence_plan": [], "maintainability_contract": {"candidate_paths": ["src/a.py"], "rules": [{"rule_id": "MNT-01", "requirement_uid": "REQ-GHOST"}]}}]}), encoding="utf-8")
+            anchor.draft(root, "badrun", proposal)
+            anchor.approve(root, "badrun")
+            harness.capture_baseline(root, "badrun")
+            result = harness.assess(root, "badrun", ["src/a.py"])
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["findings"][0]["category"], "rule-identity")
+        self.assertEqual(result["rule_results"][0]["state"], "unknown-requirement")
+
 
 if __name__ == "__main__":
     unittest.main()

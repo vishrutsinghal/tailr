@@ -250,7 +250,12 @@ def assess(root: Path, run_id: str, changed: list[str]) -> dict[str, Any]:
             if (item.get("path"), item.get("symbol")) not in before_abstractions:
                 advisories.append({"category": "new-abstraction", "classification": "advisory", "message": f"new abstraction candidate `{item.get('symbol')}` requires demonstrated current reuse", "path": item.get("path"), "symbol": item.get("symbol"), "evidence": "baseline-delta + local-ast-heuristic"})
         host_maintainability_evidence = _host_maintainability_evidence(directory)
+        known_uids = {str(row.get("requirement_uid")) for row in anchor.get("requirements", [])}
         for rule in rules:
+            if str(rule.get("requirement_uid")) not in known_uids:
+                findings.append({"category": "rule-identity", "classification": "needs-decision", "requirement_uid": rule.get("requirement_uid"), "message": "maintainability rule references a requirement_uid with no approved requirement", "evidence": "approved-anchor"})
+                rule_results.append({"requirement_uid": rule.get("requirement_uid"), "rule_id": rule.get("rule_id"), "state": "unknown-requirement", "evidence": "approved-anchor"})
+                continue
             state = "preserved"
             evidence = "approved baseline and post-change local structure"
             if rule.get("rule_id") == "MNT-01":
