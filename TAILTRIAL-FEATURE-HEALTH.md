@@ -57,9 +57,9 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 
 | Feature | Health | Basis |
 |---|---|---|
-| Architecture fitness | fixed | payment-template bug repaired + proven |
-| Behaviour harness | untested | not exercised |
-| Maintainability harness | untested | not exercised |
+| Architecture fitness | healthy | all 6 rule types live-probed with fixtures (scope/required/protected/imports/manifests/caller-map honesty verified); JS/TS import analysis + wider manifests shipped with tests 3→7 (`aafa245`); payment-template bug repaired + proven |
+| Behaviour harness | fixed | two real bugs repaired + proven live: assessment returned after scenario #1 (false-complete) and evidence-free scenarios auto-passed — now all scenarios evaluated, empty evidence yields needs-decision; tests 1-effective→5 (`0f5312b`) |
+| Maintainability harness | fixed | delta engine live-proven (dup persist→regressed, dedupe→improved, advisories non-blocking); rule UIDs now validated against anchor (was silent misattribution); tests 2→6 (`f40d732`) |
 | Evidence-aware testing | healthy | tiers green |
 | Test precision planner | healthy | focused proof resolved in Starts |
 | Navigator-led review / quality loop | untested | not exercised |
