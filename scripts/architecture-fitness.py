@@ -2,7 +2,7 @@
 """Deterministic requirement-linked architecture fitness assessment."""
 from __future__ import annotations
 
-import argparse, ast, importlib.util, json
+import argparse, ast, importlib.util, json, re
 from pathlib import Path
 from typing import Any
 
@@ -18,16 +18,33 @@ def rel(value:str)->str:
 def matches(path:str,prefix:str)->bool:return path==prefix or path.startswith(prefix.rstrip("/")+"/")
 def dependency_path(path:str)->bool:
  name=Path(path).name.lower()
- return name in {"package.json","pyproject.toml","requirements.txt","pom.xml","go.mod","cargo.toml","composer.json"} or name.endswith((".lock",".csproj",".fsproj"))
-def imports(path:Path)->list[str]:
- if path.suffix!=".py" or not path.is_file(): return []
- try: tree=ast.parse(path.read_text(encoding="utf-8"))
- except (SyntaxError,UnicodeDecodeError): return []
+ return name in {"package.json","package-lock.json","pnpm-lock.yaml","pyproject.toml","requirements.txt","setup.py","setup.cfg","pom.xml","go.mod","go.sum","cargo.toml","composer.json","gemfile","package.swift"} or (name.startswith("requirements") and name.endswith(".txt")) or name.endswith((".lock",".csproj",".fsproj"))
+JS_TS_SUFFIXES={".js",".jsx",".ts",".tsx",".mjs",".cjs"}
+JS_IMPORT=re.compile(r"""(?:require\s*\(\s*|(?:import|export)\s+(?:[^'"]*?\sfrom\s+)?|import\s*\()\s*['"]([^'"]+)['"]""")
+JS_LINE_COMMENT=re.compile(r"//[^\n]*")
+JS_BLOCK_COMMENT=re.compile(r"/\*.*?\*/",re.DOTALL)
+def js_imports(text:str)->list[str]:
+ deduped=list(dict.fromkeys(JS_IMPORT.findall(JS_BLOCK_COMMENT.sub("",JS_LINE_COMMENT.sub("",text)))))
  result=[]
- for node in ast.walk(tree):
-  if isinstance(node,ast.Import):result.extend(alias.name for alias in node.names)
-  if isinstance(node,ast.ImportFrom) and node.module:result.append(node.module)
+ for item in deduped:
+  result.append(item)
+  dotted=re.sub(r"^(?:\./|\.\./)+","",item).replace("/",".").strip(".")
+  if dotted and dotted!=item:result.append(dotted)
  return result
+def imports(path:Path)->list[str]:
+ if not path.is_file(): return []
+ if path.suffix==".py":
+  try: tree=ast.parse(path.read_text(encoding="utf-8"))
+  except (SyntaxError,UnicodeDecodeError): return []
+  result=[]
+  for node in ast.walk(tree):
+   if isinstance(node,ast.Import):result.extend(alias.name for alias in node.names)
+   if isinstance(node,ast.ImportFrom) and node.module:result.append(node.module)
+  return result
+ if path.suffix.lower() in JS_TS_SUFFIXES:
+  try: return js_imports(path.read_text(encoding="utf-8"))
+  except (UnicodeDecodeError,OSError): return []
+ return []
 def assess(root:Path,run_id:str,changed:list[str],profile_path:Path|None=None)->dict[str,Any]:
  directory=L.state_dir(root,run_id); anchor=read(directory/"anchors"/"approved-v1.json")
  paths=sorted(set(rel(item) for item in changed)); profile=read(profile_path) if profile_path else {}
