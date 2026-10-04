@@ -1035,5 +1035,46 @@ class RequirementRoutingPhase0Tests(unittest.TestCase):
         self.assertIn("Answer the material question.", without_command)
 
 
+    def test_blocked_scope_report_carries_unblock_ladder(self) -> None:
+        rendered = task_start.render_scope_quality_boundary_report({
+            "goal": "fix the widget",
+            "boundary": "No Planning Lock was created.",
+            "scope_quality": {
+                "status": "blocked",
+                "question": {
+                    "question_id": "SCOPE-Q1",
+                    "question": "Which file owns this behavior?",
+                    "answer_format": "one path",
+                    "boundary": "Answering grants no implementation authority.",
+                },
+            },
+            "scope_question_precondition": {"scope_question_allowed": True},
+            "requirements": [],
+            "candidates": [{"path": "src/widget.py"}, {"path": "src/other.py"}],
+        })
+        self.assertIn("## To unblock", rendered)
+        self.assertIn("tailtrail bootstrap --root .", rendered)
+        self.assertIn("src/widget.py", rendered)
+        self.assertIn("--scope-owner", rendered)
+        self.assertIn("SCOPE-Q1", rendered)
+        self.assertIn("no Planning Lock, workflow, or approval is created", rendered)
+        self.assertIn("One bounded scope question", rendered)
+
+    def test_unblock_ladder_without_candidates_or_question(self) -> None:
+        rendered = task_start.render_scope_quality_boundary_report({
+            "goal": "fix the widget",
+            "boundary": "No Planning Lock was created.",
+            "scope_quality": {"status": "blocked"},
+            "scope_question_precondition": {"scope_question_allowed": False},
+            "requirements": [],
+        })
+        self.assertIn("## To unblock", rendered)
+        self.assertNotIn("--scope-owner", rendered)
+        self.assertIn("Requirement intake first", rendered)
+
+    def test_unblock_ladder_degrades_on_malformed_report(self) -> None:
+        self.assertEqual(task_start.unblock_ladder_lines({})[0][:10], "To unblock")
+
+
 if __name__ == "__main__":
     unittest.main()

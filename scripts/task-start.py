@@ -4858,6 +4858,39 @@ def render_task_type_boundary_report(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def unblock_ladder_lines(report: dict[str, Any]) -> list[str]:
+    """Suggest cheapest evidence-building next steps for a blocked Start.
+
+    Pure function of the already-computed report: performs no reads, runs no
+    commands, changes no thresholds, and grants no authority. A failure here
+    must degrade to today's output, so callers wrap it defensively.
+    """
+    quality = report.get("scope_quality", {})
+    candidates = [row for row in report.get("candidates", []) if isinstance(row, dict)]
+    paths = sorted({str(row.get("path")) for row in candidates if row.get("path")})[:3]
+    lines = [
+        "To unblock, build the missing evidence first, then re-run `tailtrail start` with the same goal.",
+        "- `tailtrail bootstrap --root .` builds the code graph this decision looked for.",
+        "- Or name one caller or test exercising the behavior, then re-run `tailtrail start`.",
+    ]
+    if paths:
+        lines.append(
+            "- Or answer with one listed owner path: "
+            "`tailtrail start \"<goal>\" --scope-owner <path> --host <codex|copilot|claude>` "
+            "(--host selects whose requirement contract checks the answer). "
+            + ", ".join(f"`{path}`" for path in paths)
+        )
+    question = quality.get("question") if isinstance(quality, dict) else None
+    if isinstance(question, dict) and question.get("question_id"):
+        lines.append(
+            f"- Or answer `{question.get('question_id')}` above with one known module, symbol, caller, or path."
+        )
+    lines.append(
+        "- Answering changes nothing by itself: no Planning Lock, workflow, or approval is created until a re-run proves an owner."
+    )
+    return lines
+
+
 def render_scope_quality_boundary_report(report: dict[str, Any], *, verbose: bool = False) -> str:
     quality = report.get("scope_quality", {})
     investigation = report.get("investigation", {}) if isinstance(report.get("investigation"), dict) else {}
@@ -4997,6 +5030,12 @@ def render_scope_quality_boundary_report(report: dict[str, Any], *, verbose: boo
             f"- {display_prose(precondition.get('boundary', 'Resolve material requirement decisions before scope discovery.'))}",
             "- No implementation-owner question is eligible at this stage.",
         ])
+    try:
+        ladder = unblock_ladder_lines(report)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        ladder = []
+    if ladder:
+        lines.extend(["", "## To unblock", "", ladder[0]] + ladder[1:])
     return "\n".join(lines) + "\n"
 
 
