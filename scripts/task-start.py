@@ -419,6 +419,7 @@ def append_v2_scope_projection(
     *,
     verbose: bool = False,
     responsive: bool = False,
+    graph_mode_override: str | None = None,
 ) -> bool:
     """Render the canonical v2 roles without flattening authority boundaries."""
     evidence = plan.get("scope_evidence") if isinstance(plan, dict) else None
@@ -448,6 +449,7 @@ def append_v2_scope_projection(
             f"- Navigator graph management: `{lifecycle.get('action')}`; "
             f"cache `{lifecycle.get('after_status', {}).get('status', 'unknown')}`; "
             f"metadata write `{'yes' if lifecycle.get('written') else 'no'}`."
+            + (f" {display_prose(graph_mode_override)}." if graph_mode_override else "")
         )
     candidate_paths = {
         str(row.get("candidate_id")): str(row.get("path"))
@@ -4556,7 +4558,7 @@ def compact_start_report(report: dict[str, Any]) -> str:
     target = report.get("target_root")
     if isinstance(target, dict) and target.get("requested"):
         lines.append(f"- Target repository: `{target['requested']}` ({target.get('status', 'verified')}).")
-    v2_rendered = append_v2_scope_projection(lines, plan, responsive=True)
+    v2_rendered = append_v2_scope_projection(lines, plan, responsive=True, graph_mode_override=report.get("graph_mode_override"))
     if not v2_rendered:
         for item in impacted[:4]:
             lines.append(f"- `{item['path']}` - {display_prose(item['reason'])}")
@@ -4705,7 +4707,7 @@ def quick_start_report(report: dict[str, Any]) -> str:
     if not requirements:
         lines.append("- Implement the approved goal and preserve existing behavior.")
     lines.extend(["", "## Scope", ""])
-    v2_rendered = append_v2_scope_projection(lines, plan, responsive=True)
+    v2_rendered = append_v2_scope_projection(lines, plan, responsive=True, graph_mode_override=report.get("graph_mode_override"))
     if not v2_rendered and impacted:
         for item in impacted[:3]:
             lines.append(f"- `{item.get('path')}` - {display_prose(item.get('reason'))}")
@@ -4815,6 +4817,8 @@ def scope_quality_boundary_report(report: dict[str, Any]) -> dict[str, Any]:
         ],
         "target_identity_assessment": report.get("target_identity_assessment", report.get("target_fit", {})),
         "graph_lifecycle": lifecycle,
+        "graph_mode_override": report.get("graph_mode_override"),
+        "aidlc_mode": report.get("aidlc_mode", {}),
         "boundary": (
             "Navigator updated TailTrail graph metadata, but no Planning Lock, workflow, target receipt, learning receipt, or implementation authority was created."
             if graph_written
@@ -4885,6 +4889,12 @@ def unblock_ladder_lines(report: dict[str, Any]) -> list[str]:
         lines.append(
             f"- Or answer `{question.get('question_id')}` above with one known module, symbol, caller, or path."
         )
+    aidlc = report.get("aidlc_mode", {})
+    aidlc_mode = aidlc.get("mode") if isinstance(aidlc, dict) else aidlc
+    if str(aidlc_mode) == "off":
+        lines.append(
+            "- Graph work was skipped for Quick mode; re-run with `--graph auto` to build it."
+        )
     lines.append(
         "- Answering changes nothing by itself: no Planning Lock, workflow, or approval is created until a re-run proves an owner."
     )
@@ -4944,7 +4954,7 @@ def render_scope_quality_boundary_report(report: dict[str, Any], *, verbose: boo
     ]
     lifecycle = report.get("graph_lifecycle") if isinstance(report.get("graph_lifecycle"), dict) else {}
     if lifecycle:
-        lines.insert(10, f"- Navigator graph management: `{lifecycle.get('action', 'unknown')}`; cache `{lifecycle.get('after_status', {}).get('status', 'unknown')}`.")
+        lines.insert(10, f"- Navigator graph management: `{lifecycle.get('action', 'unknown')}`; cache `{lifecycle.get('after_status', {}).get('status', 'unknown')}`." + (f" {display_prose(str(report.get('graph_mode_override')))}." if report.get("graph_mode_override") else ""))
     append_requirement_interpretation(lines, {"requirement_interpretation": report.get("requirement_interpretation", {})})
     for row in report.get("requirements", []):
         if isinstance(row, dict):
@@ -5426,6 +5436,7 @@ def verbose_start_report(
         plan,
         verbose=include_scope_audit,
         responsive=True,
+        graph_mode_override=report.get("graph_mode_override"),
     )
     if not v2_rendered and impacted:
         lines.append("")
@@ -6115,8 +6126,8 @@ def main() -> int:
     parser.add_argument("--scope-owner", action="append", default=[], help="Answer SCOPE-Q1 with an evidence-backed owner path (or REQ-ID=path for multi-requirement scope). Repeat for each answered requirement. Rounds are capped; answers bind the fresh evidence packet.")
     parser.add_argument("--scope-round", type=int, default=1, help="Scope-answer dialogue round for --scope-owner (1-based; capped, then fail closed).")
     parser.add_argument(
-        "--graph", choices=("auto", "reuse", "refresh", "rebuild", "off"), default="auto",
-        help="Navigator graph lifecycle override. Default auto reuses, creates, or refreshes metadata as needed.",
+        "--graph", choices=("auto", "reuse", "refresh", "rebuild", "off"), default=None,
+        help="Navigator graph lifecycle override. Default (unset) reuses, creates, or refreshes metadata as needed, except under --aidlc off where unset behaves as reuse-first without creating new metadata (pass --graph auto for full discovery).",
     )
     workflow_group = parser.add_mutually_exclusive_group()
     workflow_group.add_argument("--debug", action="store_true", help="Force Navigator to classify this Start run as a debug investigation.")
@@ -6632,12 +6643,21 @@ def main() -> int:
             else:
                 print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")
             return 2
-        graph_mode = args.graph
+        graph_mode = args.graph or "auto"
         if workflow_preview.workflow_type == "debug-investigation":
             if graph_mode in {"refresh", "rebuild"}:
                 parser.error("Debug Start cannot refresh or rebuild graph metadata before reproduction approval; use --graph reuse/off or refresh during approved Debug orientation")
             if graph_mode == "auto":
                 graph_mode = "reuse"
+        graph_mode_override = None
+        if args.graph is None and (args.aidlc or resumed_aidlc_mode or "") == "off":
+            # Quick mode stays cheap: reuse fresh metadata or defer without
+            # creating any. The requested mode governs here even when planning
+            # detail escalates: less evidence can only block scope, never
+            # resolve it, so authority is unaffected. Explicit --graph auto
+            # restores full discovery.
+            graph_mode = "reuse"
+            graph_mode_override = "aidlc-off reuse-first (pass --graph auto for full discovery)"
         graph_attempt_id = args.planning_run_id or planning_lock.suggested_run_id(root, goal)
         graph_canonical_literals = [
             str(literal)
@@ -6674,6 +6694,8 @@ def main() -> int:
             validated_debug_diagnosis,
         )
         report["graph_lifecycle"] = graph_lifecycle
+        if graph_mode_override is not None:
+            report["graph_mode_override"] = graph_mode_override
         report["scope_question_precondition"] = scope_precondition
         if visual_records:
             report["visual_requirements"] = visual_records

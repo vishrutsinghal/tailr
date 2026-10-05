@@ -2239,6 +2239,47 @@ class NavigatorScopeAtomicStartTests(unittest.TestCase):
         command.extend(["--format", "json", "--planning-run-id", run_id, *extra])
         return subprocess.run(command, cwd=self.root, text=True, capture_output=True, check=False)
 
+    def graph_lifecycle_of(self, payload: dict) -> dict:
+        lifecycle = payload.get("graph_lifecycle")
+        if isinstance(lifecycle, dict):
+            return lifecycle
+        navigator = payload.get("navigator")
+        if isinstance(navigator, dict) and isinstance(navigator.get("graph_lifecycle"), dict):
+            return navigator["graph_lifecycle"]
+        return {}
+
+    def test_aidlc_off_defers_graph_creation_on_fresh_root(self) -> None:
+        self.write("src/a.py", "x = 1\n")
+        result = self.run_start("fix the thing", "quick-graph-off", "--aidlc", "off")
+        self.assertIn(result.returncode, (0, 2), result.stderr)
+        payload = json.loads(result.stdout)
+        lifecycle = self.graph_lifecycle_of(payload)
+        self.assertIn(lifecycle.get("action"), ("reuse", "defer", "off"))
+        self.assertEqual(
+            payload.get("graph_mode_override"),
+            "aidlc-off reuse-first (pass --graph auto for full discovery)",
+        )
+        self.assertFalse((self.root / "tailtrail-meta" / "code-graph-cache.json").exists())
+
+    def test_explicit_graph_auto_restores_full_discovery_under_aidlc_off(self) -> None:
+        self.write("src/a.py", "x = 1\n")
+        result = self.run_start('fix "src/a.py" issue', "quick-graph-auto", "--aidlc", "off", "--graph", "auto")
+        self.assertIn(result.returncode, (0, 2), result.stderr)
+        payload = json.loads(result.stdout)
+        lifecycle = self.graph_lifecycle_of(payload)
+        self.assertEqual(lifecycle.get("action"), "create")
+        self.assertIsNone(payload.get("graph_mode_override"))
+        self.assertTrue((self.root / "tailtrail-meta" / "code-graph-cache.json").exists())
+
+    def test_default_aidlc_keeps_auto_graph_discovery(self) -> None:
+        self.write("src/a.py", "x = 1\n")
+        result = self.run_start('fix "src/a.py" issue', "quick-graph-default")
+        self.assertIn(result.returncode, (0, 2), result.stderr)
+        payload = json.loads(result.stdout)
+        lifecycle = self.graph_lifecycle_of(payload)
+        self.assertEqual(lifecycle.get("action"), "create")
+        self.assertIsNone(payload.get("graph_mode_override"))
+
     def test_fsr5_active_host_refines_supported_scope_before_atomic_lock(self) -> None:
         fixture = load_json(FIXTURE_ROOT / "typescript-genuine-renderer-ambiguity.json")
         for relative, body in fixture["repository_files"].items():
