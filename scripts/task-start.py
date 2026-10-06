@@ -3199,7 +3199,9 @@ def prepare_scope_answer_proposal(report: dict[str, Any], root: Path, raw_answer
     as the next dialogue round. Rounds bind the fresh evidence packet.
     """
     if host not in {"codex", "copilot", "claude"}:
-        return None, [], "scope answers require --host codex, copilot, or claude"
+        return None, [], ("scope answers require --host codex, copilot, or claude "
+                          "(host reasoning was requested for this scope); re-run the same "
+                          "Start request adding --host <codex|copilot|claude> to the --scope-owner answers")
     navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else None
     evidence = navigator.get("scope_evidence") if isinstance(navigator, dict) else None
     if not isinstance(evidence, dict):

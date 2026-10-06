@@ -2280,6 +2280,19 @@ class NavigatorScopeAtomicStartTests(unittest.TestCase):
         self.assertEqual(lifecycle.get("action"), "create")
         self.assertIsNone(payload.get("graph_mode_override"))
 
+    def test_hostless_answer_accepted_when_host_reasoning_not_requested(self) -> None:
+        self.write("src/svc.py", "def validate_quantity(value):\n return value >= 0\n")
+        result = self.run_start(
+            "fix validate_quantity to reject zero", "hostless-answer",
+            "--aidlc", "off", "--scope-owner", "src/svc.py",
+        )
+        self.assertEqual(result.returncode, 2, result.stderr)
+        payload = json.loads(result.stdout)
+        decision = payload.get("host_scope_proposal_decision", {})
+        self.assertEqual(decision.get("status"), "qa-reresolved")
+        self.assertFalse(decision.get("planning_lock_created"))
+        self.assertFalse((self.root / ".tailtrail" / "runs").exists())
+
     def test_fsr5_active_host_refines_supported_scope_before_atomic_lock(self) -> None:
         fixture = load_json(FIXTURE_ROOT / "typescript-genuine-renderer-ambiguity.json")
         for relative, body in fixture["repository_files"].items():
@@ -2662,7 +2675,8 @@ class ScopeAnswerTests(unittest.TestCase):
             proposal, errors, fatal = task_start.prepare_scope_answer_proposal(
                 report, root, ["REQ-01=owner-a.py", "REQ-02=owner-b.py"], 1, None)
             self.assertIsNone(proposal)
-            self.assertEqual(fatal, "scope answers require --host codex, copilot, or claude")
+            self.assertTrue(fatal.startswith("scope answers require --host codex, copilot, or claude"))
+            self.assertIn("--scope-owner", fatal)
             proposal, errors, fatal = task_start.prepare_scope_answer_proposal(
                 report, root, ["REQ-01=owner-a.py", "REQ-02=owner-b.py"], 1, "codex")
             self.assertIsNone(fatal)
