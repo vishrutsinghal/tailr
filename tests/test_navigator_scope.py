@@ -2931,6 +2931,48 @@ class DepthGateTests(unittest.TestCase):
         self.assertIsNone(navigator_scope.resolved_scope_breadth(None))
 
 
+class TrivialLaneTests(unittest.TestCase):
+    def _document(self, root: Path, owners, edges):
+        candidates = [
+            {"path": path, "candidate_id": f"cand-{index:012d}", "role": "implementation-owner",
+             "status": "included", "confidence": "high", "reason_codes": ["bounded-static-owner-evidence"],
+             "evidence_edge_ids": [], "content_fingerprint": "sha256:" + "a" * 64,
+             "seed_sources": ["lexical-path"]}
+            for index, path in enumerate(owners)
+        ]
+        frames = [{"requirement_id": "req-frame-000000000001", "display_id": "REQ-01",
+                   "statement": "Fix the docs.", "query_terms": ["docs"]}]
+        return navigator_scope.evidence_document(
+            root, "Fix the docs.", frames, candidates, edges=edges, investigation={"state": "resolved"},
+        )
+
+    def test_docs_only_thin_owners_resolve_in_trivial_lane(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            document = self._document(Path(temp), ["README.md", "docs/guide.md"], [])
+        self.assertEqual(document["state"], "resolved")
+        codes = document["requirements"][0]["reason_codes"]
+        self.assertIn("trivial-lane-docs-only", codes)
+        self.assertIn("bounded-static-owner-resolved", codes)
+
+    def test_mixed_docs_and_code_owners_keep_full_gates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            document = self._document(Path(temp), ["README.md", "src/service.py"], [])
+        self.assertEqual(document["state"], "ambiguous")
+        self.assertNotIn("trivial-lane-docs-only", document["requirements"][0]["reason_codes"])
+
+    def test_non_allowlisted_suffix_is_not_trivial(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            document = self._document(Path(temp), ["README.md", "notes.mdx"], [])
+        self.assertEqual(document["state"], "ambiguous")
+        self.assertNotIn("trivial-lane-docs-only", document["requirements"][0]["reason_codes"])
+
+    def test_docs_suffix_governs_regardless_of_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            document = self._document(Path(temp), ["src/notes.md"], [])
+        self.assertEqual(document["state"], "resolved")
+        self.assertIn("trivial-lane-docs-only", document["requirements"][0]["reason_codes"])
+
+
 class PacketIdentityTests(unittest.TestCase):
     def _packet(self, root: Path):
         candidates = [

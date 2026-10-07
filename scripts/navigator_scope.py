@@ -190,6 +190,7 @@ BEHAVIOR_CHAIN_LINE_SPAN = 160
 SCOPE_QUESTION_OPTION_CAP = 3
 RESOLVED_OWNER_MIN_STRONG_EDGES = 2
 RESOLVED_OWNER_MIN_EDGE_KINDS = 2
+TRIVIAL_LANE_SUFFIXES = frozenset({".md", ".rst", ".txt", ".adoc"})
 DEEP_EDGE_KINDS = frozenset({
     "tested-by",
     "calls-symbol",
@@ -2901,29 +2902,42 @@ def evidence_document(
     state = str(investigation_row.get("state", "resolved" if implementation_owners else "unresolved"))
     if state == "not-run":
         state = "resolved" if implementation_owners else "unresolved"
+    trivial_lane = False
     if state == "resolved" and implementation_owners:
+        # Trivial lane (docs-only): prose paths cannot accumulate behavior or
+        # caller edges, so thin/shallow relationship proof is unachievable by
+        # construction. A single lexical grounding suffices, but only when
+        # EVERY resolved owner is a prose suffix -- one code path anywhere
+        # keeps the full gates. The lane is recorded in reason codes.
+        trivial_lane = bool(implementation_owners) and all(
+            PurePosixPath(path).suffix.lower() in TRIVIAL_LANE_SUFFIXES
+            for path in implementation_owners
+        )
         sources_by_path = {
             str(row.get("path", "")): {str(value) for value in row.get("seed_sources", [])}
             for row in candidate_rows if isinstance(row, dict)
         }
         asserted = {path for path in implementation_owners if "explicit-path" in sources_by_path.get(path, set())}
         thin = sorted({path for path in implementation_owners if path not in asserted and _thin_owner_evidence(candidate_rows, edge_rows, path)})
-        if thin:
+        if thin and not trivial_lane:
             state = "ambiguous"
             investigation_row["resolution_failure_reason"] = "thin-owner-evidence-requires-confirmation"
-        else:
+        elif not trivial_lane:
             shallow = sorted({path for path in implementation_owners if path not in asserted and not _has_deep_support(candidate_rows, edge_rows, path)})
             if shallow:
                 state = "ambiguous"
                 investigation_row["resolution_failure_reason"] = "shallow-owner-evidence-requires-confirmation"
     requirements = []
     resolved_reason_codes = (
-        ["bounded-static-owner-resolved"]
+        ["bounded-static-owner-resolved", "trivial-lane-docs-only"]
+        if implementation_owners and state == "resolved" and trivial_lane
+        else ["bounded-static-owner-resolved"]
         if implementation_owners and state == "resolved"
         else ["explicit-included-candidate"]
         if included
         else ["ownership-evidence-required"]
     )
+    requirements = []
     for frame in requirement_frames:
         requirements.append(
             {
