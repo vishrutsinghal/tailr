@@ -15,6 +15,47 @@ TailTrail follows semantic versioning as described in `VERSIONING.md`.
   publication, and support claims remain pending until the tagged workflow
   produces the required observed evidence.
 
+### Fixed
+
+- Navigator no longer silently falls back to generic Node/TypeScript file
+  suggestions when its code graph cache is empty or stale. It now surfaces
+  an explicit "Analysis Freshness" warning with a refresh command instead of
+  guessing (`scripts/navigator_render.py`). Root cause: an empty/stale code
+  graph cache (and, in the originating report, Navigator being run against
+  the wrong repository) caused an overly aggressive generic-template
+  fallback. (Consolidated from `NAVIGATOR_ISSUE_DIAGNOSTIC.md` /
+  `NAVIGATOR_RESOLUTION_COMPLETE.md`.)
+- Fixed a class of Navigator false scope-stops (FSR-0 through FSR-7) where
+  TypeScript path-alias resolution and implementation-owner selection could
+  report `ambiguous` / `file-read-limit-reached` even when a real,
+  unambiguous implementation owner existed. Validated against a real
+  installed-release proof report (2026-09-04,
+  `fsr7-real-run-evidence/copilot-2026-09-04/installed-release-proof-report.json`,
+  all thirteen checks passed against a real wheel/sdist build). Summarized
+  here for visibility; full detail remains in
+  `NAVIGATOR-FALSE-STOP-REMEDIATION-PLAN.md`, which stays in place (it is a
+  required package file per `package-manifest.json` and has a tracked
+  rationale in `enterprise-closure-registry.json`).
+
+### Changed
+
+- Completed a 7-phase V3 hardening pass in response to an external
+  outside-in audit (`HONEST-REVIEW.md`, 2026-07-13) that found TailTrail's
+  governance advisory-only, its default surface too large, and its
+  efficacy claims unproven. All seven phases are implemented: added
+  `PUBLIC-CLAIMS.md` plus `scripts/release-check.py` scanning for
+  unsupported public claims; added a `guard check --enforce` mode
+  (`scripts/guardrail-check.py`) for dependency-gate, safeguard-removal,
+  and validation-claim evidence; added task-first `QUICKSTART.md` /
+  `CHEATSHEET.md` docs and a task-first README opening; added committed
+  efficacy-benchmark artifacts (`scripts/efficacy-benchmark.py`,
+  `benchmarks/efficacy/governance-remediation/`); split Navigator into a
+  deterministic core and renderer with golden-output test coverage; and
+  unified governance text sourcing across `GUARDRAILS.md`/`AGENTS.md`/
+  adapters to reduce drift. (Consolidated from
+  `HONEST-REVIEW-IMPLEMENTATION-PLAN.md`; the original review in
+  `HONEST-REVIEW.md` is summarized here for the record.)
+
 ## 1.0.0 - 2026-10-01
 
 TailTrail 1.0.0 is the first stable packaged release. It promotes the existing

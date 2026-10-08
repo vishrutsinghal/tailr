@@ -1,0 +1,35 @@
+{
+  "schema_version": "1",
+  "description": "Maturity classification for TailTrail CLI commands and MCP tools. Anything not listed here defaults to 'stable' -- this registry only needs to list exceptions, so adding a new command/tool never silently becomes gated by omission. 'stable' always runs. 'incubating'/'experimental' require an explicit --allow-incubating/--allow-experimental flag on the CLI, or are flagged in MCP tool descriptions for the calling host to see. This is a first-pass seed classification based on each feature's own stated scope (read-only bridges, newly-added integrations); it should be reviewed and expanded by the TailTrail team, not treated as exhaustive or final.",
+  "levels": ["stable", "incubating", "experimental"],
+  "default_level": "stable",
+  "cli_commands": {
+    "aidlc official": {
+      "level": "experimental",
+      "reason": "Bridges to the external, vendored AWS AI-DLC pack. Read-only/never-executes by design, but the bridge mechanism itself is newer and narrower in real-world use than the core AIDLC lifecycle (aidlc init/check)."
+    },
+    "spec-kit": {
+      "level": "incubating",
+      "reason": "Spec Kit import/amendment/convergence integration is a newer, narrower integration surface than the core start/review/completion workflow."
+    },
+    "intent-bridge": {
+      "level": "incubating",
+      "reason": "Alias surface for the Spec Kit integration; same rationale as 'spec-kit'."
+    }
+  },
+  "mcp_tools": {
+    "aidlc_official_status": { "level": "experimental", "reason": "Part of the external AWS AI-DLC bridge, a newer and narrower surface than the core AIDLC lifecycle." },
+    "aidlc_official_bridge_show": { "level": "experimental", "reason": "Part of the external AWS AI-DLC bridge, a newer and narrower surface than the core AIDLC lifecycle." },
+    "aidlc_official_state_show": { "level": "experimental", "reason": "Part of the external AWS AI-DLC bridge, a newer and narrower surface than the core AIDLC lifecycle." },
+    "aidlc_official_sanitize_validate": { "level": "experimental", "reason": "Part of the external AWS AI-DLC bridge, a newer and narrower surface than the core AIDLC lifecycle." },
+    "aidlc_official_session_status": { "level": "experimental", "reason": "Part of the external AWS AI-DLC bridge, a newer and narrower surface than the core AIDLC lifecycle." },
+    "spec_kit_detect": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." },
+    "spec_kit_mapping_show": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." },
+    "spec_kit_convergence_show": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." },
+    "spec_kit_import": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." },
+    "spec_kit_amendment_propose": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." },
+    "spec_kit_anchor_approve": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." },
+    "spec_kit_convergence_record": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." },
+    "spec_kit_ci_ingest": { "level": "incubating", "reason": "Spec Kit integration is a newer, narrower surface than the core start/review/completion workflow." }
+  }
+}

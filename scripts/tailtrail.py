@@ -17,6 +17,7 @@ if SCRIPTS.as_posix() not in sys.path:
 
 from install_surfaces import CORE_CONTEXT, CORE_FILES, CORE_SCRIPTS, CORE_TEMPLATES
 import navigator_core
+import maturity
 
 PYTHON = sys.executable
 
@@ -1278,6 +1279,23 @@ def main() -> int:
 
     command = sys.argv[1]
     args = sys.argv[2:]
+
+    action = next((a for a in args if a not in {"--allow-incubating", "--allow-experimental"}), None)
+    level, reason = maturity.cli_command_maturity(command, action)
+    if maturity.is_gated(level):
+        label = f"{command} {action}" if action and f"{command} {action}" != command else command
+        flag = maturity.allow_flag_for(level)
+        if flag in args:
+            args = maturity.strip_allow_flags(args)
+            print(f"Note: '{label}' is marked {level} (see maturity-registry.json).", file=sys.stderr)
+            if reason:
+                print(f"Reason: {reason}", file=sys.stderr)
+        else:
+            print(f"'{label}' is marked {level}, not stable (see maturity-registry.json).", file=sys.stderr)
+            if reason:
+                print(f"Reason: {reason}", file=sys.stderr)
+            print(f"Re-run with {flag} to proceed anyway.", file=sys.stderr)
+            return 2
 
     if command == "commands":
         return print_commands()

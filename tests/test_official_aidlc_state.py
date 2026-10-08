@@ -144,7 +144,7 @@ class OfficialAidlcStateTests(unittest.TestCase):
             root = Path(temp)
             directory, uid = self.setup_run(root)
             self.checkpoint(directory, uid, "sha256:wrong")
-            result = subprocess.run([sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "aidlc", "official", "state", "validate", "--root", root.as_posix(), "--run-id", "run"], cwd=ROOT, text=True, capture_output=True, check=False)
+            result = subprocess.run([sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "aidlc", "official", "state", "validate", "--root", root.as_posix(), "--run-id", "run", "--allow-experimental"], cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(json.loads(result.stdout)["status"], "conflict")
 

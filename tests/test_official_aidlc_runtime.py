@@ -97,7 +97,7 @@ class OfficialAidlcRuntimeTests(unittest.TestCase):
     def test_public_cli_reports_the_attached_session(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); attached(root)
-            result = subprocess.run([sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "aidlc", "official", "runtime", "status", "--root", root.as_posix(), "--run-id", "runtime-run"], cwd=ROOT, text=True, capture_output=True, check=False)
+            result = subprocess.run([sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "aidlc", "official", "runtime", "status", "--root", root.as_posix(), "--run-id", "runtime-run", "--allow-experimental"], cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
         self.assertEqual(json.loads(result.stdout)["state"], "active")
 

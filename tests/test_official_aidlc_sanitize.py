@@ -107,7 +107,7 @@ class OfficialAidlcSanitizerTests(unittest.TestCase):
                 "mode": "run-observation", "baseline": None, "tailtrail_outcome": {}, "comparison": None,
                 "boundary": "Saved local evidence only.",
             }), encoding="utf-8")
-            result = subprocess.run([sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "aidlc", "official", "sanitize", "validate", "--root", root.as_posix(), "--input", "evaluation.json", "--context", "evaluation"], cwd=ROOT, text=True, capture_output=True, check=False)
+            result = subprocess.run([sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "aidlc", "official", "sanitize", "validate", "--root", root.as_posix(), "--input", "evaluation.json", "--context", "evaluation", "--allow-experimental"], cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual(report["status"], "passed")

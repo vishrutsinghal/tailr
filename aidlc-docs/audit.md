@@ -97,3 +97,28 @@
 - 2026-08-21 — Chose a provider-neutral protocol and dependency-free local reference adapter; no dependency, provider operation, deployment, or external-system mutation was authorized or introduced.
 - 2026-08-21 — Focused Phase 12 passed 17 tests; integrated Phase 7–12/MCP/host/package/docs passed 168 tests; full discovery ran 691 tests with only the same five unrelated baseline issues.
 - 2026-08-21 — Enterprise activation remains blocked by the live Phase 11 release gate. Local conformance is not represented as provider or production readiness.
+
+- 2026-10-08 — User requested integration design for a new standalone
+  `divergence-guard` package (concise/scope-creep diff auditor with its own
+  CLI, MCP server, and per-host adapters for claude/codex/generic) supplied
+  at `/Users/vsingha7/Desktop/divergence-guard-combined.py`. Raw request:
+  "we have build this to support all the ai agents hosts. before
+  implementing it. check how it will be integrated and i dont want to
+  remove the existing capabilites for codex, copilot and claude, so check
+  it whats the cleanest way to implement it." Design only; no
+  implementation authorized yet.
+- 2026-10-08 — Verified zero file-level collision risk: TailTrail's own
+  host wiring never touches `.mcp.json` or `~/.codex/config.toml`
+  (confirmed by repository-wide grep); it only writes project-local
+  `.codex-plugin/` and equivalent convention files into governed target
+  repos. divergence-guard's adapters write to the AI tool's own global MCP
+  config, a disjoint file set.
+- 2026-10-08 — Identified open requirements questions before any design can
+  be finalized: (1) standalone-companion vs. TailTrail-orchestrated install
+  vs. full code-level vendoring, (2) divergence-guard currently has no
+  Copilot adapter (only claude/codex/generic), a host-parity gap against
+  TailTrail's own `HOSTS = ("codex", "copilot", "claude")` contract, (3)
+  divergence-guard's `pyproject.toml` declares `mcp>=2.0`, which conflicts
+  with TailTrail's repository-wide zero-third-party-dependency convention
+  if vendored at the code level. Clarifying questions presented in
+  `aidlc-docs/phase-divergence-guard-questions.md`.

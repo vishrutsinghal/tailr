@@ -1,0 +1,29 @@
+name: Harness trend snapshot
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    name: Evaluation + Debug harness snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Run Evaluation Harness + Debug Harness self-checks
+        run: python3 scripts/harness-trend-snapshot.py --output harness-trend-snapshot.json
+      - name: Upload snapshot as a trend artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: harness-trend-snapshot-${{ github.sha }}
+          path: harness-trend-snapshot.json
+          retention-days: 90

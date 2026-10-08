@@ -15,6 +15,7 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
+import maturity
 PYTHON = sys.executable
 DEFAULT_READ_ONLY_TOOLS = (
     "navigator_plan",
@@ -416,8 +417,16 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
     }
 
 
+def _with_maturity_tag(tool: dict[str, Any]) -> dict[str, Any]:
+    level, reason = maturity.mcp_tool_maturity(tool["name"])
+    if not maturity.is_gated(level):
+        return tool
+    suffix = f" [{level}{': ' + reason if reason else ''}]"
+    return {**tool, "description": tool["description"] + suffix}
+
+
 def tool_list() -> list[dict[str, Any]]:
-    return [tool_definitions()[name] for name in TOOL_ORDER]
+    return [_with_maturity_tag(tool_definitions()[name]) for name in TOOL_ORDER]
 
 
 def ensure_safe_tools() -> list[str]:
