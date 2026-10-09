@@ -123,7 +123,7 @@ def guard_write(
     run_id: str | None = None,
     permissive: bool = False,
 ) -> None:
-    """Guard one file write with explicit root and path. Raises on violation."""
+    """Guard one file write with explicit root and path. This is the explicit single-file write guard. Raises on violation."""
     WriteGuardian(Path(root), run_id, permissive=permissive).validate_write(path)
 
 

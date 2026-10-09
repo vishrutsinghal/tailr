@@ -1892,9 +1892,71 @@
       "recorded_at": "2026-10-09T11:04:00.249406+00:00",
       "run_id": "start-20261009105314-8927d4",
       "scope_decision_fingerprint": "sha256:1e4ca843a5fdcdebf17bc4b24d32c35f7f743fa9569bd31eff9974160cd2a771"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:72cd6c0d280be8548ea5eb650296010a671a28e04edcb8c9913def4f13024244",
+      "graph_cache_fingerprint": "sha256:f7408bab9357d22b78abf34694f7ec902927e96f2f68e598a060c72201c06dac",
+      "mapping_fingerprint": "sha256:e70d6e2d1e5d63fe1d529e46a3e23bf254bbd8fa779eec47f82efa4ef02d99f8",
+      "path_hashes": {
+        "scripts/mcp-server.py": "sha256:feafd2ebcd630aaa7ad4b4b75ba97eee42c524f9bcb137840143ba3f811d95c9",
+        "scripts/write_guardian.py": "sha256:1c3bd3316f563f40c2e9e65fd45412133ba3e27dbedfecbd3efc43b24b0f2766",
+        "tests/test_write_guardian.py": "sha256:e5307a68452e2dac6bb45850b2abf7c073f6532d2582ca3a2b2833161eea1fc9"
+      },
+      "query_terms": [
+        "add",
+        "docstring",
+        "explaining",
+        "explicit",
+        "file",
+        "function",
+        "guard",
+        "guard_write",
+        "line",
+        "note",
+        "one",
+        "single",
+        "the",
+        "write",
+        "write_guardian"
+      ],
+      "recorded_at": "2026-10-09T12:27:44.379428+00:00",
+      "run_id": "start-20261009122047-8441a3",
+      "scope_decision_fingerprint": "sha256:995d828e233ae52e30a89ce6123047d7eb42822ffebcff410bb3526597213a7b"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:72cd6c0d280be8548ea5eb650296010a671a28e04edcb8c9913def4f13024244",
+      "graph_cache_fingerprint": "sha256:8c4577f40da02574f09afe9acbe8e81d36ebf67ec044e1be3c4780f0f1ddf7a2",
+      "mapping_fingerprint": "sha256:268e810f062bdae04ec0055c80c3d62f4c808521df5ae6c3dc3c800d2c82f9b8",
+      "path_hashes": {
+        "scripts/mcp-server.py": "sha256:feafd2ebcd630aaa7ad4b4b75ba97eee42c524f9bcb137840143ba3f811d95c9",
+        "scripts/write_guardian.py": "sha256:1c3bd3316f563f40c2e9e65fd45412133ba3e27dbedfecbd3efc43b24b0f2766",
+        "tests/test_write_guardian.py": "sha256:e5307a68452e2dac6bb45850b2abf7c073f6532d2582ca3a2b2833161eea1fc9"
+      },
+      "query_terms": [
+        "add",
+        "docstring",
+        "explaining",
+        "explicit",
+        "file",
+        "function",
+        "guard",
+        "guard_write",
+        "line",
+        "note",
+        "one",
+        "single",
+        "the",
+        "write",
+        "write_guardian"
+      ],
+      "recorded_at": "2026-10-09T12:29:02.085857+00:00",
+      "run_id": "start-20261009122047-8441a3",
+      "scope_decision_fingerprint": "sha256:995d828e233ae52e30a89ce6123047d7eb42822ffebcff410bb3526597213a7b"
     }
   ],
   "schema_version": "1",
   "type": "tailtrail-navigator-run-mapping-index",
-  "updated_at": "2026-10-09T11:04:00.249414+00:00"
+  "updated_at": "2026-10-09T12:29:02.085865+00:00"
 }
