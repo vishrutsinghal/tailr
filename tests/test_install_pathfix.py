@@ -19,20 +19,25 @@ from tailtrail.install import pathfix  # noqa: E402
 
 
 class PathValueTests(unittest.TestCase):
+    # NOTE: placeholder entries intentionally avoid a trailing ":" -- on POSIX,
+    # os.pathsep is itself ":", so a "C:"-style token collides with the
+    # separator character and breaks the split/join math the test is meant to
+    # exercise. Real Windows drive-letter entries never hit this because
+    # os.pathsep is ";" there, with no overlap with the drive-letter colon.
     def test_appends_missing_entry(self) -> None:
         sep = os.pathsep
         self.assertEqual(
-            pathfix.new_path_value(f"C:{sep}D:", "E:"),
-            f"C:{sep}D:{sep}E:",
+            pathfix.new_path_value(f"C{sep}D", "E"),
+            f"C{sep}D{sep}E",
         )
 
     def test_existing_entry_returns_none(self) -> None:
         sep = os.pathsep
-        self.assertIsNone(pathfix.new_path_value(f"C:{sep}D:", "D:"))
-        self.assertIsNone(pathfix.new_path_value("D:", "D:"))
+        self.assertIsNone(pathfix.new_path_value(f"C{sep}D", "D"))
+        self.assertIsNone(pathfix.new_path_value("D", "D"))
 
     def test_empty_current(self) -> None:
-        self.assertEqual(pathfix.new_path_value("", "E:"), "E:")
+        self.assertEqual(pathfix.new_path_value("", "E"), "E")
 
 
 class EnsureCommandTests(unittest.TestCase):

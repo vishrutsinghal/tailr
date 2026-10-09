@@ -3314,6 +3314,35 @@
       ],
       "since_version": "v1",
       "deprecated_in_version": null
+    },
+    {
+      "id": "maturity-gating",
+      "title": "CLI/MCP Maturity Gating And Harness Trend Tracking",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Maturity Gating And Harness Trend Tracking",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": [],
+      "docs": [
+        "maturity-registry.json"
+      ],
+      "scripts": [
+        "scripts/maturity.py",
+        "scripts/harness-trend-snapshot.py"
+      ],
+      "tests": [
+        "tests/test_maturity.py"
+      ],
+      "mcp_tools": [],
+      "requires_approval": false,
+      "read_only": true,
+      "evidence_label": "measured",
+      "depends_on": [
+        "command-surface"
+      ],
+      "since_version": "1.1.0",
+      "deprecated_in_version": null
     }
   ]
 }

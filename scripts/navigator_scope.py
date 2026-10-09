@@ -2032,6 +2032,7 @@ def investigate(
     allow_git_inventory: bool = True,
     allow_persistent_cache: bool = True,
     allow_passive_capture: bool = True,
+    semantic_matches_out: dict[str, set[str]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """Resolve implementation ownership with bounded, static local evidence.
 
@@ -2040,6 +2041,15 @@ def investigate(
     code-graph cache in one batched ``flush`` — passive capture as a side
     effect of discovery (docs/arch/code-graphing.md §3.2). Best-effort and
     never raises; investigation results are unaffected.
+
+    When ``semantic_matches_out`` is supplied (an empty dict the caller owns),
+    it is populated in place with this run's per-path query-term matches --
+    the same per-path term-string data this function already computes for
+    its own internal seed/scoring heuristics. A caller can then pass it to
+    evidence_document()'s own ``semantic_matches`` parameter to let a
+    requirement be attributed only the candidate its own terms actually
+    matched, instead of the whole globally-qualified set. Left as ``None``
+    (the default), nothing changes: zero impact on every existing caller.
     """
     frames = [dict(frame) for frame in requirement_frames]
     initial = [dict(row) for row in candidates]
@@ -2246,10 +2256,20 @@ def investigate(
 
     for row in initial:
         path = str(row["path"])
-        if (
-            row.get("role") == "implementation-owner"
-            and "explicit-path" in set(row.get("seed_sources", []))
-        ):
+        if "explicit-path" in set(row.get("seed_sources", [])) and row.get("role") in {
+            "implementation-owner", "unknown",
+        }:
+            # An explicit host declaration (--changed) is the evidence itself,
+            # independent of whether the path's file type classifies as
+            # "implementation-owner" by name/extension -- a schema or other
+            # structured-data file that classifies as "unknown" must
+            # establish ownership the same way a recognized source file
+            # already does. This bypass is narrow: a role with its own
+            # deliberate, task-type-gated promotion rule (test, configuration,
+            # documentation, manifest, generated, managed-tooling) keeps that
+            # rule even when explicitly declared -- only the genuinely
+            # unclassified case is affected. Non-explicit (lexical/behavioral)
+            # discovery is unaffected either way.
             qualify_owner(path, "explicit-user-scope")
             relevant_paths.add(path)
             relationship_rows.append((path, path, "declares-edit-boundary", "strong", "explicit-scope-owner-qualification"))
@@ -2578,7 +2598,10 @@ def investigate(
             row["status"] = "inspection-only"
             row["confidence"] = "high"
             reasons.add("literal-emitter-is-not-ui-visibility-owner")
-        elif path in owner_paths and repository_role == "implementation-owner":
+        elif path in owner_paths and (
+            repository_role == "implementation-owner"
+            or "explicit-user-scope" in owner_qualifications.get(path, set())
+        ):
             row["role"] = "implementation-owner"
             row["status"] = "included"
             row["confidence"] = "high" if any(edge["strength"] == "strong" and row["candidate_id"] in {edge["from_candidate_id"], edge["to_candidate_id"]} for edge in edges) else "medium"
@@ -2838,6 +2861,8 @@ def investigate(
             "limits": limits.as_dict(),
         }),
     }
+    if semantic_matches_out is not None:
+        semantic_matches_out.update(semantic_matches)
     return [by_path[path] for path in sorted(by_path)], sorted(edges, key=lambda row: row["edge_id"]), report
 
 
@@ -2850,8 +2875,20 @@ def evidence_document(
     edges: Iterable[dict[str, Any]] = (),
     investigation: dict[str, Any] | None = None,
     host_reasoning: dict[str, Any] | None = None,
+    semantic_matches: dict[str, set[str]] | None = None,
 ) -> dict[str, Any]:
-    """Build the canonical v2 artifact and bind it with a decision hash."""
+    """Build the canonical v2 artifact and bind it with a decision hash.
+
+    When ``semantic_matches`` is supplied (the per-path term-match data
+    ``investigate()``'s own ``semantic_matches_out`` parameter populates), a
+    requirement whose own query terms uniquely and clearly match exactly one
+    of the globally-qualified implementation owners is attributed only that
+    owner, instead of the whole broadcast set -- this only ever narrows an
+    already-qualified set, never adds a candidate that wasn't already
+    qualified. A requirement with a tie or no matching terms keeps today's
+    full-set behavior unchanged. Left as ``None`` (the default), nothing
+    changes: this is purely additive and only engages when a caller opts in.
+    """
     candidate_rows = sorted((dict(row) for row in candidates), key=lambda row: (row["path"], row["candidate_id"]))
     edge_rows = sorted((dict(row) for row in edges), key=lambda row: str(row.get("edge_id", "")))
     included = [row["path"] for row in candidate_rows if row["status"] == "included"]
@@ -2927,6 +2964,38 @@ def evidence_document(
             if shallow:
                 state = "ambiguous"
                 investigation_row["resolution_failure_reason"] = "shallow-owner-evidence-requires-confirmation"
+    # Per-requirement owner narrowing: when a request's ambiguity is purely
+    # "more than one owner qualified" (not a thin/shallow evidence-quality
+    # finding, which keeps blocking exactly as before), check whether each
+    # requirement's own query terms uniquely pick out one of the already
+    # -qualified owners. This only ever narrows the existing set -- it can
+    # never attribute a path that wasn't already independently qualified --
+    # and a requirement with a tie or no matching terms keeps the full set
+    # and stays ambiguous, same as today.
+    per_frame_owners: dict[str, list[str]] = {}
+    frame_list = list(requirement_frames)
+    if (
+        semantic_matches is not None
+        and len(implementation_owners) > 1
+        and investigation_row.get("resolution_failure_reason") in (None, "multiple-evidence-backed-owners")
+    ):
+        owners_set = set(implementation_owners)
+        for frame in frame_list:
+            frame_id = str(frame.get("requirement_id") or frame.get("display_id"))
+            frame_terms = {str(term).lower() for term in frame.get("query_terms", []) if str(term)}
+            scored = [
+                (path, len(frame_terms & semantic_matches.get(path, set())))
+                for path in owners_set
+            ] if frame_terms else []
+            nonzero = [(path, score) for path, score in scored if score > 0]
+            if nonzero:
+                best = max(score for _, score in nonzero)
+                winners = sorted(path for path, score in nonzero if score == best)
+                if len(winners) == 1:
+                    per_frame_owners[frame_id] = winners
+        if frame_list and len(per_frame_owners) == len(frame_list):
+            state = "resolved"
+            investigation_row["resolution_failure_reason"] = None
     requirements = []
     resolved_reason_codes = (
         ["bounded-static-owner-resolved", "trivial-lane-docs-only"]
@@ -2938,15 +3007,17 @@ def evidence_document(
         else ["ownership-evidence-required"]
     )
     requirements = []
-    for frame in requirement_frames:
+    for frame in frame_list:
+        frame_id = str(frame.get("requirement_id") or frame.get("display_id"))
+        frame_owners = per_frame_owners.get(frame_id, implementation_owners)
         requirements.append(
             {
-                "requirement_id": str(frame.get("requirement_id") or frame.get("display_id")),
+                "requirement_id": frame_id,
                 "display_id": str(frame.get("display_id", "")),
                 "statement_fingerprint": fingerprint(str(frame.get("statement", ""))),
                 "query_terms": list(frame.get("query_terms", [])),
-                "scope_state": state,
-                "implementation_owners": implementation_owners,
+                "scope_state": "resolved" if frame_id in per_frame_owners else state,
+                "implementation_owners": frame_owners,
                 "inspection_paths": inspection,
                 "proof_paths": proof,
                 "excluded_candidates": excluded,
@@ -3385,8 +3456,8 @@ def assess_scope_quality(
                 "question": "Which evidence-backed implementation owner is the intended editable boundary?",
                 "options": options,
                 "option_evidence": option_evidence,
-                "answer_format": "Reply with one listed path, or provide a different known implementation-owner path.",
-                "boundary": "Every listed path has a strong owner-qualification edge. Read hints, callers, emitters, proof paths, and lexical-only matches are excluded. This confirms scope only; it does not approve implementation or create a Planning Lock.",
+                "answer_format": "Reply with one listed path, provide a different known implementation-owner path, or prefix a path with `new:` (for example `new:path/to/file.py`) to declare it as a new file to be created rather than an existing owner.",
+                "boundary": "Every listed path has a strong owner-qualification edge. Read hints, callers, emitters, proof paths, and lexical-only matches are excluded. This confirms scope only; it does not approve implementation or create a Planning Lock. A path answered here must independently earn a qualifying relationship edge; a path supplied through --changed receives that edge automatically, without further proof. These two answer channels are not evidentiary equals -- pass --changed as well for a path you want treated with full confidence.",
             }
         elif anchor_insufficient:
             question = {
@@ -3410,7 +3481,7 @@ def assess_scope_quality(
     complexity_metrics: dict[str, Any] = {}
     if compute_complexity:
         complexity_metrics = _complexity_metrics(root, document)
-    return {
+    result = {
         "schema_version": "1",
         "type": "tailtrail-scope-quality-assessment",
         "status": status,
@@ -3428,6 +3499,17 @@ def assess_scope_quality(
         "complexity_metrics": complexity_metrics,
         "boundary": "Scope quality is evidence-based and independent of target-root selection. Passing this gate grants no execution authority.",
     }
+    # Surface per-answer dispositions (accepted/rejected scope-owner answers,
+    # REQ-02/REQ-01) on the assessment itself, not only on the internal
+    # evidence document, so a blocked-but-partially-answered round is never
+    # silently indistinguishable from one where nothing was submitted.
+    answer_dispositions = document.get("answer_dispositions")
+    if isinstance(answer_dispositions, list) and answer_dispositions:
+        result["answer_dispositions"] = answer_dispositions
+    scope_answer_summary = document.get("scope_answer_summary")
+    if isinstance(scope_answer_summary, str) and scope_answer_summary:
+        result["scope_answer_summary"] = scope_answer_summary
+    return result
 
 
 def decision_binding(root: Path, document: dict[str, Any], target_identity: dict[str, Any]) -> dict[str, Any]:
@@ -4063,6 +4145,21 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
             _, rejection = normalize_repository_path(root, path)
             if rejection:
                 errors.append(f"{requirement_id}:unsafe-path:{path}")
+        # Mirror a validated new-file declaration into path_claims as a
+        # "proposed-new" entry -- a read-side normalization only, added
+        # after every coverage/edge check above has already run against the
+        # real claims. This gives path_claims one uniform list covering
+        # every path role (owner/caller/inspection/proof/proposed-new)
+        # without touching the anchor_paths/convention_refs grounding this
+        # mirrors or re-deriving any of its validation.
+        output_claims = [dict(value) for value in claims if isinstance(value, dict)]
+        if new_path:
+            output_claims.append({
+                "path": new_path,
+                "claim_role": "proposed-new",
+                "anchor_paths": anchor_paths,
+                "convention_refs": convention_refs,
+            })
         normalized_requirements.append({
             "requirement_id": requirement_id,
             "statement_fingerprint": row.get("statement_fingerprint"),
@@ -4071,7 +4168,7 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
             "inspection_paths": inspection,
             "proof_paths": proof,
             "excluded_candidates": excluded,
-            "path_claims": sorted((dict(value) for value in claims if isinstance(value, dict)), key=lambda value: str(value.get("path", ""))),
+            "path_claims": sorted(output_claims, key=lambda value: str(value.get("path", ""))),
             "preservation_boundaries": preservation,
             "evidence_edge_ids": references,
             "confidence": confidence,
@@ -4278,6 +4375,9 @@ def proposal_from_scope_answers(
     raw_answers: list[str],
     answer_round: int,
     host: str,
+    *,
+    goal: str | None = None,
+    task_types: Iterable[str] = (),
 ) -> tuple[dict[str, Any] | None, list[str]]:
     """Build a host-scope proposal from plain-text scope answers.
 
@@ -4287,6 +4387,20 @@ def proposal_from_scope_answers(
     capped so the dialogue fails closed instead of looping. Returns
     (proposal, []) on success or (None, reason codes) for the next round.
     Rounds always bind the fresh evidence packet, never a post-record one.
+
+    When `goal` is supplied, an answered path that is not yet an eligible,
+    included candidate is given the same chance to qualify that the
+    route="unavailable" flow already gives it: it is seeded and the bounded
+    investigation is re-run by delegating to
+    resolve_unavailable_scope_answers (on a route-overridden copy of this
+    packet, since that function itself only accepts a non-"requested"
+    route) rather than duplicating its seed/investigate/qualify logic here.
+    Freshly-qualified candidates and edges are merged in before the
+    existing eligibility checks below run; resolve_unavailable_scope_answers
+    itself is never modified, so its own behavior and tests are unaffected.
+    Without `goal` (caller cannot supply it yet), behavior is unchanged from
+    before this capability existed -- an answer must already be on the
+    frozen eligible_candidates snapshot.
     """
     if host not in {"codex", "claude", "copilot"}:
         return None, ["unsupported-host"]
@@ -4305,6 +4419,25 @@ def proposal_from_scope_answers(
     candidates = {str(row.get("path")): row for row in packet.get("candidates", []) if isinstance(row, dict)}
     edges = {str(row.get("edge_id")): row for row in packet.get("edges", []) if isinstance(row, dict)}
     eligible = {str(row.get("path")) for row in route.get("eligible_candidates", []) if isinstance(row, dict)}
+    if goal is not None:
+        delegate_packet = dict(packet)
+        delegate_packet["route"] = {**route, "state": "unavailable"}
+        delegate_body = {key: value for key, value in delegate_packet.items() if key != "packet_fingerprint"}
+        delegate_packet["packet_fingerprint"] = fingerprint(delegate_body)
+        reinvestigated, _reinvestigate_errors = resolve_unavailable_scope_answers(
+            root, goal, task_types, delegate_packet, raw_answers, answer_round,
+        )
+        if reinvestigated is not None:
+            for row in reinvestigated.get("candidates", []):
+                if isinstance(row, dict) and str(row.get("path", "")):
+                    candidates[str(row["path"])] = row
+            for row in reinvestigated.get("edges", []):
+                if isinstance(row, dict) and str(row.get("edge_id", "")):
+                    edges[str(row["edge_id"])] = row
+            eligible |= {
+                path for path, row in candidates.items()
+                if row.get("role") == "implementation-owner" and row.get("status") == "included"
+            }
     packet_requirements = [row for row in packet.get("requirements", []) if isinstance(row, dict)]
     if not packet_requirements:
         return None, ["answer-requires-packet-requirements"]
@@ -4464,6 +4597,7 @@ def resolve_unavailable_scope_answers(
         return None, ["answer-required"]
     errors: list[str] = []
     mapped: dict[str, str] = {}
+    declared_new: dict[str, str] = {}
     for value in raw_answers:
         reference, raw_path = parse_scope_answer(value)
         requirement_id: str | None = None
@@ -4479,26 +4613,40 @@ def resolve_unavailable_scope_answers(
         else:
             errors.append(f"unknown-requirement:{reference}")
             continue
-        if requirement_id in mapped:
+        if requirement_id in mapped or requirement_id in declared_new:
             errors.append(f"duplicate-requirement-answer:{requirement_id}")
             continue
-        normalized, rejection = normalize_repository_path(root, raw_path)
+        # An explicit "new:" prefix declares the path does not exist yet and
+        # should be created, instead of asserting an existing-file owner. It
+        # is kept in its own mapping (never merged into `mapped`) and
+        # grounded separately below, so it can never be confused with a
+        # confirmed existing owner and is never accepted on assertion alone.
+        is_new_file = raw_path.startswith("new:")
+        candidate_path = raw_path[len("new:"):] if is_new_file else raw_path
+        normalized, rejection = normalize_repository_path(root, candidate_path)
         if normalized is None:
-            errors.append(f"answer-path-rejected:{raw_path}:{rejection}")
+            errors.append(f"answer-path-rejected:{candidate_path}:{rejection}")
             continue
         if sensitive_path_reason(normalized):
             errors.append(f"answer-path-rejected:{normalized}:sensitive-path-rejected")
             continue
-        if not (root.resolve() / normalized).is_file():
-            errors.append(f"answer-path-missing:{normalized}")
-            continue
-        mapped[requirement_id] = normalized
+        exists = (root.resolve() / normalized).is_file()
+        if is_new_file:
+            if exists:
+                errors.append(f"declared-new-file-already-exists:{normalized}")
+                continue
+            declared_new[requirement_id] = normalized
+        else:
+            if not exists:
+                errors.append(f"answer-path-missing:{normalized}")
+                continue
+            mapped[requirement_id] = normalized
     if errors:
         return None, sorted(dict.fromkeys(errors))
     missing = sorted({
         str(row.get("requirement_id", ""))
         for row in packet_requirements
-    } - set(mapped))
+    } - set(mapped) - set(declared_new))
     if missing:
         return None, [f"answer-incomplete:unmapped-requirements:{','.join(missing)}"]
     seen = set(mapped.values())
@@ -4514,9 +4662,11 @@ def resolve_unavailable_scope_answers(
         "statement": "",
         "query_terms": [str(term) for term in row.get("query_terms", []) if isinstance(term, str)],
     } for row in packet_requirements]
+    semantic_matches: dict[str, set[str]] = {}
     rows, edges, investigation = investigate(
         root, frames, merged, task_list,
         allow_git_inventory=True, allow_persistent_cache=True, allow_passive_capture=False,
+        semantic_matches_out=semantic_matches,
     )
     # Narrow the owner universe to host-selected paths before documenting:
     # unanswered implementation owners stay as relationship context but lose
@@ -4541,7 +4691,7 @@ def resolve_unavailable_scope_answers(
         item = _candidate_dict(row)
         if str(item.get("edge_id", "")):
             packet_edges[str(item.get("edge_id", ""))] = item
-    document = evidence_document(root, goal, frames, [_candidate_dict(row) for row in rows], edges=list(packet_edges.values()), investigation=investigation)
+    document = evidence_document(root, goal, frames, [_candidate_dict(row) for row in rows], edges=list(packet_edges.values()), investigation=investigation, semantic_matches=semantic_matches)
     # Per-requirement mapping: each requirement keeps only its own answered
     # owner, and only when that path survived qualification. An unqualified
     # answer empties the row so the quality gate records the next question
@@ -4562,6 +4712,40 @@ def resolve_unavailable_scope_answers(
         else:
             row["implementation_owners"] = []
             row["scope_state"] = "unresolved"
+    # Ground each declared-new-file answer against real context already
+    # established by this same investigation: at least one other requirement
+    # must already have a qualifying implementation-owner candidate, and the
+    # new path's directory must match one of those candidates' directories.
+    # This mirrors the structured proposal flow's anchor_paths/convention_refs
+    # grounding -- a new-file claim with no such context is rejected as
+    # unsupported, never accepted on assertion alone.
+    qualified_candidates = [
+        row for row in document.get("candidates", [])
+        if isinstance(row, dict) and row.get("status") == "included" and row.get("role") == "implementation-owner"
+    ]
+    qualified_dirs = {str(Path(str(row.get("path", ""))).parent) for row in qualified_candidates}
+    new_file_grounded: dict[str, bool] = {}
+    for req_id, new_path in declared_new.items():
+        new_file_grounded[req_id] = bool(qualified_candidates) and str(Path(new_path).parent) in qualified_dirs
+    # A grounded declared-new file resolves its requirement row the same way
+    # a confirmed existing owner does, so the scope-quality gate and Planning
+    # Lock approval path proceed identically -- but the row stays tagged
+    # owner_kind="declared-new" so it is never rendered or treated as an
+    # already-verified existing file.
+    for row in document.get("requirements", []):
+        if not isinstance(row, dict):
+            continue
+        req_id = str(row.get("requirement_id", ""))
+        new_path = declared_new.get(req_id)
+        if new_path is None:
+            continue
+        if new_file_grounded.get(req_id):
+            row["implementation_owners"] = [new_path]
+            row["owner_kind"] = "declared-new"
+            row["scope_state"] = "resolved"
+        else:
+            row["implementation_owners"] = []
+            row["scope_state"] = "unresolved"
     # Owner narrowing mutates the decided document; re-evaluate the
     # thin/shallow gates per requirement (an unrelated requirement's thin
     # owner must not veto a well-evidenced assertion) and rebind the
@@ -4573,23 +4757,86 @@ def resolve_unavailable_scope_answers(
     # unrelated file and the row empties instead.
     candidate_rows = [_candidate_dict(row) for row in rows]
     edge_rows = list(packet_edges.values())
+    candidate_rows_by_path = {
+        str(row.get("path", "")): row for row in candidate_rows
+        if isinstance(row, dict) and str(row.get("path", ""))
+    }
     all_confirmed = True
+    # Every submitted REQ-ID=path answer gets an explicit accepted/rejected
+    # disposition with a reason code, instead of a rejected answer silently
+    # disappearing from the owners list with no record of what happened to
+    # it or why. This mirrors the accepted/rejected envelope used elsewhere
+    # for host proposal decisions.
+    dispositions: list[dict[str, Any]] = []
     for row in document.get("requirements", []):
         if not isinstance(row, dict):
             continue
-        owners = [str(value) for value in row.get("implementation_owners", []) if str(value)]
-        if not owners:
-            all_confirmed = False
+        req_id = str(row.get("requirement_id", ""))
+        answered = mapped.get(req_id)
+        if answered is None:
             continue
-        for path in owners:
-            touching, _kinds = _owner_strong_support(candidate_rows, edge_rows, path)
-            if touching < 1:
-                all_confirmed = False
+        owners = [str(value) for value in row.get("implementation_owners", []) if str(value)]
+        touching = 0
+        if owners and owners[0] == answered:
+            touching, _kinds = _owner_strong_support(candidate_rows, edge_rows, answered)
+        accepted = bool(owners) and owners[0] == answered and touching >= 1
+        if not accepted:
+            all_confirmed = False
+        reason_codes: list[str] = []
+        if not accepted:
+            source = candidate_rows_by_path.get(answered, {})
+            reason_codes = [str(value) for value in source.get("reason_codes", []) if str(value)]
+            if not reason_codes:
+                reason_codes = ["no-qualifying-relationship-edge"] if touching < 1 else ["owner-not-qualified"]
+        dispositions.append({
+            "requirement_id": req_id,
+            "display_id": str(row.get("display_id", "") or req_id),
+            "path": answered,
+            "status": "accepted" if accepted else "rejected",
+            "reason_codes": reason_codes,
+        })
+    # Declared-new-file answers get their own disposition entries, status
+    # "declared-new" when grounded -- a distinct, visibly-labeled outcome
+    # that is never rendered the same as "accepted" (a confirmed existing
+    # owner) -- or "rejected" with a reason code when ungrounded.
+    for row in document.get("requirements", []):
+        if not isinstance(row, dict):
+            continue
+        req_id = str(row.get("requirement_id", ""))
+        new_path = declared_new.get(req_id)
+        if new_path is None:
+            continue
+        grounded = new_file_grounded.get(req_id, False)
+        if not grounded:
+            all_confirmed = False
+        dispositions.append({
+            "requirement_id": req_id,
+            "display_id": str(row.get("display_id", "") or req_id),
+            "path": new_path,
+            "status": "declared-new" if grounded else "rejected",
+            "reason_codes": [] if grounded else ["new-file-ungrounded:no-related-existing-owner-in-same-directory"],
+        })
+    document["answer_dispositions"] = dispositions
+    rejected = [row for row in dispositions if row["status"] == "rejected"]
     if all_confirmed:
         document["state"] = "resolved"
         for row in document.get("requirements", []):
             if isinstance(row, dict) and row.get("implementation_owners"):
                 row["scope_state"] = "resolved"
+    elif rejected:
+        # At least one submitted answer did not qualify. Keep the accepted
+        # owners' rows intact (never reset the whole document back to a
+        # blank unresolved/ambiguous state) while making the scope state
+        # itself say, in one place, exactly how many answers were not
+        # accepted and which requirement/path each one names.
+        document["state"] = "partially-resolved"
+        document["scope_answer_summary"] = (
+            f"{len(rejected)} of {len(dispositions)} submitted scope-owner answer(s) were not accepted: "
+            + "; ".join(
+                f"{row['display_id']} ({row['path']}): {', '.join(row['reason_codes']) or 'no qualifying relationship edge'}"
+                for row in rejected
+            )
+        )
     resealed = {key: value for key, value in document.items() if key != "decision_fingerprint"}
     document["decision_fingerprint"] = fingerprint(_fingerprintable_document(resealed))
     return document, []

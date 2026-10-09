@@ -63,7 +63,9 @@ class WorkflowMcpTests(unittest.TestCase):
   self.assertEqual(result["state_view"]["workflow_id"],wid); self.assertEqual(scope_status,"fresh")
  def test_create_does_not_invent_runtime_for_a_legacy_approved_run(self):
   with tempfile.TemporaryDirectory() as temp:
-   root=Path(temp); lock.create(root,"legacy approved run","legacy-run"); lock.save_start_report(root,"legacy-run",{"goal":"legacy"}); lock.approve(root,"legacy-run",True)
+   root=Path(temp); lock.create(root,"legacy approved run","legacy-run"); lock.save_start_report(root,"legacy-run",{"goal":"legacy"})
+   anchors=root/".tailtrail"/"runs"/"legacy-run"/"anchors"; anchors.mkdir(parents=True,exist_ok=True); (anchors/"approved-v1.json").write_text("{}",encoding="utf-8")
+   lock.approve(root,"legacy-run",True)
    with self.assertRaisesRegex(ValueError,"enabled workflow draft"):
     mcp.call_tool("workflow_create",{"root":root.as_posix(),"run_id":"legacy-run","approved":True})
  def test_evidence_view_includes_canonical_completion_receipt_slot(self):

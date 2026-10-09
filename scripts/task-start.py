@@ -4873,7 +4873,19 @@ def unblock_ladder_lines(report: dict[str, Any]) -> list[str]:
     """
     quality = report.get("scope_quality", {})
     candidates = [row for row in report.get("candidates", []) if isinstance(row, dict)]
-    paths = sorted({str(row.get("path")) for row in candidates if row.get("path")})[:3]
+    # Rank example paths by evidence strength (confidence, then strong-edge
+    # count) instead of alphabetically -- an alphabetically-first weak
+    # candidate must never outrank a strong one in what gets shown here.
+    confidence_rank = {"high": 0, "medium": 1, "low": 2}
+    strength_by_path: dict[str, tuple[int, int]] = {}
+    for row in candidates:
+        path = str(row.get("path", ""))
+        if not path:
+            continue
+        strength = (confidence_rank.get(str(row.get("confidence")), 3), -len(row.get("evidence_edge_ids", []) or []))
+        if path not in strength_by_path or strength < strength_by_path[path]:
+            strength_by_path[path] = strength
+    paths = sorted(strength_by_path, key=lambda path: (strength_by_path[path], path))[:3]
     lines = [
         "To unblock, build the missing evidence first, then re-run `tailtrail start` with the same goal.",
         "- `tailtrail bootstrap --root .` builds the code graph this decision looked for.",
@@ -4881,7 +4893,7 @@ def unblock_ladder_lines(report: dict[str, Any]) -> list[str]:
     ]
     if paths:
         lines.append(
-            "- Or answer with one listed owner path: "
+            "- Or answer with one listed owner path, ranked strongest evidence first: "
             "`tailtrail start \"<goal>\" --scope-owner <path> --host <codex|copilot|claude>` "
             "(--host selects whose requirement contract checks the answer). "
             + ", ".join(f"`{path}`" for path in paths)
@@ -4891,6 +4903,42 @@ def unblock_ladder_lines(report: dict[str, Any]) -> list[str]:
         lines.append(
             f"- Or answer `{question.get('question_id')}` above with one known module, symbol, caller, or path."
         )
+    # When deterministic evidence alone cannot resolve scope, the system
+    # already flags that host reasoning is requested and already supports a
+    # structured proposal naming a file that does not exist yet. Surface
+    # that existing mechanism here instead of leaving the host to discover
+    # it by reading source -- and hand over a template pre-filled with the
+    # fingerprints already computed for this exact run.
+    host_packet = report.get("scope_host_packet") if isinstance(report.get("scope_host_packet"), dict) else {}
+    host_route = host_packet.get("route") if isinstance(host_packet.get("route"), dict) else {}
+    if host_route.get("state") == "requested":
+        lines.append(
+            "- Or, if the needed file does not exist yet and none of the listed paths is right, submit a "
+            "structured scope proposal with `--host-scope-proposal <packet.json>` "
+            "(schema: `schemas/navigator-host-scope-proposal.schema.json`), naming the new file via "
+            "`proposed_new_path` and grounding it with `anchor_paths`/`convention_refs`. This never "
+            "auto-approves a path or creates a Planning Lock by itself."
+        )
+        template = {
+            "schema_version": "2",
+            "type": "tailtrail-navigator-host-scope-proposal",
+            "host": "<codex|claude|copilot>",
+            "evidence_packet_fingerprint": host_packet.get("evidence_packet_fingerprint"),
+            "scope_evidence_fingerprint": host_packet.get("scope_evidence_fingerprint"),
+            "target_identity_fingerprint": host_packet.get("target_identity_fingerprint"),
+            "goal_fingerprint": host_packet.get("goal_fingerprint"),
+            "scope_state": "requested",
+            "authority": "evidence-refinement-only",
+            "private_reasoning_excluded": True,
+            "requirements": "<fill in one entry per requirement; see the eligible candidates above>",
+        }
+        lines.append(
+            "- Pre-filled starting template (the fingerprints below are already computed for this exact run; "
+            "fill in only `requirements`):"
+        )
+        lines.append("```json")
+        lines.append(json.dumps(template, indent=2))
+        lines.append("```")
     aidlc = report.get("aidlc_mode", {})
     aidlc_mode = aidlc.get("mode") if isinstance(aidlc, dict) else aidlc
     if str(aidlc_mode) == "off":

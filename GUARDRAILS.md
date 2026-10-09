@@ -50,6 +50,16 @@ Do not recommend a package casually. First check standard library, platform-nati
 - Do not perform broad rewrites, formatting churn, architecture moves, or unrelated cleanup unless explicitly requested.
 - Use AIDLC approval gates for broad, risky, ambiguous, regulated, multi-team, or long-running work.
 
+## Scope Expansion Mid-Implementation
+
+A TailTrail Planning Lock's approved anchor is immutable once implementation begins: it cannot be silently edited to add a path that was not originally approved.
+
+If, after implementation has started, you find that a file outside the approved scope also needs changes (a new test case, a missed helper, any other path) — do not edit it first and explain later. Stop, tell the user exactly which path and why it is needed, and wait for an explicit approve or reject before touching it.
+
+On approval, call `change-intent-anchor.py`'s `correct()` function to add the path to the relevant requirement's `likely_paths`, carrying a reason describing why it was needed — never edit the file directly against the original, uncorrected anchor. On rejection, do not edit the path and continue within the originally approved scope.
+
+This rule applies regardless of host or operating environment: the approval step must happen before the edit, not be skipped because no write-time hook happens to be enforcing it in the current session.
+
 ## Safeguards
 
 Do not remove or weaken safeguards to make code shorter:

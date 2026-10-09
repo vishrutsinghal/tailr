@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -64,12 +65,25 @@ def atomic_copy(source: Path, destination: Path) -> None:
             os.unlink(temporary)
 
 
+_DRIVE_PREFIX = re.compile(r"^[A-Za-z]:[\\/]")
+
+
 def safe_managed_path(root: Path, relative: str) -> Path:
     """Resolve a managed relative path, refusing escapes and symlinks."""
     from .engine import InstallFailure
 
     value = Path(relative)
-    if value.is_absolute() or not value.parts or any(part in {"", ".", ".."} for part in value.parts):
+    if (
+        value.is_absolute()
+        or not value.parts
+        or any(part in {"", ".", ".."} for part in value.parts)
+        or _DRIVE_PREFIX.match(relative)
+    ):
+        # Path.is_absolute() only recognizes a Windows drive prefix (e.g. "C:/...")
+        # as absolute when pathlib is using Windows (ntpath) semantics. On POSIX,
+        # "C:/outside.txt" parses as a harmless-looking relative path, so the
+        # drive-prefix check above is needed independently to catch it on every
+        # platform this installer runs on.
         raise InstallFailure("unsafe-path", f"unsafe managed path: {relative}")
     destination = root / value
     current = root

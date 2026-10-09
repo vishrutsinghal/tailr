@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Centralized write-access enforcement for the Sequential Worker Pipeline.
 
-Two enforcement surfaces, both with explicit arguments (no guessing):
+Three enforcement surfaces, all with explicit arguments (no guessing):
 
 - :func:`guard_write` — guards a single in-repo file write. The caller
   passes ``root`` and ``path`` directly.
 - :func:`validate_planned_paths` — proposal-time gate: validates planned
   paths against the active badge *before* approval, since host-agent
   writes happen outside this repo and cannot be intercepted in-process.
+- the ``hook`` CLI entrypoint (``main()``) — closes that last gap for
+  hosts that support a pre-write interception point. Registered as a
+  Claude Code ``PreToolUse`` hook on Edit/Write/NotebookEdit, it reads
+  the edited path from the hook's own stdin JSON and denies the tool
+  call in real time when it falls outside the active run's approved
+  scope, instead of only catching the drift after the fact at closure.
 
 A guardian without a pipeline run denies writes unless the caller openly
 declares ``permissive=True`` (installer flows, which have no run by
@@ -15,13 +21,30 @@ nature). There is no silent pass.
 """
 from __future__ import annotations
 
+import importlib.util
+import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
 import navigator_scope
 from pipeline_manager import PipelineManager
 from pipeline_judge import PipelineJudge
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load(name: str, filename: str) -> Any:
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"{filename} is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+ANCHOR = _load("write_guardian_anchor", "change-intent-anchor.py")
 
 
 class SecurityBoundaryError(Exception):
@@ -123,3 +146,174 @@ def validate_planned_paths(
         allowed, error = judge.validate_write_access(rel)
         rows.append({"path": rel, "allowed": allowed, "reason": error})
     return rows
+
+
+def resolve_active_run(root: Path) -> str | None:
+    """Resolve which run's approved scope a hook should enforce right now.
+
+    Prefers the explicit ``TAILTRAIL_ACTIVE_RUN_ID`` environment variable
+    (unambiguous, set by whoever activated the run). Falls back to the
+    most recently activated run with an approved Planning Lock -- found by
+    the newest ``planning/lock-v1.json`` mtime among this repository's
+    runs -- so a session still enforces something useful without that
+    variable ever being set. Returns ``None`` (nothing to enforce) when
+    neither resolves, which callers must treat as "allow": most edits in
+    a session have no active TailTrail run at all, and this guard must
+    never become a blanket block for unrelated work.
+    """
+    explicit = os.environ.get("TAILTRAIL_ACTIVE_RUN_ID")
+    if explicit:
+        return explicit
+    runs_dir = root / ".tailtrail" / "runs"
+    if not runs_dir.is_dir():
+        return None
+    candidates: list[tuple[float, str]] = []
+    for run_dir in runs_dir.iterdir():
+        lock_path = run_dir / "planning" / "lock-v1.json"
+        if not lock_path.is_file():
+            continue
+        try:
+            lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if lock.get("status") != "approved":
+            continue
+        candidates.append((lock_path.stat().st_mtime, run_dir.name))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda row: row[0])
+    return candidates[-1][1]
+
+
+def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, str | None]:
+    """Check one path against the approved anchor first, then the active badge.
+
+    Only a path named in one of the anchor's own ``corrections`` entries
+    overrides the badge entirely, regardless of file role -- a correction
+    is always an individual, reasoned, deliberate addition (see
+    ``correct()``), the same way an explicit ``--changed`` path already
+    overrides lexical-only classification elsewhere in Navigator. This is
+    what lets a mid-run correction -- including adding a test case or any
+    other previously-unapproved path -- actually become writable, not
+    just recorded.
+
+    Deliberately NOT the same thing as "any path present in the anchor's
+    likely_paths": likely_paths is documented in planning_lock.py as
+    "navigator hints, not an allow-list" and can legitimately bundle
+    inspection-only and proof-only paths (never meant to be edited)
+    alongside genuine implementation owners, depending on which internal
+    requirement-matrix path a given goal took. Treating every bundled
+    path as individually approved would silently let a merely-inspected
+    or proof-only file through -- confirmed live: a simple one-line goal
+    bundled scripts/mcp-server.py (inspection) and a test file (proof)
+    into the same likely_paths as the one real implementation owner.
+
+    Uses :func:`change-intent-anchor.latest_approved` rather than the
+    original ``approved-v1.json`` directly, so a mid-run correction is
+    honored immediately, not just the stale original approval.
+
+    A path with no correction falls back to today's plain role/badge
+    check (:meth:`PipelineJudge.validate_write_access`) -- with one
+    addition preserved from before: during the IMPLEMENTATION badge, an
+    "implementation-owner"-role file must still be present in the
+    anchor's (possibly bundled) likely_paths, not merely the right *kind*
+    of file. The coarse role check alone cannot tell WHICH production
+    file was approved, only that it is SOME production file. This is
+    tolerant of the bundling concern above in a way the removed
+    all-roles check was not: at worst it lets through an inspection-role
+    file that happens to also classify as "implementation-owner" (an
+    unlikely coincidence), never a test or configuration file. Every
+    other role (test, configuration, ...) with no correction falls
+    through to the plain role/badge check unchanged, so a never-approved
+    test file is still denied there, just via the badge rule.
+
+    A run with no approved anchor at all (not yet past Planning Lock
+    approval) skips straight to the plain fallback -- there is nothing yet
+    to compare the path against.
+    """
+    try:
+        _, anchor = ANCHOR.latest_approved(root, run_id)
+    except ValueError:
+        anchor = None
+    judge = PipelineJudge(root, run_id)
+    if anchor is not None:
+        corrected_paths = {
+            str(item)
+            for correction in anchor.get("corrections", [])
+            for item in correction.get("corrected_likely_paths", [])
+        }
+        if path in corrected_paths:
+            return True, None
+        if judge.manager.get_current_stage() == "IMPLEMENTATION":
+            role, _ = navigator_scope.classify_repository_role(root, path)
+            if role == "implementation-owner":
+                approved_paths = {
+                    str(item)
+                    for row in anchor.get("requirements", [])
+                    for item in row.get("likely_paths", [])
+                }
+                if path not in approved_paths:
+                    return False, (
+                        f"Write access denied: `{path}` is not in run `{run_id}`'s approved scope. "
+                        f"Approved paths: {sorted(approved_paths) or '(none)'}."
+                    )
+    return judge.validate_write_access(path)
+
+
+def _hook_response(decision: str, reason: str | None = None) -> dict[str, Any]:
+    output: dict[str, Any] = {"hookEventName": "PreToolUse", "permissionDecision": decision}
+    if reason:
+        output["permissionDecisionReason"] = reason
+    return {"hookSpecificOutput": output}
+
+
+def run_hook(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Decide one PreToolUse event. Returns a hook response, or None to allow silently.
+
+    Fails open on anything unexpected (missing fields, no active run,
+    path outside the project, no anchor yet): a bug here must never
+    become a blanket block on unrelated work. Only an affirmative,
+    evidence-backed scope violation produces a "deny" response.
+    """
+    if payload.get("tool_name") not in {"Edit", "Write", "NotebookEdit"}:
+        return None
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return None
+    file_path = tool_input.get("file_path")
+    cwd = payload.get("cwd")
+    if not file_path or not cwd:
+        return None
+    root = Path(cwd).resolve()
+    guardian = WriteGuardian(root, permissive=True)
+    if guardian.is_exempt(Path(file_path)):
+        return None
+    run_id = resolve_active_run(root)
+    if run_id is None:
+        return None
+    try:
+        relative_path = Path(file_path).resolve().relative_to(root).as_posix()
+    except ValueError:
+        return None
+    try:
+        allowed, error = anchor_aware_write_check(root, run_id, relative_path)
+    except Exception:
+        return None
+    if allowed:
+        return None
+    return _hook_response("deny", error)
+
+
+def main() -> int:
+    try:
+        payload = json.load(sys.stdin)
+    except (json.JSONDecodeError, OSError):
+        return 0
+    response = run_hook(payload)
+    if response is not None:
+        print(json.dumps(response))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

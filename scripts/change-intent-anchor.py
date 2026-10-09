@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
@@ -121,6 +122,62 @@ def approve(root: Path, run_id: str) -> dict[str, Any]:
     return {"path": approved_path.as_posix(), **anchor}
 
 
+def approved_versions(directory: Path) -> list[Path]:
+    return sorted(directory.glob("approved-v*.json"), key=lambda path: int(path.stem.rsplit("v", 1)[-1]))
+
+
+def latest_approved(root: Path, run_id: str) -> tuple[Path, dict[str, Any]]:
+    available = approved_versions(anchor_dir(root, run_id))
+    if not available: raise ValueError("no approved anchor exists for this run")
+    path = available[-1]
+    return path, json.loads(path.read_text(encoding="utf-8"))
+
+
+def correct(root: Path, run_id: str, requirement_uid: str, likely_paths: list[str], reason: str) -> dict[str, Any]:
+    """Write a new, higher-numbered approved anchor snapshot with one requirement's scope corrected.
+
+    Every existing approved-vN.json file is immutable and untouched by this
+    function -- it only ever writes a brand-new file at the next version
+    number, the same append-only pattern workflow_runtime/freshness.py
+    already uses for debug reproduction proposals. The "why" for this
+    correction is not duplicated into a new ledger event here: the
+    evidence-backed decision that led to it (a run's own fresh scope
+    re-check and host decision) is already recorded durably by whatever
+    caller invoked this -- this function's only job is to make the
+    corrected scope the durable, readable record for later implementation
+    and projection, not to re-assert the reasoning behind it.
+    """
+    if not str(reason).strip(): raise ValueError("correction requires a reason")
+    if not isinstance(likely_paths, list) or not likely_paths or not all(isinstance(item, str) and item.strip() for item in likely_paths):
+        raise ValueError("likely_paths must be a non-empty list of non-empty strings")
+    base_path, base_anchor = latest_approved(root, run_id)
+    base_version = int(base_path.stem.rsplit("v", 1)[-1])
+    if not any(row["requirement_uid"] == requirement_uid for row in base_anchor["requirements"]):
+        raise ValueError(f"requirement `{requirement_uid}` is not in the approved anchor")
+    corrected = copy.deepcopy(base_anchor)
+    row = next(item for item in corrected["requirements"] if item["requirement_uid"] == requirement_uid)
+    previous_paths = list(row.get("likely_paths", []))
+    corrected_paths = list(dict.fromkeys(likely_paths))
+    if corrected_paths == previous_paths:
+        raise ValueError("correction must change likely_paths; nothing to correct")
+    row["likely_paths"] = corrected_paths
+    corrections = list(corrected.get("corrections", []))
+    corrections.append({
+        "base_version": base_version,
+        "requirement_uid": requirement_uid,
+        "previous_likely_paths": previous_paths,
+        "corrected_likely_paths": corrected_paths,
+        "reason": reason.strip(),
+        "created_at": LEDGER.utc_now(),
+    })
+    corrected["corrections"] = corrections
+    corrected_path = anchor_dir(root, run_id) / f"approved-v{base_version + 1}.json"
+    if corrected_path.exists(): raise ValueError(f"approved anchor version {base_version + 1} already exists")
+    corrected["approved_fingerprint"] = fingerprint({key: value for key, value in corrected.items() if key not in {"fingerprint", "approved_fingerprint"}})
+    LEDGER.atomic_json(corrected_path, corrected)
+    return {"path": corrected_path.as_posix(), **corrected}
+
+
 def feedback(root: Path, run_id: str, feedback_json: str) -> dict[str, Any]:
     _, anchor = latest_draft(root, run_id)
     feedback_rows = json.loads(feedback_json)
@@ -162,7 +219,7 @@ def graph_receipt(root: Path, run_id: str, requirement_uids: list[str], paths: l
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manage immutable TailTrail change-intent anchors.")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("draft", "approve", "feedback", "invalidate", "graph-receipt", "show"):
+    for name in ("draft", "approve", "feedback", "invalidate", "graph-receipt", "correct", "show"):
         item = sub.add_parser(name); item.add_argument("--root", type=Path, default=Path.cwd()); item.add_argument("--run-id", required=True)
         if name == "draft": item.add_argument("--input", type=Path, required=True)
         if name == "feedback": item.add_argument("--feedback", required=True)
@@ -171,6 +228,10 @@ def main() -> int:
             item.add_argument("--requirement-uid", action="append", required=True)
             item.add_argument("--path", action="append", default=[])
             item.add_argument("--evidence-label", choices=("local-ast", "heuristic", "provider-backed"), required=True)
+        if name == "correct":
+            item.add_argument("--requirement-uid", required=True)
+            item.add_argument("--likely-path", action="append", required=True)
+            item.add_argument("--reason", required=True)
     args = parser.parse_args(); root = args.root.resolve()
     try:
         if args.command == "draft": result = draft(root, args.run_id, args.input)
@@ -178,6 +239,7 @@ def main() -> int:
         elif args.command == "feedback": result = feedback(root, args.run_id, args.feedback)
         elif args.command == "invalidate": result = invalidate(root, args.run_id, args.reason)
         elif args.command == "graph-receipt": result = graph_receipt(root, args.run_id, args.requirement_uid, args.path, args.evidence_label)
+        elif args.command == "correct": result = correct(root, args.run_id, args.requirement_uid, args.likely_path, args.reason)
         else: _, result = latest_draft(root, args.run_id)
         print(json.dumps(result, indent=2, sort_keys=True)); return 0
     except (ValueError, OSError, json.JSONDecodeError) as error:

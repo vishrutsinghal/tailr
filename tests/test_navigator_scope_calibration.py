@@ -254,7 +254,6 @@ class NavigatorScopeCalibrationTests(unittest.TestCase):
 
             LOCK.create(root, "verify negative scope learning gates", "ns8-run")
             LOCK.save_start_report(root, "ns8-run", {"goal": "verify negative scope learning gates", "navigator": {"learning_use_proposal": proposal}})
-            LOCK.approve(root, "ns8-run", True)
             anchor_proposal = root / "anchor.json"
             anchor_proposal.write_text(json.dumps({"requirements": [{
                 "statement": "preserve implementation ownership scope",
@@ -265,6 +264,7 @@ class NavigatorScopeCalibrationTests(unittest.TestCase):
             }]}), encoding="utf-8")
             ANCHOR.draft(root, "ns8-run", anchor_proposal)
             uid = ANCHOR.approve(root, "ns8-run")["requirements"][0]["requirement_uid"]
+            LOCK.approve(root, "ns8-run", True)
 
             before = RECEIPTS.attribute_completion(root, "ns8-run", completion(uid))
             decision = RECEIPTS.record_decision(

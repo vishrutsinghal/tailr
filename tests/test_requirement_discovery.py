@@ -796,9 +796,10 @@ class InterpretationErrorDetailTests(unittest.TestCase):
             artifact.write_text(self.ARTIFACT_TEXT, encoding="utf-8")
             draft = root / "draft.json"
             draft.write_text(json.dumps(self._draft_payload()), encoding="utf-8")
-            runs_before = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+            runs_dir = Path(ROOT) / ".tailtrail" / "runs"
+            runs_before = sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []
             result = self._run_draft(root, draft, [artifact])
-            runs_after = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+            runs_after = sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []
         self.assertEqual(result.returncode, 0, result.stderr)
         envelope = json.loads(base64.b64decode(result.stdout.strip()).decode("utf-8"))
         self.assertEqual(envelope["goal"], self.GOAL)
@@ -816,9 +817,10 @@ class InterpretationErrorDetailTests(unittest.TestCase):
             payload["clauses"][1]["text"] = "unrelated banana hammock"
             draft = root / "draft.json"
             draft.write_text(json.dumps(payload), encoding="utf-8")
-            runs_before = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+            runs_dir = Path(ROOT) / ".tailtrail" / "runs"
+            runs_before = sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []
             result = self._run_draft(root, draft, [artifact])
-            runs_after = sorted((Path(ROOT) / ".tailtrail" / "runs").iterdir())
+            runs_after = sorted(runs_dir.iterdir()) if runs_dir.is_dir() else []
         self.assertEqual(result.returncode, 2)
         self.assertIn("C-02", result.stderr)
         self.assertEqual(result.stdout.strip(), "")

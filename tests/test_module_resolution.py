@@ -170,6 +170,14 @@ class ModuleResolutionTests(unittest.TestCase):
         # A stale `<name>.py` at the repository root shadows `scripts/<name>.py`
         # whenever the root precedes scripts/ on sys.path, silently swapping
         # the implementation under test and production hosts alike.
+        #
+        # `navigator.py` is the one deliberate exception: a documented,
+        # since-v1.0.0 root compatibility entry point whose entire body is a
+        # one-line forward to `scripts.navigator.decide`/`main` -- it can
+        # never diverge from or silently swap the real implementation the way
+        # this check exists to catch, so it's exempt by name rather than by
+        # content inspection.
+        INTENTIONAL_ROOT_FORWARDING_SHIMS = {"navigator.py"}
         script_names = {
             path.stem
             for path in (ROOT / "scripts").glob("*.py")
@@ -178,7 +186,7 @@ class ModuleResolutionTests(unittest.TestCase):
         shadows = sorted(
             path.name
             for path in ROOT.glob("*.py")
-            if path.stem in script_names
+            if path.stem in script_names and path.name not in INTENTIONAL_ROOT_FORWARDING_SHIMS
         )
         self.assertEqual(shadows, [])
 

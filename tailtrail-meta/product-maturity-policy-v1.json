@@ -301,7 +301,8 @@
       "feature_ids": [
         {"id":"stop-resume-control","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"The stop/resume control ships as a versioned product feature for common run preservation and exact-run reattachment."},
         {"id":"session-attachment-status","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Session attachment status ships as a versioned product feature for durable stop/resume lifecycle visibility."},
-        {"id":"requirement-intake","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Requirement intake ships as a versioned product feature for pre-lock requirement answers and visual attachments."}
+        {"id":"requirement-intake","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Requirement intake ships as a versioned product feature for pre-lock requirement answers and visual attachments."},
+        {"id":"maturity-gating","approved_by":"User-approved maturity gating and harness trend tracking plan, exited from plan mode and committed at 82defa1","reason":"Ships as a versioned product feature classifying CLI commands and MCP tools as stable/incubating/experimental, gating non-stable surfaces behind explicit flags, so the freeze-active product doesn't present unproven surface as equally trustworthy as its core."}
       ],
       "ownership_domains": []
     }
