@@ -238,13 +238,21 @@ def pipeline_badge_lines(lock: dict[str, Any] | None, *, compact: bool = False) 
     if compact:
         return [f"- Pipeline badge: `{active}` (`{info['badge']}`; may write {info['may_write']}; {info['blocked']} blocked)."]
     completed = [str(stage) for stage in pipeline.get("completed_stages", []) if str(stage).strip()]
-    return [
+    lines = [
         "", "## Pipeline badges", "",
         f"- Active stage: `{active}` (`{info['badge']}`).",
         f"- May write: {info['may_write']}; blocked: {info['blocked']}.",
         f"- Completed stages: `{', '.join(completed) or 'none'}`.",
         "- Managed patch writes outside the active badge are blocked; advance stages only through approved handoffs.",
     ]
+    if active == "IMPLEMENTATION":
+        run_id = str(lock.get("run_id") or "<run-id>") if isinstance(lock, dict) else "<run-id>"
+        lines.append(
+            "- Need to add or edit a test now? Do not edit it against this badge: "
+            f"`tailtrail pipeline handoff --run-id {run_id} --from-stage IMPLEMENTATION --context \"...\"` "
+            "moves this run to the TESTING badge, where test files become writable."
+        )
+    return lines
 
 
 def append_testing_plan(lines: list[str], plan: dict[str, Any]) -> None:
@@ -6772,6 +6780,10 @@ def main() -> int:
                     )
                     if fatal is not None:
                         parser.error(fatal)
+                    if host_scope_proposal is None and scope_answer_errors:
+                        parser.error(
+                            "scope-owner answers were rejected: " + "; ".join(scope_answer_errors)
+                        )
                 else:
                     qa_document, scope_answer_errors = navigator_scope.resolve_unavailable_scope_answers(
                         root, goal, report["navigator"].get("task_types", []), answer_packet,
@@ -6786,6 +6798,10 @@ def main() -> int:
                 host_decision = navigator_scope.host_proposal_decision(
                     root, scope_evidence, host_scope_proposal
                 )
+                if host_decision.get("status") == "rejected":
+                    parser.error(
+                        "scope-owner proposal was rejected: " + "; ".join(host_decision.get("reason_codes", []))
+                    )
                 updated_evidence = host_decision["scope_evidence"]
                 report["navigator"]["scope_evidence"] = updated_evidence
                 # Same re-stamp as the QA path: matrix rows must carry the

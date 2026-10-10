@@ -941,6 +941,25 @@ python3 scripts/tailtrail.py ledger state --run-id claim-validation
 
 These commands write only `.tailtrail/runs/<run-id>/`: an append-only event ledger, immutable approved anchor, requirement matrix, and selected graph-evidence receipts. They do not edit project source. A rejected matrix must include feedback for every requirement; after the second material rejection, the returned state requires AIDLC Requirements mode.
 
+## Sequential Pipeline Handoff And Regression
+
+Every approved run carries a pipeline badge that gates *which role of path* may be written at each stage, independent of the approved anchor scope: `IMPLEMENTATION` may write production source and supporting assets but not tests; `TESTING` may write tests but not production source; `INFRA` may write configuration and manifests but neither. `tailtrail pipeline` is the command surface for moving between these stages and for routing a test-stage failure back to implementation when needed.
+
+```bash
+python3 scripts/tailtrail.py pipeline handoff --run-id claim-validation --from-stage IMPLEMENTATION --context "implemented the validation rule; next add its regression test" --change-manifest src/claims_api/validation.py --requirement-pointer req-...
+python3 scripts/tailtrail.py pipeline regression --run-id claim-validation --reason "assertion still fails after the fix" --error-code ASSERTION_ERROR
+```
+
+`pipeline handoff` requests a move to the next stage in sequence (`IMPLEMENTATION` -> `TESTING` -> `INFRA`) and records a handoff manifest: the changed files/symbols, the requirement UIDs this handoff fulfills, and a free-form `--context` note carried forward so the next stage does not have to rediscover what changed and why. Moving from `TESTING` to `INFRA` additionally requires the Drift Gate to pass (requirement-linked evidence must be present and show no drift); moving from `IMPLEMENTATION` to `TESTING` has no such gate.
+
+`pipeline regression` is how a test-stage failure gets routed, and the loop is not one-directional: a genuine bug found while testing can send the run straight back to `IMPLEMENTATION` for a real fix. An optional `--error-code` feeds a classifier that decides the route:
+
+- **mechanical** (syntax/compile markers): returns to `IMPLEMENTATION` immediately and does not consume the regression budget — the test-badge cannot fix its own compile error.
+- **regression** (a genuine behavioral failure): returns to `IMPLEMENTATION` and consumes one regression-loop iteration.
+- **diagnose** (environmental/infra/permission failure): no stage change; diagnose read-only before retrying the same test.
+
+A three-strikes circuit breaker caps genuine `regression` loops at 3 for one run; past that, `pipeline regression` reports `CIRCUIT BREAKER TRIGGERED` and requires manual design review instead of bouncing between stages indefinitely. Mechanical and diagnose routes never count against this limit.
+
 ## Sanitized Failure Artifacts (Foundation)
 
 ```bash

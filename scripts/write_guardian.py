@@ -25,6 +25,7 @@ import importlib.util
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -148,18 +149,83 @@ def validate_planned_paths(
     return rows
 
 
+def _latest_anchor_mtime(run_dir: Path) -> float:
+    """Newest mtime among this run's approved anchor versions, or 0.0 if none.
+
+    correct() only ever writes a new approved-vN.json under this
+    directory -- checking just this glob (not the whole run tree) catches
+    every correction without the cost or false-positive risk of a full
+    recursive scan (see the module-level risk notes on why that was
+    rejected: RunLock's own `.lock` file can be touched by a read-adjacent
+    operation, which would make a merely-inspected run look "active").
+    """
+    anchors_dir = run_dir / "anchors"
+    if not anchors_dir.is_dir():
+        return 0.0
+    best = 0.0
+    for path in anchors_dir.glob("approved-v*.json"):
+        try:
+            best = max(best, path.stat().st_mtime)
+        except OSError:
+            continue
+    return best
+
+
+def _latest_event_timestamp(run_dir: Path) -> float:
+    """Epoch time of this run's last logged event, or 0.0 if none/unreadable.
+
+    Covers checkpoints, closures, and requirement activations -- anything
+    that goes through the run ledger's own append_event(), without having
+    to enumerate every artifact subdirectory those actions might also
+    touch.
+    """
+    events_path = run_dir / "events.jsonl"
+    if not events_path.is_file():
+        return 0.0
+    try:
+        lines = [line for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    except OSError:
+        return 0.0
+    if not lines:
+        return 0.0
+    try:
+        last_event = json.loads(lines[-1])
+        created_at = str(last_event.get("created_at", ""))
+        return datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp()
+    except (json.JSONDecodeError, ValueError, TypeError, AttributeError):
+        return 0.0
+
+
 def resolve_active_run(root: Path) -> str | None:
     """Resolve which run's approved scope a hook should enforce right now.
 
     Prefers the explicit ``TAILTRAIL_ACTIVE_RUN_ID`` environment variable
     (unambiguous, set by whoever activated the run). Falls back to the
-    most recently activated run with an approved Planning Lock -- found by
-    the newest ``planning/lock-v1.json`` mtime among this repository's
-    runs -- so a session still enforces something useful without that
-    variable ever being set. Returns ``None`` (nothing to enforce) when
-    neither resolves, which callers must treat as "allow": most edits in
-    a session have no active TailTrail run at all, and this guard must
-    never become a blanket block for unrelated work.
+    most recently *active* run with an approved Planning Lock -- not the
+    most recently *approved* one. Those are different questions: a run
+    approved an hour ago but corrected a minute ago is more "active" right
+    now than a run approved thirty seconds ago and untouched since.
+    Confirmed live this session: approving a second, unrelated run after
+    already working on a first run made the old mtime-only version of this
+    function silently start enforcing the wrong run's scope, even though
+    the first run had a genuine correct() call moments earlier.
+
+    "Activity" is the newest of three specific, well-understood signals
+    per run -- not a recursive scan of the whole run directory, which was
+    considered and rejected: it would cost real latency on every single
+    Edit/Write/NotebookEdit call, and RunLock's own `.lock` file can be
+    touched by a read-adjacent operation, which would make a run that was
+    only ever inspected (e.g. via `tailtrail status`) look "active" too.
+    The three signals: this run's ``planning/lock-v1.json`` mtime (the
+    original signal, kept as a baseline), the newest ``anchors/
+    approved-v*.json`` mtime (a mid-run correction), and the last logged
+    event's timestamp in ``events.jsonl`` (a checkpoint, closure, or
+    requirement activation).
+
+    Returns ``None`` (nothing to enforce) when no run resolves, which
+    callers must treat as "allow": most edits in a session have no active
+    TailTrail run at all, and this guard must never become a blanket block
+    for unrelated work.
     """
     explicit = os.environ.get("TAILTRAIL_ACTIVE_RUN_ID")
     if explicit:
@@ -178,7 +244,12 @@ def resolve_active_run(root: Path) -> str | None:
             continue
         if lock.get("status") != "approved":
             continue
-        candidates.append((lock_path.stat().st_mtime, run_dir.name))
+        try:
+            lock_mtime = lock_path.stat().st_mtime
+        except OSError:
+            continue
+        freshness = max(lock_mtime, _latest_anchor_mtime(run_dir), _latest_event_timestamp(run_dir))
+        candidates.append((freshness, run_dir.name))
     if not candidates:
         return None
     candidates.sort(key=lambda row: row[0])

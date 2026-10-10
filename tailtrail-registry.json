@@ -722,7 +722,8 @@
         "tailtrail intent",
         "tailtrail intent resolve",
         "tailtrail eval scope validate|report|capture-negative|migration|release-proof|rollback-status|rollback-enable|rollback-disable",
-        "tailtrail expand"
+        "tailtrail expand",
+        "tailtrail pipeline"
       ],
       "docs": [
         "USER-GUIDE.md",

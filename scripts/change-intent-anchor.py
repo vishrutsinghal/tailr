@@ -26,6 +26,7 @@ LEDGER = load_ledger()
 KINDS = {"change", "preserve", "constraint", "safety", "decision", "debug-investigation"}
 STATUSES = {"proposed", "approved", "revoked", "blocked", "validated"}
 MATERIAL_INVALIDATIONS = {"scope", "public-contract", "dependency", "data-model", "security", "acceptance-criteria", "preserve-rule"}
+PATH_ROLES = {"implementation-owner", "proof-only", "inspection-only", "unknown"}
 
 
 def canonical(value: Any) -> str:
@@ -42,6 +43,38 @@ def anchor_dir(root: Path, run_id: str) -> Path:
 
 def uid(run_id: str, statement: str) -> str:
     return "req-" + hashlib.sha256(f"{run_id}:{statement.strip()}".encode()).hexdigest()[:12]
+
+
+def normalize_likely_path_entry(item: Any) -> str | dict[str, str]:
+    """Accept a plain path string (the original shape) or a {path, role} object.
+
+    A plain string passes through untouched -- every existing caller and
+    every anchor already on disk keeps its exact original shape. Only a
+    caller that opts in by supplying an object gets the validated path+role
+    form; nothing forces an upgrade on callers that don't ask for one.
+    """
+    if isinstance(item, str):
+        if not item.strip(): raise ValueError("likely_paths entry must be a non-empty string")
+        return item
+    if isinstance(item, dict):
+        path = item.get("path")
+        if not isinstance(path, str) or not path.strip(): raise ValueError("likely_paths object entry needs a non-empty `path`")
+        role = item.get("role", "unknown")
+        if role not in PATH_ROLES: raise ValueError(f"likely_paths role `{role}` must be one of {sorted(PATH_ROLES)}")
+        return {"path": path, "role": role}
+    raise ValueError("likely_paths entry must be a path string or a {path, role} object")
+
+
+def normalize_likely_paths(raw: Any) -> list[str | dict[str, str]]:
+    if not isinstance(raw, list): raise ValueError("likely_paths must be a list")
+    normalized: list[str | dict[str, str]] = []
+    seen: set[str] = set()
+    for item in raw:
+        entry = normalize_likely_path_entry(item)
+        path = entry if isinstance(entry, str) else entry["path"]
+        if path in seen: continue
+        seen.add(path); normalized.append(entry)
+    return normalized
 
 
 def validate_requirement(row: dict[str, Any]) -> list[str]:
@@ -71,7 +104,11 @@ def normalize_draft(run_id: str, source: dict[str, Any], version: int) -> dict[s
         if not isinstance(raw, dict): raise ValueError(f"requirement {index} is not an object")
         statement = str(raw.get("statement", "")).strip()
         if not statement: raise ValueError(f"requirement {index} needs a statement")
-        row = {"requirement_uid": raw.get("requirement_uid") or uid(run_id, statement), "display_id": raw.get("display_id") or f"REQ-{index:02d}", "kind": raw.get("kind", "change"), "statement": statement, "acceptance_criteria": raw.get("acceptance_criteria", []), "preserve_rules": raw.get("preserve_rules", []), "likely_paths": raw.get("likely_paths", []), "evidence_plan": raw.get("evidence_plan", []), "validation_contract": raw.get("validation_contract", {"state": "required", "tiers": ["unit"]}), "architecture_contract": raw.get("architecture_contract", {"required_paths": [], "protected_paths": [], "forbidden_imports": []}), "behavior_contract": raw.get("behavior_contract", {"scenarios": []}), "maintainability_contract": raw.get("maintainability_contract", {"rules": []}), "ui_contract": raw.get("ui_contract", {}), "status": "proposed"}
+        try:
+            likely_paths = normalize_likely_paths(raw.get("likely_paths", []))
+        except ValueError as error:
+            raise ValueError(f"requirement {index}: {error}") from error
+        row = {"requirement_uid": raw.get("requirement_uid") or uid(run_id, statement), "display_id": raw.get("display_id") or f"REQ-{index:02d}", "kind": raw.get("kind", "change"), "statement": statement, "acceptance_criteria": raw.get("acceptance_criteria", []), "preserve_rules": raw.get("preserve_rules", []), "likely_paths": likely_paths, "evidence_plan": raw.get("evidence_plan", []), "validation_contract": raw.get("validation_contract", {"state": "required", "tiers": ["unit"]}), "architecture_contract": raw.get("architecture_contract", {"required_paths": [], "protected_paths": [], "forbidden_imports": []}), "behavior_contract": raw.get("behavior_contract", {"scenarios": []}), "maintainability_contract": raw.get("maintainability_contract", {"rules": []}), "ui_contract": raw.get("ui_contract", {}), "status": "proposed"}
         if raw.get("requirement_id"):
             row["requirement_id"] = str(raw["requirement_id"])
         if raw.get("query_terms"):
@@ -133,7 +170,7 @@ def latest_approved(root: Path, run_id: str) -> tuple[Path, dict[str, Any]]:
     return path, json.loads(path.read_text(encoding="utf-8"))
 
 
-def correct(root: Path, run_id: str, requirement_uid: str, likely_paths: list[str], reason: str) -> dict[str, Any]:
+def correct(root: Path, run_id: str, requirement_uid: str, likely_paths: list[Any], reason: str) -> dict[str, Any]:
     """Write a new, higher-numbered approved anchor snapshot with one requirement's scope corrected.
 
     Every existing approved-vN.json file is immutable and untouched by this
@@ -146,18 +183,21 @@ def correct(root: Path, run_id: str, requirement_uid: str, likely_paths: list[st
     caller invoked this -- this function's only job is to make the
     corrected scope the durable, readable record for later implementation
     and projection, not to re-assert the reasoning behind it.
+
+    `likely_paths` accepts a mix of plain path strings and {path, role}
+    objects (see `normalize_likely_paths`); a caller correcting an older,
+    plain-string-only approved anchor keeps working unchanged.
     """
     if not str(reason).strip(): raise ValueError("correction requires a reason")
-    if not isinstance(likely_paths, list) or not likely_paths or not all(isinstance(item, str) and item.strip() for item in likely_paths):
-        raise ValueError("likely_paths must be a non-empty list of non-empty strings")
+    corrected_paths = normalize_likely_paths(likely_paths)
+    if not corrected_paths: raise ValueError("likely_paths must be a non-empty list of non-empty strings or {path, role} objects")
     base_path, base_anchor = latest_approved(root, run_id)
     base_version = int(base_path.stem.rsplit("v", 1)[-1])
     if not any(row["requirement_uid"] == requirement_uid for row in base_anchor["requirements"]):
         raise ValueError(f"requirement `{requirement_uid}` is not in the approved anchor")
     corrected = copy.deepcopy(base_anchor)
     row = next(item for item in corrected["requirements"] if item["requirement_uid"] == requirement_uid)
-    previous_paths = list(row.get("likely_paths", []))
-    corrected_paths = list(dict.fromkeys(likely_paths))
+    previous_paths = normalize_likely_paths(row.get("likely_paths", []))
     if corrected_paths == previous_paths:
         raise ValueError("correction must change likely_paths; nothing to correct")
     row["likely_paths"] = corrected_paths
@@ -230,7 +270,7 @@ def main() -> int:
             item.add_argument("--evidence-label", choices=("local-ast", "heuristic", "provider-backed"), required=True)
         if name == "correct":
             item.add_argument("--requirement-uid", required=True)
-            item.add_argument("--likely-path", action="append", required=True)
+            item.add_argument("--likely-path", action="append", required=True, help="Repeatable. A bare path (role defaults to `unknown`) or a JSON object like {\"path\": \"...\", \"role\": \"implementation-owner\"}.")
             item.add_argument("--reason", required=True)
     args = parser.parse_args(); root = args.root.resolve()
     try:
@@ -239,7 +279,9 @@ def main() -> int:
         elif args.command == "feedback": result = feedback(root, args.run_id, args.feedback)
         elif args.command == "invalidate": result = invalidate(root, args.run_id, args.reason)
         elif args.command == "graph-receipt": result = graph_receipt(root, args.run_id, args.requirement_uid, args.path, args.evidence_label)
-        elif args.command == "correct": result = correct(root, args.run_id, args.requirement_uid, args.likely_path, args.reason)
+        elif args.command == "correct":
+            likely_paths: list[Any] = [json.loads(value) if value.strip().startswith("{") else value for value in args.likely_path]
+            result = correct(root, args.run_id, args.requirement_uid, likely_paths, args.reason)
         else: _, result = latest_draft(root, args.run_id)
         print(json.dumps(result, indent=2, sort_keys=True)); return 0
     except (ValueError, OSError, json.JSONDecodeError) as error:

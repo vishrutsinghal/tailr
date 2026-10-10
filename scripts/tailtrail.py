@@ -42,6 +42,7 @@ COMMANDS = {
     "failure": "Record or inspect sanitized post-implementation failure artifacts.",
     "debug": "Debug Harness: turn a symptom into a proven root cause (Code/Architecture/Database/API-integration domains only).",
     "anchor": "Draft, approve, invalidate, or review a local change-intent anchor.",
+    "pipeline": "Request a sequential pipeline stage handoff, or route a test-stage regression.",
     "intent": "Expand a named flow or resolve loose words to a typed TailTrail intent.",
     "expand": "Alias for intent.",
     "route": "Choose a token-saving context route through route-context.py.",
@@ -1369,6 +1370,8 @@ def main() -> int:
         return run_script("execution-evidence.py", strip_wrapper_flags(args))
     if command == "anchor":
         return run_script("change-intent-anchor.py", args)
+    if command == "pipeline":
+        return run_script("pipeline_orchestrator.py", args)
     if command in {"intent", "expand"}:
         return run_script("expand-intent.py", args)
     if command == "route":

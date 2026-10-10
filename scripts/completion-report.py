@@ -1217,6 +1217,11 @@ def render(payload: dict[str, Any]) -> str:
         ])
         if unvisited:
             lines.append(f"Unvisited stages: **{report_text(', '.join(unvisited))}** (informational; closure status is unchanged).")
+            if pipeline.get("active_stage") == "IMPLEMENTATION" and "TESTING" in unvisited:
+                lines.append(
+                    "If a test case was identified but not yet added, hand off first instead of editing it "
+                    f"here: `tailtrail pipeline handoff --run-id {payload['run_id']} --from-stage IMPLEMENTATION --context \"...\"`."
+                )
     elif pipeline.get("status") == "unbadged":
         lines.extend(["", "## Pipeline badges", "", "Unbadged run (Lite/Off); no stage write gates applied."])
 

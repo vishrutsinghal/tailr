@@ -2,6 +2,7 @@
 """High-level orchestrator for Sequential Worker Slicing and Loop Control."""
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import sys
@@ -14,6 +15,7 @@ from pipeline_manager import PipelineManager, HandoffManifest
 from pipeline_judge import PipelineJudge
 
 ROOT = Path(__file__).resolve().parents[1]
+_FAILURE_PREFIXES = ("Handoff failed:", "Stage transition blocked:", "CIRCUIT BREAKER TRIGGERED")
 
 # Design §10.1: classify a test failure before routing it. Mechanical
 # failures (syntax/compile) get a direct handoff to the Implementation
@@ -200,3 +202,49 @@ class PipelineOrchestrator:
             last["classification"] = decision["classification"]
             pl.L.atomic_json(self.manager.lock_path, lock)
         return f"Regression triggered: {reason}. Returning to {next_stage} for correction."
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Request a sequential pipeline stage handoff, or route a test-stage failure through the regression classifier.")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    handoff = sub.add_parser("handoff", help="Request a handoff from the current stage to the next.")
+    handoff.add_argument("--root", type=Path, default=Path.cwd())
+    handoff.add_argument("--run-id", required=True)
+    handoff.add_argument("--from-stage", required=True, choices=("IMPLEMENTATION", "TESTING", "INFRA"))
+    handoff.add_argument("--context", default="", help="Free-form notes for the next stage so it does not need to rediscover what changed and why.")
+    handoff.add_argument("--change-manifest", action="append", default=[], help="Repeatable. A modified file or symbol.")
+    handoff.add_argument("--requirement-pointer", action="append", default=[], help="Repeatable. A requirement_uid this handoff fulfills.")
+    handoff.add_argument("--evidence", default=None, help="JSON list of evidence objects.")
+
+    regression = sub.add_parser("regression", help="Route a test-stage failure; may return the run to IMPLEMENTATION.")
+    regression.add_argument("--root", type=Path, default=Path.cwd())
+    regression.add_argument("--run-id", required=True)
+    regression.add_argument("--reason", required=True)
+    regression.add_argument("--evidence", default=None, help="JSON list of evidence objects.")
+    regression.add_argument("--error-code", default=None, help="Optional error code/marker for the mechanical/behavioral/environmental classifier.")
+
+    args = parser.parse_args()
+    root = args.root.resolve()
+    try:
+        evidence = json.loads(args.evidence) if args.evidence else []
+        orchestrator = PipelineOrchestrator(root, args.run_id)
+        if args.command == "handoff":
+            manifest_data = {
+                "change_manifest": args.change_manifest,
+                "requirement_pointers": args.requirement_pointer,
+                "context": args.context,
+                "evidence": evidence,
+            }
+            message = orchestrator.request_handoff(args.from_stage, manifest_data)
+        else:
+            message = orchestrator.handle_regression(args.reason, evidence, args.error_code)
+        print(message)
+        return 1 if message.startswith(_FAILURE_PREFIXES) else 0
+    except (ValueError, OSError, json.JSONDecodeError) as error:
+        print(f"Pipeline orchestrator error: {error}")
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
