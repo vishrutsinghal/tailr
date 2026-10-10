@@ -130,7 +130,7 @@ SOURCE_SUFFIXES = {
     ".tsx", ".vue",
 }
 DOCUMENT_SUFFIXES = {".adoc", ".md", ".mdx", ".rst"}
-CONFIG_SUFFIXES = {".cfg", ".conf", ".ini", ".properties", ".toml", ".yaml", ".yml"}
+CONFIG_SUFFIXES = {".cfg", ".conf", ".ini", ".json", ".jsonc", ".properties", ".toml", ".yaml", ".yml"}
 MANIFEST_NAMES = {
     "build.gradle", "build.gradle.kts", "cargo.toml", "composer.json", "deno.json",
     "deno.jsonc", "directory.build.props", "directory.build.targets", "dockerfile",
@@ -1056,11 +1056,19 @@ def authority_requirement_mappings(
             if value.lower() not in ignored
         }
 
+    def _local_path(value: Any) -> str | None:
+        if isinstance(value, str):
+            return value or None
+        if isinstance(value, dict):
+            path = value.get("path")
+            return str(path) if isinstance(path, str) and path else None
+        return None
+
     def role_signature(row: dict[str, Any]) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
         return (
-            tuple(sorted(str(value) for value in row.get("implementation_owners", []) if str(value))),
-            tuple(sorted(str(value) for value in row.get("inspection_paths", []) if str(value))),
-            tuple(sorted(str(value) for value in row.get("proof_paths", []) if str(value))),
+            tuple(sorted(found for value in row.get("implementation_owners", []) for found in [_local_path(value)] if found)),
+            tuple(sorted(found for value in row.get("inspection_paths", []) for found in [_local_path(value)] if found)),
+            tuple(sorted(found for value in row.get("proof_paths", []) for found in [_local_path(value)] if found)),
         )
 
     mappings: list[dict[str, Any]] = []
@@ -1094,9 +1102,9 @@ def authority_requirement_mappings(
                 selected = strongest
                 reason = "authority-terms-share-one-local-scope-boundary"
 
-        owners = sorted({str(value) for row in selected for value in row.get("implementation_owners", []) if str(value)})
-        inspection = sorted({str(value) for row in selected for value in row.get("inspection_paths", []) if str(value)})
-        proof = sorted({str(value) for row in selected for value in row.get("proof_paths", []) if str(value)})
+        owners = sorted({found for row in selected for value in row.get("implementation_owners", []) for found in [_local_path(value)] if found})
+        inspection = sorted({found for row in selected for value in row.get("inspection_paths", []) for found in [_local_path(value)] if found})
+        proof = sorted({found for row in selected for value in row.get("proof_paths", []) for found in [_local_path(value)] if found})
         states = {str(row.get("scope_state", "unresolved")) for row in selected}
         mapping_state = "mapped" if selected and states <= {"resolved", "partially-resolved"} else "unresolved"
         mappings.append({

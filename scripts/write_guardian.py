@@ -256,6 +256,50 @@ def resolve_active_run(root: Path) -> str | None:
     return candidates[-1][1]
 
 
+def _anchor_path_str(item: Any) -> str | None:
+    """Extract a path string from a plain-string or {path, role} anchor entry."""
+    if isinstance(item, str):
+        return item or None
+    if isinstance(item, dict):
+        path = item.get("path")
+        return str(path) if isinstance(path, str) and path.strip() else None
+    return None
+
+
+def _anchor_role_map(anchor: dict[str, Any]) -> dict[str, str | None]:
+    """Map approved path -> anchor role, tolerating both likely_paths shapes.
+
+    Plain strings map to None (no trusted role; caller falls back to the
+    classifier). Dict entries carry the Navigator/host-approved role the
+    guard should trust first, so future extensions work without a
+    classifier change.
+    """
+    roles: dict[str, str | None] = {}
+    for row in anchor.get("requirements", []):
+        if not isinstance(row, dict):
+            continue
+        for item in row.get("likely_paths", []) or []:
+            if isinstance(item, dict):
+                path = item.get("path")
+                if isinstance(path, str) and path:
+                    roles[str(path)] = str(item.get("role", "unknown"))
+            elif isinstance(item, str) and item:
+                roles.setdefault(item, None)
+    return roles
+
+
+def _correction_path_set(anchor: dict[str, Any]) -> set[str]:
+    paths: set[str] = set()
+    for correction in anchor.get("corrections", []) or []:
+        if not isinstance(correction, dict):
+            continue
+        for item in correction.get("corrected_likely_paths", []) or []:
+            found = _anchor_path_str(item)
+            if found:
+                paths.add(found)
+    return paths
+
+
 def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, str | None]:
     """Check one path against the approved anchor first, then the active badge.
 
@@ -283,9 +327,9 @@ def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, 
     original ``approved-v1.json`` directly, so a mid-run correction is
     honored immediately, not just the stale original approval.
 
-    A path with no correction falls back to today's plain role/badge
-    check (:meth:`PipelineJudge.validate_write_access`) -- with one
-    addition preserved from before: during the IMPLEMENTATION badge, an
+    A path with no correction uses the anchor-approved role first (when the
+    anchor stores a {path, role} entry), then the classifier as fallback --
+    with one addition preserved from before: during the IMPLEMENTATION badge, an
     "implementation-owner"-role file must still be present in the
     anchor's (possibly bundled) likely_paths, not merely the right *kind*
     of file. The coarse role check alone cannot tell WHICH production
@@ -308,26 +352,28 @@ def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, 
         anchor = None
     judge = PipelineJudge(root, run_id)
     if anchor is not None:
-        corrected_paths = {
-            str(item)
-            for correction in anchor.get("corrections", [])
-            for item in correction.get("corrected_likely_paths", [])
-        }
-        if path in corrected_paths:
+        if path in _correction_path_set(anchor):
             return True, None
+        role_map = _anchor_role_map(anchor)
+        approved_paths = set(role_map.keys())
+        anchor_role = role_map.get(path)
+        classifier_role, _ = navigator_scope.classify_repository_role(root, path)
+        effective_role = anchor_role if anchor_role and anchor_role != "unknown" else classifier_role
         if judge.manager.get_current_stage() == "IMPLEMENTATION":
-            role, _ = navigator_scope.classify_repository_role(root, path)
-            if role == "implementation-owner":
-                approved_paths = {
-                    str(item)
-                    for row in anchor.get("requirements", [])
-                    for item in row.get("likely_paths", [])
-                }
+            if effective_role == "implementation-owner":
                 if path not in approved_paths:
                     return False, (
                         f"Write access denied: `{path}` is not in run `{run_id}`'s approved scope. "
                         f"Approved paths: {sorted(approved_paths) or '(none)'}."
                     )
+                return True, None
+        if anchor_role and anchor_role != "unknown":
+            contract = judge.manager.get_active_contract()
+            if effective_role in contract.prohibited_write_roles:
+                return False, f"Write access denied: Path `{path}` is a `{effective_role}`, which is prohibited for the active stage `{judge.manager.get_current_stage()}`."
+            if effective_role not in contract.allowed_write_roles:
+                return False, f"Write access denied: Path `{path}` is a `{effective_role}`, which is not in the allowed write-set for the active stage `{judge.manager.get_current_stage()}`."
+            return True, None
     return judge.validate_write_access(path)
 
 

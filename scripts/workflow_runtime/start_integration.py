@@ -17,6 +17,21 @@ def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def _path_str(value: Any) -> str | None:
+    """Extract a path string tolerating plain strings and {path, role} objects.
+
+    Role-tagged anchor entries must never become the literal text
+    "{'path': ...}" via str(dict) -- that corrupted
+    scope_drift_rule.approved_editable_paths in the Issue 4a regression.
+    """
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict):
+        path = value.get("path")
+        return str(path) if isinstance(path, str) and path else None
+    return None
+
+
 def scope_binding(report: dict[str, Any]) -> dict[str, Any] | None:
     """Freeze the exact v2 role projection into the DWR control plane."""
     navigator = report.get("navigator", {}) if isinstance(report, dict) else {}
@@ -40,7 +55,8 @@ def scope_binding(report: dict[str, Any]) -> dict[str, Any] | None:
             authority = {"type": "tailtrail-local-requirements", "mode": mode}
         mappings = navigator_scope.authority_requirement_mappings(evidence, matrix, authority=authority)
     implementation_paths = sorted({
-        str(path) for row in mappings for path in row.get("implementation_owners", []) if str(path)
+        found for row in mappings for path in row.get("implementation_owners", [])
+        for found in [_path_str(path)] if found
     })
     # Task-type role contract: qa runs edit test paths, doc runs edit
     # documentation paths, everything else demotes to inspection. The
@@ -55,21 +71,22 @@ def scope_binding(report: dict[str, Any]) -> dict[str, Any] | None:
     implementation_paths = contract["editable"]
     contract_inspection = contract["inspection"]
     proposed_proof_paths = sorted({
-        str(path)
+        found
         for row in navigator.get("requirement_matrix", [])
         if isinstance(row, dict)
         for path in ((row.get("validation_contract", {}) or {}).get("proposed_paths", []))
-        if str(path)
+        for found in [_path_str(path)] if found
     })
     validation_edit_paths = sorted({
-        str(path)
+        found
         for row in navigator.get("requirement_matrix", [])
         if isinstance(row, dict)
         for path in ((row.get("validation_contract", {}) or {}).get("editable_paths", []))
-        if str(path)
+        for found in [_path_str(path)] if found
     } | set(proposed_proof_paths))
     proof_paths = sorted({
-        str(path) for row in mappings for path in row.get("proof_paths", []) if str(path)
+        found for row in mappings for path in row.get("proof_paths", [])
+        for found in [_path_str(path)] if found
     } | set(proposed_proof_paths))
     stable = {
         "schema_version": "1",
@@ -83,7 +100,8 @@ def scope_binding(report: dict[str, Any]) -> dict[str, Any] | None:
         "editable_paths": sorted(set(implementation_paths) | set(validation_edit_paths)),
         "implementation_paths": implementation_paths,
         "inspection_paths": sorted({
-            str(path) for row in mappings for path in row.get("inspection_paths", []) if str(path)
+            found for row in mappings for path in row.get("inspection_paths", [])
+            for found in [_path_str(path)] if found
         } | set(contract_inspection)),
         "proof_paths": proof_paths,
         "task_type_contract": contract["contract"],
