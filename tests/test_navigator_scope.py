@@ -599,6 +599,82 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
             evidence["ownership_selection"]["selected_rule"],
         )
 
+    def test_thin_changed_only_candidate_gets_backfilled_fingerprint_for_host_proposal(self) -> None:
+        # Reproduces a combined multi-requirement `tailtrail start` goal where
+        # one path is registered only via --changed: a single self-referential
+        # "declares-edit-boundary" relationship edge and no deeper native
+        # match. Exhausting the discovery read budget (as a multi-candidate
+        # goal naturally can) used to leave candidates_from_seeds() unable to
+        # compute that candidate's content_fingerprint, so investigate() would
+        # include it with the field empty. validate_host_proposal() then
+        # rejected any correct, well-evidenced host answer naming that path
+        # with content-fingerprint-mismatch, because it compares the claimed
+        # hash against this stored (empty) one.
+        self.write("src/owner.py", "def serve():\n    return True\n")
+        self.write("src/thin_owner.py", "def thin():\n    return True\n")
+
+        original_budget = navigator_scope.LIMITS["initial_file_reads"]
+        navigator_scope.LIMITS["initial_file_reads"] = 0
+        try:
+            seeds = [
+                navigator_scope.seed("src/owner.py", "explicit-path", "user-provided-path"),
+                navigator_scope.seed("src/thin_owner.py", "explicit-path", "user-provided-path"),
+            ]
+            candidates = navigator_scope.candidates_from_seeds(self.root, seeds, ["bug"])
+            thin_candidate = next(row for row in candidates if row["path"] == "src/thin_owner.py")
+            # Precondition matching the live bug: with zero read budget,
+            # candidates_from_seeds() never computes a hash for this candidate.
+            self.assertNotIn("content_fingerprint", thin_candidate)
+
+            frames = [
+                {
+                    "display_id": "REQ-01", "requirement_id": "REQ-01",
+                    "statement": "Fix owner behavior.", "query_terms": ["owner", "behavior"],
+                },
+                {
+                    "display_id": "REQ-02", "requirement_id": "REQ-02",
+                    "statement": "Fix thin owner behavior.", "query_terms": ["thin", "behavior"],
+                },
+            ]
+            limits = navigator_scope.InvestigationLimits(
+                initial_file_reads=0, escalation_file_reads=0, relationship_file_reads=0,
+            )
+            investigated, edges, investigation = navigator_scope.investigate(
+                self.root, frames, candidates, ["bug"], limits=limits,
+            )
+        finally:
+            navigator_scope.LIMITS["initial_file_reads"] = original_budget
+
+        by_path = {row["path"]: row for row in investigated}
+        thin_row = by_path["src/thin_owner.py"]
+        self.assertEqual(thin_row["role"], "implementation-owner")
+        self.assertEqual(thin_row["status"], "included")
+        expected_fingerprint = "sha256:" + hashlib.sha256(
+            (self.root / "src/thin_owner.py").read_bytes()
+        ).hexdigest()
+        self.assertEqual(thin_row.get("content_fingerprint"), expected_fingerprint)
+
+        goal = "Fix owner behavior. Fix thin owner behavior."
+        evidence = navigator_scope.evidence_document(
+            self.root, goal, frames, investigated, edges=edges, investigation=investigation,
+        )
+        self.assertEqual(evidence["state"], "ambiguous")
+        packet = navigator_scope.host_reasoning_packet(evidence)
+        self.assertEqual(packet["route"]["state"], "requested")
+
+        proposal, errors = navigator_scope.proposal_from_scope_answers(
+            self.root, packet,
+            ["REQ-01=src/owner.py", "REQ-02=src/thin_owner.py"],
+            1, "codex",
+        )
+        self.assertEqual(errors, [])
+        assert proposal is not None
+        decision = navigator_scope.host_proposal_decision(self.root, evidence, proposal)
+        self.assertEqual(decision["status"], "accepted", decision["reason_codes"])
+        self.assertFalse(
+            any("content-fingerprint-mismatch" in code for code in decision["reason_codes"])
+        )
+
     def test_qa_test_candidate_without_strong_edges_is_not_high_confidence(self) -> None:
         # Same-module-name yields a medium tested-by edge only. A test-role
         # row must not claim high confidence without a strong edge, matching

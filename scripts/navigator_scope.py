@@ -2674,6 +2674,27 @@ def investigate(
             reasons.add("no-selected-owner-edge")
         row["reason_codes"] = sorted(reasons)
 
+    # An included implementation-owner candidate must carry a real content
+    # fingerprint: downstream host-proposal validation (validate_host_proposal)
+    # compares a claimed fingerprint against this stored value and rejects any
+    # mismatch. Thin-evidence candidates (e.g. --changed with only one weak
+    # relationship edge) can reach "included" here without ever being read by
+    # the bounded discovery loops above, which would otherwise leave this
+    # field empty and make that integrity check fail even for a correct host
+    # answer. Compute it directly, bypassing the discovery read budgets,
+    # since by this point the path is already committed to scope.
+    for path, row in by_path.items():
+        if (
+            row.get("role") == "implementation-owner"
+            and row.get("status") == "included"
+            and not row.get("content_fingerprint")
+        ):
+            fingerprint_value = content_hashes.get(path)
+            if not fingerprint_value:
+                _, _, fingerprint_value = safe_text(root, path)
+            if fingerprint_value:
+                row["content_fingerprint"] = fingerprint_value
+
     resolution_rejection_codes = {
         "module-alias-config-cycle",
         "module-alias-config-file-limit-reached",
