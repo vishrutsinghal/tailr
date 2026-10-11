@@ -10,7 +10,7 @@ L=ledger()
 def record(root,run_id,test_id,outcome):
  if outcome not in {"pass","fail","blocked","timed-out","unavailable"}:raise ValueError("unsupported outcome")
  directory=L.state_dir(root,run_id)/"flaky-tests";history=[]
- for path in sorted(directory.glob("*.json")):
+ for path in sorted(directory.glob("*.json"),key=lambda p:int(p.stem.rsplit("-",1)[-1])):
   item=json.loads(path.read_text(encoding="utf-8"));
   if item.get("test_id")==test_id:history.append(item["outcome"])
  outcomes=history+[outcome];status="flaky" if "pass" in outcomes and "fail" in outcomes else ("failing" if outcome=="fail" else "stable")

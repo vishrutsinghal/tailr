@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,6 +52,35 @@ def month_key(value: str | None) -> str:
 def safe_text(value: str, limit: int = 240) -> str:
     text = " ".join(value.strip().split())
     return text[:limit]
+
+
+SECRET_SHAPES: tuple[tuple[str, str], ...] = (
+    ("AWS access key", r"AKIA[0-9A-Z]{16}"),
+    ("GitHub token", r"gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{80,}"),
+    ("Slack token", r"xox[baprs]-[A-Za-z0-9-]+"),
+    ("PEM private key", r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    ("bearer token", r"[Bb]earer\s+[A-Za-z0-9\-._~+/]{20,}"),
+)
+
+
+def reject_secrets(field: str, value: str | None) -> str:
+    """Fail closed when free text carries a credential-shaped secret.
+
+    Quality events persist to a durable local file, so an accidental paste
+    (terminal output, error logs, config snippets) must never be stored.
+    Only high-precision shapes are matched -- ordinary prose containing the
+    words "token", "key", or "secret" passes untouched. Returns the value
+    unchanged when clean.
+    """
+    text = value or ""
+    for shape, pattern in SECRET_SHAPES:
+        if re.search(pattern, text):
+            raise SystemExit(
+                f"{field} looks like it contains a secret ({shape}); "
+                "reword without credentials -- quality events must not store "
+                "secrets, credentials, PII, PHI, or raw logs"
+            )
+    return text
 
 
 def read_events(root: Path) -> list[dict[str, Any]]:
@@ -102,7 +132,7 @@ def build_event(args: argparse.Namespace) -> dict[str, Any]:
         "timestamp": now(),
         "repo": args.repo or args.root.resolve().name,
         "task_type": args.task_type,
-        "goal_summary": safe_text(args.goal_summary or "not recorded"),
+        "goal_summary": safe_text(reject_secrets("goal_summary", args.goal_summary) or "not recorded"),
         "workflow_selected": split_csv(args.workflow),
         "workflow_skipped": split_csv(args.skipped),
         "recommendation_source": args.source,
@@ -111,15 +141,15 @@ def build_event(args: argparse.Namespace) -> dict[str, Any]:
         "exact_materials_preserved": split_csv(args.exact_materials),
         "checks_run": split_csv(args.checks),
         "validation_outcome": validation_outcome,
-        "validation_summary": safe_text(args.validation_summary or "not recorded"),
+        "validation_summary": safe_text(reject_secrets("validation_summary", args.validation_summary) or "not recorded"),
         "user_acceptance": outcome,
         "workflow_fit": fit,
         "overlap_flags": split_csv(args.overlap_flags),
         "missed_gate_flags": split_csv(args.missed_gate_flags),
-        "improvement_suggestion": safe_text(args.suggestion or "not recorded"),
+        "improvement_suggestion": safe_text(reject_secrets("suggestion", args.suggestion) or "not recorded"),
         "sensitivity": sensitivity,
         "approval_status": approval_status,
-        "notes": safe_text(args.notes or "compact quality event only; no raw prompt, logs, secrets, PII, or PHI recorded"),
+        "notes": safe_text(reject_secrets("notes", args.notes) or "compact quality event only; no raw prompt, logs, secrets, PII, or PHI recorded"),
     }
 
 

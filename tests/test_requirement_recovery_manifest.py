@@ -28,4 +28,19 @@ class ModeBRecoveryTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);self.setup(root);one=root/"one.json";two=root/"two.json";one.write_text(json.dumps({"findings":[{"category":"architecture"}]}),encoding="utf-8");two.write_text(json.dumps({"findings":[{"category":"architecture"}]}),encoding="utf-8");result=diagnose.diagnose(root,"run",[one,two])
   self.assertEqual(result["repeated_categories"],["architecture"])
+ def test_seal_before_capture_gives_clean_message(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);uid=self.setup(root)
+   with self.assertRaisesRegex(ValueError, "Mode B manifest must be captured before sealing"):
+    mode_b.seal(root,"run",uid,[],True)
+ def test_seal_before_capture_cli_hides_filesystem_path(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);uid=self.setup(root)
+   import subprocess,sys
+   result=subprocess.run([sys.executable,"scripts/requirement-recovery-manifest.py","seal","--root",root.as_posix(),"--run-id","run","--requirement-uid",uid,"--approved"],cwd=ROOT,text=True,capture_output=True,check=False)
+   self.assertEqual(result.returncode,2)
+   combined=result.stderr + result.stdout
+   self.assertIn("Mode B manifest must be captured before sealing",combined)
+   self.assertNotIn("Errno",combined)
+
 if __name__=="__main__":unittest.main()

@@ -33,7 +33,10 @@ def assess(root: Path, run_id: str, receipts_path: Path) -> dict[str, Any]:
     anchors = sorted((LEDGER.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
     if not anchors: raise ValueError("an approved anchor is required")
     anchor = json.loads(anchors[-1].read_text(encoding="utf-8"))
-    raw = json.loads(receipts_path.read_text(encoding="utf-8")); receipts = raw.get("receipts", raw)
+    raw = json.loads(receipts_path.read_text(encoding="utf-8"))
+    receipts = raw.get("receipts", raw) if isinstance(raw, dict) else raw
+    if not isinstance(receipts, list) or any(not isinstance(item, dict) for item in receipts):
+        raise ValueError("receipts input must be a receipt list or a {\"receipts\": [...]} object")
     rows: list[dict[str, Any]] = []; findings: list[dict[str, Any]] = []
     for requirement in anchor["requirements"]:
         required = requirement.get("validation_contract", {"state": "required", "tiers": ["unit"]})

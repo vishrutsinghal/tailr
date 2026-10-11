@@ -634,7 +634,7 @@ actually found. Each entry names the feature, why it was picked, exactly what
 scenarios were run and how, the results, and the detailed analysis of any
 real finding.
 
-### 12.1 Quality Loop (Tier 2) -- `scripts/quality-loop.py` / `tailtrail quality-loop`
+### 12.1 Quality Loop (Tier 2) -- `scripts/quality-loop.py` / `tailtrail quality-loop` (Fixed)
 
 **Why this one first:** first `untested` row under Tier 2 (quality harnesses)
 in `TAILTRAIL-FEATURE-HEALTH.md`. Confirmed genuinely untested, not just
@@ -734,14 +734,12 @@ just unit-test green.
   regression -- every other scenario against this feature (gating, boundary
   math, corruption handling, dispatcher parity) passed cleanly. This is a
   single, specific, narrow gap in one safety rule's enforcement.
-- **Status:** open, not yet fixed or triaged into a priority. Two options
-  were raised and left for a decision: (a) add a small regex-based scrub for
-  common secret shapes (AWS keys, GitHub/GitLab tokens, bearer tokens, etc.)
-  across the four free-text fields in `build_event()`, rejecting or
-  redacting a match, with a focused new test; or (b) soften the documentation
-  in `context/quality-loop.md` to accurately describe today's behavior
-  (best-effort truncation only, not a scanner) until enforcement is actually
-  built. Neither has been applied yet.
+- **Status:** fixed. Chose option (a)-reject: `reject_secrets()` in
+  `build_event()` fails closed on five high-precision shapes (AWS key,
+  GitHub/Slack tokens, PEM block, bearer) across all four free-text
+  fields, naming the field; ordinary prose with the words "token"/"key"/
+  "secret" passes untouched. New `tests/test_quality_loop.py` (3 tests);
+  old code accepts all 21 shaped sub-cases (exit 0, writes file).
 - **Where to look when picking this up:** `scripts/quality-loop.py:94`
   (`build_event`) and `:51` (`safe_text`); `context/quality-loop.md:43` for
   the rule text as currently written.
@@ -841,7 +839,7 @@ forward are the inventory-accuracy lesson (Finding 1) and the
 (Finding 2) -- both corrected in `TAILTRIAL-FEATURE-HEALTH.md` alongside
 this entry.
 
-### 12.3 Recovery / Mode B (Tier 2) -- `scripts/requirement-recovery-manifest.py` / `tailtrail harness mode-b`
+### 12.3 Recovery / Mode B (Tier 2) -- `scripts/requirement-recovery-manifest.py` / `tailtrail harness mode-b` (Fixed)
 
 **Why this one:** next `untested` row under Tier 2 in
 `TAILTRIAL-FEATURE-HEALTH.md`.
@@ -935,10 +933,10 @@ module's own clean message (minor, Open):**
   receipt) gives a specific, actionable sentence; this one case alone
   leaks an implementation-detail stack-style message with a local
   filesystem path instead.
-- **Status:** open, not fixed. A one-line fix would be checking
-  `manifest_path(...).exists()` explicitly before calling `read()` and
-  raising the already-written "Mode B manifest must be captured before
-  sealing" message in that case too.
+- **Status:** fixed. `seal()` now checks `manifest_path(...).exists()`
+  first and raises the already-written clean message; exit code stays 2,
+  nothing written. 2 new tests (API message + CLI output without `Errno`);
+  old code fails both with the exact logged raw error.
 - **Where to look when picking this up:**
   `scripts/requirement-recovery-manifest.py:45-48` (`seal`).
 
@@ -1048,7 +1046,7 @@ whole area, since a wrong call there could either block legitimate work or
 silently widen write authority -- is proven correct on all three of its
 branches, not merely plausible from reading the code.
 
-### 12.6 Flaky Tracker / CI Ingest (Tier 2) -- `scripts/flaky-test-tracker.py`, `scripts/ci-evidence-ingest.py` / `tailtrail harness {flaky,ci-ingest}`
+### 12.6 Flaky Tracker / CI Ingest (Tier 2) -- `scripts/flaky-test-tracker.py`, `scripts/ci-evidence-ingest.py` / `tailtrail harness {flaky,ci-ingest}` (Fixed)
 
 **Why this one:** last two `untested` rows left under Tier 2.
 `flaky-test-tracker.py` keeps local per-test-ID pass/fail history within a
@@ -1119,10 +1117,11 @@ observations in the same run (Open):**
   a single test_id accumulates 10+ observations within one run -- a
   realistic scenario for a flaky test tracked across a long session, not
   just a contrived edge case.
-- **Status:** open, not fixed. A one-line fix: sort by the numeric suffix
-  instead of the filename string, e.g.
-  `sorted(directory.glob("*.json"), key=lambda p: int(p.stem.rsplit("-", 1)[-1]))`,
-  or zero-pad the counter at write time.
+- **Status:** fixed with the numeric-sort-key option (heals existing
+  scrambled stores retroactively, no migration). New
+  `tests/test_flaky_tracker.py` uses the order-distinguishing sequence;
+  old code reproduces the exact logged scramble, new code returns sent
+  order; status property locked alongside.
 - **Where to look when picking this up:**
   `scripts/flaky-test-tracker.py:12-17` (`record`).
 
@@ -1143,7 +1142,7 @@ first one passed for the wrong reason -- worth remembering as a method
 note: a scenario passing is not evidence of correctness if the scenario
 could not have distinguished pass from fail in the first place.
 
-### 12.7 Higher-Tier Testing (Tier 2) -- `scripts/higher-tier-testing.py`, `scripts/release-confidence.py` / `tailtrail harness {higher-tier,release-confidence}`
+### 12.7 Higher-Tier Testing (Tier 2) -- `scripts/higher-tier-testing.py`, `scripts/release-confidence.py` / `tailtrail harness {higher-tier,release-confidence}` (Fixed)
 
 **Why this one and its scope:** last remaining Tier 2 `untested` row.
 `higher-tier-testing.py` runs one repository-declared command (integration/
@@ -1233,9 +1232,10 @@ flawed alternating pattern):**
   misclassified or silently accepted), but a real robustness regression
   relative to its sibling script, surfaced by a plausible, not contrived,
   input shape.
-- **Status:** open, not fixed. One-line fix: mirror
-  `ci-evidence-ingest.py`'s pattern --
-  `receipts = raw.get("receipts", raw) if isinstance(raw, dict) else raw`.
+- **Status:** fixed. Applied the `isinstance` guard plus list-of-dicts
+  validation (bare junk fails closed with the clean message instead of
+  crashing two lines later). 2 new tests; old code fails both with the
+  exact logged `AttributeError`.
 - **Where to look when picking this up:**
   `scripts/release-confidence.py:36` (`assess`).
 
@@ -1377,7 +1377,7 @@ closure only because of the separate, now-well-documented
 `official-aidlc-state.py` gap (13a), not because the actual fix or its
 proof is incomplete.
 
-### 12.10 Guardrails / Policy / Enterprise (Tier 3) -- `scripts/guardrail-check.py` / `tailtrail guard check`, `tailtrail guardrail check`
+### 12.10 Guardrails / Policy / Enterprise (Tier 3) -- `scripts/guardrail-check.py` / `tailtrail guard check`, `tailtrail guardrail check` (Fixed)
 
 **Why this one:** next `untested` row under Tier 3.
 
@@ -1429,12 +1429,12 @@ targeted test: bumping only `"version": "1.0.1"` in an existing
   dependency-gate` (both documented, intended enforcement modes) would
   block a plain version bump exactly as hard as a genuine new dependency,
   with no way to tell the two apart from the finding alone.
-- **Status:** open, not fixed. A full fix needs real JSON/TOML/lockfile
-  structural awareness (is this key inside a dependency block?) rather
-  than a single generic regex across every manifest format; a narrower
-  interim fix could at least special-case well-known non-dependency keys
-  (`name`, `version`, `description`, `private`, `license`, `author`,
-  `scripts`, `main`, `type`) for the JSON manifests.
+- **Status:** fixed as described above: manifest metadata-key exclusion
+  plus the modification-pair exemption (bump, not addition), scoped to
+  JSON key-value lines so dependency-specifier updates still fire. 5 new
+  tests in `tests/test_guardrail_check.py`; version-bump/metadata cases
+  fail on old code with the exact reported finding. `dependency-decision.py`
+  inherits it free.
 - **Where to look when picking this up:**
   `scripts/guardrail-check.py:284-290` (`looks_like_dependency_addition`),
   `:107-123` (`DEPENDENCY_HINT`).

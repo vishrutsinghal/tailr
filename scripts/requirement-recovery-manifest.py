@@ -51,7 +51,9 @@ def capture(root:Path,run_id:str,uid:str,approved:bool)->dict[str,Any]:
  L.atomic_json(manifest_path(root,run_id,uid),payload); L.append_event(root,run_id,"mode_b_captured",{"requirement_uid":uid,"artifact":manifest_path(root,run_id,uid).relative_to(L.state_dir(root,run_id)).as_posix(),"paths":[x["path"] for x in files]}); return payload
 def seal(root:Path,run_id:str,uid:str,receipts:list[Path],approved:bool)->dict[str,Any]:
  if not approved:raise ValueError("Mode B seal records task-owned delta; rerun with --approved")
- path=manifest_path(root,run_id,uid); payload=read(path)
+ path=manifest_path(root,run_id,uid)
+ if not path.is_file():raise ValueError("Mode B manifest must be captured before sealing")
+ payload=read(path)
  if payload["state"]!="captured":raise ValueError("Mode B manifest must be captured before sealing")
  patch=[]
  for item in payload["files"]:

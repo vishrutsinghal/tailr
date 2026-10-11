@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -58,6 +59,28 @@ class HigherTierTestingTests(unittest.TestCase):
             result = confidence.assess(root, "run", receipts)
         self.assertFalse(result["confidence_complete"])
         self.assertEqual(result["findings"][0]["tier"], "release-smoke")
+
+
+    def test_bare_list_receipts_assess_without_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); uid = self.setup(root); receipts = root / "receipts.json"
+            receipts.write_text(json.dumps([{"requirement_uid": uid, "tier": "integration", "outcome": "pass"}]))
+            result = confidence.assess(root, "run", receipts)
+        self.assertIn("confidence_complete", result)
+
+    def test_bare_junk_receipts_fail_closed_with_clean_message(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); uid = self.setup(root); receipts = root / "receipts.json"
+            receipts.write_text(json.dumps([1, 2]))
+            with self.assertRaisesRegex(ValueError, "receipt list"):
+                confidence.assess(root, "run", receipts)
+            cli = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "release-confidence.py").as_posix(),
+                 "--root", root.as_posix(), "--run-id", "run", "--receipts", receipts.as_posix()],
+                text=True, capture_output=True, check=False)
+        self.assertEqual(cli.returncode, 2)
+        self.assertIn("Release confidence error:", cli.stdout)
+        self.assertNotIn("Traceback", cli.stdout + cli.stderr)
 
 
 if __name__ == "__main__": unittest.main()
