@@ -141,9 +141,39 @@ enforcement, not the underlying approval.
 
 **Doc and markdown files usually can't resolve as Navigator-owned scope at
 all.** `GUARDRAILS.md`, `TAILTRAIL-COMMANDS.md`, and this file all hit the
-same wall. The accepted fallback is a direct, disclosed edit (same
-hook-bypass pattern above) rather than repeatedly fighting Navigator's
-code-graph-centric scope resolution for prose files.
+same wall. The fast lane fixes this now: `tailtrail docs-only --root .
+--goal "<prose-only goal>" --path <file.md> [--path <file.md> ...]` mints a
+real approved anchor+lock for pure-prose edits with no production-signal
+wording -- use it instead of the manual hook-bypass pattern, which should
+now be a last resort, not routine.
+
+**Pre-approve the proof command via `planning revise` BEFORE calling
+`planning activate` -- that window closes permanently once you activate.**
+If the Start Report shows the focused-validation command as `unresolved`
+(common when no test file exists yet for the target script), do this
+*before* activating:
+`tailtrail planning revise --changes
+'[{"kind":"proof-update","requirement_uid":"REQ-01","reason":"...","evidence_plan":["..."],"commands":["<the exact test command>"],"tiers":["unit"]}]'
+--approved-proposal`, then `tailtrail planning revision-approve --revision
+2 --approved` (this both approves the revision and activates the run in
+one step). Calling `planning activate --approved` directly instead
+permanently closes the revision window for that run -- the CLI's own error
+is explicit: *"Interactive Plan Mode is available only while a plan is
+awaiting approval... run `<id>` is `approved`"* -- with no way back short
+of abandoning the run and starting a fresh one. `requirement_uid` in the
+`--changes` JSON can be the plain display ID (`"REQ-01"`), not just the
+minted UID -- `_requirement()` matches either.
+
+**A new file created mid-run (e.g. a test file) still needs a formal
+anchor correction to avoid a permanent `new-drift` finding -- and as of
+this writing, that correction cannot actually clear the drift check.**
+`change-intent-anchor.py correct --likely-path <path> --reason "..."` is
+the sanctioned way to add the path, but see the open bug logged in
+`TAILTRAIL-ISSUES-LOG.md` Section 13: `harness-checkpoint.py` and
+`drift_analysis.py` both hardcode reading `approved-v1.json` and never see
+a correction's `approved-v2.json`+, so the drift finding never actually
+clears today, no matter how correctly you follow this procedure. If you
+hit this, that's the known bug, not something wrong with your correction.
 
 ## 6. Closing a run efficiently
 
@@ -191,6 +221,16 @@ harness when a run's selected controls don't need it.
   intermittently fail on a packet/scope-evidence fingerprint mismatch with
   no repository change in between -- confirmed non-deterministic across
   repeated identical attempts, not a simple staleness issue.
+- **`harness-checkpoint.py` and `drift_analysis.py` both hardcode reading
+  `anchors/approved-v1.json` and never see a later `change-intent-anchor.py
+  correct` version** -- a mid-run anchor correction (e.g. adding a new test
+  file's path) succeeds and is honored by `write_guardian`, but the
+  completion/closure pipeline keeps reporting the corrected path as
+  `new-drift` forever, since it never reads past v1. This silently defeats
+  the documented mid-run-correction mechanism for its entire purpose. See
+  `TAILTRAIL-ISSUES-LOG.md` Section 13 for the full live reproduction and
+  exact fix locations.
 
-Both are deliberately deferred rather than folded into unrelated work --
-check current background-task state before re-investigating from scratch.
+All three are deliberately deferred rather than folded into unrelated
+work -- check current background-task state before re-investigating from
+scratch.

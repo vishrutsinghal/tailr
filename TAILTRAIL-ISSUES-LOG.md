@@ -1305,3 +1305,162 @@ this evidence, done this time through the real `tailtrail docs-only`
 command (run `doc-20261011101650-5aac8c`) rather than the manual
 hook-bypass pattern used throughout Section 12 -- dogfooding the exact fast
 lane this session verified works back in Issue 5.
+
+---
+
+## 13. Harness checkpoint and drift analysis always read the frozen `approved-v1.json`, never a corrected anchor version (Open -- core closure-path bug)
+
+**Discovered while:** doing a clean, correct redo of a real bug fix to
+`scripts/scanner-graph-overlay.py` (private-key redaction pattern never
+actually matching real multi-line PEM blocks, since the pipeline splits
+the report into individual lines before redaction runs) properly through
+TailTrail's own workflow this time -- `tailtrail start` -> `planning
+revise` (pre-approving the proof command before activation, a lesson from
+a first, abandoned attempt at this same fix) -> `planning revision-approve`
+(activates) -> implement the fix -> create a new regression test ->
+`tailtrail pipeline handoff` to the TESTING badge -> `execution-evidence
+run --approved` (recorded real, trusted, passing evidence) -> `closure
+record`. This is exactly the documented, correct sequence for the common
+case where a new test file is needed mid-run and wasn't known at Start
+time.
+
+**Symptom:** `tailtrail closure record` kept reporting the identical
+`new-drift` finding -- *"actual edit `tests/test_scanner_graph_overlay.py`
+is outside approved editable scope"* -- no matter what was done to correct
+the approved anchor. Tried twice: first adding the new test path as a
+role-tagged `{"path": ..., "role": "proof-only"}` entry via
+`change-intent-anchor.py correct` (wrote `approved-v2.json`), then
+(suspecting the role-tagged shape itself was the problem) as a plain
+string (wrote `approved-v3.json`). Both corrections were confirmed written
+correctly by reading each file back directly. Neither changed the drift
+result at all -- byte-for-byte identical finding both times.
+
+**Root cause, confirmed by direct code inspection, not inference:**
+- `scripts/harness-checkpoint.py:47`:
+  `anchor=read(directory/"anchors"/"approved-v1.json")` -- hardcodes the
+  literal filename `"approved-v1.json"`.
+- `scripts/drift_analysis.py:40`: `ANCHOR_FILENAME = "approved-v1.json"`
+  -- the same hardcoding, as a module constant used throughout the file's
+  anchor-loading logic. The file's own docstring at line 8 even describes
+  this as *the* immutable approved anchor, reinforcing the assumption.
+- Both completely ignore `change-intent-anchor.py`'s own
+  `latest_approved(root, run_id)` helper (`scripts/change-intent-anchor.py:166`),
+  which correctly globs `approved-v*.json` and returns the highest
+  version -- the exact function other consumers already use correctly
+  (`write_guardian.py`'s anchor-first check from Issue 4b;
+  `task-recovery-boundary.py`'s scope-freshness `accept-fresh` path from
+  Section 12.4).
+- Net effect: the instant `change-intent-anchor.py correct` writes
+  `approved-v2.json` (or any later version), `harness-checkpoint.py` and
+  `drift_analysis.py` keep reading the original, frozen `approved-v1.json`
+  forever, for the rest of the run. Any correction made through the
+  sanctioned, documented mid-run amendment mechanism is **completely
+  invisible** to the Requirement Completion Harness's checkpoint and
+  drift-detection logic.
+
+**Why this is more severe than a typical per-feature finding:** this
+isn't a narrow feature gap -- it sits directly in TailTrail's own core
+closure-integrity path. This session's own prior work (Issue 4's design
+discussion; `task-recovery-boundary.py`'s scope-freshness `accept-fresh`
+path, verified healthy in Section 12.4) establishes `change-intent-anchor.py
+correct` as *the* sanctioned way to add a legitimately-needed file
+mid-implementation -- precisely the "a test case not known at Start time"
+scenario `TAILTRAIL-PLAYBOOK.md` documents as routine. This bug means that
+path *looks* like it works (the correction command succeeds;
+`write_guardian` honors the new path for actual edits, since it correctly
+uses `latest_approved`) but **the completion/closure pipeline can never
+recognize it**, so any run that legitimately needs a mid-run correction is
+permanently blocked from a clean, fully-evidenced `complete` closure via
+`tailtrail closure finalize`/`completion-report` -- regardless of how
+carefully the host follows the documented procedure. This is not a
+cosmetic bug; it makes a documented, sanctioned recovery path silently
+non-functional for its stated purpose.
+
+**Live reproduction, exact commands run in order:**
+1. `tailtrail start "Fix scanner-graph-overlay.py so the private-key
+   redaction pattern actually redacts real multi-line PEM key blocks
+   before per-line finding extraction splits the report into individual
+   lines" --changed scripts/scanner-graph-overlay.py --aidlc standard`
+2. `tailtrail planning revise --root . --run-id <id> --changes
+   '[{"kind":"proof-update","requirement_uid":"REQ-01", ...
+   "commands":["... -m unittest tests.test_scanner_graph_overlay"],
+   "tiers":["unit"]}]' --approved-proposal` (v1 -> v2)
+3. `tailtrail planning revision-approve --root . --run-id <id> --revision 2
+   --approved` (activates)
+4. Implemented the fix in `scripts/scanner-graph-overlay.py`; created
+   `tests/test_scanner_graph_overlay.py` (6 tests)
+5. `tailtrail pipeline handoff --from-stage IMPLEMENTATION` to the TESTING
+   badge
+6. `tailtrail execution-evidence run --approved --requirement <uid> --tier
+   unit --command "... -m unittest tests.test_scanner_graph_overlay"` --
+   recorded trusted `pass` evidence, exit code 0
+7. `tailtrail closure record` -- drift finding: test file "outside
+   approved editable scope"
+8. `change-intent-anchor.py correct --likely-path '{"path":
+   "tests/test_scanner_graph_overlay.py", "role": "proof-only"}'` -- wrote
+   `approved-v2.json`, confirmed by reading it back
+9. `tailtrail closure record` again -- **identical** drift finding,
+   byte-for-byte
+10. `change-intent-anchor.py correct --likely-path
+    "tests/test_scanner_graph_overlay.py"` (plain string this time) --
+    wrote `approved-v3.json`, confirmed by reading it back
+11. `tailtrail closure record` again -- **still identical** drift finding
+12. Traced to source: both `harness-checkpoint.py` and `drift_analysis.py`
+    read `approved-v1.json` literally, confirmed by `grep` and by reading
+    the exact line numbers directly.
+
+**A separate, smaller issue found along the way, already logged
+elsewhere -- not new:** even setting the v1-hardcoding bug aside, the
+role-tagged `{"path", "role"}` shape from correction attempt #1 (step 8
+above) would *still* fail once the anchor-version bug is fixed, because
+`drift_analysis.py`'s `_approved_editable()` (`scripts/drift_analysis.py:94`)
+does `_normalize_path(path) for path in row.get("likely_paths", [])`,
+where `_normalize_path(value: str)` expects a plain string -- a dict entry
+would corrupt via `str(dict)`, the same class of bug already fixed for
+other consumers under Issue 4b. This is a **live, direct confirmation**
+of Issue 6's own "Follow-up not yet done" note, which already named
+`drift_analysis.py` as one of three consumers (`write_guardian.py`,
+`drift_analysis.py`, `delivery-record.py`) never updated to read the
+role-tagged shape -- not a new discovery, just independent proof the gap
+is real and reachable in practice, not just theoretical.
+
+**Current state of the affected run:** `start-20261011103755-35568d` has
+a real, correct code fix (`scripts/scanner-graph-overlay.py`'s
+`read_lines()` now redacts multi-line PEM blocks before line-splitting,
+exactly as intended) and a real, passing regression suite
+(`tests/test_scanner_graph_overlay.py`, 6/6, recorded as genuinely
+*trusted* execution evidence via `execution-evidence run --approved`, not
+just something run in a side-channel shell). It cannot reach `complete`
+closure through `tailtrail closure finalize`/`completion-report`, purely
+because of this bug -- not because the fix or the proof is actually
+incomplete. An earlier, now-abandoned attempt at this same fix
+(`start-20261011102614-35568d`) hit a related but distinct problem:
+activating via `planning activate --approved` directly (skipping
+`planning revise`) permanently closes the IP-3 revision window for that
+run -- a sequencing lesson, not a bug, now recorded in
+`TAILTRAIL-PLAYBOOK.md` section 5.
+
+**Status:** Open, not fixed. Given its severity (silently defeats the
+sanctioned mid-run-correction path for its entire stated purpose) and
+that it spans two core closure-path files, this needs its own dedicated
+TailTrail run to fix properly -- explicitly out of scope for the run that
+found it, and left for deliberate follow-up rather than folded in here.
+
+**Where to look when picking this up:**
+- `scripts/harness-checkpoint.py:47` -- replace the hardcoded
+  `anchors/approved-v1.json` read with
+  `change_intent_anchor.latest_approved(root, run_id)`.
+- `scripts/drift_analysis.py:40` (`ANCHOR_FILENAME`) and every place it's
+  used for anchor loading -- same fix; also correct the module docstring
+  at line 8, which currently documents the v1-only assumption as if it
+  were the intended design.
+- `scripts/drift_analysis.py:94` (`_approved_editable`) -- while already
+  in this area, also apply the role-tagged-path tolerance already used
+  elsewhere under Issue 4b/6 (a `_path_str`/`_local_path`-style
+  extraction instead of bare `str(path)`).
+- Regression risk to verify carefully before considering this done: the
+  normal, no-correction case (a run that never calls `change-intent-anchor.py
+  correct`) must behave identically before and after, since `approved-v1.json`
+  and "latest approved" are the same file in that case -- the fix should
+  be a pure extension, not a behavior change, for every run that never
+  needed a correction.
