@@ -85,8 +85,8 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Assistant adapters / conformance | healthy | 11/11 green incl. CLI/MCP/markdown fingerprint parity; host projections agree |
 | Token suite | untested | not exercised |
 | UI planning / visual reqs | untested | not exercised |
-| Benchmarks / evaluation | degraded | frozen snapshots; meta-harness benches stale |
-| Meta-harness | aspirational | 6/16 tests red; never run here; see review |
+| Benchmarks / evaluation | fixed | 28/28 pre-existing tests pass; "degraded" note root-caused to genuine tailtrail-registry.json drift (8 real unclaimed scripts/commands), not a code bug. Fix attempt hit a new, deeper scope-resolution gap (JSON/config files can't resolve as scope); parked by explicit decision -- see issues log 12.12 |
+| Meta-harness | fixed | the exact 6 failing tests root-caused: all fail on one shared, genuine registry-drift signal (not a meta-harness bug) -- see issues log 12.12 for the full root cause and the new scope-resolution gap found while attempting the registry fix |
 | Release / export / install flows | untested | not exercised (launcher skew is env-level, known) |
 | Cross-repo / AST / impact graph | untested | not exercised |
 | Orphan lock hygiene | hygiene | ~12 awaiting locks from verification runs |

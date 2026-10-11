@@ -1555,6 +1555,99 @@ live" gap that applies to every MCP tool beyond this one are still open
 territory -- this entry closes the one concrete, already-flagged problem,
 not a full MCP surface sweep.
 
+### 12.12 Benchmarks/Evaluation and Meta-Harness (Tier 3) -- registry drift root-caused; a new, deeper scope-resolution gap found and parked (Open)
+
+**Why this one:** `Benchmarks / evaluation`'s `degraded` note ("frozen
+snapshots; meta-harness benches stale") and the separate `Meta-harness`
+row's `aspirational` note ("6/16 tests red") both pointed at the same
+underlying signal. Investigated together since they share one root cause.
+
+**Root cause, confirmed genuine, not a bug:** all 6 `tests.test_meta_harness`
+/ `tests.test_meta_harness_token_feedback` failures share one pattern --
+`registry_maturity.status` comes back `"drift"` where the tests assert
+`"healthy"`, which cascades into `proposal.status: "no_proposal"` (instead
+of `"proposed"`) and a lower-confidence readiness tier
+(`advise_repo_maintainer` instead of `recommend_central_tailtrail_improvement`).
+Ran `tailtrail-registry.py validate` directly: it reports 8 real,
+currently-true issues -- `tailtrail docs-only`, `tailtrail prompt`, and six
+scripts (`delivery-record.py`, `docs-only.py`,
+`host-interpretation-builder.py`, `prompt_builder.py`, `run-closeout.py`,
+`start_request.py`) are genuinely unclaimed by any registry feature, mostly
+because they were created or added during this very session (Issues 5, 9,
+3a, and my own scratch tooling) without a corresponding registry update.
+**This means the meta-harness code and its test fixtures are both
+correct** -- the registry really is stale right now, and `registry_maturity`
+is accurately reporting that, not malfunctioning. The fix is a registry
+data update (claim the 8 unclaimed items under the `navigator` and
+`requirement-completion-harness` features, matching how `tailtrail pipeline`
+was registered for Issue 7), not a code change to the meta-harness.
+
+**New finding while attempting that fix -- JSON/config files cannot
+resolve as Navigator scope through either normal path (Open):**
+
+- **Attempted:** a real `tailtrail start` cycle targeting
+  `tailtrail-registry.json` (the only file that needed editing). Natural
+  goal phrasing repeatedly produced ambiguous multi-requirement scope
+  splits (mentioning several unclaimed script names in the goal caused
+  Navigator to treat each as a candidate target). Supplying an explicit
+  single-requirement `--requirement-interpretation` fixed that, but
+  `tailtrail-registry.json` itself **never appeared in
+  `eligible_candidates`** across every attempt, including with
+  `--changed tailtrail-registry.json` explicitly passed.
+- **Confirmed via the raw packet, not inference:** `tailtrail-registry.json`
+  *is* correctly discovered -- it appears as a real anchor
+  (`anchor:entrypoint:tailtrail-registry.json`) and a real "convention"
+  entry (`{"path": "tailtrail-registry.json", "reason":
+  "configuration-path-convention"}`) -- but zero of the packet's 12
+  relationship edges connect to it at all, and `eligible_candidates`
+  draws only from edge-backed ownership evidence, not convention
+  signals.
+- **The documented escape hatch for this exact case
+  (`--host-scope-proposal` with `claim_role: "proposed-new"`) is also
+  blocked, confirmed by checking the schema, not assumed:**
+  `schemas/navigator-host-scope-proposal.schema.json` requires
+  `proposed-new` claims to carry `convention_refs` matching
+  `^edge-[0-9a-f]{12}$` -- a real relationship-edge ID. Since
+  `tailtrail-registry.json` has zero edges, there is no real edge ID to
+  ground the claim in. Fabricating one would mean submitting evidence that
+  doesn't exist, which this system's design specifically exists to reject
+  -- not attempted.
+- **Why this matters beyond this one file:** this is structurally the
+  same class of gap Issue 5 found for markdown/prose files (Navigator's
+  scope resolution is fundamentally code-graph-centric), but one layer
+  deeper -- Issue 5's fix (the docs-only fast lane) only covers
+  `.md`/`.rst`/`.txt`/`.adoc`. `tailtrail-registry.json` is a `.json`
+  config/data file, outside that lane's scope, and outside normal
+  ownership eligibility too. Any future task whose sole edit target is a
+  JSON/YAML config or data file (not just this specific registry) will
+  likely hit the identical wall.
+- **What was ruled out:** this is not a `--changed` wiring bug --
+  `--changed` correctly seeds the path as a candidate for `.py` files
+  throughout this entire session; the gap is specifically that
+  config/data files never accumulate the edge-based evidence
+  `eligible_candidates`/`proposed-new` both require, regardless of how
+  they're seeded.
+
+**Status:** Open, parked by explicit user decision (not forced through a
+hook-bypass workaround, unlike the pre-Issue-4 config-file pattern -- kept
+clean for future investigation). The registry drift itself (the 8 unclaimed
+items) also remains unclaimed as a result -- both the meta-harness test
+failures and the scope-resolution gap are left for deliberate follow-up.
+
+**Where to look when picking this up:**
+- For the scope-resolution gap: `scripts/navigator_scope.py`'s
+  `eligible_candidates`/ownership-qualification logic (likely needs a
+  convention-based or extension-based eligibility path parallel to the
+  edge-based one, analogous to how `is_docs_only_fast_lane()` created a
+  parallel path for prose files rather than forcing prose through the
+  code-graph gate).
+- For the registry drift itself, once scope resolution allows editing
+  `tailtrail-registry.json`: `tailtrail-registry.py validate`'s own output
+  names the exact 8 items and the best-fit existing features
+  (`navigator` for `docs-only`/`prompt`/`start_request.py`/
+  `host-interpretation-builder.py`; `requirement-completion-harness` for
+  `delivery-record.py`/`run-closeout.py`).
+
 ---
 
 ## 13. Harness checkpoint and drift analysis always read the frozen `approved-v1.json`, never a corrected anchor version (Fixed)
