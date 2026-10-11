@@ -1492,6 +1492,69 @@ validation-claim) are precise in every scenario tried. The fourth
 false-positive high-severity findings on any manifest metadata edit, not
 just actual dependency changes.
 
+### 12.11 MCP Server (Tier 3) -- `scripts/mcp-server.py`'s `tailtrail_start` tool (Fixed)
+
+**Why this one:** the feature-health inventory already marked MCP server
+`degraded` with one pre-existing failing test
+(`test_fsr5_mcp_validates_host_reasoning_then_creates_only_the_resolved_run`),
+rather than `untested` -- a confirmed, known-broken state, not just
+unexercised territory. Picked over the remaining `untested` Tier 3 rows
+(Token suite, UI planning, Release/export, Cross-repo/AST) because a
+`degraded` row with a concrete, already-identified failure brings more
+immediate value than exploring unknown territory.
+
+**Root cause, confirmed by direct reproduction:** the FSR-5 workflow
+submits a deliberately wrong `host_scope_proposal` (inventing a
+nonexistent file as the owner), expects it to be rejected, then resubmits
+`tailtrail_start` with that same invented proposal attached -- expecting
+`scope_contract.state: "ambiguous"` back, the same state as before any
+proposal was ever tried. Instead the MCP response came back with
+`scope_contract: None`. Traced directly: `task-start.py` correctly fails
+loudly on a rejected proposal (`parser.error("scope-owner proposal was
+rejected: ...")`, exit code 2) -- this is Issue 1's own fix from earlier
+in this session, working exactly as designed at the CLI level. But that
+leaves **no stdout at all** for the MCP wrapper to parse (confirmed by
+inspecting `execution.stdout` directly: an empty string), so
+`requirement_scope_transport()` received an empty string instead of a
+dict and correctly returned `None` for `scope_contract` -- the MCP
+transport layer was never updated to translate a CLI-level rejection into
+a usable MCP response.
+
+**Fix (implemented through a real `tailtrail start` cycle, run
+`start-20261011143314-93a25b`):** `tailtrail_start()` now detects this
+exact failure shape -- `host_scope_proposal` was supplied, the command
+exited non-zero, and stderr contains "scope-owner proposal was rejected"
+-- and retries the identical command with `--host-scope-proposal` removed,
+via a new `_drop_flag()` helper. The host still gets a real, current scope
+contract (ambiguous, since nothing changed) instead of an empty response.
+Considered adding an explicit `host_scope_proposal_rejected: true` field
+to the response for better host-side UX, but the shared scope-tool output
+schema (`scope_tool_output_schema()`) sets `additionalProperties: False`,
+so an undeclared field would need a schema change too -- out of scope for
+the smallest compliant fix; left out.
+
+**Verified:** the previously-failing
+`test_fsr5_mcp_validates_host_reasoning_then_creates_only_the_resolved_run`
+now passes. Ran the full `tests.test_mcp_server` (63 tests) +
+`tests.test_host_adapter_conformance` (11) + `tests.test_navigator_scope`
+(118) -- 192/192 pass, no regressions. Closed the run through the real
+cycle: `planning revise` (pre-approving the existing
+`tests/test_mcp_server.py` suite as proof, applying the sequencing lesson
+from the scanner-graph-overlay fix -- this time *before* activating, not
+after), `planning revision-approve` (activates), implement, then
+`execution-evidence run --approved` with both `unit` and `contract` tiers
+(the anchor's validation contract required both, correctly unioned by the
+revision rather than letting one replace the other), `closure record`,
+`completion-report` (**Overall: complete** on the real run, not a
+synthetic fixture), `closure finalize`.
+
+**Net assessment for this feature:** the MCP server's degraded status is
+resolved for its one known, confirmed failure. Both the `untested`
+remainder of Tier 3 and the "fewer tool-level scenarios actually exercised
+live" gap that applies to every MCP tool beyond this one are still open
+territory -- this entry closes the one concrete, already-flagged problem,
+not a full MCP surface sweep.
+
 ---
 
 ## 13. Harness checkpoint and drift analysis always read the frozen `approved-v1.json`, never a corrected anchor version (Fixed)

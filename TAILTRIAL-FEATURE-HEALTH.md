@@ -77,7 +77,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 
 | Feature | Health | Basis |
 |---|---|---|
-| MCP server | degraded | 62/63 suite green; `start_report` now forwards aidlc/graph/host via shared ground; 1 pre-existing fsr5 failure proven identical on clean tree |
+| MCP server | healthy | 63/63 suite green. The fsr5 failure is fixed: `tailtrail_start` now falls back to the current (ambiguous) scope contract when a resubmitted host-scope-proposal is rejected, instead of returning an empty result -- fixed and closed through a real `tailtrail start` cycle -- see issues log 12.11 |
 | Official AIDLC lifecycle | healthy | Standard/Full packs green in suites |
 | Spec-Kit bridge | healthy | 32 pre-existing tests across 9 files all pass; `untested` was flatly wrong -- this is a mature, extensively-tested subsystem (import/amendment/evidence/convergence/slices/policy/observability/navigator-bridge). CLI dispatcher (`tailtrail intent-bridge`/`spec-kit`) smoke-tested: requires `--allow-incubating` by design (maturity gate, not a bug) -- see issues log 12.8 |
 | CI/Sonar + scanners | fixed | sonar-summary.py: 4/4 live scenarios pass, healthy. scanner-graph-overlay.py: found and fixed a real security-relevant bug (private-key redaction unreachable for real multi-line PEM blocks); fixed via a real tailtrail start cycle with trusted execution evidence -- see issues log 12.9 |

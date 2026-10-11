@@ -2383,9 +2383,39 @@
       "recorded_at": "2026-10-10T03:15:52.510789+00:00",
       "run_id": "start-20261010031445-db0577",
       "scope_decision_fingerprint": "sha256:8875a8ecc8a89806b46ed13d14b0be2b57e4a06a009d18df721866cc172c549f"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:1345a27c6faedea8d4f11f7f4e3dcac095d460728065e69030903bb29f986d70",
+      "graph_cache_fingerprint": "sha256:6cf285bea4ad42fa6014c87086e6e98314462b725bedec7a9be26f4c105aefd9",
+      "mapping_fingerprint": "sha256:e1d3bf9d0f9987a942c13fe2a0326f0975a684b33f5c6bbb4528d873b6235507",
+      "path_hashes": {
+        "scripts/mcp-server.py": "sha256:c567d6b8e3948ddc362fae935f87aa8264f58be52e7b2288f0003368a88ef767",
+        "scripts/navigator-scope-release.py": "sha256:b0ee0301d1e830ce5e4b17cdc9ce5c1c6c9332141266b5ce5b0de8d92b20e478"
+      },
+      "query_terms": [
+        "ambiguous",
+        "contract",
+        "empty",
+        "fix",
+        "host-scope-proposal",
+        "instead",
+        "mcp-server",
+        "rejected",
+        "resubmission",
+        "result",
+        "returns",
+        "scope",
+        "tailtrail_start",
+        "the",
+        "tool"
+      ],
+      "recorded_at": "2026-10-11T14:40:18.692217+00:00",
+      "run_id": "start-20261011143314-93a25b",
+      "scope_decision_fingerprint": "sha256:31b9f46e27e9df067109cd2061da00d36cb88b384cb07c0221bac5033efa02dd"
     }
   ],
   "schema_version": "1",
   "type": "tailtrail-navigator-run-mapping-index",
-  "updated_at": "2026-10-10T03:15:52.510797+00:00"
+  "updated_at": "2026-10-11T14:40:18.692226+00:00"
 }
