@@ -25,7 +25,10 @@ the entries there.
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
-do not).
+do not). See **Section 12** for the newer, systematic feature-by-feature
+validation sweep (driven by `TAILTRIAL-FEATURE-HEALTH.md`'s `untested` rows)
+-- a different track from the ad-hoc bug discoveries above: each entry there
+names the feature, the live scenarios run against it, and any finding.
 
 ---
 
@@ -615,3 +618,136 @@ covered in full detail above are cross-referenced rather than repeated.
 | R7 | Collapse the repeated Start Report boilerplate into a one-line reference instead of reprinting the full static sections every run. | Open, not implemented. A tool-output design question, independent of the separate host-behavior rule that a Start Report be pasted verbatim once shown. |
 | R8 | Loosen clause/intent-term grounding to tolerate reasonable paraphrase, or at least give a precise diff of "expected this exact substring" instead of a bare rejection. | **Half done (Issue 9).** Precise diff on rejection is implemented, including closest-token hints and playbook/builder pointers. Loosening the grounding itself stays **not recommended** (see Issue 9): strict exact-substring grounding is what stops host paraphrase drift. Keep grounding strict. |
 | R9 | Make `--run-id` either honor the passed ID or fail loudly if it can't, instead of silently substituting a new one. | **Withdrawn.** Based on a misunderstanding -- see Issue 10. `--run-id` was never meant to pin a new run's ID; it's working exactly as designed for its actual purpose (correction/recovery context on an existing run). |
+
+---
+
+## 12. Feature-wise validation findings
+
+A separate, systematic track from Sections 1-10 above. Those were bugs found
+incidentally while doing real implementation work; this section is the
+deliberate sweep driven by `TAILTRIAL-FEATURE-HEALTH.md`'s three-tier feature
+inventory -- working down its `untested` rows one feature at a time, running
+multiple live scenarios against each (not just checking for an existing green
+test suite, since by definition these rows have none), and recording what was
+actually found. Each entry names the feature, why it was picked, exactly what
+scenarios were run and how, the results, and the detailed analysis of any
+real finding.
+
+### 12.1 Quality Loop (Tier 2) -- `scripts/quality-loop.py` / `tailtrail quality-loop`
+
+**Why this one first:** first `untested` row under Tier 2 (quality harnesses)
+in `TAILTRAIL-FEATURE-HEALTH.md`. Confirmed genuinely untested, not just
+unexercised this session, by grepping for a dedicated test file -- none
+exists (`tests/test_quality_loop.py` does not exist, unlike every other
+feature in Tiers 0-1). Picked over the other Tier 2 `untested` rows (Context
+continuity, Recovery/Mode B, Safe Git/recovery, Conflict reconciliation,
+Flaky tracker/CI ingest) because it is self-contained -- pure CLI over one
+append-only JSONL file, no dependency on a full Start/Planning Lock cycle --
+so many scenarios could be run fast without heavyweight setup.
+
+**What the feature does:** a reviewable, non-self-healing feedback loop.
+`capture` records a compact behavior event (which TailTrail workflow was
+selected, whether it fit the task, user outcome, missed/overlapping gates)
+only with explicit `--approved`; `summarize`/`review` aggregate approved
+events into counts and advisory tuning proposals; `decide` records an
+approved or rejected decision about TailTrail usage rules. Nothing it
+produces is ever applied automatically -- every proposal is advisory, per
+`context/quality-loop.md`.
+
+**Method:** 11 scenarios (18 individual assertions, since several scenarios
+test both sides of a boundary) run live via `subprocess` against the real
+`scripts/quality-loop.py` CLI and the `tailtrail.py quality-loop` dispatcher,
+each against a disposable `tempfile.TemporaryDirectory()` root, inspecting
+actual files written to disk -- not mocks, not unit-test fixtures:
+
+1. `capture` without `--approved` previews only and writes nothing to
+   `.tailtrail/quality-events.jsonl`.
+2. `capture --approved` actually appends a correctly-shaped event (right
+   fields, right values, `schema_version` present).
+3. Bad enum values (`--fit super-heavy`, `--outcome meh`,
+   `--sensitivity top-secret`) all hard-fail via `SystemExit` and write
+   nothing.
+4. A secret-looking `--notes` value (a fake AWS key + a fake GitHub token)
+   -- see the finding below.
+5. Two events timestamped in different months stay correctly separated by
+   `summarize --month`; no bleed-through.
+6. An event captured with `--sensitivity sensitive` is excluded from
+   `summarize` by default and only appears with `--include-sensitive`.
+7. Every branch in `propose_improvements()` tested at its exact numeric
+   boundary, both sides: too-heavy fit ratio at exactly 20% (must NOT fire,
+   since the code uses strict `>`) versus 30% (must fire); rejected+revised
+   count at exactly 2 (must NOT fire, threshold is `>= 3`) versus exactly 3
+   (must fire); `dependency-gate` missed exactly once (must NOT fire,
+   threshold is `> 1`) versus exactly twice (must fire); zero `learning`
+   workflow selections with 4 total events (must NOT fire, needs `>= 5`)
+   versus exactly 5 (must fire).
+8. `decide` without `--approved` hard-fails and writes nothing; `decide
+   --approved` called twice in a row appends both entries to
+   `quality-decisions.md` without clobbering the first.
+9. A hand-corrupted line in `quality-events.jsonl` (invalid JSON) makes
+   `summarize` fail with a `SystemExit` that names the exact line number,
+   instead of crashing opaquely or silently dropping the bad line.
+10. `python3 scripts/tailtrail.py quality-loop summarize ...` and calling
+    `scripts/quality-loop.py summarize ...` directly produce byte-identical
+    stdout for the same inputs (dispatcher parity).
+11. `review --format json` and `review --format markdown` both succeed
+    against the same underlying data and agree on the figures (events
+    checked, proposal set) -- rendering is a pure view, not a second source
+    of truth.
+
+**Results:** 17 of 18 assertions passed exactly as the code's own logic
+predicts -- the fail-closed write gate, enum rejection, month/sensitivity
+partitioning, every proposal threshold's exact boundary (strict `>` vs
+`>= `), `decide`'s approval gate and non-clobbering append, the named
+`SystemExit` on a corrupted line, CLI-dispatcher/direct-script parity, and
+JSON/Markdown render consistency are all solid, live-proven behavior, not
+just unit-test green.
+
+**Finding (scenario 4) -- documented privacy rule is not enforced in code
+(Open):**
+
+- **Symptom:** `context/quality-loop.md` states, as a hard rule: *"Do not
+  store secrets, credentials, PII, PHI, customer data, or raw logs."*
+  Running `quality-loop.py capture --approved --notes "AWS_SECRET_ACCESS_KEY=
+  wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY ghp_1234567890abcdefTOKEN"` wrote
+  that string -- fake credentials, but realistically shaped ones -- verbatim
+  (only whitespace-collapsed and truncated to 240 characters) into
+  `.tailtrail/quality-events.jsonl`.
+- **Root cause:** `build_event()` in `scripts/quality-loop.py` passes every
+  free-text field (`notes`, `goal_summary`, `validation_summary`,
+  `improvement_suggestion`) through `safe_text()`, which only does
+  `" ".join(value.strip().split())[:limit]` -- whitespace normalization and
+  length truncation. There is no secret-pattern scan, no PII heuristic, no
+  rejection path anywhere in the module. The rule in `context/quality-loop.md`
+  is real documentation, correctly worded, but it currently has zero code
+  backing it -- it relies entirely on whoever runs `capture` remembering not
+  to paste a secret into a free-text field.
+- **Why this matters more than an average `untested` gap:** Quality Loop's
+  entire purpose is to persist compact behavior data to a durable local file
+  for later review/tuning. A feature whose job description includes "handle
+  this safely" is a more sensitive place for a documented-but-unenforced
+  safety rule to sit than an arbitrary untested feature would be -- the gap
+  is small in code surface but sits exactly on the feature's one stated
+  safety guarantee.
+- **What it is not:** not a crash, not a data-integrity bug, not a
+  regression -- every other scenario against this feature (gating, boundary
+  math, corruption handling, dispatcher parity) passed cleanly. This is a
+  single, specific, narrow gap in one safety rule's enforcement.
+- **Status:** open, not yet fixed or triaged into a priority. Two options
+  were raised and left for a decision: (a) add a small regex-based scrub for
+  common secret shapes (AWS keys, GitHub/GitLab tokens, bearer tokens, etc.)
+  across the four free-text fields in `build_event()`, rejecting or
+  redacting a match, with a focused new test; or (b) soften the documentation
+  in `context/quality-loop.md` to accurately describe today's behavior
+  (best-effort truncation only, not a scanner) until enforcement is actually
+  built. Neither has been applied yet.
+- **Where to look when picking this up:** `scripts/quality-loop.py:94`
+  (`build_event`) and `:51` (`safe_text`); `context/quality-loop.md:43` for
+  the rule text as currently written.
+
+**Net assessment for this feature:** everything structural (fail-closed
+gates, threshold math, data-integrity handling, CLI wiring, render
+consistency) is solid and live-proven. `TAILTRIAL-FEATURE-HEALTH.md`'s
+Quality Loop row should move from `untested` to reflect this -- healthy on
+every mechanical axis, with the one open privacy-enforcement gap called out
+explicitly rather than folded silently into a blanket "healthy."
