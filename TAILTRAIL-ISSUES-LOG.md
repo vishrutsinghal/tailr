@@ -12,7 +12,7 @@ the entries there.
 | # | Issue | Status |
 |---|---|---|
 | 1 | Scope-owner answers silently discarded (two separate points) | **Fixed** |
-| 2 | Thin-evidence candidates missing `content_fingerprint` | Parked (`task_e574f8bd`) |
+| 2 | Thin-evidence candidates missing `content_fingerprint` | **Fixed** (verified end-to-end) |
 | 3 | `--host-scope-proposal` fingerprint drift across calls | Parked (`task_3dcf1d8e`) |
 | 4 | write_guardian role classifier rejects root-level config/registry files | **Fixed** (generic anchor-first + classifier fallback) |
 | 5 | Doc/markdown files can't resolve as Navigator-owned scope | **Fixed** (docs-only fast lane, no full plan) |
@@ -65,7 +65,7 @@ see Issue 2) instead of looping.
 
 ---
 
-## 2. Thin-evidence candidates missing `content_fingerprint` (Parked)
+## 2. Thin-evidence candidates missing `content_fingerprint` (Fixed)
 
 **Symptom:** a scope-owner proposal that is structurally correct and
 well-narrowed can still be rejected with
@@ -82,15 +82,31 @@ hash>`, so it fails -- not because anything is wrong with the file or the
 proposal, but because the fingerprint was never computed for that candidate
 in the first place.
 
-**Status:** parked as background task `task_e574f8bd`. Confirmed by tracing
-`prepare_scope_answer_proposal()` and `host_proposal_decision()` directly
-with a scratch script against a real stuck packet -- the proposal itself was
-correct; only the pre-existing candidate data was incomplete.
+**Status:** fixed via background task `task_e574f8bd` (commit `51cf870`,
+merged via PR #1). Confirmed by tracing `prepare_scope_answer_proposal()`
+and `host_proposal_decision()` directly with a scratch script against a real
+stuck packet -- the proposal itself was correct; only the pre-existing
+candidate data was incomplete.
 
-**Where to look when picking this up:** candidate construction in
-`scripts/navigator_scope.py` -- search for `content_fingerprint` assignment
-and the code path taken when a candidate's only evidence is a `--changed`
-assertion or a single weak edge.
+**Fix:** `scripts/navigator_scope.py`'s `investigate()` now backfills a real
+`content_fingerprint` (sha256 of the file's actual content) for any included
+implementation-owner candidate that reaches the end of discovery without
+one, bypassing the normal discovery read budgets since the path is already
+committed to scope at that point -- exactly the `--changed`-only,
+single-weak-edge case that left the field empty before.
+
+**Independently verified end-to-end (2026-10-11):** inspected a real,
+existing file (`scripts/docs-only.py`) added purely via `--changed` and
+confirmed its candidate record now carries a real `content_fingerprint`
+that matches the file's actual `shasum -a 256` exactly (previously this was
+`""`). Rebuilt the full original failure end-to-end -- a goal that produces
+an ambiguous "too many owners" route plus a `--host-scope-proposal` naming
+the thin-evidence file as the owner -- and it now resolves cleanly
+(`returncode 0`), with no `content-fingerprint-mismatch` anywhere. Also ran
+the full `tests/test_navigator_scope.py` suite (118 tests, including the
+fix's own new test
+`test_thin_changed_only_candidate_gets_backfilled_fingerprint_for_host_proposal`)
+-- all pass.
 
 ---
 
