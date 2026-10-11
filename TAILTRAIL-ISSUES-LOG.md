@@ -1480,3 +1480,93 @@ This entry was recorded under `tailtrail docs-only` run
   and "latest approved" are the same file in that case -- the fix should
   be a pure extension, not a behavior change, for every run that never
   needed a correction.
+
+### 13a. Fix landed and verified for its direct target, but confirmed partial -- a third file has the identical bug, and a much wider codebase pattern exists (Open)
+
+**What was fixed, confirmed by live re-verification against the exact
+blocked run (`start-20261011103755-35568d`), not just unit tests:**
+`scripts/harness-checkpoint.py` and `scripts/drift_analysis.py` both now
+correctly call `change-intent-anchor.latest_approved()`, plus the
+companion role-tagged-path fix. Pulled the fix (`80807da`), ran the
+updated `tests/test_drift_analysis.py` + `tests/test_harness_checkpoint.py`
+(24/24 pass, including the exact `test_mid_run_correction_is_visible_to_checkpoint`
+and `test_uncorrected_run_reads_v1_unchanged` regression-safety tests this
+bug needed). Then re-ran the real, previously-blocked closure sequence
+against the actual run: a fresh checkpoint (`checkpoint-4.json`, after
+clearing the stale cached `closure-recorder.py` record that predated the
+fix -- its reuse-by-content-hash check doesn't know the *code* changed,
+only the evidence) showed `scope_assessment.status: "within-approved-scope"`,
+zero drift findings, and `completion_review.complete: true`. The
+Requirement Completion Harness itself now reports `pass`. **The direct
+bug this session reported is genuinely fixed.**
+
+**But `completion-report`'s overall status still won't reach `complete`,
+for a closely related reason:** `scripts/official-aidlc-state.py:62`
+hardcodes the identical `anchors/approved-v1.json` pattern, used by its
+`project()` function to compute the "canonical state" that
+`completion-report.py` gates overall completion on. This produces a
+**new** `anchor-fingerprint-conflict` error: *"Latest checkpoint was
+produced from a different approved anchor fingerprint"* -- because
+`harness-checkpoint.py` now correctly reports the fingerprint of the
+latest (corrected, v3) anchor, while `official-aidlc-state.py` still
+reports v1's fingerprint. Before the fix, both sides read v1, so they
+trivially agreed (both wrong, but consistent with each other); fixing one
+side without the other turned a previously-silent inconsistency into a
+visible conflict. This is not a new, independent bug -- it is the direct,
+foreseeable consequence of fixing two files in an N-file pattern.
+
+**The pattern is much larger than the two files already fixed.**
+`grep -rn '"anchors".*"approved-v1\.json"' scripts/` (narrowed to actual
+code paths, not docstrings or comments) matches roughly **40 files**,
+including `architecture-fitness.py`, `behavior-harness.py`,
+`closure-close.py`, `closure-correction.py`, `closure-recorder.py`,
+`closure-finalizer.py`, `closure-contract.py`, `completion-report.py`
+(itself, separately from the `official-aidlc-state.py` call it makes),
+`completion-review.py`, `context-continuity.py`, `delivery-record.py`,
+`docs-only.py`, `execution-evidence.py`, `harness-convergence.py`,
+`harness-template.py`, `maintainability-harness.py`,
+`official-aidlc-checkpoint.py`, `official-aidlc-runtime.py`,
+`planning_lock.py` (5 occurrences), `requirement-completion.py`,
+`requirement-impact-map.py`, `requirement-recovery-manifest.py`,
+`session_control.py`, `spec-kit-slices.py`, `task-recovery-boundary.py`,
+`test-tier-selector.py`, `workflow-dashboard.py`,
+`workflow_runtime/compiler.py`, `workflow_runtime/ownership.py`,
+`workflow_runtime/mcp_bridge.py`, and others. Issue 6's original
+"Follow-up not yet done" note from earlier this session only named three
+consumers (`write_guardian.py`, `drift_analysis.py`, `delivery-record.py`)
+-- the true scope was already far larger than that note suggested, even
+at the time it was written.
+
+**Confirmed inconsistent even within a single file:** `delivery-record.py`
+has one function (around line 298-315) already updated to call
+`ANCHOR.latest_approved(root, run_id)` directly, sitting alongside four
+other functions in the same file (lines 79, 242, 321, 380) that still
+hardcode `anchors/approved-v1.json`. This means the fix has been applied
+piecemeal, inconsistently, possibly across multiple separate sessions,
+with no tracking of which call sites still need it.
+
+**Why a blanket find-and-replace is not the right next step:** many of
+these 40 matches may be *legitimate* v1-specific reads (e.g., a check that
+deliberately wants "the originally approved boundary" for a
+material-invalidation comparison, not "whatever is latest"), not every
+occurrence is necessarily the same bug. This needs a careful, deliberate
+audit distinguishing "this should read the latest approved anchor" from
+"this specific check is intentionally anchored to v1" file by file -- not
+a mechanical search-and-replace across 40 files in one pass.
+
+**Status:** Open. The original, narrow bug report (Section 13) is fixed
+and verified. This follow-up establishes that the same defect class is
+pervasive across the codebase, with at least one concrete, currently-active
+symptom (`official-aidlc-state.py`'s canonical-state check blocking
+`completion-report`'s overall status for any run with a mid-run
+correction) and an unknown number of latent ones among the other ~38
+matches not yet individually audited.
+
+**Where to look when picking this up:**
+- `scripts/official-aidlc-state.py:62` -- the immediately active symptom;
+  fix first since it directly blocks closure for any corrected run.
+- `grep -rn '"anchors".*"approved-v1\.json"' scripts/` as the starting
+  inventory for the full audit; cross-reference each hit against whether
+  the surrounding function's intent is "latest" or "specifically v1."
+- `scripts/delivery-record.py` as a worked example of the audit needed --
+  one function already correct, four not, in the same file.
