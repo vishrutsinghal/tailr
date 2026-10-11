@@ -1,10 +1,10 @@
 {
   "schema_version": "1",
-  "created_at": "2026-10-11T07:46:28.441713+00:00",
-  "updated_at": "2026-10-11T07:46:28.441722+00:00",
+  "created_at": "2026-10-11T10:37:58.181495+00:00",
+  "updated_at": "2026-10-11T10:42:19.934591+00:00",
   "tailtrail_version": "local",
   "root": "/Users/vsingha7/Desktop/tailr",
-  "cache_key": "bef0233f5626c016da28c65b1155b9c0c2ca52e5fd6607f74eb5dec8bbef3636",
+  "cache_key": "a8e0051b46450990a5db628c3591c6828d18ad36d3ec4c7738f16806183655de",
   "graph_mode": "navigator-start",
   "scope": [
     "buildweek-demo-project/src/claims_api/validation.py",
@@ -27,10 +27,13 @@
     "scripts/ci-evidence-ingest.py",
     "scripts/closure-contract.py",
     "scripts/closure-correction.py",
+    "scripts/code-graph-mapper.py",
     "scripts/completion-report.py",
     "scripts/debug-completion.py",
     "scripts/debug-correction.py",
     "scripts/debug-host-diagnosis.py",
+    "scripts/debug-intake.py",
+    "scripts/debug-orientation.py",
     "scripts/debug-preflight.py",
     "scripts/debug-privacy.py",
     "scripts/debug-reproduction.py",
@@ -84,7 +87,9 @@
     "scripts/registry-drift.py",
     "scripts/requirement-interpretation-draft.py",
     "scripts/requirement_discovery.py",
+    "scripts/review-graph.py",
     "scripts/run-ledger.py",
+    "scripts/scanner-graph-overlay.py",
     "scripts/spec-kit-bridge.py",
     "scripts/spec-kit-detect.py",
     "scripts/spec-kit-evidence.py",
@@ -125,7 +130,8 @@
     "tests/test_workflow_freshness_recovery.py",
     "tests/test_workflow_ownership.py",
     "tests/test_workflow_phase7.py",
-    "tests/test_write_guardian.py"
+    "tests/test_write_guardian.py",
+    "tests/test_scanner_graph_overlay.py"
   ],
   "build_limit": 40,
   "task_tags": [
@@ -135,7 +141,7 @@
   "language_profiles": {
     "python": {
       "level": 2,
-      "files": 122
+      "files": 127
     }
   },
   "source_files": {
@@ -239,6 +245,11 @@
       "mtime": 1791368780,
       "size": 8636
     },
+    "scripts/code-graph-mapper.py": {
+      "sha256": "62968b98643c36acc67ab8c9f3512d07bb63772818c1ecde2910643bdeb0357e",
+      "mtime": 1791368780,
+      "size": 68951
+    },
     "scripts/completion-report.py": {
       "sha256": "5ec36bde45565829eb68f1d66f340a94b4b693adb2f62cb5f43cc03c2b269944",
       "mtime": 1791559718,
@@ -258,6 +269,16 @@
       "sha256": "80d519283f75ee4d7c3b3660483d0f9f9650ef53a74f96b826b606fea971d070",
       "mtime": 1791368780,
       "size": 46780
+    },
+    "scripts/debug-intake.py": {
+      "sha256": "620452229a8f60870f75dfeb167089eca0d72b01745560fb9075e292e3f32e56",
+      "mtime": 1791368780,
+      "size": 8897
+    },
+    "scripts/debug-orientation.py": {
+      "sha256": "e9fdf071dc1ab043d91d94fe1ae30580281e07074637e647c1d1a871a606d4cd",
+      "mtime": 1791368780,
+      "size": 12368
     },
     "scripts/debug-preflight.py": {
       "sha256": "e08d00d69da9ca4c60106558dc1011eb4897f19a222e0986565b282316f26f14",
@@ -415,9 +436,9 @@
       "size": 17653
     },
     "scripts/mcp-server.py": {
-      "sha256": "feafd2ebcd630aaa7ad4b4b75ba97eee42c524f9bcb137840143ba3f811d95c9",
-      "mtime": 1791378054,
-      "size": 157809
+      "sha256": "9d9c1b39cda360744ca90bfc94deea02aa8a5dfaa0e281cba22017ece4d1973a",
+      "mtime": 1791707517,
+      "size": 158636
     },
     "scripts/meta-harness-propose.py": {
       "sha256": "9579d2c12143001c284ed1313f093cd6787d0ab3477a9a1faa03274a9dde58f4",
@@ -524,10 +545,20 @@
       "mtime": 1791688542,
       "size": 63604
     },
+    "scripts/review-graph.py": {
+      "sha256": "7af76c45c942f4c7f60b76ae1216955f1e0525c1cd1312a812769f013532a1a9",
+      "mtime": 1791368780,
+      "size": 14889
+    },
     "scripts/run-ledger.py": {
       "sha256": "43eb9584bb33f88e3f12438805bac81cab92350f18cad03701768ace22b85197",
       "mtime": 1791368780,
       "size": 21431
+    },
+    "scripts/scanner-graph-overlay.py": {
+      "sha256": "ff9e1e33c110c80086f8f757bb520ee51b3b356b7b522454988975df85df8255",
+      "mtime": 1791715267,
+      "size": 36588
     },
     "scripts/spec-kit-bridge.py": {
       "sha256": "0386176614634de20044b421fcfcc5fdce2611e1b07e58458a27b8bbe7eb3518",
@@ -635,9 +666,9 @@
       "size": 5365
     },
     "tests/test_host_adapter_conformance.py": {
-      "sha256": "a744ffa311e81fb383dc2667ccabf316d3b5130faa6c46f32ef881825ca180d3",
-      "mtime": 1791368780,
-      "size": 16225
+      "sha256": "624b07c48cf37308b102bcc2dc7c72d13a4e707e571e44c9f1fba3339be05711",
+      "mtime": 1791707517,
+      "size": 16251
     },
     "tests/test_mcp_server.py": {
       "sha256": "a179c6389dd668af530835bc31a6474af308aabc39b0ad38cb923a4901c23013",
@@ -765,9 +796,9 @@
       "size": 329
     },
     ".claude/settings.local.json": {
-      "sha256": "fcf8fa83c2b658401c26bce4b38883ff188367df6f9d275cd24309473f62b3ab",
-      "mtime": 1791704674,
-      "size": 78788
+      "sha256": "12d2ee783a6140b37bf34efcbc3632745c7960b0da5afc1f94e0670f2c721766",
+      "mtime": 1791714896,
+      "size": 85934
     },
     ".claude/worktrees/distracted-visvesvaraya-1b0d4f/.claude/settings.json": {
       "sha256": "00e032b8850c41ef351da2afacc0dcdddf9ea133a26dcc4bff1f05b550ba4480",
@@ -783,6 +814,11 @@
       "sha256": "7728aa65318db1e205a6c7684b48b65193ef0e960068eed4916dedda81b1790d",
       "mtime": 1791566131,
       "size": 554
+    },
+    "tests/test_scanner_graph_overlay.py": {
+      "sha256": "a18b39a5231a24773a3f46b92ddca8f9706ddc0568241137e0b49ca4182cd267",
+      "mtime": 1791715310,
+      "size": 6514
     }
   },
   "watch_files": {
@@ -832,8 +868,8 @@
   "scanner_evidence": {},
   "inventory": {
     "algorithm": "path-size-mtime-ns-v1",
-    "file_count": 3072,
-    "fingerprint": "sha256:6027db608872f78935cc28ff199eef8d4b97ea6c67ad67156630d7266057860e"
+    "file_count": 3074,
+    "fingerprint": "sha256:902c520a49d5332f6f61e562626616175129544aa584469248e97ee49934f0df"
   },
   "graph": {
     "changed_files": [
@@ -857,10 +893,13 @@
       "scripts/ci-evidence-ingest.py",
       "scripts/closure-contract.py",
       "scripts/closure-correction.py",
+      "scripts/code-graph-mapper.py",
       "scripts/completion-report.py",
       "scripts/debug-completion.py",
       "scripts/debug-correction.py",
       "scripts/debug-host-diagnosis.py",
+      "scripts/debug-intake.py",
+      "scripts/debug-orientation.py",
       "scripts/debug-preflight.py",
       "scripts/debug-privacy.py",
       "scripts/debug-reproduction.py",
@@ -914,7 +953,9 @@
       "scripts/registry-drift.py",
       "scripts/requirement-interpretation-draft.py",
       "scripts/requirement_discovery.py",
+      "scripts/review-graph.py",
       "scripts/run-ledger.py",
+      "scripts/scanner-graph-overlay.py",
       "scripts/spec-kit-bridge.py",
       "scripts/spec-kit-detect.py",
       "scripts/spec-kit-evidence.py",
@@ -2484,1230 +2525,6 @@
         "language": "python",
         "file": "scripts/install_surfaces.py",
         "line": 197,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "load_registry",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 112,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "registry_read_only_tools",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 122,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "script",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 131,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "json_schema",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 135,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "scope_tool_output_schema",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 144,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "workflow_tool_definitions",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 189,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "tool_definitions",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 226,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_with_maturity_tag",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 420,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "tool_list",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 428,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "ensure_safe_tools",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 432,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "root_from",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 458,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "as_string_list",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 465,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "output_format",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 471,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "command_result",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 476,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "parse_stdout",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 488,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_scope_module",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 497,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "scope_contract",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 507,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "requirement_route_contract",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 523,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "scope_host_packet",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 603,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "scope_run_created",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 616,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "requirement_scope_transport",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 624,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "render_transport",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 657,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "navigator_plan",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 684,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "intent_resolve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 702,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_preflight",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 726,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_session_control_module",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 746,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "tailtrail_session_status",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 755,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "tailtrail_stop",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 760,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "tailtrail_resume",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 771,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "start_report",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 783,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "guardrail_check",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 801,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "graph_map",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 827,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "install_status",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 837,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "eval_scenario_list",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 873,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "eval_scenario_report",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 880,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "run_id",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 899,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "require_approved_planning_lock",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 905,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "read_json",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 915,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "run_artifact",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 920,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "ledger_state",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 926,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "anchor_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 932,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "harness_checkpoint_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 937,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "completion_feedback_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 945,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "execution_evidence_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 950,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "safe_relative",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 958,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "profile_view",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 966,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "validation_receipt_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 972,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "release_confidence_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 978,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "git_readiness",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 984,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "recovery_boundary_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 989,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "recovery_reconciliation_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 994,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "architecture_assessment_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1000,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "maintainability_assessment_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1006,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "harness_control_check",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1012,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_patch_touched_paths",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1023,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_enforce_patch_badge",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1033,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "source_patch_apply",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1054,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "context_continuity_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1075,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_lock_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1081,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_decision_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1087,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_investigation_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1095,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_investigate",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1103,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_revision_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1120,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_authority_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1128,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_aidlc_question_module",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1136,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_aidlc_question_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1144,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_aidlc_question_clarify",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1148,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_question_context_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1152,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_requirement_intake_module",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1160,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_visual_requirement_module",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1170,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "requirement_intake_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1180,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "requirement_intake_answer",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1190,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "requirement_intake_attach_visual",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1214,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_aidlc_question_control",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1240,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_aidlc_question_challenge",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1253,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_aidlc_question_record",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1257,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_aidlc_question_approve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1261,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_revision_propose",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1265,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_revision_approve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1283,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_aidlc_standard_propose",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1298,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_aidlc_standard_approve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1309,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "aidlc_official_status",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1323,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "aidlc_official_bridge_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1333,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "aidlc_official_state_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1342,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "aidlc_official_sanitize_validate",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1348,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "aidlc_official_session_status",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1355,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "host_conformance_report",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1361,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_lock_start",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1367,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "planning_lock_approve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1393,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "tailtrail_start",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1409,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "execution_evidence_record",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1542,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "execution_evidence_run",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1562,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "context_continuity_render",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1584,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "context_continuity_advisory_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1593,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "completion_report_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1599,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "workflow_dashboard_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1605,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "enterprise_target_policy_inspect",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1611,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_module",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1620,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_detect",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1625,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_mapping_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1632,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_convergence_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1638,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_control",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1645,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_import",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1652,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_amendment_propose",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1658,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_anchor_approve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1662,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_convergence_record",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1666,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "spec_kit_ci_ingest",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1670,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "_load_debug_module",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1675,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_intake_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1683,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_reproduction_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1688,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_reproduction_attempt_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1697,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_orientation_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1703,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_hypothesis_ledger_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1708,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_correction_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1713,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_governance_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1718,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_evaluation_report",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1723,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_release_gate",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1730,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_harness_convergence_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1735,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_completion_report_show",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1740,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_start",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1745,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_reproduction_draft",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1759,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_reproduction_revise",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1770,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_reproduction_reopen",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1782,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_reproduction_approve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1794,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_reproduction_attempt_record",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1805,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_orientation_create",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1818,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_hypothesis_add",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1825,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_hypothesis_reprioritize",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1834,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_experiment_propose",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1843,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_experiment_record",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1850,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_root_cause_prove",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1864,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_correction_approve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1877,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_correction_propose",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1884,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_correction_scope_check",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1893,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_harness_convergence_finalize",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1902,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_closure_finalize",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1909,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "debug_evaluation_run",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1916,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "workflow_mcp",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1923,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "presentation_conformance",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1928,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "maintainability_inventory",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1933,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "real_evaluation_portfolio_report",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1938,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "adoption_validation_report",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1943,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "enterprise_conformance_report",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1948,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "navigator_scope_proposal_record",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 1953,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "call_tool",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2006,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "mcp_content",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2012,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "response",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2016,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "error_response",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2020,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "handle",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2024,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "serve",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2052,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "render_tools",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2070,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "doctor",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2077,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "main",
-        "language": "python",
-        "file": "scripts/mcp-server.py",
-        "line": 2093,
         "confidence": "python_ast"
       },
       {
@@ -7357,6 +6174,1558 @@
         "file": "scripts/navigator_scope.py",
         "line": 4545,
         "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "now_utc",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 128,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "safe_relative",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 132,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_skipped",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 139,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read_text",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 143,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "file_sha256",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 150,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "file_metadata",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 163,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "git_changed",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 171,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "normalize_paths",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 178,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "list_text_files",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 187,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_release_path",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 197,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "partition_root_for",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 205,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "language_for",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 224,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "line_number",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 248,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "add_symbol",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 252,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_python",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 267,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_java",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 334,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_dotnet",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 379,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_sql",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 422,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_terraform",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 437,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_config_usage",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 454,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_service_edges",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 465,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_language_data",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 504,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "looks_like_test",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 563,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tokens_for",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 568,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "find_references",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 576,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "likely_tests_and_callers",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 605,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "nearby_watch_files",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 629,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "workspace_overlays",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 651,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read_codeowners",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 660,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "owner_for",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 679,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "partition_map",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 688,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "owner_test_release_map",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 727,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "endpoint_service_table_flows",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 755,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "language_profiles",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 808,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "confidence_for",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 823,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_previous_file_hashes",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 852,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_file_is_fresh",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 866,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_partition_previous_extraction",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 882,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_dedupe_graph_rows",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 922,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "build_graph",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 935,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "query_slice",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1075,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_anchor_in_scope",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1143,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_slice_graph",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1162,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "finalist_slice_summary",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1167,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_slice_fresh",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1211,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "expand_finalist_slices",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1223,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "risk_tags",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1310,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "cache_path",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1339,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load_cache",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1345,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "status_for",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1362,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_cache",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1425,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "markdown_report",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1454,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "command_map",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1562,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "command_status",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1576,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "command_refresh",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1593,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "build_parser",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1609,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/code-graph-mapper.py",
+        "line": 1624,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load_registry",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 113,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "registry_read_only_tools",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 123,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "script",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 132,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "json_schema",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 136,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "scope_tool_output_schema",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 145,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "workflow_tool_definitions",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 190,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tool_definitions",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 227,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_with_maturity_tag",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 424,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tool_list",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 432,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "ensure_safe_tools",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 436,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "root_from",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 462,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "as_string_list",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 469,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "output_format",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 475,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "command_result",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 480,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "parse_stdout",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 492,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_scope_module",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 501,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "scope_contract",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 511,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "requirement_route_contract",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 527,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "scope_host_packet",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 607,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "scope_run_created",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 620,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "requirement_scope_transport",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 628,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "render_transport",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 661,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "navigator_plan",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 688,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "intent_resolve",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 706,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "debug_preflight",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 730,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_session_control_module",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 750,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tailtrail_session_status",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 759,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tailtrail_stop",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 764,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tailtrail_resume",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 775,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "start_report",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 787,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "guardrail_check",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 817,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "graph_map",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 843,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "install_status",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 853,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "eval_scenario_list",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 889,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "eval_scenario_report",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 896,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run_id",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 915,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "require_approved_planning_lock",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 921,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read_json",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 931,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run_artifact",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 936,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "ledger_state",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 942,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "anchor_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 948,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "harness_checkpoint_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 953,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "completion_feedback_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 961,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "execution_evidence_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 966,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "safe_relative",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 974,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "profile_view",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 982,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "validation_receipt_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 988,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "release_confidence_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 994,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "git_readiness",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1000,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "recovery_boundary_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1005,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "recovery_reconciliation_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1010,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "architecture_assessment_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1016,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "maintainability_assessment_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1022,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "harness_control_check",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1028,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_patch_touched_paths",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1039,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_enforce_patch_badge",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1049,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "source_patch_apply",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1070,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "context_continuity_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1091,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_lock_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1097,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_decision_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1103,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_investigation_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1111,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_investigate",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1119,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_revision_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1136,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_authority_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1144,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_aidlc_question_module",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1152,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_aidlc_question_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1160,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_aidlc_question_clarify",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1164,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_question_context_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1168,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_requirement_intake_module",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1176,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_visual_requirement_module",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1186,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "requirement_intake_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1196,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "requirement_intake_answer",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1206,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "requirement_intake_attach_visual",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1230,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_aidlc_question_control",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1256,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_aidlc_question_challenge",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1269,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_aidlc_question_record",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1273,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_aidlc_question_approve",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1277,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_revision_propose",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1281,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_revision_approve",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1299,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_aidlc_standard_propose",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1314,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_aidlc_standard_approve",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1325,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "aidlc_official_status",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1339,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "aidlc_official_bridge_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1349,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "aidlc_official_state_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1358,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "aidlc_official_sanitize_validate",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1364,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "aidlc_official_session_status",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1371,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "host_conformance_report",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1377,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_lock_start",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1383,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "planning_lock_approve",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1409,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tailtrail_start",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1425,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "execution_evidence_record",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1558,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "execution_evidence_run",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1578,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "context_continuity_render",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1600,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "context_continuity_advisory_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1609,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "completion_report_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1615,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "workflow_dashboard_show",
+        "language": "python",
+        "file": "scripts/mcp-server.py",
+        "line": 1621,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "now_utc",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 117,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "ensure_size",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 121,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read_lines",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 133,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read_json",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 143,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "unique",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 151,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "normalize_severity",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 165,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "redact_text",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 178,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_useful_token",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 187,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "trivy_vulnerability_kind",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 198,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "structured_finding",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 227,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "safe_relative",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 255,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "is_skipped",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 262,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "normalize_report_path",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 266,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "classify_scope",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 281,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "finding_kind",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 299,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "extract_severities",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 318,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "parse_findings",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 328,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "parse_structured_findings",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 377,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "parse_sarif",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 390,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "parse_trivy",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 444,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "parse_grype",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 497,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "changed_files",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 528,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "list_candidates",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 535,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read_text",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 547,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "tokens_for",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 554,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "looks_like_test",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 564,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "related_files",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 569,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "ast_summary",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 597,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "overlay",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 623,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "next_actions",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 708,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "markdown",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 723,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/scanner-graph-overlay.py",
+        "line": 809,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 14,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "class",
+        "name": "ScannerGraphOverlayRedactionTests",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 26,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "class",
+        "name": "ScannerGraphOverlayParsingTests",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 88,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_multiline_private_key_is_redacted_before_line_splitting",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 27,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_multiline_private_key_never_leaks_through_the_full_overlay_pipeline",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 48,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_single_line_secret_patterns_still_redact_correctly",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 64,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_sarif_input_is_parsed_into_a_finding_with_correct_fields",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 89,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_trivy_dependency_vulnerability_is_parsed_correctly",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 116,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "test_oversized_report_is_rejected_before_parsing",
+        "language": "python",
+        "file": "tests/test_scanner_graph_overlay.py",
+        "line": 141,
+        "confidence": "python_ast"
       }
     ],
     "references": [
@@ -8963,201 +9332,6 @@
       },
       {
         "target": "__future__",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "argparse",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 5,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 6,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 7,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 8,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 9,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "tempfile",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 10,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 11,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 12,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "maturity",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 18,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pipeline_manager",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 1039,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "write_guardian",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 1040,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "workflow_runtime",
-        "referring_file": "scripts/mcp-server.py",
-        "line": 1924,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
         "referring_file": "scripts/meta-harness-propose.py",
         "line": 3,
         "reference_type": "import",
@@ -9800,20 +9974,6 @@
         }
       },
       {
-        "target": "scripts/aidlc-official-bridge.py",
-        "referring_file": "scripts/mcp-server.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "scripts/aidlc-official-detect.py",
         "referring_file": "scripts/aidlc-official-bridge.py",
         "reference_type": "caller",
@@ -9844,20 +10004,6 @@
       {
         "target": "scripts/aidlc-official-detect.py",
         "referring_file": "scripts/check-tailtrail.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/aidlc-official-detect.py",
-        "referring_file": "scripts/mcp-server.py",
         "reference_type": "caller",
         "confidence": "heuristic",
         "module_resolution": {
@@ -11367,20 +11513,6 @@
         }
       },
       {
-        "target": "scripts/ci-evidence-ingest.py",
-        "referring_file": "scripts/mcp-server.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "scripts/evidence-tiers.py",
         "referring_file": "scripts/check-tailtrail.py",
         "reference_type": "caller",
@@ -12725,156 +12857,6 @@
           "resolved_targets": [],
           "reason_codes": [
             "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 1,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 4,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 5,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 6,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "tempfile",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 7,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "unittest",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 8,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 9,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/host-adapter-conformance.py",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 16,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/mcp-server.py",
-        "referring_file": "tests/test_host_adapter_conformance.py",
-        "line": 28,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
           ],
           "config_paths": []
         }
@@ -16217,20 +16199,6 @@
         }
       },
       {
-        "target": "scripts/write_guardian.py",
-        "referring_file": "scripts/mcp-server.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "scripts/task-recovery-boundary.py",
         "referring_file": "scripts/delivery-record.py",
         "reference_type": "caller",
@@ -16387,20 +16355,6 @@
       {
         "target": "scripts/workflow-dashboard.py",
         "referring_file": "scripts/install-copilot.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/workflow-dashboard.py",
-        "referring_file": "scripts/mcp-server.py",
         "reference_type": "caller",
         "confidence": "heuristic",
         "module_resolution": {
@@ -19350,6 +19304,586 @@
           "resolved_targets": [],
           "reason_codes": [
             "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "ast",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "os",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "datetime",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_graph_inventory",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 22,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_graph_cache",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 23,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_relationships",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 24,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "module_resolution",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 25,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_relationships",
+        "referring_file": "scripts/code-graph-mapper.py",
+        "line": 809,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "maturity",
+        "referring_file": "scripts/mcp-server.py",
+        "line": 18,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/settings.local.json",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/worktrees/distracted-visvesvaraya-1b0d4f/demo-project-layout/tailtrail-demo-workspace/tailtrail/scripts/tailtrail.py",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/worktrees/distracted-visvesvaraya-1b0d4f/scripts/check-tailtrail.py",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/worktrees/distracted-visvesvaraya-1b0d4f/scripts/install-copilot.py",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/worktrees/distracted-visvesvaraya-1b0d4f/scripts/meta-harness-analyze.py",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/worktrees/distracted-visvesvaraya-1b0d4f/scripts/scanner-graph-overlay.py",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/worktrees/distracted-visvesvaraya-1b0d4f/scripts/tailtrail.py",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": ".claude/worktrees/distracted-visvesvaraya-1b0d4f/tailtrail-registry.json",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/scanner-graph-overlay.py",
+        "referring_file": "tests/test_scanner_graph_overlay.py",
+        "reference_type": "test-link",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/scanner-graph-overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tests/test_scanner_graph_overlay.py",
+        "referring_file": ".claude/settings.local.json",
+        "reference_type": "caller",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "tests/test_scanner_graph_overlay.py"
+          ],
+          "reason_codes": [
+            "finalist-slice-expansion"
           ],
           "config_paths": []
         }
@@ -25887,14 +26421,6 @@
         "confidence": "python_ast"
       },
       {
-        "type": "HostAdapterConformanceTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_host_adapter_conformance.py",
-        "line": 72,
-        "confidence": "python_ast"
-      },
-      {
         "type": "SanitizationError",
         "inherits": "ValueError",
         "language": "python",
@@ -26156,6 +26682,14 @@
         "language": "python",
         "file": "scripts/write_guardian.py",
         "line": 51,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "HostAdapterConformanceTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_adapter_conformance.py",
+        "line": 72,
         "confidence": "python_ast"
       }
     ],
@@ -27477,14 +28011,6 @@
         "confidence": "heuristic"
       },
       {
-        "source_file": "tests/test_host_adapter_conformance.py",
-        "line": 289,
-        "target": "host",
-        "path_hint": "",
-        "edge_type": "service-config",
-        "confidence": "heuristic"
-      },
-      {
         "source_file": "tests/test_tailtrail_registry.py",
         "line": 35,
         "target": "json-schema.org",
@@ -27579,6 +28105,22 @@
         "path_hint": "",
         "edge_type": "service-config",
         "confidence": "heuristic"
+      },
+      {
+        "source_file": "scripts/mcp-server.py",
+        "line": 802,
+        "target": "args.get",
+        "path_hint": "",
+        "edge_type": "service-config",
+        "confidence": "heuristic"
+      },
+      {
+        "source_file": "tests/test_host_adapter_conformance.py",
+        "line": 289,
+        "target": "host",
+        "path_hint": "",
+        "edge_type": "service-config",
+        "confidence": "heuristic"
       }
     ],
     "partitions": [
@@ -27608,9 +28150,9 @@
       },
       {
         "partition": "scripts",
-        "files": 288,
+        "files": 289,
         "languages": {
-          "python": 288
+          "python": 289
         },
         "manifests": [],
         "tests": [
@@ -27641,9 +28183,9 @@
       },
       {
         "partition": "tests",
-        "files": 238,
+        "files": 239,
         "languages": {
-          "python": 214
+          "python": 215
         },
         "manifests": [],
         "tests": [
@@ -28252,6 +28794,14 @@
           "confidence": "heuristic"
         },
         {
+          "file": "scripts/code-graph-mapper.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
           "file": "scripts/completion-report.py",
           "partition": "scripts",
           "owners": [],
@@ -28277,6 +28827,22 @@
         },
         {
           "file": "scripts/debug-host-diagnosis.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/debug-intake.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/debug-orientation.py",
           "partition": "scripts",
           "owners": [],
           "likely_tests": [],
@@ -28381,30 +28947,6 @@
         },
         {
           "file": "scripts/execution-evidence.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/expand-intent.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/first-run.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/harness-checkpoint.py",
           "partition": "scripts",
           "owners": [],
           "likely_tests": [],
@@ -28551,10 +29093,13 @@
       "scripts/ci-evidence-ingest.py",
       "scripts/closure-contract.py",
       "scripts/closure-correction.py",
+      "scripts/code-graph-mapper.py",
       "scripts/completion-report.py",
       "scripts/debug-completion.py",
       "scripts/debug-correction.py",
       "scripts/debug-host-diagnosis.py",
+      "scripts/debug-intake.py",
+      "scripts/debug-orientation.py",
       "scripts/debug-preflight.py",
       "scripts/debug-privacy.py",
       "scripts/debug-reproduction.py",
@@ -28608,7 +29153,9 @@
       "scripts/registry-drift.py",
       "scripts/requirement-interpretation-draft.py",
       "scripts/requirement_discovery.py",
+      "scripts/review-graph.py",
       "scripts/run-ledger.py",
+      "scripts/scanner-graph-overlay.py",
       "scripts/spec-kit-bridge.py",
       "scripts/spec-kit-detect.py",
       "scripts/spec-kit-evidence.py",
@@ -28645,624 +29192,15 @@
       "tests/test_sequential_pipeline.py",
       "tests/test_start_entrypoints.py",
       "tests/test_tailtrail_registry.py",
-      "tests/test_visual_requirement.py",
-      "tests/test_workflow_freshness_recovery.py",
-      "tests/test_workflow_ownership.py",
-      "tests/test_workflow_phase7.py",
-      "tests/test_write_guardian.py",
-      ".claude/worktrees/distracted-visvesvaraya-1b0d4f/.github/workflows/spec-kit-closure.yml"
+      "tests/test_visual_requirement.py"
     ]
   },
   "freshness": {
     "status": "fresh",
-    "checked_at": "2026-10-11T07:46:33.620319+00:00",
+    "checked_at": "2026-10-11T10:38:03.352877+00:00",
     "reasons": []
   },
   "navigator_lifecycle_history": [
-    {
-      "action": "refresh",
-      "at": "2026-10-09T16:10:51.000153+00:00",
-      "attempt_id": "start-20261009161045-f68c6c",
-      "phase": "start",
-      "reason_codes": [
-        "1 anchor paths present in cached scope",
-        "13 anchor-connected cached files",
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/task-start.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/enterprise-target-policy.py",
-        "scripts/host-workspace-adapter.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-sanitize.py",
-        "scripts/requirement-interpretation-draft.py",
-        "scripts/spec-kit-bridge.py",
-        "scripts/spec-kit-detect.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tailtrail/install/engine.py"
-      ],
-      "effective_scope": [
-        "hooks/learning-capture-hook.py",
-        "hooks/tailtrail-lifecycle-hook.py",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/architecture_planning.py",
-        "scripts/behaviour_planning.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/check-tailtrail.py",
-        "scripts/ci-evidence-ingest.py",
-        "scripts/closure-contract.py",
-        "scripts/closure-correction.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/debug-privacy.py",
-        "scripts/debug-reproduction.py",
-        "scripts/delivery-record.py",
-        "scripts/drift_analysis.py",
-        "scripts/efficacy-run.py",
-        "scripts/enterprise-readiness.py",
-        "scripts/enterprise-target-policy.py",
-        "scripts/evaluation-harness.py",
-        "scripts/evidence-metrics.py",
-        "scripts/evidence-tiers.py",
-        "scripts/execution-evidence.py",
-        "scripts/expand-intent.py",
-        "scripts/first-run.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/harness-template.py",
-        "scripts/higher-tier-testing.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/host-decision.py",
-        "scripts/host-reply-validate.py",
-        "scripts/host-runtime-conformance.py",
-        "scripts/host-workspace-adapter.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/install_surfaces.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/maintainability-harness.py",
-        "scripts/mcp-server.py",
-        "scripts/meta-harness-propose.py",
-        "scripts/navigator-scope-calibration.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_scope.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-sanitize.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/pipeline_orchestrator.py",
-        "scripts/planning-discussion.py",
-        "scripts/planning-revision.py",
-        "scripts/planning_lock.py",
-        "scripts/platform-qualification.py",
-        "scripts/question-orchestrator.py",
-        "scripts/registry-drift.py",
-        "scripts/requirement-interpretation-draft.py",
-        "scripts/requirement_discovery.py",
-        "scripts/run-ledger.py",
-        "scripts/spec-kit-bridge.py",
-        "scripts/spec-kit-detect.py",
-        "scripts/spec-kit-evidence.py",
-        "scripts/spec-kit-slices.py",
-        "scripts/tailtrail-registry.py",
-        "scripts/tailtrail.py",
-        "scripts/target_workspace.py",
-        "scripts/task-recovery-boundary.py",
-        "scripts/task-start.py",
-        "scripts/ui_planning.py",
-        "scripts/workflow-dashboard.py",
-        "scripts/workflow_runtime/contracts.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tailtrail/hosts/contracts.py",
-        "tailtrail/install/catalog.py",
-        "tailtrail/install/cli.py",
-        "tailtrail/install/engine.py",
-        "tests/test_change_intent_anchor.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_graph_lifecycle.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_navigator_scope_calibration.py",
-        "tests/test_navigator_scope_release.py",
-        "tests/test_planning_discussion.py",
-        "tests/test_planning_lock.py",
-        "tests/test_planning_revision.py",
-        "tests/test_requirement_discovery.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_sequential_pipeline.py",
-        "tests/test_start_entrypoints.py",
-        "tests/test_tailtrail_registry.py",
-        "tests/test_visual_requirement.py",
-        "tests/test_workflow_freshness_recovery.py",
-        "tests/test_workflow_ownership.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-09T16:17:26.381673+00:00",
-      "attempt_id": "start-20261009161720-e3eb11",
-      "phase": "start",
-      "reason_codes": [
-        "2 anchor paths present in cached scope",
-        "35 anchor-connected cached files",
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/completion-report.py",
-        "scripts/task-start.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/closure-contract.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-privacy.py",
-        "scripts/debug-reproduction.py",
-        "scripts/enterprise-target-policy.py",
-        "scripts/evidence-tiers.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-decision.py",
-        "scripts/host-workspace-adapter.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/maintainability-harness.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-sanitize.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/planning_lock.py",
-        "scripts/question-orchestrator.py",
-        "scripts/requirement-interpretation-draft.py",
-        "scripts/requirement_discovery.py",
-        "scripts/run-ledger.py",
-        "scripts/spec-kit-bridge.py",
-        "scripts/spec-kit-detect.py",
-        "scripts/spec-kit-evidence.py",
-        "scripts/spec-kit-slices.py",
-        "scripts/target_workspace.py",
-        "scripts/workflow_runtime/contracts.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tailtrail/install/engine.py",
-        "workflow_runtime/contracts.py"
-      ],
-      "effective_scope": [
-        "hooks/learning-capture-hook.py",
-        "hooks/tailtrail-lifecycle-hook.py",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/architecture_planning.py",
-        "scripts/behaviour_planning.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/check-tailtrail.py",
-        "scripts/ci-evidence-ingest.py",
-        "scripts/closure-contract.py",
-        "scripts/closure-correction.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/debug-privacy.py",
-        "scripts/debug-reproduction.py",
-        "scripts/delivery-record.py",
-        "scripts/drift_analysis.py",
-        "scripts/efficacy-run.py",
-        "scripts/enterprise-readiness.py",
-        "scripts/enterprise-target-policy.py",
-        "scripts/evaluation-harness.py",
-        "scripts/evidence-metrics.py",
-        "scripts/evidence-tiers.py",
-        "scripts/execution-evidence.py",
-        "scripts/expand-intent.py",
-        "scripts/first-run.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/harness-template.py",
-        "scripts/higher-tier-testing.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/host-decision.py",
-        "scripts/host-reply-validate.py",
-        "scripts/host-runtime-conformance.py",
-        "scripts/host-workspace-adapter.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/install_surfaces.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/maintainability-harness.py",
-        "scripts/mcp-server.py",
-        "scripts/meta-harness-propose.py",
-        "scripts/navigator-scope-calibration.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_scope.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-sanitize.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/pipeline_orchestrator.py",
-        "scripts/planning-discussion.py",
-        "scripts/planning-revision.py",
-        "scripts/planning_lock.py",
-        "scripts/platform-qualification.py",
-        "scripts/question-orchestrator.py",
-        "scripts/registry-drift.py",
-        "scripts/requirement-interpretation-draft.py",
-        "scripts/requirement_discovery.py",
-        "scripts/run-ledger.py",
-        "scripts/spec-kit-bridge.py",
-        "scripts/spec-kit-detect.py",
-        "scripts/spec-kit-evidence.py",
-        "scripts/spec-kit-slices.py",
-        "scripts/tailtrail-registry.py",
-        "scripts/tailtrail.py",
-        "scripts/target_workspace.py",
-        "scripts/task-recovery-boundary.py",
-        "scripts/task-start.py",
-        "scripts/ui_planning.py",
-        "scripts/workflow-dashboard.py",
-        "scripts/workflow_runtime/contracts.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tailtrail/hosts/contracts.py",
-        "tailtrail/install/catalog.py",
-        "tailtrail/install/cli.py",
-        "tailtrail/install/engine.py",
-        "tests/test_change_intent_anchor.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_graph_lifecycle.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_navigator_scope_calibration.py",
-        "tests/test_navigator_scope_release.py",
-        "tests/test_planning_discussion.py",
-        "tests/test_planning_lock.py",
-        "tests/test_planning_revision.py",
-        "tests/test_requirement_discovery.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_sequential_pipeline.py",
-        "tests/test_start_entrypoints.py",
-        "tests/test_tailtrail_registry.py",
-        "tests/test_visual_requirement.py",
-        "tests/test_workflow_freshness_recovery.py",
-        "tests/test_workflow_ownership.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_write_guardian.py",
-        "workflow_runtime/contracts.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-09T16:49:40.710019+00:00",
-      "attempt_id": "start-20261009164920-e3eb11",
-      "phase": "start",
-      "reason_codes": [
-        "2 anchor paths present in cached scope",
-        "35 anchor-connected cached files",
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/completion-report.py",
-        "scripts/task-start.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/closure-contract.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-privacy.py",
-        "scripts/debug-reproduction.py",
-        "scripts/enterprise-target-policy.py",
-        "scripts/evidence-tiers.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-decision.py",
-        "scripts/host-workspace-adapter.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/maintainability-harness.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-sanitize.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/planning_lock.py",
-        "scripts/question-orchestrator.py",
-        "scripts/requirement-interpretation-draft.py",
-        "scripts/requirement_discovery.py",
-        "scripts/run-ledger.py",
-        "scripts/spec-kit-bridge.py",
-        "scripts/spec-kit-detect.py",
-        "scripts/spec-kit-evidence.py",
-        "scripts/spec-kit-slices.py",
-        "scripts/target_workspace.py",
-        "scripts/workflow_runtime/contracts.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tailtrail/install/engine.py",
-        "workflow_runtime/contracts.py"
-      ],
-      "effective_scope": [
-        "hooks/learning-capture-hook.py",
-        "hooks/tailtrail-lifecycle-hook.py",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/architecture_planning.py",
-        "scripts/behaviour_planning.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/check-tailtrail.py",
-        "scripts/ci-evidence-ingest.py",
-        "scripts/closure-contract.py",
-        "scripts/closure-correction.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/debug-privacy.py",
-        "scripts/debug-reproduction.py",
-        "scripts/delivery-record.py",
-        "scripts/drift_analysis.py",
-        "scripts/efficacy-run.py",
-        "scripts/enterprise-readiness.py",
-        "scripts/enterprise-target-policy.py",
-        "scripts/evaluation-harness.py",
-        "scripts/evidence-metrics.py",
-        "scripts/evidence-tiers.py",
-        "scripts/execution-evidence.py",
-        "scripts/expand-intent.py",
-        "scripts/first-run.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/harness-template.py",
-        "scripts/higher-tier-testing.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/host-decision.py",
-        "scripts/host-reply-validate.py",
-        "scripts/host-runtime-conformance.py",
-        "scripts/host-workspace-adapter.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/install_surfaces.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/maintainability-harness.py",
-        "scripts/mcp-server.py",
-        "scripts/meta-harness-propose.py",
-        "scripts/navigator-scope-calibration.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_scope.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-sanitize.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/pipeline_orchestrator.py",
-        "scripts/planning-discussion.py",
-        "scripts/planning-revision.py",
-        "scripts/planning_lock.py",
-        "scripts/platform-qualification.py",
-        "scripts/question-orchestrator.py",
-        "scripts/registry-drift.py",
-        "scripts/requirement-interpretation-draft.py",
-        "scripts/requirement_discovery.py",
-        "scripts/run-ledger.py",
-        "scripts/spec-kit-bridge.py",
-        "scripts/spec-kit-detect.py",
-        "scripts/spec-kit-evidence.py",
-        "scripts/spec-kit-slices.py",
-        "scripts/tailtrail-registry.py",
-        "scripts/tailtrail.py",
-        "scripts/target_workspace.py",
-        "scripts/task-recovery-boundary.py",
-        "scripts/task-start.py",
-        "scripts/ui_planning.py",
-        "scripts/workflow-dashboard.py",
-        "scripts/workflow_runtime/contracts.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tailtrail/hosts/contracts.py",
-        "tailtrail/install/catalog.py",
-        "tailtrail/install/cli.py",
-        "tailtrail/install/engine.py",
-        "tests/test_change_intent_anchor.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_graph_lifecycle.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_navigator_scope_calibration.py",
-        "tests/test_navigator_scope_release.py",
-        "tests/test_planning_discussion.py",
-        "tests/test_planning_lock.py",
-        "tests/test_planning_revision.py",
-        "tests/test_requirement_discovery.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_sequential_pipeline.py",
-        "tests/test_start_entrypoints.py",
-        "tests/test_tailtrail_registry.py",
-        "tests/test_visual_requirement.py",
-        "tests/test_workflow_freshness_recovery.py",
-        "tests/test_workflow_ownership.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_write_guardian.py",
-        "workflow_runtime/contracts.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-09T16:50:31.858659+00:00",
-      "attempt_id": "start-20261009165026-b44e47",
-      "phase": "start",
-      "reason_codes": [
-        "bounded-goal-discovery",
-        "fresh-prior-run-mapping",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/mcp-server.py",
-        "scripts/write_guardian.py",
-        "tests/test_write_guardian.py"
-      ],
-      "effective_scope": [
-        "hooks/learning-capture-hook.py",
-        "hooks/tailtrail-lifecycle-hook.py",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/architecture_planning.py",
-        "scripts/behaviour_planning.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/check-tailtrail.py",
-        "scripts/ci-evidence-ingest.py",
-        "scripts/closure-contract.py",
-        "scripts/closure-correction.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/debug-privacy.py",
-        "scripts/debug-reproduction.py",
-        "scripts/delivery-record.py",
-        "scripts/drift_analysis.py",
-        "scripts/efficacy-run.py",
-        "scripts/enterprise-readiness.py",
-        "scripts/enterprise-target-policy.py",
-        "scripts/evaluation-harness.py",
-        "scripts/evidence-metrics.py",
-        "scripts/evidence-tiers.py",
-        "scripts/execution-evidence.py",
-        "scripts/expand-intent.py",
-        "scripts/first-run.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/harness-template.py",
-        "scripts/higher-tier-testing.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/host-decision.py",
-        "scripts/host-reply-validate.py",
-        "scripts/host-runtime-conformance.py",
-        "scripts/host-workspace-adapter.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/install_surfaces.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/maintainability-harness.py",
-        "scripts/mcp-server.py",
-        "scripts/meta-harness-propose.py",
-        "scripts/navigator-scope-calibration.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_scope.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-sanitize.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/pipeline_orchestrator.py",
-        "scripts/planning-discussion.py",
-        "scripts/planning-revision.py",
-        "scripts/planning_lock.py",
-        "scripts/platform-qualification.py",
-        "scripts/question-orchestrator.py",
-        "scripts/registry-drift.py",
-        "scripts/requirement-interpretation-draft.py",
-        "scripts/requirement_discovery.py",
-        "scripts/run-ledger.py",
-        "scripts/spec-kit-bridge.py",
-        "scripts/spec-kit-detect.py",
-        "scripts/spec-kit-evidence.py",
-        "scripts/spec-kit-slices.py",
-        "scripts/tailtrail-registry.py",
-        "scripts/tailtrail.py",
-        "scripts/target_workspace.py",
-        "scripts/task-recovery-boundary.py",
-        "scripts/task-start.py",
-        "scripts/ui_planning.py",
-        "scripts/workflow-dashboard.py",
-        "scripts/workflow_runtime/contracts.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tailtrail/hosts/contracts.py",
-        "tailtrail/install/catalog.py",
-        "tailtrail/install/cli.py",
-        "tailtrail/install/engine.py",
-        "tests/test_change_intent_anchor.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_graph_lifecycle.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_navigator_scope_calibration.py",
-        "tests/test_navigator_scope_release.py",
-        "tests/test_planning_discussion.py",
-        "tests/test_planning_lock.py",
-        "tests/test_planning_revision.py",
-        "tests/test_requirement_discovery.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_sequential_pipeline.py",
-        "tests/test_start_entrypoints.py",
-        "tests/test_tailtrail_registry.py",
-        "tests/test_visual_requirement.py",
-        "tests/test_workflow_freshness_recovery.py",
-        "tests/test_workflow_ownership.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
     {
       "action": "refresh",
       "at": "2026-10-09T16:53:48.867113+00:00",
@@ -31403,6 +31341,578 @@
         "scripts/requirement-interpretation-draft.py",
         "scripts/requirement_discovery.py",
         "scripts/run-ledger.py",
+        "scripts/spec-kit-bridge.py",
+        "scripts/spec-kit-detect.py",
+        "scripts/spec-kit-evidence.py",
+        "scripts/spec-kit-slices.py",
+        "scripts/tailtrail-registry.py",
+        "scripts/tailtrail.py",
+        "scripts/target_workspace.py",
+        "scripts/task-recovery-boundary.py",
+        "scripts/task-start.py",
+        "scripts/ui_planning.py",
+        "scripts/workflow-dashboard.py",
+        "scripts/workflow_runtime/contracts.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tailtrail/hosts/contracts.py",
+        "tailtrail/install/catalog.py",
+        "tailtrail/install/cli.py",
+        "tailtrail/install/engine.py",
+        "tests/test_change_intent_anchor.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_graph_lifecycle.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_navigator_scope_calibration.py",
+        "tests/test_navigator_scope_release.py",
+        "tests/test_planning_discussion.py",
+        "tests/test_planning_lock.py",
+        "tests/test_planning_revision.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_sequential_pipeline.py",
+        "tests/test_start_entrypoints.py",
+        "tests/test_tailtrail_registry.py",
+        "tests/test_visual_requirement.py",
+        "tests/test_workflow_freshness_recovery.py",
+        "tests/test_workflow_ownership.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-11T10:25:08.139252+00:00",
+      "attempt_id": "start-20261011102455-35568d",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/review-graph.py",
+        "scripts/scanner-graph-overlay.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_navigator_core.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_write_guardian.py"
+      ],
+      "effective_scope": [
+        "buildweek-demo-project/src/claims_api/validation.py",
+        "hooks/learning-capture-hook.py",
+        "hooks/tailtrail-lifecycle-hook.py",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/aidlc-requirements.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/behaviour_planning.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/ci-evidence-ingest.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-correction.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/debug-privacy.py",
+        "scripts/debug-reproduction.py",
+        "scripts/delivery-record.py",
+        "scripts/docs-only.py",
+        "scripts/drift_analysis.py",
+        "scripts/efficacy-run.py",
+        "scripts/enterprise-readiness.py",
+        "scripts/enterprise-target-policy.py",
+        "scripts/evaluation-harness.py",
+        "scripts/evidence-metrics.py",
+        "scripts/evidence-tiers.py",
+        "scripts/execution-evidence.py",
+        "scripts/expand-intent.py",
+        "scripts/first-run.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/harness-template.py",
+        "scripts/higher-tier-testing.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/host-decision.py",
+        "scripts/host-interpretation-builder.py",
+        "scripts/host-reply-validate.py",
+        "scripts/host-runtime-conformance.py",
+        "scripts/host-workspace-adapter.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/install_surfaces.py",
+        "scripts/learning-agent.py",
+        "scripts/learning-refresh.py",
+        "scripts/learning-use-receipt.py",
+        "scripts/maintainability-harness.py",
+        "scripts/mcp-server.py",
+        "scripts/meta-harness-propose.py",
+        "scripts/navigator-scope-calibration.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_core.py",
+        "scripts/navigator_scope.py",
+        "scripts/official-aidlc-requirements.py",
+        "scripts/official-aidlc-sanitize.py",
+        "scripts/official-aidlc-state.py",
+        "scripts/pipeline_judge.py",
+        "scripts/pipeline_orchestrator.py",
+        "scripts/planning-discussion.py",
+        "scripts/planning-revision.py",
+        "scripts/planning_lock.py",
+        "scripts/platform-qualification.py",
+        "scripts/prompt_builder.py",
+        "scripts/question-orchestrator.py",
+        "scripts/registry-drift.py",
+        "scripts/requirement-interpretation-draft.py",
+        "scripts/requirement_discovery.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/scanner-graph-overlay.py",
+        "scripts/spec-kit-bridge.py",
+        "scripts/spec-kit-detect.py",
+        "scripts/spec-kit-evidence.py",
+        "scripts/spec-kit-slices.py",
+        "scripts/tailtrail-registry.py",
+        "scripts/tailtrail.py",
+        "scripts/target_workspace.py",
+        "scripts/task-recovery-boundary.py",
+        "scripts/task-start.py",
+        "scripts/ui_planning.py",
+        "scripts/workflow-dashboard.py",
+        "scripts/workflow_runtime/contracts.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tailtrail/hosts/contracts.py",
+        "tailtrail/install/catalog.py",
+        "tailtrail/install/cli.py",
+        "tailtrail/install/engine.py",
+        "tests/test_change_intent_anchor.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_graph_lifecycle.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_navigator_scope_calibration.py",
+        "tests/test_navigator_scope_release.py",
+        "tests/test_planning_discussion.py",
+        "tests/test_planning_lock.py",
+        "tests/test_planning_revision.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_sequential_pipeline.py",
+        "tests/test_start_entrypoints.py",
+        "tests/test_tailtrail_registry.py",
+        "tests/test_visual_requirement.py",
+        "tests/test_workflow_freshness_recovery.py",
+        "tests/test_workflow_ownership.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-11T10:25:57.170527+00:00",
+      "attempt_id": "start-20261011102549-35568d",
+      "phase": "start",
+      "reason_codes": [
+        "1 anchor paths present in cached scope",
+        "1 anchor-connected cached files",
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/scanner-graph-overlay.py"
+      ],
+      "effective_scope": [
+        "buildweek-demo-project/src/claims_api/validation.py",
+        "hooks/learning-capture-hook.py",
+        "hooks/tailtrail-lifecycle-hook.py",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/aidlc-requirements.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/behaviour_planning.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/ci-evidence-ingest.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-correction.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-intake.py",
+        "scripts/debug-orientation.py",
+        "scripts/debug-preflight.py",
+        "scripts/debug-privacy.py",
+        "scripts/debug-reproduction.py",
+        "scripts/delivery-record.py",
+        "scripts/docs-only.py",
+        "scripts/drift_analysis.py",
+        "scripts/efficacy-run.py",
+        "scripts/enterprise-readiness.py",
+        "scripts/enterprise-target-policy.py",
+        "scripts/evaluation-harness.py",
+        "scripts/evidence-metrics.py",
+        "scripts/evidence-tiers.py",
+        "scripts/execution-evidence.py",
+        "scripts/expand-intent.py",
+        "scripts/first-run.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/harness-template.py",
+        "scripts/higher-tier-testing.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/host-decision.py",
+        "scripts/host-interpretation-builder.py",
+        "scripts/host-reply-validate.py",
+        "scripts/host-runtime-conformance.py",
+        "scripts/host-workspace-adapter.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/install_surfaces.py",
+        "scripts/learning-agent.py",
+        "scripts/learning-refresh.py",
+        "scripts/learning-use-receipt.py",
+        "scripts/maintainability-harness.py",
+        "scripts/mcp-server.py",
+        "scripts/meta-harness-propose.py",
+        "scripts/navigator-scope-calibration.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_core.py",
+        "scripts/navigator_scope.py",
+        "scripts/official-aidlc-requirements.py",
+        "scripts/official-aidlc-sanitize.py",
+        "scripts/official-aidlc-state.py",
+        "scripts/pipeline_judge.py",
+        "scripts/pipeline_orchestrator.py",
+        "scripts/planning-discussion.py",
+        "scripts/planning-revision.py",
+        "scripts/planning_lock.py",
+        "scripts/platform-qualification.py",
+        "scripts/prompt_builder.py",
+        "scripts/question-orchestrator.py",
+        "scripts/registry-drift.py",
+        "scripts/requirement-interpretation-draft.py",
+        "scripts/requirement_discovery.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/scanner-graph-overlay.py",
+        "scripts/spec-kit-bridge.py",
+        "scripts/spec-kit-detect.py",
+        "scripts/spec-kit-evidence.py",
+        "scripts/spec-kit-slices.py",
+        "scripts/tailtrail-registry.py",
+        "scripts/tailtrail.py",
+        "scripts/target_workspace.py",
+        "scripts/task-recovery-boundary.py",
+        "scripts/task-start.py",
+        "scripts/ui_planning.py",
+        "scripts/workflow-dashboard.py",
+        "scripts/workflow_runtime/contracts.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tailtrail/hosts/contracts.py",
+        "tailtrail/install/catalog.py",
+        "tailtrail/install/cli.py",
+        "tailtrail/install/engine.py",
+        "tests/test_change_intent_anchor.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_graph_lifecycle.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_navigator_scope_calibration.py",
+        "tests/test_navigator_scope_release.py",
+        "tests/test_planning_discussion.py",
+        "tests/test_planning_lock.py",
+        "tests/test_planning_revision.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_sequential_pipeline.py",
+        "tests/test_start_entrypoints.py",
+        "tests/test_tailtrail_registry.py",
+        "tests/test_visual_requirement.py",
+        "tests/test_workflow_freshness_recovery.py",
+        "tests/test_workflow_ownership.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-11T10:26:22.442719+00:00",
+      "attempt_id": "start-20261011102614-35568d",
+      "phase": "start",
+      "reason_codes": [
+        "1 anchor paths present in cached scope",
+        "1 anchor-connected cached files",
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/scanner-graph-overlay.py"
+      ],
+      "effective_scope": [
+        "buildweek-demo-project/src/claims_api/validation.py",
+        "hooks/learning-capture-hook.py",
+        "hooks/tailtrail-lifecycle-hook.py",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/aidlc-requirements.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/behaviour_planning.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/ci-evidence-ingest.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-correction.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-intake.py",
+        "scripts/debug-orientation.py",
+        "scripts/debug-preflight.py",
+        "scripts/debug-privacy.py",
+        "scripts/debug-reproduction.py",
+        "scripts/delivery-record.py",
+        "scripts/docs-only.py",
+        "scripts/drift_analysis.py",
+        "scripts/efficacy-run.py",
+        "scripts/enterprise-readiness.py",
+        "scripts/enterprise-target-policy.py",
+        "scripts/evaluation-harness.py",
+        "scripts/evidence-metrics.py",
+        "scripts/evidence-tiers.py",
+        "scripts/execution-evidence.py",
+        "scripts/expand-intent.py",
+        "scripts/first-run.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/harness-template.py",
+        "scripts/higher-tier-testing.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/host-decision.py",
+        "scripts/host-interpretation-builder.py",
+        "scripts/host-reply-validate.py",
+        "scripts/host-runtime-conformance.py",
+        "scripts/host-workspace-adapter.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/install_surfaces.py",
+        "scripts/learning-agent.py",
+        "scripts/learning-refresh.py",
+        "scripts/learning-use-receipt.py",
+        "scripts/maintainability-harness.py",
+        "scripts/mcp-server.py",
+        "scripts/meta-harness-propose.py",
+        "scripts/navigator-scope-calibration.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_core.py",
+        "scripts/navigator_scope.py",
+        "scripts/official-aidlc-requirements.py",
+        "scripts/official-aidlc-sanitize.py",
+        "scripts/official-aidlc-state.py",
+        "scripts/pipeline_judge.py",
+        "scripts/pipeline_orchestrator.py",
+        "scripts/planning-discussion.py",
+        "scripts/planning-revision.py",
+        "scripts/planning_lock.py",
+        "scripts/platform-qualification.py",
+        "scripts/prompt_builder.py",
+        "scripts/question-orchestrator.py",
+        "scripts/registry-drift.py",
+        "scripts/requirement-interpretation-draft.py",
+        "scripts/requirement_discovery.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/scanner-graph-overlay.py",
+        "scripts/spec-kit-bridge.py",
+        "scripts/spec-kit-detect.py",
+        "scripts/spec-kit-evidence.py",
+        "scripts/spec-kit-slices.py",
+        "scripts/tailtrail-registry.py",
+        "scripts/tailtrail.py",
+        "scripts/target_workspace.py",
+        "scripts/task-recovery-boundary.py",
+        "scripts/task-start.py",
+        "scripts/ui_planning.py",
+        "scripts/workflow-dashboard.py",
+        "scripts/workflow_runtime/contracts.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tailtrail/hosts/contracts.py",
+        "tailtrail/install/catalog.py",
+        "tailtrail/install/cli.py",
+        "tailtrail/install/engine.py",
+        "tests/test_change_intent_anchor.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_graph_lifecycle.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_navigator_scope_calibration.py",
+        "tests/test_navigator_scope_release.py",
+        "tests/test_planning_discussion.py",
+        "tests/test_planning_lock.py",
+        "tests/test_planning_revision.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_sequential_pipeline.py",
+        "tests/test_start_entrypoints.py",
+        "tests/test_tailtrail_registry.py",
+        "tests/test_visual_requirement.py",
+        "tests/test_workflow_freshness_recovery.py",
+        "tests/test_workflow_ownership.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-11T10:38:03.353747+00:00",
+      "attempt_id": "start-20261011103755-35568d",
+      "phase": "start",
+      "reason_codes": [
+        "1 anchor paths present in cached scope",
+        "1 anchor-connected cached files",
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/scanner-graph-overlay.py"
+      ],
+      "effective_scope": [
+        "buildweek-demo-project/src/claims_api/validation.py",
+        "hooks/learning-capture-hook.py",
+        "hooks/tailtrail-lifecycle-hook.py",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/aidlc-requirements.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/behaviour_planning.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/ci-evidence-ingest.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-correction.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-intake.py",
+        "scripts/debug-orientation.py",
+        "scripts/debug-preflight.py",
+        "scripts/debug-privacy.py",
+        "scripts/debug-reproduction.py",
+        "scripts/delivery-record.py",
+        "scripts/docs-only.py",
+        "scripts/drift_analysis.py",
+        "scripts/efficacy-run.py",
+        "scripts/enterprise-readiness.py",
+        "scripts/enterprise-target-policy.py",
+        "scripts/evaluation-harness.py",
+        "scripts/evidence-metrics.py",
+        "scripts/evidence-tiers.py",
+        "scripts/execution-evidence.py",
+        "scripts/expand-intent.py",
+        "scripts/first-run.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/harness-template.py",
+        "scripts/higher-tier-testing.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/host-decision.py",
+        "scripts/host-interpretation-builder.py",
+        "scripts/host-reply-validate.py",
+        "scripts/host-runtime-conformance.py",
+        "scripts/host-workspace-adapter.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/install_surfaces.py",
+        "scripts/learning-agent.py",
+        "scripts/learning-refresh.py",
+        "scripts/learning-use-receipt.py",
+        "scripts/maintainability-harness.py",
+        "scripts/mcp-server.py",
+        "scripts/meta-harness-propose.py",
+        "scripts/navigator-scope-calibration.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_core.py",
+        "scripts/navigator_scope.py",
+        "scripts/official-aidlc-requirements.py",
+        "scripts/official-aidlc-sanitize.py",
+        "scripts/official-aidlc-state.py",
+        "scripts/pipeline_judge.py",
+        "scripts/pipeline_orchestrator.py",
+        "scripts/planning-discussion.py",
+        "scripts/planning-revision.py",
+        "scripts/planning_lock.py",
+        "scripts/platform-qualification.py",
+        "scripts/prompt_builder.py",
+        "scripts/question-orchestrator.py",
+        "scripts/registry-drift.py",
+        "scripts/requirement-interpretation-draft.py",
+        "scripts/requirement_discovery.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/scanner-graph-overlay.py",
         "scripts/spec-kit-bridge.py",
         "scripts/spec-kit-detect.py",
         "scripts/spec-kit-evidence.py",

@@ -132,7 +132,12 @@ def ensure_size(path: Path, max_bytes: int) -> None:
 
 def read_lines(path: Path, max_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> list[str]:
     ensure_size(path, max_bytes)
-    return path.read_text(encoding="utf-8", errors="replace").splitlines()
+    text = path.read_text(encoding="utf-8", errors="replace")
+    # Redact multi-line secret blocks (e.g. PEM private keys) before splitting
+    # into physical lines: downstream per-line redaction in redact_text() can
+    # never match a pattern that spans multiple lines once they're split apart.
+    text = PRIVATE_KEY_PATTERN.sub("[REDACTED_PRIVATE_KEY]", text)
+    return text.splitlines()
 
 
 def read_json(path: Path, max_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> Any | None:

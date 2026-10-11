@@ -1307,6 +1307,76 @@ command (run `doc-20261011101650-5aac8c`) rather than the manual
 hook-bypass pattern used throughout Section 12 -- dogfooding the exact fast
 lane this session verified works back in Issue 5.
 
+### 12.9 CI/Sonar and Scanners (Tier 3) -- `scripts/sonar-summary.py`, `scripts/scanner-graph-overlay.py` / `tailtrail sonar summarize`, `tailtrail graph overlay`
+
+**Why this one:** next `untested` row under Tier 3. Zero existing test
+coverage for either script, confirmed by grep before starting.
+
+**`sonar-summary.py`:** a local, read-only regex-based summarizer of
+Sonar/static-analysis text output -- no network calls, no write access,
+low inherent risk. 4 live CLI scenarios: realistic rule/severity/
+quality-gate extraction, graceful "not detected" on a file with no
+findings, `--max-lines` actually capping output, and CLI-dispatcher
+parity. **4/4 pass, no defect found.**
+
+**`scripts/scanner-graph-overlay.py`:** a larger, higher-risk script --
+overlays Sonar/vulnerability findings onto repository impact metadata, and
+critically, contains dedicated secret-redaction logic
+(`PRIVATE_KEY_PATTERN`, `BEARER_PATTERN`, `SECRET_ASSIGNMENT_PATTERN`,
+`LONG_SECRET_PATTERN`) specifically to keep leaked credentials out of its
+own output. Given the security stakes, redaction correctness was weighted
+heavily. 13 scenarios covering redaction (private key, bearer token,
+password assignment, long base64-like secret), structured SARIF/Trivy
+parsing, byte-size limits, and dispatcher parity.
+
+**Finding -- confirmed, security-relevant bug (now fixed through a real
+TailTrail run):** the private-key redaction scenario failed on the first
+pass. Traced directly: `read_lines()` split the report into individual
+physical lines *before* any redaction ran, but `PRIVATE_KEY_PATTERN` is
+written with `re.DOTALL` specifically to span the multi-line
+`-----BEGIN...-----END-----` structure every real PEM key actually has --
+so it could never match in practice, only on an artificial single-line
+input. Confirmed directly: calling `redact_text()` with the full
+multi-line string redacted correctly; feeding the same content through
+the real per-line pipeline let the key body slip through, only
+incidentally caught (sometimes) by the unrelated `LONG_SECRET_PATTERN`
+fallback if the line happened to independently qualify as a "finding."
+
+**This was fixed through TailTrail's own real workflow, not a direct
+edit** -- full detail is logged separately, not duplicated here, since it
+produced its own significant findings about TailTrail itself:
+- The actual fix (`read_lines()` now redacts multi-line secret blocks
+  before splitting into lines) and its live-reproduced correctness: see
+  **Section 13**'s "Discovered while" context and the fix description.
+- A full TailTrail Start -> Planning Lock -> `planning revise` ->
+  activate -> implement -> `execution-evidence run --approved` -> closure
+  cycle was run for real against this exact fix, surfacing **Section 13**
+  (a core closure-path bug: `harness-checkpoint.py`/`drift_analysis.py`
+  reading a frozen `approved-v1.json` instead of the latest corrected
+  anchor) and **13a** (the fix for that bug is confirmed correct for its
+  direct target, but a third file -- `official-aidlc-state.py` -- has the
+  identical defect, and a ~40-file pattern exists across the codebase).
+- `tests/test_scanner_graph_overlay.py` (6 tests: the multi-line
+  private-key fix at the `read_lines()` level and through the full
+  `overlay()` pipeline, a regression guard for the pre-existing
+  single-line redaction paths, SARIF/Trivy parsing, and the byte-size
+  limit) is real, trusted, passing evidence recorded via
+  `execution-evidence run --approved` against run
+  `start-20261011103755-35568d` -- confirmed `pass`, exit code 0.
+
+**Results:** `sonar-summary.py` fully healthy (4/4). `scanner-graph-overlay.py`
+had one real, now-fixed, security-relevant bug in its private-key
+redaction path; every other scenario (bearer token, password assignment,
+long-secret fallback, SARIF, Trivy, byte-size limit, dispatcher parity)
+passed cleanly on the first attempt.
+
+**Net assessment for this feature:** both scripts are now healthy. The
+scanner-graph-overlay fix is real, tested, and verified correct
+end-to-end -- its home TailTrail run cannot yet show a clean `complete`
+closure only because of the separate, now-well-documented
+`official-aidlc-state.py` gap (13a), not because the actual fix or its
+proof is incomplete.
+
 ---
 
 ## 13. Harness checkpoint and drift analysis always read the frozen `approved-v1.json`, never a corrected anchor version (Fixed)
