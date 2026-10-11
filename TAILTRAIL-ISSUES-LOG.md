@@ -14,6 +14,7 @@ the entries there.
 | 1 | Scope-owner answers silently discarded (two separate points) | **Fixed** |
 | 2 | Thin-evidence candidates missing `content_fingerprint` | **Fixed** (verified end-to-end) |
 | 3 | `--host-scope-proposal` fingerprint drift across calls | **Fixed** (fingerprint-indexed packet tickets + both-fingerprint errors) |
+| 3a | CLI vs MCP fresh-packet parity (different, narrower gap found while verifying 3) | Open -- not covered by 3's fix |
 | 4 | write_guardian role classifier rejects root-level config/registry files | **Fixed** (generic anchor-first + classifier fallback) |
 | 5 | Doc/markdown files can't resolve as Navigator-owned scope | **Fixed** (docs-only fast lane, no full plan) |
 | 6 | `likely_paths` had no per-path role, only a flat string list | **Fixed** |
@@ -178,15 +179,43 @@ an explicit mismatch); all six attempts now succeed cleanly with no
 mismatch. Confirmed the ticket mechanism is actually engaged, not a
 coincidence: inspected `.tailtrail/host-packets/` directly and found a real,
 correctly-gitignored ticket file matching the issued fingerprint (cleaned up
-after testing, not committed). Also independently reconfirmed the
-`test_cli_mcp_markdown_json_and_all_hosts_share_one_scope_fingerprint`
-failure is real but genuinely separate from what this fix covers: it
-compares a CLI subprocess against two in-process MCP calls computing a
-*fresh* packet from scratch for the same goal, not whether a saved ticket
-survives resubmission -- a narrower, still-open, related gap, not something
-this fix claims to close. Worth its own follow-up if cross-host/cross-format
-fingerprint parity for a *first* packet (not a resubmitted one) ever matters
-for a real workflow.
+after testing, not committed).
+
+---
+
+### 3a. Separate, still-open gap found while verifying 3: CLI vs MCP fresh-packet parity (Open, not covered by the 3 fix)
+
+**This is a new, narrower issue, not fixed by 3's ticket mechanism.** While
+re-verifying Issue 3, the pre-existing test
+`tests/test_host_adapter_conformance.py::test_cli_mcp_markdown_json_and_all_hosts_share_one_scope_fingerprint`
+was independently reconfirmed still failing on a clean, fully-updated tree
+(and confirmed pre-existing, not a new regression, by reverting the relevant
+files and reproducing the identical failure before Issue 3's fix existed at
+all).
+
+**Why this is different from Issue 3, specifically:** Issue 3's fix helps
+when a host *resubmits* a proposal against a packet it already fetched --
+the saved ticket is looked up instead of recomputed, so drift between the
+two calls stops mattering. This test never resubmits anything. It asks a
+narrower, different question: do a CLI subprocess call and two separate
+in-process MCP calls, all computing a **brand-new, first** packet from
+scratch for the identical goal at effectively the same moment, produce the
+same fingerprint as each other? They do not. There is no saved ticket to
+fall back on here, because none of these calls is reusing an earlier one --
+they are three independent "first" computations that disagree with each
+other.
+
+**Status:** open, not parked under a dedicated background task yet. Root
+cause is presumably the same family of cache/seed non-determinism identified
+for Issue 3 (`saved-graph` vs `fresh-graph` seed provenance depending on
+whether the persistent graph cache was already warm), but this has not been
+separately confirmed for the CLI-vs-MCP path specifically.
+
+**Where to look when picking this up:** `tests/test_host_adapter_conformance.py`'s
+`test_cli_mcp_markdown_json_and_all_hosts_share_one_scope_fingerprint` is a
+ready-made, already-failing reproduction -- no new script needed. Compare
+what `conformance.scope_projection()` and `mcp.start_report()` each do
+differently when building their packet versus the plain CLI path.
 
 ---
 
