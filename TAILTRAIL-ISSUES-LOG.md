@@ -1942,3 +1942,94 @@ investigation started from.
   the surrounding function's intent is "latest" or "specifically v1."
 - `scripts/delivery-record.py` as a worked example of the audit needed --
   one function already correct, four not, in the same file.
+
+---
+
+## 14. Improvement Plan (usability and process, derived from this session's live experience)
+
+Everything below comes from friction actually hit while doing real work in
+this log -- not speculation. Each item names the specific episode it came
+from. None of these are about loosening TailTrail's safety model
+(fail-closed, evidence-bound, approval-gated); every bug this session found
+was a correctness gap in a secondary mechanism, not a hole in that model.
+The common thread is that the *correct* path to using TailTrail often takes
+several wrong turns to find, and the system doesn't make those turns cheap
+or obvious to avoid in advance.
+
+### Quick, high-leverage fixes
+
+**P1. Make `tailtrail-registry.py validate` fail by default, not
+advisory.** It already runs the right check, but currently exits `0` even
+when it reports real issues -- "Advisory mode: exiting 0. Use --strict to
+fail on drift." This is exactly how the registry accumulated 8 unclaimed
+scripts/commands across this one session (`docs-only.py`,
+`prompt_builder.py`, `start_request.py`, `host-interpretation-builder.py`,
+`run-closeout.py`, `delivery-record.py`, plus the `docs-only`/`prompt`
+commands) without anyone noticing until the meta-harness tests failed on
+it downstream, three sessions' worth of work later. See 12.12. Flip the
+default to strict, or wire `validate` into a pre-commit/CI gate.
+
+**P2. Give `closure record` a documented `--force`/`--no-cache` flag.**
+Its reuse check is a content-hash of the evidence source, which is
+sensible for the common case -- but after a genuine code fix changes how
+evidence gets computed (not just what evidence says), there's no
+discoverable way to force recomputation short of manually finding and
+deleting the cached `closure-records/<id>.json` file, which I only knew to
+do because I'd read `closure-recorder.py`'s source directly. Hit this
+twice: once verifying the Issue 13 anchor-version fix (Section 13a) and
+once closing the MCP fsr5 fix (12.11).
+
+**P3. Add fuzzy command matching or a "did you mean" hint to the CLI
+dispatcher.** `tailtrail continuity` should suggest `tailtrail harness
+continuity`; a guessed `tailtrail context-continuity` should suggest the
+real verb. I guessed wrong on this exact case in Section 12.2 before
+checking the dispatcher source. Cheap to add (a simple edit-distance match
+against the known command tree), removes a whole class of wrong first
+guesses for hosts and humans alike.
+
+**P4. Name conflict/version errors with their source, not just a code.**
+`anchor-fingerprint-conflict` told me *that* something disagreed, not
+*which file* was still reading the stale version (Section 13a). A pointer
+like "computed by `official-aidlc-state.py:62`, expected from
+`drift_analysis.py` via `latest_approved()`" would have saved the
+multi-file trace that was otherwise needed to find the third affected
+file.
+
+### Deeper, structural investments
+
+**P5. Let proof commands be registered at evidence-recording time, not
+only pre-activation.** `planning revise` only works while a run is
+`awaiting-approval`; once `planning activate` runs, that window closes
+permanently with no way back short of abandoning the run (Section 13a's
+"Discovered while" note; also hit again in the MCP fsr5 fix, 12.11, where
+I had to catch my own tier-mismatch before it became a second instance of
+the same trap). This creates a real chicken-and-egg problem: the exact
+test command is often unknown until after implementation and diagnosis
+are already done. A safer middle ground: let `execution-evidence run
+--approved` itself additively amend the validation contract (same
+union-only semantics `proof-update` already guarantees) when no prior
+command was registered for the tier being proven, instead of requiring a
+separate, one-way-only pre-activation step.
+
+**P6. Give config/data files a real scope-resolution path.** Confirmed in
+12.12: JSON/YAML/config files cannot become scope owners through either
+the normal ownership flow (no edge-based evidence ever accumulates for
+them) or the `proposed-new` escape hatch (which requires a real
+relationship-edge ID in `convention_refs`, and config files only ever
+produce edge-less "convention" signals). This is structurally the same
+class of gap Issue 5 found for markdown/prose files before the docs-only
+fast lane existed -- just one layer deeper. A "config-only" lane, or a
+convention-based eligibility path running alongside the edge-based one,
+would close it the same way docs-only closed the prose case.
+
+**P7. Turn this session's validation methodology into a standing TailTrail
+capability.** Nearly every real bug in Sections 12-13a was found through
+live, multi-scenario reproduction -- not by trusting existing test suites
+or status labels, several of which were themselves wrong (Context
+Continuity and Spec-Kit Bridge were both labeled `untested` while already
+carrying 9 and 32 passing tests respectively; see 12.2 and 12.8). That is
+a strong signal the product would benefit from a built-in "feature health
+audit" mode: periodically re-verify each feature against live scenarios
+and cross-check `tailtrail-registry.json` against the actual
+`scripts/`/`tests/` trees, rather than relying on hand-maintained status
+labels that silently drift out of truth across sessions.
