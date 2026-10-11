@@ -8,10 +8,19 @@ ROOT=Path(__file__).resolve().parents[1]; STATES={"resolved","improved","unchang
 def ledger():
  s=importlib.util.spec_from_file_location("convergence_ledger",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
 L=ledger()
+def anchor_module():
+ spec=importlib.util.spec_from_file_location("slice3a_anchor",ROOT/"scripts"/"change-intent-anchor.py")
+ module=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(module);return module
+A=anchor_module()
+def _anchor_path(value):
+ if isinstance(value,str): return value.strip() or None
+ if isinstance(value,dict):
+  path=value.get("path"); return str(path).strip() or None if isinstance(path,str) else None
+ return None
 def assess(root:Path,run_id:str,uid:str,state:str,max_cycles:int)->dict[str,Any]:
  if state not in STATES: raise ValueError("unsupported checkpoint state")
  if max_cycles<1: raise ValueError("max cycles must be at least one")
- directory=L.state_dir(root,run_id);anchor=json.loads((directory/"anchors"/"approved-v1.json").read_text(encoding="utf-8"));
+ directory=L.state_dir(root,run_id);_,anchor=A.latest_approved(root,run_id);
  if uid not in {r["requirement_uid"] for r in anchor["requirements"]}: raise ValueError("requirement_uid is not approved")
  outdir=directory/"convergence";prior=[]
  for path in sorted(outdir.glob("cycle-*.json")):

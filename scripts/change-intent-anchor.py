@@ -239,16 +239,19 @@ def feedback(root: Path, run_id: str, feedback_json: str) -> dict[str, Any]:
 
 def invalidate(root: Path, run_id: str, reason: str) -> dict[str, Any]:
     if reason not in MATERIAL_INVALIDATIONS: raise ValueError("reason must be a material invalidation rule")
-    path = anchor_dir(root, run_id) / "approved-v1.json"
-    if not path.exists(): raise ValueError("no approved anchor exists")
-    payload = {"reason": reason, "approved_path": path.relative_to(root).as_posix(), "approved_fingerprint": json.loads(path.read_text(encoding="utf-8"))["approved_fingerprint"]}
+    try:
+        latest_path, latest = latest_approved(root, run_id)
+    except (OSError, ValueError):
+        raise ValueError("no approved anchor exists")
+    payload = {"reason": reason, "approved_path": latest_path.relative_to(root).as_posix(), "approved_fingerprint": latest["approved_fingerprint"]}
     LEDGER.append_event(root, run_id, "anchor_invalidated", payload); return payload
 
 
 def graph_receipt(root: Path, run_id: str, requirement_uids: list[str], paths: list[str], evidence_label: str) -> dict[str, Any]:
-    approved_path = anchor_dir(root, run_id) / "approved-v1.json"
-    if not approved_path.exists(): raise ValueError("approve an anchor before recording graph evidence")
-    approved = json.loads(approved_path.read_text(encoding="utf-8"))
+    try:
+        _, approved = latest_approved(root, run_id)
+    except (OSError, ValueError):
+        raise ValueError("approve an anchor before recording graph evidence")
     known = {row["requirement_uid"] for row in approved["requirements"]}
     if not requirement_uids or not set(requirement_uids).issubset(known): raise ValueError("receipt must reference approved requirement_uids only")
     if evidence_label not in {"local-ast", "heuristic", "provider-backed"}: raise ValueError("unsupported graph evidence label")

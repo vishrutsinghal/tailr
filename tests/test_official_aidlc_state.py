@@ -139,6 +139,26 @@ class OfficialAidlcStateTests(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertTrue({"run-id-conflict", "unknown-evidence-requirement"}.issubset({row["code"] for row in result["issues"]}))
 
+    def test_corrected_anchor_and_checkpoint_agree(self) -> None:
+        """A mid-run correction must not produce anchor-fingerprint-conflict.
+
+        Regression test: the checkpoint side reports the latest (corrected)
+        fingerprint while this projection used to read frozen v1, turning a
+        sanctioned correction into a blocking conflict.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            directory, uid = self.setup_run(root)
+            anchor.correct(root, "run", uid, ["src/validation.py", "tests/test_validation.py"],
+                           "regression test needed mid-run")
+            _, latest = anchor.latest_approved(root, "run")
+            self.checkpoint(directory, uid, latest["approved_fingerprint"])
+            result = state.project(root, "run")
+        self.assertTrue(result["valid"], result["issues"])
+        self.assertNotIn("anchor-fingerprint-conflict", {row["code"] for row in result["issues"]})
+        anchor_rows = [row for row in result["artifacts"] if row["role"] == "approved-anchor"]
+        self.assertTrue(anchor_rows[0]["path"].endswith("approved-v2.json"))
+
     def test_cli_validate_returns_nonzero_for_conflict(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

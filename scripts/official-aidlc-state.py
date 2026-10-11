@@ -49,6 +49,18 @@ def _latest(directory: Path, pattern: str) -> Path | None:
     return files[-1] if files else None
 
 
+def _latest_approved_anchor(directory: Path) -> Path:
+    """Latest approved anchor, never the frozen v1 file.
+
+    A mid-run `correct` amendment (v2+) must be visible here: the checkpoint
+    side already reports the latest fingerprint, so reading v1 produces a
+    bogus `anchor-fingerprint-conflict`. Falls back to the v1 path itself
+    when no version exists, preserving the existing missing-file handling.
+    """
+    found = _latest(directory / "anchors", "approved-v*.json")
+    return found if found is not None else directory / "anchors" / "approved-v1.json"
+
+
 def project(root: Path, run_id: str) -> dict[str, Any]:
     """Return deterministic canonical state without writing or reconciling files."""
     root = root.resolve()
@@ -59,7 +71,7 @@ def project(root: Path, run_id: str) -> dict[str, Any]:
 
     paths: dict[str, Path | None] = {
         "manifest": directory / "manifest.json",
-        "approved-anchor": directory / "anchors" / "approved-v1.json",
+        "approved-anchor": _latest_approved_anchor(directory),
         "official-bridge": directory / "aidlc-official" / "bridge-v1.json",
         "official-activation": directory / "aidlc-official" / "activation-v1.json",
         "official-runtime-session": directory / "aidlc-official" / "runtime" / "session-v1.json",

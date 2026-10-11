@@ -144,11 +144,12 @@ def _run_integrity_issues(root: Path, run_id: str) -> list[str]:
 
 def _artifact_refs(root: Path, run_id: str) -> list[str]:
     directory = LEDGER.state_dir(root.resolve(), run_id)
-    candidates = (
+    candidates = [
         directory / "planning" / "lock-v1.json",
         directory / "planning" / "start-report-v1.json",
-        directory / "anchors" / "approved-v1.json",
-    )
+    ]
+    versions = sorted((directory / "anchors").glob("approved-v*.json")) if (directory / "anchors").is_dir() else []
+    candidates.extend(versions[-1:] or [directory / "anchors" / "approved-v1.json"])
     return [path.relative_to(root.resolve()).as_posix() for path in candidates if path.is_file()]
 
 

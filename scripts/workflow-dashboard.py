@@ -28,6 +28,17 @@ def canonical_state_module() -> Any:
 
 
 L = ledger()
+
+
+def anchor_module() -> Any:
+    spec = importlib.util.spec_from_file_location("dashboard_anchor", ROOT / "scripts" / "change-intent-anchor.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+ANCHOR = anchor_module()
 STATE = canonical_state_module()
 
 
@@ -39,9 +50,11 @@ def latest(folder: Path, pattern: str) -> dict[str, Any] | None:
 def _base_dashboard(root: Path, run_id: str) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
     canonical_state = STATE.project(root, run_id)
-    anchor_path = directory / "anchors" / "approved-v1.json"
-    if not anchor_path.is_file(): raise ValueError("an approved anchor is required for the workflow dashboard")
-    anchor = read(anchor_path); checkpoint = latest(directory / "checkpoints", "checkpoint-*.json")
+    try:
+        _, anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
+        raise ValueError("an approved anchor is required for the workflow dashboard")
+    checkpoint = latest(directory / "checkpoints", "checkpoint-*.json")
     review = latest(directory / "reviews", "review-*.json")
     gate = latest(directory / "completion-gates", "gate-*.json")
     completion = latest(directory / "completion-reports", "report-*.json")

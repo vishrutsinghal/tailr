@@ -8,17 +8,26 @@ ROOT=Path(__file__).resolve().parents[1]
 def ledger():
  s=importlib.util.spec_from_file_location("template_ledger",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
 L=ledger()
+def anchor_module():
+ spec=importlib.util.spec_from_file_location("slice3a_anchor",ROOT/"scripts"/"change-intent-anchor.py")
+ module=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(module);return module
+A=anchor_module()
+def _anchor_path(value):
+ if isinstance(value,str): return value.strip() or None
+ if isinstance(value,dict):
+  path=value.get("path"); return str(path).strip() or None if isinstance(path,str) else None
+ return None
 def select(root:Path,run_id:str,uid:str,template_path:Path)->dict[str,Any]:
  raw=json.loads(template_path.read_text(encoding="utf-8"));templates=raw.get("templates",[])
  if not isinstance(templates,list): raise ValueError("templates must be a list")
- anchor=json.loads((L.state_dir(root,run_id)/"anchors"/"approved-v1.json").read_text(encoding="utf-8"));row=next((r for r in anchor["requirements"] if r["requirement_uid"]==uid),None)
+ _,anchor=A.latest_approved(root,run_id);row=next((r for r in anchor["requirements"] if r["requirement_uid"]==uid),None)
  if not row: raise ValueError("requirement_uid is not approved")
  selected=[]
  for template in templates:
   if not isinstance(template,dict) or not isinstance(template.get("id"),str): raise ValueError("each template needs an id")
   kinds=template.get("kinds",[]);prefixes=template.get("path_prefixes",[])
   if kinds and row["kind"] not in kinds: continue
-  if prefixes and not any(any(path.startswith(prefix.rstrip("/")+"/") or path==prefix.rstrip("/") for prefix in prefixes) for path in row.get("likely_paths",[])): continue
+  if prefixes and not any(any(p and (p.startswith(prefix.rstrip("/")+"/") or p==prefix.rstrip("/")) for prefix in prefixes) for p in (_anchor_path(item) for item in row.get("likely_paths",[]))): continue
   selected.append({"id":template["id"],"controls":template.get("controls",[]),"required_tiers":template.get("required_tiers",[])})
  existing=row.get("validation_contract",{}).get("tiers",[]);tiers=sorted(set(existing)|{tier for item in selected for tier in item["required_tiers"]})
  controls=sorted({control for item in selected for control in item["controls"]})

@@ -40,7 +40,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
-ANCHOR_FILENAME = "approved-v1.json"
 SCOPE_DRIFT = "new-drift"
 UNIMPLEMENTED = "requirement-unimplemented"
 CONCRETENESS = "anchor-not-concrete"

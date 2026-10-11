@@ -49,7 +49,9 @@ def directory(root: Path, run_id: str) -> Path: return L.state_dir(root.resolve(
 def packet_path(root: Path, run_id: str) -> Path: return directory(root, run_id) / "correction-packet-v1.json"
 def approved_path(root: Path, run_id: str) -> Path: return directory(root, run_id) / "approved-v1.json"
 def handoff_path(root: Path, run_id: str) -> Path: return directory(root, run_id) / "implementation-handoff-v1.json"
-def approved_anchor_path(root: Path, run_id: str) -> Path: return L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
+def approved_anchor_path(root: Path, run_id: str) -> Path:
+ versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+ return versions[-1] if versions else L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
 
 
 def _canonical(value: Any) -> str: return json.dumps(value, sort_keys=True, separators=(",", ":"))

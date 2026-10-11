@@ -947,7 +947,10 @@ def ledger_state(args: dict[str, Any]) -> dict[str, Any]:
 
 def anchor_show(args: dict[str, Any]) -> dict[str, Any]:
     root = root_from(args); identifier = run_id(args)
-    return {"tool": "anchor_show", "result": read_json(root / ".tailtrail" / "runs" / identifier / "anchors" / "approved-v1.json"), "execution": {"read_only": True, "exit_code": 0}}
+    versions = sorted((root / ".tailtrail" / "runs" / identifier / "anchors").glob("approved-v*.json"))
+    if not versions:
+        raise ValueError(f"no approved anchor exists for run `{identifier}`")
+    return {"tool": "anchor_show", "result": read_json(versions[-1]), "execution": {"read_only": True, "exit_code": 0}}
 
 
 def harness_checkpoint_show(args: dict[str, Any]) -> dict[str, Any]:

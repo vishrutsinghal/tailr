@@ -28,6 +28,7 @@ FINALIZER = load("closure_close_finalizer", "closure-finalizer.py")
 LEARNING = load("closure_close_learning", "closure-learning.py")
 EVALUATION = load("closure_close_evaluation", "closure-evaluation.py")
 STATE = load("closure_close_official_state", "official-aidlc-state.py")
+ANCHOR = load("closure_close_anchor", "change-intent-anchor.py")
 SAN = load("closure_close_official_sanitizer", "official-aidlc-sanitize.py")
 RUNTIME = load("closure_close_official_runtime", "official-aidlc-runtime.py")
 V3 = load("closure_close_learning_v3", "learning-v3.py")
@@ -107,7 +108,7 @@ def resolve_run(root: Path, run_id: str | None) -> str:
 def baseline(root: Path, run_id: str) -> Path:
     directory = L.state_dir(root, run_id); path = directory / "closure-baselines" / "approved-anchor-v1.json"
     if path.is_file(): return path
-    anchor = json.loads((directory / "anchors" / "approved-v1.json").read_text(encoding="utf-8")); total = len(anchor.get("requirements", []))
+    _, anchor = ANCHOR.latest_approved(root, run_id); total = len(anchor.get("requirements", []))
     if total < 1: raise ValueError("approved anchor has no requirements; run `tailtrail start \"<goal>\"` for a new run with requirements")
     L.atomic_json(path, {"type": "tailtrail-closure-baseline", "baseline_kind": "approved-anchor-delivery-start", "requirements_complete": 0, "requirements_total": total, "unresolved_drift": 0, "tests_pass": False, "boundary": "Derived automatically from the immutable pre-implementation approved anchor as a delivery-start snapshot. It measures delivery progression, not agent or quality performance."})
     return path

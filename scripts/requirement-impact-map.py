@@ -9,6 +9,15 @@ ROOT=Path(__file__).resolve().parents[1]
 def ledger():
  s=importlib.util.spec_from_file_location("impact_ledger",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
 L=ledger()
+def anchor_module():
+ spec=importlib.util.spec_from_file_location("slice3b_anchor",ROOT/"scripts"/"change-intent-anchor.py")
+ module=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(module);return module
+A=anchor_module()
+def _anchor_path(value):
+ if isinstance(value,str): return value.strip() or None
+ if isinstance(value,dict):
+  path=value.get("path"); return str(path).strip() or None if isinstance(path,str) else None
+ return None
 def read(path:Path)->dict[str,Any]: return json.loads(path.read_text(encoding="utf-8"))
 def python_files(root:Path):
  return [p for p in root.rglob("*.py") if not any(x in {".git",".tailtrail",".venv","__pycache__"} for x in p.parts)]
@@ -26,11 +35,11 @@ def calls(path:Path,names:set[str])->list[str]:
 def intersects(path:str,likely:list[str])->bool:
  return any(path==item or path.startswith(item.rstrip("/")+"/") or item.startswith(path.rstrip("/")+"/") for item in likely)
 def map_impact(root:Path,run_id:str,changed:list[str])->dict[str,Any]:
- directory=L.state_dir(root,run_id);anchor=read(directory/"anchors"/"approved-v1.json")
+ directory=L.state_dir(root,run_id);_,anchor=A.latest_approved(root,run_id)
  source={p.relative_to(root).as_posix():symbols(p) for p in python_files(root)}
  mapped=[]
  for row in anchor["requirements"]:
-  relevant=sorted({p for p in changed if intersects(p,row.get("likely_paths",[]))})
+  relevant=sorted({p for p in changed if intersects(p,[found for item in row.get("likely_paths",[]) for found in [_anchor_path(item)] if found])})
   names={name for path in relevant for name in source.get(path,[])}
   callers=[];tests=[]
   for path in sorted(source):

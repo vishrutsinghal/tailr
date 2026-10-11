@@ -50,7 +50,17 @@ def relative(path: str) -> str:
     return value.as_posix()
 
 
+def _anchor_path(value: Any) -> str | None:
+    found = value.get("path") if isinstance(value, dict) else value
+    return str(found).strip() or None if isinstance(found, str) else None
+
+
 def anchor(root: Path, run_id: str) -> dict[str, Any]:
+    try:
+        _, found = ANCHOR.latest_approved(root, run_id)
+        return found
+    except (OSError, ValueError):
+        pass
     path = LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json"
     if not path.exists(): raise ValueError("an approved anchor is required before creating a recovery boundary")
     return read(path)
@@ -63,7 +73,7 @@ def init(root: Path, run_id: str, expected_paths: list[str], approved: bool) -> 
     path = boundary_path(root, run_id)
     if path.exists(): raise ValueError("recovery boundary already exists")
     approved_anchor = anchor(root, run_id)
-    derived = [item for row in approved_anchor["requirements"] for item in row["likely_paths"]]
+    derived = [found for row in approved_anchor["requirements"] for item in row["likely_paths"] for found in [_anchor_path(item)] if found]
     paths = sorted(set(relative(item) for item in (expected_paths or derived)))
     if not paths: raise ValueError("expected paths are required (or must be present in the approved anchor)")
     branch = f"tailtrail/{run_id}"

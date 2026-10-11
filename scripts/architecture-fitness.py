@@ -10,6 +10,26 @@ ROOT = Path(__file__).resolve().parents[1]
 def load_ledger() -> Any:
  spec=importlib.util.spec_from_file_location("architecture_ledger",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(m);return m
 L=load_ledger()
+def anchor_module() -> Any:
+    spec = importlib.util.spec_from_file_location("slice3a_anchor", ROOT / "scripts" / "change-intent-anchor.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+A = anchor_module()
+
+
+def _anchor_path(value: Any) -> str | None:
+    """Extract a path from a plain-string or {path, role} anchor entry."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, dict):
+        path = value.get("path")
+        return str(path).strip() or None if isinstance(path, str) else None
+    return None
+
 def read(path:Path)->dict[str,Any]: return json.loads(path.read_text(encoding="utf-8"))
 def rel(value:str)->str:
  path=Path(value)
@@ -46,11 +66,11 @@ def imports(path:Path)->list[str]:
   except (UnicodeDecodeError,OSError): return []
  return []
 def assess(root:Path,run_id:str,changed:list[str],profile_path:Path|None=None)->dict[str,Any]:
- directory=L.state_dir(root,run_id); anchor=read(directory/"anchors"/"approved-v1.json")
+ directory=L.state_dir(root,run_id); _,anchor=A.latest_approved(root,run_id)
  paths=sorted(set(rel(item) for item in changed)); profile=read(profile_path) if profile_path else {}
  findings=[]; checks=[]; rules=profile.get("rules",[]) if isinstance(profile,dict) else []
  graph_events=[event for event in L.read_events(directory/"events.jsonl") if event.get("event_type")=="graph_receipt"]
- all_allowed=sorted({item for row in anchor["requirements"] for item in row.get("likely_paths",[])})
+ all_allowed=sorted({found for row in anchor["requirements"] for item in row.get("likely_paths",[]) for found in [_anchor_path(item)] if found})
  for path in paths:
   if all_allowed and not any(matches(path,item) for item in all_allowed):findings.append({"category":"scope","classification":"new-drift","path":path,"message":"changed path is outside approved likely paths","evidence":"approved-anchor"})
  for row in anchor["requirements"]:

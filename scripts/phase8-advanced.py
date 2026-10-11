@@ -9,7 +9,9 @@ def ledger():
  s=importlib.util.spec_from_file_location("phase8_ledger",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
 L=ledger()
 def read(p):return json.loads(p.read_text(encoding="utf-8"))
-def anchor(root,run):return read(L.state_dir(root,run)/"anchors"/"approved-v1.json")
+def anchor(root,run):
+ versions=sorted((L.state_dir(root,run)/"anchors").glob("approved-v*.json"),key=lambda q:int(q.stem.rsplit("v",1)[-1]))
+ return read(versions[-1]) if versions else read(L.state_dir(root,run)/"anchors"/"approved-v1.json")
 def save(root,run,kind,event,payload):
  directory=L.state_dir(root,run)/kind;path=directory/f"{kind}-{len(list(directory.glob('*.json')))+1}.json";L.atomic_json(path,payload);L.append_event(root,run,event,{"artifact":path.relative_to(root).as_posix()});return {"path":path.as_posix(),**payload}
 def journey(root,run,input_path):

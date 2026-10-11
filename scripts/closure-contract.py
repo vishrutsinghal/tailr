@@ -41,6 +41,9 @@ def ledger() -> Any:
 L = ledger()
 
 
+ANCHOR = load("closure_contract_anchor", "change-intent-anchor.py")
+
+
 def repository_path(value: Any, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} must be a non-empty repository-relative path")
@@ -61,10 +64,10 @@ def short_text(value: Any, field: str, *, allow_empty: bool = False) -> str:
 
 
 def approved_requirement_uids(root: Path, run_id: str) -> set[str]:
-    path = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
-    if not path.is_file():
+    try:
+        _, payload = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
         raise ValueError(f"approved anchor for run `{run_id}` does not exist")
-    payload = json.loads(path.read_text(encoding="utf-8"))
     return {str(row.get("requirement_uid", "")) for row in payload.get("requirements", []) if isinstance(row, dict)}
 
 

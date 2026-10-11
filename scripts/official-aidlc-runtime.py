@@ -36,6 +36,7 @@ L = load("scripts/run-ledger.py", "official_runtime_ledger")
 DETECT = load("scripts/aidlc-official-detect.py", "official_runtime_detect")
 STATE = load("scripts/official-aidlc-state.py", "official_runtime_state")
 SAN = load("scripts/official-aidlc-sanitize.py", "official_runtime_sanitize")
+ANCHOR = load("scripts/change-intent-anchor.py", "official_runtime_anchor")
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -73,6 +74,11 @@ def _bridge(root: Path, run_id: str) -> tuple[dict[str, Any], Path]:
 
 
 def _anchor(root: Path, run_id: str) -> tuple[dict[str, Any], Path]:
+    try:
+        latest_path, anchor = ANCHOR.latest_approved(root, run_id)
+        return anchor, Path(latest_path)
+    except (OSError, ValueError):
+        pass
     path = run_dir(root, run_id) / "anchors" / "approved-v1.json"
     if not path.is_file():
         raise ValueError("runtime attachment requires an immutable approved anchor")

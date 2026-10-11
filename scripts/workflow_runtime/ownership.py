@@ -82,7 +82,8 @@ def _canonical_refs(root: Path, run_id: str) -> tuple[dict[str, Any], dict[str, 
     identity = TARGET.verify_identity(lock.get("target_identity", {}), root)
     if identity.get("blocking"):
         raise ValueError(f"DWR-A target identity mismatch: {identity.get('reason', 'unknown mismatch')}")
-    anchor_path = LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json"
+    versions = sorted((LEDGER.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+    anchor_path = versions[-1] if versions else LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json"
     if not anchor_path.is_file():
         raise ValueError(f"DWR-A requires the immutable approved anchor for run `{run_id}`")
     anchor = json.loads(anchor_path.read_text(encoding="utf-8"))

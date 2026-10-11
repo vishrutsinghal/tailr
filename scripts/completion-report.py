@@ -22,6 +22,28 @@ def ledger() -> Any:
     return module
 
 
+def anchor_module() -> Any:
+    spec = importlib.util.spec_from_file_location("completion_report_anchor", ROOT / "scripts" / "change-intent-anchor.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+ANCHOR = anchor_module()
+
+
+def _anchor_path(value: Any) -> str | None:
+    """Extract a path from a plain-string or {path, role} anchor entry."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, dict):
+        path = value.get("path")
+        return str(path).strip() or None if isinstance(path, str) else None
+    return None
+
+
 def learning_agent() -> Any:
     spec = importlib.util.spec_from_file_location("completion_report_learning", ROOT / "scripts" / "learning-agent.py")
     module = importlib.util.module_from_spec(spec)
@@ -295,11 +317,16 @@ def token_usage_summary(root: Path, run_id: str, directory: Path) -> dict[str, A
     posture = start_report.get("token_posture", {}) if isinstance(start_report, dict) else {}
     estimate = posture.get("used_tokens") if isinstance(posture, dict) else None
     if not isinstance(estimate, int) or isinstance(estimate, bool) or estimate < 0:
-        anchor_path = directory / "anchors" / "approved-v1.json"
-        anchor = read(anchor_path) if anchor_path.is_file() else {}
+        try:
+            _, anchor = ANCHOR.latest_approved(root, run_id)
+        except (OSError, ValueError):
+            anchor = {}
+        if not isinstance(anchor, dict):
+            anchor = {}
         paths = {
-            str(path) for row in anchor.get("requirements", []) if isinstance(row, dict)
-            for path in row.get("likely_paths", []) if isinstance(path, str)
+            found for row in anchor.get("requirements", []) if isinstance(row, dict)
+            for path in row.get("likely_paths", [])
+            for found in [_anchor_path(path)] if found
         }
         estimate = sum((len((root / path).read_text(encoding="utf-8")) + 3) // 4 for path in paths if (root / path).is_file())
     telemetry = root / ".tailtrail" / "token-usage.jsonl"
@@ -624,7 +651,7 @@ def positive_learning_status(directory: Path, payload: dict[str, Any]) -> dict[s
 def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
     canonical_state = STATE.project(root, run_id)
-    anchor = read(directory / "anchors" / "approved-v1.json")
+    anchor_file, anchor = ANCHOR.latest_approved(root, run_id)
     checkpoint, checkpoint_path = latest(directory / "checkpoints", "checkpoint-*.json")
     review, review_path = latest(directory / "reviews", "review-*.json")
     gate, gate_path = latest(directory / "completion-gates", "gate-*.json")
@@ -825,7 +852,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         "pipeline": pipeline_summary(root, run_id),
         "stale_learnings": finalizer_stale_learnings(root, run_id),
         "source_artifacts": {
-            "approved_anchor": "anchors/approved-v1.json",
+            "approved_anchor": "anchors/" + Path(anchor_file).name,
             "checkpoint": checkpoint_path,
             "completion_review": review_path,
             "completion_gate": gate_path,

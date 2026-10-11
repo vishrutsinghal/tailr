@@ -8,6 +8,14 @@ ledger=load("mode_b_test_ledger","scripts/run-ledger.py");anchor=load("mode_b_te
 class ModeBRecoveryTests(unittest.TestCase):
  def setup(self,root):
   ledger.init_run(root,"run","mode b");(root/"src").mkdir();(root/"src"/"service.py").write_text("value='req1'\n",encoding="utf-8");proposal=root/"proposal.json";proposal.write_text(json.dumps({"requirements":[{"statement":"req2","likely_paths":["src/service.py"],"acceptance_criteria":[],"preserve_rules":["keep req1"],"evidence_plan":[]}]}),encoding="utf-8");draft=anchor.draft(root,"run",proposal);anchor.approve(root,"run");return draft["requirements"][0]["requirement_uid"]
+ def test_capture_covers_corrected_role_tagged_paths(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);uid=self.setup(root)
+   anchor.correct(root,"run",uid,["src/service.py",{"path":"src/extra.py","role":"implementation-owner"}],"extra scope")
+   (root/"src"/"extra.py").write_text("value='req1'\n",encoding="utf-8")
+   manifest=mode_b.capture(root,"run",uid,True)
+   paths=sorted(x["path"] for x in manifest["files"])
+   self.assertEqual(paths,["src/extra.py","src/service.py"])
  def test_exact_mode_b_restore_preserves_baseline(self):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);uid=self.setup(root);mode_b.capture(root,"run",uid,True);(root/"src"/"service.py").write_text("value='broken req2'\n",encoding="utf-8");mode_b.seal(root,"run",uid,[],True);plan=mode_b.plan(root,"run",uid);mode_b.apply(root,"run",uid,True);content=(root/"src"/"service.py").read_text(encoding="utf-8")

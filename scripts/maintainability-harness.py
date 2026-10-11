@@ -26,6 +26,28 @@ def load_ledger() -> Any:
 LEDGER = load_ledger()
 
 
+def load_anchor() -> Any:
+    spec = importlib.util.spec_from_file_location("slice3b_anchor", ROOT / "scripts" / "change-intent-anchor.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+ANCHOR = load_anchor()
+
+
+def _anchor_path(value: Any) -> str | None:
+    """Extract a path from a plain-string or {path, role} anchor entry."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, dict):
+        path = value.get("path")
+        return str(path).strip() or None if isinstance(path, str) else None
+    return None
+
+
+
 def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -148,9 +170,9 @@ def _contract_paths(anchor: dict[str, Any]) -> list[str]:
     for row in anchor.get("requirements", []):
         contract = row.get("maintainability_contract", {})
         candidates = contract.get("candidate_paths", []) if isinstance(contract, dict) else []
-        paths.extend(str(value) for value in candidates if value)
+        paths.extend(found for value in candidates for found in [_anchor_path(value)] if found)
         if not candidates:
-            paths.extend(str(value) for value in row.get("likely_paths", []) if value)
+            paths.extend(found for value in row.get("likely_paths", []) for found in [_anchor_path(value)] if found)
     return sorted(set(relative_path(value) for value in paths))
 
 
@@ -187,7 +209,7 @@ def capture_baseline(root: Path, run_id: str) -> dict[str, Any]:
     path = directory / "maintainability" / "baseline-v1.json"
     if path.is_file():
         return {**read_json(path), "run_artifact": path.relative_to(root).as_posix(), "reused": True}
-    anchor = read_json(directory / "anchors" / "approved-v1.json")
+    _, anchor = ANCHOR.latest_approved(root, run_id)
     snapshot = structural_snapshot(root, _contract_paths(anchor))
     payload = {
         "schema_version": "1", "type": "tailtrail-maintainability-baseline", "run_id": run_id,
@@ -206,11 +228,11 @@ def capture_baseline(root: Path, run_id: str) -> dict[str, Any]:
 def assess(root: Path, run_id: str, changed: list[str]) -> dict[str, Any]:
     root = root.resolve()
     directory = LEDGER.state_dir(root, run_id)
-    anchor = read_json(directory / "anchors" / "approved-v1.json")
+    _, anchor = ANCHOR.latest_approved(root, run_id)
     paths = sorted(set(relative_path(item) for item in changed))
     findings: list[dict[str, Any]] = []
     advisories: list[dict[str, Any]] = []
-    allowed = sorted({path for row in anchor["requirements"] for path in row.get("likely_paths", [])})
+    allowed = sorted({found for row in anchor["requirements"] for path in row.get("likely_paths", []) for found in [_anchor_path(path)] if found})
     for path in paths:
         if allowed and not any(matches(path, item) for item in allowed):
             findings.append({"category": "scope", "classification": "new-drift", "path": path, "message": "changed path is outside approved likely paths", "evidence": "approved-anchor"})

@@ -13,6 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def ledger() -> Any:
     spec=importlib.util.spec_from_file_location("mode_b_ledger",ROOT/"scripts"/"run-ledger.py"); module=importlib.util.module_from_spec(spec); assert spec and spec.loader; spec.loader.exec_module(module); return module
 L=ledger()
+def anchor_module() -> Any:
+ spec=importlib.util.spec_from_file_location("slice3b_anchor_rrm",ROOT/"scripts"/"change-intent-anchor.py"); module=importlib.util.module_from_spec(spec); assert spec and spec.loader; spec.loader.exec_module(module); return module
+A=anchor_module()
+def _anchor_path(value: Any) -> str | None:
+ path=value.get("path") if isinstance(value,dict) else value; return str(path).strip() or None if isinstance(path,str) else None
 def sha(data:bytes)->str:return "sha256:"+hashlib.sha256(data).hexdigest()
 def read(path:Path)->dict[str,Any]:return json.loads(path.read_text(encoding="utf-8"))
 def safe(value:str)->str:
@@ -27,7 +32,7 @@ def symbols(data:bytes,path:str)->list[str]:
 def root_dir(root:Path,run_id:str,uid:str)->Path:return L.state_dir(root,run_id)/"recovery"/"mode-b"/uid
 def manifest_path(root:Path,run_id:str,uid:str)->Path:return root_dir(root,run_id,uid)/"manifest.json"
 def requirement(root:Path,run_id:str,uid:str)->dict[str,Any]:
- anchor=read(L.state_dir(root,run_id)/"anchors"/"approved-v1.json"); row=next((r for r in anchor["requirements"] if r["requirement_uid"]==uid),None)
+ _,anchor=A.latest_approved(root,run_id); row=next((r for r in anchor["requirements"] if r["requirement_uid"]==uid),None)
  if not row:raise ValueError("requirement UID is not in the approved anchor")
  return row
 def capture(root:Path,run_id:str,uid:str,approved:bool)->dict[str,Any]:
@@ -36,7 +41,9 @@ def capture(root:Path,run_id:str,uid:str,approved:bool)->dict[str,Any]:
  if manifest_path(root,run_id,uid).exists():raise ValueError("Mode B manifest already exists for this requirement")
  files=[]
  for raw in row["likely_paths"]:
-  path=safe(raw); candidate=root/path; exists=candidate.is_file(); data=candidate.read_bytes() if exists else b""
+  found=_anchor_path(raw)
+  if not found: continue
+  path=safe(found); candidate=root/path; exists=candidate.is_file(); data=candidate.read_bytes() if exists else b""
   baseline=folder/"baseline"/path
   if exists: baseline.parent.mkdir(parents=True,exist_ok=True); baseline.write_bytes(data)
   files.append({"path":path,"before_exists":exists,"before_fingerprint":sha(data) if exists else None,"before_symbols":symbols(data,path)})

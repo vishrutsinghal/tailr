@@ -104,7 +104,8 @@ def _scope_file_hashes(root: Path, paths: list[str]) -> dict[str, dict[str, str]
 def approved_scope_paths(root: Path, workflow_id: str) -> list[str]:
     """Collect approved scope file paths from the run anchor requirements."""
     binding = ownership.show(root.resolve(), workflow_id)
-    anchor_path = LEDGER.state_dir(root.resolve(), binding["tailtrail_run_id"]) / "anchors" / "approved-v1.json"
+    versions = sorted((LEDGER.state_dir(root.resolve(), binding["tailtrail_run_id"]) / "anchors").glob("approved-v*.json"))
+    anchor_path = versions[-1] if versions else LEDGER.state_dir(root.resolve(), binding["tailtrail_run_id"]) / "anchors" / "approved-v1.json"
     try:
         anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
@@ -115,8 +116,9 @@ def approved_scope_paths(root: Path, workflow_id: str) -> list[str]:
         for row in requirements:
             if isinstance(row, dict):
                 for path in row.get("likely_paths", []) or []:
-                    if isinstance(path, str) and path.strip():
-                        paths.append(path.replace("\\", "/"))
+                    found = path.get("path") if isinstance(path, dict) else path
+                    if isinstance(found, str) and found.strip():
+                        paths.append(found.replace("\\", "/"))
     return sorted(dict.fromkeys(paths))
 
 

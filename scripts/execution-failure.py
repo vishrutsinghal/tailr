@@ -152,11 +152,21 @@ def authority_decision(classification: str, proposed_action: str) -> dict[str, s
     return {"status": "needs-scope-evidence", "approval_required": True, "route": "scope-review", "reason": "The requested correction cannot be proven inside the approved requirement scope in this phase."}
 
 
+def _anchor_path(value: Any) -> str | None:
+    """Extract a path from a plain-string or {path, role} anchor entry."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, dict):
+        path = value.get("path")
+        return str(path).strip() or None if isinstance(path, str) else None
+    return None
+
+
 def approved_requirement(root: Path, run_id: str, requirement_uid: str) -> dict[str, Any]:
-    path = ANCHOR.anchor_dir(root, run_id) / "approved-v1.json"
-    if not path.is_file():
+    try:
+        _, anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
         raise ValueError("an approved anchor is required before requirement mapping")
-    anchor = json.loads(path.read_text(encoding="utf-8"))
     for requirement in anchor.get("requirements", []):
         if requirement.get("requirement_uid") == requirement_uid and requirement.get("status") == "approved":
             return requirement
@@ -360,7 +370,7 @@ def map_requirement(root: Path, run_id: str, failure_id: str, requirement_uid: s
     PLANNING.assert_write_allowed(root, run_id)
     requirement = approved_requirement(root, run_id, requirement_uid)
     current = show(root, run_id, failure_id)
-    allowed_paths = {str(path) for path in requirement.get("likely_paths", [])}
+    allowed_paths = {found for path in requirement.get("likely_paths", []) for found in [_anchor_path(path)] if found}
     requested_paths = [safe_project_relative(root, path) for path in suspected_paths]
     architecture = requirement.get("architecture_contract", {})
     behavior = requirement.get("behavior_contract", {})

@@ -103,7 +103,8 @@ def _create(root: Path, run_id: str, requested_workflow_id: str | None) -> dict[
         raise ValueError("approved Start workflow draft has no canonical workflow ID")
     if requested_workflow_id is not None and requested_workflow_id != workflow_id:
         raise ValueError("requested workflow ID differs from the approved Start workflow draft")
-    anchor_path = ownership.LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json"
+    versions = sorted((ownership.LEDGER.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+    anchor_path = versions[-1] if versions else ownership.LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json"
     if not anchor_path.is_file():
         raise ValueError("workflow_create requires the immutable approved canonical anchor")
     if ownership.binding_path(root, workflow_id).is_file():

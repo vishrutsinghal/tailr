@@ -76,10 +76,10 @@ def render_plan(root: Path, run_id: str) -> str:
     """
     root = root.resolve()
     directory = L.state_dir(root, run_id)
-    anchor_path = directory / "anchors" / "approved-v1.json"
-    if not anchor_path.is_file():
+    try:
+        _, anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
         raise ValueError(f"no approved anchor exists for run `{run_id}`; approve the Planning Lock first")
-    anchor = read(anchor_path)
     revision = LOCK.revision_state(root, run_id)
     lock = LOCK.show(root, run_id)
     try:
@@ -239,10 +239,13 @@ def render_scope_revisions(root: Path, run_id: str) -> str:
     directory = L.state_dir(root, run_id)
     events_path = directory / "events.jsonl"
     events = L.read_events(events_path)
-    anchor_path = directory / "anchors" / "approved-v1.json"
     display_ids: dict[str, str] = {}
-    if anchor_path.is_file():
-        anchor = read(anchor_path)
+    try:
+        _, display_anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
+        display_anchor = None
+    if isinstance(display_anchor, dict):
+        anchor = display_anchor
         display_ids = {
             str(row.get("requirement_uid")): str(row.get("display_id", row.get("requirement_uid")))
             for row in anchor.get("requirements", [])
@@ -318,10 +321,12 @@ def render_anchor_corrections(root: Path, run_id: str) -> str:
     corrections = anchor.get("corrections", [])
     if not corrections:
         raise ValueError(f"no anchor corrections recorded for run `{run_id}`")
-    anchor_path = directory / "anchors" / "approved-v1.json"
     display_ids: dict[str, str] = {}
-    if anchor_path.is_file():
-        base_anchor = read(anchor_path)
+    try:
+        _, base_anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
+        base_anchor = None
+    if isinstance(base_anchor, dict):
         display_ids = {
             str(row.get("requirement_uid")): str(row.get("display_id", row.get("requirement_uid")))
             for row in base_anchor.get("requirements", [])
@@ -377,10 +382,10 @@ def render_closure(root: Path, run_id: str) -> str:
     """
     root = root.resolve()
     directory = L.state_dir(root, run_id)
-    anchor_path = directory / "anchors" / "approved-v1.json"
-    if not anchor_path.is_file():
+    try:
+        _, anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
         raise ValueError(f"no approved anchor exists for run `{run_id}`; approve the Planning Lock first")
-    anchor = read(anchor_path)
     reports_dir = directory / "completion-reports"
     reports = sorted(reports_dir.glob("report-*.json")) if reports_dir.is_dir() else []
     if not reports:

@@ -109,5 +109,21 @@ class ExecutionFailureTests(unittest.TestCase):
         self.assertEqual(repeated["correlation"]["prior_matching_failure_id"], first["failure_id"])
 
 
+    def test_corrected_likely_paths_map_without_corruption(self) -> None:
+        """A corrected role-tagged path must map as an approved path, cleanly."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = self.approved_run(root)
+            requirement_uid = self.approved_requirement(root, run_id)
+            anchor.correct(root, run_id, requirement_uid,
+                           ["src/claims.py", {"path": "src/refunds.py", "role": "implementation-owner"}],
+                           "refunds helper in scope")
+            recorded = failures.record(root, run_id, "agent-command", "TEST_FAILURE", "focused pytest", "claim validation", 1, None)
+            mapped = failures.map_requirement(root, run_id, recorded["failure_id"], requirement_uid, "approved-path", "unchanged", "Refunds helper added mid-run", ["src/refunds.py"])
+        self.assertTrue(mapped["drift_link"]["drift_created"])
+        self.assertEqual(mapped["drift_link"]["suspected_paths"], ["src/refunds.py"])
+        self.assertNotIn("{'path'", json.dumps(mapped["drift_link"]))
+
+
 if __name__ == "__main__":
     unittest.main()

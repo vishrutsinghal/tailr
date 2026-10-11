@@ -7,12 +7,14 @@ from typing import Any
 ROOT=Path(__file__).resolve().parents[1];ORDER=("unit","component","integration","contract","e2e","infrastructure","release-smoke")
 def load_script(name):
  s=importlib.util.spec_from_file_location(name,ROOT/"scripts"/f"{name}.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
-L=load_script("run-ledger");PROFILE=load_script("testing-profile")
+L=load_script("run-ledger");PROFILE=load_script("testing-profile");A=load_script("change-intent-anchor")
+def _anchor_path(value):
+ return value.strip() or None if isinstance(value,str) else (str(value.get("path")).strip() or None if isinstance(value,dict) and isinstance(value.get("path"),str) else None)
 def intersects(path,likely):return any(path==x or path.startswith(x.rstrip("/")+"/") or x.startswith(path.rstrip("/")+"/") for x in likely)
 def select(root:Path,run_id:str,profile_path:Path,changed:list[str])->dict[str,Any]:
- profile=PROFILE.load(profile_path);declared={x["name"]:x for x in profile["tiers"]};anchor=json.loads((L.state_dir(root,run_id)/"anchors"/"approved-v1.json").read_text(encoding="utf-8"));rows=[]
+ profile=PROFILE.load(profile_path);declared={x["name"]:x for x in profile["tiers"]};_,anchor=A.latest_approved(root,run_id);rows=[]
  for req in anchor["requirements"]:
-  required=req.get("validation_contract",{}).get("tiers",["unit"]);matched=any(intersects(path,req.get("likely_paths",[])) for path in changed)
+  required=req.get("validation_contract",{}).get("tiers",["unit"]);matched=any(intersects(path,[found for item in req.get("likely_paths",[]) for found in [_anchor_path(item)] if found]) for path in changed)
   available=[tier for tier in required if tier in declared]
   missing=[tier for tier in required if tier not in declared]
   # Behaviour scenarios require declared integration proof when it is not already stronger.

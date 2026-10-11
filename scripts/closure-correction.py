@@ -32,6 +32,17 @@ L = load("closure_correction_ledger", "run-ledger.py")
 LOCK = load("closure_correction_lock", "planning_lock.py")
 CONVERGENCE = load("closure_correction_convergence", "harness-convergence.py")
 CONTINUITY = load("closure_correction_continuity", "context-continuity.py")
+ANCHOR = load("closure_correction_anchor", "change-intent-anchor.py")
+
+
+def _anchor_path(value: Any) -> str | None:
+    """Extract a path from a plain-string or {path, role} anchor entry."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, dict):
+        path = value.get("path")
+        return str(path).strip() or None if isinstance(path, str) else None
+    return None
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -122,11 +133,11 @@ def handoff(root: Path, run_id: str, max_cycles: int = 2) -> dict[str, Any]:
         return {**prior, "reused": True}
 
     active = signals[0]
-    anchor = read(L.state_dir(root, run_id) / "anchors" / "approved-v1.json")
+    _, anchor = ANCHOR.latest_approved(root, run_id)
     requirement = next((row for row in anchor.get("requirements", []) if row.get("requirement_uid") == active["requirement_uid"]), None)
     if not requirement:
         raise ValueError("correction signal is not part of the approved anchor")
-    paths = [str(path) for path in requirement.get("likely_paths", [])]
+    paths = [found for path in requirement.get("likely_paths", []) for found in [_anchor_path(path)] if found]
     inside_scope = bool(paths) and active["category"] != "scope"
     state = active["classification"] if active["classification"] in {"resolved", "improved", "unchanged", "regressed", "new-drift", "needs-decision"} else "unchanged"
     convergence = CONVERGENCE.assess(root, run_id, active["requirement_uid"], "needs-decision" if not inside_scope else state, max_cycles)

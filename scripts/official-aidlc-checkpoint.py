@@ -30,6 +30,7 @@ L = load("scripts/run-ledger.py", "official_checkpoint_ledger")
 STATE = load("scripts/official-aidlc-state.py", "official_checkpoint_state")
 SAN = load("scripts/official-aidlc-sanitize.py", "official_checkpoint_sanitizer")
 RUNTIME = load("scripts/official-aidlc-runtime.py", "official_checkpoint_runtime")
+ANCHOR = load("scripts/change-intent-anchor.py", "official_checkpoint_anchor")
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -54,6 +55,11 @@ def bridge(root: Path, run_id: str) -> dict[str, Any]:
 
 
 def anchor(root: Path, run_id: str) -> dict[str, Any]:
+    try:
+        _, found = ANCHOR.latest_approved(root, run_id)
+        return found
+    except (OSError, ValueError):
+        pass
     item = state(root, run_id) / "anchors" / "approved-v1.json"
     if not item.is_file():
         raise ValueError("official evidence checkpoints require an approved TailTrail anchor")

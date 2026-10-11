@@ -33,6 +33,20 @@ def ledger():
 L = ledger()
 
 
+def anchor_module():
+ spec=importlib.util.spec_from_file_location("continuity_anchor",ROOT/"scripts"/"change-intent-anchor.py")
+ module=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(module);return module
+A=anchor_module()
+
+
+def _anchor_path(value):
+ """Extract a path from a plain-string or {path, role} anchor entry."""
+ if isinstance(value,str): return value.strip() or None
+ if isinstance(value,dict):
+  path=value.get("path"); return str(path).strip() or None if isinstance(path,str) else None
+ return None
+
+
 def read(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -84,7 +98,7 @@ def select_template(requirement: dict[str, Any], trigger: str, policy: dict[str,
         prefixes = template.get("path_prefixes", [])
         if triggers and trigger not in triggers:
             continue
-        if prefixes and not any(any(path.startswith(prefix) for prefix in prefixes) for path in paths):
+        if prefixes and not any(any(p and p.startswith(prefix) for prefix in prefixes) for p in (_anchor_path(item) for item in paths)):
             continue
         return template
     return None
@@ -109,17 +123,19 @@ def load_selector_policy(path: Path) -> dict[str, Any]:
 def packet_for(root: Path, run: str, uid: str | None, trigger: str | None, max_words: int,
                policy: dict[str, Any] | None = None) -> dict[str, Any]:
     directory = L.state_dir(root, run)
-    anchor_path = directory / "anchors" / "approved-v1.json"
+    try:
+        anchor_file, anchor = A.latest_approved(root, run)
+        anchor_path = Path(anchor_file)
+    except (OSError, ValueError):
+        anchor_path, anchor = None, None
     rejection = trigger == "proposal-rejection"
-    if not anchor_path.is_file() and not rejection:
+    if anchor is None and not rejection:
         raise ValueError("approved anchor is required")
     if rejection:
         draft_path, draft = latest(directory / "anchors", "draft-v*.json")
         if not draft_path or not draft:
             raise ValueError("proposal-rejection requires a draft anchor")
         anchor_path, anchor = draft_path, draft
-    else:
-        anchor = read(anchor_path)
     feedback_path, feedback = latest(directory / "feedback", "feedback-*.json")
     review_path, review = latest(directory / "reviews", "review-*.json")
     checkpoint_path, checkpoint = latest(directory / "checkpoints", "checkpoint-*.json")
@@ -159,7 +175,7 @@ def packet_for(root: Path, run: str, uid: str | None, trigger: str | None, max_w
     sections = [
         f"Active requirement: {requirement['display_id']} - {requirement['statement']}", "Approved outcome:",
         *[f"- {item}" for item in requirement.get("acceptance_criteria", [])], "Current scope:",
-        *[f"- {item}" for item in requirement.get("likely_paths", [])], "Must preserve:",
+        *[f"- {found}" for item in requirement.get("likely_paths", []) for found in [_anchor_path(item)] if found], "Must preserve:",
         *[f"- {item}" for item in requirement.get("preserve_rules", [])],
     ]
     selected_fields = ["requirement", "acceptance_criteria", "likely_paths", "preserve_rules", "artifact_pointers", "next_action"]

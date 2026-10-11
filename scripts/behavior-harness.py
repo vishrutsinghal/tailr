@@ -8,9 +8,18 @@ ROOT=Path(__file__).resolve().parents[1]
 def ledger():
  s=importlib.util.spec_from_file_location("behavior_ledger",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
 L=ledger()
+def anchor_module():
+ spec=importlib.util.spec_from_file_location("slice3a_anchor",ROOT/"scripts"/"change-intent-anchor.py")
+ module=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(module);return module
+A=anchor_module()
+def _anchor_path(value):
+ if isinstance(value,str): return value.strip() or None
+ if isinstance(value,dict):
+  path=value.get("path"); return str(path).strip() or None if isinstance(path,str) else None
+ return None
 def read(p:Path)->dict[str,Any]:return json.loads(p.read_text(encoding="utf-8"))
 def assess(root:Path,run_id:str,scenarios_path:Path,evidence_path:Path)->dict[str,Any]:
- directory=L.state_dir(root,run_id);anchor=read(directory/"anchors"/"approved-v1.json");known={r["requirement_uid"] for r in anchor["requirements"]};scenarios=read(scenarios_path).get("scenarios",[]);receipts=read(evidence_path).get("receipts",[]);findings=[];results=[]
+ directory=L.state_dir(root,run_id);_,anchor=A.latest_approved(root,run_id);known={r["requirement_uid"] for r in anchor["requirements"]};scenarios=read(scenarios_path).get("scenarios",[]);receipts=read(evidence_path).get("receipts",[]);findings=[];results=[]
  for scenario in scenarios:
   uid=str(scenario.get("requirement_uid",""));sid=str(scenario.get("scenario_id",""));required=scenario.get("evidence",[])
   if not sid or uid not in known:raise ValueError("each scenario needs an ID and approved requirement_uid")

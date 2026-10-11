@@ -26,6 +26,7 @@ def load(name: str, filename: str) -> Any:
 L = load("execution_evidence_ledger", "run-ledger.py")
 LOCK = load("execution_evidence_lock", "planning_lock.py")
 CONTRACT = load("execution_evidence_contract", "closure-contract.py")
+ANCHOR = load("execution_evidence_anchor", "change-intent-anchor.py")
 
 
 def directory(root: Path, run_id: str) -> Path: return L.state_dir(root, run_id) / "execution"
@@ -84,10 +85,10 @@ def _redact(value: str, limit: int = 262144) -> str:
 
 
 def _anchor_requirements(root: Path, run_id: str) -> dict[str, dict[str, Any]]:
-    path = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
-    if not path.is_file():
+    try:
+        _, anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
         raise ValueError(f"approved anchor for run `{run_id}` does not exist; activate the run first with `tailtrail planning activate --root . --run-id {run_id} --approved`")
-    anchor = json.loads(path.read_text(encoding="utf-8"))
     return {
         str(row.get("requirement_uid")): row
         for row in anchor.get("requirements", [])

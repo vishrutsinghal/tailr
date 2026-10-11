@@ -269,8 +269,8 @@ def ensure_investigation_prerequisites(root: Path, run_id: str, contract: dict[s
     execution-evidence.py requires both an approved, writes-allowed Planning
     Lock and an approved anchor before any evidence can be recorded, so both
     must exist before hypothesis testing can attach real evidence."""
-    approved_anchor = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
-    if approved_anchor.is_file():
+    versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+    if versions:
         validate_anchor_compatibility(root, run_id, contract)
         return
     source = {
@@ -298,13 +298,20 @@ def ensure_investigation_prerequisites(root: Path, run_id: str, contract: dict[s
 
 
 def validate_anchor_compatibility(root: Path, run_id: str, contract: dict[str, Any]) -> None:
-    approved_anchor = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
-    if not approved_anchor.is_file():
+    try:
+        _, anchor = ANCHOR.latest_approved(root, run_id)
+    except (OSError, ValueError):
         return
-    anchor = json.loads(approved_anchor.read_text(encoding="utf-8"))
     anchored_uids = {row.get("requirement_uid") for row in anchor.get("requirements", [])}
     if anchored_uids != {contract["requirement_uid"]}:
         raise ValueError("existing approved anchor does not match this reproduction requirement UID")
+
+
+def _latest_approved_label(root: Path, run_id: str) -> str:
+    versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+    if versions:
+        return versions[-1].relative_to(root).as_posix()
+    return (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix()
 
 
 def create_investigation_handoff(root: Path, run_id: str, contract: dict[str, Any]) -> dict[str, Any]:
@@ -320,7 +327,7 @@ def create_investigation_handoff(root: Path, run_id: str, contract: dict[str, An
         "requirement_uid": contract["requirement_uid"],
         "reproduction_revision": contract["revision"],
         "reproduction_contract": approved_path.relative_to(root).as_posix(),
-        "approved_anchor": (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix(),
+        "approved_anchor": _latest_approved_label(root, run_id),
         "workflow_runtime": runtime,
         "allowed_actions": ["read approved scope", "run approved reproduction", "record exact evidence", "manage hypotheses"],
         "forbidden_actions": ["edit project source", "apply correction", "commit", "push", "deploy", "call production systems"],

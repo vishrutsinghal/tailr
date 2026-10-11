@@ -34,6 +34,7 @@ CHECKPOINT = load("closure_recorder_checkpoint", "harness-checkpoint.py")
 REVIEW = load("closure_recorder_review", "completion-review.py")
 GATE = load("closure_recorder_gate", "requirement-completion.py")
 EVIDENCE = load("closure_recorder_evidence", "execution-evidence.py")
+ANCHOR = load("closure_recorder_anchor", "change-intent-anchor.py")
 
 
 def canonical(payload: dict[str, Any]) -> str:
@@ -88,8 +89,7 @@ def collected_input(root: Path, run_id: str) -> dict[str, Any]:
     every attempt for audit and diagnosis.
     """
     saved = EVIDENCE.show(root, run_id)["events"]
-    anchor_path = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
-    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    _, anchor = ANCHOR.latest_approved(root, run_id)
     requirements = {
         str(row.get("requirement_uid")): row
         for row in anchor.get("requirements", [])

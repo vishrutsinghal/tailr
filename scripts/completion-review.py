@@ -8,9 +8,13 @@ ROOT=Path(__file__).resolve().parents[1]
 def ledger():
  spec=importlib.util.spec_from_file_location("phase1_ledger_review",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(m);return m
 L=ledger()
+def anchor_module():
+ spec=importlib.util.spec_from_file_location("completion_review_anchor",ROOT/"scripts"/"change-intent-anchor.py")
+ module=importlib.util.module_from_spec(spec);assert spec and spec.loader;spec.loader.exec_module(module);return module
+A=anchor_module()
 def read(path:Path)->dict[str,Any]:return json.loads(path.read_text(encoding="utf-8"))
 def review(root:Path,run_id:str,checkpoint_path:Path|None=None,record:bool=True)->dict[str,Any]:
- directory=L.state_dir(root,run_id); anchor=read(directory/"anchors"/"approved-v1.json")
+ directory=L.state_dir(root,run_id); _,anchor=A.latest_approved(root,run_id)
  if checkpoint_path is None:
   files=sorted((directory/"checkpoints").glob("checkpoint-*.json"))
   if not files: raise ValueError("no checkpoint exists")

@@ -16,6 +16,14 @@ class ArchitectureFitnessTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);self.setup(root);result=fitness.assess(root,"run",["other.py"])
   self.assertEqual(result["findings"][0]["category"],"scope")
+ def test_corrected_scope_is_not_drift(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);self.setup(root)
+   uid=json.loads((root/".tailtrail"/"runs"/"run"/"anchors"/"approved-v1.json").read_text(encoding="utf-8"))["requirements"][0]["requirement_uid"]
+   anchor.correct(root,"run",uid,["src/service.py",{"path":"src/extra.py","role":"implementation-owner"}],"extra scope")
+   (root/"src"/"extra.py").write_text("x",encoding="utf-8")
+   result=fitness.assess(root,"run",["src/extra.py"])
+   self.assertFalse([f for f in result["findings"] if f.get("category")=="scope" and f.get("path")=="src/extra.py"],result["findings"])
  def js_setup(self,root,body):
   ledger.init_run(root,"jsrun","architecture");(root/"web").mkdir();(root/"web"/"app.js").write_text(body,encoding="utf-8");proposal=root/"proposal.json";proposal.write_text(json.dumps({"requirements":[{"statement":"keep store out of web","likely_paths":["web/app.js"],"acceptance_criteria":[],"preserve_rules":[],"evidence_plan":[],"architecture_contract":{"required_paths":[],"forbidden_imports":[{"source_prefix":"web","target_prefix":"store.db"}]}}]}),encoding="utf-8");anchor.draft(root,"jsrun",proposal);anchor.approve(root,"jsrun")
  def test_reports_forbidden_javascript_import(self):

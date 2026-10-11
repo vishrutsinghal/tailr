@@ -45,6 +45,7 @@ WORKFLOW_EVIDENCE = load("closure_finalizer_workflow_evidence", "workflow_runtim
 NAVIGATOR_GRAPH = load("closure_finalizer_navigator_graph", "navigator_graph_lifecycle.py")
 REFRESH = load("closure_finalizer_refresh", "learning-refresh.py")
 HARNESS = load("closure_finalizer_harness", "harness-review.py")
+ANCHOR = load("closure_finalizer_anchor", "change-intent-anchor.py")
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -97,7 +98,7 @@ def selected_harnesses(root: Path, run_id: str) -> list[str]:
 
 
 def behavior_scenarios(root: Path, run_id: str) -> list[dict[str, Any]]:
-    anchor = read(L.state_dir(root, run_id) / "anchors" / "approved-v1.json")
+    _, anchor = ANCHOR.latest_approved(root, run_id)
     rows: list[dict[str, Any]] = []
     for requirement in anchor.get("requirements", []):
         contract = requirement.get("behavior_contract", {})
@@ -157,7 +158,7 @@ def run_behavior(root: Path, run_id: str, scenarios_path: Path | None) -> dict[s
 
 def higher_tier_status(root: Path, run_id: str) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
-    anchor = read(directory / "anchors" / "approved-v1.json")
+    _, anchor = ANCHOR.latest_approved(root, run_id)
     try:
         closure = latest_record(root, run_id)
     except ValueError:

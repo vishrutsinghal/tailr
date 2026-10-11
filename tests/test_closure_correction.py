@@ -90,6 +90,42 @@ class ClosureCorrectionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout)["reused"])
 
+    def test_corrected_anchor_paths_are_allowed_and_uncorrupted(self) -> None:
+        """A mid-run correction must be visible in handoff scope, cleanly.
+
+        Writes approved-v2.json adding a role-tagged proof path, then crafts
+        the completion report naming it: allowed_paths must include the new
+        path as a plain string (no str(dict) corruption), which old code
+        reading frozen v1 could never produce.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            lock.create(root, "cancel an order", "run")
+            proposal = root / "proposal.json"
+            proposal.write_text(json.dumps({"requirements": [{
+                "statement": "Cancel an eligible order.", "acceptance_criteria": ["cancelled"],
+                "preserve_rules": ["shipped remains rejected"], "likely_paths": ["src/service.py"],
+                "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"]},
+            }]}), encoding="utf-8")
+            anchor.draft(root, "run", proposal)
+            uid = anchor.approve(root, "run")["requirements"][0]["requirement_uid"]
+            lock.approve(root, "run", True)
+            anchor.correct(root, "run", uid,
+                           ["src/service.py", {"path": "tests/test_extra.py", "role": "proof-only"}],
+                           "extra test needed mid-run")
+            reports = ledger.state_dir(root, "run") / "completion-reports"
+            reports.mkdir(parents=True)
+            (reports / "report-1.json").write_text(json.dumps({
+                "requirement_status": {"requirements": [{
+                    "requirement_uid": uid, "status": "incomplete",
+                    "drift": [{"classification": "new-drift", "category": "scope",
+                               "message": "actual edit `tests/test_extra.py` is outside approved editable scope"}]}]}}),
+                encoding="utf-8")
+            packet = correction.handoff(root, "run")
+        self.assertIn("tests/test_extra.py", packet["scope"]["allowed_paths"])
+        self.assertNotIn("{'path'", json.dumps(packet["scope"]))
+
 
 if __name__ == "__main__":
     unittest.main()

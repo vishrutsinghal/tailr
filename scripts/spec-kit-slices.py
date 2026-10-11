@@ -22,6 +22,7 @@ def module(file: str, name: str) -> Any:
 
 
 LEDGER = module("run-ledger.py", "spec_kit_slices_ledger")
+ANCHOR = module("change-intent-anchor.py", "spec_kit_slices_anchor")
 BRIDGE = module("spec-kit-bridge.py", "spec_kit_slices_bridge")
 
 
@@ -47,7 +48,11 @@ def paths(root: Path, run_id: str) -> dict[str, Path]:
 
 def initialize(root: Path, run_id: str) -> dict[str, Any]:
     root = root.resolve()
-    anchor_path = LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json"
+    try:
+        anchor_path, _ = ANCHOR.latest_approved(root, run_id)
+        anchor_path = Path(anchor_path)
+    except (OSError, ValueError):
+        anchor_path = LEDGER.state_dir(root, run_id) / "anchors" / "approved-v1.json"
     if not anchor_path.is_file():
         raise ValueError("approve the TailTrail anchor before creating Spec Kit task slices")
     report_path = LEDGER.state_dir(root, run_id) / "planning" / "start-report-v1.json"

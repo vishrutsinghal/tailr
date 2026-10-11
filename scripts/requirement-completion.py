@@ -8,8 +8,11 @@ ROOT=Path(__file__).resolve().parents[1]
 def ledger():
  s=importlib.util.spec_from_file_location("phase1_ledger_completion",ROOT/"scripts"/"run-ledger.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
 L=ledger()
+def anchor_module():
+ s=importlib.util.spec_from_file_location("requirement_completion_anchor",ROOT/"scripts"/"change-intent-anchor.py");m=importlib.util.module_from_spec(s);assert s and s.loader;s.loader.exec_module(m);return m
+A=anchor_module()
 def gate(root:Path,run_id:str,receipts_path:Path,record:bool=True)->dict[str,Any]:
- anchor=json.loads((L.state_dir(root,run_id)/"anchors"/"approved-v1.json").read_text(encoding="utf-8"));raw=json.loads(receipts_path.read_text(encoding="utf-8"));receipts=raw.get("receipts",raw); findings=[]
+ _,anchor=A.latest_approved(root,run_id);raw=json.loads(receipts_path.read_text(encoding="utf-8"));receipts=raw.get("receipts",raw); findings=[]
  for row in anchor["requirements"]:
   contract=row.get("validation_contract",{"state":"required","tiers":["unit"]}); relevant=[x for x in receipts if row["requirement_uid"] in x.get("requirement_uids",[x.get("requirement_uid")])]
   if contract["state"] in {"not-applicable","conditional"}:continue
