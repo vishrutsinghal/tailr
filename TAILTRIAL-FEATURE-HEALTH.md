@@ -2,7 +2,7 @@
 
 Snapshot of every TailTrail capability area, ordered by product importance,
 with a health status each. Evidence cutoff: session work through branch
-`tailtrail_v2` (19 commits). Statuses marked **verified** rest on suites run
+`tailtrail_v3` (Issues 2/3/3a/4/5/9 fixed + verified this session). Statuses marked **verified** rest on suites run
 and live proofs executed this session; **untested** means no session evidence
 either way — not a failure claim.
 
@@ -34,7 +34,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Complexity corroboration + de-escalation | healthy | Path A + mirror hook; C4 verdict accepted as correct |
 | Code graph mapper + cache + slices | healthy | 60 green; write-through + reuse proven |
 | Graph lifecycle | healthy | refresh/reuse green |
-| Scope answers / host packets | fixed | per-requirement mapping repaired option 3a |
+| Scope answers / host packets | fixed | fingerprint-indexed single-use packet tickets (30-min TTL, tamper-proof, O(1)) + shared CLI/MCP request ground (`start_request`); cross-call trial accepted, conformance fingerprint parity green 5x; 9 ticket tests + 118 scope suite green |
 | Question options ranking | fixed | depth ranking + slice summaries shipped |
 | Legacy shim candidacy | fixed | demoted; E2 resolved as proof |
 | Task-type role contract | healthy | E2 binding fixed live |
@@ -77,12 +77,12 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 
 | Feature | Health | Basis |
 |---|---|---|
-| MCP server | untested | not exercised |
+| MCP server | degraded | 62/63 suite green; `start_report` now forwards aidlc/graph/host via shared ground; 1 pre-existing fsr5 failure proven identical on clean tree |
 | Official AIDLC lifecycle | healthy | Standard/Full packs green in suites |
 | Spec-Kit bridge | untested | not exercised |
 | CI/Sonar + scanners | untested | not exercised |
 | Guardrails / policy / enterprise | untested | not exercised |
-| Assistant adapters / conformance | untested | not exercised |
+| Assistant adapters / conformance | healthy | 11/11 green incl. CLI/MCP/markdown fingerprint parity; host projections agree |
 | Token suite | untested | not exercised |
 | UI planning / visual reqs | untested | not exercised |
 | Benchmarks / evaluation | degraded | frozen snapshots; meta-harness benches stale |
@@ -96,8 +96,9 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 ## Net assessment
 
 Every Tier 0/1 feature the session touched is green; every break found was
-repaired with proof. The honest gaps are quantitative, not structural:
+repaired with proof. Parked Issues 2 (thin-evidence fingerprint), 3
+(cross-call packet drift), 3a (CLI/MCP parity), 4 (guardian classifier),
+5 (docs fast lane), and 9 (grounding messages + prompt contract) are now
+fixed + verified. The honest gaps are quantitative, not structural:
 a long Tier 2/3 tail never exercised (no evidence either way), one
-aspirational subsystem (meta-harness), and hygiene debts. Nothing
-investigated this session remains broken except the parked option-ranking
-nuances already superseded by shipped machinery.
+aspirational subsystem (meta-harness), and hygiene debts.

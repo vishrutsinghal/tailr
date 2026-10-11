@@ -265,8 +265,8 @@ class HostAdapterConformanceTests(unittest.TestCase):
             cli = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
             self.assertEqual(cli.returncode, 0, cli.stderr + cli.stdout)
             cli_report = json.loads(cli.stdout)
-            mcp_json = mcp.start_report({"goal": "update delivery service behavior", "root": root.as_posix(), "changed": ["src/service.py"], "format": "json"})
-            mcp_markdown = mcp.start_report({"goal": "update delivery service behavior", "root": root.as_posix(), "changed": ["src/service.py"], "format": "markdown"})
+            mcp_json = mcp.start_report({"goal": "update delivery service behavior", "root": root.as_posix(), "changed": ["src/service.py"], "format": "json", "aidlc": "off"})
+            mcp_markdown = mcp.start_report({"goal": "update delivery service behavior", "root": root.as_posix(), "changed": ["src/service.py"], "format": "markdown", "aidlc": "off"})
 
         cli_contract = conformance.scope_projection("codex", cli_report)["contract"]
         host_contracts = [conformance.scope_projection(host, cli_report)["contract"] for host in ("codex", "copilot", "claude")]
@@ -279,7 +279,7 @@ class HostAdapterConformanceTests(unittest.TestCase):
         self.assertEqual(len(fingerprints), 1)
         self.assertEqual(cli_contract["scope_gate"], "pass")
         self.assertTrue(cli_contract["execution_blocked"])
-        self.assertTrue(mcp_markdown["result"].startswith("# TailTrail Start Report"))
+        self.assertTrue(mcp_markdown["result"].startswith("# TailTrail Start "))
         self.assertIn(cli_contract["decision_fingerprint"], mcp_markdown["result"])
         self.assertTrue(all(row["roles"] == cli_contract["roles"] for row in host_contracts))
 

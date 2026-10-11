@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 import maturity
+import start_request
 PYTHON = sys.executable
 DEFAULT_READ_ONLY_TOOLS = (
     "navigator_plan",
@@ -264,6 +265,9 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
                     "changed": {"type": "array", "items": {"type": "string"}},
                     "verbose": {"type": "boolean"},
                     "format": {"type": "string", "enum": ["json", "markdown"]},
+                    "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]},
+                    "graph": {"type": "string", "enum": ["auto", "reuse", "refresh", "rebuild", "off"]},
+                    "host": {"type": "string", "enum": ["codex", "copilot", "claude"]},
                 },
                 ["goal"],
             ),
@@ -786,11 +790,23 @@ def start_report(args: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("goal is required")
     root = root_from(args)
     fmt = output_format(args)
-    command = [PYTHON, script("task-start.py").as_posix(), goal, "--root", root.as_posix(), "--format", "json", "--no-planning-lock"]
-    for item in as_string_list(args.get("changed")):
-        command.extend(["--changed", item])
-    if bool(args.get("verbose")):
-        command.append("--verbose")
+    # Common ground with the CLI: the same normalized request always spawns
+    # the same task-start.py command, so identical requests cannot diverge by
+    # transport (Issue 3a). New CLI knobs flow through start_request instead
+    # of needing per-transport mirrors.
+    request = start_request.normalize_start_request(
+        goal,
+        changed=as_string_list(args.get("changed")),
+        aidlc=args.get("aidlc"),
+        graph=args.get("graph"),
+        host=args.get("host"),
+        verbose=bool(args.get("verbose")),
+        planning_lock=False,
+        output_format="json",
+    )
+    flags = start_request.start_argv(request)[2:]  # flags after "task-start.py <goal>"
+    command = [PYTHON, script("task-start.py").as_posix(), request["goal"],
+               "--root", root.as_posix(), *flags]
     result = command_result(command, root)
     parsed = parse_stdout(result, "json")
     result["transport_format"] = "json"
