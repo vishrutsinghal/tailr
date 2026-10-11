@@ -638,9 +638,9 @@ def _ensure_lite_anchor(root: Path, run_id: str) -> dict[str, Any]:
     mode = str((saved.get("aidlc_mode", {}) or {}).get("mode", "")) if isinstance(saved, dict) else ""
     if mode != "lite":
         return {"status": "not-applicable", "reason": f"anchor derivation on approval applies to Lite runs, not `{mode or 'unknown'}`"}
-    approved_path = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
-    if approved_path.is_file():
-        return {"status": "existing", "artifact": approved_path.relative_to(root).as_posix()}
+    approved_versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
+    if approved_versions:
+        return {"status": "existing", "artifact": approved_versions[-1].relative_to(root).as_posix()}
     proposal = _proposal_from_start_report(root, run_id)
     if proposal is None:
         return {"status": "not-required", "reason": "lean Start runs do not create canonical requirement state"}
@@ -700,8 +700,8 @@ def _require_anchor_for_approval(root: Path, run_id: str) -> None:
         return
     if str((saved.get("guided_delivery", {}) or {}).get("mode", "")) == "lean":
         return
-    approved_path = L.state_dir(root.resolve(), run_id) / "anchors" / "approved-v1.json"
-    if approved_path.is_file():
+    approved_versions = sorted((L.state_dir(root.resolve(), run_id) / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
+    if approved_versions:
         return
     raise ValueError(
         f"Planning Lock for run `{run_id}` has no approved requirement anchor; approval would grant "
@@ -1979,9 +1979,9 @@ def activate(root: Path, run_id: str, approved: bool, rationale: str | None = No
     proposal = _proposal_from_start_report(root, run_id)
     anchor_result: dict[str, Any] | None = None
     if proposal is not None:
-        approved_path = L.state_dir(root, run_id) / "anchors" / "approved-v1.json"
-        if approved_path.is_file():
-            anchor_result = {"status": "existing", "artifact": approved_path.relative_to(root).as_posix()}
+        approved_versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
+        if approved_versions:
+            anchor_result = {"status": "existing", "artifact": approved_versions[-1].relative_to(root).as_posix()}
         else:
             module = _anchor_module()
             proposal_path = L.state_dir(root, run_id) / "planning" / "anchor-proposal-v1.json"

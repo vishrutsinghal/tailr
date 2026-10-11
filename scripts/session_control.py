@@ -148,7 +148,7 @@ def _artifact_refs(root: Path, run_id: str) -> list[str]:
         directory / "planning" / "lock-v1.json",
         directory / "planning" / "start-report-v1.json",
     ]
-    versions = sorted((directory / "anchors").glob("approved-v*.json")) if (directory / "anchors").is_dir() else []
+    versions = sorted((directory / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1])) if (directory / "anchors").is_dir() else []
     candidates.extend(versions[-1:] or [directory / "anchors" / "approved-v1.json"])
     return [path.relative_to(root.resolve()).as_posix() for path in candidates if path.is_file()]
 

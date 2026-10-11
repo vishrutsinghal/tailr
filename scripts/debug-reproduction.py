@@ -269,7 +269,7 @@ def ensure_investigation_prerequisites(root: Path, run_id: str, contract: dict[s
     execution-evidence.py requires both an approved, writes-allowed Planning
     Lock and an approved anchor before any evidence can be recorded, so both
     must exist before hypothesis testing can attach real evidence."""
-    versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+    versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
     if versions:
         validate_anchor_compatibility(root, run_id, contract)
         return
@@ -308,7 +308,7 @@ def validate_anchor_compatibility(root: Path, run_id: str, contract: dict[str, A
 
 
 def _latest_approved_label(root: Path, run_id: str) -> str:
-    versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"))
+    versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
     if versions:
         return versions[-1].relative_to(root).as_posix()
     return (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix()

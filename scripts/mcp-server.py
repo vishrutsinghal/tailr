@@ -947,7 +947,7 @@ def ledger_state(args: dict[str, Any]) -> dict[str, Any]:
 
 def anchor_show(args: dict[str, Any]) -> dict[str, Any]:
     root = root_from(args); identifier = run_id(args)
-    versions = sorted((root / ".tailtrail" / "runs" / identifier / "anchors").glob("approved-v*.json"))
+    versions = sorted((root / ".tailtrail" / "runs" / identifier / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
     if not versions:
         raise ValueError(f"no approved anchor exists for run `{identifier}`")
     return {"tool": "anchor_show", "result": read_json(versions[-1]), "execution": {"read_only": True, "exit_code": 0}}

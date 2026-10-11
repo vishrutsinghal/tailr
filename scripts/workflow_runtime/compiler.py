@@ -104,7 +104,7 @@ def _scope_file_hashes(root: Path, paths: list[str]) -> dict[str, dict[str, str]
 def approved_scope_paths(root: Path, workflow_id: str) -> list[str]:
     """Collect approved scope file paths from the run anchor requirements."""
     binding = ownership.show(root.resolve(), workflow_id)
-    versions = sorted((LEDGER.state_dir(root.resolve(), binding["tailtrail_run_id"]) / "anchors").glob("approved-v*.json"))
+    versions = sorted((LEDGER.state_dir(root.resolve(), binding["tailtrail_run_id"]) / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
     anchor_path = versions[-1] if versions else LEDGER.state_dir(root.resolve(), binding["tailtrail_run_id"]) / "anchors" / "approved-v1.json"
     try:
         anchor = json.loads(anchor_path.read_text(encoding="utf-8"))

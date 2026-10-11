@@ -25,7 +25,7 @@ EXPECTED_COUNTS = {
     "scripts/official-aidlc-runtime.py": 1,  # missing-file fallback
     "scripts/official-aidlc-state.py": 1,  # missing-file fallback
     "scripts/phase8-advanced.py": 1,  # missing-file fallback
-    "scripts/planning_lock.py": 5,  # creation guards + just-created labels
+    "scripts/planning_lock.py": 2,  # just-created v1 labels (correct by construction)
     "scripts/program-plan.py": 1,  # program-state artifact, not the anchor
     "scripts/session_control.py": 1,  # missing-file fallback ref
     "scripts/spec-kit-slices.py": 1,  # missing-file fallback

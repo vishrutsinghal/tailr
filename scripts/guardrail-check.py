@@ -122,6 +122,15 @@ DEPENDENCY_HINT = re.compile(
     re.IGNORECASE,
 )
 
+JSON_KEY = re.compile(r"^\s*['\"]([^'\"]+)['\"]\s*:")
+
+MANIFEST_METADATA_KEYS = frozenset({
+    "name", "version", "description", "main", "scripts", "repository",
+    "keywords", "author", "authors", "license", "licenses", "licence",
+    "licences", "bugs", "homepage", "private", "type", "engines", "os",
+    "cpu", "files", "man", "directories", "config", "publishconfig",
+})
+
 GATE_MARKER = re.compile(r"DEPENDENCY-GATE|Dependency Gate|dependency approval|approved dependency|new dependency approved", re.IGNORECASE)
 
 SAFEGUARD_TERMS = (
@@ -281,11 +290,22 @@ def is_dependency_file(path: str) -> bool:
     return Path(path).name in DEPENDENCY_FILES
 
 
+def json_key(text: str) -> str | None:
+    """The JSON object key of a `"key": "value"` line, else None."""
+    match = JSON_KEY.match(text.strip())
+    return match.group(1).casefold() if match else None
+
+
 def looks_like_dependency_addition(line: DiffLine) -> bool:
     text = line.text.strip()
     if not text or text.startswith(("//", "#")):
         return False
     if text in {"{", "}", "[", "]", ","}:
+        return False
+    key = json_key(text)
+    if key is not None and key in MANIFEST_METADATA_KEYS:
+        # Package metadata (`"version": "1.2.4"`) is not a dependency, even
+        # though it matches the generic JSON key-value shape below.
         return False
     return bool(DEPENDENCY_HINT.search(text))
 
@@ -298,10 +318,22 @@ def check_dependency_gate(diff_lines: list[DiffLine], diff: str, extra_texts: li
     if dependency_gate_present(diff, extra_texts):
         return []
     findings: list[Finding] = []
+    removed_keys: dict[str, set[str]] = {}
+    for line in diff_lines:
+        if line.kind != "removed" or not is_dependency_file(line.path):
+            continue
+        key = json_key(line.text)
+        if key is not None:
+            removed_keys.setdefault(line.path, set()).add(key)
     for line in diff_lines:
         if line.kind != "added" or not is_dependency_file(line.path):
             continue
         if not looks_like_dependency_addition(line):
+            continue
+        key = json_key(line.text)
+        if key is not None and key in removed_keys.get(line.path, set()):
+            # A version bump (`- "version": "1.2.3"` / `+ "version": "1.2.4"`)
+            # modifies an existing entry; the gate targets additions.
             continue
         findings.append(
             Finding(
