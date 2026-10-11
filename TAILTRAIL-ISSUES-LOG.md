@@ -19,7 +19,7 @@ the entries there.
 | 6 | `likely_paths` had no per-path role, only a flat string list | **Fixed** |
 | 7 | Sequential pipeline handoff/regression had no CLI surface | **Fixed** |
 | 8 | `resolve_active_run()` picked "most recently approved," not "most recently active" | **Fixed** |
-| 9 | Requirement-interpretation grounding rules are fiddly and undocumented | **Fixed** (precise rejection errors; rules kept strict on purpose) + mitigated via tooling |
+| 9 | Requirement-interpretation grounding rules are fiddly and undocumented | **Fixed** (precise-diff errors + builder + prompt contract; rules kept strict on purpose) |
 | 10 | `--run-id` on `tailtrail start` doesn't pin a new run's ID | Not a bug -- misunderstanding, corrected |
 
 See **Section 11** below for a separately-tracked, audited list of standing
@@ -471,7 +471,7 @@ write-guardian and full-pipeline tests continued to pass.
 
 ---
 
-## 9. Requirement-interpretation grounding rules are fiddly and undocumented (Fixed -- precise errors -- plus mitigated via tooling)
+## 9. Requirement-interpretation grounding rules are fiddly and undocumented (Fixed -- precise errors and tooling; rules intentionally strict)
 
 **Symptom:** hand-writing a `--requirement-interpretation` JSON for
 `tailtrail start` routinely failed on rules that are enforced strictly but
@@ -487,31 +487,40 @@ trial and error over many submissions this session:
   requirement's `intent_terms` *and* its `statement` text, or the submission
   is rejected with "omitted exact named target(s)."
 
-**Status:** the underlying rules themselves were deliberately left strict,
-not loosened -- loosening grounding to tolerate paraphrase was considered and
-rejected as a change on its own merits (it would let a host drift
-interpretation through confident paraphrase, the same risk category raised
-and rejected for the "explained backdoor" new-file scope-claim idea in
-Issue 4a). What shipped instead, directly fixing the actual usability
-problem: `scripts/requirement_discovery.py`'s three rejection paths
-(`_validate_requirement_coverage`'s named-target check, `interpretation()`'s
-clause-grounding check, and its intent-term-grounding check) now each print
-the exact normalized clause/goal comparison, or a `difflib`-based
-closest-match hint for an ungrounded term, plus a pointer to
-`TAILTRAIL-PLAYBOOK.md` section 2 and `host-interpretation-builder.py`.
-Verified live: a deliberately mismatched clause ("... quickly" appended)
-now shows `clause normalized to 'fix the thing in the file quickly', goal
-normalized to 'fix the thing in the file'` side by side instead of a bare
-rejection; a deliberately misspelled intent term (`validate` where the goal
-says `validation`) now shows `hints: validate (closest goal tokens:
-validation)` -- directly actionable instead of a guess.
+**Fix adopted (rules kept strict on purpose -- paraphrase tolerance stays
+rejected per R8):** precise-diff rejections plus prompt-builder contract:
+- `scripts/requirement_discovery.py` rejections now show the diff, not just
+  the rule name: clause failures print clause-vs-goal normalized forms;
+  ungrounded intent terms suggest the closest goal tokens (`argparse` ->
+  did you mean `argparse-based`?); named-target failures print the scanned
+  statements plus the carry-into-statement-and-terms reminder. Every message
+  points at `TAILTRAIL-PLAYBOOK.md` section 2 and the local checker.
+  Verified live: a deliberately mismatched clause ("... quickly" appended)
+  now shows the normalized clause-vs-goal comparison side by side instead of
+  a bare rejection; a misspelled intent term (`validate` where the goal says
+  `validation`) now shows the closest-goal-token hint -- directly actionable
+  instead of a guess.
+- `scripts/host-interpretation-builder.py --validate-only` prints
+  `{ok, problems, warnings}` as JSON and changes nothing (fast read-only
+  check; MCP left untouched -- its `tailtrail_start` already validates
+  server-side, and a new MCP tool needs surface versioning).
+- `scripts/prompt_builder.py` (wired as `tailtrail prompt`) owns the simple
+  rendering contract -- numbered options, blank lines between, approval
+  question always last -- and the 5-round cap: past 5 unclear rounds it stops
+  with a fail-closed packet (goal, ambiguities, what was tried, what to
+  supply, resume command) instead of guessing. AIDLC Requirements stays the
+  escalation path.
 
-Additionally mitigated by `scripts/host-interpretation-builder.py`, which
-checks all three rules locally against a plain spec before anything is ever
-submitted to `tailtrail start`, catching the first two with certainty and
-approximating the third with a regex (disclosed in its own docstring as an
-approximation, not a guarantee); it now also supports `--validate-only` for
-a fast, read-only `{ok, problems, warnings}` check.
+**Earlier mitigation (kept):** the builder already checked all three rules
+locally against a plain spec before submission, catching the first two with
+certainty and approximating the third with a regex.
+
+**Verified:** paraphrase/hyphen/dropped-target cases now emit the new diffs;
+renderer + cap + feedback packet asserted; 56 passed
+(`test_requirement_discovery` + `test_aidlc_requirements`), 118 passed
+(`test_navigator_scope`). `test_cli_mcp_markdown_json...` fails identically
+on the clean tree -- pre-existing parked fingerprint drift (Issue 3), not
+this change.
 
 ---
 
@@ -550,5 +559,5 @@ covered in full detail above are cross-referenced rather than repeated.
 | R5 | Make `resolve_active_run()` robust to multiple in-flight runs. | **Done** -- see Issue 8. |
 | R6 | `proof-update`'s post-approval framing is effectively dead code -- it's only reachable while a run is `awaiting-approval`, by which point most hosts have already activated. | Open, not implemented. |
 | R7 | Collapse the repeated Start Report boilerplate into a one-line reference instead of reprinting the full static sections every run. | Open, not implemented. A tool-output design question, independent of the separate host-behavior rule that a Start Report be pasted verbatim once shown. |
-| R8 | Loosen clause/intent-term grounding to tolerate reasonable paraphrase, or at least give a precise diff of "expected this exact substring" instead of a bare rejection. | **Split verdict.** Giving a precise diff on rejection is a clear, low-risk usability win -- still open, worth doing. Loosening the grounding itself is **not recommended**: strict exact-substring grounding is specifically what stops a host from drifting interpretation through confident paraphrase -- the same risk category already rejected in the "explained backdoor" discussion for new-file scope claims (see the per-path role tagging discussion). Keep grounding strict; fix only the error message. |
+| R8 | Loosen clause/intent-term grounding to tolerate reasonable paraphrase, or at least give a precise diff of "expected this exact substring" instead of a bare rejection. | **Half done (Issue 9).** Precise diff on rejection is implemented, including closest-token hints and playbook/builder pointers. Loosening the grounding itself stays **not recommended** (see Issue 9): strict exact-substring grounding is what stops host paraphrase drift. Keep grounding strict. |
 | R9 | Make `--run-id` either honor the passed ID or fail loudly if it can't, instead of silently substituting a new one. | **Withdrawn.** Based on a misunderstanding -- see Issue 10. `--run-id` was never meant to pin a new run's ID; it's working exactly as designed for its actual purpose (correction/recovery context on an existing run). |
