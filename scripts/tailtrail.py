@@ -44,6 +44,7 @@ COMMANDS = {
     "anchor": "Draft, approve, invalidate, or review a local change-intent anchor.",
     "pipeline": "Request a sequential pipeline stage handoff, or route a test-stage regression.",
     "docs-only": "Mint a trivial docs-only fast-lane run (prose paths only, no full plan).",
+    "ground-rules": "Print the TailTrail ground rules for host agents and developers.",
     "prompt": "Render simple numbered prompt options or build the 5-round fail-closed feedback packet.",
     "intent": "Expand a named flow or resolve loose words to a typed TailTrail intent.",
     "expand": "Alias for intent.",
@@ -1376,6 +1377,8 @@ def main() -> int:
         return run_script("pipeline_orchestrator.py", args)
     if command == "docs-only":
         return run_script("docs-only.py", args)
+    if command == "ground-rules":
+        return run_script("ground-rules.py", args)
     if command == "prompt":
         return run_script("prompt_builder.py", args)
     if command in {"intent", "expand"}:

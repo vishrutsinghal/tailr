@@ -23,6 +23,7 @@ Use TailTrail for implementation, review, planning, and handoff in this reposito
 ## Pointers — load on demand, never paste detail from memory
 
 - Intent: `scripts/expand-intent.py` or `tailtrail intent ...`; fallback `context/intent-aliases.md` (+ `.tailtrail/intent-overrides.json`).
+- Playbook + ground rules: `TAILTRAIL-PLAYBOOK.md` (condition-to-trick, verified-live only) and `TAILTRIAL-GROUND-RULES.md` (where to record changes + binding rules); `tailtrail ground-rules` prints the latter.
 - Commands and flows: `TAILTRAIL-COMMANDS.md`; lifecycle: `AIDLC.md` + `aidlc-docs/aidlc-state.md`; bugs: `DEBUG-HARNESS.md`; risks: `GUARDRAILS.md` + `context/guardrail-layers.md`; deps: `DEPENDENCY-GATE.md`.
 - Portable commands: quote for the host shell (POSIX single-quotes break `cmd.exe`; `list2cmdline` quoting on Windows); prefer `sys.executable -m ...` proofs that run on sh, cmd, and PowerShell.
 
@@ -39,4 +40,4 @@ Use TailTrail for implementation, review, planning, and handoff in this reposito
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `979f63508138` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `8f1e6870e01c` — quote this line if asked whether instructions are current._

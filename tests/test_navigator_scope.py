@@ -3352,7 +3352,7 @@ class InfraConfigurationOwnershipTests(unittest.TestCase):
             by_path = self._investigate(root, ["explicit-path"], ["ci-sonar"])
         row = by_path["ci/pipeline.yml"]
         self.assertEqual(row["status"], "included")
-        self.assertIn("infra-task-configuration-owner", row["reason_codes"])
+        self.assertIn("owner-qualified-by-explicit-user-scope", row["reason_codes"])
 
     def test_lexical_only_config_stays_inspection(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -3362,13 +3362,44 @@ class InfraConfigurationOwnershipTests(unittest.TestCase):
             by_path = self._investigate(root, ["lexical-path"], ["ci-sonar"])
         self.assertNotEqual(by_path["ci/pipeline.yml"]["status"], "included")
 
-    def test_config_not_owned_outside_infra_tasks(self):
+    def test_explicit_config_seed_owns_outside_infra_tasks(self):
+        # Explicit --changed naming is the evidence itself, including for
+        # configuration files: an explicitly named config resolves as an
+        # included owner even without an infra task type (approval and
+        # write-time scope checks still gate; lexical-only config stays out).
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "ci").mkdir(exist_ok=True)
             (root / "ci" / "pipeline.yml").write_text("stages: [build]\n", encoding="utf-8")
             by_path = self._investigate(root, ["explicit-path"], ["implementation"])
-        self.assertNotEqual(by_path["ci/pipeline.yml"]["status"], "included")
+        row = by_path["ci/pipeline.yml"]
+        self.assertEqual(row["status"], "included")
+        self.assertIn("owner-qualified-by-explicit-user-scope", row["reason_codes"])
+
+    def test_explicit_root_json_config_resolves_as_owner(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tailtrail-registry.json").write_text("{\"a\": 1}\n", encoding="utf-8")
+            seeds = [{
+                "path": "tailtrail-registry.json",
+                "seed_sources": ["explicit-path"],
+                "reason_codes": ["lexical-path-match"],
+            }]
+            candidates = navigator_scope.candidates_from_seeds(root, seeds, ["implementation"])
+            frames = [{
+                "requirement_id": "req-1", "display_id": "REQ-01",
+                "statement": "Register commands in the registry file.",
+                "query_terms": ["register", "registry"],
+            }]
+            rows, edges, _investigation = navigator_scope.investigate(
+                root, frames, candidates, ["implementation"],
+                allow_git_inventory=False, allow_persistent_cache=False,
+                allow_passive_capture=False,
+            )
+            by_path = {str(row.get("path")): row for row in rows if isinstance(row, dict)}
+        row = by_path["tailtrail-registry.json"]
+        self.assertEqual(row["status"], "included")
+        self.assertIn("owner-qualified-by-explicit-user-scope", row["reason_codes"])
 
     def test_explicit_candidate_is_host_eligible_without_edges(self):
         document = {

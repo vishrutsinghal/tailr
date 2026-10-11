@@ -1,0 +1,59 @@
+# TailTrail Ground Rules
+
+Where every kind of change gets recorded, and the rules that bind them.
+Distilled from live sessions that hit each gap for real -- follow this
+instead of rediscovering it.
+
+## 1. The records and what belongs in each
+
+| Change | Record it in | How |
+|---|---|---|
+| New command (`tailtrail <verb>...`) | `tailtrail-registry.json` (owning feature) + `scripts/tailtrail.py` dispatcher + help text | Add command + script + docs entries; run `tailtrail-registry.py validate` |
+| New script | `tailtrail-registry.json` (best-fit feature's `scripts`) | Same validation; unclaimed scripts trip `registry_maturity` drift |
+| New docs/prose | Owning feature's `docs` list if product-relevant | Keep the registry truthful, not exhaustive |
+| Bug found live | `TAILTRAIL-ISSUES-LOG.md` (new section) | Symptom, root cause with file:line, repro, status; never re-derive twice |
+| Host trick learned | `TAILTRAIL-PLAYBOOK.md` (condition → trick) | Verified-live only, with the exact command; theorized entries forbidden |
+| Feature health change | `TAILTRIAL-FEATURE-HEALTH.md` | Status + basis (suites run, live proofs); `untested` means no evidence, not failure |
+| Behavior contract | Tests, always | Red-to-green proof: fail on old code with the exact symptom, pass on new |
+
+## 2. Binding rules
+
+1. **Approval before implementation.** `tailtrail start` is planning-only.
+   Never edit, run scanners, or push without a separate explicit `approve`
+   (`looks good` / `go ahead` never approve). Split multi-owner goals into
+   single-owner runs instead of fighting ambiguity.
+2. **Scope is evidence, not assertion.** Explicit `--changed` naming is
+   strong evidence; lexical proximity alone never owns. Config/data files
+   resolve as owners only when explicitly named (single-target focus);
+   prose files go through the docs-only lane, never the code-graph gate.
+3. **Write-time enforcement is independent.** Navigator approval and the
+   pipeline-badge guard are two systems: a path must be both approved AND
+   badge-allowed. Configuration writes additionally require sole-entry
+   approved scope (or an explicit mid-run correction).
+4. **Anchors are append-only history.** Never edit `approved-vN.json`;
+   amend with `correct()` (new version). Never read frozen v1 as current
+   truth -- resolve via `latest_approved()`; versions sort numerically.
+   New raw `approved-v1.json` reads fail `tests/test_anchor_versioning.py`.
+5. **Grounding is exact.** Requirement text, intent terms, and named
+   targets must be literal substrings of the goal -- paraphrase is drift.
+   Keep the rules strict; fix the error messages, never loosen the check.
+6. **No fabricated evidence.** Never invent edge IDs, fingerprints, or
+   receipts. A missing evidence link fails closed with its real reason.
+7. **Fail closed, loudly.** Unknown scope, missing anchor, malformed input:
+   deny with the exact reason and both fingerprints/values, never silent
+   fallback or silent guessing. Single-use tickets, 30-minute TTL.
+8. **Docs lane limits.** The docs-only fast lane is for trivial prose
+   (`.md`/`.rst`/`.txt`/`.adoc`) with no production-signal wording --
+   strict all-prose check, one code path anywhere forces the full plan.
+   Product-surface files (registry, manifests) go through full Starts.
+9. **Verify before claiming.** New tests must fail on old code (stash
+   check); pre-existing failures must be proven on the clean tree before
+   calling anything a regression; incidental churn (graph cache) gets
+   reverted before commit.
+
+## 3. Command wiring checklist
+
+New user-facing command: dispatcher entry + help text in
+`scripts/tailtrail.py` (same `run_script()` pattern), MCP schema entry if
+host-reachable, registry claim, playbook line, tests. Miss one and the
+meta-harness drift check will name it.

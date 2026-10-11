@@ -2266,19 +2266,21 @@ def investigate(
     for row in initial:
         path = str(row["path"])
         if "explicit-path" in set(row.get("seed_sources", [])) and row.get("role") in {
-            "implementation-owner", "unknown",
+            "implementation-owner", "unknown", "configuration",
         }:
             # An explicit host declaration (--changed) is the evidence itself,
             # independent of whether the path's file type classifies as
             # "implementation-owner" by name/extension -- a schema or other
             # structured-data file that classifies as "unknown" must
             # establish ownership the same way a recognized source file
-            # already does. This bypass is narrow: a role with its own
-            # deliberate, task-type-gated promotion rule (test, configuration,
-            # documentation, manifest, generated, managed-tooling) keeps that
-            # rule even when explicitly declared -- only the genuinely
-            # unclassified case is affected. Non-explicit (lexical/behavioral)
-            # discovery is unaffected either way.
+            # already does, and an explicitly named configuration file
+            # qualifies the same way: the declaration names the exact file,
+            # so there is nothing lexical to mistake. This bypass stays
+            # narrow: roles with their own deliberate, task-type-gated
+            # promotion rule (test, documentation, manifest, generated,
+            # managed-tooling) keep that rule even when explicitly declared.
+            # Non-explicit (lexical/behavioral) discovery is unaffected
+            # either way; approval and write-time scope checks still gate.
             qualify_owner(path, "explicit-user-scope")
             relevant_paths.add(path)
             relationship_rows.append((path, path, "declares-edit-boundary", "strong", "explicit-scope-owner-qualification"))

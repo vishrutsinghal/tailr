@@ -300,6 +300,27 @@ def _correction_path_set(anchor: dict[str, Any]) -> set[str]:
     return paths
 
 
+def _sole_approved_owner_paths(anchor: dict[str, Any]) -> set[str]:
+    """Paths that are the SOLE likely_paths entry of their requirement row.
+
+    A sole entry is unambiguously its requirement's resolved owner -- unlike
+    bundled multi-path rows, which may mix inspection-only and proof-only
+    context alongside genuine owners. Used to admit explicitly-resolved
+    configuration files without opening bundled inspection context.
+    """
+    sole: set[str] = set()
+    for row in anchor.get("requirements", []) or []:
+        if not isinstance(row, dict):
+            continue
+        entries = {
+            _anchor_path_str(item) for item in row.get("likely_paths", []) or []
+        }
+        entries.discard(None)
+        if len(entries) == 1:
+            sole.update(entry for entry in entries if entry is not None)
+    return sole
+
+
 def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, str | None]:
     """Check one path against the approved anchor first, then the active badge.
 
@@ -337,10 +358,15 @@ def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, 
     tolerant of the bundling concern above in a way the removed
     all-roles check was not: at worst it lets through an inspection-role
     file that happens to also classify as "implementation-owner" (an
-    unlikely coincidence), never a test or configuration file. Every
-    other role (test, configuration, ...) with no correction falls
-    through to the plain role/badge check unchanged, so a never-approved
-    test file is still denied there, just via the badge rule.
+    unlikely coincidence), never a test file. A configuration-role file
+    is admitted on a stricter rule: it must not only be in the approved
+    paths but be the SOLE entry of its requirement row (an unambiguously
+    resolved owner, e.g. an explicitly named registry file) -- bundled
+    inspection context stays denied, with `correct()` as the explicit
+    override. Every other role (test, manifest, ...) with no correction
+    falls through to the plain role/badge check unchanged, so a
+    never-approved test file is still denied there, just via the badge
+    rule.
 
     A run with no approved anchor at all (not yet past Planning Lock
     approval) skips straight to the plain fallback -- there is nothing yet
@@ -365,6 +391,18 @@ def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, 
                     return False, (
                         f"Write access denied: `{path}` is not in run `{run_id}`'s approved scope. "
                         f"Approved paths: {sorted(approved_paths) or '(none)'}."
+                    )
+                return True, None
+            if effective_role == "configuration":
+                if path not in approved_paths:
+                    return False, (
+                        f"Write access denied: `{path}` is not in run `{run_id}`'s approved scope. "
+                        f"Approved paths: {sorted(approved_paths) or '(none)'}."
+                    )
+                if path not in _sole_approved_owner_paths(anchor):
+                    return False, (
+                        f"Write access denied: `{path}` is a `{effective_role}` in a bundled approved scope. "
+                        f"Add it explicitly via a mid-run correction to edit it during IMPLEMENTATION."
                     )
                 return True, None
         if anchor_role and anchor_role != "unknown":

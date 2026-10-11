@@ -19,6 +19,7 @@ import planning_lock as pl  # noqa: E402
 from write_guardian import (  # noqa: E402
     SecurityBoundaryError,
     WriteGuardian,
+    anchor_aware_write_check,
     guard_write,
     validate_planned_paths,
 )
@@ -85,6 +86,37 @@ class WriteGuardianTests(unittest.TestCase):
         self.assertTrue(by_path["src/app.py"]["allowed"])
         self.assertFalse(by_path["tests/test_app.py"]["allowed"])
         self.assertTrue(by_path["tests/test_app.py"]["reason"])
+
+    def _write_anchor(self, requirements: list[dict]) -> None:
+        anchors = self.root / ".tailtrail" / "runs" / self.run_id / "anchors"
+        anchors.mkdir(parents=True, exist_ok=True)
+        (anchors / "approved-v1.json").write_text(json.dumps({
+            "schema_version": "1",
+            "type": "tailtrail-change-intent-anchor",
+            "run_id": self.run_id,
+            "status": "approved",
+            "requirements": requirements,
+        }), encoding="utf-8")
+
+    def test_sole_config_owner_allowed_in_implementation(self) -> None:
+        (self.root / "registry.json").write_text("{}", encoding="utf-8")
+        self._write_anchor([{"likely_paths": ["registry.json"]}])
+        allowed, error = anchor_aware_write_check(self.root, self.run_id, "registry.json")
+        self.assertTrue(allowed, error)
+
+    def test_bundled_config_context_denied_in_implementation(self) -> None:
+        (self.root / "registry.json").write_text("{}", encoding="utf-8")
+        self._write_anchor([{"likely_paths": ["src/app.py", "registry.json"]}])
+        allowed, error = anchor_aware_write_check(self.root, self.run_id, "registry.json")
+        self.assertFalse(allowed)
+        self.assertIn("bundled", error or "")
+
+    def test_unapproved_config_denied_in_implementation(self) -> None:
+        (self.root / "registry.json").write_text("{}", encoding="utf-8")
+        self._write_anchor([{"likely_paths": ["src/app.py"]}])
+        allowed, error = anchor_aware_write_check(self.root, self.run_id, "registry.json")
+        self.assertFalse(allowed)
+        self.assertIn("not in run", error or "")
 
 
 if __name__ == "__main__":
