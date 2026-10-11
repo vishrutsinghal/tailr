@@ -1046,3 +1046,98 @@ The scope-freshness re-check -- the single riskiest piece of logic in this
 whole area, since a wrong call there could either block legitimate work or
 silently widen write authority -- is proven correct on all three of its
 branches, not merely plausible from reading the code.
+
+### 12.6 Flaky Tracker / CI Ingest (Tier 2) -- `scripts/flaky-test-tracker.py`, `scripts/ci-evidence-ingest.py` / `tailtrail harness {flaky,ci-ingest}`
+
+**Why this one:** last two `untested` rows left under Tier 2.
+`flaky-test-tracker.py` keeps local per-test-ID pass/fail history within a
+run and classifies it `stable`/`flaky`/`failing` without ever rerunning,
+suppressing, or masking a failure. `ci-evidence-ingest.py` normalizes
+externally-saved CI result JSON into local, requirement-linked validation
+receipts, without making any network call itself.
+
+**Existing coverage:** one test, `tests/test_evidence_aware_testing_v2_v5.py`,
+touches both scripts, but narrowly -- one assertion for `flaky-test-tracker`
+(a pass-then-fail flip is reported as `flaky`/`fail`, not masked) and one
+for `ci-evidence-ingest` (a single valid result ingests into a receipt feeding
+`evidence-metrics.py`). Unlike Context Continuity (12.2) and Safe
+Git/Recovery (12.4), where `untested` turned out to be flatly wrong, this
+one really was close to accurate -- thin, real coverage of the happy path
+only, with every rejection path and several real behaviors completely
+unexercised.
+
+**Method:** 16 live CLI scenarios (`tailtrail.py harness flaky` /
+`tailtrail.py harness ci-ingest`, dispatcher verbs confirmed at
+`scripts/tailtrail.py:1149-1152` before writing anything) against disposable
+temp roots -- invalid-outcome rejection, stable/failing/flaky classification
+across several real sequences, per-test-ID history isolation, and for CI
+ingest: missing-anchor rejection, a CI result missing a required field, an
+unknown `requirement_uid`, an unrecognized evidence tier, a bare-list JSON
+input (no `{"results": [...]}` wrapper), `provenance_missing` field
+accuracy, multiple results in one call producing distinct receipts, and
+dispatcher parity for both scripts.
+
+**Finding -- confirmed, reproducible: `flaky-test-tracker.py`'s returned
+`history` list silently scrambles once a test_id crosses 10 recorded
+observations in the same run (Open):**
+
+- **Root cause:**
+  `scripts/flaky-test-tracker.py:13`: `for path in
+  sorted(directory.glob("*.json")):` sorts `Path` objects, which compares
+  by their string form. Files are named `observation-<N>.json` with no
+  zero-padding, so this is a **lexicographic**, not numeric, sort.
+  Lexicographically, `"observation-10.json" < "observation-2.json"`
+  (comparing character by character, `'1' < '2'` at the first differing
+  position), so once an 11th observation exists alongside single-digit
+  ones (2 through 9), reading them back no longer reflects true
+  chronological order.
+- **First attempt was a false negative, corrected before reporting:** the
+  first probe used an alternating `pass, fail, pass, fail, ...` sequence
+  across 12 calls. It passed -- but for the wrong reason: the positions a
+  lexicographic-vs-numeric sort actually swaps (true position 2 with true
+  position 10, position 3 with 11, position 4 with 12) land on the *same
+  parity* in a period-2 alternating pattern, so they already carried
+  identical values and a swap was invisible. Caught this by directly
+  inspecting the raw filenames on disk
+  (`['observation-1.json', 'observation-10.json', 'observation-11.json',
+  'observation-12.json', 'observation-2.json', ...]` -- confirming the
+  scrambled on-disk order existed even though the first probe's output
+  still matched). Redesigned with a pattern where the swapped positions
+  differ (`pass, fail,fail,fail, pass,pass,pass,pass,pass,
+  blocked,blocked,blocked` across 12 calls): **sent order**
+  `['pass','fail','fail','fail','pass','pass','pass','pass','pass',
+  'blocked','blocked','blocked']` came back as **returned order**
+  `['pass','blocked','blocked','fail','fail','fail','pass','pass','pass',
+  'pass','pass','blocked']` -- a clear, reproducible mismatch, confirming
+  the bug rather than a coincidence of the first probe's design.
+- **Impact, scoped honestly:** the `status` classification itself
+  (`stable`/`flaky`/`failing`) is **not affected** -- it only checks set
+  membership (`"pass" in outcomes and "fail" in outcomes`), not order, so
+  the safety-relevant "never mask a failure" guarantee holds regardless.
+  What breaks is the `history` field's *reported chronological order* once
+  a single test_id accumulates 10+ observations within one run -- a
+  realistic scenario for a flaky test tracked across a long session, not
+  just a contrived edge case.
+- **Status:** open, not fixed. A one-line fix: sort by the numeric suffix
+  instead of the filename string, e.g.
+  `sorted(directory.glob("*.json"), key=lambda p: int(p.stem.rsplit("-", 1)[-1]))`,
+  or zero-pad the counter at write time.
+- **Where to look when picking this up:**
+  `scripts/flaky-test-tracker.py:12-17` (`record`).
+
+**Results:** 15 of the 16 designed scenarios behaved exactly as expected on
+the first pass; the 16th scenario's *first form* was a false negative in
+the test design (not a TailTrail defect) and, once corrected, surfaced the
+confirmed finding above. Every `ci-evidence-ingest.py` rejection path
+(missing anchor, missing field, unknown requirement, unrecognized tier),
+the bare-list input shape, `provenance_missing` accuracy, multi-result
+ingestion, and dispatcher parity for both scripts all passed cleanly with
+no other defects found.
+
+**Net assessment for this feature:** CI evidence ingestion is solid across
+every scenario tried. The flaky tracker's core safety property (never mask
+a failure) holds, but it has one real, confirmed ordering bug in a
+secondary field, caught only by deliberately redesigning a probe after the
+first one passed for the wrong reason -- worth remembering as a method
+note: a scenario passing is not evidence of correctness if the scenario
+could not have distinguished pass from fail in the first place.

@@ -71,7 +71,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Drift analysis | healthy | findings accurate in closure audit |
 | Safe Git / recovery | healthy | 5 pre-existing unit tests + 14 new live CLI scenarios (approval gates, branch/boundary checks, and the previously-zero-coverage scope-freshness re-check in `activate()`) all pass -- see issues log 12.4 |
 | Conflict reconciliation | healthy | validated together with Safe Git/recovery (same test file, same workflow); scope-conflict/exact-patch/overlap classification all pass live -- see issues log 12.5 |
-| Flaky tracker / CI ingest | untested | not exercised |
+| Flaky tracker / CI ingest | fixed | CI ingest: 9 live scenarios all pass, no defects. Flaky tracker: 7 live scenarios pass, but one confirmed bug found -- `history` field silently reorders past 10 observations per test_id (status classification itself unaffected) -- see issues log 12.6 |
 
 ## Tier 3 — ecosystem, integrations, governance
 
