@@ -839,3 +839,112 @@ forward are the inventory-accuracy lesson (Finding 1) and the
 `harness continuity`, not top-level `context-continuity`, CLI shape
 (Finding 2) -- both corrected in `TAILTRIAL-FEATURE-HEALTH.md` alongside
 this entry.
+
+### 12.3 Recovery / Mode B (Tier 2) -- `scripts/requirement-recovery-manifest.py` / `tailtrail harness mode-b`
+
+**Why this one:** next `untested` row under Tier 2 in
+`TAILTRIAL-FEATURE-HEALTH.md`.
+
+**What the feature does:** TailTrail's Git-based checkpoint/recovery (Mode
+A, `scripts/task-recovery-boundary.py`) needs a clean, named-branch,
+identity-configured repository (`scripts/git-readiness.py`). Mode B is the
+explicit fallback when that isn't true -- a purely local, Git-free
+patch-stack mechanism: `capture` snapshots each approved requirement path's
+exact pre-change bytes; `seal` records the after-state, a unified diff, and
+caller-supplied preservation receipts once the agent's changes land;
+`plan` re-checks every sealed file's current content against what was
+recorded at seal time and classifies the requirement as safely restorable
+(`exact-task-state`) or not (`overlap-after-seal`, meaning something else
+touched a sealed file after the seal); `apply` performs the actual
+restore, but only when `plan` says it's safe.
+
+**Correctly applying the inventory-accuracy lesson from 12.2:** checked for
+an existing test file before assuming `untested` was accurate.
+`tests/test_requirement_recovery_manifest.py` exists with 3 tests (exact
+restore preserves the baseline, refuses when a later edit overlaps a sealed
+path, plus one unrelated `recovery-diagnostician.py` sanity check bundled in
+the same file) -- real but narrow coverage, unlike the Context Continuity
+case where the label was entirely wrong. Ran it: **3/3 pass.**
+
+**CLI shape, found correctly this time without a wrong guess:** following
+the same `harness <verb>` nesting discovered in 12.2, checked
+`scripts/tailtrail.py` first and confirmed `tailtrail.py harness mode-b
+<action>` at line 1109-1110 before writing any scenario against it.
+
+**Method:** 10 additional live scenarios via the real CLI (`subprocess`,
+disposable temp roots, no git repo needed since Mode B is Git-free by
+design), targeting what the 3 existing tests don't cover -- every
+`--approved` gate, double-capture, out-of-order calls, an unknown
+requirement UID, a newly-created (not just modified) file's restore
+behavior, a multi-file requirement with mixed exact/overlap results, CLI
+dispatcher parity, and a missing preservation-receipt file:
+
+1. `capture` without `--approved` hard-fails and writes no manifest.
+2. Capturing the same requirement twice is rejected -- no silent
+   overwrite of an existing baseline.
+3. `seal` without `--approved` hard-fails.
+4. `seal` called before any `capture` ever happened -- see Finding below.
+5. `apply` without `--approved` hard-fails and leaves the file's current
+   (unrestored) content untouched.
+6. A requirement UID absent from the approved anchor is rejected with a
+   specific message, not a crash.
+7. A requirement whose target file **did not exist** before capture (a
+   newly-created file) is correctly **deleted**, not left behind, when the
+   requirement is restored -- the asymmetric half of restore that the
+   existing tests' single pre-existing-file scenario never exercises.
+8. A two-file requirement where one file returns to its exact sealed state
+   and the other was touched by a later, unrelated edit: `plan` classifies
+   the whole requirement `overlap-after-seal`, `apply` refuses, and
+   critically **the exact-match file is left alone too** -- Mode B treats
+   the requirement as the unit of safety, not each file independently.
+9. `tailtrail.py harness mode-b capture` and calling
+   `requirement-recovery-manifest.py capture` directly produce
+   structurally identical output (requirement UIDs differ only because the
+   two runs use separate temp-root anchors).
+10. `seal --preservation-receipt does/not/exist.json` is rejected with
+    "preservation receipt is unavailable: ...", not written as if the
+    receipt existed.
+
+**Results:** 9 of 10 behaved exactly as intended, matching the module's own
+deliberate, clearly-worded `ValueError` messages throughout.
+
+**Finding (scenario 4) -- raw filesystem error leaks instead of the
+module's own clean message (minor, Open):**
+
+- **Symptom:** running `seal` for a requirement that was never `capture`d
+  returns exit code 2 (consistent with every other rejection) but with
+  `Mode B recovery error: [Errno 2] No such file or directory:
+  '/private/var/folders/.../recovery/mode-b/<uid>/manifest.json'` -- a raw
+  Python `OSError` string carrying a full local absolute path, not one of
+  the module's own deliberately-worded messages like "Mode B manifest must
+  be captured before sealing" used two lines later in the same function.
+- **Root cause:** `seal()` in `scripts/requirement-recovery-manifest.py:47`
+  calls `read(path)` (`json.loads(path.read_text(...))`) before its own
+  state check at line 48 (`if payload["state"] != "captured"`) ever runs.
+  When the manifest file doesn't exist at all, `read()` throws
+  `FileNotFoundError` first, so the module's intended guard message is
+  unreachable for exactly this case -- it only ever fires if a manifest
+  exists but is in some other state, which the normal `capture -> seal`
+  flow never produces.
+- **Severity:** minor and cosmetic, not a correctness or safety bug -- the
+  call still correctly fails closed (exit 2, nothing written, no partial
+  state). It is an error-message quality gap, not a behavior gap: every
+  other guard in this file (`capture` twice, missing `--approved` at each
+  of the three gated steps, unknown requirement UID, missing preservation
+  receipt) gives a specific, actionable sentence; this one case alone
+  leaks an implementation-detail stack-style message with a local
+  filesystem path instead.
+- **Status:** open, not fixed. A one-line fix would be checking
+  `manifest_path(...).exists()` explicitly before calling `read()` and
+  raising the already-written "Mode B manifest must be captured before
+  sealing" message in that case too.
+- **Where to look when picking this up:**
+  `scripts/requirement-recovery-manifest.py:45-48` (`seal`).
+
+**Net assessment for this feature:** Mode B's core safety guarantee --
+never silently overwrite or lose a later edit that happened after a seal,
+treat the requirement (not the individual file) as the unit of
+safe-to-restore -- held up under every scenario tried, including the
+harder multi-file mixed-overlap case. The only finding is a cosmetic
+error-message gap in one out-of-order-call path, not a defect in the
+recovery logic itself.

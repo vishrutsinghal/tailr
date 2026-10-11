@@ -64,7 +64,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Test precision planner | healthy | focused proof resolved in Starts |
 | Navigator-led review / quality loop | fixed | 18 live scenarios (gates, boundary math, corruption handling, CLI parity) all pass; one open gap found: documented "no secrets" rule has no code enforcement -- see issues log 12.1 |
 | Context continuity | healthy | 9 pre-existing unit tests + 10 new live CLI scenarios (error paths, schema validation, dispatcher parity) all pass; `untested` label was itself wrong -- see issues log 12.2 |
-| Recovery / Mode B | untested | not exercised |
+| Recovery / Mode B | healthy | 3 pre-existing unit tests + 10 new live CLI scenarios (approval gates, overlap safety, multi-file mixed-overlap, dispatcher parity) all pass; one minor open finding: an out-of-order call leaks a raw filesystem error instead of the module's own clean message -- see issues log 12.3 |
 | Debug harness lifecycle | healthy | auto-routing verified live (T1) |
 | Program delivery / hands-free | healthy | auto-Full verified live (T6) |
 | Higher-tier testing | untested | not exercised |
