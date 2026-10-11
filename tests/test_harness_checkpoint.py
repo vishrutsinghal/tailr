@@ -28,6 +28,16 @@ class HarnessCheckpointTests(unittest.TestCase):
    actual=checkpoint.checkpoint(root,"run",["src/Page.tsx","src/Page.cy.tsx"],results)
   self.assertEqual(actual["scope_assessment"]["status"],"within-approved-scope")
   self.assertEqual(actual["scope_assessment"]["unexpected_paths"],[])
+ def test_mid_run_correction_is_visible_to_checkpoint(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);self.setup_run(root)
+   uid=json.loads((root/".tailtrail"/"runs"/"run"/"anchors"/"approved-v1.json").read_text(encoding="utf-8"))["requirements"][0]["requirement_uid"]
+   anchor.correct(root,"run",uid,["src/a.py",{"path":"src/b.py","role":"proof-only"}],"test file needed mid-run")
+   (root/"src/b.py").write_text("y",encoding="utf-8")
+   results=root/"results.json";results.write_text(json.dumps({"results":[{"control_id":"unit","outcome":"pass","tier":"unit","tiers":["unit"],"evidence_quality":"trusted"}]}),encoding="utf-8")
+   actual=checkpoint.checkpoint(root,"run",["src/a.py","src/b.py"],results)
+   self.assertEqual(actual["scope_assessment"]["status"],"within-approved-scope")
+   self.assertEqual(actual["scope_assessment"]["unexpected_paths"],[])
   def test_existing_requirement_linked_proof_is_approved_validation_scope(self):
     with tempfile.TemporaryDirectory() as temp:
      root=Path(temp);ledger.init_run(root,"run","ui change");proposal=root/"proposal.json"

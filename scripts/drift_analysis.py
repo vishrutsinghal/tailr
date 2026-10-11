@@ -5,7 +5,10 @@ Implements the Drift Analysis stage gate from
 `docs/arch/navigator-pipeline-orchestration.md` (§4.3 Drift-Corrected Handoff)
 and `docs/arch/sequential-worker-pipeline.md` (§4.2 Drift Analysis): before the
 `TESTING -> INFRA` transition, compare the actual changed paths against the
-immutable approved anchor (`.tailtrail/runs/<run_id>/anchors/approved-v1.json`).
+latest approved anchor (`.tailtrail/runs/<run_id>/anchors/approved-vN.json`
+via `change-intent-anchor.latest_approved`, not the frozen v1 file -- a
+mid-run `correct` amendment must be visible here or the sanctioned correction
+path silently stops working for closure).
 
 Checks (all fail closed):
 
@@ -69,13 +72,63 @@ def _load_planning_lock() -> Any:
 pl = _load_planning_lock()
 
 
+def _load_anchor_module() -> Any:
+    """Load change-intent-anchor the same dual-context way as planning_lock."""
+    try:
+        import change_intent_anchor  # type: ignore  # noqa: PLC0415
+
+        return change_intent_anchor
+    except ImportError:
+        pass
+    spec = importlib.util.spec_from_file_location(
+        "drift_analysis_change_intent_anchor", ROOT / "scripts" / "change-intent-anchor.py"
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load scripts/change-intent-anchor.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+anchor_mod = _load_anchor_module()
+
+
+def _latest_anchor(root: Path, run_id: str) -> tuple[dict[str, Any], str]:
+    """Load the latest approved anchor (v1 when never corrected).
+
+    Returns (anchor, label) where label is the versioned filename for
+    evidence. Raises ValueError when no approved anchor exists.
+    """
+    path, anchor = anchor_mod.latest_approved(root, run_id)
+    if not isinstance(anchor, dict):
+        raise ValueError("latest approved anchor is not an object")
+    return anchor, f"anchors/{Path(path).name}"
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _normalize_path(value: str) -> str:
-    """Normalize a manifest entry, stripping `path.py:L20-L45` line ranges."""
-    entry = str(value).strip().replace("\\", "/")
+def _anchor_path(value: Any) -> str | None:
+    """Extract a path from a plain-string or {path, role} anchor entry."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, dict):
+        path = value.get("path")
+        return str(path).strip() or None if isinstance(path, str) else None
+    return None
+
+
+def _normalize_path(value: str | dict[str, str]) -> str:
+    """Normalize a manifest entry, stripping `path.py:L20-L45` line ranges.
+
+    Tolerates role-tagged `{path, role}` anchor entries (Issue 6 follow-up):
+    a bare `str(dict)` here would corrupt to `"{'path': ...}"`, the same bug
+    class already fixed for other anchor consumers under Issue 4b.
+    """
+    found = _anchor_path(value)
+    entry = (found if found is not None else str(value)).strip().replace("\\", "/")
     if ":" in entry:
         candidate, _, suffix = entry.rpartition(":")
         if candidate and _LINE_RANGE.fullmatch(suffix):
@@ -253,6 +306,43 @@ def _resolve_changed_paths(
     return [], "none"
 
 
+def _injected_anchor_freshness(
+    root: Path, run_id: str, anchor: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Fail closed when an injected anchor is stale against disk.
+
+    Callers must inject freshly loaded anchors (never cached); when the
+    on-disk latest carries a different `approved_fingerprint`, the injected
+    copy is stale and validation against it would be wrong. Unreadable disk
+    state is not a verdict -- the injected anchor is used as-is then, which
+    keeps synthetic test anchors working without fixtures.
+    """
+    given = anchor.get("approved_fingerprint")
+    if not isinstance(given, str) or not given:
+        return []
+    try:
+        _, latest = anchor_mod.latest_approved(root, run_id)
+    except (OSError, ValueError):
+        return []
+    if not isinstance(latest, dict):
+        return []
+    current = latest.get("approved_fingerprint")
+    if isinstance(current, str) and current and current != given:
+        return [
+            {
+                "classification": "anchor-stale",
+                "category": "baseline",
+                "message": (
+                    "Injected anchor is stale: on-disk latest approved anchor "
+                    "has a newer approved_fingerprint; reload via "
+                    "change-intent-anchor.latest_approved instead of reusing "
+                    "a cached copy."
+                ),
+            }
+        ]
+    return []
+
+
 def _fail_closed(
     reason: str,
     message: str,
@@ -274,23 +364,48 @@ def _fail_closed(
 
 
 def analyze(
-    root: Path, run_id: str, evidence: dict[str, Any] | None = None
+    root: Path,
+    run_id: str,
+    evidence: dict[str, Any] | None = None,
+    *,
+    anchor: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compare actual changed paths against the approved requirement baseline.
 
     Returns a deterministic, read-only drift report. Fail closed: a missing
     anchor or missing change evidence is drift, never an automatic pass.
+
+    The baseline is the latest approved anchor (a mid-run `correct`
+    amendment included), never the frozen v1 file. Callers may inject an
+    already-loaded anchor for in-process convenience, but must load it fresh
+    via `change-intent-anchor.latest_approved` -- never a cached copy: a
+    stale injection fails closed with `anchor-stale`.
     """
     root = Path(root).resolve()
-    anchor_path = pl.L.state_dir(root, run_id) / "anchors" / ANCHOR_FILENAME
-    try:
-        anchor = _read_json(anchor_path)
-    except (OSError, json.JSONDecodeError):
-        return _fail_closed(
-            "anchor-missing",
-            "Approved anchor is missing; a stage transition cannot be "
-            "validated without the immutable requirement baseline.",
-        )
+    if anchor is not None:
+        if not isinstance(anchor, dict):
+            return _fail_closed(
+                "anchor-missing",
+                "Injected anchor is not an object; a stage transition cannot be "
+                "validated without the requirement baseline.",
+            )
+        stale = _injected_anchor_freshness(root, run_id, anchor)
+        if stale:
+            return _fail_closed(
+                "anchor-stale",
+                "Injected anchor is stale against the on-disk latest approved anchor.",
+                stale,
+            )
+        anchor_label = "anchors/injected"
+    else:
+        try:
+            anchor, anchor_label = _latest_anchor(root, run_id)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return _fail_closed(
+                "anchor-missing",
+                "Approved anchor is missing; a stage transition cannot be "
+                "validated without the requirement baseline.",
+            )
 
     requirements = _approved_requirements(anchor)
 
@@ -415,7 +530,7 @@ def analyze(
         "evidence": {
             "source": source,
             "changed_paths": sorted(changed_set),
-            "anchor": f"anchors/{ANCHOR_FILENAME}",
+            "anchor": anchor_label,
         },
     }
 

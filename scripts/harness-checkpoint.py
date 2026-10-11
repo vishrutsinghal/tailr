@@ -8,6 +8,18 @@ ROOT=Path(__file__).resolve().parents[1]
 def ledger():
  spec=importlib.util.spec_from_file_location("phase1_ledger",ROOT/"scripts"/"run-ledger.py"); m=importlib.util.module_from_spec(spec); assert spec and spec.loader; spec.loader.exec_module(m); return m
 L=ledger()
+def anchor_module():
+ """Load change-intent-anchor.py (hyphenated filename needs a spec loader)."""
+ spec=importlib.util.spec_from_file_location("checkpoint_change_intent_anchor",ROOT/"scripts"/"change-intent-anchor.py")
+ if spec is None or spec.loader is None: raise RuntimeError("unable to load scripts/change-intent-anchor.py")
+ import sys as _sys; module=importlib.util.module_from_spec(spec); _sys.modules[spec.name]=module; spec.loader.exec_module(module); return module
+A=anchor_module()
+def _anchor_path(value):
+ """Extract a path from a plain-string or {path, role} anchor entry."""
+ if isinstance(value,str): return value.strip() or None
+ if isinstance(value,dict):
+  path=value.get("path"); return str(path).strip() or None if isinstance(path,str) else None
+ return None
 def read(path:Path)->dict[str,Any]: return json.loads(path.read_text(encoding="utf-8"))
 def fingerprint(path:Path)->str: return "sha256:"+hashlib.sha256(path.read_bytes()).hexdigest()
 def vcs_state(root:Path)->dict[str,Any]:
@@ -44,7 +56,9 @@ def verify_changed_path(root:Path,path:str,state:dict[str,Any])->dict[str,Any]:
   return {"verified":True,"vcs_status":"modified"}
  return {"verified":False,"vcs_status":"clean"}
 def checkpoint(root:Path,run_id:str,changed:list[str],results_path:Path)->dict[str,Any]:
- directory=L.state_dir(root,run_id); anchor=read(directory/"anchors"/"approved-v1.json"); results=read(results_path).get("results",[])
+ directory=L.state_dir(root,run_id)
+ # Latest approved anchor, never the frozen v1 file (v1 == latest when never corrected).
+ _,anchor=A.latest_approved(root,run_id); results=read(results_path).get("results",[])
  existing=sorted((directory/"checkpoints").glob("checkpoint-*.json")); number=len(existing)+1
  req=[]
  for row in anchor["requirements"]:
@@ -55,7 +69,7 @@ def checkpoint(root:Path,run_id:str,changed:list[str],results_path:Path)->dict[s
   passed_tiers={tier for item in authoritative if item.get("outcome")=="pass" for tier in item.get("tiers",[item.get("tier")]) if tier}
   nonpassing=any(item.get("outcome") in {"fail","blocked","timed-out","unavailable"} for item in evidence)
   validated=bool(authoritative) and not nonpassing and required_tiers.issubset(passed_tiers)
-  likely={str(path) for path in row.get("likely_paths",[]) if str(path)}
+  likely={_anchor_path(path) for path in row.get("likely_paths",[])}; likely.discard(None)
   implemented=bool(set(changed)&likely)
   req.append({
    "requirement_uid":uid,"statement":row["statement"],
@@ -70,8 +84,8 @@ def checkpoint(root:Path,run_id:str,changed:list[str],results_path:Path)->dict[s
  for uid,state in current_states.items():
   old=prior_states.get(uid); kind="resolved" if state=="validated" and old!="validated" else ("regressed" if old=="validated" and state!="validated" else "unchanged")
   drift.append({"requirement_uid":uid,"category":"evidence","classification":kind})
- approved_implementation={str(path) for row in anchor["requirements"] for path in row.get("likely_paths",[]) if str(path)}
- approved_proof={str(path) for row in anchor["requirements"] for path in ((row.get("validation_contract",{}) or {}).get("editable_paths",[])) if str(path)}|{str(path) for row in anchor["requirements"] for path in ((row.get("validation_contract",{}) or {}).get("proposed_paths",[])) if str(path)}
+ approved_implementation={_anchor_path(path) for row in anchor["requirements"] for path in row.get("likely_paths",[])}; approved_implementation.discard(None)
+ approved_proof={_anchor_path(path) for row in anchor["requirements"] for path in ((row.get("validation_contract",{}) or {}).get("editable_paths",[]))}|{_anchor_path(path) for row in anchor["requirements"] for path in ((row.get("validation_contract",{}) or {}).get("proposed_paths",[]))}; approved_proof.discard(None)
  approved_editable=sorted(approved_implementation|approved_proof)
  unexpected=sorted(set(changed)-set(approved_editable))
  drift.extend({"requirement_uid":anchor["requirements"][0]["requirement_uid"],"category":"scope","classification":"new-drift","path":path,"message":f"actual edit `{path}` is outside approved editable scope"} for path in unexpected)

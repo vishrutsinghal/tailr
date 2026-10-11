@@ -22,6 +22,7 @@ the entries there.
 | 8 | `resolve_active_run()` picked "most recently approved," not "most recently active" | **Fixed** |
 | 9 | Requirement-interpretation grounding rules are fiddly and undocumented | **Fixed** (precise-diff errors + builder + prompt contract; rules kept strict on purpose) |
 | 10 | `--run-id` on `tailtrail start` doesn't pin a new run's ID | Not a bug -- misunderstanding, corrected |
+| 13 | Harness checkpoint + drift analysis ignore corrected anchors (v2+) | **Fixed** (latest-approved + injection + dict tolerance) |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -1308,7 +1309,7 @@ lane this session verified works back in Issue 5.
 
 ---
 
-## 13. Harness checkpoint and drift analysis always read the frozen `approved-v1.json`, never a corrected anchor version (Open -- core closure-path bug)
+## 13. Harness checkpoint and drift analysis always read the frozen `approved-v1.json`, never a corrected anchor version (Fixed)
 
 **Discovered while:** doing a clean, correct redo of a real bug fix to
 `scripts/scanner-graph-overlay.py` (private-key redaction pattern never
@@ -1440,11 +1441,26 @@ activating via `planning activate --approved` directly (skipping
 run -- a sequencing lesson, not a bug, now recorded in
 `TAILTRAIL-PLAYBOOK.md` section 5.
 
-**Status:** Open, not fixed. Given its severity (silently defeats the
-sanctioned mid-run-correction path for its entire stated purpose) and
-that it spans two core closure-path files, this needs its own dedicated
-TailTrail run to fix properly -- explicitly out of scope for the run that
-found it, and left for deliberate follow-up rather than folded in here.
+**Status:** Fixed, via two single-owner TailTrail runs (one per file):
+- `scripts/drift_analysis.py`: anchor load now uses
+  `change-intent-anchor.latest_approved()` (v1 == latest when never
+  corrected, so uncorrected runs behave identically); new optional
+  `anchor=` injection param for in-process callers with fail-closed
+  `anchor-stale` on fingerprint mismatch against disk latest;
+  `_normalize_path()` tolerates role-tagged `{"path","role"}` entries;
+  module docstring corrected.
+- `scripts/harness-checkpoint.py:47`: same `latest_approved()` swap plus
+  the same dict-tolerant path extraction in both editable sets; missing
+  anchor still exits 2 via the existing `ValueError` path.
+- Tests: 5 new in `test_drift_analysis.py` (v2 honored, v1-unchanged,
+  dict tolerance, injection used, stale injection fails closed) and 1 new
+  in `test_harness_checkpoint.py` (real `correct()` v2 visible); the 4
+  behavior-changing ones fail on old code with the exact live symptom.
+  Suites green: 14/14 drift, 10/10 checkpoint, plus pipeline/closure
+  neighbors.
+
+This entry was recorded under `tailtrail docs-only` run
+`doc-20261011120151-4cb5ad`.
 
 **Where to look when picking this up:**
 - `scripts/harness-checkpoint.py:47` -- replace the hardcoded
