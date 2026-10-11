@@ -744,6 +744,19 @@ just unit-test green.
   (`build_event`) and `:51` (`safe_text`); `context/quality-loop.md:43` for
   the rule text as currently written.
 
+**Fixed and independently re-verified (2026-10-11):** `build_event()` now
+runs every free-text field through `reject_secrets()`, matching five
+high-precision credential shapes (AWS access key, GitHub/Slack token, PEM
+private key, bearer token) and hard-failing before anything is written.
+Ran `tests.test_quality_loop` (3 new tests, pass). Live re-check with my
+original repro first came back as a false alarm -- my test string used the
+wrong AWS credential shape (a secret key, not an access-key ID) and a
+too-short fake GitHub token, so neither pattern should have matched by
+design (the fix deliberately avoids flagging plain prose that merely
+mentions "key" or "token"). Redid it with a correctly-shaped fake
+(`AKIAIOSFODNN7EXAMPLE`) and confirmed it now hard-rejects
+(`--approved` call exits non-zero, no file written).
+
 **Net assessment for this feature:** everything structural (fail-closed
 gates, threshold math, data-integrity handling, CLI wiring, render
 consistency) is solid and live-proven. `TAILTRIAL-FEATURE-HEALTH.md`'s
@@ -940,6 +953,14 @@ module's own clean message (minor, Open):**
 - **Where to look when picking this up:**
   `scripts/requirement-recovery-manifest.py:45-48` (`seal`).
 
+**Fixed and independently re-verified (2026-10-11):** `seal()` now checks
+`manifest_path(...).exists()` before calling `read()`, giving the module's
+own clean message instead of a raw `OSError`. Ran the two new tests in
+`tests.test_requirement_recovery_manifest`, plus a live repro of the exact
+original scenario: `seal` before any `capture` now prints
+`"Mode B recovery error: Mode B manifest must be captured before sealing"`
+-- no filesystem path, no stack-style text.
+
 **Net assessment for this feature:** Mode B's core safety guarantee --
 never silently overwrite or lose a later edit that happened after a seal,
 treat the requirement (not the individual file) as the unit of
@@ -1125,6 +1146,12 @@ observations in the same run (Open):**
 - **Where to look when picking this up:**
   `scripts/flaky-test-tracker.py:12-17` (`record`).
 
+**Independently re-verified (2026-10-11):** ran `tests.test_flaky_tracker`
+(2 tests, pass), then redid my exact original 12-call distinguishing
+pattern (`pass, fail×3, pass×5, blocked×3`) live via direct function
+calls -- `history` now comes back byte-identical to what was sent, past
+the 10-observation boundary that previously scrambled it.
+
 **Results:** 15 of the 16 designed scenarios behaved exactly as expected on
 the first pass; the 16th scenario's *first form* was a false negative in
 the test design (not a TailTrail defect) and, once corrected, surfaced the
@@ -1238,6 +1265,12 @@ flawed alternating pattern):**
   exact logged `AttributeError`.
 - **Where to look when picking this up:**
   `scripts/release-confidence.py:36` (`assess`).
+
+**Independently re-verified (2026-10-11):** ran the 2 new
+`tests.test_higher_tier_testing` cases (pass), then redid my exact
+original bare-list `receipts.json` live -- now exits cleanly with
+`"Release confidence error: an approved anchor is required"` instead of
+the raw `AttributeError: 'list' object has no attribute 'get'` traceback.
 
 **Results:** 14 of 15 scenarios behaved correctly once my own three
 flawed assertions were corrected; one confirmed, reproducible defect found
@@ -1439,6 +1472,13 @@ targeted test: bumping only `"version": "1.0.1"` in an existing
   `scripts/guardrail-check.py:284-290` (`looks_like_dependency_addition`),
   `:107-123` (`DEPENDENCY_HINT`).
 
+**Independently re-verified (2026-10-11):** ran the 5 new
+`tests.test_guardrail_check` cases (pass), then redid my exact original
+version-only-bump repro live -- `package.json`'s `version` field changed
+from `1.0.0` to `1.0.1`, no dependency touched -- now produces
+`finding_count: 0`, `status: "passed"`, no `dependency-gate-required`
+finding at all.
+
 **Results:** 12 of 13 scenarios behaved correctly (after my own test
 correction); every other rule class, the `--enforce`/`--fail-on`
 distinction, and three-way dispatcher parity were all correct on the
@@ -1451,6 +1491,162 @@ validation-claim) are precise in every scenario tried. The fourth
 (dependency-gate) has a real, confirmed precision gap that generates
 false-positive high-severity findings on any manifest metadata edit, not
 just actual dependency changes.
+
+### 12.11 MCP Server (Tier 3) -- `scripts/mcp-server.py`'s `tailtrail_start` tool (Fixed)
+
+**Why this one:** the feature-health inventory already marked MCP server
+`degraded` with one pre-existing failing test
+(`test_fsr5_mcp_validates_host_reasoning_then_creates_only_the_resolved_run`),
+rather than `untested` -- a confirmed, known-broken state, not just
+unexercised territory. Picked over the remaining `untested` Tier 3 rows
+(Token suite, UI planning, Release/export, Cross-repo/AST) because a
+`degraded` row with a concrete, already-identified failure brings more
+immediate value than exploring unknown territory.
+
+**Root cause, confirmed by direct reproduction:** the FSR-5 workflow
+submits a deliberately wrong `host_scope_proposal` (inventing a
+nonexistent file as the owner), expects it to be rejected, then resubmits
+`tailtrail_start` with that same invented proposal attached -- expecting
+`scope_contract.state: "ambiguous"` back, the same state as before any
+proposal was ever tried. Instead the MCP response came back with
+`scope_contract: None`. Traced directly: `task-start.py` correctly fails
+loudly on a rejected proposal (`parser.error("scope-owner proposal was
+rejected: ...")`, exit code 2) -- this is Issue 1's own fix from earlier
+in this session, working exactly as designed at the CLI level. But that
+leaves **no stdout at all** for the MCP wrapper to parse (confirmed by
+inspecting `execution.stdout` directly: an empty string), so
+`requirement_scope_transport()` received an empty string instead of a
+dict and correctly returned `None` for `scope_contract` -- the MCP
+transport layer was never updated to translate a CLI-level rejection into
+a usable MCP response.
+
+**Fix (implemented through a real `tailtrail start` cycle, run
+`start-20261011143314-93a25b`):** `tailtrail_start()` now detects this
+exact failure shape -- `host_scope_proposal` was supplied, the command
+exited non-zero, and stderr contains "scope-owner proposal was rejected"
+-- and retries the identical command with `--host-scope-proposal` removed,
+via a new `_drop_flag()` helper. The host still gets a real, current scope
+contract (ambiguous, since nothing changed) instead of an empty response.
+Considered adding an explicit `host_scope_proposal_rejected: true` field
+to the response for better host-side UX, but the shared scope-tool output
+schema (`scope_tool_output_schema()`) sets `additionalProperties: False`,
+so an undeclared field would need a schema change too -- out of scope for
+the smallest compliant fix; left out.
+
+**Verified:** the previously-failing
+`test_fsr5_mcp_validates_host_reasoning_then_creates_only_the_resolved_run`
+now passes. Ran the full `tests.test_mcp_server` (63 tests) +
+`tests.test_host_adapter_conformance` (11) + `tests.test_navigator_scope`
+(118) -- 192/192 pass, no regressions. Closed the run through the real
+cycle: `planning revise` (pre-approving the existing
+`tests/test_mcp_server.py` suite as proof, applying the sequencing lesson
+from the scanner-graph-overlay fix -- this time *before* activating, not
+after), `planning revision-approve` (activates), implement, then
+`execution-evidence run --approved` with both `unit` and `contract` tiers
+(the anchor's validation contract required both, correctly unioned by the
+revision rather than letting one replace the other), `closure record`,
+`completion-report` (**Overall: complete** on the real run, not a
+synthetic fixture), `closure finalize`.
+
+**Net assessment for this feature:** the MCP server's degraded status is
+resolved for its one known, confirmed failure. Both the `untested`
+remainder of Tier 3 and the "fewer tool-level scenarios actually exercised
+live" gap that applies to every MCP tool beyond this one are still open
+territory -- this entry closes the one concrete, already-flagged problem,
+not a full MCP surface sweep.
+
+### 12.12 Benchmarks/Evaluation and Meta-Harness (Tier 3) -- registry drift root-caused; a new, deeper scope-resolution gap found and parked (Open)
+
+**Why this one:** `Benchmarks / evaluation`'s `degraded` note ("frozen
+snapshots; meta-harness benches stale") and the separate `Meta-harness`
+row's `aspirational` note ("6/16 tests red") both pointed at the same
+underlying signal. Investigated together since they share one root cause.
+
+**Root cause, confirmed genuine, not a bug:** all 6 `tests.test_meta_harness`
+/ `tests.test_meta_harness_token_feedback` failures share one pattern --
+`registry_maturity.status` comes back `"drift"` where the tests assert
+`"healthy"`, which cascades into `proposal.status: "no_proposal"` (instead
+of `"proposed"`) and a lower-confidence readiness tier
+(`advise_repo_maintainer` instead of `recommend_central_tailtrail_improvement`).
+Ran `tailtrail-registry.py validate` directly: it reports 8 real,
+currently-true issues -- `tailtrail docs-only`, `tailtrail prompt`, and six
+scripts (`delivery-record.py`, `docs-only.py`,
+`host-interpretation-builder.py`, `prompt_builder.py`, `run-closeout.py`,
+`start_request.py`) are genuinely unclaimed by any registry feature, mostly
+because they were created or added during this very session (Issues 5, 9,
+3a, and my own scratch tooling) without a corresponding registry update.
+**This means the meta-harness code and its test fixtures are both
+correct** -- the registry really is stale right now, and `registry_maturity`
+is accurately reporting that, not malfunctioning. The fix is a registry
+data update (claim the 8 unclaimed items under the `navigator` and
+`requirement-completion-harness` features, matching how `tailtrail pipeline`
+was registered for Issue 7), not a code change to the meta-harness.
+
+**New finding while attempting that fix -- JSON/config files cannot
+resolve as Navigator scope through either normal path (Open):**
+
+- **Attempted:** a real `tailtrail start` cycle targeting
+  `tailtrail-registry.json` (the only file that needed editing). Natural
+  goal phrasing repeatedly produced ambiguous multi-requirement scope
+  splits (mentioning several unclaimed script names in the goal caused
+  Navigator to treat each as a candidate target). Supplying an explicit
+  single-requirement `--requirement-interpretation` fixed that, but
+  `tailtrail-registry.json` itself **never appeared in
+  `eligible_candidates`** across every attempt, including with
+  `--changed tailtrail-registry.json` explicitly passed.
+- **Confirmed via the raw packet, not inference:** `tailtrail-registry.json`
+  *is* correctly discovered -- it appears as a real anchor
+  (`anchor:entrypoint:tailtrail-registry.json`) and a real "convention"
+  entry (`{"path": "tailtrail-registry.json", "reason":
+  "configuration-path-convention"}`) -- but zero of the packet's 12
+  relationship edges connect to it at all, and `eligible_candidates`
+  draws only from edge-backed ownership evidence, not convention
+  signals.
+- **The documented escape hatch for this exact case
+  (`--host-scope-proposal` with `claim_role: "proposed-new"`) is also
+  blocked, confirmed by checking the schema, not assumed:**
+  `schemas/navigator-host-scope-proposal.schema.json` requires
+  `proposed-new` claims to carry `convention_refs` matching
+  `^edge-[0-9a-f]{12}$` -- a real relationship-edge ID. Since
+  `tailtrail-registry.json` has zero edges, there is no real edge ID to
+  ground the claim in. Fabricating one would mean submitting evidence that
+  doesn't exist, which this system's design specifically exists to reject
+  -- not attempted.
+- **Why this matters beyond this one file:** this is structurally the
+  same class of gap Issue 5 found for markdown/prose files (Navigator's
+  scope resolution is fundamentally code-graph-centric), but one layer
+  deeper -- Issue 5's fix (the docs-only fast lane) only covers
+  `.md`/`.rst`/`.txt`/`.adoc`. `tailtrail-registry.json` is a `.json`
+  config/data file, outside that lane's scope, and outside normal
+  ownership eligibility too. Any future task whose sole edit target is a
+  JSON/YAML config or data file (not just this specific registry) will
+  likely hit the identical wall.
+- **What was ruled out:** this is not a `--changed` wiring bug --
+  `--changed` correctly seeds the path as a candidate for `.py` files
+  throughout this entire session; the gap is specifically that
+  config/data files never accumulate the edge-based evidence
+  `eligible_candidates`/`proposed-new` both require, regardless of how
+  they're seeded.
+
+**Status:** Open, parked by explicit user decision (not forced through a
+hook-bypass workaround, unlike the pre-Issue-4 config-file pattern -- kept
+clean for future investigation). The registry drift itself (the 8 unclaimed
+items) also remains unclaimed as a result -- both the meta-harness test
+failures and the scope-resolution gap are left for deliberate follow-up.
+
+**Where to look when picking this up:**
+- For the scope-resolution gap: `scripts/navigator_scope.py`'s
+  `eligible_candidates`/ownership-qualification logic (likely needs a
+  convention-based or extension-based eligibility path parallel to the
+  edge-based one, analogous to how `is_docs_only_fast_lane()` created a
+  parallel path for prose files rather than forcing prose through the
+  code-graph gate).
+- For the registry drift itself, once scope resolution allows editing
+  `tailtrail-registry.json`: `tailtrail-registry.py validate`'s own output
+  names the exact 8 items and the best-fit existing features
+  (`navigator` for `docs-only`/`prompt`/`start_request.py`/
+  `host-interpretation-builder.py`; `requirement-completion-harness` for
+  `delivery-record.py`/`run-closeout.py`).
 
 ---
 
@@ -1720,6 +1916,23 @@ debug-domain + fixture files, the existence-only conformance probe.
 
 This entry was recorded under `tailtrail docs-only` run
 `doc-20261011133904-f75a4f`.
+
+**Independently re-verified end-to-end (2026-10-11):** ran all 20 new
+tests in `tests.test_anchor_versioning` + `tests.test_official_aidlc_state`
+(both pass, including `test_corrected_anchor_and_checkpoint_agree` --
+"A mid-run correction must not produce anchor-fingerprint-conflict"),
+plus 30 more across `test_closure_correction`, `test_architecture_fitness`,
+`test_execution_failure`, `test_higher_tier_testing`, and
+`test_requirement_recovery_manifest` -- 50/50 pass. Ran the full
+pre-existing `test_drift_analysis` + `test_harness_checkpoint` +
+`test_task_recovery` + `test_git_readiness` + `test_context_continuity` +
+`test_navigator_scope` regression set -- 156/156 pass, no collateral
+damage. Most importantly, re-ran `tailtrail completion-report` against the
+**actual, originally-blocked run** (`start-20261011103755-35568d`) --
+**Overall: complete** (previously stuck on `evidence-incomplete` /
+`anchor-fingerprint-conflict` no matter how the anchor was corrected).
+This is the real proof: not a synthetic fixture, the exact run this whole
+investigation started from.
 
 **Where to look when picking this up:**
 - `scripts/official-aidlc-state.py:62` -- the immediately active symptom;

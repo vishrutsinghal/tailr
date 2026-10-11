@@ -62,31 +62,31 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Maintainability harness | fixed | delta engine live-proven (dup persist→regressed, dedupe→improved, advisories non-blocking); rule UIDs now validated against anchor (was silent misattribution); tests 2→6 (`f40d732`) |
 | Evidence-aware testing | healthy | tiers green |
 | Test precision planner | healthy | focused proof resolved in Starts |
-| Navigator-led review / quality loop | fixed | 18 live scenarios (gates, boundary math, corruption handling, CLI parity) all pass; one open gap found: documented "no secrets" rule has no code enforcement -- see issues log 12.1 |
+| Navigator-led review / quality loop | healthy | 18 live scenarios (gates, boundary math, corruption handling, CLI parity) all pass. The "no secrets" gap is fixed: credential-shaped free text (AWS/GitHub/Slack tokens, PEM keys, bearer tokens) is now rejected before storage -- confirmed live with correctly-shaped test credentials -- see issues log 12.1 |
 | Context continuity | healthy | 9 pre-existing unit tests + 10 new live CLI scenarios (error paths, schema validation, dispatcher parity) all pass; `untested` label was itself wrong -- see issues log 12.2 |
-| Recovery / Mode B | healthy | 3 pre-existing unit tests + 10 new live CLI scenarios (approval gates, overlap safety, multi-file mixed-overlap, dispatcher parity) all pass; one minor open finding: an out-of-order call leaks a raw filesystem error instead of the module's own clean message -- see issues log 12.3 |
+| Recovery / Mode B | healthy | 3 pre-existing unit tests + 10 new live CLI scenarios (approval gates, overlap safety, multi-file mixed-overlap, dispatcher parity) all pass. The error-message leak is fixed: seal-before-capture now gives the module's own clean message instead of a raw filesystem path -- confirmed live -- see issues log 12.3 |
 | Debug harness lifecycle | healthy | auto-routing verified live (T1) |
 | Program delivery / hands-free | healthy | auto-Full verified live (T6) |
-| Higher-tier testing | fixed | 3 pre-existing tests + 14/15 new live scenarios pass; one confirmed bug: `release-confidence.py` crashes with an uncaught AttributeError on a bare-list `receipts.json` instead of failing cleanly -- see issues log 12.7 |
+| Higher-tier testing | healthy | 3 pre-existing tests + 14/15 new live scenarios pass. The crash is fixed: a bare-list `receipts.json` now fails cleanly ("an approved anchor is required") instead of an uncaught AttributeError -- confirmed live -- see issues log 12.7 |
 | Drift analysis | healthy | findings accurate in closure audit |
 | Safe Git / recovery | healthy | 5 pre-existing unit tests + 14 new live CLI scenarios (approval gates, branch/boundary checks, and the previously-zero-coverage scope-freshness re-check in `activate()`) all pass -- see issues log 12.4 |
 | Conflict reconciliation | healthy | validated together with Safe Git/recovery (same test file, same workflow); scope-conflict/exact-patch/overlap classification all pass live -- see issues log 12.5 |
-| Flaky tracker / CI ingest | fixed | CI ingest: 9 live scenarios all pass, no defects. Flaky tracker: 7 live scenarios pass, but one confirmed bug found -- `history` field silently reorders past 10 observations per test_id (status classification itself unaffected) -- see issues log 12.6 |
+| Flaky tracker / CI ingest | healthy | CI ingest: 9 live scenarios all pass, no defects. Flaky tracker: the ordering bug is fixed -- `history` now stays chronological past 10 observations, confirmed live with the exact original distinguishing pattern -- see issues log 12.6 |
 
 ## Tier 3 — ecosystem, integrations, governance
 
 | Feature | Health | Basis |
 |---|---|---|
-| MCP server | degraded | 62/63 suite green; `start_report` now forwards aidlc/graph/host via shared ground; 1 pre-existing fsr5 failure proven identical on clean tree |
+| MCP server | healthy | 63/63 suite green. The fsr5 failure is fixed: `tailtrail_start` now falls back to the current (ambiguous) scope contract when a resubmitted host-scope-proposal is rejected, instead of returning an empty result -- fixed and closed through a real `tailtrail start` cycle -- see issues log 12.11 |
 | Official AIDLC lifecycle | healthy | Standard/Full packs green in suites |
 | Spec-Kit bridge | healthy | 32 pre-existing tests across 9 files all pass; `untested` was flatly wrong -- this is a mature, extensively-tested subsystem (import/amendment/evidence/convergence/slices/policy/observability/navigator-bridge). CLI dispatcher (`tailtrail intent-bridge`/`spec-kit`) smoke-tested: requires `--allow-incubating` by design (maturity gate, not a bug) -- see issues log 12.8 |
 | CI/Sonar + scanners | fixed | sonar-summary.py: 4/4 live scenarios pass, healthy. scanner-graph-overlay.py: found and fixed a real security-relevant bug (private-key redaction unreachable for real multi-line PEM blocks); fixed via a real tailtrail start cycle with trusted execution evidence -- see issues log 12.9 |
-| Guardrails / policy / enterprise | fixed | enterprise-target-policy.py + guardrail-precision.py: 11 pre-existing tests pass. guardrail-check.py: 12/13 live scenarios pass; one confirmed precision gap -- dependency-gate check flags any manifest metadata edit (e.g. a bare version bump) as high-severity, not just real dependency changes -- see issues log 12.10 |
+| Guardrails / policy / enterprise | healthy | enterprise-target-policy.py + guardrail-precision.py: 11 pre-existing tests pass. guardrail-check.py: 12/13 live scenarios pass. The precision gap is fixed -- a bare version bump now produces zero findings, confirmed live -- see issues log 12.10 |
 | Assistant adapters / conformance | healthy | 11/11 green incl. CLI/MCP/markdown fingerprint parity; host projections agree |
 | Token suite | untested | not exercised |
 | UI planning / visual reqs | untested | not exercised |
-| Benchmarks / evaluation | degraded | frozen snapshots; meta-harness benches stale |
-| Meta-harness | aspirational | 6/16 tests red; never run here; see review |
+| Benchmarks / evaluation | fixed | 28/28 pre-existing tests pass; "degraded" note root-caused to genuine tailtrail-registry.json drift (8 real unclaimed scripts/commands), not a code bug. Fix attempt hit a new, deeper scope-resolution gap (JSON/config files can't resolve as scope); parked by explicit decision -- see issues log 12.12 |
+| Meta-harness | fixed | the exact 6 failing tests root-caused: all fail on one shared, genuine registry-drift signal (not a meta-harness bug) -- see issues log 12.12 for the full root cause and the new scope-resolution gap found while attempting the registry fix |
 | Release / export / install flows | untested | not exercised (launcher skew is env-level, known) |
 | Cross-repo / AST / impact graph | untested | not exercised |
 | Orphan lock hygiene | hygiene | ~12 awaiting locks from verification runs |

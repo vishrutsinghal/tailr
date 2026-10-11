@@ -477,6 +477,21 @@ def output_format(args: dict[str, Any]) -> str:
     return value if value in {"json", "markdown"} else "json"
 
 
+def _drop_flag(command: list[str], flag: str) -> list[str]:
+    """Return command with flag and its following value removed, if present."""
+    result: list[str] = []
+    skip_next = False
+    for item in command:
+        if skip_next:
+            skip_next = False
+            continue
+        if item == flag:
+            skip_next = True
+            continue
+        result.append(item)
+    return result
+
+
 def command_result(command: list[str], cwd: Path, *, stdin_data: str | None = None) -> dict[str, Any]:
     result = subprocess.run(command, cwd=cwd, text=True, input=stdin_data, capture_output=True, check=False)
     return {
@@ -1542,6 +1557,17 @@ def tailtrail_start(args: dict[str, Any]) -> dict[str, Any]:
             if diagnosis_stdin is not None
             else command_result(staged_command, root)
         )
+        if (
+            isinstance(scope_proposal, dict)
+            and result["exit_code"] not in (0, None)
+            and "scope-owner proposal was rejected" in (result.get("stderr") or "")
+        ):
+            # task-start.py correctly fails loudly on a rejected proposal
+            # (Issue 1), but that leaves no stdout to parse. Retry without
+            # the rejected proposal so the host still gets the real,
+            # current scope contract (ambiguous) instead of an empty one.
+            fallback_command = _drop_flag(staged_command, "--host-scope-proposal")
+            result = command_result(fallback_command, root)
     result["read_only"] = False
     result["requires_approval"] = True
     result["local_metadata_only"] = True
