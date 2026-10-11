@@ -1626,7 +1626,7 @@ This entry was recorded under `tailtrail docs-only` run
   be a pure extension, not a behavior change, for every run that never
   needed a correction.
 
-### 13a. Fix landed and verified for its direct target, but confirmed partial -- a third file has the identical bug, and a much wider codebase pattern exists (Open)
+### 13a. Fix landed and verified for its direct target, but confirmed partial -- a third file has the identical bug, and a much wider codebase pattern exists (Fixed -- full audit + migration + guardrail)
 
 **What was fixed, confirmed by live re-verification against the exact
 blocked run (`start-20261011103755-35568d`), not just unit tests:**
@@ -1699,13 +1699,27 @@ audit distinguishing "this should read the latest approved anchor" from
 "this specific check is intentionally anchored to v1" file by file -- not
 a mechanical search-and-replace across 40 files in one pass.
 
-**Status:** Open. The original, narrow bug report (Section 13) is fixed
-and verified. This follow-up establishes that the same defect class is
-pervasive across the codebase, with at least one concrete, currently-active
-symptom (`official-aidlc-state.py`'s canonical-state check blocking
-`completion-report`'s overall status for any run with a mid-run
-correction) and an unknown number of latent ones among the other ~38
-matches not yet individually audited.
+**Status:** Fixed. The full audit happened first (read-only, zero code
+changes): all 61 matches across 43 files classified -- ~45 sites migrate to
+latest, ~8 stay (fresh-run creators, missing-file fallbacks, debug/test
+fixtures, existence probes), and **zero sites need the original** (so no
+second helper and no allowlist beyond those keepers). Implementation in
+approved slices: Group 1 (`official-aidlc-state.py`, ending the live
+`anchor-fingerprint-conflict`), closure gatekeepers (5 files),
+completion path (3 files), records/evidence (5 files + anchor
+`invalidate`/`graph_receipt`), harness family (4 files), validation
+selectors (4 files), platform/runtime (13 files + MCP `anchor_show`).
+Companion `str(dict)` fixes everywhere role-tagged paths flow. Guardrail:
+new `tests/test_anchor_versioning.py` pins exact raw-read counts per file
+plus a must-resolve-latest list. Verified per slice with red-to-green
+regression tests where the code path allows distinguishing (drift,
+checkpoint, handoff, canonical-state, fitness, failure-mapping, recovery
+capture); UID-keyed paths are version-stable by design and covered by green
+suites instead. Deliberately untouched: `approve()`/creation guards,
+debug-domain + fixture files, the existence-only conformance probe.
+
+This entry was recorded under `tailtrail docs-only` run
+`doc-20261011133904-f75a4f`.
 
 **Where to look when picking this up:**
 - `scripts/official-aidlc-state.py:62` -- the immediately active symptom;
