@@ -1141,3 +1141,111 @@ secondary field, caught only by deliberately redesigning a probe after the
 first one passed for the wrong reason -- worth remembering as a method
 note: a scenario passing is not evidence of correctness if the scenario
 could not have distinguished pass from fail in the first place.
+
+### 12.7 Higher-Tier Testing (Tier 2) -- `scripts/higher-tier-testing.py`, `scripts/release-confidence.py` / `tailtrail harness {higher-tier,release-confidence}`
+
+**Why this one and its scope:** last remaining Tier 2 `untested` row.
+`higher-tier-testing.py` runs one repository-declared command (integration/
+contract/e2e/infrastructure/release-smoke) from a testing profile and
+records a sanitized receipt; `release-confidence.py` reads an approved
+anchor's per-requirement `validation_contract` and saved receipts to decide
+whether required evidence tiers are actually passing. The docs group these
+two under "Higher-Tier Testing And Release Confidence (Phase 8 V1)"; the
+separate, much larger `phase8-advanced.py` surface (journey/contracts/
+lifecycle/deployment/release-policy/calibration) was left out of scope --
+it isn't named by this row and deserves its own pass.
+
+**Existing coverage:** `tests/test_higher_tier_testing.py` has 3 tests
+(approval-gated integration run records a receipt with no `stdout` field;
+a remote release-smoke tier is blocked without separate remote approval
+and `safe_test_account: true`; release confidence stays incomplete when a
+required tier's evidence is missing). Ran it: 3/3 pass. Narrow but real,
+similar to 12.6 -- the happy paths and one safety gate are covered, but
+most rejection paths and several real behaviors were not.
+
+**Method:** 15 live CLI scenarios via `tailtrail.py harness higher-tier`
+and `tailtrail.py harness release-confidence` (dispatcher verbs confirmed
+at `scripts/tailtrail.py:1125-1128` first), covering `plan`/`run` end to
+end, every declared-profile rejection path, a genuinely nonexistent
+command, a real timeout, a real non-zero exit, and release-confidence's
+`conditional` contract-state exemption, missing-anchor rejection, and a
+no-declared-contract default.
+
+**Three of my own scenarios were wrong on the first pass, corrected before
+concluding anything (same discipline as 12.2's wrong CLI verb and 12.6's
+flawed alternating pattern):**
+
+- Scenarios 4 and 5 (an unrecognized adapter, and a non-higher-tier name
+  paired with an invalid adapter) both failed with `"invalid higher-tier
+  adapter"` instead of the message I expected from reading only
+  `higher-tier-testing.py`. Tracing it: `scripts/testing-profile.py:18`'s
+  `load()` validates the `adapter` field against the identical allowlist
+  **before** `higher-tier-testing.py`'s own `tier_from()` checks ever run,
+  with different wording. Both are still correct rejections (clean `rc=2`,
+  specific message) -- just from an earlier layer than I'd assumed.
+  Redesigned scenario 4 with a non-higher-tier name (`"unit"`) paired with
+  a *valid* adapter (`"integration"`) so the earlier schema layer wouldn't
+  intercept it first, and confirmed `higher-tier-testing.py`'s own
+  `"higher-tier runner accepts integration, contract, e2e, infrastructure,
+  or release-smoke only"` message fires correctly once isolated from the
+  other layer.
+- Scenario 9 (confirming a failing command's real stdout is never leaked
+  into the receipt) initially flagged a mismatch, but the "secret" string
+  I used was embedded in the **command argv text itself**
+  (`python -c "print('SENSITIVE_SECRET_OUTPUT')"`), so it legitimately
+  appears in the receipt's `command` field, which intentionally echoes back
+  the declared command for traceability -- that is not a stdout leak. The
+  receipt genuinely has no `stdout`/`stderr` key anywhere; confirmed by
+  printing the full receipt object directly rather than trusting a
+  substring check that couldn't distinguish "echoed command" from "leaked
+  output."
+
+**Finding (scenario 14) -- confirmed, reproducible: a bare-list
+`receipts.json` crashes `release-confidence.py` with an uncaught
+`AttributeError`, not a clean error (Open):**
+
+- **Symptom:** `tailtrail harness release-confidence --receipts
+  receipts.json`, where `receipts.json` is a plain JSON array (no
+  `{"receipts": [...]}` wrapper), exits with returncode `1` and a raw
+  Python traceback on stderr instead of the module's own clean `"Release
+  confidence error: ..."` pattern (exit code `2`) used by every other
+  rejection in this file.
+- **Root cause:** `scripts/release-confidence.py:36`:
+  `raw = json.loads(...); receipts = raw.get("receipts", raw)` calls
+  `.get()` unconditionally. When `raw` is itself a list (the bare-array
+  input shape), `list` has no `.get()` method, so this raises
+  `AttributeError: 'list' object has no attribute 'get'` --  a type not in
+  `main()`'s caught exception tuple
+  (`OSError, ValueError, KeyError, json.JSONDecodeError`), so it propagates
+  as an unhandled crash.
+- **Directly comparable sibling code gets this right:**
+  `scripts/ci-evidence-ingest.py:15` handles the identical "wrapped dict
+  or bare list" input shape correctly:
+  `items=raw.get("results",raw) if isinstance(raw,dict) else raw` --  the
+  `isinstance` guard before calling `.get()` is exactly what
+  `release-confidence.py` is missing. This isn't a hypothetical shape
+  either: `ci-evidence-ingest.py`'s own receipts are consumed by
+  `release-confidence.py` later in the same workflow, and 12.6's scenario
+  13 confirmed a bare-list input is an accepted, real shape elsewhere in
+  this exact evidence pipeline.
+- **Severity:** moderate -- not a safety-relevant bug (no evidence is
+  misclassified or silently accepted), but a real robustness regression
+  relative to its sibling script, surfaced by a plausible, not contrived,
+  input shape.
+- **Status:** open, not fixed. One-line fix: mirror
+  `ci-evidence-ingest.py`'s pattern --
+  `receipts = raw.get("receipts", raw) if isinstance(raw, dict) else raw`.
+- **Where to look when picking this up:**
+  `scripts/release-confidence.py:36` (`assess`).
+
+**Results:** 14 of 15 scenarios behaved correctly once my own three
+flawed assertions were corrected; one confirmed, reproducible defect found
+and logged above.
+
+**Net assessment for this feature:** `higher-tier-testing.py`'s approval
+gates, profile validation, and all three non-zero-path outcomes (`fail`,
+`unavailable` for a missing binary, `timed-out` for a real timeout) are
+solid and privacy-correct (no command output ever leaks into a receipt).
+`release-confidence.py`'s evidence-completeness logic, including the
+`conditional`-state exemption and the no-contract default, is correct --
+but it has one real input-shape robustness gap, logged above.

@@ -67,7 +67,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Recovery / Mode B | healthy | 3 pre-existing unit tests + 10 new live CLI scenarios (approval gates, overlap safety, multi-file mixed-overlap, dispatcher parity) all pass; one minor open finding: an out-of-order call leaks a raw filesystem error instead of the module's own clean message -- see issues log 12.3 |
 | Debug harness lifecycle | healthy | auto-routing verified live (T1) |
 | Program delivery / hands-free | healthy | auto-Full verified live (T6) |
-| Higher-tier testing | untested | not exercised |
+| Higher-tier testing | fixed | 3 pre-existing tests + 14/15 new live scenarios pass; one confirmed bug: `release-confidence.py` crashes with an uncaught AttributeError on a bare-list `receipts.json` instead of failing cleanly -- see issues log 12.7 |
 | Drift analysis | healthy | findings accurate in closure audit |
 | Safe Git / recovery | healthy | 5 pre-existing unit tests + 14 new live CLI scenarios (approval gates, branch/boundary checks, and the previously-zero-coverage scope-freshness re-check in `activate()`) all pass -- see issues log 12.4 |
 | Conflict reconciliation | healthy | validated together with Safe Git/recovery (same test file, same workflow); scope-conflict/exact-patch/overlap classification all pass live -- see issues log 12.5 |
@@ -99,6 +99,22 @@ Every Tier 0/1 feature the session touched is green; every break found was
 repaired with proof. Parked Issues 2 (thin-evidence fingerprint), 3
 (cross-call packet drift), 3a (CLI/MCP parity), 4 (guardian classifier),
 5 (docs fast lane), and 9 (grounding messages + prompt contract) are now
-fixed + verified. The honest gaps are quantitative, not structural:
-a long Tier 2/3 tail never exercised (no evidence either way), one
-aspirational subsystem (meta-harness), and hygiene debts.
+fixed + verified.
+
+**All seven previously-`untested` Tier 2 quality-harness rows have now
+been swept with live, multi-scenario validation** (issues log Section 12):
+Quality Loop (fixed -- one open privacy-enforcement gap), Context
+Continuity (healthy -- the `untested` label was itself wrong), Recovery /
+Mode B (fixed -- one minor error-message gap), Safe Git / Recovery and
+Conflict Reconciliation (both healthy, including the previously-zero-coverage
+scope-freshness re-check), Flaky Tracker / CI Ingest (fixed -- one
+confirmed history-ordering bug), and Higher-Tier Testing (fixed -- one
+confirmed crash-on-bare-list-input bug). Three of the seven rows'
+`untested` labels turned out to be inaccurate on inspection (a real test
+file already existed), which is itself a finding about how this inventory
+was originally compiled -- worth a spot-check before trusting any
+remaining `untested` label in Tier 3 too.
+
+The honest remaining gaps are the Tier 3 tail (ecosystem/integrations/
+governance, still no session evidence either way), one aspirational
+subsystem (meta-harness), and hygiene debts.
