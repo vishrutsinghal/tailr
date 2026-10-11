@@ -69,8 +69,8 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Program delivery / hands-free | healthy | auto-Full verified live (T6) |
 | Higher-tier testing | untested | not exercised |
 | Drift analysis | healthy | findings accurate in closure audit |
-| Safe Git / recovery | untested | not exercised |
-| Conflict reconciliation | untested | not exercised |
+| Safe Git / recovery | healthy | 5 pre-existing unit tests + 14 new live CLI scenarios (approval gates, branch/boundary checks, and the previously-zero-coverage scope-freshness re-check in `activate()`) all pass -- see issues log 12.4 |
+| Conflict reconciliation | healthy | validated together with Safe Git/recovery (same test file, same workflow); scope-conflict/exact-patch/overlap classification all pass live -- see issues log 12.5 |
 | Flaky tracker / CI ingest | untested | not exercised |
 
 ## Tier 3 — ecosystem, integrations, governance

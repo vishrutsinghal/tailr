@@ -948,3 +948,101 @@ safe-to-restore -- held up under every scenario tried, including the
 harder multi-file mixed-overlap case. The only finding is a cosmetic
 error-message gap in one out-of-order-call path, not a defect in the
 recovery logic itself.
+
+### 12.4 Safe Git / Recovery (Tier 2) -- `scripts/git-readiness.py`, `task-recovery-boundary.py`, `task-recovery.py` / `tailtrail harness {git-readiness,boundary,recovery}`
+
+### 12.5 Conflict Reconciliation (Tier 2) -- `scripts/recovery-reconcile.py` / `tailtrail harness reconcile`
+
+**Why validated together:** these are two separate rows in
+`TAILTRIAL-FEATURE-HEALTH.md`, but they share one existing test file
+(`tests/test_task_recovery.py`) and one real workflow -- `boundary.init` ->
+`boundary.activate` -> either `task-recovery.py` (restore to the last
+checkpoint, "Safe Git / Recovery") or `recovery-reconcile.py` (reverse an
+exact task patch when a later edit overlaps, "Conflict Reconciliation").
+Splitting the live-scenario setup across two passes would have meant
+reconstructing the same git-repo-plus-anchor scaffolding twice for no
+benefit, so both were validated in one pass and are logged as two entries
+to stay traceable against the inventory's own row split.
+
+**Scope, for clarity against what Mode B (12.3) already covers:** Mode B is
+the Git-free fallback used when `git-readiness.py` says the repository
+isn't safe for Git-based checkpoints (dirty tree, detached HEAD, no
+committer identity). This entry covers the Git-based primary path (Mode A):
+a dedicated `tailtrail/<run-id>` branch, one checkpoint commit per approved
+requirement, and either a full restore to the last checkpoint
+(`task-recovery.py`) or a scoped, patch-level reversal of just the
+task-owned hunks when other work has landed since (`recovery-reconcile.py`).
+
+**Existing coverage, checked before assuming `untested` was accurate (same
+lesson from 12.2, applied again):** `tests/test_task_recovery.py` has 4
+tests plus `tests/test_git_readiness.py` has 1 -- the validated-requirement
+preserved across a second requirement's recovery, recovery refusing
+untracked/out-of-boundary work, an exact task-patch reversal preserving
+unrelated work, a same-hunk-overlap refusal, and a clean-vs-dirty readiness
+check. Ran both: **5/5 pass.** This is the third time in a row the
+`untested` label has proven inaccurate for a Tier 2 row (after Context
+Continuity being fully wrong and Mode B being narrow-but-real) -- worth
+treating as a pattern now, not a coincidence: the inventory was evidently
+compiled without a systematic test-file search per row.
+
+**Method:** 14 live scenarios via real CLI calls against disposable
+temporary Git repositories (confirmed dispatcher verbs at
+`scripts/tailtrail.py:1100-1108` before writing anything, applying the
+12.2 lesson), targeting the approval gates, rejection paths, and one
+substantial piece of logic with **zero** existing coverage anywhere --
+`activate()`'s scope-freshness re-check (`_fresh_scope_check`/
+`_classify_scope_freshness`):
+
+1. `boundary.py init` via the real CLI creates and switches to the task
+   branch end to end.
+2. `init` without `--approved` hard-fails and creates no branch.
+3. `init` on a dirty worktree is refused, naming the specific readiness
+   issue ("worktree is not clean").
+4. `init` refuses to reuse an already-existing task branch name.
+5. `activate` refuses when the checked-out branch doesn't match the
+   boundary's recorded task branch.
+6. `activate` refuses a second requirement while one is already active.
+7. `checkpoint` with zero actual changes is refused -- confirmed it does
+   not create an empty commit.
+8. `recovery apply` without `--approved` hard-fails via the CLI and leaves
+   the file's unrestored content untouched.
+9. `reconcile plan` on a patch whose diff touches a path outside the
+   approved requirement's boundary correctly classifies
+   `scope-conflict` and sets `safe_to_apply: false`.
+10. `reconcile apply` without `--approved` hard-fails, leaves the file
+    untouched.
+11. `tailtrail.py harness git-readiness` matches calling
+    `git-readiness.py` directly, byte-for-byte.
+12. **The scope-freshness re-check** -- confirmed genuinely untested
+    anywhere via `grep` for `fresh_scope_check`/`scope_freshness`/
+    `accept-fresh`/`keep-original` across `tests/*.py` (zero matches)
+    before investing in it. First attempt at a live repro used
+    fabricated evidence too weak to actually change the investigated
+    owner set (a false negative in the test construction, not a finding
+    about the code) -- caught by diagnosing `_fresh_scope_check` directly
+    against controlled input before trusting the result, then recalibrated
+    with a requirement statement that genuinely matches a second,
+    import-linked file's content better than the originally approved one.
+    With that real drift in place, confirmed all three paths: (12a)
+    `activate` with no `--scope-decision` stops cleanly, naming both the
+    approved and the newly-evidenced path sets, and touches nothing; (12b)
+    `--scope-decision keep-original` proceeds with the original approved
+    scope, untouched; (12c) `--scope-decision accept-fresh` adopts the
+    fresh scope for this boundary's own tracking **and** writes a
+    correction into the durable, canonical approved anchor (confirmed by
+    reading the anchor back afterward), so later readers of the plan of
+    record see the corrected scope too, not just this one boundary file.
+
+**Results:** all 14 scenarios passed (11 straightforward + 3 for the
+recalibrated scope-freshness check). No code defect found anywhere across
+`git-readiness.py`, `task-recovery-boundary.py`, `task-recovery.py`, or
+`recovery-reconcile.py`.
+
+**Net assessment for both features:** genuinely healthy. The approval
+gates, boundary checks, and patch-level safety classification
+(`exact-task-patch` / `scope-conflict` / `invalid-task-patch` /
+`task-patch-absent` / `same-hunk-overlap`) all behave exactly as designed.
+The scope-freshness re-check -- the single riskiest piece of logic in this
+whole area, since a wrong call there could either block legitimate work or
+silently widen write authority -- is proven correct on all three of its
+branches, not merely plausible from reading the code.
