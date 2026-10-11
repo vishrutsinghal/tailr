@@ -2593,6 +2593,7 @@ def build_report(
         graph_mode=graph_mode,
         requirement_interpretation=resolved_requirement_interpretation,
         debug_diagnosis=debug_diagnosis,
+        persist_host_packet=True,
     )
     classification = plan.get("workflow_classification", {})
     if classification.get("workflow_type") == "debug-investigation":
@@ -3228,6 +3229,7 @@ def apply_reresolved_evidence(report: dict[str, Any], root: Path, goal: str, qa_
         return
     navigator["scope_evidence"] = qa_document
     navigator["scope_host_packet"] = navigator_scope.host_reasoning_packet(qa_document)
+    navigator_scope.save_host_packet(root, navigator["scope_host_packet"])
     navigator["scope_quality"] = navigator_scope.assess_scope_quality(
         root, goal, navigator.get("task_types", []), qa_document,
     )
@@ -6810,6 +6812,7 @@ def main() -> int:
                 report["navigator"]["scope_host_packet"] = navigator_scope.host_reasoning_packet(
                     updated_evidence
                 )
+                navigator_scope.save_host_packet(root, report["navigator"]["scope_host_packet"])
                 report["navigator"]["scope_quality"] = navigator_scope.assess_scope_quality(
                     root,
                     goal,

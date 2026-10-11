@@ -13,7 +13,7 @@ the entries there.
 |---|---|---|
 | 1 | Scope-owner answers silently discarded (two separate points) | **Fixed** |
 | 2 | Thin-evidence candidates missing `content_fingerprint` | **Fixed** (verified end-to-end) |
-| 3 | `--host-scope-proposal` fingerprint drift across calls | Parked (`task_3dcf1d8e`) |
+| 3 | `--host-scope-proposal` fingerprint drift across calls | **Fixed** (fingerprint-indexed packet tickets + both-fingerprint errors) |
 | 4 | write_guardian role classifier rejects root-level config/registry files | **Fixed** (generic anchor-first + classifier fallback) |
 | 5 | Doc/markdown files can't resolve as Navigator-owned scope | **Fixed** (docs-only fast lane, no full plan) |
 | 6 | `likely_paths` had no per-path role, only a flat string list | **Fixed** |
@@ -110,7 +110,7 @@ fix's own new test
 
 ---
 
-## 3. `--host-scope-proposal` fingerprint drift across separate CLI calls (Parked)
+## 3. `--host-scope-proposal` fingerprint drift across separate CLI calls (Fixed -- packet tickets)
 
 **Symptom:** building a `--host-scope-proposal` payload from one
 `tailtrail start ... --format json` call's output, then submitting it via a
@@ -124,44 +124,50 @@ built against.
 
 **What was ruled out:** this is not simple time-based staleness, and it is
 not an architectural routing gap (an earlier working theory -- confirmed
-wrong by reading `scripts/navigator_scope.py:3895`, which shows
-`--host-scope-proposal` explicitly requires the *same* "too many owners"
-route state that caused the ambiguity in the first place; there is no
-missing route).
+wrong by reading the `--host-scope-proposal` validation path, which
+explicitly requires the *same* "too many owners" route state that caused the
+ambiguity in the first place; there is no missing route).
 
-**What was confirmed, directly, with a scratch script that fetches and
-submits back-to-back with zero manual steps in between:**
-- 2 of 6 attempts: fingerprints matched, proposal evaluated on real content.
-- 1 of 6: an honest, explicit fingerprint-mismatch error.
-- 3 of 6: silent fallback to the ambiguous question, with a footer fingerprint
-  that did not match the one just fetched -- and that repeated fingerprint
-  value appeared identically across otherwise-unrelated attempts, suggesting
-  a stale cached packet is involved somewhere, not pure randomness.
+**Root cause:** call 2 re-runs the whole investigation from scratch instead
+of looking up the packet issued in call 1 -- and the fresh run lands on a
+different fingerprint. Call 1 itself warms the persistent graph cache, so
+call 2 sees `saved-graph` seeds where call 1 saw `fresh-graph` ones (plus
+budget/mtime sensitivity), producing different `reason_codes`,
+`candidate_id`s, and hence a different `packet_fingerprint`. The proposal's
+copied fingerprint then matches nothing. The repeated identical footer
+fingerprint across unrelated attempts further suggests a stale cached packet
+is reused rather than recomputed in some paths.
 
-**Status:** parked as background task `task_3dcf1d8e`, with instructions to
-first confirm the exact mechanism (not assume the theory above) by tracing
-`host_reasoning_packet()`/`validate_host_proposal()` directly, then fix so a
-host can reliably fetch, reason about, and submit a proposal across separate
-calls when nothing in the repository actually changed in between.
+**Fix adopted (ticket model):** issued packets persist as single-use tickets:
+- `navigator_scope.save/load/consume_host_packet()` -- fingerprint-indexed
+  store under `.tailtrail/host-packets/` (TailTrail-managed state, not app
+  evidence), 30-minute TTL with opportunistic GC, O(1) lookup (never a scan
+  of all tickets), tamper-proof (a ticket that doesn't re-hash reads as a
+  miss), single-use (marked `consumed` on accept, replays fall back).
+- `record_host_proposal()` validates against the saved packet the host
+  actually saw when the ticket is live; otherwise behaves exactly as before.
+  Accepted refinements still apply to the current document by path, and live
+  content-freshness checks (`content_fingerprint`, `stale-path-content`)
+  still run -- a saved ticket never blesses changed files.
+- Issuance points ticket their packets: `navigator.decide()` via opt-in
+  `persist_host_packet=True` (real Start flows pass it; `navigator scope
+  inspect` keeps the non-persisting default), plus the post-accept re-stamp
+  and QA re-resolve paths in `task-start.py`.
+- Mismatch errors now name both sides
+  (`evidence-packet-fingerprint-mismatch:expected-<...>:recomputed-<...>`),
+  keeping the original prefix so existing substring checks still match.
 
-**Practical workaround today:** if a `--host-scope-proposal` submission
-fails without a specific, named reason code, retry before assuming the
-proposal's content is wrong.
+**Verified:** new `tests/test_host_packet_tickets.py` (9 tests: round-trip,
+drift-accept, single-use replay, tamper-miss, expiry-miss, both-fingerprint
+error, stale-content still rejected, no-ticket-by-default,
+persist-when-asked) -- all pass; 118/118 `test_navigator_scope`,
+47/47 cli/pipeline/guardian. One mid-work regression (unconditional save
+broke the non-persisting inspect test) was caught by the suite and fixed via
+the opt-in flag. `test_fsr5_mcp...` and `test_cli_mcp_markdown_json...`
+fail identically on the clean tree -- pre-existing, not this change.
 
-**Independent corroborating evidence found later (2026-10-11):** while
-verifying the Issue 5/9 fixes, the repo's own pre-existing test
-`tests/test_host_adapter_conformance.py::test_cli_mcp_markdown_json_and_all_hosts_share_one_scope_fingerprint`
-was found failing -- it asserts that a CLI run, an MCP JSON call, an MCP
-markdown call, and all three host projections (codex/copilot/claude) for the
-*same* goal and *same* unchanged repository all produce exactly one shared
-`normalized_decision_fingerprint`. It does not. Confirmed this is not a
-regression from the Issue 5/9 commit: reverting `navigator_scope.py`,
-`requirement_discovery.py`, and `tailtrail.py` to their pre-commit state and
-re-running the same test reproduces the identical failure. This is the same
-underlying non-determinism as this issue, now confirmed by a second,
-independent, pre-existing test rather than only by ad hoc scratch scripts --
-useful signal for whoever picks up `task_3dcf1d8e`: this test is a ready-made
-reproduction harness, no new script needed.
+This entry was recorded under `tailtrail docs-only` run
+`doc-20261011071329-a67538`.
 
 ---
 

@@ -1290,6 +1290,7 @@ def decide(
     requirement_interpretation: dict[str, Any] | None = None,
     debug_diagnosis: dict[str, Any] | None = None,
     allow_passive_capture: bool = True,
+    persist_host_packet: bool = False,
 ) -> dict[str, Any]:
     workflow_classification = core.classify_workflow_intent(
         goal,
@@ -2016,6 +2017,12 @@ def decide(
         investigation=scope_investigation,
     )
     scope_host_packet = navigator_scope.host_reasoning_packet(scope_evidence)
+    # Ticket the issued packet for a later host-proposal call -- but only for
+    # real Start flows. `navigator scope inspect` is a non-persisting probe
+    # and must leave no state behind, so saving stays opt-in via
+    # persist_host_packet (task-start passes True; inspect keeps the default).
+    if persist_host_packet:
+        navigator_scope.save_host_packet(root, scope_host_packet)
     scope_quality = navigator_scope.assess_scope_quality(root, goal, tasks, scope_evidence)
 
     cache_reasons = set(scope_investigation.get("cache", {}).get("reason_codes", []))

@@ -16,6 +16,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -3738,6 +3739,130 @@ def negotiate_packet_version(packet: dict[str, Any]) -> int:
     return int(version)
 
 
+HOST_PACKET_TTL_SECONDS = 1800
+HOST_PACKET_DIRNAME = "host-packets"
+
+
+def host_packet_dir(root: Path) -> Path:
+    """Directory holding issued host-packet tickets (TailTrail-managed state)."""
+    return root.resolve() / ".tailtrail" / HOST_PACKET_DIRNAME
+
+
+def _host_packet_filename(packet_fingerprint: Any) -> str | None:
+    if not re.fullmatch(r"sha256:[a-f0-9]{64}", str(packet_fingerprint or "")):
+        return None
+    return str(packet_fingerprint).replace(":", "_") + ".json"
+
+
+def save_host_packet(root: Path, packet: dict[str, Any]) -> str | None:
+    """Persist an issued packet as a single-use ticket. Never raises.
+
+    A later CLI call validates a host proposal against the saved packet the
+    host actually saw, instead of a freshly recomputed one whose fingerprint
+    may have drifted (warmed graph cache, budgets, mtimes). Returns the
+    ticket fingerprint, or None when there is nothing worth storing.
+    """
+    try:
+        ticket = packet.get("packet_fingerprint") if isinstance(packet, dict) else None
+        name = _host_packet_filename(ticket)
+        if name is None:
+            return None
+        directory = host_packet_dir(root)
+        directory.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": "1",
+            "type": "tailtrail-host-packet-ticket",
+            "packet_fingerprint": ticket,
+            "issued_at": time.time(),
+            "consumed": False,
+            "packet": packet,
+        }
+        target = directory / name
+        staging = target.with_name(name + ".tmp")
+        staging.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        os.replace(staging, target)
+        _collect_host_packets(directory)
+        return str(ticket)
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _collect_host_packets(directory: Path) -> None:
+    """Drop expired tickets. Best-effort; never raises."""
+    try:
+        now = time.time()
+        for path in directory.glob("sha256_*.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            issued = payload.get("issued_at")
+            if not isinstance(issued, (int, float)) or now - issued > HOST_PACKET_TTL_SECONDS:
+                try:
+                    path.unlink()
+                except OSError:
+                    continue
+    except OSError:
+        return
+
+
+def load_host_packet(root: Path, packet_fingerprint: Any) -> dict[str, Any] | None:
+    """Return the saved ticket packet, or None on miss/expiry/use/integrity failure.
+
+    O(1) indexed lookup by fingerprint -- never a scan of all tickets. A
+    returned packet always re-hashes to its own fingerprint, so a tampered
+    ticket file reads as a miss, not as authority.
+    """
+    try:
+        name = _host_packet_filename(packet_fingerprint)
+        if name is None:
+            return None
+        directory = host_packet_dir(root)
+        path = directory / name
+        if not path.is_file():
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("consumed") is True:
+            return None
+        issued = payload.get("issued_at")
+        if not isinstance(issued, (int, float)) or time.time() - issued > HOST_PACKET_TTL_SECONDS:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+            return None
+        packet = payload.get("packet")
+        if not isinstance(packet, dict):
+            return None
+        body = dict(packet)
+        if body.pop("packet_fingerprint", None) != packet_fingerprint:
+            return None
+        if fingerprint(body) != packet_fingerprint:
+            return None
+        _collect_host_packets(directory)
+        return packet
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+def consume_host_packet(root: Path, packet_fingerprint: Any) -> None:
+    """Mark a ticket single-use after an accepted proposal. Never raises."""
+    try:
+        name = _host_packet_filename(packet_fingerprint)
+        if name is None:
+            return
+        path = host_packet_dir(root) / name
+        if not path.is_file():
+            return
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return
+        payload["consumed"] = True
+        path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return
+
+
 def _packet_v2_sections(
     document: dict[str, Any], investigation: dict[str, Any]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -3928,7 +4053,11 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
     if host not in {"codex", "claude", "copilot"}:
         errors.append("unsupported-host")
     if proposal.get("evidence_packet_fingerprint") != packet.get("packet_fingerprint"):
-        errors.append("evidence-packet-fingerprint-mismatch")
+        errors.append(
+            "evidence-packet-fingerprint-mismatch:"
+            f"expected-{proposal.get('evidence_packet_fingerprint')}:"
+            f"recomputed-{packet.get('packet_fingerprint')}"
+        )
     for field in ("scope_evidence_fingerprint", "target_identity_fingerprint", "goal_fingerprint"):
         packet_field = {
             "scope_evidence_fingerprint": "scope_evidence_fingerprint",
@@ -4259,11 +4388,24 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
 
 
 def record_host_proposal(root: Path, document: dict[str, Any], proposal: dict[str, Any]) -> dict[str, Any]:
-    """Apply one validated evidence refinement without creating authority."""
+    """Apply one validated evidence refinement without creating authority.
+
+    When the proposal names a still-live issued packet ticket, validation runs
+    against the saved packet the host actually saw -- not a freshly
+    recomputed one whose fingerprint may have drifted across CLI calls
+    (warmed graph cache, read budgets, mtimes). The accepted refinement is
+    still applied to the current document by path, and live content-freshness
+    checks still run, so a saved ticket never blesses changed files. Without
+    a live ticket this behaves exactly as before.
+    """
     if not verify_decision_fingerprint(document):
         raise ValueError("scope evidence decision fingerprint is invalid")
-    packet = host_reasoning_packet(document)
+    ticket = proposal.get("evidence_packet_fingerprint") if isinstance(proposal, dict) else None
+    saved = load_host_packet(root, ticket) if isinstance(ticket, str) else None
+    packet = saved if saved is not None else host_reasoning_packet(document)
     validation = validate_host_proposal(root, packet, proposal)
+    if validation["status"] == "accepted" and saved is not None and isinstance(ticket, str):
+        consume_host_packet(root, ticket)
     updated = copy.deepcopy(document)
     updated.pop("decision_fingerprint", None)
     host_neutral = dict(validation["normalized_proposal"])
