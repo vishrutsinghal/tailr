@@ -81,7 +81,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Official AIDLC lifecycle | healthy | Standard/Full packs green in suites |
 | Spec-Kit bridge | healthy | 32 pre-existing tests across 9 files all pass; `untested` was flatly wrong -- this is a mature, extensively-tested subsystem (import/amendment/evidence/convergence/slices/policy/observability/navigator-bridge). CLI dispatcher (`tailtrail intent-bridge`/`spec-kit`) smoke-tested: requires `--allow-incubating` by design (maturity gate, not a bug) -- see issues log 12.8 |
 | CI/Sonar + scanners | fixed | sonar-summary.py: 4/4 live scenarios pass, healthy. scanner-graph-overlay.py: found and fixed a real security-relevant bug (private-key redaction unreachable for real multi-line PEM blocks); fixed via a real tailtrail start cycle with trusted execution evidence -- see issues log 12.9 |
-| Guardrails / policy / enterprise | untested | not exercised |
+| Guardrails / policy / enterprise | fixed | enterprise-target-policy.py + guardrail-precision.py: 11 pre-existing tests pass. guardrail-check.py: 12/13 live scenarios pass; one confirmed precision gap -- dependency-gate check flags any manifest metadata edit (e.g. a bare version bump) as high-severity, not just real dependency changes -- see issues log 12.10 |
 | Assistant adapters / conformance | healthy | 11/11 green incl. CLI/MCP/markdown fingerprint parity; host projections agree |
 | Token suite | untested | not exercised |
 | UI planning / visual reqs | untested | not exercised |

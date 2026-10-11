@@ -1377,6 +1377,81 @@ closure only because of the separate, now-well-documented
 `official-aidlc-state.py` gap (13a), not because the actual fix or its
 proof is incomplete.
 
+### 12.10 Guardrails / Policy / Enterprise (Tier 3) -- `scripts/guardrail-check.py` / `tailtrail guard check`, `tailtrail guardrail check`
+
+**Why this one:** next `untested` row under Tier 3.
+
+**Existing coverage, checked first:** `tests/test_enterprise_target_policy.py`
+(3 tests) and `tests/test_guardrail_precision.py` (8 tests) already cover
+`enterprise-target-policy.py` and `guardrail-precision.py` -- ran both,
+11/11 pass. `scripts/guardrail-check.py` itself -- the real-time
+diff/commit-message scanner for dependency-gate, safeguard-removal,
+local-state, and validation-claim risks -- had no dedicated test file.
+
+**Method:** 13 live CLI scenarios against disposable temp git
+repositories, covering all four rule classes (dependency-gate-required,
+safeguard-removal-review, local-tailtrail-state-staged,
+validation-claim-needs-evidence), the `tailtrail-meta/` exemption, the
+`--enforce` vs advisory distinction, `--fail-on` class-specific blocking,
+an unknown `--fail-on` rejection, a `policy-overrides.json` gate-note
+suppression, and three-way dispatcher parity (direct script,
+`tailtrail guard check`, `tailtrail guardrail check`).
+
+**My own flawed test, corrected before concluding anything:** scenario 1
+(a new dependency with no gate marker) initially "failed" because I wrote
+the test `package.json` as compact single-line JSON
+(`{"dependencies": {"lodash": "^4.17.21"}}`). The detection regex
+(`DEPENDENCY_HINT`) is anchored to match a line that *is* a `"key":
+"value"` pair, which a real, pretty-printed manifest always has one per
+line but my compact single-line file did not. Retested with a realistic,
+multi-line `package.json` and it fired correctly.
+
+**Finding -- confirmed, real precision gap (not a security bug, Open):**
+while fixing the test above, noticed the corrected check flagged *two*
+findings for a `package.json` edit that added one dependency: the real
+`"lodash": "^4.17.21"` line, and also `"name": "demo",` -- a field
+completely unrelated to dependencies. Isolated this with a second,
+targeted test: bumping only `"version": "1.0.1"` in an existing
+`package.json`, touching no dependency at all, still produces a
+`dependency-gate-required` finding at **high** severity.
+
+- **Root cause:** `looks_like_dependency_addition()` /
+  `DEPENDENCY_HINT` (`scripts/guardrail-check.py:107-123`) matches *any*
+  `"key": "value"`-shaped added line in a file named like a dependency
+  manifest (`DEPENDENCY_FILES`) -- it never checks whether the key sits
+  inside a `dependencies`/`devDependencies`-type block, or whether the
+  value itself looks like a package-version specifier. Every routine
+  metadata edit to `package.json` (`name`, `version`, `description`,
+  `main`, `scripts`, `author`, `license`, ...) trips the identical
+  high-severity dependency-gate finding as an actual new dependency.
+- **Impact:** real friction, not a false negative -- the class stays
+  advisory by default (doesn't block), but `--enforce` or `--fail-on
+  dependency-gate` (both documented, intended enforcement modes) would
+  block a plain version bump exactly as hard as a genuine new dependency,
+  with no way to tell the two apart from the finding alone.
+- **Status:** open, not fixed. A full fix needs real JSON/TOML/lockfile
+  structural awareness (is this key inside a dependency block?) rather
+  than a single generic regex across every manifest format; a narrower
+  interim fix could at least special-case well-known non-dependency keys
+  (`name`, `version`, `description`, `private`, `license`, `author`,
+  `scripts`, `main`, `type`) for the JSON manifests.
+- **Where to look when picking this up:**
+  `scripts/guardrail-check.py:284-290` (`looks_like_dependency_addition`),
+  `:107-123` (`DEPENDENCY_HINT`).
+
+**Results:** 12 of 13 scenarios behaved correctly (after my own test
+correction); every other rule class, the `--enforce`/`--fail-on`
+distinction, and three-way dispatcher parity were all correct on the
+first pass.
+
+**Net assessment for this feature:** the enforcement mechanics (advisory
+vs enforce vs fail-on, unknown-class rejection, dispatcher parity) are all
+solid. Three of the four detection rules (safeguard-removal, local-state,
+validation-claim) are precise in every scenario tried. The fourth
+(dependency-gate) has a real, confirmed precision gap that generates
+false-positive high-severity findings on any manifest metadata edit, not
+just actual dependency changes.
+
 ---
 
 ## 13. Harness checkpoint and drift analysis always read the frozen `approved-v1.json`, never a corrected anchor version (Fixed)
