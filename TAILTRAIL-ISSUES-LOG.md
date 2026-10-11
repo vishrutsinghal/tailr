@@ -751,3 +751,91 @@ consistency) is solid and live-proven. `TAILTRIAL-FEATURE-HEALTH.md`'s
 Quality Loop row should move from `untested` to reflect this -- healthy on
 every mechanical axis, with the one open privacy-enforcement gap called out
 explicitly rather than folded silently into a blanket "healthy."
+
+### 12.2 Context Continuity (Tier 2) -- `scripts/context-continuity.py` / `tailtrail harness continuity`
+
+**Why this one:** next `untested` row under Tier 2 in
+`TAILTRIAL-FEATURE-HEALTH.md`.
+
+**Finding 1 -- the `untested` label itself was wrong (not a feature defect,
+an inventory-accuracy gap):** before designing new scenarios, checked
+whether a dedicated test file already existed, the same way Section 12.1 did
+for Quality Loop. It does: `tests/test_context_continuity.py` has 9
+substantive tests -- a start packet using the approved requirement and real
+artifact pointers, a correction-cycle packet carrying the prior gap and a
+"do not repeat" line, an unknown-requirement rejection, a
+proposal-rejection-trigger packet pulling recorded feedback, a policy
+template that adds guidance without dropping preservation rules, a
+calibration report over saved intervention associations, an MCP read-only
+preview that writes no artifacts, and two v3 advisory scenarios (accepted
+and a forbidden-term fallback). Ran the suite directly: **9/9 pass.** This
+means the feature-health inventory's `untested` classification was simply
+inaccurate for this row -- a real gap in the inventory's own accuracy, not
+in the feature it was describing. Worth remembering while working through
+the rest of the `untested` list: the label needs spot-checking against an
+actual test-file search before it can be trusted as "nothing has ever been
+run here."
+
+**Finding 2 -- a wrong assumption of my own, logged so the next agent
+doesn't repeat it:** the natural guess is that the CLI verb mirrors the
+script's own filename, i.e. `tailtrail context-continuity ...` (matching
+`scripts/context-continuity.py`, the same pattern `tailtrail quality-loop`
+follows for `scripts/quality-loop.py` in 12.1). That guess is wrong here.
+The real dispatch path nests it under a different top-level verb:
+`tailtrail.py harness continuity <action>` -- confirmed at
+`scripts/tailtrail.py:1159` (the `if args[0] == "continuity"` branch lives
+inside `def harness(args)`, started at line 1100) and matching the
+documented examples in `TAILTRAIL-COMMANDS.md:1438`. My first attempt at a
+dispatcher-parity scenario using the wrong top-level verb produced a
+false-looking CLI failure that was entirely my own invocation mistake, not
+a TailTrail defect -- caught and corrected before being reported as a
+finding.
+
+**Method, after the two corrections above:** since the existing 9 tests all
+call the library functions directly (`continuity.render(...)`, etc.) and
+never exercise the real `argparse`/`main()` CLI surface or the
+`tailtrail.py harness continuity` dispatcher at all, ran 10 additional live
+scenarios specifically targeting that uncovered CLI layer, each via real
+`subprocess` calls against disposable temp roots:
+
+1. `render` via the real CLI end-to-end (not the Python function) writes
+   real state/packet/receipt files and returns the right trigger.
+2. `tailtrail.py harness continuity show` matches calling
+   `context-continuity.py show` directly, byte-for-byte (confirmed after
+   fixing the wrong-verb mistake above).
+3. A run with no anchor ever drafted/approved, using a non-rejection
+   trigger, fails via the CLI with exit code 2 and the exact message
+   "approved anchor is required" -- not a stack trace, not a silent
+   fallback.
+4. `--max-words 10` (below the hard-coded 80-word floor in `render()`) is
+   rejected with a clear message, not silently clamped up to 80.
+5. An invalid `--trigger` value is rejected by argparse's own `choices=`
+   validation before the script logic ever runs.
+6. Five distinct malformed policy-schema shapes (wrong `type`, wrong
+   `schema_version`, missing `version`, `max_words` below 80, a template
+   field that isn't a string list) each produce their own specific,
+   distinct rejection reason -- not one generic "invalid policy" catch-all.
+7. `advise` without `--approved` hard-fails via the CLI with "advisory
+   selection requires --approved" and writes nothing.
+8. Three distinct malformed selector-policy shapes (`enabled`/`approved`
+   not both true, missing `model`, `max_reminder_words` outside 20-120)
+   each produce their own specific rejection reason.
+9. An advisory proposal naming an artifact pointer that is on the allowed
+   list but whose file has since been deleted from disk correctly falls
+   back to the prior packet instead of being accepted as valid evidence.
+10. The `feature-transition` trigger, given a real `program/state.json`,
+    correctly surfaces the one `active` feature and lists `validated`
+    features, while excluding a `pending` one -- proving the program-state
+    read path actually filters by state rather than dumping everything.
+
+**Results:** all 10 scenarios passed, plus the pre-existing 9/9 unit tests.
+No code defect found anywhere in `scripts/context-continuity.py` across 19
+total checks spanning the library-function path (pre-existing suite) and
+the CLI/dispatcher/error-formatting path (this pass).
+
+**Net assessment for this feature:** genuinely healthy, more thoroughly
+proven than its `untested` label suggested. The two things worth carrying
+forward are the inventory-accuracy lesson (Finding 1) and the
+`harness continuity`, not top-level `context-continuity`, CLI shape
+(Finding 2) -- both corrected in `TAILTRIAL-FEATURE-HEALTH.md` alongside
+this entry.

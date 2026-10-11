@@ -62,8 +62,8 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Maintainability harness | fixed | delta engine live-proven (dup persist→regressed, dedupe→improved, advisories non-blocking); rule UIDs now validated against anchor (was silent misattribution); tests 2→6 (`f40d732`) |
 | Evidence-aware testing | healthy | tiers green |
 | Test precision planner | healthy | focused proof resolved in Starts |
-| Navigator-led review / quality loop | untested | not exercised |
-| Context continuity | untested | not exercised |
+| Navigator-led review / quality loop | fixed | 18 live scenarios (gates, boundary math, corruption handling, CLI parity) all pass; one open gap found: documented "no secrets" rule has no code enforcement -- see issues log 12.1 |
+| Context continuity | healthy | 9 pre-existing unit tests + 10 new live CLI scenarios (error paths, schema validation, dispatcher parity) all pass; `untested` label was itself wrong -- see issues log 12.2 |
 | Recovery / Mode B | untested | not exercised |
 | Debug harness lifecycle | healthy | auto-routing verified live (T1) |
 | Program delivery / hands-free | healthy | auto-Full verified live (T6) |
