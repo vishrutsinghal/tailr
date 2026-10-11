@@ -744,6 +744,19 @@ just unit-test green.
   (`build_event`) and `:51` (`safe_text`); `context/quality-loop.md:43` for
   the rule text as currently written.
 
+**Fixed and independently re-verified (2026-10-11):** `build_event()` now
+runs every free-text field through `reject_secrets()`, matching five
+high-precision credential shapes (AWS access key, GitHub/Slack token, PEM
+private key, bearer token) and hard-failing before anything is written.
+Ran `tests.test_quality_loop` (3 new tests, pass). Live re-check with my
+original repro first came back as a false alarm -- my test string used the
+wrong AWS credential shape (a secret key, not an access-key ID) and a
+too-short fake GitHub token, so neither pattern should have matched by
+design (the fix deliberately avoids flagging plain prose that merely
+mentions "key" or "token"). Redid it with a correctly-shaped fake
+(`AKIAIOSFODNN7EXAMPLE`) and confirmed it now hard-rejects
+(`--approved` call exits non-zero, no file written).
+
 **Net assessment for this feature:** everything structural (fail-closed
 gates, threshold math, data-integrity handling, CLI wiring, render
 consistency) is solid and live-proven. `TAILTRIAL-FEATURE-HEALTH.md`'s
@@ -940,6 +953,14 @@ module's own clean message (minor, Open):**
 - **Where to look when picking this up:**
   `scripts/requirement-recovery-manifest.py:45-48` (`seal`).
 
+**Fixed and independently re-verified (2026-10-11):** `seal()` now checks
+`manifest_path(...).exists()` before calling `read()`, giving the module's
+own clean message instead of a raw `OSError`. Ran the two new tests in
+`tests.test_requirement_recovery_manifest`, plus a live repro of the exact
+original scenario: `seal` before any `capture` now prints
+`"Mode B recovery error: Mode B manifest must be captured before sealing"`
+-- no filesystem path, no stack-style text.
+
 **Net assessment for this feature:** Mode B's core safety guarantee --
 never silently overwrite or lose a later edit that happened after a seal,
 treat the requirement (not the individual file) as the unit of
@@ -1125,6 +1146,12 @@ observations in the same run (Open):**
 - **Where to look when picking this up:**
   `scripts/flaky-test-tracker.py:12-17` (`record`).
 
+**Independently re-verified (2026-10-11):** ran `tests.test_flaky_tracker`
+(2 tests, pass), then redid my exact original 12-call distinguishing
+pattern (`pass, fail×3, pass×5, blocked×3`) live via direct function
+calls -- `history` now comes back byte-identical to what was sent, past
+the 10-observation boundary that previously scrambled it.
+
 **Results:** 15 of the 16 designed scenarios behaved exactly as expected on
 the first pass; the 16th scenario's *first form* was a false negative in
 the test design (not a TailTrail defect) and, once corrected, surfaced the
@@ -1238,6 +1265,12 @@ flawed alternating pattern):**
   exact logged `AttributeError`.
 - **Where to look when picking this up:**
   `scripts/release-confidence.py:36` (`assess`).
+
+**Independently re-verified (2026-10-11):** ran the 2 new
+`tests.test_higher_tier_testing` cases (pass), then redid my exact
+original bare-list `receipts.json` live -- now exits cleanly with
+`"Release confidence error: an approved anchor is required"` instead of
+the raw `AttributeError: 'list' object has no attribute 'get'` traceback.
 
 **Results:** 14 of 15 scenarios behaved correctly once my own three
 flawed assertions were corrected; one confirmed, reproducible defect found
@@ -1438,6 +1471,13 @@ targeted test: bumping only `"version": "1.0.1"` in an existing
 - **Where to look when picking this up:**
   `scripts/guardrail-check.py:284-290` (`looks_like_dependency_addition`),
   `:107-123` (`DEPENDENCY_HINT`).
+
+**Independently re-verified (2026-10-11):** ran the 5 new
+`tests.test_guardrail_check` cases (pass), then redid my exact original
+version-only-bump repro live -- `package.json`'s `version` field changed
+from `1.0.0` to `1.0.1`, no dependency touched -- now produces
+`finding_count: 0`, `status: "passed"`, no `dependency-gate-required`
+finding at all.
 
 **Results:** 12 of 13 scenarios behaved correctly (after my own test
 correction); every other rule class, the `--enforce`/`--fail-on`
@@ -1720,6 +1760,23 @@ debug-domain + fixture files, the existence-only conformance probe.
 
 This entry was recorded under `tailtrail docs-only` run
 `doc-20261011133904-f75a4f`.
+
+**Independently re-verified end-to-end (2026-10-11):** ran all 20 new
+tests in `tests.test_anchor_versioning` + `tests.test_official_aidlc_state`
+(both pass, including `test_corrected_anchor_and_checkpoint_agree` --
+"A mid-run correction must not produce anchor-fingerprint-conflict"),
+plus 30 more across `test_closure_correction`, `test_architecture_fitness`,
+`test_execution_failure`, `test_higher_tier_testing`, and
+`test_requirement_recovery_manifest` -- 50/50 pass. Ran the full
+pre-existing `test_drift_analysis` + `test_harness_checkpoint` +
+`test_task_recovery` + `test_git_readiness` + `test_context_continuity` +
+`test_navigator_scope` regression set -- 156/156 pass, no collateral
+damage. Most importantly, re-ran `tailtrail completion-report` against the
+**actual, originally-blocked run** (`start-20261011103755-35568d`) --
+**Overall: complete** (previously stuck on `evidence-incomplete` /
+`anchor-fingerprint-conflict` no matter how the anchor was corrected).
+This is the real proof: not a synthetic fixture, the exact run this whole
+investigation started from.
 
 **Where to look when picking this up:**
 - `scripts/official-aidlc-state.py:62` -- the immediately active symptom;
