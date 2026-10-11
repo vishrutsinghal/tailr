@@ -3193,6 +3193,31 @@ def verify_decision_fingerprint_legacy(document: dict[str, Any]) -> bool:
     return isinstance(observed, str) and observed == fingerprint(candidate)
 
 
+def is_docs_only_fast_lane(goal: str, paths: Iterable[str]) -> bool:
+    """Strict check for the docs-only trivial lane (no full plan needed).
+
+    True only when EVERY path is a prose suffix (.md/.rst/.txt/.adoc) and
+    the goal carries no production signal (implement/feature/refactor/
+    endpoint/production/service). One code path anywhere -- or a production
+    verb in the goal -- forces the full plan. Extension-only allow-lists
+    are never trusted without the path-level check.
+    """
+    items = [str(item).strip() for item in paths if str(item).strip()]
+    if not items:
+        return False
+    for item in items:
+        if PurePosixPath(item).suffix.lower() not in TRIVIAL_LANE_SUFFIXES:
+            return False
+    lowered = " ".join(str(goal).lower().split())
+    production_terms = (
+        "implement", "feature", "endpoint", "refactor", "production", "service",
+        "application", "source code", "end to end", "end-to-end",
+    )
+    if any(term in lowered for term in production_terms):
+        return False
+    return True
+
+
 def requested_scope_mode(goal: str, task_types: Iterable[str]) -> str:
     """Classify the editable scope contract without inferring it from target selection."""
     lowered = " ".join(str(goal).lower().split())

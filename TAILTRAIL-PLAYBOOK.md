@@ -67,7 +67,18 @@ bite repeatedly:
 --spec <spec.json> --host claude` checks all of the above locally (clause
 substring, intent-term grounding, named-target approximation) before you ever
 submit to `tailtrail start`, and writes a ready-to-use interpretation JSON on
-success.
+success. For a fast read-only check with no output file:
+`--validate-only` prints `{ok, problems, warnings}` as JSON and changes
+nothing. Rejections from `tailtrail start` now echo the normalized comparison
+and closest goal tokens, and point back here.
+
+**Prompt options stay simple on purpose.** `tailtrail prompt render
+--question "<q>" --option "<a>" --option "<b>"` numbers options with blank
+lines between and ends with the approval question -- that shape is enforced in
+`scripts/prompt_builder.py` so it survives sessions. Clarification stops after
+5 rounds: `tailtrail prompt feedback --goal "<g>" --ambiguity "<a>"` prints the
+fail-closed packet (what stayed ambiguous, what was tried, what to supply,
+how to resume) instead of guessing.
 
 ## 3. CLI quirks
 

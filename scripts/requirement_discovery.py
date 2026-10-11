@@ -1,6 +1,7 @@
 """Derive reviewable requirement rows from explicit user wording without inventing scope."""
 from __future__ import annotations
 
+import difflib
 import hashlib
 import json
 import re
@@ -550,10 +551,18 @@ def _validate_requirement_coverage(
                     if isinstance(raw.get("source_clause_ids"), list)
                 ]
             )
+            scanned = " ".join(
+                str(requirement.get("statement", ""))
+                for requirement in requirements
+                if clause_id in requirement.get("source_clause_ids", [])
+            )[:200]
             raise ValueError(
                 f"requirements for clause {clause_id} omitted exact named target(s): "
                 + ", ".join(missing_targets)
-                + f" [sourcing requirements: {', '.join(sourcing) or 'none'}]"
+                + f" [sourcing requirements: {', '.join(sourcing) or 'none'};"
+                f" scanned statements: {scanned!r};"
+                " carry each named target word-for-word into the requirement `statement`"
+                " AND its `intent_terms`; see TAILTRAIL-PLAYBOOK.md section 2]"
             )
 
 
@@ -824,9 +833,14 @@ def interpretation(
                     f" [clause {clause_id} has no contiguous match in {source_input_id}]"
                 )
         elif _grounding_text(text) not in grounded_goal:
+            normalized_clause = _grounding_text(text)
             raise ValueError(
                 "every interpreted clause must be grounded in the exact goal or an inspected requirement artifact"
-                f" [clause {clause_id} matches neither the goal nor a bound artifact]"
+                f" [clause {clause_id} matches neither the goal nor a bound artifact;"
+                f" clause normalized to {normalized_clause!r}, goal normalized to {grounded_goal[:160]!r};"
+                " copy exact contiguous goal words (no paraphrase/reorder);"
+                " see TAILTRAIL-PLAYBOOK.md section 2 or run"
+                " scripts/host-interpretation-builder.py --spec <spec.json> --host <codex|claude|copilot>]"
             )
         clause_ids.add(clause_id)
         clause_roles[clause_id] = role
@@ -929,9 +943,17 @@ def interpretation(
         semantic_goal_terms = set(re.findall(r"[a-zA-Z][a-zA-Z0-9_-]{1,63}", semantic_goal.casefold()))
         ungrounded_terms = sorted({term for term in intent_terms if term not in semantic_goal_terms})
         if ungrounded_terms:
+            hints = []
+            for term in ungrounded_terms:
+                close = difflib.get_close_matches(term, sorted(semantic_goal_terms), n=2, cutoff=0.6)
+                hints.append(f"{term} (closest goal tokens: {', '.join(close) or 'none'})")
             raise ValueError(
                 "semantic intent terms must be grounded outside quoted literals"
-                f" [requirement {display_id}: ungrounded terms: {', '.join(ungrounded_terms)}]"
+                f" [requirement {display_id}: ungrounded terms: {', '.join(ungrounded_terms)};"
+                f" hints: {'; '.join(hints)}; every term must literally appear in the goal"
+                " (hyphenated compounds count whole: `argparse-based` needs the full form);"
+                " see TAILTRAIL-PLAYBOOK.md section 2 or run"
+                " scripts/host-interpretation-builder.py --spec <spec.json> --host <codex|claude|copilot>]"
             )
         kind = str(raw.get("kind") or _kind(statement)).lower()
         intent_class = inferred_intent_class(

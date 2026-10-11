@@ -136,6 +136,7 @@ def main() -> int:
     parser.add_argument("--spec", type=Path, required=True, help="Plain-English spec JSON: {goal, clauses: [{clause_id, role, text}], requirements: [{display_id, statement, kind, source_clause_ids, intent_terms}], material_questions}.")
     parser.add_argument("--host", choices=("codex", "claude", "copilot"), required=True)
     parser.add_argument("--out", type=Path, help="Write the built interpretation JSON here instead of stdout.")
+    parser.add_argument("--validate-only", action="store_true", help="Read-only fast check: print {ok, problems, warnings} as JSON and change nothing.")
     args = parser.parse_args()
     try:
         spec = json.loads(args.spec.read_text(encoding="utf-8"))
@@ -143,6 +144,9 @@ def main() -> int:
         print(f"host-interpretation-builder error: could not read --spec: {error}")
         return 2
     problems, warnings = validate_spec(spec)
+    if args.validate_only:
+        print(json.dumps({"ok": not problems, "problems": problems, "warnings": warnings}, indent=2, sort_keys=True))
+        return 0 if not problems else 1
     if problems:
         print("host-interpretation-builder found grounding problems:")
         for problem in problems:

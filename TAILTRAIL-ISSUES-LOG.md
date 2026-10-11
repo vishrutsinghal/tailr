@@ -15,7 +15,7 @@ the entries there.
 | 2 | Thin-evidence candidates missing `content_fingerprint` | Parked (`task_e574f8bd`) |
 | 3 | `--host-scope-proposal` fingerprint drift across calls | Parked (`task_3dcf1d8e`) |
 | 4 | write_guardian role classifier rejects root-level config/registry files | **Fixed** (generic anchor-first + classifier fallback) |
-| 5 | Doc/markdown files can't resolve as Navigator-owned scope | Open, unfixed (architectural; disclosed workaround only) |
+| 5 | Doc/markdown files can't resolve as Navigator-owned scope | **Fixed** (docs-only fast lane, no full plan) |
 | 6 | `likely_paths` had no per-path role, only a flat string list | **Fixed** |
 | 7 | Sequential pipeline handoff/regression had no CLI surface | **Fixed** |
 | 8 | `resolve_active_run()` picked "most recently approved," not "most recently active" | **Fixed** |
@@ -289,7 +289,7 @@ enrichment) was experimental and is being reverted rather than shipped;
 
 ---
 
-## 5. Doc/markdown files can't resolve as Navigator-owned scope (Open, architectural)
+## 5. Doc/markdown files can't resolve as Navigator-owned scope (Fixed -- docs-only fast lane)
 
 **Symptom:** goals whose target is a markdown file (`GUARDRAILS.md`,
 `TAILTRAIL-COMMANDS.md`, this file, `TAILTRAIL-PLAYBOOK.md`) consistently
@@ -300,12 +300,23 @@ wording.
 centric -- relationship edges like "declares edit boundary," "imports
 module," "defines symbol" are all source-code concepts. A prose file
 participates in essentially none of them, so it never accumulates the kind
-of evidence the scope-quality gate looks for.
+of evidence the scope-quality gate looks for. A second layer compounded it:
+the `IMPLEMENTATION` badge never allowed the `documentation` role, so even a
+forced-through doc owner was still denied at write time.
 
-**Status:** not fixed; this is a design gap, not a simple bug. The accepted
-fallback used repeatedly this session is a direct, disclosed edit (same
-hook-bypass pattern as Issue 4) rather than repeatedly fighting Navigator's
-scope resolution for a file type it was never built to reason about.
+**Fix adopted: docs-only fast lane (no full plan for prose-alone changes).**
+Doc edits are trivial, so a strict lane skips the full ceremony but keeps a
+paper trail: `navigator_scope.is_docs_only_fast_lane()` returns true only
+when EVERY path is `.md`/`.rst`/`.txt`/`.adoc` and the goal carries no
+production signal -- one code path anywhere forces the full `tailtrail start`
+plan. `scripts/docs-only.py start` mints a `doc-<stamp>-<hash>` run (ledger
+event + minimal approved anchor/lock with the doc paths as
+`implementation-owner`), and the point-4 anchor-first guard honors it, so the
+hook allows the doc paths and still denies code in the same run. Output is a
+short verbal line with run ID, paths, and fingerprint -- e.g. this entry was
+recorded under `tailtrail docs-only` run `doc-20261010161708-f033c4`. Wired as
+`tailtrail docs-only` in `scripts/tailtrail.py` via the standard `run_script`
+pattern.
 
 ---
 
