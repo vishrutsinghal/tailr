@@ -1249,3 +1249,59 @@ solid and privacy-correct (no command output ever leaks into a receipt).
 `release-confidence.py`'s evidence-completeness logic, including the
 `conditional`-state exemption and the no-contract default, is correct --
 but it has one real input-shape robustness gap, logged above.
+
+---
+
+## Tier 3 (feature-wise validation)
+
+This tier starts a new phase in the same systematic sweep as Section 12,
+now moving past Tier 2 (quality harnesses) into Tier 3
+(ecosystem/integrations/governance) of `TAILTRIAL-FEATURE-HEALTH.md`.
+Starting with this entry, any real code fix found during validation is
+made through TailTrail's own workflow (`tailtrail start`, a real Planning
+Lock, explicit approval, implementation, closure) instead of the manual
+hook-bypass pattern used for Tier 2's documentation updates -- including
+this entry's own doc correction, made via `tailtrail docs-only` rather
+than manually unregistering the write-guardian hook.
+
+### 12.8 Spec-Kit Bridge (Tier 3) -- `scripts/spec-kit-*.py` / `tailtrail intent-bridge`
+
+**Why this one:** first `untested` row under Tier 3.
+
+**Finding -- the most dramatically wrong `untested` label found in this
+entire sweep:** before writing a single scenario, checked for existing
+tests (now standard practice since 12.2). This is not a thin or
+narrow-but-real case like several Tier 2 rows -- it is a **mature,
+extensively built subsystem**: 10 implementation scripts
+(`spec-kit-detect.py`, `-import.py`, `-amendment.py`, `-evidence.py`,
+`-converge.py`, `-policy.py`, `-slices.py`, `-observability.py`,
+`-bridge.py`, `-ci-gate.py`, plus `-integration.py`) and **9 dedicated
+test files** covering detection, import idempotency and rejection paths,
+material-vs-non-material amendment approval, requirement-linked harness
+plans, convergence blocking on post-approval source drift, policy
+validation (including a path-escape guard and an unsafe-privacy-relaxation
+rejection), slice activation and advance-requires-approval, observability
+report composition, and the Navigator bridge (goal parsing, traceable
+requirement matrix, blocking on changed source). Ran the full set: **32/32
+pass.**
+
+**CLI dispatcher check:** the recurring Tier 2 blind spot (library-level
+tests only, CLI layer unexercised) was checked here too.
+`tailtrail.py intent-bridge detect --root .` (and its `spec-kit` alias)
+initially appeared to fail: *"'intent-bridge detect' is marked incubating,
+not stable (see maturity-registry.json)... Re-run with
+--allow-incubating to proceed anyway."* This is a **deliberate maturity
+gate, not a bug** -- confirmed by re-running with `--allow-incubating`,
+which produced output identical in shape to calling
+`spec-kit-detect.py detect --root .` directly. Worth recording precisely
+because it's the kind of thing an agent could easily misdiagnose as broken
+dispatcher wiring on a first encounter (as very nearly happened here)
+instead of recognizing it as working-as-designed incubating-surface
+gating.
+
+**Result:** no code defect found. Fixed via documentation only: corrected
+the `TAILTRIAL-FEATURE-HEALTH.md` row from `untested` to `healthy` with
+this evidence, done this time through the real `tailtrail docs-only`
+command (run `doc-20261011101650-5aac8c`) rather than the manual
+hook-bypass pattern used throughout Section 12 -- dogfooding the exact fast
+lane this session verified works back in Issue 5.
