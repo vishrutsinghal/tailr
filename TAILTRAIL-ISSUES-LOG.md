@@ -169,6 +169,25 @@ fail identically on the clean tree -- pre-existing, not this change.
 This entry was recorded under `tailtrail docs-only` run
 `doc-20261011071329-a67538`.
 
+**Independently re-verified end-to-end (2026-10-11):** re-ran the exact
+original flaky reproduction (fetch a packet for an ambiguous "too many
+owners" goal via one `task-start.py` call, build a `--host-scope-proposal`
+from it, submit via a second, separate `task-start.py` call) **six times in
+a row** -- previously this failed roughly half the time (silent fallback or
+an explicit mismatch); all six attempts now succeed cleanly with no
+mismatch. Confirmed the ticket mechanism is actually engaged, not a
+coincidence: inspected `.tailtrail/host-packets/` directly and found a real,
+correctly-gitignored ticket file matching the issued fingerprint (cleaned up
+after testing, not committed). Also independently reconfirmed the
+`test_cli_mcp_markdown_json_and_all_hosts_share_one_scope_fingerprint`
+failure is real but genuinely separate from what this fix covers: it
+compares a CLI subprocess against two in-process MCP calls computing a
+*fresh* packet from scratch for the same goal, not whether a saved ticket
+survives resubmission -- a narrower, still-open, related gap, not something
+this fix claims to close. Worth its own follow-up if cross-host/cross-format
+fingerprint parity for a *first* packet (not a resubmitted one) ever matters
+for a real workflow.
+
 ---
 
 ## 4. write_guardian role classifier rejects root-level config/registry files (Fixed)
