@@ -165,15 +165,18 @@ of abandoning the run and starting a fresh one. `requirement_uid` in the
 minted UID -- `_requirement()` matches either.
 
 **A new file created mid-run (e.g. a test file) still needs a formal
-anchor correction to avoid a permanent `new-drift` finding -- and as of
-this writing, that correction cannot actually clear the drift check.**
-`change-intent-anchor.py correct --likely-path <path> --reason "..."` is
-the sanctioned way to add the path, but see the open bug logged in
-`TAILTRAIL-ISSUES-LOG.md` Section 13: `harness-checkpoint.py` and
-`drift_analysis.py` both hardcode reading `approved-v1.json` and never see
-a correction's `approved-v2.json`+, so the drift finding never actually
-clears today, no matter how correctly you follow this procedure. If you
-hit this, that's the known bug, not something wrong with your correction.
+anchor correction to avoid a permanent `new-drift` finding -- and the
+closure path now honors it.** `change-intent-anchor.py correct
+--likely-path <path> --reason "..."` is the sanctioned way to add the
+path, and as of the Issue 13 fix, `harness-checkpoint.py`,
+`drift_analysis.py`, and the wider closure/harness/runtime surface read
+the latest approved version (`latest_approved()`), so the correction
+actually clears. If drift still won't clear after a correct `correct`,
+check `TAILTRAIL-ISSUES-LOG.md` Sections 13/13a for remaining
+version-pinning stragglers rather than assuming your correction was
+wrong. New `tests/test_anchor_versioning.py` fails on any new raw
+`approved-v1.json` read -- resolve anchors through `latest_approved()`,
+never by filename.
 
 ## 6. Closing a run efficiently
 
@@ -209,28 +212,48 @@ harness when a run's selected controls don't need it.
   rather than a full completion report per item -- surface full detail only
   for anything that needed a decision.
 
-## 8. Known open issues (parked, not yet fixed)
+## 8. Formerly-parked issues, now fixed (kept briefly for reorientation)
 
-- A candidate discovered with only thin/shallow native evidence (e.g. a
-  single `--changed`-asserted relationship) can end up with an empty
-  `content_fingerprint`, causing a later, unrelated integrity check
-  (`content-fingerprint-mismatch`) to reject an otherwise-correct host
-  answer. Root cause lives in `navigator_scope.py`'s candidate-generation
-  code.
-- `--host-scope-proposal` submissions across two separate CLI calls can
-  intermittently fail on a packet/scope-evidence fingerprint mismatch with
-  no repository change in between -- confirmed non-deterministic across
-  repeated identical attempts, not a simple staleness issue.
-- **`harness-checkpoint.py` and `drift_analysis.py` both hardcode reading
-  `anchors/approved-v1.json` and never see a later `change-intent-anchor.py
-  correct` version** -- a mid-run anchor correction (e.g. adding a new test
-  file's path) succeeds and is honored by `write_guardian`, but the
-  completion/closure pipeline keeps reporting the corrected path as
-  `new-drift` forever, since it never reads past v1. This silently defeats
-  the documented mid-run-correction mechanism for its entire purpose. See
-  `TAILTRAIL-ISSUES-LOG.md` Section 13 for the full live reproduction and
-  exact fix locations.
+- Thin-evidence `content_fingerprint` gaps are backfilled at the end of
+  `investigate()` -- fixed, see Issues Log Section 2.
+- Cross-call `--host-scope-proposal` drift is fixed via fingerprint-indexed
+  single-use packet tickets (`.tailtrail/host-packets/`, 30-min TTL); CLI vs
+  MCP first-computation parity via the shared `scripts/start_request.py`
+  ground -- see Sections 3/3a.
+- The v1-frozen anchor reads are fixed across closure/harness/runtime via
+  `latest_approved()` -- see Sections 13/13a.
 
-All three are deliberately deferred rather than folded into unrelated
-work -- check current background-task state before re-investigating from
-scratch.
+Genuinely open items live in `TAILTRAIL-ISSUES-LOG.md` Sections 12.x -- check
+there before re-investigating from scratch.
+
+## 9. Host working notes (environment and edit discipline)
+
+- **Windows PowerShell has no `grep`/`head`/`tail`/`cat` pipes.** Use the
+  dedicated tools (content search, file read) instead of piping; `git` output
+  must not be piped to `cat`/`head` either. A bare `>` redirect writes
+  UTF-16 and corrupts captured JSON -- capture CLI output through a small
+  Python wrapper script instead.
+- **Never trust displayed indentation.** Terminal output eats leading
+  spaces, and this repo mixes 1-space and 4-space files. Before editing,
+  verify exact bytes with a byte-counting script; after editing, `ast.parse`
+  the file before running anything. For tricky files, apply edits through a
+  script with exact-match assertions (`count == 1`) rather than by eye.
+- **Match the file's own indentation convention** (check it programmatically
+  first) and keep diffs minimal -- especially in 1-space test/script files
+  where one wrong space is a collection-breaking `IndentationError`.
+- **New tests must prove they collect.** A `def` nested inside another
+  method never runs and still reports green -- always run with
+  `--collect-only` (or watch the count go up) after adding a test.
+- **Prove fixes red-to-green.** Stash the fix, watch the new test fail on
+  old code with the exact reported symptom, unstash, watch it pass. A test
+  that passes on both proves nothing.
+- **Check pre-existing failure before claiming regression.** If a suite
+  fails after your change, rerun it on the stashed clean tree -- several
+  failures in this repo (e.g. the MCP/markdown fingerprint tests) predate
+  any given change.
+- **Revert incidental churn before committing.** Test runs rewrite
+  `tailtrail-meta/code-graph-cache.json` (thousands of lines); `git
+  checkout` it unless the cache change is the point.
+- **Anchor versions sort numerically, not lexicographically** (`v10` <
+  `v2` as strings) -- use `int(p.stem.rsplit("v", 1)[-1])` as the sort key,
+  matching `change-intent-anchor.approved_versions()`.
