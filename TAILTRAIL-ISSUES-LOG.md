@@ -19,7 +19,7 @@ the entries there.
 | 6 | `likely_paths` had no per-path role, only a flat string list | **Fixed** |
 | 7 | Sequential pipeline handoff/regression had no CLI surface | **Fixed** |
 | 8 | `resolve_active_run()` picked "most recently approved," not "most recently active" | **Fixed** |
-| 9 | Requirement-interpretation grounding rules are fiddly and undocumented | Mitigated (tooling built, rules not changed) |
+| 9 | Requirement-interpretation grounding rules are fiddly and undocumented | **Fixed** (precise rejection errors; rules kept strict on purpose) + mitigated via tooling |
 | 10 | `--run-id` on `tailtrail start` doesn't pin a new run's ID | Not a bug -- misunderstanding, corrected |
 
 See **Section 11** below for a separately-tracked, audited list of standing
@@ -131,6 +131,21 @@ calls when nothing in the repository actually changed in between.
 **Practical workaround today:** if a `--host-scope-proposal` submission
 fails without a specific, named reason code, retry before assuming the
 proposal's content is wrong.
+
+**Independent corroborating evidence found later (2026-10-11):** while
+verifying the Issue 5/9 fixes, the repo's own pre-existing test
+`tests/test_host_adapter_conformance.py::test_cli_mcp_markdown_json_and_all_hosts_share_one_scope_fingerprint`
+was found failing -- it asserts that a CLI run, an MCP JSON call, an MCP
+markdown call, and all three host projections (codex/copilot/claude) for the
+*same* goal and *same* unchanged repository all produce exactly one shared
+`normalized_decision_fingerprint`. It does not. Confirmed this is not a
+regression from the Issue 5/9 commit: reverting `navigator_scope.py`,
+`requirement_discovery.py`, and `tailtrail.py` to their pre-commit state and
+re-running the same test reproduces the identical failure. This is the same
+underlying non-determinism as this issue, now confirmed by a second,
+independent, pre-existing test rather than only by ad hoc scratch scripts --
+useful signal for whoever picks up `task_3dcf1d8e`: this test is a ready-made
+reproduction harness, no new script needed.
 
 ---
 
@@ -318,6 +333,33 @@ recorded under `tailtrail docs-only` run `doc-20261010161708-f033c4`. Wired as
 `tailtrail docs-only` in `scripts/tailtrail.py` via the standard `run_script`
 pattern.
 
+**Independently verified (2026-10-11), 11 scenarios, all passing:**
+`is_docs_only_fast_lane()` correctly accepts a pure-prose goal/path
+combination and correctly rejects a mixed path list (one code path forces
+the full plan), every listed production-signal word individually, and an
+empty path list. `docs-only.start()` was confirmed to write a real, durable
+anchor and lock to disk (not an in-memory-only bypass) with the exact
+`{"path": ..., "role": "implementation-owner"}` shape. Directly exercised
+`write_guardian.anchor_aware_write_check()` against a fast-lane run and
+confirmed it allows the approved doc path *and* still denies an unrelated
+code file created in the same run -- the core claim in this entry, verified
+live rather than taken on faith. `suggested_run_id()`'s collision avoidance
+and the real `tailtrail docs-only` CLI dispatch were both exercised
+end-to-end. Full related regression suites (`test_navigator_scope*`,
+`test_write_guardian`, `test_full_pipeline`, `test_sequential_pipeline`,
+`test_planning_lock`, `test_change_intent_anchor`, `test_pipeline_badge_activation`,
+`test_cli_dispatch`, `test_workflow_start_integration`) -- 252 tests total --
+all pass.
+
+**One design point worth naming, not a defect:** `docs-only.start()` writes
+`status: "approved"` and `writes_allowed: True` immediately, with **no human
+confirmation step** -- the first place in the whole system observed to skip
+the explicit-approve gate this session has otherwise required everywhere
+else. Scoped narrowly (prose-only paths, no production-signal wording), and
+a reasonable trade-off for genuinely trivial edits, but it is a real,
+deliberate departure from the "nothing executes without an explicit approve"
+principle, and worth being aware it exists.
+
 ---
 
 ## 6. `likely_paths` had no per-path role (Fixed)
@@ -413,7 +455,7 @@ write-guardian and full-pipeline tests continued to pass.
 
 ---
 
-## 9. Requirement-interpretation grounding rules are fiddly and undocumented (Mitigated)
+## 9. Requirement-interpretation grounding rules are fiddly and undocumented (Fixed -- precise errors -- plus mitigated via tooling)
 
 **Symptom:** hand-writing a `--requirement-interpretation` JSON for
 `tailtrail start` routinely failed on rules that are enforced strictly but
@@ -429,14 +471,31 @@ trial and error over many submissions this session:
   requirement's `intent_terms` *and* its `statement` text, or the submission
   is rejected with "omitted exact named target(s)."
 
-**Status:** the underlying rules themselves were not changed (they appear
-intentional, enforcing that a host's interpretation stays grounded in the
-literal goal rather than paraphrased or invented). Mitigated by building
-`scripts/host-interpretation-builder.py`, which checks all three rules
-locally against a plain spec before anything is ever submitted to
-`tailtrail start`, catching the first two with certainty and approximating
-the third with a regex (disclosed in its own docstring as an approximation,
-not a guarantee).
+**Status:** the underlying rules themselves were deliberately left strict,
+not loosened -- loosening grounding to tolerate paraphrase was considered and
+rejected as a change on its own merits (it would let a host drift
+interpretation through confident paraphrase, the same risk category raised
+and rejected for the "explained backdoor" new-file scope-claim idea in
+Issue 4a). What shipped instead, directly fixing the actual usability
+problem: `scripts/requirement_discovery.py`'s three rejection paths
+(`_validate_requirement_coverage`'s named-target check, `interpretation()`'s
+clause-grounding check, and its intent-term-grounding check) now each print
+the exact normalized clause/goal comparison, or a `difflib`-based
+closest-match hint for an ungrounded term, plus a pointer to
+`TAILTRAIL-PLAYBOOK.md` section 2 and `host-interpretation-builder.py`.
+Verified live: a deliberately mismatched clause ("... quickly" appended)
+now shows `clause normalized to 'fix the thing in the file quickly', goal
+normalized to 'fix the thing in the file'` side by side instead of a bare
+rejection; a deliberately misspelled intent term (`validate` where the goal
+says `validation`) now shows `hints: validate (closest goal tokens:
+validation)` -- directly actionable instead of a guess.
+
+Additionally mitigated by `scripts/host-interpretation-builder.py`, which
+checks all three rules locally against a plain spec before anything is ever
+submitted to `tailtrail start`, catching the first two with certainty and
+approximating the third with a regex (disclosed in its own docstring as an
+approximation, not a guarantee); it now also supports `--validate-only` for
+a fast, read-only `{ok, problems, warnings}` check.
 
 ---
 
