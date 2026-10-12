@@ -435,6 +435,9 @@ class McpServerTests(unittest.TestCase):
             self.assertIsInstance(tool["inputSchema"], dict)
             self.assertEqual(tool["inputSchema"]["type"], "object")
             self.assertIn("additionalProperties", tool["inputSchema"])
+        execution_schema = next(item for item in tools if item["name"] == "execution_evidence_run")["inputSchema"]
+        self.assertIn("amend_proof", execution_schema["properties"])
+        self.assertIn("amendment_reason", execution_schema["properties"])
 
     def test_host_conformance_report_is_read_only_and_does_not_infer_runtime_pass(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -578,6 +581,55 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(response["result"]["outcome"], "pass")
         self.assertEqual(response["execution"]["exit_code"], 0)
         self.assertTrue(response["execution"]["command_executed"])
+
+    def test_execution_evidence_mcp_can_append_an_explicit_proof_amendment(self):
+        command = f"{quote(sys.executable)} -c {quote('print(\"mcp amended proof\")')}"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "orders.py").write_text("value = 1\n", encoding="utf-8")
+            lock.create(root, "validate order", "mcp-amend-run")
+            proposal = root / "proposal.json"
+            proposal.write_text(json.dumps({"requirements": [{
+                "statement": "Reject an invalid order.", "acceptance_criteria": ["invalid orders reject"],
+                "preserve_rules": [], "likely_paths": ["src/orders.py"], "evidence_plan": ["unit"],
+                "validation_contract": {"state": "required", "tiers": ["unit"]},
+            }]}), encoding="utf-8")
+            anchor.draft(root, "mcp-amend-run", proposal)
+            uid = anchor.approve(root, "mcp-amend-run")["requirements"][0]["requirement_uid"]
+            lock.approve(root, "mcp-amend-run", True)
+            response = mcp.execution_evidence_run({
+                "root": root.as_posix(), "run_id": "mcp-amend-run", "requirement_uids": [uid],
+                "tiers": ["unit"], "command": command, "command_label": "mcp amended proof",
+                "amend_proof": True, "amendment_reason": "MCP discovered a proof command after activation.",
+                "approved": True,
+            })
+            amendment_path = root / ".tailtrail" / "runs" / "mcp-amend-run" / "execution" / "proof-amendments.jsonl"
+            amendment = json.loads(amendment_path.read_text(encoding="utf-8").splitlines()[0])
+
+        self.assertEqual("pass", response["result"]["outcome"])
+        self.assertEqual(uid, amendment["requirement_uid"])
+        self.assertTrue(amendment["approved"])
+
+    def test_execution_evidence_mcp_amendment_requires_reason(self):
+        command = f"{quote(sys.executable)} -c {quote('print(1)')}"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lock.create(root, "validate order", "mcp-amend-reason")
+            proposal = root / "proposal.json"
+            proposal.write_text(json.dumps({"requirements": [{
+                "statement": "Reject an invalid order.", "acceptance_criteria": [],
+                "preserve_rules": [], "likely_paths": [], "validation_contract": {"state": "required", "tiers": ["unit"]},
+            }]}), encoding="utf-8")
+            anchor.draft(root, "mcp-amend-reason", proposal)
+            uid = anchor.approve(root, "mcp-amend-reason")["requirements"][0]["requirement_uid"]
+            lock.approve(root, "mcp-amend-reason", True)
+            with self.assertRaisesRegex(ValueError, "proof amendment requires"):
+                mcp.execution_evidence_run({
+                    "root": root.as_posix(), "run_id": "mcp-amend-reason", "requirement_uids": [uid],
+                    "tiers": ["unit"], "command": command, "command_label": "mcp amended proof",
+                    "amend_proof": True, "approved": True,
+                })
 
     def test_spec_kit_mcp_controls_are_approval_gated(self):
         with self.assertRaisesRegex(ValueError, "approved: true"):
