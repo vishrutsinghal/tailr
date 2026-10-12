@@ -2426,3 +2426,112 @@ projection reads the amendment file from the wrong path (Open):**
   correctly surface the real amendment record. Both symptoms traced to the
   single root cause are confirmed resolved together, not just the one
   that was easiest to see.
+
+## 16. Navigator file-discovery candidate pools (and the persisted code-graph cache) are polluted by stale `.claude/worktrees/*` nested git-worktree copies (Open)
+
+- **Reported by:** user, via a pasted bug report describing a Planning
+  Lock whose implementation owner correctly resolved to
+  `scripts/tailtrail-registry.py`, but whose focused-validation proof
+  path incorrectly resolved to
+  `.claude/worktrees/distracted-visvesvaraya-1b0d4f/tests/test_install_profiles.py`
+  -- a file inside a nested, stale git-worktree copy, not the real
+  repository file. The user reported this persisted despite explicitly
+  passing `--changed tests/test_tailtrail_registry.py`, explicit
+  `--scope-owner` values, and `--graph refresh`.
+- **Confirmed infrastructure:** three full nested repo copies physically
+  exist under `.claude/worktrees/` (`distracted-visvesvaraya-1b0d4f`,
+  `trusting-driscoll-bfe83b`, `trusting-nobel-b3312e`), each a complete
+  duplicate checkout of this repository (own `.claude/`, `.github/`,
+  `scripts/`, `tests/`, etc.). `tests/test_install_profiles.py` exists in
+  both the real `tests/` directory and inside the worktree copy, and
+  contains `test_core_surface_includes_registry_owned_core_entries`,
+  which directly references `tailtrail-registry.json` and
+  `scripts/tailtrail-registry.py` -- the genuine lexical/semantic
+  connection explaining why Navigator would consider a file by that name
+  relevant to a registry-focused goal at all. The bug is not that the
+  match is irrelevant; it's that the wrong physical copy of a plausibly
+  relevant filename wins.
+- **Confirmed NOT the leak:** `.claude/worktrees/` is correctly
+  gitignored (via `.git/info/exclude`, verified with `git check-ignore
+  -v`) and is correctly absent from `git ls-files` / `git ls-files
+  --others --exclude-standard`. `scripts/navigator_discovery.py`'s
+  primary `_candidates()` path prefers git-based listing, so it should
+  **not** be the active leak under normal git-available conditions, even
+  though its own `GOAL_DISCOVERY_EXCLUDED_PARTS` set (line 27) also lacks
+  `.claude`/`worktrees` (a latent gap, not the active cause).
+- **Root cause -- confirmed by direct execution:** four separate raw
+  filesystem walks bypass git entirely and have exclusion sets that all
+  lack `.claude`/`worktrees`:
+  - `scripts/review-graph.py:165`, `list_candidates()` -- unconditional
+    `root.rglob("*")`; `SKIP_DIRS` (line 31) lacks `.claude`/`worktrees`.
+  - `scripts/ast-map.py:168`, `list_text_files()` -- unconditional
+    `root.rglob("*")`; `SKIP_DIRS` (line 19) lacks `.claude`/`worktrees`.
+  - `scripts/code-graph-mapper.py:189`, `list_text_files()` --
+    unconditional `root.rglob("*")`; `SKIP_DIRS` (line 32) lacks
+    `.claude`/`worktrees`.
+  - `scripts/navigator_scope.py:~1202` -- a git-unavailable-only
+    fallback walk; its own exclusion set (`{".tailtrail",
+    "tailtrail-meta"}`) also lacks `.claude`/`worktrees`, but this path
+    only triggers when git itself is unavailable, so it is a
+    defense-in-depth gap rather than the active cause in this
+    environment.
+  The first three are **unconditional** -- they are not gated behind a
+  "git unavailable" check the way `navigator_scope.py`'s fallback is, so
+  they always walk into `.claude/worktrees/*` regardless of git
+  availability.
+- **Live reproduction evidence:** ran `code-graph-mapper.py`'s
+  `list_text_files(Path('.'))` directly:
+  ```
+  Total candidate files: 3083
+  Files inside .claude/worktrees: 2057
+  ```
+  **2057 of 3083 total candidates -- 67% -- are duplicates from inside
+  stale nested worktree copies**, not real repository content. This is
+  not a narrow edge case; it means a majority of the files Navigator's
+  code graph considers at this layer are polluted duplicates.
+- **Confirmed persisted, not just transient:** the committed
+  `tailtrail-meta/code-graph-cache.json` was inspected directly and
+  already contains **266 occurrences** of `.claude/worktrees` paths. This
+  is the specific fact that explains the user's exact symptom: the
+  pollution is baked into the persisted graph cache that Navigator reads
+  from, not merely produced fresh on each scan. Running `--graph
+  refresh` does not fix this, because refresh re-runs the same
+  unconditional, unfixed `code-graph-mapper.py` walk and simply
+  regenerates an equally polluted cache.
+- **Impact assessment:**
+  - Correctness: duplicate candidate files compete with the real files
+    for lexical/relationship matching during scope and focused-validation
+    resolution; depending on path sort order or relationship-edge count,
+    a worktree copy can out-rank the real file, exactly as reported.
+  - Scale: at 67% duplication in the raw candidate pool and 266 polluted
+    entries in the persisted cache, this is a systemic data-quality
+    defect in core Navigator infrastructure, not an isolated bug.
+  - Non-determinism risk: because worktree copies can be created and
+    removed over a session's lifetime, the set of duplicate candidates
+    (and therefore which copy "wins" a given resolution) can change
+    between runs independent of any change to the real repository,
+    which would present as unexplained flakiness in scope/proof
+    resolution across sessions.
+  - `--graph refresh`, `--changed`, and `--scope-owner` do not mitigate
+    this: none of them alter the underlying `SKIP_DIRS`/exclusion
+    constants in the four walk functions above, so the same polluted
+    pool is reproduced regardless of which of those flags is passed.
+- **Recommended fix:** add `.claude` and `worktrees` to the exclusion
+  sets consulted by all four walks -- `SKIP_DIRS` in
+  `scripts/review-graph.py`, `scripts/ast-map.py`, and
+  `scripts/code-graph-mapper.py`, plus the fallback exclusion set in
+  `scripts/navigator_scope.py` (defense-in-depth for the
+  git-unavailable path) -- and, for defense-in-depth, also add them to
+  `scripts/navigator_discovery.py`'s `GOAL_DISCOVERY_EXCLUDED_PARTS`
+  even though it is not the active leak under normal conditions. After
+  the fix, `tailtrail-meta/code-graph-cache.json` and any other
+  persisted graph artifacts built from the old, unfixed walk should be
+  regenerated (`--graph refresh`) once the exclusion fix is in place, not
+  before, since refreshing against the unfixed code only reproduces the
+  same pollution.
+- **Status:** Open -- root cause fully traced and confirmed via direct
+  code execution (candidate-pool and persisted-cache evidence above); fix
+  not yet implemented. Per this session's established pattern, this
+  should go through TailTrail's own real Start -> Planning Lock ->
+  Approve -> Implement -> Evidence -> Closure workflow rather than a
+  direct manual edit.
