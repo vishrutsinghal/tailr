@@ -1555,7 +1555,7 @@ live" gap that applies to every MCP tool beyond this one are still open
 territory -- this entry closes the one concrete, already-flagged problem,
 not a full MCP surface sweep.
 
-### 12.12 Benchmarks/Evaluation and Meta-Harness (Tier 3) -- registry drift root-caused; a new, deeper scope-resolution gap found and parked (Open)
+### 12.12 Benchmarks/Evaluation and Meta-Harness (Tier 3) -- registry drift root-caused; a new, deeper scope-resolution gap found and fixed (Fixed)
 
 **Why this one:** `Benchmarks / evaluation`'s `degraded` note ("frozen
 snapshots; meta-harness benches stale") and the separate `Meta-harness`
@@ -1628,25 +1628,28 @@ resolve as Navigator scope through either normal path (Open):**
   `eligible_candidates`/`proposed-new` both require, regardless of how
   they're seeded.
 
-**Status:** Open, parked by explicit user decision (not forced through a
-hook-bypass workaround, unlike the pre-Issue-4 config-file pattern -- kept
-clean for future investigation). The registry drift itself (the 8 unclaimed
-items) also remains unclaimed as a result -- both the meta-harness test
-failures and the scope-resolution gap are left for deliberate follow-up.
-
-**Where to look when picking this up:**
-- For the scope-resolution gap: `scripts/navigator_scope.py`'s
-  `eligible_candidates`/ownership-qualification logic (likely needs a
-  convention-based or extension-based eligibility path parallel to the
-  edge-based one, analogous to how `is_docs_only_fast_lane()` created a
-  parallel path for prose files rather than forcing prose through the
-  code-graph gate).
-- For the registry drift itself, once scope resolution allows editing
-  `tailtrail-registry.json`: `tailtrail-registry.py validate`'s own output
-  names the exact 8 items and the best-fit existing features
-  (`navigator` for `docs-only`/`prompt`/`start_request.py`/
-  `host-interpretation-builder.py`; `requirement-completion-harness` for
-  `delivery-record.py`/`run-closeout.py`).
+**Status:** Fixed, independently re-verified end-to-end (2026-10-12).
+`scripts/navigator_scope.py`'s explicit-path (`--changed`) ownership
+bypass now includes the `configuration` role alongside
+`implementation-owner`/`unknown` (commit `ed72208`) -- an explicitly
+declared config file earns the same `declares-edit-boundary` qualifying
+edge a `.py` file already did, closing the gap at its root rather than
+adding a parallel lane. Re-ran the *exact* original failing reproduction
+live: `tailtrail start` with the identical goal, `--changed
+tailtrail-registry.json`, and the same single-requirement interpretation
+that previously produced ambiguous scope across 8 separate attempts --
+this time it resolved cleanly on the first try (`Scope state: resolved`,
+`tailtrail-registry.json` as the sole high-confidence implementation
+owner via `declares-edit-boundary`). The registry drift itself is also
+fixed: `tailtrail-registry.py validate` now reports "validation passed"
+(zero issues, down from the original 8), and all 16
+`tests.test_meta_harness`/`tests.test_meta_harness_token_feedback` tests
+pass (previously 6 failing on the shared `registry_maturity: drift`
+signal). `tailtrail-registry.json` itself now claims exactly the items
+named in the "where to look" note below it replaced: `delivery-record.py`
+and `run-closeout.py` under `requirement-completion-harness`;
+`docs-only`/`prompt` commands plus `docs-only.py`/`prompt_builder.py`/
+`start_request.py`/`host-interpretation-builder.py` under `navigator`.
 
 ---
 

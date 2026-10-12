@@ -103,18 +103,32 @@ fixed + verified.
 
 **All seven previously-`untested` Tier 2 quality-harness rows have now
 been swept with live, multi-scenario validation** (issues log Section 12):
-Quality Loop (fixed -- one open privacy-enforcement gap), Context
-Continuity (healthy -- the `untested` label was itself wrong), Recovery /
-Mode B (fixed -- one minor error-message gap), Safe Git / Recovery and
-Conflict Reconciliation (both healthy, including the previously-zero-coverage
-scope-freshness re-check), Flaky Tracker / CI Ingest (fixed -- one
-confirmed history-ordering bug), and Higher-Tier Testing (fixed -- one
-confirmed crash-on-bare-list-input bug). Three of the seven rows'
-`untested` labels turned out to be inaccurate on inspection (a real test
-file already existed), which is itself a finding about how this inventory
-was originally compiled -- worth a spot-check before trusting any
-remaining `untested` label in Tier 3 too.
+Quality Loop (fixed -- the privacy-enforcement gap is now closed too),
+Context Continuity (healthy -- the `untested` label was itself wrong),
+Recovery / Mode B (fixed), Safe Git / Recovery and Conflict Reconciliation
+(both healthy, including the previously-zero-coverage scope-freshness
+re-check), Flaky Tracker / CI Ingest (fixed), and Higher-Tier Testing
+(fixed). Three of the seven rows' `untested` labels turned out to be
+inaccurate on inspection (a real test file already existed) -- a finding
+about how this inventory was originally compiled, not about the features
+themselves.
 
-The honest remaining gaps are the Tier 3 tail (ecosystem/integrations/
-governance, still no session evidence either way), one aspirational
-subsystem (meta-harness), and hygiene debts.
+**The Tier 3 tail is also now fully swept** (issues log 12.8-12.14):
+MCP server, Spec-Kit bridge, CI/Sonar + scanners, Guardrails/policy/
+enterprise, Token suite, UI planning/visual reqs, Benchmarks/evaluation,
+Meta-harness, Release/export/install flows, and Cross-repo/AST/impact
+graph are all `healthy` or `fixed`. Two more real bugs were found and
+fixed along the way: router state files durably persisting prompt text
+with zero consumers (Token suite, 12.13), and missing repository roots
+silently returning an empty success instead of failing closed (Cross-repo/
+AST, 12.14). `aidlc-answer`'s shell-quoting hygiene item is fixed outright
+(a `--answers-base64` variant), not just re-labeled.
+
+The only remaining open items are two genuinely benign hygiene rows
+(orphan lock retention awaiting a policy decision, and deliberately-kept
+deferred `aidlc-docs` planning records) and the two items explicitly
+parked by user decision rather than left unexamined: the structural
+JSON/config scope-resolution gap found in 12.12 (now partially addressed
+-- see the `ed72208` config-ownership-eligibility fix -- worth re-checking
+whether 12.12 itself needs updating), and Section 14's improvement plan,
+which is forward-looking by design, not a defect.
