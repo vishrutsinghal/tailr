@@ -238,6 +238,36 @@ there before re-investigating from scratch.
   verify exact bytes with a byte-counting script; after editing, `ast.parse`
   the file before running anything. For tricky files, apply edits through a
   script with exact-match assertions (`count == 1`) rather than by eye.
+
+## 10. R6 lessons before declaring a bug
+
+These points were verified live while implementing R6. Check them before
+calling a planning or closure result a product defect:
+
+- **Intent Bridge is not a generic file mode.** `--intent-feature` requires an
+  already-imported Spec Kit feature. An issue log or Markdown specification is
+  a `--requirement-artifact`; check `intent-bridge status --allow-incubating`
+  first. `not-detected` with zero features means Intent Bridge is unavailable.
+- **Bounded artifacts matter.** A large issue log can fail with
+  `requirement-artifact-read-limit-exceeded` before requirements or scope are
+  created. Use a small, source-referenced R6 artifact rather than treating the
+  failed read as a planning bug.
+- **Evidence is not executable proof authorization.** A command in an artifact,
+  evidence clause, or quoted literal is traceability only. Register executable
+  proof before activation with `planning revise` and a `proof-update` containing
+  the requirement ID, exact command, and tier, then approve that revision.
+- **Split multi-owner work.** A complete requirement artifact can still produce
+  an ambiguous full plan when proof, closure, and learning belong to different
+  owners. Split the work into focused runs; do not force a single owner over an
+  unrelated multi-file goal.
+- **Unit tests are not Behaviour Harness proof.** If Behaviour Harness is
+  selected, provide a requirement-linked scenario and matching trusted receipt,
+  or explicitly use a plan that does not select that harness. A green unit
+  suite alone should remain incomplete for the user-flow control.
+- **Closure needs managed evidence.** A passing shell command is not an
+  authoritative receipt. Run the approved command through
+  `execution-evidence`, record approved source-edit evidence, and generate the
+  final Completion Report before judging the run complete.
 - **Match the file's own indentation convention** (check it programmatically
   first) and keep diffs minimal -- especially in 1-space test/script files
   where one wrong space is a collection-breaking `IndentationError`.
@@ -257,3 +287,24 @@ there before re-investigating from scratch.
 - **Anchor versions sort numerically, not lexicographically** (`v10` <
   `v2` as strings) -- use `int(p.stem.rsplit("v", 1)[-1])` as the sort key,
   matching `change-intent-anchor.approved_versions()`.
+
+## 11. Artifact-owner routing before planning
+
+When a user asks for a document, report, plan, dashboard, or other generated
+artifact, identify its existing owner before creating a new requirement or
+implementation plan:
+
+1. Search the repository for the requested filename, heading, and generator.
+2. Read the generator's docstring and output path function.
+3. Check the registry, commands, and adjacent run artifacts for the canonical
+  owner and lifecycle.
+4. Use the existing generator and projection path in the plan.
+5. Show the generated artifact as a clickable workspace-relative link before
+  asking for approval.
+
+For delivery plans, the canonical human-readable projection is
+`scripts/delivery-record.py`, which writes
+`.tailtrail/runs/<run-id>/delivery-record.md` from approved canonical state and
+appends implementation and closure sections. Do not invent a parallel
+`completion-reports/report-N.md` document when `delivery-record.md` already
+owns that user-facing surface.

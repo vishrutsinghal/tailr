@@ -125,6 +125,48 @@ def pipeline_summary(root: Path, run_id: str) -> dict[str, Any]:
     }
 
 
+def plan_projection(root: Path, run_id: str, directory: Path) -> dict[str, Any]:
+    """Expose the immutable base plan and approved additive plan artifacts."""
+    run_directory = directory.parent
+    base_path = run_directory / "planning" / "start-report-v1.json"
+    base_ref = "planning/start-report-v1.json" if base_path.is_file() else None
+    active_revision = 1
+    active_ref = base_ref
+    additions: list[dict[str, Any]] = []
+    try:
+        revision_state = LOCK.revision_state(root.resolve(), run_id)
+        active_revision = int(revision_state.get("active_revision", 1))
+        active_report = revision_state.get("active_report")
+        if isinstance(active_report, str) and active_report:
+            candidate = (root / active_report).resolve()
+            if candidate.is_file():
+                active_ref = candidate.relative_to(run_directory.resolve()).as_posix()
+    except (OSError, ValueError, TypeError):
+        pass
+    if active_revision > 1 and active_ref:
+        additions.append({
+            "kind": "approved-plan-revision",
+            "revision": active_revision,
+            "artifact": active_ref,
+        })
+    amendment_path = directory / "proof-amendments.jsonl"
+    if amendment_path.is_file():
+        additions.append({
+            "kind": "approved-additive-proof-amendments",
+            "artifact": "execution/proof-amendments.jsonl",
+        })
+    return {
+        "base_plan": {"revision": 1, "artifact": base_ref},
+        "approved_additions": additions,
+        "effective_plan": {
+            "active_revision": active_revision,
+            "active_artifact": active_ref,
+            "base_is_immutable": True,
+        },
+        "boundary": "The base plan remains immutable; approved revisions and additive proof amendments are reported as separate effective-plan inputs.",
+    }
+
+
 def read(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -665,6 +707,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     debug_section_path = directory / "debug" / "completion" / "debug-closure-section-v1.json"
     debug_section = read(debug_section_path) if debug_section_path.is_file() else None
     debug_run = (directory / "debug" / "intake" / "debug-intake-v1.json").is_file()
+    plan = plan_projection(root, run_id, directory)
 
     actual = {row.get("requirement_uid"): row for row in (checkpoint or {}).get("requirements", [])}
     findings_by_requirement: dict[str, list[dict[str, Any]]] = {}
@@ -774,6 +817,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         "type": "tailtrail-completion-report",
         "run_id": run_id,
         "evidence_label": "local-evidence",
+        "plan": plan,
         "requirement_status": {
             "complete": requirement_complete,
             "total": len(requirements),
@@ -853,6 +897,8 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         "stale_learnings": finalizer_stale_learnings(root, run_id),
         "source_artifacts": {
             "approved_anchor": "anchors/" + Path(anchor_file).name,
+            "base_plan": plan["base_plan"]["artifact"],
+            "active_plan": plan["effective_plan"]["active_artifact"],
             "checkpoint": checkpoint_path,
             "completion_review": review_path,
             "completion_gate": gate_path,
@@ -864,6 +910,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "official_evidence": official_evidence_path,
             "official_handoff": official_handoff_path,
             "debug_closure_section": debug_section_path.relative_to(directory).as_posix() if debug_section else None,
+            "proof_amendments": "execution/proof-amendments.jsonl" if any(item.get("kind") == "approved-additive-proof-amendments" for item in plan["approved_additions"]) else None,
         },
         "boundary": "The report aggregates saved local artifacts. Missing or failed evidence is not reported as a pass.",
     }

@@ -158,7 +158,7 @@ def gap_signals(report: dict[str, Any]) -> list[dict[str, Any]]:
                     "kind": "drift-finding",
                     "requirement_uid": uid,
                     "display_id": str(requirement.get("display_id", uid)),
-                    "text": f"{classification}: {finding.get('message', '')}".strip(),
+                    "classification": classification,
                 })
         for check in tests.get("required_checks", []) or []:
             if not isinstance(check, dict):
@@ -171,7 +171,7 @@ def gap_signals(report: dict[str, Any]) -> list[dict[str, Any]]:
                         "kind": "unproven-tier",
                         "requirement_uid": uid,
                         "display_id": str(requirement.get("display_id", uid)),
-                        "text": f"tier {tier} has no passing evidence",
+                        "tier": str(tier),
                     })
     return signals
 

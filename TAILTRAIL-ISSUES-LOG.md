@@ -23,6 +23,7 @@ the entries there.
 | 9 | Requirement-interpretation grounding rules are fiddly and undocumented | **Fixed** (precise-diff errors + builder + prompt contract; rules kept strict on purpose) |
 | 10 | `--run-id` on `tailtrail start` doesn't pin a new run's ID | Not a bug -- misunderstanding, corrected |
 | 13 | Harness checkpoint + drift analysis ignore corrected anchors (v2+) | **Fixed** (latest-approved + injection + dict tolerance) |
+| 14 | Artifact-bound validation commands appeared unresolved in the Start Report when supplied as host evidence rather than a proof revision. | **Withdrawn as a bug.** The documented pre-activation `proof-update` flow correctly registers the command in `validation_contract`; the earlier finding was a workflow misunderstanding. |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -615,10 +616,251 @@ covered in full detail above are cross-referenced rather than repeated.
 | R3 | Pick one semantic for `likely_paths` -- either always owner-only, or a real per-path role tag -- so no downstream consumer has to guess. | See Issues 6 and 4. Schema half is **done**; `write_guardian.py` now reads the role field (anchor-first, Issue 4b); `drift_analysis.py` and `delivery-record.py` still use their pre-existing workarounds. |
 | R4 | Give the write-time hook a built-in, explicit exemption for root-level config/registry files, plus a clean "deliberate override" mechanism for already-reasoned exceptions, instead of requiring manual unregister/reregister of `.claude/settings.json`. | **Done** -- see Issues 4/4b. Generic anchor-first (approved `{path,role}` trusted before classifier) plus `.json`/`.jsonc` as config; `unknown` with no anchor evidence still denies. |
 | R5 | Make `resolve_active_run()` robust to multiple in-flight runs. | **Done** -- see Issue 8. |
-| R6 | `proof-update`'s post-approval framing is effectively dead code -- it's only reachable while a run is `awaiting-approval`, by which point most hosts have already activated. | Open, not implemented. |
+| R6 | Late proof registration and requirement-learning review are unavailable after activation. `proof-update` can prepare proof before approval and its approved overlay is consumed during execution, but a newly discovered proof command cannot be added after activation. A resolved requirement or proof gap also has no explicit post-closure user decision point for turning the discovery into a reviewed requirement-gathering lesson. | **Implemented in focused slices.** Proof amendment, learning-review prompt, effective-plan projection, and sanitized gap-learning controls are complete and closed with trusted evidence. |
 | R7 | Collapse the repeated Start Report boilerplate into a one-line reference instead of reprinting the full static sections every run. | Open, not implemented. A tool-output design question, independent of the separate host-behavior rule that a Start Report be pasted verbatim once shown. |
 | R8 | Loosen clause/intent-term grounding to tolerate reasonable paraphrase, or at least give a precise diff of "expected this exact substring" instead of a bare rejection. | **Half done (Issue 9).** Precise diff on rejection is implemented, including closest-token hints and playbook/builder pointers. Loosening the grounding itself stays **not recommended** (see Issue 9): strict exact-substring grounding is what stops host paraphrase drift. Keep grounding strict. |
 | R9 | Make `--run-id` either honor the passed ID or fail loudly if it can't, instead of silently substituting a new one. | **Withdrawn.** Based on a misunderstanding -- see Issue 10. `--run-id` was never meant to pin a new run's ID; it's working exactly as designed for its actual purpose (correction/recovery context on an existing run). |
+| R10 | Make Start Reports explicitly distinguish planning traceability evidence from approved executable proof, and show the exact `proof-update` action needed when a command is present as evidence but absent from `validation_contract`. | Open, not implemented. Recommended after the R6 workflow review. |
+| 15 | R6 effective-plan regression coverage was edited before the approved `IMPLEMENTATION` -> `TESTING` handoff was recorded. | Open; process mistake corrected by recording the handoff and refreshing closure. |
+| 16 | Agent proposed a parallel Markdown completion-report artifact without first routing the request to the existing `scripts/delivery-record.py` owner and `.tailtrail/runs/<run-id>/delivery-record.md` projection. | Open; agent-routing mistake, no source implementation made. |
+
+### R6 detailed plan -- post-activation proof amendments and closure learning review
+
+#### Corrected problem statement
+
+R6 is not a defect in the existing approved-revision overlay. A `proof-update`
+proposed before activation can be approved, becomes part of the active revision,
+and is then read by `execution-evidence.py` without mutating the immutable
+anchor. The actual gap is that implementation and diagnosis often reveal a
+missing validation command after activation, when `planning revise` is no
+longer available.
+
+The second gap is lifecycle follow-through. Completion already records drift
+and can create a sanitized learning candidate, but a candidate can remain
+passive unless the user is explicitly asked to decide whether the discovery is
+only run-local, a proof-planning lesson, or a requirement-gathering lesson.
+
+#### Required behavior
+
+1. **Post-activation proof amendment**
+
+   Add an explicit, append-only path through `execution-evidence run
+   --approved` for a command or tier that is missing from an already-approved
+   requirement contract. The amendment must:
+
+   - require the existing approved run and requirement UID;
+   - require explicit approval and the exact command being run;
+   - add commands and tiers only, using the existing union-only semantics;
+   - reject command replacement, requirement creation, production-scope
+     expansion, and unrelated paths;
+   - record the amendment reason, requirement UID, tier, command fingerprint,
+     approval, and evidence receipt in the run ledger;
+   - make the amended contract visible to the execution evidence and closure
+     report without rewriting the original anchor.
+
+2. **Effective-plan projection**
+
+   The execution handoff and completion report must distinguish the immutable
+   base plan from approved additions. They should expose the base anchor or
+   revision, the amendment artifacts, and the resulting effective proof
+   contract. A proof-only amendment does not mint a new anchor. A new
+   requirement or production path still requires a separately approved plan
+   revision and anchor version, such as `approved-v2`; unrelated work starts a
+   new run.
+
+3. **Post-closure learning review**
+
+   When closure finds requirement drift, unresolved evidence, or an approved
+   proof amendment, the finalizer must leave a `learning-review-required`
+   decision state and present one bounded user prompt. The prompt should ask
+   the user to classify the discovery as:
+
+   - requirement-gathering gap;
+   - proof-planning refinement;
+   - scope correction;
+   - run-local observation only; or
+   - not reusable.
+
+   The user must explicitly approve the selected decision. Closure remains the
+   source of factual truth; learning review interprets the fact; governance
+   decides whether a future rule changes. No lesson may automatically rewrite
+   requirement questions, prompts, Navigator rules, or policy.
+
+4. **Requirement-gathering lesson contract**
+
+   For a requirement-gathering gap, persist only sanitized, reviewable data:
+
+   - original requirement UID and statement fingerprint;
+   - discovered behavior or proof need, in bounded text;
+   - why the initial requirement gathering missed it;
+   - classification and affected requirement or proof tier;
+   - proposed question, constraint, or guidance improvement;
+   - evidence references to the completion report and amendment, if any;
+   - user decision, reviewer status, and promotion state.
+
+   The lesson remains candidate-only until an explicit Learning Governance
+   review accepts, rejects, supersedes, or defers it. Accepted guidance may be
+   used by later requirement gathering only through a recorded, evidence-linked
+   advisory retrieval; it cannot override current user instructions or fresh
+   repository evidence.
+
+#### Artifact ownership and locations
+
+The implementation should preserve the existing ownership boundaries:
+
+| Fact | Canonical artifact | Role |
+|---|---|---|
+| Base requirements and proof contract | `.tailtrail/runs/<run-id>/planning/start-report-v1.json` or active `start-report-vN.json` | Saved plan snapshot |
+| Approved requirement boundary | `.tailtrail/runs/<run-id>/anchors/approved-vN.json` | Immutable anchor version |
+| Approved plan revision | `.tailtrail/runs/<run-id>/planning/revisions/revision-vN.json` | Revision proposal and approval history |
+| Post-activation proof amendment | `.tailtrail/runs/<run-id>/execution/proof-amendments.jsonl` | Append-only run-local amendment record |
+| Executed proof receipt | `.tailtrail/runs/<run-id>/execution/evidence-stream.jsonl` | Requirement-linked execution fact |
+| Effective execution/closure view | `.tailtrail/runs/<run-id>/completion-reports/` | Derived report; base plus approved amendments |
+| Drift observation | `.tailtrail/runs/<run-id>/learning-observations/drift-v1.json` | Run-local sanitized observation |
+| Completion learning candidate | `.tailtrail/runs/<run-id>/learning-observations/completion-learning-v1.json` and the governed candidate store | Candidate only; never automatic policy mutation |
+
+The report must link these artifacts rather than copy raw prompts, source,
+logs, secrets, or identity data into a learning record.
+
+#### Closure prompt and governance outcome
+
+The post-closure interaction should produce an explicit decision artifact, for
+example:
+
+```json
+{
+  "run_id": "<run-id>",
+  "requirement_uid": "<uid>",
+  "classification": "requirement-gathering-gap",
+  "discovery_ref": ".tailtrail/runs/<run-id>/completion-reports/report-1.json",
+  "amendment_ref": ".tailtrail/runs/<run-id>/execution/proof-amendments.jsonl",
+  "proposed_rule_change": "Ask for the integration proof boundary during requirements intake.",
+  "decision": "record-candidate",
+  "approved": true,
+  "promotion": "pending-governance-review"
+}
+```
+
+This prevents the lesson from disappearing into an unowned backlog while
+preserving the safety boundary that only reviewed governance actions can
+change future requirement-gathering behavior.
+
+#### Focused validation
+
+Add tests for: additive post-activation proof registration; rejection of
+unknown requirements, scope expansion, replacement, and unapproved commands;
+effective-plan rendering; required post-closure prompt creation; each lesson
+classification; idempotent decision recording; sanitized learning output; and
+the rule that pending or rejected lessons never affect future retrieval.
+
+#### R10 recommendation detail
+
+The Start Report should show three separate states when a validation command is
+mentioned during planning:
+
+1. **Traceability evidence:** the command was supplied in a requirement
+  artifact, host interpretation, or quoted literal.
+2. **Executable proof status:** the command is or is not present in the
+  requirement's approved `validation_contract`.
+3. **Next action:** the exact `planning revise` `proof-update` command needed
+  to register the command before activation.
+
+The report should state plainly that traceability evidence does not authorize
+execution, and that an unresolved proof command is an intentional approval
+boundary rather than an implementation failure. This should reduce false bug
+reports while preserving the fail-closed behavior that prevented the original
+R6 command from running before explicit proof approval.
+
+#### R6 planning hiccup recorded during implementation setup -- corrected
+
+**Symptom:** the R6 issue log was first supplied as the requirement artifact,
+but TailTrail stopped with `requirement-artifact-read-limit-exceeded` because
+the full issue log is larger than the bounded planning-input read limit. A
+bounded R6-only artifact was then supplied and hash-bound successfully. The
+resulting Start Report contained the complete six-row R6 requirement set and
+resolved the single-owner proof slice correctly.
+
+The next focused Start included the exact command
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_execution_evidence
+tests.test_revision_proof_overlay -v` in both the goal and the typed evidence
+clause. TailTrail retained the command as traceability, selected the Test
+Precision Planner, and still rendered both `contract` and `behaviour` focused
+validation entries as `unresolved` with empty commands.
+
+**Correction:** the host interpretation and requirement artifact preserve the
+command as evidence, but that evidence is not itself executable authorization.
+The supported workflow requires a pre-activation `proof-update` revision with
+the exact command, requirement UID, tier, and approval. That revision was
+applied successfully in run `start-20261012065321-a991a3`; the persisted v2
+`validation_contract` contained the command and tiers, and activation succeeded.
+
+**Result:** Issue 14 is withdrawn as a product bug. The original Start Report
+was correctly fail-closed because it had not yet received a proof revision. The
+actual planning friction remains worth documenting: the artifact route does not
+automatically register executable proof, and a full issue log can exceed the
+bounded artifact read limit. Neither behavior justifies bypassing the explicit
+proof-update approval boundary.
+
+#### Issue 15 detail -- pipeline handoff timing
+
+During the R6 effective-plan slice, the implementation and regression test were
+both edited before the testing-badge handoff was recorded. The tests passed and
+the handoff was then recorded, but the correct order is to complete production
+implementation first, run `tailtrail pipeline handoff --from-stage
+IMPLEMENTATION`, and only then edit test-role paths.
+
+This did not create source-scope drift and the final Completion Report remained
+complete, but it weakened the audit sequence. Future agents must treat the
+pipeline badge as a pre-edit authorization boundary, not as a closure cleanup
+step.
+
+## R6 completion record
+
+Status: **Complete for all actionable R6 slices.** Each slice used a separate
+approved TailTrail run, trusted managed evidence, a requirement-linked
+checkpoint, Behaviour Harness evidence where selected, and a final Completion
+Report with `overall_status: complete`.
+
+### Verified findings
+
+- Intent Bridge is only for imported Spec Kit features; ordinary Markdown uses
+  the requirement-artifact route.
+- Artifact evidence is traceability, not executable proof authorization.
+- Proof commands must be registered through an approved `proof-update` before
+  activation, or through the explicit post-activation amendment path.
+- Multi-owner requirements need focused sequential runs.
+- Unit tests do not replace Behaviour Harness scenarios.
+- Closure requires TailTrail-managed trusted receipts, not only host-run output.
+- Human-readable delivery plans already belong to `scripts/delivery-record.py`.
+
+### Delivered improvements
+
+- Added explicit post-activation proof amendments with append-only records.
+- Added the `learning-review-required` state and bounded classification prompt.
+- Added effective-plan projection separating the immutable base plan from
+  approved revisions and proof amendments.
+- Removed free-form drift messages from staged gap-learning signals.
+- Added regression coverage for proof, closure, projection, and sanitization.
+
+### Hiccups for review
+
+- The full issue log exceeded the bounded artifact read limit; a bounded,
+  source-referenced artifact was required.
+- The first interpretation used malformed semantic intent terms for filenames.
+- A regression test was edited before the testing-badge handoff; the handoff
+  was recorded afterward and the mistake was logged as Issue 15.
+- A docs-only status update initially used production-signal wording and was
+  correctly rejected by the docs lane before being rerun as prose-only.
+- The agent initially proposed a redundant completion Markdown artifact instead
+  of routing to the existing `delivery-record.md` generator; this is recorded
+  as Issue 16.
+
+### R6 run artifacts
+
+- Proof amendment: `.tailtrail/runs/start-20261012065321-a991a3/completion-reports/report-5.json`
+- Learning review: `.tailtrail/runs/start-20261012071741-a2038b/completion-reports/report-2.json`
+- Effective plan: `.tailtrail/runs/start-20261012072226-fbbc21/completion-reports/report-3.json`
+- Sanitized learning: `.tailtrail/runs/start-20261012072641-19eca3/completion-reports/report-2.json`
 
 ---
 

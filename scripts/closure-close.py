@@ -51,6 +51,39 @@ def pending_learning_reviews(root: Path) -> int | None:
     )
 
 
+def learning_review_state(pending: int | None) -> dict[str, Any]:
+    if pending is None:
+        return {
+            "state": "unavailable",
+            "pending": None,
+            "prompt": None,
+            "command": "tailtrail learn review --root .",
+        }
+    if pending == 0:
+        return {
+            "state": "not-required",
+            "pending": 0,
+            "prompt": None,
+            "command": "tailtrail learn review --root .",
+        }
+    return {
+        "state": "learning-review-required",
+        "pending": pending,
+        "prompt": {
+            "question": "Review the candidate learning before changing future guidance.",
+            "options": [
+                "requirement-gathering-gap",
+                "proof-planning-refinement",
+                "scope-correction",
+                "run-local-only",
+                "not-reusable",
+            ],
+            "approval_required": True,
+        },
+        "command": "tailtrail learn review --root .",
+    }
+
+
 def official_closure_link(root: Path, run_id: str, completion_report: str, acceptance: str) -> dict[str, Any] | None:
     """Write references to Full-mode official artifacts without copying their content."""
     directory = L.state_dir(root, run_id)
@@ -176,11 +209,7 @@ def close(root: Path, run_id: str | None = None, decision: str | None = None, in
     ci_reference = trusted_ci(root, selected, ci_receipt) if decision == "accept-ci" else None
     learned = LEARNING.capture(root, selected, accepted_by); evaluated = EVALUATION.evaluate(root, selected, baseline_path)
     recorded = record_decision(root, selected, "accepted", str(report_artifact), decision=decision, baseline_path=baseline_path, ci_receipt=ci_reference)
-    pending_reviews = pending_learning_reviews(root)
-    learning_review = (
-        {"pending": pending_reviews, "command": "tailtrail learn review --root ."}
-        if pending_reviews is not None else {"pending": None, "command": "tailtrail learn review --root ."}
-    )
+    learning_review = learning_review_state(pending_learning_reviews(root))
     return {"type": "tailtrail-closure-close", "run_id": selected, "state": "accepted", "accepted_by": accepted_by, "ci_receipt": ci_reference, "completion_report": report_artifact, "official_aidlc": official_closure_link(root, selected, str(report_artifact), "accepted-ci" if decision == "accept-ci" else "accepted-user"), "acceptance_record": recorded, "baseline": baseline_path.relative_to(root).as_posix(), "positive_learning": learned, "evaluation": evaluated, "learning_review": learning_review, "boundary": "Acceptance created candidate-only learning and deterministic evaluation; it did not promote guidance or claim quality improvement."}
 
 

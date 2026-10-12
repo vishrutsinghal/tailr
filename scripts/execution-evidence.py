@@ -31,7 +31,40 @@ ANCHOR = load("execution_evidence_anchor", "change-intent-anchor.py")
 
 def directory(root: Path, run_id: str) -> Path: return L.state_dir(root, run_id) / "execution"
 def stream(root: Path, run_id: str) -> Path: return directory(root, run_id) / "evidence-stream.jsonl"
+def proof_amendments(root: Path, run_id: str) -> Path: return directory(root, run_id) / "proof-amendments.jsonl"
 def canonical(value: Any) -> str: return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def append_proof_amendment(
+    root: Path,
+    run_id: str,
+    requirement_uid: str,
+    command: str,
+    tiers: list[str],
+    reason: str,
+) -> dict[str, Any]:
+    if not isinstance(command, str) or not command.strip():
+        raise ValueError("proof amendment requires a non-empty command")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("proof amendment requires a non-empty reason")
+    normalized = {
+        "schema_version": "1",
+        "type": "tailtrail-proof-amendment",
+        "run_id": run_id,
+        "requirement_uid": requirement_uid,
+        "command": command,
+        "command_fingerprint": hashlib.sha256(command.encode("utf-8")).hexdigest(),
+        "tiers": sorted(set(tiers)),
+        "reason": CONTRACT.short_text(reason, "proof amendment reason"),
+        "approved": True,
+        "created_at": L.utc_now(),
+        "boundary": "Additive proof authorization only; it does not change the immutable anchor or production scope.",
+    }
+    path = proof_amendments(root, run_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(canonical(normalized) + "\n")
+    return normalized
 
 
 def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
@@ -154,6 +187,8 @@ def run_command(
     changed_paths: list[str],
     approved: bool,
     timeout_seconds: int = 900,
+    amend_proof: bool = False,
+    amendment_reason: str = "",
 ) -> dict[str, Any]:
     """Execute one exact approved proof command and atomically capture its facts."""
     if approved is not True:
@@ -185,6 +220,14 @@ def run_command(
             for value in check.get("tiers", [])
             if str(value)
         } or ({str(value) for value in contract.get("tiers", []) if str(value)} | revision_tiers)
+        missing_command = command not in approved_commands
+        missing_tiers = not set(tiers) or set(tiers) - approved_tiers
+        if (missing_command or missing_tiers) and amend_proof:
+            if not tiers:
+                raise ValueError("proof amendment requires at least one tier")
+            append_proof_amendment(root, run_id, uid, command, tiers, amendment_reason)
+            approved_commands.add(command)
+            approved_tiers.update(tiers)
         if command not in approved_commands:
             raise ValueError(f"command is not approved for requirement `{uid}`; revise the plan with `tailtrail planning revise --root . --run-id {run_id} --changes '<json>' --approved-proposal` before execution")
         if not set(tiers) or set(tiers) - approved_tiers:
@@ -285,7 +328,7 @@ def run_command(
         "started_at": started.isoformat(), "finished_at": finished.isoformat(),
         "duration_ms": duration_ms, "stdout_artifact": relative_stdout,
         "stderr_artifact": relative_stderr, "evidence_fingerprint": saved["fingerprint"],
-        "boundary": "The command matched the approved validation contract and was executed by TailTrail with bounded, redacted output capture.",
+        "boundary": "The command matched the approved validation contract or an explicitly approved additive amendment and was executed by TailTrail with bounded, redacted output capture.",
     }
     L.atomic_json(result_path, result)
     return result
@@ -325,13 +368,19 @@ def main() -> int:
             item.add_argument("--label", required=True)
             item.add_argument("--command", dest="proof_command", required=True)
             item.add_argument("--timeout", type=int, default=900)
+            item.add_argument("--amend-proof", action="store_true", help="Append an explicit post-activation proof amendment.")
+            item.add_argument("--amendment-reason", default="", help="Reason for an additive proof amendment.")
             item.add_argument("--approved", action="store_true")
     args = parser.parse_args()
     try:
         if args.command == "record":
             result = append(args.root, args.run_id, json.loads(args.event), args.approved)
         elif args.command == "run":
-            result = run_command(args.root, args.run_id, args.requirement, args.tier, args.proof_command, args.label, args.changed, args.approved, args.timeout)
+            result = run_command(
+                args.root, args.run_id, args.requirement, args.tier, args.proof_command,
+                args.label, args.changed, args.approved, args.timeout,
+                args.amend_proof, args.amendment_reason,
+            )
         else:
             result = show(args.root, args.run_id)
         print(json.dumps(result, indent=2, sort_keys=True)); return 0

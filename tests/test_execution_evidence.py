@@ -93,6 +93,33 @@ class ManagedExecutionEvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "tiers are not approved"):
                 evidence.run_command(root, "run", [uid], ["unit"], command, "wrong tier", [], True)
 
+    def test_explicit_amendment_records_and_executes_new_proof(self) -> None:
+        command = f"{quote(sys.executable)} -c {quote('print(\"amended proof\")')}"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root, "echo original")
+            result = evidence.run_command(
+                root, "run", [uid], ["integration"], command,
+                "late integration proof", [], True, 30, True,
+                "Implementation revealed a required integration proof.",
+            )
+            amendment_path = evidence.proof_amendments(root, "run")
+            amendment = json.loads(amendment_path.read_text(encoding="utf-8").splitlines()[0])
+
+        self.assertEqual("pass", result["outcome"])
+        self.assertEqual(uid, amendment["requirement_uid"])
+        self.assertEqual(["integration"], amendment["tiers"])
+        self.assertTrue(amendment["approved"])
+        self.assertEqual("Implementation revealed a required integration proof.", amendment["reason"])
+
+    def test_amendment_requires_reason(self) -> None:
+        command = f"{quote(sys.executable)} -c {quote('print(1)')}"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root, "echo original")
+            with self.assertRaisesRegex(ValueError, "proof amendment requires"):
+                evidence.run_command(root, "run", [uid], ["integration"], command, "late proof", [], True, 30, True)
+
     def test_command_specific_check_authorizes_static_tier_for_legacy_anchor(self) -> None:
         command = f"{quote(sys.executable)} -c {quote('print(\"static ok\")')}"
         with tempfile.TemporaryDirectory() as temp:

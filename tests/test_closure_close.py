@@ -123,6 +123,18 @@ class ClosureCloseTests(unittest.TestCase):
 
         self.assertEqual(result["state"], "accepted")
         self.assertGreaterEqual(result["learning_review"]["pending"], 1)
+        self.assertEqual(result["learning_review"]["state"], "learning-review-required")
+        self.assertEqual(
+            result["learning_review"]["prompt"]["options"],
+            [
+                "requirement-gathering-gap",
+                "proof-planning-refinement",
+                "scope-correction",
+                "run-local-only",
+                "not-reusable",
+            ],
+        )
+        self.assertTrue(result["learning_review"]["prompt"]["approval_required"])
         self.assertIn("tailtrail learn review", result["learning_review"]["command"])
 
 

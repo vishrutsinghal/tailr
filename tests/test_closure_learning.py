@@ -31,6 +31,26 @@ close = load("closure_close_test", "scripts/closure-close.py")
 
 
 class ClosureLearningTests(unittest.TestCase):
+    def test_gap_signals_keep_only_categorical_sanitized_fields(self) -> None:
+        report = {
+            "tests": {"passed_tiers": [], "required_checks": []},
+            "requirement_status": {"requirements": [{
+                "requirement_uid": "req-1",
+                "display_id": "REQ-01",
+                "drift": [{"classification": "new-drift", "message": "raw prompt and secret value"}],
+            }]},
+        }
+
+        signals = learning.gap_signals(report)
+
+        self.assertEqual([{
+            "kind": "drift-finding",
+            "requirement_uid": "req-1",
+            "display_id": "REQ-01",
+            "classification": "new-drift",
+        }], signals)
+        self.assertNotIn("raw prompt", json.dumps(signals))
+
     def setup_run(self, root: Path, outcome: str = "pass") -> str:
         (root / "src").mkdir(); (root / "tests").mkdir()
         (root / "src" / "service.py").write_text("def cancel():\n    return True\n", encoding="utf-8")

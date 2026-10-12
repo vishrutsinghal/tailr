@@ -45,6 +45,35 @@ class CompletionReportTests(unittest.TestCase):
         self.assertEqual(["static"], by_command["npm run lint"]["tiers"])
         self.assertEqual(["src/Page.cy.tsx"], by_command["npm run component"]["candidate_paths"])
 
+    def test_plan_projection_separates_base_revision_and_proof_amendments(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.setup_run(root)
+            run = ledger.state_dir(root, "run")
+            (run / "planning").mkdir(parents=True, exist_ok=True)
+            (run / "planning" / "start-report-v1.json").write_text("{}", encoding="utf-8")
+            (run / "planning" / "revisions").mkdir(parents=True)
+            (run / "planning" / "revisions" / "start-report-v2.json").write_text("{}", encoding="utf-8")
+            (run / "planning" / "plan-revision-state-v1.json").write_text(json.dumps({
+                "schema_version": "1",
+                "type": "tailtrail-plan-revision-state",
+                "run_id": "run",
+                "active_revision": 2,
+                "active_report": ".tailtrail/runs/run/planning/revisions/start-report-v2.json",
+            }), encoding="utf-8")
+            (run / "execution" / "proof-amendments.jsonl").parent.mkdir(parents=True)
+            (run / "execution" / "proof-amendments.jsonl").write_text("{}\n", encoding="utf-8")
+
+            projection = report.plan_projection(root, "run", run / "execution")
+
+        self.assertEqual(1, projection["base_plan"]["revision"])
+        self.assertTrue(projection["effective_plan"]["base_is_immutable"])
+        self.assertEqual(2, projection["effective_plan"]["active_revision"])
+        self.assertEqual(
+            {"approved-plan-revision", "approved-additive-proof-amendments"},
+            {item["kind"] for item in projection["approved_additions"]},
+        )
+
     def setup_run(self, root: Path) -> str:
         ledger.init_run(root, "run", "claim validation")
         proposal = root / "proposal.json"
