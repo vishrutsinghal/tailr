@@ -2329,7 +2329,7 @@ labels that silently drift out of truth across sessions.
 
 ---
 
-## 15. R6 implementation reviewed and live-tested (commit `d85153c`) -- core fix correct, one real plan-projection path bug found (Open)
+## 15. R6 implementation reviewed and live-tested (commit `d85153c`) -- core fix correct, one real plan-projection path bug found and fixed (Fixed)
 
 **What R6 actually fixed, confirmed by direct review before testing:**
 `scripts/execution-evidence.py`'s `run_command()` gained an additive
@@ -2406,15 +2406,23 @@ projection reads the amendment file from the wrong path (Open):**
   reaching `Overall: complete`. It is a transparency/auditability gap:
   the one feature whose entire purpose is "make additive authority grants
   visible" doesn't currently display them.
-- **Status:** Open, not fixed (found during review, not addressed in this
-  pass).
-
-**Where to look when picking this up:**
-- `scripts/completion-report.py:710` -- change
-  `plan_projection(root, run_id, directory)` to
-  `plan_projection(root, run_id, directory / "execution")`, matching what
-  the function body already assumes and what the existing unit test
-  already (correctly) supplies.
-- After fixing, re-verify `base_plan.artifact` resolves correctly for a
-  plain run too, not just the amendment-surfacing case -- both symptoms
-  share the same root cause and should be checked together.
+- **Status:** Fixed, independently re-verified end-to-end (2026-10-12).
+  `plan_projection()` (commit `267ba86`) now detects which shape it was
+  called with: `run_directory = directory.parent if directory.name ==
+  "execution" else directory`, then derives `execution_directory =
+  run_directory / "execution"` for the amendment path either way -- a
+  backward-compatible fix that satisfies both the real call site (which
+  passes the run root) and the existing unit test (which passes the
+  `execution/` subfolder directly), rather than forcing one to change to
+  match the other. A new integration-level test,
+  `test_build_projects_plan_artifacts_from_run_root_call_site`, now
+  exercises the real `build()` call path specifically, closing the gap
+  that let the original mismatch through. Ran the full
+  `tests.test_completion_report` suite (16/16 pass) and re-queried
+  `completion-report` against the *exact same real run*
+  (`start-20261012080340-05c8fc`) used to find the bug: `base_plan.artifact`
+  now correctly resolves to `planning/start-report-v1.json` (was `null`),
+  and `approved_additions`/`source_artifacts.proof_amendments` now
+  correctly surface the real amendment record. Both symptoms traced to the
+  single root cause are confirmed resolved together, not just the one
+  that was easiest to see.

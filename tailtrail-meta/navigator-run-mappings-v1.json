@@ -2600,9 +2600,77 @@
       "recorded_at": "2026-10-12T08:10:24.713801+00:00",
       "run_id": "start-20261012080340-05c8fc",
       "scope_decision_fingerprint": "sha256:5c5ea1dfa74f9825dc190b44bf1c79bbcb0e43a4fc928d37dd2e1b64313f425a"
+    },
+    {
+      "closure_status": "evidence-incomplete",
+      "goal_fingerprint": "sha256:b3d304638992cbf318878820756e5c5d6d543491038908825fdf3e71b61e4758",
+      "graph_cache_fingerprint": "sha256:41a709cfffc5937995b282881efa51eb5f7ddbaf4201fbb25ca6e6521f06279d",
+      "mapping_fingerprint": "sha256:8dd531549c287e001834fb5f2256790f5e898991e25b348e4596d86ee712a6ff",
+      "path_hashes": {
+        "scripts/closure-evaluation.py": "sha256:4f321313a7bc76dec0b7976c636259bb2b7438956e9ab5f21371eabcc0b2fe96",
+        "scripts/completion-report.py": "sha256:91862decd2032be564158215a2eaeaf76fa7bcf3b3f95b20cfd2a6f707c70eb8"
+      },
+      "query_terms": [
+        "active",
+        "and",
+        "append-only",
+        "approved",
+        "artifact",
+        "base",
+        "call",
+        "completion-report",
+        "exposes",
+        "fix",
+        "immutable",
+        "plan",
+        "plan_projection",
+        "proof-amendment",
+        "real",
+        "revision",
+        "site",
+        "the",
+        "wiring"
+      ],
+      "recorded_at": "2026-10-12T09:19:02.703015+00:00",
+      "run_id": "start-20261012091234-5e8fa0",
+      "scope_decision_fingerprint": "sha256:89358fdf5e94994dbaae59b28dfcb6ac42ddb9f625b1986a383b6aa170f793b2"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:b3d304638992cbf318878820756e5c5d6d543491038908825fdf3e71b61e4758",
+      "graph_cache_fingerprint": "sha256:41a709cfffc5937995b282881efa51eb5f7ddbaf4201fbb25ca6e6521f06279d",
+      "mapping_fingerprint": "sha256:4afabc9b797d0d2e51c528dbfb4e3bbbf7c5b40928258a2fc1e2112f533e86ca",
+      "path_hashes": {
+        "scripts/closure-evaluation.py": "sha256:4f321313a7bc76dec0b7976c636259bb2b7438956e9ab5f21371eabcc0b2fe96",
+        "scripts/completion-report.py": "sha256:91862decd2032be564158215a2eaeaf76fa7bcf3b3f95b20cfd2a6f707c70eb8"
+      },
+      "query_terms": [
+        "active",
+        "and",
+        "append-only",
+        "approved",
+        "artifact",
+        "base",
+        "call",
+        "completion-report",
+        "exposes",
+        "fix",
+        "immutable",
+        "plan",
+        "plan_projection",
+        "proof-amendment",
+        "real",
+        "revision",
+        "site",
+        "the",
+        "wiring"
+      ],
+      "recorded_at": "2026-10-12T09:20:01.478567+00:00",
+      "run_id": "start-20261012091234-5e8fa0",
+      "scope_decision_fingerprint": "sha256:89358fdf5e94994dbaae59b28dfcb6ac42ddb9f625b1986a383b6aa170f793b2"
     }
   ],
   "schema_version": "1",
   "type": "tailtrail-navigator-run-mapping-index",
-  "updated_at": "2026-10-12T08:10:24.713810+00:00"
+  "updated_at": "2026-10-12T09:20:01.478580+00:00"
 }
