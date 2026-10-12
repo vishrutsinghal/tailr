@@ -126,8 +126,9 @@ def pipeline_summary(root: Path, run_id: str) -> dict[str, Any]:
 
 
 def plan_projection(root: Path, run_id: str, directory: Path) -> dict[str, Any]:
-    """Expose the immutable base plan and approved additive plan artifacts."""
-    run_directory = directory.parent
+    """Expose plan artifacts from either a run root or its execution directory."""
+    run_directory = directory.parent if directory.name == "execution" else directory
+    execution_directory = run_directory / "execution"
     base_path = run_directory / "planning" / "start-report-v1.json"
     base_ref = "planning/start-report-v1.json" if base_path.is_file() else None
     active_revision = 1
@@ -149,7 +150,7 @@ def plan_projection(root: Path, run_id: str, directory: Path) -> dict[str, Any]:
             "revision": active_revision,
             "artifact": active_ref,
         })
-    amendment_path = directory / "proof-amendments.jsonl"
+    amendment_path = execution_directory / "proof-amendments.jsonl"
     if amendment_path.is_file():
         additions.append({
             "kind": "approved-additive-proof-amendments",

@@ -74,6 +74,24 @@ class CompletionReportTests(unittest.TestCase):
             {item["kind"] for item in projection["approved_additions"]},
         )
 
+    def test_build_projects_plan_artifacts_from_run_root_call_site(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.setup_run(root)
+            run = ledger.state_dir(root, "run")
+            (run / "planning").mkdir(parents=True, exist_ok=True)
+            (run / "planning" / "start-report-v1.json").write_text("{}", encoding="utf-8")
+            (run / "execution").mkdir(parents=True, exist_ok=True)
+            (run / "execution" / "proof-amendments.jsonl").write_text("{}\n", encoding="utf-8")
+
+            result = report.build(root, "run", record=False)
+
+        self.assertEqual("planning/start-report-v1.json", result["plan"]["base_plan"]["artifact"])
+        self.assertEqual(
+            "execution/proof-amendments.jsonl",
+            result["source_artifacts"]["proof_amendments"],
+        )
+
     def setup_run(self, root: Path) -> str:
         ledger.init_run(root, "run", "claim validation")
         proposal = root / "proposal.json"
