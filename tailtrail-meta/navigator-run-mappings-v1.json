@@ -2413,9 +2413,196 @@
       "recorded_at": "2026-10-11T14:40:18.692217+00:00",
       "run_id": "start-20261011143314-93a25b",
       "scope_decision_fingerprint": "sha256:31b9f46e27e9df067109cd2061da00d36cb88b384cb07c0221bac5033efa02dd"
+    },
+    {
+      "closure_status": "evidence-incomplete",
+      "goal_fingerprint": "sha256:b28694869fce3fa1d6e3c04e46913513714b3ae6e2f7db54a911e9734ce90352",
+      "graph_cache_fingerprint": "sha256:0d4c3687bf9caf00fc719adde6f3ef5867cfed5b5fb028943fc71f4760d4f958",
+      "mapping_fingerprint": "sha256:f13273defe6c6802cc49ce00199594d47de6d9fdf88524bd10290fe0d874db42",
+      "path_hashes": {
+        "scripts/closure-recorder.py": "sha256:8331186710c75a82e1386c2f03c8af1be6ce813e383608ca36711d7ff312bf32",
+        "scripts/debug-completion.py": "sha256:08372f6975ebcaf77fbba79cd660df4fd8fd7942a14bd0021e3439ce964ebdca",
+        "scripts/debug-correction.py": "sha256:117bc8d106c07f5937ede777b264a37243972919bdfe425a44a227bdc7e94153",
+        "scripts/execution-evidence.py": "sha256:bfe40bd5b0a50fa11b7e9ac2643bd930c53f32b1860582ce84df3b85006c7af3"
+      },
+      "query_terms": [
+        "add",
+        "already-approved",
+        "append-only",
+        "command",
+        "contract",
+        "evidence",
+        "execution",
+        "explicit",
+        "for",
+        "missing",
+        "path",
+        "python3",
+        "pythondontwritebytecode",
+        "requirement",
+        "test_execution_evidence",
+        "test_revision_proof_overlay",
+        "tests",
+        "through",
+        "tier",
+        "unittest",
+        "validate"
+      ],
+      "recorded_at": "2026-10-12T07:10:34.610141+00:00",
+      "run_id": "start-20261012065321-a991a3",
+      "scope_decision_fingerprint": "sha256:373782b1bd2c100e18daa50b508175dd7b73b58595176ce8ad72766d99d6df1b"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:b28694869fce3fa1d6e3c04e46913513714b3ae6e2f7db54a911e9734ce90352",
+      "graph_cache_fingerprint": "sha256:dbda5ba0ca94ea950b6656b47c5761f32824e1054c3ca99d79c33a9062355ffa",
+      "mapping_fingerprint": "sha256:3fc4552a0a8192dad1f572741c2d0502222626212f87ada8a0606d78043c131f",
+      "path_hashes": {
+        "scripts/closure-recorder.py": "sha256:8331186710c75a82e1386c2f03c8af1be6ce813e383608ca36711d7ff312bf32",
+        "scripts/debug-completion.py": "sha256:08372f6975ebcaf77fbba79cd660df4fd8fd7942a14bd0021e3439ce964ebdca",
+        "scripts/debug-correction.py": "sha256:117bc8d106c07f5937ede777b264a37243972919bdfe425a44a227bdc7e94153",
+        "scripts/execution-evidence.py": "sha256:bfe40bd5b0a50fa11b7e9ac2643bd930c53f32b1860582ce84df3b85006c7af3"
+      },
+      "query_terms": [
+        "add",
+        "already-approved",
+        "append-only",
+        "command",
+        "contract",
+        "evidence",
+        "execution",
+        "explicit",
+        "for",
+        "missing",
+        "path",
+        "python3",
+        "pythondontwritebytecode",
+        "requirement",
+        "test_execution_evidence",
+        "test_revision_proof_overlay",
+        "tests",
+        "through",
+        "tier",
+        "unittest",
+        "validate"
+      ],
+      "recorded_at": "2026-10-12T07:11:40.680927+00:00",
+      "run_id": "start-20261012065321-a991a3",
+      "scope_decision_fingerprint": "sha256:373782b1bd2c100e18daa50b508175dd7b73b58595176ce8ad72766d99d6df1b"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:f05285efff3288186d956b102f34715d42b2ad3bcd7470989291d8fda2c8d821",
+      "graph_cache_fingerprint": "sha256:cbac553cf56a3744766c2e8029e1583795a9537e4644d71a9a06d2ff9272e64f",
+      "mapping_fingerprint": "sha256:d629246a2c714a861c2e6b0c74c77251433a6eb8cfaa2ddd3658afbf2b1e2f53",
+      "path_hashes": {
+        "scripts/closure-close.py": "sha256:86b19cd277ae33f691a8414714ada56070f3651a7955bcc03070f2aaab21a65e",
+        "tests/test_closure_close.py": "sha256:60e4ccd9b8baed47400732480fd73c58cfef4f76e61ed79320fa70125a153f4c",
+        "tests/test_closure_learning.py": "sha256:b203dc5ecf937a431abb3d3bbdd53527a775486e0a15602ebad97810674fd222"
+      },
+      "query_terms": [
+        "amendment",
+        "and",
+        "approved",
+        "bounded",
+        "closure",
+        "decision",
+        "drift",
+        "evidence",
+        "finds",
+        "learning-review-required",
+        "leave",
+        "must",
+        "present",
+        "prompt",
+        "proof",
+        "requirement",
+        "state",
+        "unresolved"
+      ],
+      "recorded_at": "2026-10-12T07:21:55.044864+00:00",
+      "run_id": "start-20261012071741-a2038b",
+      "scope_decision_fingerprint": "sha256:7a76ce9d823064384ad5ba5e206bebd85a2006705fc54eddc6652c484af9ccfc"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:bfbb2f1e5accd936210cd156f40dc33963345303466cfb002ead751c3b214ca0",
+      "graph_cache_fingerprint": "sha256:62c371968c5978690628487791a32b943d562865a6204ca4ef22939c1884cc2c",
+      "mapping_fingerprint": "sha256:f997a38eaf1cc3cb19de7ea3741395eb521baa2d6675d3758e9973bedb437935",
+      "path_hashes": {
+        "scripts/completion-report.py": "sha256:22c7f43e6949046997b9f002a9cf95e3cb8307e7fc1fc5622552915f5e477aea"
+      },
+      "query_terms": [
+        "additions",
+        "and",
+        "approved",
+        "base",
+        "completion",
+        "distinguish",
+        "execution",
+        "handoff",
+        "immutable",
+        "must",
+        "plan",
+        "report",
+        "the"
+      ],
+      "recorded_at": "2026-10-12T07:25:24.385447+00:00",
+      "run_id": "start-20261012072226-fbbc21",
+      "scope_decision_fingerprint": "sha256:f5214792e029c0dbd8f6c369a9835b775fe19fcfb4fae56f3c13ce4faeb7c86b"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:912c271a59f6a62a187976d4646b3f66931b44ea419bb7e5f5c3de7f38c9f55c",
+      "graph_cache_fingerprint": "sha256:5343f41b5290e3448a1b3ebbcbf4932b531a283d469026ac24dae9a38fc76925",
+      "mapping_fingerprint": "sha256:a2ee1198fccd78c0e7ee1593a2f20f6803e17e6d9a523234df1c6081330478c0",
+      "path_hashes": {
+        "scripts/closure-close.py": "sha256:86b19cd277ae33f691a8414714ada56070f3651a7955bcc03070f2aaab21a65e",
+        "scripts/closure-learning.py": "sha256:17645ab369cdc55f5344e724b05dfd7b69b6ed03edb55905df254d36f6f2d27e",
+        "tests/test_closure_learning.py": "sha256:bf608390c03a261976fe449c4e001a09f7cc0df77be607715617c4f958783143"
+      },
+      "query_terms": [
+        "data",
+        "lesson",
+        "only",
+        "requirement-gathering",
+        "sanitized",
+        "stores"
+      ],
+      "recorded_at": "2026-10-12T07:35:18.594463+00:00",
+      "run_id": "start-20261012072641-19eca3",
+      "scope_decision_fingerprint": "sha256:57dadf3e2bd46a65739735579552a10fc68b21549c7c67ae1acea5d79dbdfa12"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:8c88def0a19d995417eab3d7ef3f01cede69583d4510da991a6fa5c92d009f44",
+      "graph_cache_fingerprint": "sha256:fafcd8d7f3a13f00904975688e9f7ac83bc7c0125bc3152a04ef2f8ad382c37e",
+      "mapping_fingerprint": "sha256:c0d30a1846da5017e6fe47a294d235c6f21f29599fe8c114f192b965cda08438",
+      "path_hashes": {
+        "scripts/delivery-record.py": "sha256:e1df36710ec6b2bbe6540164abb564e63d6a80722119d3f85461e5ebda8bdebe",
+        "tests/test_delivery_record.py": "sha256:68bff51372402aca502a395c8b51cb1b663e353a7da8cbe32f8af274653fd26d"
+      },
+      "query_terms": [
+        "corrupt",
+        "delivery-record",
+        "dict",
+        "entry",
+        "files-touched",
+        "fix",
+        "likely_paths",
+        "match",
+        "not",
+        "role-tagged",
+        "str",
+        "the",
+        "via"
+      ],
+      "recorded_at": "2026-10-12T08:10:24.713801+00:00",
+      "run_id": "start-20261012080340-05c8fc",
+      "scope_decision_fingerprint": "sha256:5c5ea1dfa74f9825dc190b44bf1c79bbcb0e43a4fc928d37dd2e1b64313f425a"
     }
   ],
   "schema_version": "1",
   "type": "tailtrail-navigator-run-mapping-index",
-  "updated_at": "2026-10-11T14:40:18.692226+00:00"
+  "updated_at": "2026-10-12T08:10:24.713810+00:00"
 }

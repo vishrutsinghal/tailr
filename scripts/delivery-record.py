@@ -434,7 +434,11 @@ def render_closure(root: Path, run_id: str) -> str:
         lines.append(f"- Implementation: **{report_text(status_row.get('implementation_status', 'not-evidenced'))}**")
         lines.append(f"- Verification: **{report_text(status_row.get('verification_status', 'not-evidenced'))}**")
         lines.append(f"- Delivery: **{report_text(status_row.get('status', 'not-evidenced'))}**")
-        likely = {str(path) for path in requirement.get("likely_paths", []) if str(path)}
+        likely = {
+            (path.get("path") if isinstance(path, dict) else path)
+            for path in requirement.get("likely_paths", [])
+            if (path.get("path") if isinstance(path, dict) else path)
+        }
         matched_changed = sorted(path for path in likely if path in changed_by_path)
         if matched_changed:
             lines.append("- Files touched:")
