@@ -14,6 +14,28 @@ reports `scope_evidence.state` (`resolved`/`ambiguous`/etc.) immediately. Run
 this before committing to a full `tailtrail start` round trip, especially for
 a goal touching more than one file.
 
+**Build a complete host-input contract before any persistent TailTrail
+call.** TailTrail must not be asked to fill in missing intent. Record the exact
+request mode (`read-only`, `validation-only`, or `implementation`), whether
+edits are authorized, each named path's role (`implementation-owner`,
+`inspection-input`, or `proof-only`), positive and negative success criteria,
+and the exact proof path plus runnable command. If any field is unknown, keep
+it as an explicit question and do not persist a plan. A validation fixture or
+inspection input is not a changed path: `--changed` asserts editable
+implementation scope. This distinction was verified live when a QA-declared
+config ownership check passed `tailtrail-registry.json` through `--changed`;
+the saved `task_type_resolution` correctly detected
+`declared-qa-vs-evidenced-implementation`, but the incomplete host packet then
+produced an implementation plan with unresolved proof.
+
+**Treat task-type conflict and unresolved proof as blockers.** After every
+Start, inspect the saved task-type resolution and focused validation before
+showing the plan as approvable. If the declared and inferred types conflict,
+if no project-owned proof path and runnable command exist, or if an
+investigation/validation request gained an implementation step, stop and
+revise or re-route the same run. Never rely on the rendered plan to repair
+half-supplied host context.
+
 **A multi-file goal usually needs a multi-owner split, not more flags.** When
 `tailtrail start` reports "more than one implementation owner has strong
 evidence," the fix is almost never a cleverer `--scope-owner` answer -- split
