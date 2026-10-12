@@ -179,6 +179,9 @@ intake
   -> due-diligence
   -> awaiting-clarification
   -> awaiting-user-decision
+  -> requirements-finalized
+  -> internal-due-diligence
+  -> internal-clarification-routed-to-navigator
   -> awaiting-approval
   -> approved
   -> activated
@@ -247,6 +250,312 @@ P7 goal with no declared implementation owner or proof
 A valid P7 packet with an explicit proposed implementation path and proposed
 proof path should progress to scope and proof due diligence.
 
+## Navigator as the Host Boundary
+
+Navigator is the only component allowed to communicate with the host about task
+meaning, scope, paths, roles, requirements, or clarification. The internal
+pipeline may coordinate components, but downstream components must never ask
+the host questions directly.
+
+```text
+User <-> Host <-> Navigator <-> Internal pipeline <-> TailTrail components
+```
+
+The internal pipeline is not a second host conversation layer. It consumes and
+validates Navigator's finalized output.
+
+### Navigator responsibilities
+
+Navigator owns:
+
+- task profiling and profile-specific questions;
+- host answer collection and clarification routing;
+- requirement interpretation and path-role declarations;
+- existing versus proposed-new path classification;
+- positive and negative acceptance criteria;
+- proof intent and validation command collection;
+- final requirement and scope packet creation.
+
+Navigator may return to the host when internal due diligence discovers a
+contradiction or missing decision, but the request must be routed through
+Navigator using the same question and answer IDs.
+
+### Internal component restrictions
+
+Internal components:
+
+- consume only validated Navigator projections;
+- may validate, enrich, reject, or emit evidence;
+- may not contact the host directly;
+- may not invent or rewrite requirements;
+- may not reinterpret a path role;
+- may not silently ask the host for missing information.
+
+If an internal component cannot continue, it emits a typed clarification event
+to the pipeline. Navigator converts that event into a host-facing question,
+collects the answer, and emits a revised packet version.
+
+## Requirement Finalization Boundary
+
+All host questions and answers must be completed before Navigator finalizes the
+requirement packet. The finalized packet is the handoff from the conversational
+layer to the internal execution layer.
+
+```text
+intake
+  -> profiling
+  -> navigator questions
+  -> host answers
+  -> navigator due diligence
+  -> navigator clarification, if needed
+  -> finalized requirement packet
+  -> internal projections
+  -> planning and execution components
+```
+
+After finalization:
+
+- downstream components consume only the packet version they were given;
+- corrections create a new packet version through Navigator;
+- the old packet remains immutable history;
+- no component creates a new host question outside Navigator;
+- Planning Lock approval applies to the finalized packet version.
+
+The pipeline should expose a clear status such as
+`requirements-finalized` before it produces scope, proof, workflow, or approval
+projections.
+
+## Internal Clarification Routing
+
+Internal components still need a safe way to report gaps. They should emit a
+typed event rather than communicating with the host:
+
+```json
+{
+  "event": "clarification-required",
+  "source_component": "test-planner",
+  "packet_id": "packet-42",
+  "requirement_id": "req-03",
+  "question_kind": "proof-command",
+  "reason": "The proposed proof command does not exercise the requirement.",
+  "evidence_refs": ["proof-binding-18"]
+}
+```
+
+Navigator receives the event and either asks the host a bounded question, asks
+the user for a product decision, or rejects the internal interpretation with
+an explainable reason. The component never receives raw host conversation state
+and never bypasses Navigator to obtain an answer.
+
+## Canonical Intake Pipeline
+
+The host-question flow should not make every TailTrail component understand or
+reinterpret host answers. A central intake pipeline should own the validated
+contract, while Navigator, proof planning, workflow runtime, MCP, and reporting
+consume typed projections from it.
+
+```mermaid
+flowchart LR
+    U[User goal] --> P[Task profiler]
+    P --> Q[Question planner]
+    Q --> H[Host answers]
+    H --> C[Canonical intake contract]
+    C --> N[Navigator finalizes packet]
+    N --> D[Due diligence pipeline]
+    D --> S[Scope projection]
+    D --> R[Requirement projection]
+    D --> V[Validation projection]
+    D --> A[Approval projection]
+    R --> W[Workflow runtime]
+    V --> T[Test planner]
+    A --> L[Planning Lock]
+```
+
+The pipeline is the canonical input and decision ledger. Existing components
+remain responsible for their own decisions and evidence, but they must consume
+validated projections rather than rediscovering host intent.
+
+## ID Lineage
+
+The pipeline creates identifiers once and carries them through every
+projection:
+
+```text
+run_id
+  -> intake_contract_id
+      -> question_id
+          -> answer_id
+              -> requirement_id
+                  -> path_binding_id
+                      -> proof_binding_id
+                          -> artifact_id
+```
+
+Every derived decision should retain the IDs that caused it. For example, a
+scope decision should identify the requirement, path binding, and host answer
+that authorized the decision. A completion report should be able to answer:
+
+> What did the host say, what did TailTrail validate, and which component used
+> it?
+
+## Canonical Contract
+
+Host answers should be stored once in a hash-bound contract. Later artifacts
+reference the contract and its IDs instead of copying and reinterpreting the
+answers.
+
+```json
+{
+  "run_id": "run-123",
+  "contract_id": "contract-456",
+  "profile": "new-feature",
+  "requirements": [
+    {
+      "requirement_id": "req-03",
+      "statement": "Cross-check the registry against scripts and tests.",
+      "source_answers": ["answer-22"],
+      "path_bindings": ["path-binding-11"],
+      "proof_bindings": ["proof-binding-18"]
+    }
+  ],
+  "path_bindings": [
+    {
+      "path_binding_id": "path-binding-11",
+      "path": "tailtrail-registry.json",
+      "role": "inspection-input",
+      "source_answer": "answer-22"
+    }
+  ],
+  "proof_bindings": [
+    {
+      "proof_binding_id": "proof-binding-18",
+      "command": "python3 -m unittest tests.test_feature_health_audit -v",
+      "source_answer": "answer-22"
+    }
+  ]
+}
+```
+
+The contract must distinguish existing paths from proposed paths. A proposed
+implementation or proof path may not exist at planning time, but completion
+must require that the approved path is created and validated.
+
+## Component Adapters
+
+Each component should implement a small adapter boundary:
+
+```text
+consume(validated projection)
+validate(input schema)
+emit(evidence event)
+```
+
+The adapter boundary is internal-only. Its input is a finalized Navigator
+packet or a later immutable packet version; its output is an evidence or
+clarification event addressed to the pipeline.
+
+Examples:
+
+- Navigator consumes requirement and path-binding projections and emits scope
+  decisions and scope evidence.
+- The test planner consumes requirement, proof-binding, and acceptance
+  projections and emits a validation plan and proof coverage result.
+- The workflow runtime consumes the approved contract, scope decision, and
+  requirement mapping and emits handoffs and stage transitions.
+- Completion reporting consumes finalized projections and execution evidence;
+  it does not independently rediscover requirements or paths.
+
+This permits old and new components to plug into the same contract without
+requiring a simultaneous rewrite of the whole lifecycle.
+
+## Append-Only Evidence
+
+Answers and decisions should be recorded as append-only events:
+
+```text
+host-answer-recorded
+profile-selected
+path-role-bound
+requirement-bound
+proof-bound
+scope-validated
+clarification-requested
+clarification-answered
+approval-recorded
+```
+
+Corrections append a new event and reference the superseded answer. They do not
+rewrite the original answer, contract, or immutable anchor. This supports
+replay, recovery, auditability, and interruption-safe continuation.
+
+## Due-Diligence Projection Audit
+
+Before approval, the pipeline should produce a projection audit. Every host
+answer must be classified as one of:
+
+```text
+consumed
+unused
+contradicted
+inferred
+projected-without-source
+```
+
+For example:
+
+```text
+Question Q-03
+  Answer: tests/test_feature_health_audit.py
+  Role: proposed-proof-path
+  Used by: REQ-04, validation_contract, proof_plan
+  Status: consumed
+```
+
+An unused, contradicted, or inferred answer should produce clarification. It
+must not silently become an implementation owner, proof path, or acceptance
+criterion.
+
+## Remaining Gaps
+
+The pipeline design still needs explicit decisions for:
+
+- schema versioning and compatibility between old and new runs;
+- whether the canonical contract is JSON, JSONL events, or both;
+- event ordering and idempotency after interrupted host exchanges;
+- ownership of proposed-new paths before they exist;
+- how a proposed proof path becomes required completion scope;
+- how generated files and worktree paths are excluded consistently;
+- whether clarification rounds are capped globally or per profile;
+- CLI and MCP parity for contract submission and resume;
+- migration of existing runs that predate the intake contract;
+- redaction rules for sensitive host answers;
+- whether components may reject a projection or must return a typed
+  clarification event.
+
+The most important gap is the proposed-new path lifecycle. A new file cannot
+have normal relationship evidence before it exists, so the contract must allow
+explicit proposed ownership while requiring stronger post-implementation
+verification.
+
+## Migration Strategy
+
+This should be introduced as an internal pipeline, not as a replacement of all
+existing components:
+
+1. Add the canonical contract and ID generator.
+2. Add a shared semantic preflight validator.
+3. Route CLI, orchestration, and MCP Start through the validator.
+4. Add requirement and scope projection adapters.
+5. Add proof and validation projection adapters.
+6. Add approval, workflow, and completion projections.
+7. Add projection-audit and replay tests.
+8. Migrate old runs through a compatibility adapter rather than rewriting
+   historical artifacts.
+
+The P7 incident should be the first end-to-end regression: an incomplete P7
+contract must remain in clarification, while a complete contract must produce
+the same owner, proof, and requirement IDs in every downstream artifact.
+
 ## Recommended Delivery Order
 
 1. Add a shared semantic host-input preflight validator.
@@ -265,3 +574,47 @@ proof path should progress to scope and proof due diligence.
 The system should be strict about silent inference but flexible about explicit
 proposals for new files, tests, and ownership. This preserves safety without
 making new feature development impossible.
+
+## Agreed Architecture Decisions
+
+The following decisions are confirmed for the next design and implementation
+stage:
+
+1. Use an immutable operational contract together with an append-only event
+  stream.
+2. Treat the finalized Navigator packet as the canonical operational contract.
+3. Use one central ID service to generate all run, contract, question, answer,
+  requirement, path, proof, and artifact IDs.
+4. Allow explicit proposed-new implementation and proof paths with mandatory
+  post-implementation verification.
+5. Keep Navigator as the only host-facing component. Navigator may conduct
+  bounded two-way clarification with the host.
+6. Escalate a genuine dead end to the user for a product, ownership, or scope
+  decision rather than silently guessing.
+7. Keep user-facing questions profile-specific and route them through
+  Navigator.
+8. Require all CLI, MCP, orchestration, and internal entry points to use the
+  same intake pipeline and state transitions.
+9. Support resumable, idempotent event processing and replay after interruption.
+10. Define redaction, retention, and artifact ownership for host answers.
+
+### Next design focus
+
+Scope authority needs a dedicated design pass. In particular, the pipeline must
+record which answer authorized each editable path, distinguish existing paths
+from proposed-new paths, bind the approved path set to the immutable anchor,
+and detect edits outside that set at write time and closure time.
+
+The scope design must cover:
+
+- old-file edits;
+- proposed-new files;
+- tests and proposed proof files;
+- documentation-only paths;
+- configuration and data paths;
+- generated and external-reference paths;
+- multi-file changes with different roles;
+- path changes introduced after clarification or packet revision.
+
+No downstream component may broaden editable scope without a new Navigator
+packet version and a new central ID binding.
