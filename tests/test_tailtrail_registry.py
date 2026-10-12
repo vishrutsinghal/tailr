@@ -262,43 +262,42 @@ class TailTrailRegistryTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_cli_validate_is_advisory_unless_strict(self) -> None:
+    def test_cli_validate_is_strict_by_default_advisory_only_with_flag(self) -> None:
+        """P1: validate must fail closed by default; --advisory is the
+        explicit opt-out, and the legacy --strict flag stays a harmless
+        no-op so existing callers (.github/workflows/trust.yml) keep working
+        unchanged.
+        """
         registry = self.load_registry()
         registry["features"][0]["scripts"].append("scripts/does-not-exist.py")
         with tempfile.TemporaryDirectory() as temp:
             registry_path = Path(temp) / "registry.json"
             registry_path.write_text(json.dumps(registry), encoding="utf-8")
-            advisory = subprocess.run(
-                [
-                    sys.executable,
-                    (ROOT / "scripts" / "tailtrail-registry.py").as_posix(),
-                    "--registry",
-                    registry_path.as_posix(),
-                    "validate",
-                ],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            strict = subprocess.run(
-                [
-                    sys.executable,
-                    (ROOT / "scripts" / "tailtrail-registry.py").as_posix(),
-                    "--registry",
-                    registry_path.as_posix(),
-                    "validate",
-                    "--strict",
-                ],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
 
+            def run(*extra: str) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    [
+                        sys.executable,
+                        (ROOT / "scripts" / "tailtrail-registry.py").as_posix(),
+                        "--registry",
+                        registry_path.as_posix(),
+                        "validate",
+                        *extra,
+                    ],
+                    cwd=ROOT,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+
+            default = run()
+            strict = run("--strict")
+            advisory = run("--advisory")
+
+        self.assertEqual(default.returncode, 1)
+        self.assertEqual(strict.returncode, 1)
         self.assertEqual(advisory.returncode, 0)
         self.assertIn("Advisory mode", advisory.stdout)
-        self.assertEqual(strict.returncode, 1)
 
 
 if __name__ == "__main__":

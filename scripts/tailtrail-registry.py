@@ -539,20 +539,21 @@ def command_mcp(args: argparse.Namespace) -> int:
 
 
 def command_validate(args: argparse.Namespace) -> int:
+    strict = not args.advisory
     registry = load_registry()
     issues = validate_registry(registry)
     if args.format == "json":
-        print_json({"valid": not issues, "strict": args.strict, "issues": issues})
+        print_json({"valid": not issues, "strict": strict, "issues": issues})
     elif issues:
         print("TailTrail registry validation issues:")
         for issue in issues:
             print(f"- {issue}")
-        if not args.strict:
+        if not strict:
             print("")
-            print("Advisory mode: exiting 0. Use --strict to fail on drift.")
+            print("Advisory mode: exiting 0 because --advisory was passed.")
     else:
         print("TailTrail registry validation passed.")
-    return 1 if issues and args.strict else 0
+    return 1 if issues and strict else 0
 
 
 def command_drift(args: argparse.Namespace) -> int:
@@ -593,7 +594,8 @@ def build_parser() -> argparse.ArgumentParser:
     mcp_parser.set_defaults(func=command_mcp)
 
     validate_parser = subparsers.add_parser("validate", help="Validate registry structure and drift.")
-    validate_parser.add_argument("--strict", action="store_true", help="Exit non-zero when registry drift is found.")
+    validate_parser.add_argument("--strict", action="store_true", help="No longer changes behavior: strict is now the default. Kept for backward compatibility with existing callers.")
+    validate_parser.add_argument("--advisory", action="store_true", help="Exit 0 even when registry drift is found (the previous default behavior).")
     validate_parser.add_argument("--format", choices=("text", "json"), default="text")
     validate_parser.set_defaults(func=command_validate)
 

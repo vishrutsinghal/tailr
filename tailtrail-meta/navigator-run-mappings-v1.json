@@ -2668,9 +2668,128 @@
       "recorded_at": "2026-10-12T09:20:01.478567+00:00",
       "run_id": "start-20261012091234-5e8fa0",
       "scope_decision_fingerprint": "sha256:89358fdf5e94994dbaae59b28dfcb6ac42ddb9f625b1986a383b6aa170f793b2"
+    },
+    {
+      "closure_status": "evidence-incomplete",
+      "goal_fingerprint": "sha256:146b4447cc97ec6fc0f3b41b76c053765a558ccf1b53bf5ca5a3c5eec7e364fa",
+      "graph_cache_fingerprint": "sha256:14680b6a982e7fa6dd02e25e2bdda8dc7b5d4fc22e12a02bb708a3c04a5555fa",
+      "mapping_fingerprint": "sha256:99cf3852a17535a8adf71310441b0583e1d8f51f9691574412a6d7833e326f1b",
+      "path_hashes": {},
+      "query_terms": [
+        "absent",
+        "action",
+        "and",
+        "approved",
+        "but",
+        "command",
+        "distinguish",
+        "evidence",
+        "exact",
+        "executable",
+        "make",
+        "mentioned",
+        "needed",
+        "planning",
+        "proof",
+        "proof-update",
+        "report",
+        "show",
+        "start",
+        "the",
+        "traceability",
+        "validation_contract"
+      ],
+      "recorded_at": "2026-10-12T09:49:40.094049+00:00",
+      "run_id": "start-20261012093920-6cc9c9",
+      "scope_decision_fingerprint": "sha256:2d1271a215dfba366ab08b6035cc271416a132bbecfb9499f233a8598a365947"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:146b4447cc97ec6fc0f3b41b76c053765a558ccf1b53bf5ca5a3c5eec7e364fa",
+      "graph_cache_fingerprint": "sha256:14680b6a982e7fa6dd02e25e2bdda8dc7b5d4fc22e12a02bb708a3c04a5555fa",
+      "mapping_fingerprint": "sha256:102ee42ceb60e3db8cda54fe1726ae167ecc89a9dc3b8085cbb41505765c3a50",
+      "path_hashes": {},
+      "query_terms": [
+        "absent",
+        "action",
+        "and",
+        "approved",
+        "but",
+        "command",
+        "distinguish",
+        "evidence",
+        "exact",
+        "executable",
+        "make",
+        "mentioned",
+        "needed",
+        "planning",
+        "proof",
+        "proof-update",
+        "report",
+        "show",
+        "start",
+        "the",
+        "traceability",
+        "validation_contract"
+      ],
+      "recorded_at": "2026-10-12T09:50:41.371233+00:00",
+      "run_id": "start-20261012093920-6cc9c9",
+      "scope_decision_fingerprint": "sha256:2d1271a215dfba366ab08b6035cc271416a132bbecfb9499f233a8598a365947"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:c6854c045cc439e4019a50cf0404900a38e26961ca4b9aa223257cbaa0c6d9d4",
+      "graph_cache_fingerprint": "sha256:7dc70e4f140cfe7ad4a36055a023640568f210410c49667e2881f59b2b2ee361",
+      "mapping_fingerprint": "sha256:b3128e766349f530db87aa971137c902da5a5b4ff3779763b421b1567caa79d4",
+      "path_hashes": {
+        "scripts/delivery-record.py": "sha256:4b62e734ce2b68f77655a298098cfcf64b3698f07724a84b34fea05286526974",
+        "tests/test_delivery_record.py": "sha256:09e2482a69b5eef290f01cb9412e0bb05def795137c536e64bbdc27c049ab1c6"
+      },
+      "query_terms": [
+        "apply",
+        "canonical",
+        "creating",
+        "delivery-record",
+        "distinction",
+        "document",
+        "format",
+        "projection",
+        "same",
+        "second",
+        "the"
+      ],
+      "recorded_at": "2026-10-12T09:57:19.468139+00:00",
+      "run_id": "start-20261012095126-15ccbe",
+      "scope_decision_fingerprint": "sha256:2f6b79d67f2cf04c1b0297051d06e674a772e2c225c9757be0276bacc828ab34"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:dcab8f4ffbc686cccd4aaeb28c6f73a0c6cf0f1d67664987a25a8588f6e29bb9",
+      "graph_cache_fingerprint": "sha256:c7636a5510bef77f4d2b3e04eeef7953ad73ed52184b05317d249264f63a9921",
+      "mapping_fingerprint": "sha256:ca077c51b59eb4937fc49600f7fb3f35ae2167bec6b2eaf46969c9760145346c",
+      "path_hashes": {
+        "scripts/tailtrail-registry.py": "sha256:caa4b89bd39c379bff2d0e7ce4a70b9bdddf324a7421a0710bf94a4986790309",
+        "tests/test_tailtrail_registry.py": "sha256:1821f3907664cef0da52bc0666e483683383b12e442b1355663c2de95aadd867"
+      },
+      "query_terms": [
+        "command",
+        "default",
+        "drift",
+        "exit",
+        "found",
+        "make",
+        "non-zero",
+        "registry",
+        "the",
+        "validate"
+      ],
+      "recorded_at": "2026-10-12T10:12:25.486549+00:00",
+      "run_id": "start-20261012100321-5f6be5",
+      "scope_decision_fingerprint": "sha256:ee5f8f03662f073fbda8dc6ae010aae7fe91844207aa235cdf1f17280f1f9a87"
     }
   ],
   "schema_version": "1",
   "type": "tailtrail-navigator-run-mapping-index",
-  "updated_at": "2026-10-12T09:20:01.478580+00:00"
+  "updated_at": "2026-10-12T10:12:25.486556+00:00"
 }
