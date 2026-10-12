@@ -564,6 +564,39 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
         self.assertEqual(candidates[0]["status"], "inspection-only")
         self.assertIn("lexical-seed-needs-relationship-evidence", candidates[0]["reason_codes"])
 
+    def test_declared_role_resolves_arbitrary_extension_without_suffix_guessing(self) -> None:
+        self.write("src/policy.weird", "opaque policy payload\n")
+        candidates = navigator_scope.candidates_from_seeds(
+            self.root,
+            [navigator_scope.seed(
+                "src/policy.weird",
+                "explicit-path",
+                "user-provided-path",
+                declared_role="implementation-owner",
+            )],
+            ["implementation"],
+        )
+
+        self.assertEqual("implementation-owner", candidates[0]["role"])
+        self.assertEqual("inspection-only", candidates[0]["status"])
+        self.assertIn("declared-role", candidates[0]["reason_codes"])
+        self.assertEqual("src/policy.weird", candidates[0]["path"])
+
+    def test_conflicting_declared_roles_fail_closed(self) -> None:
+        self.write("src/policy.weird", "opaque policy payload\n")
+        candidates = navigator_scope.candidates_from_seeds(
+            self.root,
+            [
+                navigator_scope.seed("src/policy.weird", "explicit-path", "user-provided-path", declared_role="implementation-owner"),
+                navigator_scope.seed("src/policy.weird", "explicit-path", "user-provided-path", declared_role="configuration"),
+            ],
+            ["implementation"],
+        )
+
+        self.assertEqual("unknown", candidates[0]["role"])
+        self.assertEqual("rejected", candidates[0]["status"])
+        self.assertIn("conflicting-declared-roles", candidates[0]["reason_codes"])
+
     def test_explicit_path_is_an_owner_candidate_until_investigation_qualifies_it(self) -> None:
         self.write("src/service.py")
         self.write("tests/test_service.py")

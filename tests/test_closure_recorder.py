@@ -106,6 +106,23 @@ class ClosureRecorderTests(unittest.TestCase):
         self.assertEqual(result["validated_input"], "execution/evidence-stream.jsonl")
         self.assertTrue(result["completion_gate"]["complete"])
 
+    def test_records_approved_post_activation_proof_amendment(self) -> None:
+        amended_command = f"{quote(sys.executable)} -c {quote('print(\"amended closure proof\")')}"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root)
+            evidence.run_command(
+                root, "run", uids, ["unit"], amended_command,
+                "amended closure proof", ["src/service.py"], True, 30,
+                True, "The proof command was discovered after activation.",
+            )
+            result = recorder.record(root, run_id="run")
+            receipt = json.loads((root / result["receipt_artifacts"][0]).read_text(encoding="utf-8"))
+
+        self.assertTrue(result["completion_gate"]["complete"])
+        self.assertEqual(".tailtrail/runs/run/execution/proof-amendments.jsonl", result["proof_amendment_artifact"])
+        self.assertEqual(".tailtrail/runs/run/execution/proof-amendments.jsonl", receipt["proof_amendment_artifact"])
+
     def test_failed_requirement_evidence_keeps_the_closure_gate_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

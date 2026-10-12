@@ -321,6 +321,7 @@ class ScopeSeed:
     matched_terms: tuple[str, ...] = ()
     score: int = 0
     content_fingerprint: str | None = None
+    declared_role: str | None = None
 
     def __post_init__(self) -> None:
         if not self.path:
@@ -330,6 +331,8 @@ class ScopeSeed:
             raise ValueError("unknown scope seed source: " + ", ".join(sorted(unknown)))
         if not self.seed_sources or not self.reason_codes:
             raise ValueError("scope seed requires source and reason evidence")
+        if self.declared_role is not None and self.declared_role not in ROLES:
+            raise ValueError(f"unknown declared repository role: {self.declared_role}")
 
     def as_dict(self) -> dict[str, Any]:
         row: dict[str, Any] = {
@@ -341,6 +344,8 @@ class ScopeSeed:
         }
         if self.content_fingerprint:
             row["content_fingerprint"] = self.content_fingerprint
+        if self.declared_role:
+            row["declared_role"] = self.declared_role
         return row
 
     @classmethod
@@ -352,6 +357,7 @@ class ScopeSeed:
             matched_terms=_stable_strings(value.get("matched_terms", [])),
             score=int(value.get("score", 0)),
             content_fingerprint=str(value["content_fingerprint"]) if value.get("content_fingerprint") else None,
+            declared_role=str(value["declared_role"]) if value.get("declared_role") else None,
         )
 
 
@@ -403,6 +409,7 @@ def seed(
     matched_terms: Iterable[str] = (),
     score: int = 0,
     content_fingerprint: str | None = None,
+    declared_role: str | None = None,
 ) -> dict[str, Any]:
     return ScopeSeed(
         path=path,
@@ -411,6 +418,7 @@ def seed(
         matched_terms=_stable_strings(matched_terms),
         score=score,
         content_fingerprint=content_fingerprint,
+        declared_role=declared_role,
     ).as_dict()
 
 
@@ -643,6 +651,7 @@ def candidates_from_seeds(root: Path, seeds: Iterable[dict[str, Any] | ScopeSeed
         items = grouped[path]
         sources = _stable_strings(source for item in items for source in item.seed_sources)
         seed_reasons = _stable_strings(reason for item in items for reason in item.reason_codes)
+        declared_roles = sorted({item.declared_role for item in items if item.declared_role})
         sensitive = sensitive_path_reason(path)
         content_hashes = sorted({item.content_fingerprint for item in items if item.content_fingerprint})
         file_rejection: str | None = None
@@ -668,7 +677,15 @@ def candidates_from_seeds(root: Path, seeds: Iterable[dict[str, Any] | ScopeSeed
                     safety_bytes += len(text.encode("utf-8"))
                 if inspected_fingerprint:
                     content_hashes = [inspected_fingerprint]
-        role, role_reasons = classify_repository_role(root, path)
+        if len(declared_roles) > 1:
+            role = "unknown"
+            role_reasons = ("conflicting-declared-roles",)
+            file_rejection = file_rejection or "conflicting-declared-roles"
+        elif declared_roles:
+            role = declared_roles[0]
+            role_reasons = ("declared-role",)
+        else:
+            role, role_reasons = classify_repository_role(root, path)
         unsafe = sensitive or (file_rejection if file_rejection not in {None, "not-a-file"} else None)
         status, confidence, status_reason = _candidate_status(role, sources, task_set, bool(unsafe))
         if _is_legacy_shim(path) and status not in {"excluded", "rejected", "proof-only"}:

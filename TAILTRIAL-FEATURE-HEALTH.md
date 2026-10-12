@@ -2,7 +2,7 @@
 
 Snapshot of every TailTrail capability area, ordered by product importance,
 with a health status each. Evidence cutoff: session work through branch
-`tailtrail_v3` (Issues 2/3/3a/4/5/9 fixed + verified this session). Statuses marked **verified** rest on suites run
+`tailtrail_v3` (P5 and P6 fixed + verified; Issues 2/3/3a/4/5/9 fixed + verified this session). Statuses marked **verified** rest on suites run
 and live proofs executed this session; **untested** means no session evidence
 either way — not a failure claim.
 
@@ -21,8 +21,10 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Change-intent anchors | healthy | draft/approve/invalidate flows green; Lite derivation added |
 | Activation + DWR binding | healthy | handoffs created; role contract wired in |
 | Managed execution evidence | healthy | real `pass` receipts captured via managed runs |
+| P5 proof-amendment closure | fixed | P5c closure accepts approved additive proof amendments, rejects unapproved or malformed amendments, preserves immutable anchors, and retains amendment artifact references; 35/35 focused tests pass; Completion Report `start-20261012123930-e66104` |
 | Closure chain | healthy | record→report→finalize→close walked; refusals honest |
 | Navigator core routing | healthy | classification + task types stable across dry runs |
+| P6 generic file-role scope resolution | fixed | declared roles resolve independently of filename extension, conflicting roles fail closed, and safe candidates retain explicit role/provenance evidence; all 5 requirements pass with unit evidence; Completion Report `start-20261012122909-989bde` |
 | Run ledger / session control | healthy | archive/unarchive, resume, events all exercised |
 | Target workspace identity | healthy | identity/fit gates green |
 

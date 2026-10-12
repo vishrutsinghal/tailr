@@ -80,6 +80,42 @@ def artifact_pointer(root: Path, path: Path) -> str:
         return path.name
 
 
+def approved_proof_amendments(root: Path, run_id: str, requirements: dict[str, dict[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], str | None]:
+    """Load only valid, requirement-bound additive proof amendments."""
+    path = L.state_dir(root, run_id) / "execution" / "proof-amendments.jsonl"
+    if not path.is_file():
+        return {}, None
+    accepted: dict[str, list[dict[str, Any]]] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}, None
+    for line in lines:
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(item, dict) or item.get("type") != "tailtrail-proof-amendment":
+            continue
+        uid = str(item.get("requirement_uid", ""))
+        command = str(item.get("command", ""))
+        tiers = [str(value) for value in item.get("tiers", []) if str(value)]
+        reason = str(item.get("reason", "")).strip()
+        fingerprint = str(item.get("command_fingerprint", ""))
+        if (
+            item.get("run_id") != run_id
+            or item.get("approved") is not True
+            or uid not in requirements
+            or not command.strip()
+            or not tiers
+            or not reason
+            or fingerprint != hashlib.sha256(command.encode("utf-8")).hexdigest()
+        ):
+            continue
+        accepted.setdefault(uid, []).append(item)
+    return accepted, path.relative_to(root).as_posix()
+
+
 def collected_input(root: Path, run_id: str) -> dict[str, Any]:
     """Build one current closure snapshot from saved factual evidence.
 
@@ -95,6 +131,7 @@ def collected_input(root: Path, run_id: str) -> dict[str, Any]:
         for row in anchor.get("requirements", [])
         if isinstance(row, dict) and row.get("requirement_uid")
     }
+    amendments, amendment_artifact = approved_proof_amendments(root, run_id, requirements)
     receipt_fields = (
         "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
         "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
@@ -125,8 +162,17 @@ def collected_input(root: Path, run_id: str) -> dict[str, Any]:
                     for value in check.get("tiers", [])
                     if str(value)
                 } or {str(value) for value in contract.get("tiers", []) if str(value)}
-                if approved_commands and (
-                    command not in approved_commands or not item_tiers or item_tiers - approved_tiers
+                additive = [row for row in amendments.get(str(uid), []) if row.get("command") == command]
+                amended_tiers = {
+                    str(value)
+                    for row in additive
+                    for value in row.get("tiers", [])
+                    if str(value)
+                }
+                allowed_commands = approved_commands | ({command} if additive else set())
+                allowed_tiers = approved_tiers | amended_tiers
+                if allowed_commands and (
+                    command not in allowed_commands or not item_tiers or item_tiers - allowed_tiers
                 ):
                     valid_pair = False
                     break
@@ -158,6 +204,11 @@ def record(root: Path, input_path: Path | None = None, run_id: str | None = None
         return {**saved, "reused": True}
 
     normalized_receipts = receipt_rows(validated, record_id)
+    amendment_path = L.state_dir(root, run_id) / "execution" / "proof-amendments.jsonl"
+    amendment_artifact = amendment_path.relative_to(root).as_posix() if amendment_path.is_file() else None
+    if amendment_artifact:
+        for receipt in normalized_receipts:
+            receipt["proof_amendment_artifact"] = amendment_artifact
     receipts_path = records / f"{record_id}-receipts.json"
     results_path = records / f"{record_id}-results.json"
     L.atomic_json(receipts_path, {"receipts": normalized_receipts})
@@ -186,6 +237,7 @@ def record(root: Path, input_path: Path | None = None, run_id: str | None = None
         "validated_input": artifact_pointer(root, input_path) if input_path else "execution/evidence-stream.jsonl", "changed_paths": validated["changed_paths"],
         "receipt_artifacts": receipt_artifacts, "checkpoint": checkpoint["path"], "completion_review": review,
         "completion_gate": gate, "selected_harnesses": selected, "next_action": next_action,
+        "proof_amendment_artifact": amendment_artifact,
         "boundary": "Recorded validated evidence. Managed-command receipts were executed and captured by TailTrail; declared host receipts remain explicitly unverified.",
     }
     L.atomic_json(record_path, payload)
