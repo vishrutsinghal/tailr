@@ -90,7 +90,7 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Release / export / install flows | healthy | inspect/dry-run/real/idempotent/force all correct (launcher skew is env-level, known) |
 | Cross-repo / AST / impact graph | fixed | missing roots fail closed now (were rc-0-empty); cross-repo missing refs flagged, not silent -- see issues log 12.14 |
 | Orphan lock hygiene | hygiene | 504 awaiting-approval planning-only runs (~98 MB, mostly Aug-Sep 2026 verification runs); inert but unretained -- needs a retention/GC decision, not deletion without one |
-| `aidlc-answer` shell quoting | hygiene | `--answers '<json>'` breaks on Windows shells; base64 workaround pattern exists for sibling commands but no `--answers-base64` variant here -- fix unfiled |
+| `aidlc-answer` shell quoting | fixed | `--answers-base64` variant added mirroring `--questions-base64`; round-trip equals inline answers, malformed input fails cleanly |
 | Untracked `aidlc-docs` drafts | hygiene | 46 git-tracked planning docs (Aug-Sep 2026), unreferenced by any current process as far as verified -- owner decision pending, not verified orphaned |
 
 ## Net assessment
