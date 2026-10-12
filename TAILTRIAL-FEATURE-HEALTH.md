@@ -89,9 +89,9 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | Meta-harness | fixed | the exact 6 failing tests root-caused: all fail on one shared, genuine registry-drift signal (not a meta-harness bug) -- see issues log 12.12 for the full root cause and the new scope-resolution gap found while attempting the registry fix |
 | Release / export / install flows | healthy | inspect/dry-run/real/idempotent/force all correct (launcher skew is env-level, known) |
 | Cross-repo / AST / impact graph | fixed | missing roots fail closed now (were rc-0-empty); cross-repo missing refs flagged, not silent -- see issues log 12.14 |
-| Orphan lock hygiene | hygiene | ~12 awaiting locks from verification runs |
-| `aidlc-answer` shell quoting | hygiene | bypass proven, fix unfiled |
-| Untracked `aidlc-docs` drafts | hygiene | pre-existing, owner decision pending |
+| Orphan lock hygiene | hygiene | 504 awaiting-approval planning-only runs (~98 MB, mostly Aug-Sep 2026 verification runs); inert but unretained -- needs a retention/GC decision, not deletion without one |
+| `aidlc-answer` shell quoting | hygiene | `--answers '<json>'` breaks on Windows shells; base64 workaround pattern exists for sibling commands but no `--answers-base64` variant here -- fix unfiled |
+| Untracked `aidlc-docs` drafts | hygiene | 46 git-tracked planning docs (Aug-Sep 2026), unreferenced by any current process as far as verified -- owner decision pending, not verified orphaned |
 
 ## Net assessment
 
