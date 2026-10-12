@@ -290,6 +290,22 @@ calling a planning or closure result a product defect:
   authoritative receipt. Run the approved command through
   `execution-evidence`, record approved source-edit evidence, and generate the
   final Completion Report before judging the run complete.
+
+## 13. Approval, call-site, and push checks
+
+- **Approval is not activation.** After approving a plan, confirm the run is
+  `execution-ready` before executing proof or closing it. When the handoff says
+  activation is still required, run `planning activate --approved` for that
+  exact run.
+- **Do not approve incomplete plans.** Requirements, owner paths, proof
+  commands, task type, artifact owner, and positive/negative success criteria
+  must be visible and resolved before approval. Keep unknowns as questions.
+- **Test wiring at the real call site.** If a helper accepts a directory, root,
+  or report payload, test the public builder with the production argument shape;
+  a direct helper test can pass while the real caller is wrong.
+- **Push only reviewed scope.** Inspect `git status` and the exact diff before
+  committing. Separate generated graph metadata or unrelated user edits from
+  the requested change, then verify `HEAD == origin/<branch>` after pushing.
 - **Match the file's own indentation convention** (check it programmatically
   first) and keep diffs minimal -- especially in 1-space test/script files
   where one wrong space is a collection-breaking `IndentationError`.

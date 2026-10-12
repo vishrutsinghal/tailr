@@ -60,6 +60,20 @@ instead of rediscovering it.
    check); pre-existing failures must be proven on the clean tree before
    calling anything a regression; incidental churn (graph cache) gets
    reverted before commit.
+11. **Approval is not activation.** An approved plan may still require
+   `planning activate --approved` before execution handoff, managed evidence,
+   or closure. Do not treat `approved` and `execution-ready` as equivalent.
+12. **Plan completeness is a gate.** Do not present a plan as approvable while
+   requirements, owners, proof commands, task type, artifact ownership, or
+   positive/negative success criteria remain unresolved.
+13. **Validate the real call site.** When a finding concerns wiring or a
+   projection, a direct helper test is insufficient. Add a regression through
+   the public builder or CLI path that actually supplies the production
+   arguments.
+14. **Push hygiene is explicit.** Before commit or push, inspect `git status`,
+   compare the exact intended diff, exclude generated metadata unless it is
+   the requested change, report excluded files, and verify the remote branch
+   after pushing.
 
 ## 3. Command wiring checklist
 
