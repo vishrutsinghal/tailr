@@ -2155,7 +2155,9 @@ def main() -> int:
     aidlc_answer_parser = sub.add_parser("aidlc-answer", help="Record complete AIDLC Requirements-stage answers and render a revised boundary.")
     aidlc_answer_parser.add_argument("--root", type=Path, default=Path.cwd())
     aidlc_answer_parser.add_argument("--run-id", required=True)
-    aidlc_answer_parser.add_argument("--answers", required=True, help="JSON list of question_id, choice, and optional detail.")
+    answer_source = aidlc_answer_parser.add_mutually_exclusive_group(required=True)
+    answer_source.add_argument("--answers", help="JSON list of question_id, choice, and optional detail.")
+    answer_source.add_argument("--answers-base64", help="UTF-8 JSON answers encoded as Base64; use on Windows hosts where native argument quoting strips JSON quotes.")
     aidlc_approve_parser = sub.add_parser("aidlc-approve", help="Approve revised AIDLC requirements and activate the existing Planning Lock.")
     aidlc_approve_parser.add_argument("--root", type=Path, default=Path.cwd())
     aidlc_approve_parser.add_argument("--run-id", required=True)
@@ -2196,7 +2198,13 @@ def main() -> int:
         elif args.command == "aidlc-requirements":
             payload = request_aidlc_requirements(args.root, args.run_id)
         elif args.command == "aidlc-answer":
-            payload = submit_aidlc_answers(args.root, args.run_id, args.answers)
+            answers_json = args.answers
+            if args.answers_base64 is not None:
+                try:
+                    answers_json = base64.b64decode(args.answers_base64, validate=True).decode("utf-8")
+                except (ValueError, UnicodeDecodeError) as error:
+                    raise ValueError(f"--answers-base64 must be valid Base64-encoded UTF-8 JSON: {error} (see `tailtrail planning aidlc-answer --help` for the exact flag)") from error
+            payload = submit_aidlc_answers(args.root, args.run_id, answers_json)
         elif args.command == "aidlc-approve":
             payload = approve_aidlc_requirements(args.root, args.run_id, args.approved)
         elif args.command == "official-aidlc-questions":

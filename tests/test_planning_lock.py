@@ -471,6 +471,54 @@ class PlanningLockTests(unittest.TestCase):
         self.assertEqual(activity["aidlc_requirements_answered"], 1)
         self.assertEqual(activity["aidlc_requirements_approved"], 1)
 
+    def test_aidlc_answer_base64_matches_inline_answers(self) -> None:
+        import base64
+        import subprocess
+        import sys
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "fix the zero quantity validation defect and add focused validation", "plan-aidlc-b64")
+            lock.save_start_report(root, "plan-aidlc-b64", {
+                "goal": "fix the zero quantity validation defect and add focused validation",
+                "guided_delivery": {"mode": "guided-delivery", "selected": [{"name": "Requirement Completion Harness", "why": "map requirements"}], "stages": ["inspect approved scope", "implement", "validate"]},
+                "navigator": {"likely_impacted_files": [{"path": "src/validation.py"}]},
+            })
+            lock.request_aidlc_requirements(root, "plan-aidlc-b64")
+            answers = json.dumps([
+                {"question_id": "Q1", "choice": "B"},
+                {"question_id": "Q2", "choice": "A"},
+                {"question_id": "Q3", "choice": "B"},
+            ])
+            encoded = base64.b64encode(answers.encode("utf-8")).decode("ascii")
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "planning_lock.py"),
+                 "aidlc-answer", "--root", root.as_posix(), "--run-id", "plan-aidlc-b64",
+                 "--answers-base64", encoded],
+                text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Revised Requirements", result.stdout)
+            revision_path = root / ".tailtrail" / "runs" / "plan-aidlc-b64" / "planning" / "aidlc-revised-requirements-v1.json"
+            saved = json.loads(revision_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                {qid: row["choice"] for qid, row in saved["aidlc_answers"].items()},
+                {"Q1": "B", "Q2": "A", "Q3": "B"})
+
+    def test_aidlc_answer_malformed_base64_fails_cleanly(self) -> None:
+        import subprocess
+        import sys
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "planning_lock.py"),
+                 "aidlc-answer", "--root", root.as_posix(), "--run-id", "nope",
+                 "--answers-base64", "!!!not-base64!!!"],
+                text=True, capture_output=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("--answers-base64 must be valid", result.stderr + result.stdout)
+            self.assertNotIn("Traceback", result.stderr + result.stdout)
+
     def test_hands_free_plan_approval_accepts_saved_aidlc_recommendations_and_activates(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
