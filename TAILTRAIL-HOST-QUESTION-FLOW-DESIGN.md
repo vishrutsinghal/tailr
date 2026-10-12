@@ -34,14 +34,13 @@ Profile-specific question set
 Host answers questions
         |
         v
-TailTrail due diligence
+Navigator finalizes packet
         |
-   +----+----+
-   |         |
-accepted  clarification
-   |         |
-Planning   host/user
-Lock       follow-up
+   +----------------------+
+   |                      |
+Internal due diligence  clarification
+   |                      |
+Planning Lock       Navigator asks host/user
 ```
 
 ## Task Profiling
@@ -173,11 +172,11 @@ After receiving the host answers, TailTrail independently checks:
 - positive and negative criteria are covered;
 - callers, dependencies, and protected behavior are accounted for.
 
-The result should be one of:
+The internal due-diligence result should be one of:
 
 - accepted: create the Planning Lock;
-- clarification: ask the host for missing or contradictory information;
-- user-decision: ask the user to resolve a product or scope choice;
+- clarification: route a typed question through Navigator;
+- user-decision: route a product or scope choice through Navigator to the user;
 - revise-profile: change the task profile and ask a smaller or different set of
   questions.
 
@@ -228,15 +227,21 @@ The workflow should not loop indefinitely between the host and TailTrail.
   invention (see the Configuration question set above);
 - clarify unknowns when TailTrail asks.
 
-### TailTrail
+### Navigator
 
 - select the task profile;
 - generate the smallest relevant question set;
-- validate host answers;
-- perform scope and proof due diligence;
+- collect and validate host answers;
+- finalize the requirement and scope packet;
+- route internal clarification requests to the host or user.
+
+### Internal pipeline
+
+- perform scope and proof due diligence against the finalized packet;
 - preserve the hash-bound contract;
-- ask follow-up questions when evidence is insufficient;
-- prevent bypasses across CLI and MCP entry points.
+- emit typed evidence or clarification events;
+- prevent component-level host communication;
+- enforce the finalized packet across CLI and MCP entry points.
 
 ### User
 
@@ -380,6 +385,122 @@ Navigator receives the event and either asks the host a bounded question, asks
 the user for a product decision, or rejects the internal interpretation with
 an explainable reason. The component never receives raw host conversation state
 and never bypasses Navigator to obtain an answer.
+
+## Observation and Answer Protocol
+
+The host does not need to know questions before the interaction begins. The
+central TailTrail pipeline generates the question ID when Navigator creates the
+question, then sends that question to the host.
+
+```text
+user prompt
+  -> run_id generated
+  -> profile selected
+  -> question created
+  -> question_id generated
+  -> question sent to host
+  -> host returns an observation referencing question_id
+```
+
+Example question:
+
+```json
+{
+  "question_id": "question-07",
+  "packet_id": "packet-01",
+  "text": "Which path owns the behavior?"
+}
+```
+
+Example host observation:
+
+```json
+{
+  "question_id": "question-07",
+  "observation": {
+    "path": "scripts/example.py",
+    "exists": true
+  },
+  "source": "host-inspection",
+  "confidence": "observed"
+}
+```
+
+For unsolicited observations, the host supplies the active run and packet
+context. TailTrail creates the observation ID when it ingests the observation.
+The host never creates authoritative TailTrail IDs.
+
+The host provides observations; Navigator converts them into validated answers.
+Only validated answers may affect requirements, scope, proof, or authority.
+
+## Answer Acceptance States
+
+A host response must pass through explicit states:
+
+```text
+received
+  -> normalized
+  -> evidence-checked
+  -> accepted
+  -> contradicted
+  -> insufficient
+  -> clarification-required
+  -> user-decision-required
+```
+
+Only `accepted` answers may contribute to a finalized requirement packet. A host
+response must be tied to a question or an active packet context and must carry
+source, artifact references where applicable, confidence, timestamp, and
+redaction status.
+
+## Packet Versioning
+
+Packet versioning protects downstream components from acting on outdated
+accepted decisions. It is not necessary for every observation. An observation
+that adds evidence without changing an accepted decision remains on the current
+packet and advances only the event sequence.
+
+Create a new packet version when an accepted decision changes, including:
+
+- requirement meaning;
+- implementation owner;
+- path role;
+- existing versus proposed-new status;
+- proof path or validation command;
+- acceptance criteria;
+- edit authority.
+
+For example:
+
+```text
+packet-v1: scripts/old.py + tests/test_old.py
+  -> Navigator clarification
+packet-v2: scripts/new.py + tests/test_new.py
+  -> invalidate dependent projections
+  -> regenerate scope and proof projections
+```
+
+The original packet remains immutable. Components must reject stale packet
+versions and request a current projection from the pipeline. This prevents
+scope, proof, execution, and completion from operating on different accepted
+interpretations.
+
+## Communication Directionality
+
+The allowed communication directions are:
+
+| Direction | Allowed content |
+|---|---|
+| User -> Host | User goal and user context |
+| Host -> Navigator | Observations and responses to issued questions |
+| Navigator -> Host | Questions, clarification, and accepted next steps |
+| Internal component -> Navigator | Typed evidence or clarification events |
+| Internal component -> Host | Never |
+| TailTrail -> User | Escalation and final decisions |
+
+The host may inspect the repository and report findings as they appear, but the
+host cannot mark an answer accepted, finalize requirements, authorize scope, or
+approve proof.
 
 ## Canonical Intake Pipeline
 
