@@ -2326,3 +2326,95 @@ audit" mode: periodically re-verify each feature against live scenarios
 and cross-check `tailtrail-registry.json` against the actual
 `scripts/`/`tests/` trees, rather than relying on hand-maintained status
 labels that silently drift out of truth across sessions.
+
+---
+
+## 15. R6 implementation reviewed and live-tested (commit `d85153c`) -- core fix correct, one real plan-projection path bug found (Open)
+
+**What R6 actually fixed, confirmed by direct review before testing:**
+`scripts/execution-evidence.py`'s `run_command()` gained an additive
+`--amend-proof`/`--amendment-reason` path: when a command/tier isn't yet
+in the approved validation contract, explicitly passing both flags appends
+a durable, append-only `tailtrail-proof-amendment` record (command,
+command fingerprint, tiers, reason, timestamp) to
+`.tailtrail/runs/<id>/execution/proof-amendments.jsonl`, then authorizes
+*that one execution call* via an in-memory set addition -- it never
+mutates the immutable anchor or the saved plan. `tests/test_revision_proof_overlay.py`
+(7/7) and the new `tests/test_execution_evidence.py` amendment tests all
+pass. This correctly narrows the earlier R6 framing to exactly the
+scope agreed in discussion: late-discovered proof commands, not a general
+reopening of `proof-update`.
+
+**Live end-to-end test, not just unit tests:** built a real regression
+fix as the test vehicle -- `scripts/delivery-record.py`'s last remaining
+`str(path)` role-tagged-path corruption (R3's still-open half, confirmed
+unfixed before starting; now fixed and committed separately, see
+`5699ac7`). Ran the full real cycle: `tailtrail start` -> `planning
+activate --approved` *without* pre-registering any proof command
+(deliberately recreating the exact "didn't know the test yet" scenario) ->
+implemented the fix -> wrote a new regression test only at this point,
+genuinely after activation -> `execution-evidence run --approved
+--amend-proof --amendment-reason "..."` -- **worked on the first try**, no
+abandon-and-redo cycle. `closure record` -> anchor `correct` for the new
+test file's editable scope (a separate, known mechanism, confirmed to
+still coexist cleanly with the new amendment path) -> fresh checkpoint ->
+**`completion-report`: Overall: complete.** The core fix is real and
+working exactly as designed.
+
+**Finding -- confirmed, reproducible: the completion report's plan
+projection reads the amendment file from the wrong path (Open):**
+
+- **Symptom:** despite a real `execution/proof-amendments.jsonl` existing
+  on disk with a genuine entry, `completion-report`'s `plan` section came
+  back with `"approved_additions": []` and
+  `"source_artifacts": {"proof_amendments": null}` -- the amendment that
+  correctly authorized execution is invisible in the human-facing report,
+  defeating the auditability purpose the append-only ledger exists for.
+- **Root cause, confirmed by direct inspection, not inference:**
+  `scripts/completion-report.py`'s `plan_projection(root, run_id,
+  directory)` internally computes `run_directory = directory.parent` and
+  reads `base_path = run_directory / "planning" / "start-report-v1.json"`
+  and `amendment_path = directory / "proof-amendments.jsonl"` -- both
+  lines only make sense if `directory` is already the run's `execution/`
+  subfolder (so `.parent` recovers the run root). But the real call site,
+  `scripts/completion-report.py:710`, calls
+  `plan_projection(root, run_id, directory)` where `directory =
+  L.state_dir(root, run_id)` -- the **run root itself**, not the
+  `execution/` subfolder. The function and its one real caller disagree
+  about what the third argument means.
+- **This bug is not limited to proof amendments -- it breaks `base_plan`
+  too, confirmed live:** the same live run's `plan.base_plan.artifact`
+  came back `null` even though `start-report-v1.json` genuinely exists for
+  that run, because `run_directory` (computed as `directory.parent`) ends
+  up one level *above* the actual run directory when `directory` is the
+  run root rather than its `execution/` child. `plan_projection()` is
+  currently non-functional for its stated purpose in every real run, not
+  just the amendment-surfacing case.
+- **Why the test suite didn't catch this:** `test_plan_projection_separates_base_revision_and_proof_amendments`
+  (`tests/test_completion_report.py:48-75`) calls
+  `report.plan_projection(root, "run", run / "execution")` directly --
+  passing the `execution/` subfolder, which is internally consistent with
+  the function's own logic and passes cleanly. It never exercises the
+  real call site's actual argument (`run` alone, via `build()`), so the
+  call-site/function contract mismatch was invisible to this suite. This
+  is the same class of lesson as this session's own Section 13/13a: a
+  unit test that mocks or hand-supplies an internal parameter can stay
+  green while the real integration wiring is broken.
+- **Severity:** not a safety or authority gap -- the amendment correctly
+  authorizes execution regardless of this bug, confirmed by the actual
+  `execution-evidence run` call succeeding and `completion-report`
+  reaching `Overall: complete`. It is a transparency/auditability gap:
+  the one feature whose entire purpose is "make additive authority grants
+  visible" doesn't currently display them.
+- **Status:** Open, not fixed (found during review, not addressed in this
+  pass).
+
+**Where to look when picking this up:**
+- `scripts/completion-report.py:710` -- change
+  `plan_projection(root, run_id, directory)` to
+  `plan_projection(root, run_id, directory / "execution")`, matching what
+  the function body already assumes and what the existing unit test
+  already (correctly) supplies.
+- After fixing, re-verify `base_plan.artifact` resolves correctly for a
+  plain run too, not just the amendment-surfacing case -- both symptoms
+  share the same root cause and should be checked together.
