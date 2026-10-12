@@ -22,10 +22,41 @@ def load(name: str, path: str):
 
 ledger = load("dr_ledger", "scripts/run-ledger.py")
 anchor_mod = load("dr_anchor", "scripts/change-intent-anchor.py")
+lock = load("dr_lock", "scripts/planning_lock.py")
 delivery_record = load("dr_live", "scripts/delivery-record.py")
 
 
 class DeliveryRecordRoleTaggedPathTests(unittest.TestCase):
+    def test_plan_shows_traceability_only_proof_and_safe_next_action(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            proposal = root / "proposal.json"
+            proposal.write_text(json.dumps({"requirements": [{
+                "statement": "Show proof clarity", "display_id": "REQ-01",
+                "likely_paths": ["scripts/task-start.py"],
+                "quoted_literals": ["python3 -m unittest tests.test_example -v"],
+                "validation_contract": {"state": "required", "tiers": ["unit"], "commands": []},
+                "acceptance_criteria": [], "preserve_rules": [], "evidence_plan": [],
+            }]}), encoding="utf-8")
+            lock.create(root, "proof clarity", "run")
+            anchor_mod.draft(root, "run", proposal)
+            anchor_mod.approve(root, "run")
+            lock.approve(root, "run", True)
+            (ledger.state_dir(root, "run") / "planning" / "start-report-v1.json").write_text(
+                json.dumps({"report": {"navigator": {"requirement_matrix": [{
+                    "display_id": "REQ-01",
+                    "quoted_literals": ["python3 -m unittest tests.test_example -v"],
+                }]}}}),
+                encoding="utf-8",
+            )
+
+            section = delivery_record.render_plan(root, "run")
+
+        self.assertIn("Traceability evidence", section)
+        self.assertIn("Approved executable proof: none registered", section)
+        self.assertIn("traceability-only; not executable yet", section)
+        self.assertIn("planning revise", section)
+
     def test_role_tagged_likely_path_still_matches_changed_files(self) -> None:
         """Regression test: a role-tagged {"path": ..., "role": ...} entry in
         an approved requirement's likely_paths must still match against the

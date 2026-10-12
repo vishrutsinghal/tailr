@@ -10,6 +10,7 @@ import importlib.util
 import json
 import re
 import os
+import shlex
 import sys
 from pathlib import Path
 from typing import Any, Iterable
@@ -213,6 +214,68 @@ def append_requirement_interpretation(lines: list[str], plan: dict[str, Any]) ->
             "any file or document mentioned in the goal was not verified as read."
         )
     lines.append("")
+
+
+def append_proof_authorization_status(
+    lines: list[str],
+    plan: dict[str, Any],
+    requirements: list[dict[str, Any]],
+    lock: dict[str, Any] | None,
+) -> None:
+    """Separate traceability evidence from approved executable proof."""
+    interpreted = plan.get("requirement_interpretation") if isinstance(plan, dict) else None
+    clauses = {
+        str(item.get("clause_id")): item
+        for item in interpreted.get("clauses", [])
+        if isinstance(item, dict) and item.get("clause_id")
+    } if isinstance(interpreted, dict) else {}
+    records: list[tuple[str, list[tuple[str, str]]]] = []
+    for requirement in requirements:
+        contract = requirement.get("validation_contract", {})
+        contract = contract if isinstance(contract, dict) else {}
+        approved = {str(value) for value in contract.get("commands", []) if str(value).strip()}
+        tiers = [str(value) for value in contract.get("tiers", []) if str(value).strip()] or ["unit"]
+        traceability: list[str] = [
+            str(value).strip()
+            for value in requirement.get("quoted_literals", [])
+            if str(value).strip()
+        ]
+        for clause_id in requirement.get("source_clause_ids", []):
+            clause = clauses.get(str(clause_id), {})
+            if clause.get("role") == "evidence" and str(clause.get("text", "")).strip():
+                traceability.append(str(clause["text"]).strip())
+        traceability = list(dict.fromkeys(traceability))
+        unapproved = [value for value in traceability if value not in approved]
+        if not traceability and not approved:
+            continue
+        display_id = str(requirement.get("display_id") or requirement.get("requirement_uid") or "REQ")
+        fields: list[tuple[str, str]] = []
+        if traceability:
+            fields.append(("Traceability evidence", "; ".join(f"`{display_prose(value)}`" for value in traceability)))
+        fields.append(("Approved executable proof", "; ".join(f"`{display_prose(value)}`" for value in sorted(approved)) if approved else "none registered"))
+        if unapproved:
+            run_id = str((lock or {}).get("run_id") or "<run-id>")
+            payload = {
+                "kind": "proof-update",
+                "requirement_uid": display_id,
+                "reason": "Register traceability-only proof before activation.",
+                "evidence_plan": ["Run the focused validation."],
+                "commands": [unapproved[0]],
+                "tiers": tiers,
+            }
+            revise = (
+                f"{plan.get('command_prefix', 'python3 scripts/tailtrail.py')} planning revise "
+                f"--root . --run-id {shlex.quote(run_id)} --changes {shlex.quote(json.dumps([payload], separators=(',', ':')))} "
+                "--approved-proposal"
+            )
+            fields.append(("Status", "traceability-only; not executable yet"))
+            fields.append(("Next action", f"`{revise}`"))
+        else:
+            fields.append(("Status", "approved executable proof"))
+        records.append((display_id, fields))
+    if records:
+        lines.extend(["", "## Proof authorization status", ""])
+        append_stacked_records(lines, records)
 
 
 def append_stacked_records(
@@ -4566,6 +4629,7 @@ def compact_start_report(report: dict[str, Any]) -> str:
         lines.append(requirement_line(item))
     if not requirement_rows:
         lines.append("- Implement the approved goal with the smallest maintainable change.")
+    append_proof_authorization_status(lines, plan, requirement_rows, lock)
     lines.extend(["", "## Scope", ""])
     target = report.get("target_root")
     if isinstance(target, dict) and target.get("requested"):
@@ -5485,6 +5549,7 @@ def verbose_start_report(
         lines.append(requirement_line(item))
     if not requirement_rows:
         lines.append("- Implement the approved goal with the smallest maintainable change.")
+    append_proof_authorization_status(lines, plan, requirement_rows, lock)
     lines.extend(["", "## Scope", ""])
     target = report.get("target_root")
     if isinstance(target, dict) and target.get("requested"):

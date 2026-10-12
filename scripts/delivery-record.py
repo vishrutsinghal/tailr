@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,51 @@ def report_text(value: Any) -> str:
     if value is None:
         return "-"
     return " ".join(str(value).split()) or "-"
+
+
+def proof_authorization_fields(
+    requirement: dict[str, Any],
+    run_id: str,
+    traceability_literals: list[str] | None = None,
+) -> list[tuple[str, str]]:
+    """Return traceability and executable-proof fields for one plan row."""
+    contract = requirement.get("validation_contract", {})
+    contract = contract if isinstance(contract, dict) else {}
+    approved = {str(value) for value in contract.get("commands", []) if str(value).strip()}
+    traceability = list(dict.fromkeys(
+        str(value).strip()
+        for value in [*(requirement.get("quoted_literals", []) or []), *(traceability_literals or [])]
+        if str(value).strip()
+    ))
+    unapproved = [value for value in traceability if value not in approved]
+    if not traceability and not approved:
+        return []
+    fields = [
+        ("Traceability evidence", "; ".join(f"`{report_text(value)}`" for value in traceability) if traceability else "none recorded"),
+        ("Approved executable proof", "; ".join(f"`{report_text(value)}`" for value in sorted(approved)) if approved else "none registered"),
+    ]
+    if unapproved:
+        tiers = [str(value) for value in contract.get("tiers", []) if str(value)] or ["unit"]
+        payload = {
+            "kind": "proof-update",
+            "requirement_uid": str(requirement.get("display_id") or requirement.get("requirement_uid") or "REQ"),
+            "reason": "Register traceability-only proof before activation.",
+            "evidence_plan": ["Run the focused validation."],
+            "commands": [unapproved[0]],
+            "tiers": tiers,
+        }
+        revise = (
+            "python3 scripts/tailtrail.py planning revise "
+            f"--root . --run-id {shlex.quote(run_id)} --changes {shlex.quote(json.dumps([payload], separators=(',', ':')))} "
+            "--approved-proposal"
+        )
+        fields.extend([
+            ("Status", "traceability-only; not executable yet"),
+            ("Next action", f"`{revise}`"),
+        ])
+    else:
+        fields.append(("Status", "approved executable proof"))
+    return fields
 
 
 def render_plan(root: Path, run_id: str) -> str:
@@ -94,6 +140,11 @@ def render_plan(root: Path, run_id: str) -> str:
         for row in scope_evidence.get("requirements", [])
         if isinstance(row, dict) and row.get("requirement_id")
     }
+    start_requirements = {
+        str(row.get("display_id") or row.get("requirement_id") or row.get("statement")): row
+        for row in navigator.get("requirement_matrix", [])
+        if isinstance(row, dict)
+    }
 
     lines = [
         "# Delivery Record",
@@ -126,6 +177,9 @@ def render_plan(root: Path, run_id: str) -> str:
         contract = requirement.get("validation_contract", {}) if isinstance(requirement.get("validation_contract"), dict) else {}
         tiers = contract.get("tiers", [])
         lines.append("- Validation contract: " + (", ".join(tiers) if tiers else report_text(contract.get("state"))))
+        start_row = start_requirements.get(str(requirement.get("display_id") or requirement.get("requirement_id") or requirement.get("statement")), {})
+        for label, value in proof_authorization_fields(requirement, run_id, start_row.get("quoted_literals", [])):
+            lines.append(f"- {label}: {value}")
         evidence_plan = requirement.get("evidence_plan", [])
         if evidence_plan:
             lines.append("- Evidence plan:")

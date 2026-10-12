@@ -1031,6 +1031,24 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertIn("Full scoped-file ceiling:", rendered)
         self.assertNotIn("Repository inventory ceiling", rendered)
 
+    def test_start_report_distinguishes_traceability_from_executable_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            report = task_start.build_report("review validation proof", root, ["scripts/task-start.py"], "tailtrail")
+            report["planning_lock"] = {"run_id": "r10-plan", "status": "awaiting-approval", "writes_allowed": False}
+            requirement = report["navigator"]["requirement_matrix"][0]
+            requirement["display_id"] = "REQ-01"
+            requirement["quoted_literals"] = ["python3 -m unittest tests.test_example -v"]
+            requirement["validation_contract"] = {"state": "required", "tiers": ["unit"], "commands": []}
+            rendered = task_start.compact_start_report(report)
+
+        self.assertIn("## Proof authorization status", rendered)
+        self.assertIn("Traceability evidence", rendered)
+        self.assertIn("Approved executable proof", rendered)
+        self.assertIn("traceability-only; not executable yet", rendered)
+        self.assertIn("planning revise", rendered)
+        self.assertIn("python3 -m unittest tests.test_example -v", rendered)
+
     def test_guided_report_keeps_lock_and_responsive_markdown_structure(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
