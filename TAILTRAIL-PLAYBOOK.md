@@ -308,3 +308,35 @@ For delivery plans, the canonical human-readable projection is
 appends implementation and closure sections. Do not invent a parallel
 `completion-reports/report-N.md` document when `delivery-record.md` already
 owns that user-facing surface.
+
+## 12. R10 requirement and lifecycle lessons
+
+These lessons were verified during the R10 Start Report and Delivery Record
+work:
+
+- **Preserve requirement boundaries clause-by-clause.** If the artifact has
+  three outcomes, do not collapse them into one broad requirement. Compare the
+  final requirement matrix with every artifact outcome and constraint before
+  approval.
+- **Approval and activation are different states.** `approved` means the plan
+  may be activated; `activated` means execution authority and handoff artifacts
+  exist. Closure requires activation, so run `planning activate --approved`
+  when the approved flow does not use an automatic activation path.
+- **Split multi-owner work deliberately.** A Start Report owner and a Delivery
+  Record owner should be separate focused runs. Do not force one implementation
+  owner to cover both surfaces merely because they share one user requirement.
+- **Join canonical sources in projections.** Traceability literals may live in
+  the Start Report while executable commands live in the approved anchor or
+  proof-amendment ledger. A projection must read both sources and label their
+  different authority levels.
+- **Constraint rows need evidence too.** A safety or preservation constraint
+  may not be independently completable in the user model, but the completion
+  harness can still require linked evidence. Register a trusted proof receipt
+  for every approved row or explicitly model the row as non-completable.
+- **Testing handoff precedes test edits.** Complete production edits, run
+  `tailtrail pipeline handoff --from-stage IMPLEMENTATION`, and only then edit
+  test-role files. Recording the handoff after a test edit is an audit repair,
+  not the correct workflow.
+- **Do not trust a green suite alone.** Use managed evidence and a linked
+  Behaviour Harness scenario when the selected controls require one. A unit
+  suite can pass while the lifecycle projection remains incomplete.
