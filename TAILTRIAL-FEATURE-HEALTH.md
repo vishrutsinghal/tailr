@@ -83,12 +83,12 @@ proven this session) · `degraded` (known live issue) · `aspirational`
 | CI/Sonar + scanners | fixed | sonar-summary.py: 4/4 live scenarios pass, healthy. scanner-graph-overlay.py: found and fixed a real security-relevant bug (private-key redaction unreachable for real multi-line PEM blocks); fixed via a real tailtrail start cycle with trusted execution evidence -- see issues log 12.9 |
 | Guardrails / policy / enterprise | healthy | enterprise-target-policy.py + guardrail-precision.py: 11 pre-existing tests pass. guardrail-check.py: 12/13 live scenarios pass. The precision gap is fixed -- a bare version bump now produces zero findings, confirmed live -- see issues log 12.10 |
 | Assistant adapters / conformance | healthy | 11/11 green incl. CLI/MCP/markdown fingerprint parity; host projections agree |
-| Token suite | untested | not exercised |
-| UI planning / visual reqs | untested | not exercised |
+| Token suite | fixed | ~30 live scenarios green; router state files no longer persist prompt text (was durable secret retention with zero consumers) -- see issues log 12.13 |
+| UI planning / visual reqs | healthy | precise on conventional layouts, honestly empty otherwise, fail-closed on bad roots |
 | Benchmarks / evaluation | fixed | 28/28 pre-existing tests pass; "degraded" note root-caused to genuine tailtrail-registry.json drift (8 real unclaimed scripts/commands), not a code bug. Fix attempt hit a new, deeper scope-resolution gap (JSON/config files can't resolve as scope); parked by explicit decision -- see issues log 12.12 |
 | Meta-harness | fixed | the exact 6 failing tests root-caused: all fail on one shared, genuine registry-drift signal (not a meta-harness bug) -- see issues log 12.12 for the full root cause and the new scope-resolution gap found while attempting the registry fix |
-| Release / export / install flows | untested | not exercised (launcher skew is env-level, known) |
-| Cross-repo / AST / impact graph | untested | not exercised |
+| Release / export / install flows | healthy | inspect/dry-run/real/idempotent/force all correct (launcher skew is env-level, known) |
+| Cross-repo / AST / impact graph | fixed | missing roots fail closed now (were rc-0-empty); cross-repo missing refs flagged, not silent -- see issues log 12.14 |
 | Orphan lock hygiene | hygiene | ~12 awaiting locks from verification runs |
 | `aidlc-answer` shell quoting | hygiene | bypass proven, fix unfiled |
 | Untracked `aidlc-docs` drafts | hygiene | pre-existing, owner decision pending |

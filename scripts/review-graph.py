@@ -299,6 +299,8 @@ def nearby_manifests(root: Path, changed_files: list[Path]) -> list[dict[str, st
 
 
 def graph(root: Path, changed_items: list[str], limit: int, *, capture: bool = True) -> dict[str, Any]:
+    if not root.is_dir():
+        raise ValueError(f"review root does not exist: {root.as_posix()}")
     changed_files = normalize_changed(root, changed_items or git_changed(root))
     candidates = list_candidates(root)
     per_file = []

@@ -634,7 +634,7 @@ actually found. Each entry names the feature, why it was picked, exactly what
 scenarios were run and how, the results, and the detailed analysis of any
 real finding.
 
-### 12.1 Quality Loop (Tier 2) -- `scripts/quality-loop.py` / `tailtrail quality-loop` (Fixed)
+### 12.1 Quality Loop (Tier 2) -- `scripts/quality-loop.py` / `tailtrail quality-loop` (Fixed) (Fixed)
 
 **Why this one first:** first `untested` row under Tier 2 (quality harnesses)
 in `TAILTRAIL-FEATURE-HEALTH.md`. Confirmed genuinely untested, not just
@@ -852,7 +852,7 @@ forward are the inventory-accuracy lesson (Finding 1) and the
 (Finding 2) -- both corrected in `TAILTRIAL-FEATURE-HEALTH.md` alongside
 this entry.
 
-### 12.3 Recovery / Mode B (Tier 2) -- `scripts/requirement-recovery-manifest.py` / `tailtrail harness mode-b` (Fixed)
+### 12.3 Recovery / Mode B (Tier 2) -- `scripts/requirement-recovery-manifest.py` / `tailtrail harness mode-b` (Fixed) (Fixed)
 
 **Why this one:** next `untested` row under Tier 2 in
 `TAILTRIAL-FEATURE-HEALTH.md`.
@@ -1067,7 +1067,7 @@ whole area, since a wrong call there could either block legitimate work or
 silently widen write authority -- is proven correct on all three of its
 branches, not merely plausible from reading the code.
 
-### 12.6 Flaky Tracker / CI Ingest (Tier 2) -- `scripts/flaky-test-tracker.py`, `scripts/ci-evidence-ingest.py` / `tailtrail harness {flaky,ci-ingest}` (Fixed)
+### 12.6 Flaky Tracker / CI Ingest (Tier 2) -- `scripts/flaky-test-tracker.py`, `scripts/ci-evidence-ingest.py` / `tailtrail harness {flaky,ci-ingest}` (Fixed) (Fixed)
 
 **Why this one:** last two `untested` rows left under Tier 2.
 `flaky-test-tracker.py` keeps local per-test-ID pass/fail history within a
@@ -1169,7 +1169,7 @@ first one passed for the wrong reason -- worth remembering as a method
 note: a scenario passing is not evidence of correctness if the scenario
 could not have distinguished pass from fail in the first place.
 
-### 12.7 Higher-Tier Testing (Tier 2) -- `scripts/higher-tier-testing.py`, `scripts/release-confidence.py` / `tailtrail harness {higher-tier,release-confidence}` (Fixed)
+### 12.7 Higher-Tier Testing (Tier 2) -- `scripts/higher-tier-testing.py`, `scripts/release-confidence.py` / `tailtrail harness {higher-tier,release-confidence}` (Fixed) (Fixed)
 
 **Why this one and its scope:** last remaining Tier 2 `untested` row.
 `higher-tier-testing.py` runs one repository-declared command (integration/
@@ -1647,6 +1647,54 @@ failures and the scope-resolution gap are left for deliberate follow-up.
   (`navigator` for `docs-only`/`prompt`/`start_request.py`/
   `host-interpretation-builder.py`; `requirement-completion-harness` for
   `delivery-record.py`/`run-closeout.py`).
+
+---
+
+### 12.13 Token suite (Tier 3) -- router state prompt persistence (Fixed)
+
+**Method:** ~30 live CLI scenarios across the whole surface in disposable
+temp roots -- route/reduce/ledger/proof/holdout/budget/telemetry/savings/
+profiles/router/auto/bridge plus dispatcher parity -- plus adversarial
+probes (secrets through route/reduce, corrupt ledger lines, oversized
+input, malformed telemetry, negative tokens, unapproved writes). All green
+except one real finding.
+
+**Finding -- `token-auto.py` and `route-context.py` persist full raw
+prompts to `.tailtrail` state files by default (Fixed):** both write the
+complete user prompt text (`token-autopilot-state.json` /
+`token-router-state.json`) unless `--no-state` is passed -- proven live
+with a shaped test key sitting on disk until deleted. Same class as 12.1,
+lower severity (`.tailtrail/` is gitignored, local-only), but more
+clear-cut: nothing in the codebase reads either file, so the persisted
+prompt serves zero function. Fix: drop the `prompt` field from both state
+payloads (counts/route stay). New `tests/test_router_state_privacy.py`
+(2 tests, fail on old code with the secret in the payload); neighbors
+green. Receipts, ledger events, and telemetry were checked in the same
+pass and never persist prompt text -- only these two router state files
+did.
+
+### 12.14 Tier 3 leftovers: UI planning, Release/export, Cross-repo/AST (Fixed)
+
+**Method:** ~25 live scenarios -- UI discovery on minimal, rich, and
+conventional fixtures plus error paths; review-graph callers/tests/read
+order; cross-repo basic + missing-reference flows; install
+inspect/dry-run/real/idempotent/force; ast-map symbols; help surfaces.
+
+**Mostly green:** UI discovery is precise on conventional layouts and
+honestly empty otherwise; review-graph finds callers/tests correctly;
+cross-repo flags missing refs (`missing` + warning, fail-informative);
+install flows all correct including dry-run writing nothing.
+
+**Finding -- nonexistent roots fail open in `review-graph.py` and
+`ast-map.py` (Fixed):** both return rc 0 with empty results for a root
+that does not exist -- and review-graph additionally drops the requested
+file silently (`"changed": []`), making "no impact" indistinguishable
+from "bad root". `ui-consistency.py` fails closed on the identical input,
+so the codebase already knew the right behavior. Fix: `root.is_dir()`
+check at both entry points (same fail-closed shape); empty-but-real
+directories keep working. New `tests/test_review_graph.py` (5 tests, 4
+fail old code). Callers already handle nonzero rc (`navigator_discovery`
+returns None).
 
 ---
 

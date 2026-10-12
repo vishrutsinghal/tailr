@@ -150,7 +150,10 @@ def decide(prompt: str) -> AutopilotDecision:
     )
 
 
-def decision_payload(decision: AutopilotDecision, prompt: str) -> dict[str, object]:
+def decision_payload(decision: AutopilotDecision) -> dict[str, object]:
+    # The raw prompt is deliberately NOT persisted: word count plus the
+    # route decision carry everything state consumers need, and prompt
+    # text may contain credentials pasted by accident.
     return {
         "action": decision.action,
         "task_size": decision.task_size,
@@ -159,7 +162,6 @@ def decision_payload(decision: AutopilotDecision, prompt: str) -> dict[str, obje
         "reason": decision.reason,
         "next_action": decision.next_action,
         "route": decision.route,
-        "prompt": prompt,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -208,7 +210,7 @@ def main() -> int:
 
     prompt = " ".join(args.prompt).strip()
     decision = decide(prompt)
-    payload = decision_payload(decision, prompt)
+    payload = decision_payload(decision)
 
     if args.format == "json":
         print(json.dumps(payload, indent=2))

@@ -317,7 +317,10 @@ def route_for(raw: str, prompt_words: list[str]) -> Route:
     return ROUTES[route_name]
 
 
-def state_payload(route: Route, prompt: str) -> dict[str, object]:
+def state_payload(route: Route) -> dict[str, object]:
+    # The raw prompt is deliberately NOT persisted: the route decision
+    # carries everything state consumers need, and prompt text may
+    # contain credentials pasted by accident.
     return {
         "last_route": route.name,
         "lane": route.lane,
@@ -325,14 +328,13 @@ def state_payload(route: Route, prompt: str) -> dict[str, object]:
         "slice": route.slice,
         "exactness_risk": route.exactness_risk,
         "exact_text": route.exact_text,
-        "prompt": prompt,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
-def write_state(path: Path, route: Route, prompt: str) -> None:
+def write_state(path: Path, route: Route) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state_payload(route, prompt), indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(state_payload(route), indent=2) + "\n", encoding="utf-8")
 
 
 def print_markdown(route: Route) -> None:
@@ -374,7 +376,7 @@ def main() -> int:
         print_markdown(route)
 
     if not args.no_state:
-        write_state(args.state, route, prompt)
+        write_state(args.state, route)
 
     return 0
 

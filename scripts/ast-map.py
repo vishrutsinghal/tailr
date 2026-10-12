@@ -940,6 +940,8 @@ def build_semantic_layer(root: Path, data: dict[str, list[dict[str, Any]]], refs
 
 
 def build(root: Path, changed_values: list[str], depth: str, limit: int, provider_output_values: list[str] | None = None, approved: bool = False) -> dict[str, Any]:
+    if not root.is_dir():
+        raise ValueError(f"AST map root does not exist: {root.as_posix()}")
     provider_output_values = provider_output_values or []
     enforce_v3_gate(root, depth, provider_output_values, approved)
     changed = normalize_paths(root, changed_values or git_changed(root))
