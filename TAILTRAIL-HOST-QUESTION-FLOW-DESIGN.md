@@ -61,6 +61,18 @@ Relevant dimensions include:
 The profile selects the smallest useful question set. A prose-only document
 change should not receive the same questionnaire as a new production feature.
 
+Profiling must be deterministic and appealable, not clever: a wrong
+profile corrupts everything downstream while looking like a correct run,
+so derive it from checkable facts in fixed priority order -- named paths'
+file kinds first (a lone `.json` path is config, full stop), explicit
+task verbs in the goal second, judgment last. A judgment-derived profile
+must be recorded as one (profile + reason + confidence), never silently
+baked in. And the host sees the chosen profile with its reason before
+any question is asked, with a one-word escape hatch ("wrong profile:
+this is infra") that re-runs profiling instead of dragging a bad label
+through five rounds of questions. A wrong profile caught at question
+zero costs nothing; caught at approval costs a run.
+
 ## Profile Questions
 
 ### Documentation
@@ -97,12 +109,16 @@ Ask:
 
 ### Configuration or Data
 
-Ask:
+Ask only for facts the host alone can know -- never for roles or
+verdicts (a host asserting "implementation-owned" for a file with zero
+evidence is indistinguishable from scope invention; roles are derived
+solely by TailTrail from evidence):
 
-- Is the path implementation-owned, inspection-only, generated, or proof-only?
-- Which consumer owns the behavior?
+- Which exact file is changing, and is it an existing file or a proposed
+  new one?
+- What consumer or behavior does this file serve?
 - What schema or format must remain valid?
-- Is write authority explicitly granted?
+- Is write authority explicitly granted, and by whom?
 
 ## Host Input Contract
 
@@ -204,8 +220,12 @@ The workflow should not loop indefinitely between the host and TailTrail.
 ### Host
 
 - provide the user's goal and known context;
-- answer profile-specific questions;
-- declare path roles when known;
+- answer profile-specific questions with facts only the host can know
+  (goals, paths involved, proof commands, what must stay unchanged) --
+  never roles, ownership verdicts, or scope claims; those are derived
+  solely by TailTrail from evidence, since a host-declared role for a
+  file with zero backing evidence is indistinguishable from scope
+  invention (see the Configuration question set above);
 - clarify unknowns when TailTrail asks.
 
 ### TailTrail
@@ -320,6 +340,20 @@ After finalization:
 - the old packet remains immutable history;
 - no component creates a new host question outside Navigator;
 - Planning Lock approval applies to the finalized packet version.
+
+**One version chain, not two.** The packet-version lifecycle above must
+not become a second, independent history alongside the anchor's own
+`approved-v1 → v2 → v3` chain: after one mid-run correction there would
+otherwise be two "current truths" (packet-v2 and anchor-v3) with no rule
+for which wins when they disagree -- while the write guard, drift check,
+and closure all read the anchor, making the packet ceremonially supreme
+and the anchor operationally supreme. That split-brain is the exact shape
+of failure that motivated the anchor-versioning fixes. So: the anchor
+version is the only versioned truth; a "packet version" is only a pointer
+(`packet for anchor-v3`), never an independent lifecycle. Approval binds
+to "anchor-vN plus its packet view," and fingerprint comparison keeps
+exactly two sides (checkpoint's anchor fingerprint vs latest anchor
+fingerprint).
 
 The pipeline should expose a clear status such as
 `requirements-finalized` before it produces scope, proof, workflow, or approval
@@ -618,3 +652,9 @@ The scope design must cover:
 
 No downstream component may broaden editable scope without a new Navigator
 packet version and a new central ID binding.
+
+
+
+so when these questions to be asked and answered, my idea is when user prompts the tailtrail, host will run its cource and shared the details with tailtrail as it is happening , then tailtrial will fill each questions own its own and where ever there is missing part or any confusion it will ask host for clarifications. this way host can not drive the implementation and tailtrail will be in command.
+
+what u think?
