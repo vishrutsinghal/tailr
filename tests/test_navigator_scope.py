@@ -2065,11 +2065,11 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
         self.assertTrue(navigator_scope.verify_decision_fingerprint(recorded))
         self.assertEqual(
             recorded["requirements"][0]["implementation_owners"],
-            evidence["requirements"][0]["implementation_owners"],
+            ["src/pages/NewPage.tsx"],
         )
         self.assertEqual(
-            recorded["requirements"][0].get("confidence"),
-            evidence["requirements"][0].get("confidence"),
+            recorded["requirements"][0].get("owner_kind"),
+            "declared-new",
         )
 
     def test_proposed_new_path_rejects_unsafe_unlinked_and_overprivileged(self) -> None:

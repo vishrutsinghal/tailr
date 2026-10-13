@@ -4471,6 +4471,10 @@ def record_host_proposal(root: Path, document: dict[str, Any], proposal: dict[st
             if selected is None:
                 continue
             if selected.get("decision") == _NEW_PATH_DECISION:
+                requirement["implementation_owners"] = [selected["proposed_new_path"]]
+                requirement["owner_kind"] = "declared-new"
+                requirement["scope_state"] = "resolved"
+                requirement["confidence"] = "medium"
                 requirement["host_proposed_new_path"] = {
                     "path": selected["proposed_new_path"],
                     "anchor_paths": list(selected["anchor_paths"]),
