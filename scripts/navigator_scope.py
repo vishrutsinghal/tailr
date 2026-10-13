@@ -109,6 +109,7 @@ ROLES = {
     "generated",
     "managed-tooling",
     "unknown",
+    "workspace-excluded",
 }
 
 @dataclass(frozen=True)
@@ -571,7 +572,24 @@ def _tailtrail_source_checkout(root: Path) -> bool:
 
 
 def classify_repository_role(root: Path, relative: str) -> tuple[str, tuple[str, ...]]:
-    """Assign a repository role without executing project code."""
+    """Assign a repository role without executing project code.
+
+    Phase 4: file-kind roles that can reach owners, inspection paths, or
+    proof require an ``application`` workspace-policy verdict first.
+    Anything else reports ``workspace-excluded`` with the policy reason
+    codes attached. Roles that are already terminally excluded
+    (``generated``, ``managed-tooling``) keep their own verdicts so the
+    existing taxonomy and its tests stay intact.
+    """
+    verdict, verdict_reasons = _policy().classify_path(root, relative)
+    role, reasons = _file_kind_role(root, relative)
+    if verdict == "application" or role in {"generated", "managed-tooling"}:
+        return role, reasons
+    return "workspace-excluded", ("workspace-policy-excluded", *verdict_reasons)
+
+
+def _file_kind_role(root: Path, relative: str) -> tuple[str, tuple[str, ...]]:
+    """File-kind classification without workspace-policy gating (internal)."""
     path = PurePosixPath(relative)
     parts = {part.lower() for part in path.parts[:-1]}
     lowered_name = path.name.lower()
@@ -608,6 +626,8 @@ def classify_repository_role(root: Path, relative: str) -> tuple[str, tuple[str,
 def _candidate_status(role: str, sources: tuple[str, ...], task_types: set[str], rejected: bool) -> tuple[str, str, str]:
     if rejected:
         return "rejected", "none", "path-safety-rejection"
+    if role == "workspace-excluded":
+        return "excluded", "none", "workspace-policy-excluded"
     if role in {"generated", "managed-tooling"}:
         return "excluded", "none", "non-application-scope"
     explicit = "explicit-path" in sources
@@ -1260,7 +1280,7 @@ def _repository_inventory(
             continue
         role, _ = classify_repository_role(root, normalized)
         suffix = PurePosixPath(normalized).suffix.lower()
-        if role in {"generated", "managed-tooling", "documentation"}:
+        if role in {"generated", "managed-tooling", "documentation", "workspace-excluded"}:
             continue
         if suffix not in code_relationships.LANGUAGE_BY_SUFFIX and role not in {"configuration", "manifest"}:
             continue
@@ -2318,11 +2338,13 @@ def investigate(
     }
     seeded_tests = [path for path in focus_eligible if classify_repository_role(root, path)[0] == "test"]
     max_seed_match = max((len(semantic_matches.get(path, set())) for path in seeded_tests), default=0)
-    focus_seeds = {
-        path for path in focus_eligible
-        if classify_repository_role(root, path)[0] != "test"
-        or len(semantic_matches.get(path, set())) == max_seed_match
-    }
+    focus_seeds = set()
+    for path in focus_eligible:
+        focus_role = classify_repository_role(root, path)[0]
+        if focus_role == "workspace-excluded":
+            continue
+        if focus_role != "test" or len(semantic_matches.get(path, set())) == max_seed_match:
+            focus_seeds.add(path)
     def qualify_owner(path: str, rule: str) -> None:
         owner_qualifications.setdefault(path, set()).add(rule)
 
@@ -2381,6 +2403,11 @@ def investigate(
 
     for importer, value in facts.items():
         importer_role, _ = classify_repository_role(root, importer)
+        if importer_role == "workspace-excluded":
+            # Phase 4: an excluded file contributes no edges, callers, or
+            # proof -- its imports/registrations/behavior rows would
+            # otherwise promote it to inspection-only via caller_paths.
+            continue
         for relation_kind in ("imports", "loaders"):
             for relation in value.get(relation_kind, []):
                 event_offset = len(module_resolution_events)
@@ -2674,7 +2701,10 @@ def investigate(
             reasons.add("literal-emitter-is-not-ui-visibility-owner")
         elif path in owner_paths and (
             repository_role == "implementation-owner"
-            or "explicit-user-scope" in owner_qualifications.get(path, set())
+            or (
+                "explicit-user-scope" in owner_qualifications.get(path, set())
+                and repository_role != "workspace-excluded"
+            )
         ):
             row["role"] = "implementation-owner"
             row["status"] = "included"

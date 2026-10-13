@@ -3581,5 +3581,91 @@ class CacheEvidencePolicyTests(unittest.TestCase):
         self.assertTrue(ghost["reason_codes"])
 
 
+class Phase4WorkspaceExclusionTests(unittest.TestCase):
+    """Phase 4: excluded paths never become owners, inspection, or proof."""
+
+    GHOST = ".claude/worktrees/stale/src/ghost.py"
+    GHOST_TEST = ".claude/worktrees/stale/tests/test_ghost.py"
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        self.write("src/real.py", "def render_owner():\n    return 1\n")
+        self.write(
+            self.GHOST,
+            "from src.real import render_owner\n\n\ndef ghost_entry():\n    return render_owner()\n",
+        )
+        self.write(
+            self.GHOST_TEST,
+            "from src.real import render_owner\n\n\ndef test_ghost():\n    assert render_owner() == 1\n",
+        )
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def write(self, relative: str, body: str = "pass\n") -> Path:
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def explicit_candidates(self, *paths: str, task_types: tuple[str, ...] = ("bug",)):
+        seeds = [navigator_scope.seed(path, "explicit-path", "user-provided-path") for path in paths]
+        return navigator_scope.candidates_from_seeds(self.root, seeds, list(task_types))
+
+    def test_explicit_ghost_never_becomes_owner_or_inspection(self) -> None:
+        rows = {row["path"]: row for row in self.explicit_candidates("src/real.py", self.GHOST)}
+        ghost = rows[self.GHOST]
+        self.assertEqual(ghost["status"], "excluded")
+        self.assertEqual(ghost["role"], "workspace-excluded")
+        self.assertIn("workspace-policy-excluded", ghost["reason_codes"])
+        self.assertNotEqual(rows["src/real.py"]["status"], "excluded")
+
+    def test_explicit_ghost_test_never_becomes_proof(self) -> None:
+        rows = {row["path"]: row for row in self.explicit_candidates("src/real.py", self.GHOST_TEST)}
+        ghost = rows[self.GHOST_TEST]
+        self.assertEqual(ghost["status"], "excluded")
+        self.assertNotIn(ghost["status"], {"proof-only", "included"})
+        self.assertIn("workspace-policy-excluded", ghost["reason_codes"])
+
+    def test_excluded_requested_path_surfaces_in_projection_diagnostics(self) -> None:
+        candidates = self.explicit_candidates("src/real.py", self.GHOST)
+        document = {
+            "schema_version": "2",
+            "decision_fingerprint": "sha256:" + "0" * 64,
+            "state": "unresolved",
+            "requirements": [],
+            "candidates": candidates,
+            "investigation": {},
+            "limits": {},
+        }
+        projection = navigator_scope.role_projection(document, include_excluded=True)
+        excluded = {row["path"]: row for row in projection["excluded_candidates"]}
+        self.assertIn(self.GHOST, excluded)
+        self.assertIn("workspace-policy-excluded", excluded[self.GHOST]["reason_codes"])
+        for field in ("implementation_owners", "inspection_paths", "proof_paths"):
+            self.assertNotIn(self.GHOST, {row["path"] for row in projection[field]})
+
+    def test_ghost_importer_contributes_no_edges_callers_or_proof(self) -> None:
+        frames = requirement_discovery.frames("render owner entry")
+        seeds = [
+            navigator_scope.seed("src/real.py", "explicit-path", "user-provided-path"),
+            navigator_scope.seed(self.GHOST, "explicit-path", "user-provided-path"),
+        ]
+        candidates = navigator_scope.candidates_from_seeds(self.root, seeds, ["bug"])
+        rows, edges, _ = navigator_scope.investigate(self.root, frames, candidates, ["bug"])
+        by_path = {row["path"]: row for row in rows}
+        self.assertEqual(by_path[self.GHOST]["status"], "excluded")
+        ghost_id = by_path[self.GHOST]["candidate_id"]
+        for edge in edges:
+            self.assertNotIn(ghost_id, {
+                str(edge.get("from_candidate_id", "")), str(edge.get("to_candidate_id", "")),
+            })
+        self.assertFalse([
+            row for row in rows
+            if row["path"] == self.GHOST and row["status"] in {"included", "inspection-only", "proof-only"}
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()
