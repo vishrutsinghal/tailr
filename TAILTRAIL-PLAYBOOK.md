@@ -260,6 +260,13 @@ there before re-investigating from scratch.
   verify exact bytes with a byte-counting script; after editing, `ast.parse`
   the file before running anything. For tricky files, apply edits through a
   script with exact-match assertions (`count == 1`) rather than by eye.
+- **Red-proof with `git stash push -- <impl-paths>`, never bare `-u`.**
+  `stash -u` sweeps untracked new test files away too, leaving zero tests
+  to go red. Stash only the implementation paths so the new tests stay in
+  place and fail on old code with the exact symptom.
+- **Resolve tmp roots in `setUp`.** Windows 8.3 short-path aliases
+  (`VISHRU~1`) break `relative_to` against resolved walk roots --
+  `self.root = Path(self.tmp.name).resolve()` in every fixture.
 
 ## 10. R6 lessons before declaring a bug
 
@@ -325,6 +332,20 @@ calling a planning or closure result a product defect:
 - **Anchor versions sort numerically, not lexicographically** (`v10` <
   `v2` as strings) -- use `int(p.stem.rsplit("v", 1)[-1])` as the sort key,
   matching `change-intent-anchor.approved_versions()`.
+- **Prove the new path executes after a migration edit.** A green suite can
+  mean the new code is dead: loaders landed, call sites untouched, behavior
+  unchanged, tests pass, summary lies. After wiring, stash only the new
+  helper/loader and watch the migrated tests fail, or confirm the diff
+  touches call sites rather than scaffolding. Verified live when a "Slice C
+  complete" report went out with only unused loaders in place.
+- **Deletion needs a coverage audit, not just a passing fixture.** A narrow
+  cross-agent fixture can pass with an old list removed while real behavior
+  regresses (nested submodule/state/agent dirs, root-level IDE and
+  convention dirs). Before deleting a superseded exclusion list, matrix
+  every old entry against the new classifier at multiple depths and delete
+  only what the matrix clears. Verified live: the fixture criterion alone
+  would have permitted nested-`.git`, `.idea`, and `aidlc-rules`
+  regressions.
 
 ## 11. Artifact-owner routing before planning
 

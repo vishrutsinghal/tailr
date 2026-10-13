@@ -69,6 +69,40 @@ class RepositoryPathPolicyTests(unittest.TestCase):
         self.assertIn("role", record)
         self.assertTrue(record["reason_codes"])
 
+    def test_nested_state_agent_vcs_roots_excluded(self) -> None:
+        cases = {
+            "sub/.tailtrail/x": "tailtrail-managed",
+            "sub/tailtrail-meta/x": "tailtrail-managed",
+            "sub/.claude/y.py": "agent-managed",
+            "sub/.codex/y.py": "agent-managed",
+            "sub/.copilot/y.py": "agent-managed",
+            "sub/.git/y": "generated",
+            "sub/.hg/y": "generated",
+            "sub/.svn/y": "generated",
+        }
+        for relative, role in cases.items():
+            actual, reasons = policy.classify_path(Path("/repo"), relative)
+            self.assertEqual(actual, role, relative)
+            self.assertTrue(reasons, relative)
+
+    def test_nested_reason_codes(self) -> None:
+        self.assertEqual(
+            list(policy.classify_path(Path("/repo"), "sub/.tailtrail/x")[1]),
+            ["tailtrail-state-nested"],
+        )
+        self.assertEqual(
+            list(policy.classify_path(Path("/repo"), "sub/.claude/y.py")[1]),
+            ["agent-managed-nested"],
+        )
+        self.assertEqual(
+            list(policy.classify_path(Path("/repo"), "sub/.git/y")[1]),
+            ["vcs-metadata-nested"],
+        )
+
+    def test_nested_checks_do_not_outrank_worktrees(self) -> None:
+        role, _ = policy.classify_path(Path("/repo"), ".claude/worktrees/x/.tailtrail/y")
+        self.assertEqual(role, "managed-worktree")
+
 
 if __name__ == "__main__":
     unittest.main()

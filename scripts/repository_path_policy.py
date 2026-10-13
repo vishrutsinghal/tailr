@@ -79,7 +79,9 @@ def classify_path(
     First match wins (fixed precedence keeps fingerprints stable):
     external -> tailtrail-managed -> managed-worktree (Git list, then
     generic `worktrees` component) -> agent-managed -> generated/vendor/VCS
-    metadata -> application. Empty or escaping paths are `external` when
+    metadata -> application. State (tailtrail), agent, and VCS roots also
+    match at any depth: a nested submodule, state, or agent directory is
+    never application code. Empty or escaping paths are `external` when
     they leave the root, else `unknown`.
     """
     _ = root  # Reserved: keeps the (root, relative) call shape stable.
@@ -103,6 +105,12 @@ def classify_path(
         return AGENT_MANAGED, ("agent-managed-root",)
     if parts[0] in VCS_METADATA_DIRS:
         return GENERATED, ("vcs-metadata",)
+    if any(part in TAILTRIAL_ROOTS for part in parts[1:]):
+        return TAILTRIAL_MANAGED, ("tailtrail-state-nested",)
+    if any(part in agents for part in parts[1:]):
+        return AGENT_MANAGED, ("agent-managed-nested",)
+    if any(part in VCS_METADATA_DIRS for part in parts[1:]):
+        return GENERATED, ("vcs-metadata-nested",)
     hit = set(parts) & (GENERATED_PARTS | VENDOR_PARTS)
     if hit:
         dirnames = sorted(hit)
