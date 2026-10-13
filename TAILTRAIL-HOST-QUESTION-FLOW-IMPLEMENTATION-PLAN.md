@@ -187,12 +187,25 @@ Make Navigator the exclusive host-facing question and clarification boundary.
 ### Acceptance states
 
 ```text
-received -> normalized -> evidence-checked -> accepted
-                                  |
-                    contradicted / insufficient
-                                  |
-                         clarification-required
+received
+  -> normalized
+  -> mapped-to-profile-field
+  -> evidence-checked
+       |
+       +-> accepted
+       +-> contradicted
+       +-> insufficient
+                 |
+                 v
+       clarification-required
+                 |
+                 v
+       user-decision-required
 ```
+
+The field-mapping step is shared by direct question responses and volunteered
+narration. Direct responses receive their field from the issued question;
+narration must produce an explicit candidate mapping before evidence checking.
 
 ### Tests
 

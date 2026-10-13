@@ -505,7 +505,12 @@ received
   -> normalized
   -> mapped to profile field
   -> evidence-checked
-  -> accepted or clarification-required
+  |
+  +-> accepted
+  +-> contradicted or insufficient
+       |
+       v
+  clarification-required
 ```
 
 ## Profile Fields and Question IDs
@@ -579,18 +584,27 @@ A host response must pass through explicit states:
 ```text
 received
   -> normalized
+  -> mapped-to-profile-field
   -> evidence-checked
-  -> accepted
-  -> contradicted
-  -> insufficient
-  -> clarification-required
-  -> user-decision-required
+       |
+       +-> accepted
+       +-> contradicted
+       +-> insufficient
+                 |
+                 v
+       clarification-required
+                 |
+                 v
+       user-decision-required
 ```
 
-Only `accepted` answers may contribute to a finalized requirement packet. A host
-response must be tied to a question or an active packet context and must carry
-source, artifact references where applicable, confidence, timestamp, and
-redaction status.
+The `mapped-to-profile-field` step applies to both direct question responses
+and volunteered narration. A direct response receives its field from the
+issued question; narration requires an explicit field-mapping candidate before
+it can reach evidence checking. Only `accepted` answers may contribute to a
+finalized requirement packet. A host response must be tied to a question or an
+active packet context and must carry source, artifact references where
+applicable, confidence, timestamp, and redaction status.
 
 ## Packet Versioning
 
