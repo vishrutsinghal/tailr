@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -26,15 +28,44 @@ RELEVANT_NAME_SUFFIXES = {".csproj", ".sln"}
 ALGORITHM = "path-size-mtime-ns-v1"
 
 
-def _skipped(path: Path) -> bool:
-    return any(part in SKIP_DIRS for part in path.parts)
+def _policy() -> Any:
+    """Shared workspace policy, loaded once (Phase 3 cache migration)."""
+    global _POLICY
+    if _POLICY is None:
+        spec = importlib.util.spec_from_file_location(
+            "inventory_workspace_policy",
+            Path(__file__).resolve().parents[1] / "scripts" / "repository_path_policy.py",
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("unable to load scripts/repository_path_policy.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _POLICY = module
+    return _POLICY
+
+
+_POLICY: Any = None
+
+
+def _skipped(path: Path, root: Path | None = None) -> bool:
+    if any(part in SKIP_DIRS for part in path.parts):
+        return True
+    if root is None:
+        return False
+    try:
+        relative = path.relative_to(root).as_posix()
+    except ValueError:
+        return True
+    role, _ = _policy().classify_path(root, relative)
+    return role != "application"
 
 
 def relevant_files(root: Path) -> list[Path]:
     root = root.resolve()
     files: list[Path] = []
     for path in root.rglob("*"):
-        if not path.is_file() or _skipped(path):
+        if not path.is_file() or _skipped(path, root):
             continue
         if path.suffix in RELEVANT_SUFFIXES or path.name in RELEVANT_NAMES or path.suffix in RELEVANT_NAME_SUFFIXES:
             files.append(path)

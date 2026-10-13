@@ -3515,5 +3515,53 @@ class InfraConfigurationOwnershipTests(unittest.TestCase):
         self.assertEqual(evidence[0]["evidence"], "explicit user scope")
 
 
+class CacheEvidencePolicyTests(unittest.TestCase):
+    """Phase 3: cached graph paths rejected by workspace policy never surface."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        (self.root / "src").mkdir()
+        (self.root / "src" / "real.py").write_text("VALUE = 1\n", encoding="utf-8")
+        nested = self.root / ".codex" / "worktrees" / "stale" / "src" / "ghost.py"
+        nested.parent.mkdir(parents=True)
+        nested.write_text("VALUE = 2\n", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _sha(self, rel: str) -> str:
+        return hashlib.sha256((self.root / rel).read_bytes()).hexdigest()
+
+    def _write_cache(self) -> None:
+        from code_graph_inventory import snapshot as inventory_snapshot
+
+        cache = {
+            "schema_version": "1",
+            "root": self.root.as_posix(),
+            "inventory": inventory_snapshot(self.root),
+            "graph": {"suggested_read_order": ["src/real.py", ".codex/worktrees/stale/src/ghost.py"]},
+            "source_files": {
+                "src/real.py": {"sha256": self._sha("src/real.py")},
+                ".codex/worktrees/stale/src/ghost.py": {
+                    "sha256": self._sha(".codex/worktrees/stale/src/ghost.py")
+                },
+            },
+            "watch_files": {},
+        }
+        cache_dir = self.root / "tailtrail-meta"
+        cache_dir.mkdir(exist_ok=True)
+        (cache_dir / "code-graph-cache.json").write_text(json.dumps(cache), encoding="utf-8")
+
+    def test_cache_evidence_rejects_policy_excluded_graph_paths(self) -> None:
+        self._write_cache()
+        selected, evidence = navigator_scope._cache_evidence(
+            self.root, navigator_scope.InvestigationLimits()
+        )
+        self.assertEqual(evidence["status"], "fresh")
+        self.assertEqual(selected, ["src/real.py"])
+        self.assertEqual(evidence["eligible_paths"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

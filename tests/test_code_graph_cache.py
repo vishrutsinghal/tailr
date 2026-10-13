@@ -412,5 +412,130 @@ class MergeRefreshedFilesTests(unittest.TestCase):
         self.assertEqual(merged["source_files"]["a.py"]["sha256"], "s")
 
 
+GHOST_REL = ".claude/worktrees/stale/src/ghost.py"
+
+
+class CachePolicyExclusionTests(unittest.TestCase):
+    """Phase 3: stale-role rejection on cache reads plus polluted-section pruning."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "src").mkdir()
+        (self.root / "src" / "real.py").write_text("VALUE = 1\n", encoding="utf-8")
+        nested = self.root / ".claude" / "worktrees" / "stale" / "src" / "ghost.py"
+        nested.parent.mkdir(parents=True)
+        nested.write_text("VALUE = 2\n", encoding="utf-8")
+        self.cache_path = self.root / ".tailtrail" / "code-graph-cache.json"
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_load_with_root_rejects_policy_excluded_entries(self) -> None:
+        cgc.update(self.root, ["src/real.py", GHOST_REL], path=self.cache_path)
+        data, error = cgc.load(self.cache_path, root=self.root)
+        self.assertIsNone(error)
+        self.assertIn("src/real.py", data["files"])
+        self.assertNotIn(GHOST_REL, data["files"])
+        self.assertEqual(data["policy_excluded"], [GHOST_REL])
+
+    def test_load_without_root_keeps_legacy_behavior(self) -> None:
+        cgc.update(self.root, ["src/real.py", GHOST_REL], path=self.cache_path)
+        data, error = cgc.load(self.cache_path)
+        self.assertIsNone(error)
+        self.assertIn(GHOST_REL, data["files"])
+        self.assertNotIn("policy_excluded", data)
+
+    def test_merge_refreshed_files_rejects_policy_excluded_with_root(self) -> None:
+        merged = cgc.merge_refreshed_files(None, [
+            {"path": "src/real.py", "sha256": "r",
+             "symbols": [{"name": "real", "kind": "function", "file": "src/real.py", "line": 1}],
+             "references": []},
+            {"path": GHOST_REL, "sha256": "g",
+             "symbols": [{"name": "ghost", "kind": "function", "file": GHOST_REL, "line": 1}],
+             "references": []},
+        ], updated_at="t", root=self.root)
+        self.assertEqual(merged["refreshed_paths"], ["src/real.py"])
+        self.assertEqual(merged["refresh_policy_excluded"], [GHOST_REL])
+        self.assertIn(GHOST_REL, merged["refresh_skipped"])
+        self.assertNotIn(GHOST_REL, merged["scope"])
+        self.assertNotIn(GHOST_REL, merged["source_files"])
+        files = {row["file"] for row in merged["graph"]["symbols"]}
+        self.assertNotIn(GHOST_REL, files)
+
+    def _write_polluted_combined_cache(self) -> None:
+        cgc.update(self.root, ["src/real.py", GHOST_REL], path=self.cache_path)
+        mapper = _load_mapper()
+        mapper.write_cache(self.cache_path, {
+            "schema_version": "1",
+            "root": self.root.as_posix(),
+            "scope": ["src/real.py", GHOST_REL],
+            "source_files": {"src/real.py": {"sha256": "r"}, GHOST_REL: {"sha256": "g"}},
+            "watch_files": {},
+            "graph": {
+                "symbols": [
+                    {"name": "real", "kind": "function", "file": "src/real.py", "line": 1},
+                    {"name": "ghost", "kind": "function", "file": GHOST_REL, "line": 1},
+                ],
+                "references": [
+                    {"target": "x", "referring_file": GHOST_REL, "reference_type": "import"},
+                ],
+            },
+        })
+
+    def test_prune_policy_excluded_cleans_both_sections(self) -> None:
+        self._write_polluted_combined_cache()
+        summary = cgc.prune_policy_excluded(self.root, self.cache_path)
+        self.assertEqual(summary["removed_phase1"], 1)
+        self.assertEqual(summary["removed_mapper_scope"], [GHOST_REL])
+        self.assertEqual(summary["removed_mapper_rows"], 3)
+        data, _ = cgc.load(self.cache_path, root=self.root)
+        self.assertIn("src/real.py", data["files"])
+        self.assertEqual(data["policy_excluded"], [])
+        raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+        mapper = raw["sections"]["mapper_graph"]
+        self.assertEqual(mapper["scope"], ["src/real.py"])
+        self.assertNotIn(GHOST_REL, mapper["source_files"])
+        self.assertEqual(
+            {(row["file"], row["name"]) for row in mapper["graph"]["symbols"]},
+            {("src/real.py", "real")},
+        )
+        self.assertEqual(mapper["graph"]["references"], [])
+
+    def test_prune_policy_excluded_is_idempotent(self) -> None:
+        self._write_polluted_combined_cache()
+        cgc.prune_policy_excluded(self.root, self.cache_path)
+        before = self.cache_path.read_bytes()
+        summary = cgc.prune_policy_excluded(self.root, self.cache_path)
+        self.assertEqual(summary["removed_phase1"], 0)
+        self.assertEqual(summary["removed_mapper_scope"], [])
+        self.assertEqual(summary["removed_mapper_rows"], 0)
+        self.assertEqual(self.cache_path.read_bytes(), before)
+
+    def test_cli_prune_excluded_removes_ghosts(self) -> None:
+        cgc.update(self.root, ["src/real.py", GHOST_REL])
+        path = cgc.default_cache_path(self.root)
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            code = cgc.main(["--root", self.root.as_posix(), "--format", "json", "prune-excluded"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(buffer.getvalue())["removed"], 1)
+        data, _ = cgc.load(path, root=self.root)
+        self.assertIn("src/real.py", data["files"])
+        self.assertNotIn(GHOST_REL, data["files"])
+
+    def test_mapper_status_for_flags_policy_excluded_scope(self) -> None:
+        mapper = _load_mapper()
+        section = {
+            "schema_version": "1",
+            "root": self.root.as_posix(),
+            "scope": ["src/real.py", GHOST_REL],
+            "source_files": {"src/real.py": {"sha256": "r"}, GHOST_REL: {"sha256": "g"}},
+            "watch_files": {},
+        }
+        status = mapper.status_for(self.root, section, [])
+        self.assertTrue(any("workspace policy" in reason for reason in status["reasons"]))
+
+
 if __name__ == "__main__":
     unittest.main()

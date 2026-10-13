@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib.util
 import json
 import os
 import sys
@@ -30,6 +31,54 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+
+_POLICY: Any = None
+
+
+def _policy() -> Any:
+    """Shared workspace policy, loaded once (Phase 3 cache migration)."""
+    global _POLICY
+    if _POLICY is None:
+        spec = importlib.util.spec_from_file_location(
+            "graph_cache_workspace_policy", SCRIPT_DIR / "repository_path_policy.py"
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("unable to load scripts/repository_path_policy.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _POLICY = module
+    return _POLICY
+
+
+def split_policy_excluded(
+    root: Path | str, files: dict[str, Any]
+) -> tuple[dict[str, Any], list[str]]:
+    """Partition cache entries by workspace-policy verdict.
+
+    Returns ``(kept, excluded)`` where ``excluded`` lists rel paths whose
+    verdict is anything but ``application``. A policy load failure keeps
+    everything (fail-open on infrastructure, fail-closed on paths is the
+    walkers' job); per-entry classification errors keep that entry.
+    """
+    root_path = Path(root)
+    kept: dict[str, Any] = {}
+    excluded: list[str] = []
+    try:
+        policy = _policy()
+    except RuntimeError:
+        return dict(files), []
+    for rel, entry in files.items():
+        try:
+            role, _ = policy.classify_path(root_path, str(rel))
+        except Exception:
+            role = "application"
+        if role != "application":
+            excluded.append(str(rel))
+        else:
+            kept[str(rel)] = entry
+    return kept, sorted(excluded)
+
 
 try:
     import code_relationships
@@ -207,8 +256,14 @@ def find_cache(root: Path | str) -> Path | None:
     return None
 
 
-def load(path: Path | str) -> tuple[dict[str, Any], str | None]:
-    """Load and validate the Phase 1 section. Never raises: corrupt → empty + reason."""
+def load(path: Path | str, root: Path | str | None = None) -> tuple[dict[str, Any], str | None]:
+    """Load and validate the Phase 1 section. Never raises: corrupt → empty + reason.
+
+    With ``root``, entries whose workspace-policy verdict is anything but
+    ``application`` are rejected on read (stale-role rejection); their rel
+    paths are reported in ``data["policy_excluded"]``. Without ``root`` the
+    legacy behavior is byte-identical.
+    """
     container, error = read_container(path)
     if error is not None:
         return empty_cache(), error
@@ -218,9 +273,14 @@ def load(path: Path | str) -> tuple[dict[str, Any], str | None]:
     if phase1 is None:
         return empty_cache(), None
     try:
-        return normalize_cache(phase1), None
+        data = normalize_cache(phase1)
     except (ValueError,) as error:
         return empty_cache(), f"invalid: {error}"
+    if root is not None:
+        kept, excluded = split_policy_excluded(root, data.get("files", {}))
+        data["files"] = kept
+        data["policy_excluded"] = excluded
+    return data, None
 
 
 def _write_raw_atomic(cache_path: Path, raw: dict[str, Any]) -> Path:
@@ -384,6 +444,7 @@ def merge_refreshed_files(
     entries: list[dict[str, Any]],
     *,
     updated_at: str | None = None,
+    root: Path | str | None = None,
 ) -> dict[str, Any]:
     """Merge re-extracted per-file entries into a mapper graph section (pure).
 
@@ -395,6 +456,10 @@ def merge_refreshed_files(
     byte-identical. Malformed entries are skipped and reported — never
     raised. Callers extract (mapper) and persist (write path); this function
     only merges, so it stays dependency-free in both directions.
+
+    With ``root``, entries whose workspace-policy verdict is anything but
+    ``application`` are rejected on merge and reported in
+    ``refresh_policy_excluded`` (as well as ``refresh_skipped``).
     """
     base = dict(section) if isinstance(section, dict) else {}
     graph = dict(base.get("graph", {})) if isinstance(base.get("graph"), dict) else {}
@@ -404,6 +469,7 @@ def merge_refreshed_files(
     scope = list(base.get("scope", [])) if isinstance(base.get("scope"), list) else []
     merged: list[str] = []
     skipped: list[str] = []
+    policy_excluded: list[str] = []
     seen: set[str] = set()
     for entry in entries or []:
         if not isinstance(entry, dict):
@@ -415,6 +481,15 @@ def merge_refreshed_files(
             skipped.append(rel or "<empty-path>")
             continue
         seen.add(rel)
+        if root is not None:
+            try:
+                role, _ = _policy().classify_path(Path(root), rel)
+            except Exception:
+                role = "application"
+            if role != "application":
+                skipped.append(rel)
+                policy_excluded.append(rel)
+                continue
         entry_symbols = [row for row in entry.get("symbols", []) if isinstance(row, dict)]
         entry_refs = [row for row in entry.get("references", []) if isinstance(row, dict)]
         symbols = [row for row in symbols if str(row.get("file", "")).replace("\\", "/") != rel]
@@ -438,6 +513,7 @@ def merge_refreshed_files(
     base["updated_at"] = updated_at if updated_at is not None else _now()
     base["refreshed_paths"] = sorted(merged)
     base["refresh_skipped"] = sorted(skipped)
+    base["refresh_policy_excluded"] = sorted(policy_excluded)
     return base
 
 
@@ -467,6 +543,108 @@ def invalidate(path: Path | str, files: list[str]) -> int:
     if removed:
         save(cache_path, {"version": VERSION, "last_updated": None, "files": remaining})
     return removed
+
+
+def prune_policy_excluded(root: Path | str, path: Path | str | None = None) -> dict[str, Any]:
+    """Drop policy-excluded entries from every cache section (Phase 3 migration).
+
+    Phase-1 ``files`` entries plus mapper ``scope``/``source_files``/
+    ``watch_files`` keys and ``graph.symbols`` (by ``file``) / ``graph.references``
+    (by ``referring_file``) rows whose workspace-policy verdict is anything but
+    ``application`` are removed. All other sections and unknown keys are
+    preserved; a cache with nothing excluded is left byte-identical. Missing
+    or invalid caches report zeros. Never raises.
+    """
+    root_path = Path(root)
+    cache_path = Path(path) if path is not None else (find_cache(root_path) or default_cache_path(root_path))
+    summary: dict[str, Any] = {
+        "cache_path": cache_path.as_posix(),
+        "removed_phase1": 0,
+        "removed_mapper_scope": [],
+        "removed_mapper_rows": 0,
+    }
+    container, error = read_container(cache_path)
+    if error is not None:
+        return summary
+    raw = container["raw"]
+    if not isinstance(raw, dict):
+        return summary
+    try:
+        policy = _policy()
+    except RuntimeError:
+        return summary
+
+    def excluded(rel: Any) -> bool:
+        if not isinstance(rel, str) or not rel:
+            return False
+        try:
+            role, _ = policy.classify_path(root_path, rel.replace("\\", "/"))
+        except Exception:
+            return False
+        return role != "application"
+
+    kind = container["kind"]
+    new_raw = dict(raw)
+    if kind in ("phase1", "combined"):
+        section = container["phase1_files"]
+        files = section.get("files", {}) if isinstance(section, dict) else {}
+        if isinstance(files, dict):
+            remaining = {rel: entry for rel, entry in files.items() if not excluded(rel)}
+            summary["removed_phase1"] = len(files) - len(remaining)
+            if kind == "phase1":
+                new_raw = dict(section)
+                new_raw["files"] = remaining
+            else:
+                sections = dict(new_raw.get("sections", {}))
+                new_section = dict(sections.get(PHASE1_SECTION, {}))
+                new_section["files"] = remaining
+                sections[PHASE1_SECTION] = new_section
+                new_raw["sections"] = sections
+    if kind in ("mapper", "combined"):
+        mapper = container["mapper_graph"]
+        if isinstance(mapper, dict):
+            new_mapper = dict(mapper)
+            scope = [item for item in mapper.get("scope", [])] if isinstance(mapper.get("scope"), list) else []
+            dropped_scope = sorted({str(item) for item in scope if excluded(item)})
+            summary["removed_mapper_scope"] = dropped_scope
+            dropped = set(dropped_scope)
+            if dropped_scope:
+                new_mapper["scope"] = [item for item in scope if str(item) not in dropped]
+            rows_removed = 0
+            for group in ("source_files", "watch_files"):
+                values = mapper.get(group, {})
+                if isinstance(values, dict):
+                    kept = {rel: meta for rel, meta in values.items() if not excluded(rel)}
+                    rows_removed += len(values) - len(kept)
+                    if len(kept) != len(values):
+                        new_mapper[group] = kept
+            graph = mapper.get("graph", {})
+            if isinstance(graph, dict):
+                new_graph = dict(graph)
+                symbols = [row for row in graph.get("symbols", []) if isinstance(row, dict)]
+                kept_symbols = [row for row in symbols if not excluded(row.get("file", ""))]
+                rows_removed += len(symbols) - len(kept_symbols)
+                if len(kept_symbols) != len(symbols):
+                    new_graph["symbols"] = kept_symbols
+                references = [row for row in graph.get("references", []) if isinstance(row, dict)]
+                kept_refs = [row for row in references if not excluded(row.get("referring_file", ""))]
+                rows_removed += len(references) - len(kept_refs)
+                if len(kept_refs) != len(references):
+                    new_graph["references"] = kept_refs
+                if new_graph != graph:
+                    new_mapper["graph"] = new_graph
+            summary["removed_mapper_rows"] = rows_removed
+            if new_mapper != mapper:
+                if kind == "mapper":
+                    new_raw = new_mapper
+                else:
+                    sections = dict(new_raw.get("sections", {}))
+                    sections[MAPPER_SECTION] = new_mapper
+                    new_raw["sections"] = sections
+    if new_raw == raw:
+        return summary
+    _write_raw_atomic(cache_path, new_raw)
+    return summary
 
 
 def prune_missing(root: Path | str, path: Path | str | None = None) -> int:
@@ -632,8 +810,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", choices=("text", "json"), default="text", help="Output format.")
     parser.add_argument(
         "command",
-        choices=("status", "prune-missing", "prune-older-than", "invalidate", "clear"),
-        help="status: report; prune-missing: drop gone files; prune-older-than: drop by age; invalidate: drop listed files; clear: wipe.",
+        choices=("status", "prune-missing", "prune-older-than", "invalidate", "prune-excluded", "clear"),
+        help="status: report; prune-missing: drop gone files; prune-older-than: drop by age; invalidate: drop listed files; prune-excluded: drop policy-excluded entries; clear: wipe.",
     )
     parser.add_argument("--file", action="append", default=[], help="File for invalidate. Repeatable.")
     parser.add_argument("--days", type=int, default=30, help="Age for prune-older-than.")
@@ -654,6 +832,13 @@ def main(argv: list[str] | None = None) -> int:
         removed = prune_missing(root, path)
     elif args.command == "prune-older-than":
         removed = prune_older_than(path, args.days)
+    elif args.command == "prune-excluded":
+        summary = prune_policy_excluded(root, path)
+        removed = (
+            summary["removed_phase1"]
+            + summary["removed_mapper_rows"]
+            + len(summary["removed_mapper_scope"])
+        )
     elif args.command == "invalidate":
         removed = invalidate(path, args.file)
     else:

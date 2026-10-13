@@ -1388,6 +1388,15 @@ def load_cache(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     return section, None
 
 
+def _policy_role(root: Path, rel: str) -> str:
+    """Workspace-policy verdict for one cached rel path; infrastructure failure keeps it."""
+    try:
+        role, _ = _policy().classify_path(root, str(rel).replace("\\", "/"))
+    except Exception:
+        return "application"
+    return role
+
+
 def status_for(root: Path, cache: dict[str, Any] | None, changed_values: list[str]) -> dict[str, Any]:
     if cache is None:
         return {"status": "missing", "reasons": ["No Code Graph Mapper cache exists."], "scope": changed_values}
@@ -1415,6 +1424,14 @@ def status_for(root: Path, cache: dict[str, Any] | None, changed_values: list[st
     cached_scope = {str(item) for item in cache.get("scope", []) if item}
     if target_scope and not target_scope.issubset(cached_scope) and not target_scope.intersection(cached_scope):
         reasons.append("Cache exists, but requested files are outside the cached scope.")
+    policy_excluded = sorted({rel for rel in cached_scope if _policy_role(root, rel) != "application"})
+    if policy_excluded:
+        reasons.append(
+            "Cached scope holds paths excluded by workspace policy; refresh to drop them: "
+            + ", ".join(policy_excluded[:10])
+            + (f" (+{len(policy_excluded) - 10} more)" if len(policy_excluded) > 10 else "")
+            + "."
+        )
 
     for group in ("source_files", "watch_files", "scanner_evidence"):
         values = cache.get(group, {})

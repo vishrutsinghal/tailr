@@ -1313,6 +1313,9 @@ def _cache_evidence(
             if isinstance(value, str):
                 normalized, rejection = normalize_repository_path(root, value)
                 if normalized and not rejection:
+                    role, _ = _policy().classify_path(root, normalized)
+                    if role != "application":
+                        continue
                     paths.append(normalized)
 
     all_paths = sorted(dict.fromkeys(paths))
