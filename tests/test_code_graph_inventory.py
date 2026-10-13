@@ -42,6 +42,14 @@ class InventoryPolicyTests(unittest.TestCase):
         self.assertEqual(with_ghost["algorithm"], without_ghost["algorithm"])
         self.assertEqual(with_ghost["fingerprint"], without_ghost["fingerprint"])
 
+    def test_policy_excluded_carries_reasons(self) -> None:
+        records = {row["path"]: row for row in inv.policy_excluded(self.root)}
+        self.assertNotIn("src/real.py", records)
+        self.assertIn(".codex/worktrees/stale/src/ghost.py", records)
+        ghost = records[".codex/worktrees/stale/src/ghost.py"]
+        self.assertEqual(ghost["role"], "managed-worktree")
+        self.assertTrue(ghost["reason_codes"])
+
 
 if __name__ == "__main__":
     unittest.main()

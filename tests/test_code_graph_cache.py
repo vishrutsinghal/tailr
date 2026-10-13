@@ -536,6 +536,16 @@ class CachePolicyExclusionTests(unittest.TestCase):
         status = mapper.status_for(self.root, section, [])
         self.assertTrue(any("workspace policy" in reason for reason in status["reasons"]))
 
+    def test_mapper_policy_excluded_carries_reasons(self) -> None:
+        mapper = _load_mapper()
+        records = {row["path"]: row for row in mapper.policy_excluded(self.root)}
+
+        self.assertNotIn("src/real.py", records)
+        self.assertIn(GHOST_REL, records)
+        ghost = records[GHOST_REL]
+        self.assertEqual(ghost["role"], "managed-worktree")
+        self.assertTrue(ghost["reason_codes"])
+
 
 if __name__ == "__main__":
     unittest.main()

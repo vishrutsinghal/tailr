@@ -227,6 +227,24 @@ def _candidates(root: Path) -> list[Path]:
     return candidates
 
 
+def policy_excluded(root: Path) -> list[dict[str, Any]]:
+    """Candidate-level exclusion provenance (Phase 2 leftover).
+
+    Reports one record per file under ``root`` whose workspace-policy
+    verdict is anything but ``application``, each carrying its policy
+    reason codes. Diagnostic only; never grants scope.
+    """
+    relatives: list[str] = []
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            relatives.append(path.resolve().relative_to(root.resolve()).as_posix())
+        except (OSError, ValueError):
+            continue
+    return _policy().exclusion_records(root, relatives)
+
+
 def goal_discovered_paths(
     root: Path,
     goal: str,

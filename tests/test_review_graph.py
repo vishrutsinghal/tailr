@@ -86,6 +86,40 @@ class MissingRootTests(unittest.TestCase):
             self.assertEqual(graph.graph(root, [], 8)["files"], [])
             self.assertEqual(astmap.build(root, [], "lite", 20)["symbols"], [])
 
+    def test_review_graph_policy_excluded_carries_reasons(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "real.py").write_text("VALUE = 1\n", encoding="utf-8")
+            nested = root / ".claude" / "worktrees" / "stale" / "src" / "ghost.py"
+            nested.parent.mkdir(parents=True)
+            nested.write_text("VALUE = 2\n", encoding="utf-8")
+
+            records = {row["path"]: row for row in graph.policy_excluded(root)}
+
+        self.assertNotIn("src/real.py", records)
+        self.assertIn(".claude/worktrees/stale/src/ghost.py", records)
+        ghost = records[".claude/worktrees/stale/src/ghost.py"]
+        self.assertEqual(ghost["role"], "managed-worktree")
+        self.assertTrue(ghost["reason_codes"])
+
+    def test_ast_map_policy_excluded_carries_reasons(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "real.py").write_text("def real():\n    return 1\n", encoding="utf-8")
+            nested = root / ".claude" / "worktrees" / "stale" / "src" / "ghost.py"
+            nested.parent.mkdir(parents=True)
+            nested.write_text("def ghost():\n    return 2\n", encoding="utf-8")
+
+            records = {row["path"]: row for row in astmap.policy_excluded(root)}
+
+        self.assertNotIn("src/real.py", records)
+        self.assertIn(".claude/worktrees/stale/src/ghost.py", records)
+        ghost = records[".claude/worktrees/stale/src/ghost.py"]
+        self.assertEqual(ghost["role"], "managed-worktree")
+        self.assertTrue(ghost["reason_codes"])
+
 
 if __name__ == "__main__":
     unittest.main()

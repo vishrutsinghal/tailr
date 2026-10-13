@@ -72,6 +72,24 @@ def relevant_files(root: Path) -> list[Path]:
     return sorted(files)
 
 
+def policy_excluded(root: Path) -> list[dict[str, Any]]:
+    """Candidate-level exclusion provenance (Phase 2 leftover).
+
+    Reports one record per file under ``root`` whose workspace-policy
+    verdict is anything but ``application``, each carrying its policy
+    reason codes. Diagnostic only; never grants scope.
+    """
+    relatives: list[str] = []
+    for path in root.resolve().rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            relatives.append(path.relative_to(root.resolve()).as_posix())
+        except ValueError:
+            continue
+    return _policy().exclusion_records(root, relatives)
+
+
 def snapshot(root: Path) -> dict[str, Any]:
     """Return metadata-only freshness evidence without reading file contents."""
     root = root.resolve()

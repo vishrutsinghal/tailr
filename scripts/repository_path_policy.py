@@ -126,3 +126,20 @@ def audit_record(root: Path | str, relative: str, **kwargs: Any) -> dict[str, An
         "status": "eligible" if is_eligible(role) else "excluded",
         "reason_codes": list(reasons),
     }
+
+
+def exclusion_records(
+    root: Path | str, relatives: list[str] | tuple[str, ...] | set[str], **kwargs: Any
+) -> list[dict[str, Any]]:
+    """Candidate-level exclusion provenance (Phase 2 leftover).
+
+    Returns one audit record per input path whose verdict is anything but
+    ``application``. Pure string logic, no I/O; walkers feed it their own
+    candidate pools so every exclusion carries its policy reason codes.
+    """
+    return [
+        record
+        for relative in relatives
+        for record in [audit_record(root, str(relative), **kwargs)]
+        if record["status"] == "excluded"
+    ]

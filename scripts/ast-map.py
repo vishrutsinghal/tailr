@@ -205,6 +205,24 @@ def list_text_files(root: Path, limit: int) -> list[Path]:
     return sorted(files)
 
 
+def policy_excluded(root: Path) -> list[dict[str, Any]]:
+    """Candidate-level exclusion provenance (Phase 2 leftover).
+
+    Reports one record per file under ``root`` whose workspace-policy
+    verdict is anything but ``application``, each carrying its policy
+    reason codes. Diagnostic only; never grants scope.
+    """
+    relatives: list[str] = []
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            relatives.append(path.resolve().relative_to(root.resolve()).as_posix())
+        except (OSError, ValueError):
+            continue
+    return _policy().exclusion_records(root, relatives)
+
+
 def looks_like_test(path: Path) -> bool:
     lowered = path.as_posix().lower()
     return any(f"/{hint}" in lowered or lowered.startswith(hint) for hint in TEST_HINTS) or path.name.lower().startswith("test_") or "test" in path.stem.lower()

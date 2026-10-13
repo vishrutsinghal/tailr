@@ -3562,6 +3562,24 @@ class CacheEvidencePolicyTests(unittest.TestCase):
         self.assertEqual(selected, ["src/real.py"])
         self.assertEqual(evidence["eligible_paths"], 1)
 
+    def test_discovery_policy_excluded_carries_reasons(self) -> None:
+        records = {row["path"]: row for row in navigator_discovery.policy_excluded(self.root)}
+        self.assertNotIn("src/real.py", records)
+        ghost_rel = ".codex/worktrees/stale/src/ghost.py"
+        self.assertIn(ghost_rel, records)
+        ghost = records[ghost_rel]
+        self.assertEqual(ghost["role"], "managed-worktree")
+        self.assertTrue(ghost["reason_codes"])
+
+    def test_scope_inventory_policy_excluded_carries_reasons(self) -> None:
+        records = {row["path"]: row for row in navigator_scope.policy_excluded(self.root)}
+        self.assertNotIn("src/real.py", records)
+        ghost_rel = ".codex/worktrees/stale/src/ghost.py"
+        self.assertIn(ghost_rel, records)
+        ghost = records[ghost_rel]
+        self.assertEqual(ghost["role"], "managed-worktree")
+        self.assertTrue(ghost["reason_codes"])
+
 
 if __name__ == "__main__":
     unittest.main()
