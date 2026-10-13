@@ -28,19 +28,25 @@ User starts TailTrail
 Task profiler
         |
         v
-Profile-specific question set
+Profile-specific fields and question set
         |
         v
-Host answers questions
+Host narration or answers
         |
         v
-Navigator finalizes packet
+Navigator records observations and candidate answers
         |
-   +----------------------+
-   |                      |
-Internal due diligence  clarification
-   |                      |
-Planning Lock       Navigator asks host/user
+   +-------------------------------+
+   |                               |
+Evidence-checked candidates    Missing or ambiguous fields
+   |                               |
+Accepted answers             Navigator asks host/user
+   |                               |
+   +----------> Finalized packet
+        |
+       Internal due diligence
+        |
+        Planning Lock
 ```
 
 ## Task Profiling
@@ -209,6 +215,31 @@ Clarification should be bounded:
 
 - no more than five host-question rounds;
 - no more than three material questions per round;
+- profile-specific defaults may use lower limits for simpler tasks;
+- a global ceiling applies regardless of profile.
+
+These bounds defend against infinite host/TailTrail clarification loops, repeated
+non-resolving answers, unnecessary interaction friction, and unbounded state
+growth. They are safety limits, not a target number of questions.
+
+Runs that remain unanswered need an explicit lifecycle:
+
+```text
+awaiting-host-answers
+  -> paused
+  -> expired
+  -> abandoned
+  -> resumed
+```
+
+- `paused`: resumable while within the inactivity window;
+- `expired`: no execution or approval is allowed until the run is resumed;
+- `abandoned`: explicitly stopped by the host or user;
+- `resumed`: continues the same lineage after a fresh host-presence check.
+
+Expiration never deletes questions, answers, contracts, or evidence. Resuming
+does not approve or activate a run.
+
 - after the limit, ask the user for a decision with the unresolved evidence
   clearly named.
 
@@ -372,7 +403,8 @@ typed event rather than communicating with the host:
 ```json
 {
   "event": "clarification-required",
-  "source_component": "test-planner",
+  "source_component_id": "test-precision-planner",
+  "component_version": "1.4",
   "packet_id": "packet-42",
   "requirement_id": "req-03",
   "question_kind": "proof-command",
@@ -380,6 +412,12 @@ typed event rather than communicating with the host:
   "evidence_refs": ["proof-binding-18"]
 }
 ```
+
+`source_component_id` must come from a versioned component or adapter registry.
+The registry defines the component's accepted projections, emitted event types,
+schema version, authority level, and whether it may emit clarification events.
+Unknown component IDs are rejected; a component cannot claim authority by
+choosing an arbitrary name.
 
 Navigator receives the event and either asks the host a bounded question, asks
 the user for a product decision, or rejects the internal interpretation with
@@ -432,6 +470,107 @@ The host never creates authoritative TailTrail IDs.
 
 The host provides observations; Navigator converts them into validated answers.
 Only validated answers may affect requirements, scope, proof, or authority.
+
+## Hybrid Narration and Question Flow
+
+The host does not need to wait for a question before reporting known context.
+Navigator may accept an initial narration, but narration is always treated as
+an observation batch rather than as an accepted answer.
+
+```text
+host narration
+  -> observations
+  -> candidate answers mapped to profile fields
+  -> evidence-check each candidate
+  -> accepted candidates fill fields
+  -> unanswered or ambiguous fields become questions
+```
+
+This allows the host to report, for example, an existing path, behavior, test,
+and intended outcome in one message. Navigator asks only for fields that remain
+missing or ambiguous.
+
+The optimization is limited to question issuance. It must never create a
+shortcut from narration to authority:
+
+```text
+narration -> inferred answer -> accepted
+```
+
+is forbidden. Every candidate follows the same acceptance chain as a direct
+question response:
+
+```text
+received
+  -> normalized
+  -> mapped to profile field
+  -> evidence-checked
+  -> accepted or clarification-required
+```
+
+## Profile Fields and Question IDs
+
+A required profile field and an issued question are separate objects:
+
+```text
+field_id: implementation-owner
+question_id: question-07
+```
+
+A field may be filled by a direct response:
+
+```json
+{
+  "source": "direct-question",
+  "question_id": "question-07",
+  "field_id": "implementation-owner"
+}
+```
+
+or by a volunteered observation:
+
+```json
+{
+  "source": "narration",
+  "observation_id": "observation-12",
+  "question_id": null,
+  "field_id": "implementation-owner"
+}
+```
+
+The field ID is always required. A question ID is required only when a
+question was actually issued. This avoids inventing fake questions while
+preserving complete answer lineage.
+
+## Evidence-Check by Role
+
+Evidence checking is profile- and role-aware. It does not require every
+proposed-new path to have relationship evidence before it exists.
+
+For an existing file, checks may include existence, ownership relationships,
+callers, linked tests, and repository role.
+
+For a proposed-new file, checks include explicit proposed ownership, allowed
+location, convention evidence, owning requirement, and mandatory
+post-implementation verification.
+
+For a proposed proof path, checks include requirement binding, command
+specificity, and the requirement that the path be created and run before
+completion.
+
+## Authority by Input Type
+
+| Input | Immediate meaning | Can grant authority? |
+|---|---|---|
+| Host narration | Observation batch | No |
+| Direct Navigator response | Candidate answer | No |
+| Evidence-checked candidate | Validated answer | Within role rules |
+| Finalized Navigator packet | Operational authority | Yes |
+| Internal component inference | Clarification request only | No |
+
+Narration can satisfy or narrow required fields only through the
+evidence-checked candidate-answer path. It may reduce the number of questions,
+but it cannot directly establish requirements, path roles, proof, or authority.
 
 ## Answer Acceptance States
 
@@ -683,7 +822,8 @@ The pipeline design still needs explicit decisions for:
 - whether clarification rounds are capped globally or per profile;
 - CLI and MCP parity for contract submission and resume;
 - migration of existing runs that predate the intake contract;
-- redaction rules for sensitive host answers;
+- exact redaction rules, sensitive-pattern catalog, retention duration, and
+  storage boundaries for host answers;
 - whether components may reject a projection or must return a typed
   clarification event.
 
@@ -691,6 +831,10 @@ The most important gap is the proposed-new path lifecycle. A new file cannot
 have normal relationship evidence before it exists, so the contract must allow
 explicit proposed ownership while requiring stronger post-implementation
 verification.
+
+Redaction, retention, and artifact ownership are mandatory capabilities. The
+remaining policy decision is the exact sensitive-pattern catalog, retention
+duration, and storage boundary for each artifact class.
 
 ## Migration Strategy
 

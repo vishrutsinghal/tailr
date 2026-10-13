@@ -77,14 +77,21 @@ Freeze the protocol before changing components.
 - State transition table.
 - Packet version and dependency invalidation rules.
 - Redaction and retention policy.
+- Timeout, pause, expiration, abandonment, and resume handling.
 
 ### Required decisions
 
 - JSON contract plus append-only JSONL event stream.
 - Central ID generation and collision handling.
-- Maximum clarification rounds and question count per round.
+- Profile-specific clarification defaults with a three-question round limit and
+  a global five-round ceiling. The bounds defend against infinite loops,
+  repeated non-resolving answers, unnecessary friction, and unbounded state
+  growth.
 - User escalation conditions.
 - Compatibility behavior for runs without a contract.
+- Exact redaction patterns, retention duration, and artifact storage boundaries;
+  redaction and retention remain mandatory capabilities while policy details are
+  finalized.
 
 ### Tests
 
@@ -140,6 +147,8 @@ approval-recorded
 - Events from a stale run or packet are rejected.
 - Contract fingerprints change only through approved revision events.
 - Redacted values never reappear in derived artifacts.
+- Expired or abandoned runs preserve their evidence and cannot execute until
+  explicitly resumed.
 
 ### Exit criteria
 
@@ -157,8 +166,11 @@ Make Navigator the exclusive host-facing question and clarification boundary.
 
 - Task profiler.
 - Profile-specific question planner.
+- Profile-field registry separate from issued question IDs.
 - Question issuance through the intake pipeline.
 - Host observation ingestion.
+- Initial narration ingestion as an observation batch.
+- Candidate-answer extraction mapped to profile fields.
 - Answer normalization and acceptance states.
 - Bounded clarification loop.
 - User-decision escalation.
@@ -187,16 +199,25 @@ received -> normalized -> evidence-checked -> accepted
 - Host cannot mark an answer accepted.
 - Observations without an active question or packet context are rejected or
   routed for classification.
+- Narration can fill candidate fields but cannot directly create an accepted
+  answer or grant authority.
+- A volunteered observation without a question ID retains a required field ID
+  and observation ID.
+- Only evidence-checked candidates can fill a profile field.
 - Navigator can ask a follow-up question using the same requirement lineage.
 - Dead ends escalate to the user instead of silently choosing a path.
 - Documentation tasks receive fewer questions than new feature tasks.
 - Clarification rounds resume after process interruption.
+- Paused runs can expire or be explicitly abandoned without deleting evidence;
+  resuming never approves or activates a run.
 
 ### Exit criteria
 
 - Host questions and answers are visible through Navigator only.
 - No Planning Lock is created before required answers are accepted.
 - No internal component has a host communication path.
+- Runs have explicit paused, expired, abandoned, and resumed states.
+- Narration reduces unnecessary questions without bypassing acceptance checks.
 
 ## Phase 3: Requirement and Packet Finalization
 
@@ -209,6 +230,7 @@ Turn accepted answers into one immutable operational packet.
 - Requirement builder.
 - Path-role binding builder.
 - Proof binding builder.
+- Candidate-answer to profile-field binding builder.
 - Positive and negative criteria binding.
 - Packet finalization command.
 - Packet revision and dependency invalidation.
@@ -232,6 +254,7 @@ Existing paths require existence and role evidence. Proposed paths require:
 - New-file answers remain proposed until verified after implementation.
 - Unused answers block finalization or create clarification.
 - Contradictory path roles cannot finalize.
+- Narration-derived candidates use the same evidence gate as direct responses.
 - Changing a requirement creates a new packet version.
 - Dependent scope and proof projections are invalidated after revision.
 
@@ -349,6 +372,9 @@ host intent.
 - Closure and completion adapter.
 - Delivery Record adapter.
 - MCP adapter.
+- Versioned component/adapter registry defining component IDs, accepted
+  projections, emitted event types, schema versions, authority levels, and
+  clarification permission.
 
 ### Adapter contract
 
@@ -365,6 +391,7 @@ may not contact the host or mutate the canonical contract.
 
 - Every adapter consumes the same packet version.
 - Adapter rejection creates a typed clarification event.
+- Unknown component IDs and unauthorized event types are rejected.
 - CLI and MCP produce equivalent projections.
 - Components cannot write host-facing questions directly.
 - Old components can consume compatibility projections.
@@ -466,6 +493,27 @@ Existing runs and components must remain usable during rollout.
 5. Keep old artifacts immutable and mark them as pre-pipeline.
 6. Remove compatibility behavior only after retention and replay requirements
    are satisfied.
+
+## Incremental Value by Phase
+
+Every phase should ship independently useful value; the system must not wait
+for Phase 8 before becoming safer.
+
+| Phase | Independent value |
+|---|---|
+| 0 | Stable protocol, state, role, redaction, and compatibility definitions |
+| 1 | Durable IDs, immutable contracts, replay, and audit history |
+| 2 | Navigator-controlled host questioning and clarification |
+| 3 | Finalized requirements, packet lineage, and projection audit |
+| 4 | Stronger file-scope authority and edit-boundary enforcement |
+| 5 | Requirement-specific proof and rejection of nearby unrelated tests |
+| 6 | Safe plug-and-play component integration without direct host access |
+| 7 | CLI/MCP parity, recovery, replay, redaction, and entry-point hardening |
+| 8 | End-to-end P7 validation and acceptance evidence |
+
+The first major user-facing value arrives in Phase 2. The first major safety
+value arrives in Phase 4. Phase 8 is the end-to-end proof, not the first point
+at which the architecture becomes useful.
 
 ## Operational Metrics
 
