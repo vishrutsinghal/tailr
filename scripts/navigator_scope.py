@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 import re
 import subprocess
+import sys
 import time
 import unicodedata
 from dataclasses import dataclass
@@ -27,6 +29,26 @@ import code_relationships
 import requirement_discovery
 from code_graph_inventory import snapshot as inventory_snapshot
 from module_resolution import RepositoryModuleResolver, ResolutionResult
+
+
+ROOT = Path(__file__).resolve().parents[1]
+_POLICY: Any = None
+
+
+def _policy() -> Any:
+    """Shared workspace policy, loaded once (Phase 2 slice C)."""
+    global _POLICY
+    if _POLICY is None:
+        spec = importlib.util.spec_from_file_location(
+            "nav_scope_workspace_policy", ROOT / "scripts" / "repository_path_policy.py"
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("unable to load scripts/repository_path_policy.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _POLICY = module
+    return _POLICY
 
 
 SCHEMA_VERSION = "2"
@@ -1224,6 +1246,9 @@ def _repository_inventory(
                     continue
                 parts = PurePosixPath(relative).parts
                 if parts and parts[0].lower() in {".tailtrail", "tailtrail-meta"}:
+                    continue
+                role, _ = _policy().classify_path(root, relative)
+                if role != "application":
                     continue
                 values.append(relative)
             if len(values) >= limits.candidate_files:

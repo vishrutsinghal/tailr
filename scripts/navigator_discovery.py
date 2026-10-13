@@ -7,6 +7,7 @@ It does not classify a task or decide a workflow, keeping Navigator policy in
 from __future__ import annotations
 
 import json
+import importlib.util
 import re
 import subprocess
 import sys
@@ -16,6 +17,25 @@ from typing import Any
 import navigator_core as core
 import navigator_scope as scope
 import requirement_discovery
+
+
+_POLICY: Any = None
+
+
+def _policy() -> Any:
+    """Shared workspace policy, loaded once (Phase 2 slice C)."""
+    global _POLICY
+    if _POLICY is None:
+        spec = importlib.util.spec_from_file_location(
+            "nav_discovery_workspace_policy", ROOT / "scripts" / "repository_path_policy.py"
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("unable to load scripts/repository_path_policy.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _POLICY = module
+    return _POLICY
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -112,6 +132,9 @@ def exact_phrase_paths(
             continue
         if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in Path(relative).parts):
             continue
+        role, _ = _policy().classify_path(root, relative)
+        if role != "application":
+            continue
         body, rejection, content_fingerprint = scope.safe_text(root, relative)
         if rejection or body is None or content_fingerprint is None:
             continue
@@ -173,7 +196,10 @@ def _candidates(root: Path) -> list[Path]:
             relative = path.relative_to(root)
         except ValueError:
             return False
-        return not any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts)
+        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
+            return False
+        role, _ = _policy().classify_path(root, relative.as_posix())
+        return role == "application"
 
     try:
         tracked = subprocess.run(["git", "ls-files"], cwd=root, text=True, capture_output=True, check=False)
@@ -223,6 +249,9 @@ def goal_discovered_paths(
         try:
             relative = path.relative_to(root)
             if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
+                continue
+            role, _ = _policy().classify_path(root, relative.as_posix())
+            if role != "application":
                 continue
         except (OSError, ValueError):
             continue
@@ -304,6 +333,9 @@ def repository_discovered_paths(root: Path, goal: str, limit: int = 5, query_ter
         except ValueError:
             continue
         if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
+            continue
+        role, _ = _policy().classify_path(root, relative.as_posix())
+        if role != "application":
             continue
         name, suffix = relative.name.lower(), relative.suffix.lower()
         manifest = name in REPOSITORY_DISCOVERY_MANIFESTS
