@@ -32,10 +32,10 @@ pipeline while keeping Navigator as the only host-facing boundary.
 3. The host submits observations; Navigator accepts or rejects answers.
 4. Internal components consume finalized Navigator projections only.
 5. Missing or contradictory information creates clarification, not inference.
-6. A finalized packet is immutable; changed accepted decisions create a new
-   packet version.
-7. Every editable path is bound to an accepted answer, packet version, and
-   immutable anchor.
+6. The anchor version is the only versioned authority; a packet is a view bound
+  to one anchor version, not an independent version history.
+7. Every editable path is bound to an accepted answer, packet view, and
+  immutable anchor version.
 8. Every proof command is bound to a requirement and must exercise that
    requirement.
 9. Components return typed evidence or clarification events to the pipeline.
@@ -55,7 +55,8 @@ pipeline while keeping Navigator as the only host-facing boundary.
 | `path_binding_id` | Binds a path to a role and requirement | Intake pipeline |
 | `proof_binding_id` | Binds a proof path/command to a requirement | Intake pipeline |
 | `packet_id` | Identifies a finalized operational packet | Intake pipeline |
-| `packet_version` | Identifies a changed accepted decision set | Intake pipeline |
+| `packet_view_id` | Identifies an operational projection for one anchor version | Intake pipeline |
+| `anchor_version` | Identifies the only versioned authority for approved scope | Anchor store |
 | `artifact_id` | Identifies stored evidence or output | Artifact store |
 | `event_id` | Identifies one append-only event | Event store |
 
@@ -75,7 +76,7 @@ Freeze the protocol before changing components.
 - Role enum for existing, proposed, inspection, proof, generated, excluded,
   and external paths.
 - State transition table.
-- Packet version and dependency invalidation rules.
+- Anchor-bound packet views and dependency invalidation rules.
 - Redaction and retention policy.
 - Timeout, pause, expiration, abandonment, and resume handling.
 
@@ -89,6 +90,9 @@ Freeze the protocol before changing components.
   growth.
 - User escalation conditions.
 - Compatibility behavior for runs without a contract.
+- Content fingerprints identify immutable contracts, projections, and artifacts;
+  generated IDs identify interaction objects such as runs, questions,
+  observations, answers, and events.
 - Exact redaction patterns, retention duration, and artifact storage boundaries;
   redaction and retention remain mandatory capabilities while policy details are
   finalized.
@@ -107,11 +111,12 @@ Freeze the protocol before changing components.
 - Invalid state transitions fail closed.
 - No implementation component is required to interpret raw host answers.
 
-## Phase 1: Central Intake and Event Store
+## Phase 1A: Minimal Intake and Event Correlation
 
 ### Purpose
 
-Create the source of IDs, immutable contracts, and append-only event history.
+Create the smallest source of IDs and event correlation needed to support
+Navigator narration and question/answer exchange.
 
 ### Deliverables
 
@@ -120,8 +125,8 @@ Create the source of IDs, immutable contracts, and append-only event history.
 - Contract persistence.
 - Append-only event writer.
 - Idempotency key support.
-- Resume and replay APIs.
-- Event-to-contract integrity checks.
+- Question, observation, and answer correlation.
+- Minimal event-to-contract integrity checks.
 
 ### Event examples
 
@@ -134,7 +139,9 @@ answer-accepted
 answer-rejected
 clarification-required
 packet-finalized
-packet-revised
+anchor-revised
+packet-view-materialized
+packet-view-invalidated
 projection-created
 projection-invalidated
 approval-recorded
@@ -142,19 +149,16 @@ approval-recorded
 
 ### Tests
 
-- Replayed events produce the same materialized contract.
 - Duplicate event submission is idempotent.
 - Events from a stale run or packet are rejected.
 - Contract fingerprints change only through approved revision events.
-- Redacted values never reappear in derived artifacts.
-- Expired or abandoned runs preserve their evidence and cannot execute until
-  explicitly resumed.
+- Interaction IDs are unique and content fingerprints remain stable.
 
 ### Exit criteria
 
-- All IDs are generated centrally.
-- Contracts and events can be recovered after interruption.
-- The event stream can rebuild the current contract and packet state.
+- Question, observation, and answer IDs are generated centrally.
+- Navigator can correlate narration and direct responses without creating
+  independent host state.
 
 ## Phase 2: Navigator Host Protocol
 
@@ -232,6 +236,39 @@ narration must produce an explicit candidate mapping before evidence checking.
 - Runs have explicit paused, expired, abandoned, and resumed states.
 - Narration reduces unnecessary questions without bypassing acceptance checks.
 
+## Phase 1B: Full Event Durability and Replay
+
+### Purpose
+
+Complete the event-store capabilities after the user-facing Navigator slice is
+working.
+
+### Deliverables
+
+- Full contract persistence and materialized projections.
+- Resume and replay APIs.
+- Event-to-contract integrity checks.
+- Dependency-aware packet-view invalidation on anchor revision.
+- Redaction at ingestion and protection against reappearance in derived
+  artifacts.
+- Expired and abandoned run handling that preserves evidence and blocks
+  execution until explicit resume.
+
+### Tests
+
+- Replayed events produce the same materialized contract and packet view.
+- Duplicate event submission is idempotent.
+- Interrupted host exchanges resume without losing accepted answers.
+- Redacted values never reappear in derived artifacts.
+- Expired or abandoned runs cannot execute until explicitly resumed.
+
+### Exit criteria
+
+- The event stream can rebuild the current contract and anchor-bound packet
+  view.
+- Replay produces the same fingerprints as the original materialization.
+- Recovery preserves lineage without creating duplicate IDs.
+
 ## Phase 3: Requirement and Packet Finalization
 
 ### Purpose
@@ -246,7 +283,8 @@ Turn accepted answers into one immutable operational packet.
 - Candidate-answer to profile-field binding builder.
 - Positive and negative criteria binding.
 - Packet finalization command.
-- Packet revision and dependency invalidation.
+- Anchor-bound packet-view materialization and dependency invalidation on anchor
+  revision.
 - Projection audit showing consumed, unused, contradicted, inferred, and
   projected-without-source answers.
 
@@ -268,8 +306,8 @@ Existing paths require existence and role evidence. Proposed paths require:
 - Unused answers block finalization or create clarification.
 - Contradictory path roles cannot finalize.
 - Narration-derived candidates use the same evidence gate as direct responses.
-- Changing a requirement creates a new packet version.
-- Dependent scope and proof projections are invalidated after revision.
+- Changing a requirement creates a new anchor revision and packet view.
+- Dependent scope and proof projections are invalidated after anchor revision.
 
 ### Exit criteria
 
@@ -278,22 +316,22 @@ Existing paths require existence and role evidence. Proposed paths require:
 - Every binding has source answer IDs.
 - No downstream component needs raw host conversation data.
 
-## Phase 4: Scope Projection and Authority
+## Phase 4A: Existing Scope Authority Baseline
 
 ### Purpose
 
-Strengthen path-change authority for every file category.
+Reuse and verify the already-shipped scope and anchor enforcement instead of
+rebuilding it.
 
 ### Deliverables
 
-- Scope projection adapter for Navigator.
-- Anchor binding containing packet and path-binding fingerprints.
-- Write-time scope check.
-- Closure-time changed-path check.
-- Existing/proposed path verification.
-- Role-preserving handling for tests, docs, config/data, generated files, and
-  external references.
-- Multi-file role conflict detection.
+- Confirm the existing scope projection adapter for Navigator.
+- Confirm anchor binding with content fingerprints.
+- Confirm write-time scope checks and closure-time changed-path checks.
+- Confirm existing/proposed path verification.
+- Confirm role-preserving handling for tests, docs, config/data, generated
+  files, and external references.
+- Confirm multi-file role conflict detection.
 
 ### Scenarios
 
@@ -334,9 +372,42 @@ Keep it out of editable scope unless an explicit approved role allows it.
 
 ### Exit criteria
 
-- Every editable path is traceable to an accepted answer and packet version.
+- Every existing editable path is traceable to the current anchor and scope
+  projection.
 - Write-time and closure-time checks agree.
 - Scope cannot be broadened by a downstream component.
+
+The existing enforcement is treated as a verified baseline. The remaining
+answer-to-path authorization work is Phase 4B.
+
+## Phase 4B: Answer-to-Path Authorization
+
+### Purpose
+
+Bind each editable path to the accepted answer, packet view, and anchor version
+that authorized it.
+
+### Deliverables
+
+- Answer-to-path authorization record.
+- Existing versus proposed-new path binding verification.
+- Path-binding fingerprint included in the anchor projection.
+- Write-time and closure-time lineage checks.
+- Invalidation when a path role or accepted answer changes.
+
+### Tests
+
+- An editable path without an accepted source answer is rejected.
+- A path from a stale packet view cannot be written.
+- A proposed-new path is verified after creation before completion.
+- Multi-file changes retain the correct answer and role for every path.
+
+### Exit criteria
+
+- Every editable path has answer, requirement, packet-view, and anchor-version
+  lineage.
+- Scope enforcement remains compatible with the existing shipped baseline.
+- Downstream components cannot broaden editable scope.
 
 ## Phase 5: Proof and Validation Projection
 
@@ -402,7 +473,7 @@ may not contact the host or mutate the canonical contract.
 
 ### Tests
 
-- Every adapter consumes the same packet version.
+- Every adapter consumes the same anchor-bound packet view.
 - Adapter rejection creates a typed clarification event.
 - Unknown component IDs and unauthorized event types are rejected.
 - CLI and MCP produce equivalent projections.
@@ -437,7 +508,7 @@ Make the pipeline unavoidable and safe across all supported entry points.
 - CLI, facade, and MCP parity tests.
 - Direct internal bypass attempts fail.
 - Interrupted host exchange resumes from the last valid event.
-- Concurrent answers cannot overwrite a newer packet version.
+- Concurrent answers cannot overwrite a newer anchor revision or packet view.
 - Sensitive observations are redacted in reports and logs.
 - Historical runs remain readable through a compatibility adapter.
 
@@ -515,18 +586,21 @@ for Phase 8 before becoming safer.
 | Phase | Independent value |
 |---|---|
 | 0 | Stable protocol, state, role, redaction, and compatibility definitions |
-| 1 | Durable IDs, immutable contracts, replay, and audit history |
-| 2 | Navigator-controlled host questioning and clarification |
+| 1A | Minimal IDs and correlation for early narration and questioning |
+| 2 | Navigator-controlled host questioning, narration, and clarification |
+| 1B | Full durability, replay, expiry, and anchor-bound packet views |
 | 3 | Finalized requirements, packet lineage, and projection audit |
-| 4 | Stronger file-scope authority and edit-boundary enforcement |
+| 4A | Verified reuse of shipped scope and anchor enforcement |
+| 4B | Answer-to-path authorization and residual edit-boundary lineage |
 | 5 | Requirement-specific proof and rejection of nearby unrelated tests |
 | 6 | Safe plug-and-play component integration without direct host access |
 | 7 | CLI/MCP parity, recovery, replay, redaction, and entry-point hardening |
 | 8 | End-to-end P7 validation and acceptance evidence |
 
 The first major user-facing value arrives in Phase 2. The first major safety
-value arrives in Phase 4. Phase 8 is the end-to-end proof, not the first point
-at which the architecture becomes useful.
+value arrives in Phase 4B, while Phase 4A verifies the existing baseline. Phase
+8 is the end-to-end proof, not the first point at which the architecture is
+useful.
 
 ## Operational Metrics
 
@@ -563,8 +637,8 @@ The implementation is complete when:
 - Navigator is the only host-facing question boundary;
 - central TailTrail services generate all authoritative IDs;
 - host observations are accepted only through question/packet context;
-- finalized packets are immutable and versioned when accepted decisions change;
-- every editable path is bound to an answer, packet version, and anchor;
+- finalized packets are immutable views bound to one anchor version;
+- every editable path is bound to an answer, packet view, and anchor version;
 - every proof command is bound to a requirement;
 - internal components consume projections and emit typed events only;
 - CLI, orchestration, and MCP behavior is equivalent;
@@ -572,12 +646,11 @@ The implementation is complete when:
 - complete P7 input produces end-to-end traceable evidence;
 - historical runs remain readable.
 
-## Independent Review Findings (read-only review, no plan text altered above)
+## Independent Review Findings (read-only review captured before resolution)
 
-The following findings come from an independent read-through against
-live, shipped TailTrail behavior. They are recorded here without
-changing any section above; disagreements are flagged for the plan
-owners to resolve, not silently merged.
+The following findings came from an independent read-through against live,
+shipped TailTrail behavior. They are retained as review history; their
+dispositions are recorded in the resolution section below.
 
 1. **Packet-version lifecycle contradicts the single-chain rule.**
    The design doc now states a packet version is only a pointer to an
@@ -613,3 +686,21 @@ owners to resolve, not silently merged.
    the reverse of the listed phase order. The phase table itself
    concedes the first safety value arrives in Phase 4; narration
    moves user-visible value earliest without new stateful machinery.
+
+## Review Resolution
+
+The independent findings are accepted with these dispositions:
+
+1. The anchor version is the only versioned truth. Packet IDs identify
+  anchor-bound operational views and never form a second version chain.
+2. Content fingerprints identify immutable contracts, projections, and
+  artifacts. Generated IDs are reserved for interaction-scoped objects such
+  as runs, questions, observations, answers, and events.
+3. Redaction starts from the shipped shaped-secret and prompt-retention
+  protections. Remaining work defines policy boundaries and extends the
+  catalog only where evidence requires it.
+4. Existing Phase 4 enforcement is a verified Phase 4A baseline. Phase 4B
+  contains only the residual answer-to-path authorization and lineage work.
+5. Delivery uses a thin Phase 1A foundation, then Phase 2 narration, followed
+  by Phase 1B durability and replay. This preserves early user value without
+  making the host flow depend on a complete event-store implementation.
