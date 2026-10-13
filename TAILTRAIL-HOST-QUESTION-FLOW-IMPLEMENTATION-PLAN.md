@@ -571,3 +571,45 @@ The implementation is complete when:
 - incomplete P7 input produces clarification rather than inferred scope;
 - complete P7 input produces end-to-end traceable evidence;
 - historical runs remain readable.
+
+## Independent Review Findings (read-only review, no plan text altered above)
+
+The following findings come from an independent read-through against
+live, shipped TailTrail behavior. They are recorded here without
+changing any section above; disagreements are flagged for the plan
+owners to resolve, not silently merged.
+
+1. **Packet-version lifecycle contradicts the single-chain rule.**
+   The design doc now states a packet version is only a pointer to an
+   anchor version (`packet for anchor-v3`), never an independent
+   lifecycle -- because two version histories for one evolving truth is
+   the exact split-brain shape behind the anchor-versioning fixes
+   (Issues Log 13/13a). This plan still builds a full packet-version
+   lifecycle (`packet-revised` events, revision/invalidation rules,
+   "changing a requirement creates a new packet version" tests, and a
+   Definition-of-Done line demanding "immutable and versioned" packets).
+   Both cannot be true. Recommendation: scope packet machinery down to
+   pointer-plus-invalidation-on-anchor-revision, or revisit the
+   single-chain rule explicitly -- do not leave both standing.
+2. **The central ID service is assumed, never justified.** The plan
+   mandates generated IDs with collision/ordering handling while the
+   system already identifies everything by content fingerprint (no HA,
+   ordering, or collision story needed). Either add one paragraph on
+   what fingerprints cannot do, or prefer content hashes for lineage
+   and reserve generated IDs for interaction-scoped objects (questions,
+   answers, events) that genuinely lack stable content.
+3. **Redaction section should cite solved work.** Shaped-secret
+   rejection at ingestion plus prompt removal from router state already
+   exist and are tested -- adopt them as the starting sensitive-pattern
+   catalog instead of leaving redaction open-ended.
+4. **Phase 4 is largely shipped.** Write-time scope checks, closure-time
+   changed-path checks, anchor binding with fingerprints, and
+   role-preserving path handling all exist with red-to-green tests.
+   Mark it done rather than rebuilding it; the residual is an explicit
+   answer-to-path authorization record, which is smaller than this
+   phase implies.
+5. **Build narration (Phase 2) before the ID service (Phase 1).**
+   Highest user-visible value with the lowest architectural risk --
+   the reverse of the listed phase order. The phase table itself
+   concedes the first safety value arrives in Phase 4; narration
+   moves user-visible value earliest without new stateful machinery.
