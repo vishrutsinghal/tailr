@@ -31,6 +31,7 @@ LOCAL_CACHE = Path(".tailtrail") / "code-graph-cache.json"
 
 SKIP_DIRS = {
     ".git",
+    ".claude",
     ".hg",
     ".idea",
     ".svn",
@@ -40,6 +41,7 @@ SKIP_DIRS = {
     "aidlc-rules",
     "node_modules",
     "vendor",
+    "worktrees",
     "dist",
     "build",
     "target",

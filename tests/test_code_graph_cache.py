@@ -63,6 +63,19 @@ class CodeGraphCacheTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
+    def test_mapper_excludes_nested_worktrees_but_keeps_real_files(self) -> None:
+        mapper = _load_mapper()
+        real = self.root / "src" / "real.py"
+        real.write_text("VALUE = 1\n", encoding="utf-8")
+        nested = self.root / ".claude" / "worktrees" / "stale" / "src" / "ghost.py"
+        nested.parent.mkdir(parents=True)
+        nested.write_text("VALUE = 2\n", encoding="utf-8")
+
+        paths = {path.relative_to(self.root).as_posix() for path in mapper.list_text_files(self.root)}
+
+        self.assertIn("src/real.py", paths)
+        self.assertNotIn(".claude/worktrees/stale/src/ghost.py", paths)
+
     def test_load_missing_returns_empty(self) -> None:
         data, error = cgc.load(self.cache_path)
         self.assertEqual(error, "missing")
