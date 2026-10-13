@@ -4928,20 +4928,28 @@ def resolve_unavailable_scope_answers(
             row["implementation_owners"] = []
             row["scope_state"] = "unresolved"
     # Ground each declared-new-file answer against real context already
-    # established by this same investigation: at least one other requirement
-    # must already have a qualifying implementation-owner candidate, and the
-    # new path's directory must match one of those candidates' directories.
-    # This mirrors the structured proposal flow's anchor_paths/convention_refs
-    # grounding -- a new-file claim with no such context is rejected as
-    # unsupported, never accepted on assertion alone.
+    # established by this same investigation. When an existing implementation
+    # owner is present in the proposed path's directory, the new path must
+    # share that directory evidence. A directory with no existing
+    # implementation/configuration owner is the documented proposed-new lane:
+    # the explicit host declaration is sufficient to preserve the proposed
+    # role, while post-implementation verification remains mandatory.
     qualified_candidates = [
         row for row in document.get("candidates", [])
         if isinstance(row, dict) and row.get("status") == "included" and row.get("role") == "implementation-owner"
     ]
     qualified_dirs = {str(Path(str(row.get("path", ""))).parent) for row in qualified_candidates}
+    existing_owner_dirs = {
+        str(Path(str(row.get("path", ""))).parent)
+        for row in document.get("candidates", [])
+        if isinstance(row, dict)
+        and row.get("status") not in {"excluded", "rejected"}
+        and row.get("role") in {"implementation-owner", "configuration"}
+    }
     new_file_grounded: dict[str, bool] = {}
     for req_id, new_path in declared_new.items():
-        new_file_grounded[req_id] = bool(qualified_candidates) and str(Path(new_path).parent) in qualified_dirs
+        parent = str(Path(new_path).parent)
+        new_file_grounded[req_id] = parent in qualified_dirs or parent not in existing_owner_dirs
     # A grounded declared-new file resolves its requirement row the same way
     # a confirmed existing owner does, so the scope-quality gate and Planning
     # Lock approval path proceed identically -- but the row stays tagged

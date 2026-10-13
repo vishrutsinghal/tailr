@@ -24,6 +24,10 @@ the entries there.
 | 10 | `--run-id` on `tailtrail start` doesn't pin a new run's ID | Not a bug -- misunderstanding, corrected |
 | 13 | Harness checkpoint + drift analysis ignore corrected anchors (v2+) | **Fixed** (latest-approved + injection + dict tolerance) |
 | 14 | Artifact-bound validation commands appeared unresolved in the Start Report when supplied as host evidence rather than a proof revision. | **Withdrawn as a bug.** The documented pre-activation `proof-update` flow correctly registers the command in `validation_contract`; the earlier finding was a workflow misunderstanding. |
+| 17 | Explicit proposed-new scope answers rejected by same-directory grounding and replaced by unrelated inferred owners | **Fixed locally** (focused scope regressions pass; closure evidence pending) |
+| 18 | Generic `component` wording activates presentation planning | **Fixed locally** (84 navigator-core tests pass; closure evidence pending) |
+| 19 | Focused validation selects a helper script as an executable test proof | Open -- proof contract needs test-suite validation |
+| 20 | Separate correction runs inherit unrelated dirty paths and report changed-beyond-approved | Open -- correction-run isolation/dirty-worktree policy needed |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -2535,3 +2539,85 @@ projection reads the amendment file from the wrong path (Open):**
   should go through TailTrail's own real Start -> Planning Lock ->
   Approve -> Implement -> Evidence -> Closure workflow rather than a
   direct manual edit.
+
+## 17. Explicit proposed-new scope answers were rejected by same-directory grounding (Fixed locally)
+
+**Symptom:** A host scope answer such as
+`REQ-01=new:schemas/host-question-flow.schema.json` was parsed successfully but
+did not survive scope projection. The resolver retained an unrelated existing
+graph owner instead of preserving the declared-new path.
+
+- **Root cause:** `resolve_unavailable_scope_answers()` required every proposed
+  new path to share a directory with an already-qualified implementation owner.
+  A legitimate new schema or test directory has no existing owner by
+  definition, so the explicit answer was rejected as ungrounded. Later owner
+  narrowing allowed the inferred owner to remain visible.
+- **Correction:** Proposed-new paths are now accepted in directories without an
+  existing implementation/configuration owner and remain tagged
+  `owner_kind=declared-new`. Existing-owner directories retain the stricter
+  grounding rule. Post-implementation verification remains required.
+- **Proof:** `tests.test_scope_answer_mapping` and `tests.test_navigator_scope`
+  pass together; the focused regression asserts owner retention, lineage, and
+  no unrelated fallback.
+- **Status:** Fixed locally in `scripts/navigator_scope.py`; TailTrail closure
+  remains evidence-incomplete because the original approved proof command was
+  not an executable test suite.
+
+## 18. Generic `component` wording activated presentation planning (Fixed locally)
+
+**Symptom:** A correction goal containing phrases such as “component adapters”
+was routed into presentation planning even though the requested change was
+inside Navigator classification and had no presentation path.
+
+- **Root cause:** `scripts/navigator_core.py:294` included the generic word
+  `component` in `UI_GOAL_TERMS`. The lexical check in
+  `ui_change_requested()` therefore treated adapter language as a presentation
+  request.
+- **Correction:** The generic `component` term was removed from the direct
+  presentation keyword list. Explicit presentation terms and presentation
+  paths still select the route.
+- **Proof:** `tests.test_navigator_core` passes 84 tests, including assertions
+  that generic adapter wording stays out of presentation planning while
+  explicit presentation wording and paths still route correctly.
+- **Status:** Fixed locally in `scripts/navigator_core.py`; TailTrail closure
+  remains evidence-incomplete because the correction run inherited unrelated
+  uncommitted paths and required an additive proof amendment.
+
+## 19. Focused validation selected a helper script as executable proof (Open)
+
+**Symptom:** Phase 0 and scope-correction Start Reports selected
+`python3 -m pytest scripts/test_scope.py` as the approved proof command.
+
+- **Root cause:** `scripts/test_scope.py` is a helper probe with a hard-coded
+  Windows import path and no pytest/unittest test collection. Running it from
+  the repository root failed during import; adding `PYTHONPATH=scripts` then
+  collected zero tests. The proof resolver trusted the linked script without
+  validating that it was an executable test suite.
+- **Impact:** Managed evidence could not satisfy the original approved command,
+  so passing regression evidence required an additive amendment and completion
+  remained evidence-incomplete.
+- **Recommended fix:** Focused validation selection must verify collection and
+  execution semantics before approval. Prefer real `tests/test_*.py` modules,
+  reject helper scripts with zero collected tests, and require a proof revision
+  when the candidate is not executable.
+- **Status:** Open. The real scope and navigator-core suites pass, but the
+  original proof contract remains invalid in the affected historical runs.
+
+## 20. Separate correction runs inherit unrelated dirty paths (Open)
+
+**Symptom:** The scope and classifier correction runs reported
+`changed-beyond-approved` after implementation because the other correction's
+uncommitted source/test edits were present in the shared worktree.
+
+- **Root cause:** Each Planning Lock computes its changed-path boundary against
+  repository state, but correction runs were started sequentially without a
+  clean committed baseline or an explicit shared-worktree baseline. The second
+  run treated the first run's legitimate edits as unexpected scope.
+- **Impact:** Completion reports were not clean even though each correction had
+  its own approved owner and passing focused tests.
+- **Recommended fix:** Before a new correction run, require either a clean
+  committed baseline, an explicit prior-run reference, or a host-approved
+  shared-worktree baseline. The scope/evidence system should distinguish
+  approved changes from unrelated dirty changes already present at Start.
+- **Status:** Open. No source correction is required for the two completed
+  fixes, but run-isolation policy needs a design and regression test.

@@ -378,3 +378,41 @@ work:
 - **Do not trust a green suite alone.** Use managed evidence and a linked
   Behaviour Harness scenario when the selected controls require one. A unit
   suite can pass while the lifecycle projection remains incomplete.
+
+## 14. Phase 0 host-flow lessons
+
+These lessons were verified live while correcting proposed-new scope and
+classifier routing. Apply them before approving a new host-flow or Navigator
+correction plan:
+
+- **Preserve proposed-new answers separately.** A `new:path` answer is not an
+  existing owner. Check the host-scope result for `owner_kind=declared-new` and
+  an answer disposition before accepting the plan. A proposed-new path may be
+  accepted in a directory with no existing implementation/configuration owner,
+  but it still requires post-implementation verification.
+- **Use the correct new-file route.** `--changed` asserts that a path already
+  exists and is editable. For a new path, use the documented `new:` scope
+  answer or a structured proposed-new scope proposal; never convert a rejected
+  new path into a nearby graph owner.
+- **Check lexical side effects in correction goals.** Generic terms such as
+  `component`, `workflow`, `screen`, `frontend`, and `UI` can activate planning
+  routes. When correcting a classifier, first use neutral goal wording to
+  isolate the route, then add regression assertions for both the generic and
+  explicit terms. The source classifier must be fixed; wording changes are
+  only a diagnostic step.
+- **Validate proof candidates as test suites.** A linked helper script is not
+  executable proof merely because its filename contains `test`. Run the exact
+  command before approval when possible, verify collection is non-zero, and
+  prefer a real `tests/test_*.py` module. If the Start Report selects a helper
+  that collects zero tests or fails import, revise the proof contract before
+  activation.
+- **Isolate sequential correction runs.** A second correction run started in
+  the same dirty worktree can report the first run's legitimate edits as
+  `changed-beyond-approved`. Commit a reviewed baseline, use an explicit
+  approved shared-worktree baseline, or record a formal anchor correction before
+  treating the drift as a product defect.
+- **Completion can remain incomplete after passing tests.** Re-run the
+  Completion Report after proof amendments and anchor corrections. `pass` on a
+  focused suite does not clear an invalid original proof contract, stale packet
+  scope, or a selected Behaviour/Architecture harness without its required
+  evidence.

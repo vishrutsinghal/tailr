@@ -850,6 +850,24 @@ Redaction, retention, and artifact ownership are mandatory capabilities. The
 remaining policy decision is the exact sensitive-pattern catalog, retention
 duration, and storage boundary for each artifact class.
 
+## Observed TailTrail Issues
+
+These findings came from the Phase 0 correction attempts and are part of the
+design constraints. Fixed items have local regression evidence; open items
+remain implementation or workflow work.
+
+| ID | Scenario | Root cause | Required design response | Status |
+|---|---|---|---|---|
+| 17 | `new:path` scope answer fell back to an unrelated owner | Proposed-new grounding required an existing implementation owner in the same directory | Preserve `declared-new` role and answer lineage; require post-implementation verification | Fixed locally; closure evidence pending |
+| 18 | Generic adapter wording selected presentation planning | Lexical classifier treated `component` as a presentation keyword | Use contextual presentation signals; generic adapter/component language must not route presentation work | Fixed locally; closure evidence pending |
+| 19 | Helper script selected as executable proof | Proof selection trusted a linked script without checking test collection or execution semantics | Validate proof collection before approval; reject zero-test helpers and select real test modules | Open |
+| 20 | Correction runs reported unrelated dirty paths as drift | Sequential runs shared a dirty worktree without a committed or explicitly approved baseline | Bind correction runs to a clean/shared-worktree baseline and distinguish approved prior edits from new drift | Open |
+
+The table is a design input, not a replacement for the detailed entries in
+`TAILTRAIL-ISSUES-LOG.md`. A future implementation must preserve the issue IDs
+in answer, scope, proof, and completion evidence where the issue affects that
+stage.
+
 ## Migration Strategy
 
 This should be introduced as an internal pipeline, not as a replacement of all

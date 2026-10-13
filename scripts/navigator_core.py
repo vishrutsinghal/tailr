@@ -293,7 +293,7 @@ TINY_KEYWORDS = ("typo", "comment", "rename", "readme", "docs only", "documentat
 # claim visual equivalence or run a browser during a Planning Lock.
 UI_GOAL_TERMS = (
     "ui", "user interface", "frontend", "front end", "screen", "page",
-    "component", "layout", "modal", "dialog", "form", "dashboard",
+    "layout", "modal", "dialog", "form", "dashboard",
     "button", "typography", "font", "theme", "responsive", "accessibility",
 )
 UI_PATH_SUFFIXES = (".css", ".scss", ".sass", ".less", ".jsx", ".tsx", ".vue", ".svelte")

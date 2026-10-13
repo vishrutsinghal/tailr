@@ -37,6 +37,11 @@ code_graph_mapper = load_script_module("tailtrail_code_graph_mapper_test", "scri
 
 
 class NavigatorCoreTests(unittest.TestCase):
+    def test_generic_adapter_wording_does_not_select_presentation_planning(self) -> None:
+        self.assertFalse(core.ui_change_requested("implement a component adapter", []))
+        self.assertTrue(core.ui_change_requested("implement a UI component", []))
+        self.assertTrue(core.ui_change_requested("update the client presentation", ["src/components/status.py"]))
+
     def test_learning_use_proposal_propagates_to_start_and_next_approval_gates(self) -> None:
         proposal = {
             "matches": [{"learning_id": "lrn-proposed"}],

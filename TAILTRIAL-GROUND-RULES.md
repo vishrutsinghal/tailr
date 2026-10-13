@@ -74,6 +74,23 @@ instead of rediscovering it.
    compare the exact intended diff, exclude generated metadata unless it is
    the requested change, report excluded files, and verify the remote branch
    after pushing.
+15. **Proposed-new scope is a distinct authority.** A `new:path` answer must
+   remain visibly `declared-new` with requirement lineage; it must never be
+   discarded and replaced by a nearby inferred owner. Existing-owner evidence
+   and post-creation verification are separate checks.
+16. **Proof candidates must be executable suites.** A file named like a test is
+   not proof until its exact command imports successfully and collects at least
+   one test. Helper probes, zero-test paths, and import-failing scripts must be
+   rejected or revised before approval.
+17. **Classifier keywords require context.** Generic words such as
+   `component` or `workflow` must not activate a specialized planning route by
+   themselves. Preserve explicit route terms and path signals, and add paired
+   positive/negative regressions when changing classifier vocabulary.
+18. **Correction runs need a baseline.** Do not start sequential correction
+   runs against an uncommitted worktree without an explicit shared baseline.
+   Commit the reviewed prior correction, reference the approved prior run, or
+   record an anchor correction so legitimate earlier edits are not reported as
+   unexplained drift.
 
 ## 3. Command wiring checklist
 

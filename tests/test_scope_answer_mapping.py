@@ -155,6 +155,37 @@ class ResolveUnavailableScopeAnswersTests(unittest.TestCase):
         self.assertEqual(document["requirements"][0]["implementation_owners"], [])
         self.assertNotEqual(document["state"], "resolved")
 
+    def test_proposed_new_path_preserves_declared_owner_without_same_directory_owner(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "anchor.py").write_text("VALUE = 1\n", encoding="utf-8")
+            candidate = _candidate("src/anchor.py", "cand-anchor", ["e-anchor"])
+            packet = _packet(
+                [_requirement("req-1", "REQ-01")],
+                [candidate],
+                [_edge("e-anchor", "cand-anchor")],
+            )
+            self._rows = [dict(candidate)]
+            document, errors = self._resolve(
+                root,
+                "Add a new schema",
+                ["REQ-01=new:schemas/host-question-flow.schema.json"],
+                packet,
+            )
+
+        self.assertEqual(errors, [])
+        self.assertIsNotNone(document)
+        assert document is not None
+        requirement = document["requirements"][0]
+        self.assertEqual(
+            requirement["implementation_owners"],
+            ["schemas/host-question-flow.schema.json"],
+        )
+        self.assertEqual(requirement["owner_kind"], "declared-new")
+        self.assertEqual(document["state"], "resolved")
+        self.assertEqual(document["answer_dispositions"][0]["status"], "declared-new")
+
 
 if __name__ == "__main__":
     unittest.main()
