@@ -129,6 +129,15 @@ def _policy() -> Any:
 
 
 _POLICY: Any = None
+_WORKTREE_ROOTS_CACHE: dict[str, tuple[str, ...]] = {}
+
+
+def _worktree_roots(root: Path) -> tuple[str, ...]:
+    """Linked Git worktree roots under ``root``, resolved once per run."""
+    key = str(root.resolve())
+    if key not in _WORKTREE_ROOTS_CACHE:
+        _WORKTREE_ROOTS_CACHE[key] = _policy().git_worktree_roots(root)
+    return _WORKTREE_ROOTS_CACHE[key]
 
 
 def is_skipped(path: Path, root: Path | None = None) -> bool:
@@ -139,7 +148,7 @@ def is_skipped(path: Path, root: Path | None = None) -> bool:
         relative = path.resolve().relative_to(root.resolve()).as_posix()
     except (OSError, ValueError):
         return True
-    role, _ = _policy().classify_path(root, relative)
+    role, _ = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root))
     return role != "application"
 
 
@@ -212,7 +221,7 @@ def policy_excluded(root: Path) -> list[dict[str, Any]]:
             relatives.append(path.resolve().relative_to(root.resolve()).as_posix())
         except (OSError, ValueError):
             continue
-    return _policy().exclusion_records(root, relatives)
+    return _policy().exclusion_records(root, relatives, worktree_roots=_worktree_roots(root))
 
 
 def is_release_path(path: Path, root: Path) -> bool:
@@ -1383,7 +1392,7 @@ def load_cache(path: Path) -> tuple[dict[str, Any] | None, str | None]:
 def _policy_role(root: Path, rel: str) -> str:
     """Workspace-policy verdict for one cached rel path; infrastructure failure keeps it."""
     try:
-        role, _ = _policy().classify_path(root, str(rel).replace("\\", "/"))
+        role, _ = _policy().classify_path(root, str(rel).replace("\\", "/"), worktree_roots=_worktree_roots(root))
     except Exception:
         return "application"
     return role

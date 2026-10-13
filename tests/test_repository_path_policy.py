@@ -1,4 +1,7 @@
+import os
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -7,6 +10,64 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import repository_path_policy as policy  # noqa: E402
+
+
+def _git(*args: str, cwd: Path) -> subprocess.CompletedProcess:
+    env = dict(os.environ)
+    env.update({
+        "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t.test",
+        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t.test",
+    })
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True, env=env)
+
+
+class GitWorktreeRootsTests(unittest.TestCase):
+    """Real `git worktree add` fixture: the design requires resolving actual
+    linked worktree roots, not just matching a literal `worktrees` path
+    component, since a developer or agent can name a nested worktree
+    anything."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = Path(self._tmp.name) / "repo"
+        self.repo.mkdir()
+        _git("init", "-q", cwd=self.repo)
+        (self.repo / "scripts").mkdir()
+        (self.repo / "scripts" / "ghost.py").write_text("print('real')\n")
+        _git("add", "-A", cwd=self.repo)
+        _git("commit", "-q", "-m", "init", cwd=self.repo)
+
+    def test_resolves_arbitrarily_named_nested_worktree(self) -> None:
+        _git("worktree", "add", "-q", "nested-worktree", "-b", "nested-branch", cwd=self.repo)
+        roots = policy.git_worktree_roots(self.repo)
+        self.assertEqual(roots, ("nested-worktree",))
+
+    def test_omits_primary_checkout_and_external_worktree(self) -> None:
+        sibling = Path(self._tmp.name) / "sibling-worktree"
+        _git("worktree", "add", "-q", str(sibling), "-b", "sibling-branch", cwd=self.repo)
+        roots = policy.git_worktree_roots(self.repo)
+        self.assertEqual(roots, ())
+
+    def test_empty_when_not_a_git_repository(self) -> None:
+        plain = Path(self._tmp.name) / "plain"
+        plain.mkdir()
+        self.assertEqual(policy.git_worktree_roots(plain), ())
+
+    def test_classify_path_excludes_real_nested_worktree_via_resolved_roots(self) -> None:
+        _git("worktree", "add", "-q", "nested-worktree", "-b", "nested-branch", cwd=self.repo)
+        roots = policy.git_worktree_roots(self.repo)
+        role, reasons = policy.classify_path(
+            self.repo, "nested-worktree/scripts/ghost.py", worktree_roots=roots,
+        )
+        self.assertEqual(role, "managed-worktree")
+        self.assertEqual(reasons, ("git-worktree-copy",))
+
+    def test_real_file_stays_application_without_worktree_roots_confusion(self) -> None:
+        _git("worktree", "add", "-q", "nested-worktree", "-b", "nested-branch", cwd=self.repo)
+        roots = policy.git_worktree_roots(self.repo)
+        role, _ = policy.classify_path(self.repo, "scripts/ghost.py", worktree_roots=roots)
+        self.assertEqual(role, "application")
 
 
 class RepositoryPathPolicyTests(unittest.TestCase):

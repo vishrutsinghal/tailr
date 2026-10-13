@@ -51,6 +51,17 @@ def _policy() -> Any:
     return _POLICY
 
 
+_WORKTREE_ROOTS_CACHE: dict[str, tuple[str, ...]] = {}
+
+
+def _worktree_roots(root: Path) -> tuple[str, ...]:
+    """Linked Git worktree roots under ``root``, resolved once per run."""
+    key = str(root.resolve())
+    if key not in _WORKTREE_ROOTS_CACHE:
+        _WORKTREE_ROOTS_CACHE[key] = _policy().git_worktree_roots(root)
+    return _WORKTREE_ROOTS_CACHE[key]
+
+
 SCHEMA_VERSION = "2"
 EVIDENCE_TYPE = "tailtrail-navigator-scope-evidence"
 SCOPE_POLICY_TYPE = "tailtrail-navigator-scope-release-policy"
@@ -581,7 +592,7 @@ def classify_repository_role(root: Path, relative: str) -> tuple[str, tuple[str,
     (``generated``, ``managed-tooling``) keep their own verdicts so the
     existing taxonomy and its tests stay intact.
     """
-    verdict, verdict_reasons = _policy().classify_path(root, relative)
+    verdict, verdict_reasons = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root))
     role, reasons = _file_kind_role(root, relative)
     if verdict == "application" or role in {"generated", "managed-tooling"}:
         return role, reasons
@@ -1264,7 +1275,7 @@ def _repository_inventory(
                     relative = path.relative_to(root).as_posix()
                 except ValueError:
                     continue
-                role, _ = _policy().classify_path(root, relative)
+                role, _ = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root))
                 if role != "application":
                     continue
                 values.append(relative)
@@ -1302,7 +1313,7 @@ def policy_excluded(root: Path) -> list[dict[str, Any]]:
             relatives.append(path.resolve().relative_to(root.resolve()).as_posix())
         except (OSError, ValueError):
             continue
-    return _policy().exclusion_records(root, relatives)
+    return _policy().exclusion_records(root, relatives, worktree_roots=_worktree_roots(root))
 
 
 def _cache_evidence(
@@ -1348,7 +1359,7 @@ def _cache_evidence(
             if isinstance(value, str):
                 normalized, rejection = normalize_repository_path(root, value)
                 if normalized and not rejection:
-                    role, _ = _policy().classify_path(root, normalized)
+                    role, _ = _policy().classify_path(root, normalized, worktree_roots=_worktree_roots(root))
                     if role != "application":
                         continue
                     paths.append(normalized)

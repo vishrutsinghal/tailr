@@ -40,6 +40,15 @@ def _policy() -> Any:
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
+_WORKTREE_ROOTS_CACHE: dict[str, tuple[str, ...]] = {}
+
+
+def _worktree_roots(root: Path) -> tuple[str, ...]:
+    """Linked Git worktree roots under ``root``, resolved once per run."""
+    key = str(root.resolve())
+    if key not in _WORKTREE_ROOTS_CACHE:
+        _WORKTREE_ROOTS_CACHE[key] = _policy().git_worktree_roots(root)
+    return _WORKTREE_ROOTS_CACHE[key]
 MAX_REVIEW_GRAPH_ARGUMENT_CHARS = 8_000
 MAX_REVIEW_GRAPH_CHANGED_PATHS = 50
 GOAL_DISCOVERY_SUFFIXES = {".cs", ".css", ".feature", ".go", ".html", ".java", ".js", ".jsx", ".kt", ".py", ".rb", ".rs", ".scss", ".svelte", ".ts", ".tsx", ".vue"}
@@ -129,7 +138,7 @@ def exact_phrase_paths(
             relative = path.relative_to(root).as_posix()
         except ValueError:
             continue
-        role, _ = _policy().classify_path(root, relative)
+        role, _ = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root))
         if role != "application":
             continue
         body, rejection, content_fingerprint = scope.safe_text(root, relative)
@@ -194,7 +203,7 @@ def _candidates(root: Path) -> list[Path]:
             relative = path.relative_to(root)
         except ValueError:
             return False
-        role, _ = _policy().classify_path(root, relative.as_posix())
+        role, _ = _policy().classify_path(root, relative.as_posix(), worktree_roots=_worktree_roots(root))
         return role == "application"
 
     try:
@@ -238,7 +247,7 @@ def policy_excluded(root: Path) -> list[dict[str, Any]]:
             relatives.append(path.resolve().relative_to(root.resolve()).as_posix())
         except (OSError, ValueError):
             continue
-    return _policy().exclusion_records(root, relatives)
+    return _policy().exclusion_records(root, relatives, worktree_roots=_worktree_roots(root))
 
 
 def goal_discovered_paths(
@@ -262,7 +271,7 @@ def goal_discovered_paths(
             continue
         try:
             relative = path.relative_to(root)
-            role, _ = _policy().classify_path(root, relative.as_posix())
+            role, _ = _policy().classify_path(root, relative.as_posix(), worktree_roots=_worktree_roots(root))
             if role != "application":
                 continue
         except (OSError, ValueError):
@@ -344,7 +353,7 @@ def repository_discovered_paths(root: Path, goal: str, limit: int = 5, query_ter
             relative = path.relative_to(root)
         except ValueError:
             continue
-        role, _ = _policy().classify_path(root, relative.as_posix())
+        role, _ = _policy().classify_path(root, relative.as_posix(), worktree_roots=_worktree_roots(root))
         if role != "application":
             continue
         name, suffix = relative.name.lower(), relative.suffix.lower()

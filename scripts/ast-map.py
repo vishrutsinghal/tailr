@@ -37,6 +37,17 @@ def _policy() -> Any:
 
 
 _POLICY: Any = None
+_WORKTREE_ROOTS_CACHE: dict[str, tuple[str, ...]] = {}
+
+
+def _worktree_roots(root: Path) -> tuple[str, ...]:
+    """Linked Git worktree roots under ``root``, resolved once per run."""
+    key = str(root.resolve())
+    if key not in _WORKTREE_ROOTS_CACHE:
+        _WORKTREE_ROOTS_CACHE[key] = _policy().git_worktree_roots(root)
+    return _WORKTREE_ROOTS_CACHE[key]
+
+
 TEST_HINTS = ("test", "tests", "spec", "specs")
 POLICY_NAME = "tailtrail-policy.md"
 DEFAULT_PROVIDER_OUTPUT_PREFIX = "tailtrail-meta/providers/"
@@ -78,7 +89,7 @@ def is_skipped(path: Path, root: Path | None = None) -> bool:
         relative = path.resolve().relative_to(root.resolve()).as_posix()
     except (OSError, ValueError):
         return True
-    role, _ = _policy().classify_path(root, relative)
+    role, _ = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root))
     return role != "application"
 
 
@@ -198,7 +209,7 @@ def policy_excluded(root: Path) -> list[dict[str, Any]]:
             relatives.append(path.resolve().relative_to(root.resolve()).as_posix())
         except (OSError, ValueError):
             continue
-    return _policy().exclusion_records(root, relatives)
+    return _policy().exclusion_records(root, relatives, worktree_roots=_worktree_roots(root))
 
 
 def looks_like_test(path: Path) -> bool:

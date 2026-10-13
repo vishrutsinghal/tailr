@@ -15,6 +15,7 @@ throughout (Windows checkouts).
 """
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
@@ -74,6 +75,50 @@ def _under_any(parts: tuple[str, ...], roots: Iterable[str]) -> bool:
     return any(parts[: len(prefix)] == prefix for prefix in normalized if prefix)
 
 
+def git_worktree_roots(root: Path | str, *, timeout: float = 5.0) -> tuple[str, ...]:
+    """Resolve linked Git worktree roots nested under ``root``, once per run.
+
+    Calls ``git worktree list --porcelain`` exactly once; callers must cache
+    the result for the whole run and pass it into ``classify_path``/
+    ``exclusion_records`` as ``worktree_roots`` -- never re-invoked per path,
+    per the classifier's zero-I/O-per-call contract. Returns root-relative
+    POSIX paths for linked worktrees nested inside ``root``; the primary
+    checkout itself and worktrees outside ``root`` are omitted. Fails closed
+    to an empty tuple when Git is unavailable, absent, or the call errors.
+    """
+    root_path = Path(root).resolve()
+    try:
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            cwd=root_path,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ()
+    if result.returncode != 0:
+        return ()
+    roots: list[str] = []
+    for line in result.stdout.splitlines():
+        if not line.startswith("worktree "):
+            continue
+        candidate = Path(line[len("worktree "):].strip())
+        try:
+            candidate_resolved = candidate.resolve()
+        except OSError:
+            continue
+        if candidate_resolved == root_path:
+            continue
+        try:
+            relative = candidate_resolved.relative_to(root_path)
+        except ValueError:
+            continue
+        roots.append(relative.as_posix())
+    return tuple(roots)
+
+
 def classify_path(
     root: Path | str,
     relative: str,
@@ -90,7 +135,8 @@ def classify_path(
     runtime), agent, VCS, convention-guide (aidlc-rules), and IDE-metadata
     roots also match at any depth: nested copies of these directories are
     never application code. Empty or escaping paths are `external` when
-    they leave the root, else `unknown`.
+    they leave the root, else `unknown`. ``worktree_roots`` should come from
+    one cached ``git_worktree_roots()`` call per run, not a call per path.
     """
     _ = root  # Reserved: keeps the (root, relative) call shape stable.
     text = str(relative).replace("\\", "/").strip()
