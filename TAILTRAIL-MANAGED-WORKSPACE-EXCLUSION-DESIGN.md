@@ -61,7 +61,10 @@ Detection must use more than one hard-coded agent directory.
 
 Use Git metadata where available to identify linked worktrees and their roots.
 A linked worktree is operational workspace state, not parent-repository
-application scope.
+application scope. Note the distinction the detector must keep: `.git/worktrees/`
+itself is Git admin metadata, not a nested copy -- only the linked worktree
+roots it points at are `managed-worktree`. Substring matching alone cannot
+tell these apart; the Git signal must resolve roots, not just match names.
 
 ### Path signals
 
@@ -90,7 +93,9 @@ state directories. Examples may include:
 .tailtrail-meta
 ```
 
-The registry is an additional signal, not the only protection.
+The registry is an additional signal, not the only protection. It must be
+configurable (a hardcoded name list just recreates today's per-agent bug
+for the next agent); matching against it is case-insensitive.
 
 ### Repository-root boundary
 
@@ -131,6 +136,44 @@ Every scanner and planner must use this helper:
 - cache persistence.
 
 No component should maintain an independent `SKIP_DIRS` list.
+
+## Classifier Performance Contract
+
+The classifier runs on every discovered path, so it must be pure
+string/path logic with zero I/O per path. Anything needing Git (such as
+`git worktree list`) is computed once per run and passed in, never
+queried per file -- otherwise discovery gets slow everywhere. This is a
+hard requirement on the helper's signature, not an optimization note.
+
+## Signal Precedence
+
+Overlapping signals need a deterministic winner, or identical checkouts
+produce different fingerprints. Evaluate in this fixed order, first
+match wins:
+
+```text
+1. outside target root              -> external
+2. TailTrail state roots            -> tailtrail-managed
+3. Git worktree copy (cached list)  -> managed-worktree
+4. generic `worktrees` component    -> managed-worktree
+5. agent-managed roots (registry)   -> agent-managed
+6. generated/vendor rules           -> generated
+7. otherwise in-root                -> application
+```
+
+Case-insensitivity is mandatory at every step (Windows checkouts):
+`.CLAUDE`, `Worktrees`, and `TAILTRIAL-META` must match exactly like
+their lowercase forms.
+
+## Relationship to the Existing Role Classifier
+
+This policy does not create a parallel role system. It is the
+discovery-phase precursor: it answers "is this path even considerable?"
+before candidate creation. The existing `classify_repository_role()`
+keeps answering "what role does it play?" afterwards. The mapping is one
+line: any non-`application` verdict excludes the path with the policy
+reason attached; only `application` paths reach file-kind
+classification. No second owner/proof vocabulary is minted here.
 
 ## Filtering Boundary
 
@@ -231,6 +274,10 @@ into application scope.
 - Replace local exclusion lists in code graph, review graph, AST map, and
   Navigator fallback discovery.
 - Add candidate-level exclusion provenance.
+- No flag day: keep each walker's old list until the shared policy is
+  proven for that walker, then delete the old list. A walker is proven
+  when its cross-agent fixture passes with the policy on and the old
+  list removed.
 
 ### Phase 3: Cache migration
 
