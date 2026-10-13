@@ -3333,18 +3333,36 @@ def normalize_command_prefix(root: Path, command_prefix: str) -> str:
     return command_prefix
 
 
+def executable_test_candidate(root: Path, item: dict[str, Any]) -> bool:
+    """Accept only real test modules, not test-looking helper scripts."""
+    path = Path(str(item.get("path", "")))
+    normalized = path.as_posix().lower()
+    if path.suffix.lower() != ".py":
+        return ".cy." in path.name.lower() or ".spec." in path.name.lower()
+    if not (normalized.startswith("tests/") or ".spec." in path.name.lower() or ".cy." in path.name.lower()):
+        return False
+    try:
+        body = (root / path).read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return bool(
+        "import unittest" in body
+        or "from unittest" in body
+        or re.search(r"^\s*class\s+\w+\([^)]*(?:TestCase|IsolatedAsyncioTestCase)", body, re.MULTILINE)
+        or re.search(r"^\s*def\s+test_[A-Za-z0-9_]*\s*\(", body, re.MULTILINE)
+        or "unittest.main(" in body
+    )
+
+
 def focused_validation_command(root: Path, impacted: list[dict[str, Any]], command_prefix: str) -> str | None:
     """Suggest one runnable focused test command when the local convention is clear."""
+    test_items = [
+        item for item in impacted
+        if isinstance(item, dict) and executable_test_candidate(root, item)
+    ]
     test_paths = [
         str(item.get("path", ""))
-        for item in impacted
-        if isinstance(item, dict)
-        and (
-            item.get("role") == "test"
-            or item.get("status") == "proof-only"
-            or "test" in str(item.get("path", "")).lower()
-            or any(marker in Path(str(item.get("path", ""))).name.lower() for marker in (".cy.", ".spec."))
-        )
+        for item in test_items
     ]
     if not test_paths:
         return None
@@ -3719,6 +3737,7 @@ def focused_validation_plan(
             or any(marker in Path(str(item.get("path", ""))).name.lower() for marker in (".cy.", ".spec."))
         )
     ] or _declared_test_items(root, declared_test_paths)
+    test_items = [item for item in test_items if executable_test_candidate(root, item)]
     owner_paths = list(dict.fromkeys(
         str(path)
         for row in requirements if isinstance(row, dict)

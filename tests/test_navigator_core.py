@@ -42,6 +42,32 @@ class NavigatorCoreTests(unittest.TestCase):
         self.assertTrue(core.ui_change_requested("implement a UI component", []))
         self.assertTrue(core.ui_change_requested("update the client presentation", ["src/components/status.py"]))
 
+    def test_focused_validation_rejects_helper_and_selects_real_test_module(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "scripts").mkdir()
+            (root / "tests").mkdir()
+            (root / "scripts" / "test_scope.py").write_text(
+                "import sys\nfor value in ['one', 'two']:\n    print(value)\n",
+                encoding="utf-8",
+            )
+            (root / "tests" / "test_navigator_core.py").write_text(
+                "import unittest\n\nclass ProofTests(unittest.TestCase):\n    pass\n",
+                encoding="utf-8",
+            )
+            rows = task_start.focused_validation_plan(
+                root,
+                [
+                    {"path": "scripts/test_scope.py", "role": "test", "status": "proof-only"},
+                    {"path": "tests/test_navigator_core.py", "role": "test", "status": "proof-only"},
+                ],
+                [],
+                "python3",
+            )
+
+        self.assertEqual(rows[0]["candidate"], "tests/test_navigator_core.py")
+        self.assertIn("unittest", rows[0]["command"])
+
     def test_learning_use_proposal_propagates_to_start_and_next_approval_gates(self) -> None:
         proposal = {
             "matches": [{"learning_id": "lrn-proposed"}],
