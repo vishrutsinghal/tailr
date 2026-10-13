@@ -18,11 +18,13 @@ import code_relationships
 
 SKIP_DIRS = {
     ".git",
+    ".claude",
     ".tailtrail",
     "__pycache__",
     "aidlc-rules",
     "node_modules",
     "vendor",
+    "worktrees",
     "dist",
     "build",
     "target",

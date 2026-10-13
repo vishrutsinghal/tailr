@@ -38,6 +38,21 @@ class MissingRootTests(unittest.TestCase):
         self.assertIn("src/real.py", paths)
         self.assertNotIn(".claude/worktrees/stale/src/ghost.py", paths)
 
+    def test_ast_map_excludes_nested_worktrees_but_keeps_real_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "real.py").write_text("def real():\n    return 1\n", encoding="utf-8")
+            nested = root / ".claude" / "worktrees" / "stale" / "src" / "ghost.py"
+            nested.parent.mkdir(parents=True)
+            nested.write_text("def ghost():\n    return 2\n", encoding="utf-8")
+
+            result = astmap.build(root, [], "lite", 20)
+            files = {str(item.get("file", "")) for item in result["symbols"]}
+
+        self.assertIn("src/real.py", files)
+        self.assertNotIn(".claude/worktrees/stale/src/ghost.py", files)
+
     def test_review_graph_rejects_missing_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaisesRegex(ValueError, "does not exist"):
