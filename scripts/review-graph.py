@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+import sys
 
 
 def _capture_served_reads(root: Path, paths: list[str]) -> None:
@@ -27,6 +29,23 @@ def _capture_served_reads(root: Path, paths: list[str]) -> None:
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _policy() -> Any:
+    """Shared workspace policy, loaded once (Phase 2 slice A)."""
+    global _POLICY
+    if _POLICY is None:
+        spec = importlib.util.spec_from_file_location("review_graph_workspace_policy", ROOT / "scripts" / "repository_path_policy.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("unable to load scripts/repository_path_policy.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _POLICY = module
+    return _POLICY
+
+
+_POLICY: Any = None
 
 SKIP_DIRS = {
     ".git",
@@ -148,12 +167,21 @@ def relative(path: Path, root: Path) -> str:
     return path.resolve().relative_to(root.resolve()).as_posix()
 
 
-def is_skipped(path: Path) -> bool:
-    return any(part in SKIP_DIRS for part in path.parts)
+def is_skipped(path: Path, root: Path | None = None) -> bool:
+    if any(part in SKIP_DIRS for part in path.parts):
+        return True
+    if root is None:
+        return False
+    try:
+        relative = path.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return True
+    role, _ = _policy().classify_path(root, relative)
+    return role != "application"
 
 
-def is_text_candidate(path: Path) -> bool:
-    return path.is_file() and not is_skipped(path) and (path.suffix in SOURCE_EXTENSIONS or path.name in MANIFEST_NAMES)
+def is_text_candidate(path: Path, root: Path | None = None) -> bool:
+    return path.is_file() and not is_skipped(path, root) and (path.suffix in SOURCE_EXTENSIONS or path.name in MANIFEST_NAMES)
 
 
 def read_text(path: Path) -> str:
@@ -164,7 +192,7 @@ def read_text(path: Path) -> str:
 
 
 def list_candidates(root: Path) -> list[Path]:
-    return sorted(path for path in root.rglob("*") if is_text_candidate(path))
+    return sorted(path for path in root.rglob("*") if is_text_candidate(path, root))
 
 
 def git_changed(root: Path) -> list[str]:

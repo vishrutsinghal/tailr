@@ -90,6 +90,8 @@ def classify_path(
     if pure.is_absolute() or ".." in pure.parts:
         return EXTERNAL, ("outside-target-root",)
     parts = tuple(part.casefold() for part in pure.parts)
+    if not parts:
+        return APPLICATION, ("repository-root",)
     agents = {str(name).casefold() for name in (agent_roots if agent_roots is not None else DEFAULT_AGENT_ROOTS)}
     if parts[0] in TAILTRIAL_ROOTS:
         return TAILTRIAL_MANAGED, ("tailtrail-state",)

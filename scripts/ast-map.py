@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib.util
 import json
 import shutil
 import re
@@ -12,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import sys
 
 import code_relationships
 
@@ -39,6 +41,23 @@ SKIP_DIRS = {
 
 SOURCE_EXTENSIONS = {".py", ".java", ".cs", ".sql", ".tf", ".tfvars"}
 TEXT_EXTENSIONS = SOURCE_EXTENSIONS | {".json", ".yaml", ".yml", ".xml", ".properties", ".toml", ".gradle"}
+
+
+def _policy() -> Any:
+    """Shared workspace policy, loaded once (Phase 2 slice A)."""
+    global _POLICY
+    if _POLICY is None:
+        _ROOT = Path(__file__).resolve().parents[1]; spec = importlib.util.spec_from_file_location("ast_map_workspace_policy", _ROOT / "scripts" / "repository_path_policy.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("unable to load scripts/repository_path_policy.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _POLICY = module
+    return _POLICY
+
+
+_POLICY: Any = None
 TEST_HINTS = ("test", "tests", "spec", "specs")
 POLICY_NAME = "tailtrail-policy.md"
 DEFAULT_PROVIDER_OUTPUT_PREFIX = "tailtrail-meta/providers/"
@@ -72,8 +91,17 @@ def safe_relative(path: Path, root: Path) -> str | None:
         return None
 
 
-def is_skipped(path: Path) -> bool:
-    return any(part in SKIP_DIRS for part in path.parts)
+def is_skipped(path: Path, root: Path | None = None) -> bool:
+    if any(part in SKIP_DIRS for part in path.parts):
+        return True
+    if root is None:
+        return False
+    try:
+        relative = path.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return True
+    role, _ = _policy().classify_path(root, relative)
+    return role != "application"
 
 
 def read_text(path: Path) -> str:
@@ -160,7 +188,7 @@ def normalize_paths(root: Path, values: list[str]) -> list[Path]:
     paths: list[Path] = []
     for value in values:
         path = (root / value).resolve()
-        if path.is_file() and safe_relative(path, root) is not None and not is_skipped(path):
+        if path.is_file() and safe_relative(path, root) is not None and not is_skipped(path, root):
             paths.append(path)
     return sorted(set(paths))
 
@@ -170,7 +198,7 @@ def list_text_files(root: Path, limit: int) -> list[Path]:
     for path in root.rglob("*"):
         if len(files) >= limit:
             break
-        if is_skipped(path) or not path.is_file():
+        if is_skipped(path, root) or not path.is_file():
             continue
         if path.suffix in TEXT_EXTENSIONS:
             files.append(path)
@@ -456,14 +484,14 @@ def find_solution_files(root: Path, limit: int = 5, visit_limit: int = 1000) -> 
     while stack and len(found) < limit and visited < visit_limit:
         current = stack.pop()
         visited += 1
-        if is_skipped(current):
+        if is_skipped(current, root):
             continue
         try:
             children = sorted(current.iterdir(), key=lambda item: item.name)
         except OSError:
             continue
         for child in children:
-            if is_skipped(child):
+            if is_skipped(child, root):
                 continue
             if child.is_dir():
                 stack.append(child)
@@ -878,7 +906,7 @@ def load_provider_outputs(root: Path, values: list[str], limit: int) -> list[dic
     outputs: list[dict[str, Any]] = []
     for value in values:
         path = (root / value).resolve()
-        if safe_relative(path, root) is None or not path.is_file() or is_skipped(path):
+        if safe_relative(path, root) is None or not path.is_file() or is_skipped(path, root):
             outputs.append({"path": value, "provider": "unknown", "error": "provider output is missing or outside the project root", "symbols": [], "references": [], "calls": [], "hierarchy": [], "endpoints": [], "db_tables": [], "config_usage": [], "imports": []})
             continue
         outputs.append(normalize_provider_output(path, root, limit))

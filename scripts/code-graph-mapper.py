@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -138,8 +139,34 @@ def safe_relative(path: Path, root: Path) -> str | None:
         return None
 
 
-def is_skipped(path: Path) -> bool:
-    return any(part in SKIP_DIRS for part in path.parts)
+def _policy() -> Any:
+    """Shared workspace policy, loaded once (Phase 2 slice B)."""
+    global _POLICY
+    if _POLICY is None:
+        spec = importlib.util.spec_from_file_location("mapper_workspace_policy", SCRIPT_DIR / "repository_path_policy.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("unable to load scripts/repository_path_policy.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        _POLICY = module
+    return _POLICY
+
+
+_POLICY: Any = None
+
+
+def is_skipped(path: Path, root: Path | None = None) -> bool:
+    if any(part in SKIP_DIRS for part in path.parts):
+        return True
+    if root is None:
+        return False
+    try:
+        relative = path.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return True
+    role, _ = _policy().classify_path(root, relative)
+    return role != "application"
 
 
 def read_text(path: Path) -> str:
@@ -181,7 +208,7 @@ def normalize_paths(root: Path, values: list[str]) -> list[Path]:
     paths: list[Path] = []
     for value in values:
         path = (root / value).resolve()
-        if path.is_file() and safe_relative(path, root) is not None and not is_skipped(path):
+        if path.is_file() and safe_relative(path, root) is not None and not is_skipped(path, root):
             paths.append(path)
     return sorted(set(paths))
 
@@ -189,7 +216,7 @@ def normalize_paths(root: Path, values: list[str]) -> list[Path]:
 def list_text_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for path in root.rglob("*"):
-        if is_skipped(path) or not path.is_file():
+        if is_skipped(path, root) or not path.is_file():
             continue
         if path.suffix in TEXT_EXTENSIONS or path.name in WATCH_NAMES or path.suffix in WATCH_SUFFIXES:
             files.append(path)
