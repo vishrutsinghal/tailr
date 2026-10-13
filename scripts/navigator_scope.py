@@ -4094,7 +4094,11 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
     if any(str(key) in forbidden_authority_fields for key in proposal):
         errors.append("host-authority-escalation-rejected")
     route = packet.get("route", {}) if isinstance(packet.get("route"), dict) else {}
-    if route.get("state") != "requested":
+    has_proposed_new_path = any(
+        isinstance(row, dict) and isinstance(row.get("proposed_new_path"), str) and row.get("proposed_new_path", "").strip()
+        for row in proposal.get("requirements", [])
+    )
+    if route.get("state") != "requested" and not has_proposed_new_path:
         errors.append("host-reasoning-not-requested")
     scope_state = str(proposal.get("scope_state", ""))
     if scope_state not in {"proposed-resolved", "needs-confirmation", "unresolved", "conflicting"}:

@@ -1904,6 +1904,51 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
         self.assertEqual(rejected["status"], "rejected")
         self.assertTrue(any("unsupported-owner" in error for error in rejected["errors"]))
 
+    def test_resolved_route_accepts_structured_proposed_new_proposal(self) -> None:
+        evidence, packet, proposal = self.ambiguous_host_case()
+        requirement = proposal["requirements"][0]
+        candidates = {row["path"]: row for row in packet["candidates"]}
+        anchor = requirement["implementation_owners"][0]
+        convention = next(
+            edge for edge in packet["edges"]
+            if edge.get("kind") in {"imports-module", "loads-module", "registered-by", "configures-owner"}
+        )
+        inspection = anchor
+        inspection_candidate = candidates[inspection]
+        requirement["implementation_owners"] = []
+        requirement["proposed_new_path"] = "scripts/intake_pipeline.py"
+        requirement["anchor_paths"] = [anchor]
+        requirement["convention_refs"] = [convention["edge_id"]]
+        requirement["inspection_paths"] = [inspection]
+        requirement["path_claims"] = [{
+            "path": inspection,
+            "candidate_id": inspection_candidate["candidate_id"],
+            "content_fingerprint": inspection_candidate["content_fingerprint"],
+            "claim_role": "inspection",
+            "evidence_edge_ids": inspection_candidate["evidence_edge_ids"],
+        }]
+        requirement["confidence"] = "medium"
+        requirement["evidence_edge_ids"] = sorted(set(
+            inspection_candidate["evidence_edge_ids"] + [convention["edge_id"]]
+        ))
+        requirement["alternatives"] = [anchor]
+        packet["route"]["state"] = "not-required"
+        packet_body = {key: value for key, value in packet.items() if key != "packet_fingerprint"}
+        packet["packet_fingerprint"] = navigator_scope.fingerprint(packet_body)
+        proposal["evidence_packet_fingerprint"] = packet["packet_fingerprint"]
+
+        accepted = navigator_scope.validate_host_proposal(self.root, packet, proposal)
+
+        self.assertEqual(accepted["status"], "accepted", accepted["errors"])
+
+        ordinary = copy.deepcopy(proposal)
+        ordinary["requirements"][0].pop("proposed_new_path")
+        ordinary["requirements"][0].pop("anchor_paths")
+        ordinary["requirements"][0].pop("convention_refs")
+        rejected = navigator_scope.validate_host_proposal(self.root, packet, ordinary)
+        self.assertEqual(rejected["status"], "rejected")
+        self.assertIn("host-reasoning-not-requested", rejected["errors"])
+
     def test_fsr5_host_proposals_reject_invention_missing_edges_staleness_and_authority(self) -> None:
         evidence, packet, proposal = self.ambiguous_host_case()
         self.assertEqual(packet["route"]["state"], "requested")
