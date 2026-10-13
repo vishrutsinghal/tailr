@@ -164,6 +164,60 @@ The contract should distinguish existing paths from proposed paths. A new
 feature is allowed to name a test that does not exist yet, but completion must
 require that the test is created and passes.
 
+## Semantic Host Context
+
+Path names and requirement statements are not enough to determine the correct
+TailTrail controls. The host contract must also describe the behavior surface
+and the proof boundary in explicit fields.
+
+```json
+{
+  "request_mode": "implementation",
+  "behavior_surface": "cli-contract",
+  "implementation_owner": "scripts/task-start.py",
+  "proof_only_paths": ["tests/test_navigator_core.py"],
+  "positive_criteria": [
+    "A real test module with executable collection receives an approved focused-proof command."
+  ],
+  "negative_criteria": [
+    "A helper script that collects zero tests cannot receive approved-proof status."
+  ],
+  "out_of_scope": [
+    "application presentation, browser, and rendering behavior"
+  ],
+  "proof_surface": "CLI/contract scenario plus unit regression"
+}
+```
+
+The host supplies these fields as context and proposals. Navigator validates
+them and converts accepted values into the finalized packet. The host cannot
+mark the behavior surface, owner, proof, or criteria as accepted by assertion
+alone.
+
+The `behavior_surface` value determines the appropriate evidence shape:
+
+| Surface | Appropriate evidence |
+|---|---|
+| `cli-contract` | CLI or contract scenario plus focused unit proof |
+| `workflow` | Ordered behavior or integration scenario |
+| `presentation` | Presentation/state/accessibility scenario |
+| `data` | Schema, data-integrity, or migration proof |
+| `documentation` | Docs-only validation and rendered-content checks |
+| `internal` | Focused unit or contract proof |
+
+TailTrail must not infer a presentation proof merely because the implementation
+file contains words such as `component`, `page`, or `workflow`. It must use the
+accepted behavior surface and explicit path evidence.
+
+For the proof-selection correction, the host context should therefore say:
+
+- implementation owner: `scripts/task-start.py`;
+- proof-only path: `tests/test_navigator_core.py`;
+- behavior surface: `cli-contract`;
+- positive case: a real collected test module receives approved proof;
+- negative case: a zero-collection helper is rejected;
+- excluded surface: application presentation and browser behavior.
+
 ## TailTrail Due Diligence
 
 After receiving the host answers, TailTrail independently checks:

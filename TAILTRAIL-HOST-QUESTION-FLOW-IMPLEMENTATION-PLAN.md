@@ -73,6 +73,8 @@ Freeze the protocol before changing components.
 
 - Canonical host input contract schema.
 - Question, observation, answer, packet, projection, and event schemas.
+- Semantic host context schema for request mode, behavior surface, path roles,
+  positive/negative criteria, exclusions, and proof surface.
 - Role enum for existing, proposed, inspection, proof, generated, excluded,
   and external paths.
 - State transition table.
@@ -173,6 +175,7 @@ Make Navigator the exclusive host-facing question and clarification boundary.
 - Profile-field registry separate from issued question IDs.
 - Question issuance through the intake pipeline.
 - Host observation ingestion.
+- Behavior-surface and proof-boundary context collection.
 - Initial narration ingestion as an observation batch.
 - Candidate-answer extraction mapped to profile fields.
 - Answer normalization and acceptance states.
@@ -214,6 +217,8 @@ narration must produce an explicit candidate mapping before evidence checking.
 ### Tests
 
 - Host cannot mark an answer accepted.
+- A host-declared behavior surface selects evidence shape but does not grant
+  proof or authority by assertion.
 - Observations without an active question or packet context are rejected or
   routed for classification.
 - Narration can fill candidate fields but cannot directly create an accepted
@@ -436,6 +441,8 @@ Ensure proof is requirement-specific and cannot be replaced by a nearby test.
 ### Exit criteria
 
 - Every required requirement has an explicit proof binding.
+- Proof bindings match the host-declared behavior surface and do not inherit a
+  presentation harness from generic implementation wording.
 - Proof commands are validated before execution.
 - Completion reports retain proof-binding and artifact IDs.
 
