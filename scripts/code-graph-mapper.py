@@ -30,31 +30,6 @@ SCHEMA_VERSION = "1"
 SHARED_CACHE = Path("tailtrail-meta") / "code-graph-cache.json"
 LOCAL_CACHE = Path(".tailtrail") / "code-graph-cache.json"
 
-SKIP_DIRS = {
-    ".git",
-    ".claude",
-    ".hg",
-    ".idea",
-    ".svn",
-    ".tailtrail",
-    "tailtrail-meta",
-    "__pycache__",
-    "aidlc-rules",
-    "node_modules",
-    "vendor",
-    "worktrees",
-    "dist",
-    "build",
-    "target",
-    "coverage",
-    ".next",
-    ".nuxt",
-    ".venv",
-    "venv",
-    "bin",
-    "obj",
-}
-
 SOURCE_EXTENSIONS = {
     ".cjs",
     ".cs",
@@ -157,8 +132,7 @@ _POLICY: Any = None
 
 
 def is_skipped(path: Path, root: Path | None = None) -> bool:
-    if any(part in SKIP_DIRS for part in path.parts):
-        return True
+    """Shared workspace policy decides (Phase 2: old list deleted as proven)."""
     if root is None:
         return False
     try:

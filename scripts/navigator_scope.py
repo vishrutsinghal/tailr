@@ -1264,9 +1264,6 @@ def _repository_inventory(
                     relative = path.relative_to(root).as_posix()
                 except ValueError:
                     continue
-                parts = PurePosixPath(relative).parts
-                if parts and parts[0].lower() in {".tailtrail", "tailtrail-meta"}:
-                    continue
                 role, _ = _policy().classify_path(root, relative)
                 if role != "application":
                     continue

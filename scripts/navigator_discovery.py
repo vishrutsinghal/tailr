@@ -44,7 +44,6 @@ MAX_REVIEW_GRAPH_ARGUMENT_CHARS = 8_000
 MAX_REVIEW_GRAPH_CHANGED_PATHS = 50
 GOAL_DISCOVERY_SUFFIXES = {".cs", ".css", ".feature", ".go", ".html", ".java", ".js", ".jsx", ".kt", ".py", ".rb", ".rs", ".scss", ".svelte", ".ts", ".tsx", ".vue"}
 GOAL_DISCOVERY_STOP_WORDS = {"add", "all", "and", "are", "bug", "code", "defect", "details", "fix", "focused", "for", "free", "hands", "mode", "refer", "see", "the", "there", "this", "validation", "want", "with"}
-GOAL_DISCOVERY_EXCLUDED_PARTS = {".git", ".tailtrail", ".venv", "__pycache__", "build", "dist", "node_modules", "tailtrail", "venv"}
 REPOSITORY_DISCOVERY_MANIFESTS = {"package.json", "pyproject.toml", "pom.xml", "build.gradle", "build.gradle.kts", "go.mod", "cargo.toml", "composer.json", "gemfile"}
 REPOSITORY_DISCOVERY_EXCLUDED_NAMES = {"package-lock.json", "pnpm-lock.yaml", "yarn.lock", "poetry.lock"}
 TAILTRAIL_MANAGED_PATH_PREFIXES = (".tailtrail/", "tailtrail/", "skills/tailtrail", "skills/tailtrail-review", "skills/tailtrail-start", ".codex-plugin/", ".github/copilot-instructions.md", ".github/prompts/tailtrail-", ".cursor/rules/tailtrail", ".openai/chatgpt-instructions.md", ".claude/commands/tailtrail", "AGENTS.md", "AIDLC.md", "GUARDRAILS.md", "DEPENDENCY-GATE.md", "TAILTRAIL-COMMANDS.md", "TOKEN-AUTOPILOT.md", "TOKEN-SLICER.md")
@@ -130,8 +129,6 @@ def exact_phrase_paths(
             relative = path.relative_to(root).as_posix()
         except ValueError:
             continue
-        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in Path(relative).parts):
-            continue
         role, _ = _policy().classify_path(root, relative)
         if role != "application":
             continue
@@ -192,11 +189,10 @@ def goal_discovery_terms(goal: str) -> list[str]:
 
 def _candidates(root: Path) -> list[Path]:
     def eligible(path: Path) -> bool:
+        """Shared workspace policy decides (Phase 2: old list deleted as proven)."""
         try:
             relative = path.relative_to(root)
         except ValueError:
-            return False
-        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
             return False
         role, _ = _policy().classify_path(root, relative.as_posix())
         return role == "application"
@@ -266,8 +262,6 @@ def goal_discovered_paths(
             continue
         try:
             relative = path.relative_to(root)
-            if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
-                continue
             role, _ = _policy().classify_path(root, relative.as_posix())
             if role != "application":
                 continue
@@ -349,8 +343,6 @@ def repository_discovered_paths(root: Path, goal: str, limit: int = 5, query_ter
         try:
             relative = path.relative_to(root)
         except ValueError:
-            continue
-        if any(part.lower() in GOAL_DISCOVERY_EXCLUDED_PARTS for part in relative.parts):
             continue
         role, _ = _policy().classify_path(root, relative.as_posix())
         if role != "application":

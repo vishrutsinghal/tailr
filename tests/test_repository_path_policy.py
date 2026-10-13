@@ -103,6 +103,28 @@ class RepositoryPathPolicyTests(unittest.TestCase):
         role, _ = policy.classify_path(Path("/repo"), ".claude/worktrees/x/.tailtrail/y")
         self.assertEqual(role, "managed-worktree")
 
+    def test_convention_ide_and_runtime_roots_excluded(self) -> None:
+        cases = {
+            "tailtrail/api.py": "tailtrail-managed",
+            "sub/tailtrail/cli.py": "tailtrail-managed",
+            "aidlc-rules/core-workflow.md": "tailtrail-managed",
+            "sub/aidlc-rules/x.md": "tailtrail-managed",
+            ".idea/workspace.xml": "generated",
+            "sub/.idea/x.xml": "generated",
+        }
+        for relative, role in cases.items():
+            actual, reasons = policy.classify_path(Path("/repo"), relative)
+            self.assertEqual(actual, role, relative)
+            self.assertTrue(reasons, relative)
+        self.assertEqual(
+            list(policy.classify_path(Path("/repo"), "aidlc-rules/x.md")[1]),
+            ["managed-conventions"],
+        )
+        self.assertEqual(
+            list(policy.classify_path(Path("/repo"), ".idea/x.xml")[1]),
+            ["ide-metadata"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

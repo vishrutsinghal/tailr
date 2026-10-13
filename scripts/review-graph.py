@@ -47,30 +47,6 @@ def _policy() -> Any:
 
 _POLICY: Any = None
 
-SKIP_DIRS = {
-    ".git",
-    ".claude",
-    ".hg",
-    ".svn",
-    ".tailtrail",
-    # An installed TailTrail pack is workflow tooling, not application caller
-    # evidence. Its generic hooks otherwise pollute first-task read order.
-    "tailtrail",
-    "__pycache__",
-    "aidlc-rules",
-    "node_modules",
-    "vendor",
-    "worktrees",
-    "dist",
-    "build",
-    "target",
-    "coverage",
-    ".next",
-    ".nuxt",
-    ".venv",
-    "venv",
-}
-
 SOURCE_EXTENSIONS = {
     ".c",
     ".cc",
@@ -168,8 +144,7 @@ def relative(path: Path, root: Path) -> str:
 
 
 def is_skipped(path: Path, root: Path | None = None) -> bool:
-    if any(part in SKIP_DIRS for part in path.parts):
-        return True
+    """Shared workspace policy decides (Phase 2: old list deleted as proven)."""
     if root is None:
         return False
     try:

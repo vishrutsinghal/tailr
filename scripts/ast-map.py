@@ -18,27 +18,6 @@ import sys
 import code_relationships
 
 
-SKIP_DIRS = {
-    ".git",
-    ".claude",
-    ".tailtrail",
-    "__pycache__",
-    "aidlc-rules",
-    "node_modules",
-    "vendor",
-    "worktrees",
-    "dist",
-    "build",
-    "target",
-    "coverage",
-    ".next",
-    ".nuxt",
-    ".venv",
-    "venv",
-    "bin",
-    "obj",
-}
-
 SOURCE_EXTENSIONS = {".py", ".java", ".cs", ".sql", ".tf", ".tfvars"}
 TEXT_EXTENSIONS = SOURCE_EXTENSIONS | {".json", ".yaml", ".yml", ".xml", ".properties", ".toml", ".gradle"}
 
@@ -92,8 +71,7 @@ def safe_relative(path: Path, root: Path) -> str | None:
 
 
 def is_skipped(path: Path, root: Path | None = None) -> bool:
-    if any(part in SKIP_DIRS for part in path.parts):
-        return True
+    """Shared workspace policy decides (Phase 2: old list deleted as proven)."""
     if root is None:
         return False
     try:

@@ -33,7 +33,14 @@ ROLES = frozenset({
 
 DEFAULT_AGENT_ROOTS = frozenset({".claude", ".codex", ".copilot"})
 
-TAILTRIAL_ROOTS = frozenset({".tailtrail", "tailtrail-meta"})
+TAILTRIAL_ROOTS = frozenset({".tailtrail", "tailtrail-meta", "tailtrail"})
+
+# Repo-owned convention guides (never implementation scope; cf. SKIP_DIRS
+# parity and TAILTRAIL_MANAGED_PATH_PREFIXES for the tailtrail/ runtime).
+CONVENTION_ROOTS = frozenset({"aidlc-rules"})
+
+# IDE workspace metadata (never application code; old-list parity).
+IDE_METADATA_DIRS = frozenset({".idea"})
 
 VCS_METADATA_DIRS = frozenset({".git", ".hg", ".svn"})
 
@@ -79,8 +86,9 @@ def classify_path(
     First match wins (fixed precedence keeps fingerprints stable):
     external -> tailtrail-managed -> managed-worktree (Git list, then
     generic `worktrees` component) -> agent-managed -> generated/vendor/VCS
-    metadata -> application. State (tailtrail), agent, and VCS roots also
-    match at any depth: a nested submodule, state, or agent directory is
+    metadata -> application. State (tailtrail, including the tailtrail/
+    runtime), agent, VCS, convention-guide (aidlc-rules), and IDE-metadata
+    roots also match at any depth: nested copies of these directories are
     never application code. Empty or escaping paths are `external` when
     they leave the root, else `unknown`.
     """
@@ -111,6 +119,14 @@ def classify_path(
         return AGENT_MANAGED, ("agent-managed-nested",)
     if any(part in VCS_METADATA_DIRS for part in parts[1:]):
         return GENERATED, ("vcs-metadata-nested",)
+    if parts[0] in CONVENTION_ROOTS:
+        return TAILTRIAL_MANAGED, ("managed-conventions",)
+    if parts[0] in IDE_METADATA_DIRS:
+        return GENERATED, ("ide-metadata",)
+    if any(part in CONVENTION_ROOTS for part in parts[1:]):
+        return TAILTRIAL_MANAGED, ("managed-conventions-nested",)
+    if any(part in IDE_METADATA_DIRS for part in parts[1:]):
+        return GENERATED, ("ide-metadata-nested",)
     hit = set(parts) & (GENERATED_PARTS | VENDOR_PARTS)
     if hit:
         dirnames = sorted(hit)

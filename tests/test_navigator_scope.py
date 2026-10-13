@@ -3666,6 +3666,32 @@ class Phase4WorkspaceExclusionTests(unittest.TestCase):
             if row["path"] == self.GHOST and row["status"] in {"included", "inspection-only", "proof-only"}
         ])
 
+    def test_host_contract_preserves_exclusion_without_reclassifying(self) -> None:
+        goal = "render owner entry"
+        frames = requirement_discovery.frames(goal)
+        seeds = [
+            navigator_scope.seed("src/real.py", "explicit-path", "user-provided-path"),
+            navigator_scope.seed(self.GHOST, "explicit-path", "user-provided-path"),
+        ]
+        candidates = navigator_scope.candidates_from_seeds(self.root, seeds, ["bug"])
+        rows, edges, investigation = navigator_scope.investigate(self.root, frames, candidates, ["bug"])
+        document = navigator_scope.evidence_document(
+            self.root, goal, frames, rows, edges=edges, investigation=investigation
+        )
+        for host in ("codex", "claude", "copilot"):
+            contract = navigator_scope.host_scope_contract(host, document)
+            excluded = {
+                row["path"]: row
+                for row in contract["contract"]["roles"]["excluded_candidates"]
+            }
+            self.assertIn(self.GHOST, excluded)
+            self.assertIn("workspace-policy-excluded", excluded[self.GHOST]["reason_codes"])
+            for field in ("implementation_owners", "inspection_paths", "proof_paths"):
+                self.assertNotIn(
+                    self.GHOST,
+                    {row["path"] for row in contract["contract"]["roles"][field]},
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,11 +8,6 @@ from pathlib import Path
 from typing import Any
 
 
-SKIP_DIRS = {
-    ".git", ".hg", ".idea", ".svn", ".tailtrail", "tailtrail-meta",
-    "__pycache__", "aidlc-rules", "node_modules", "vendor", "dist", "build",
-    "target", "coverage", ".next", ".nuxt", ".venv", "venv", "bin", "obj",
-}
 RELEVANT_SUFFIXES = {
     ".cjs", ".cs", ".go", ".java", ".js", ".jsx", ".mjs", ".py", ".sql",
     ".ts", ".tsx", ".tf", ".tfvars", ".vue", ".svelte", ".json", ".properties",
@@ -49,8 +44,7 @@ _POLICY: Any = None
 
 
 def _skipped(path: Path, root: Path | None = None) -> bool:
-    if any(part in SKIP_DIRS for part in path.parts):
-        return True
+    """Shared workspace policy decides (Phase 2: old list deleted as proven)."""
     if root is None:
         return False
     try:

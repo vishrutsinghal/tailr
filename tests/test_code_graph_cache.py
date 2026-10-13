@@ -524,6 +524,19 @@ class CachePolicyExclusionTests(unittest.TestCase):
         self.assertIn("src/real.py", data["files"])
         self.assertNotIn(GHOST_REL, data["files"])
 
+    def test_prune_excluded_on_missing_or_invalid_cache_reports_zeros(self) -> None:
+        missing = self.root / "nope" / "code-graph-cache.json"
+        summary = cgc.prune_policy_excluded(self.root, missing)
+        self.assertEqual(summary["removed_phase1"], 0)
+        self.assertEqual(summary["removed_mapper_scope"], [])
+        self.assertEqual(summary["removed_mapper_rows"], 0)
+        self.assertFalse(missing.exists())
+        broken = self.root / "broken.json"
+        broken.write_text("not json", encoding="utf-8")
+        summary = cgc.prune_policy_excluded(self.root, broken)
+        self.assertEqual(summary["removed_phase1"], 0)
+        self.assertEqual(broken.read_text(encoding="utf-8"), "not json")
+
     def test_mapper_status_for_flags_policy_excluded_scope(self) -> None:
         mapper = _load_mapper()
         section = {

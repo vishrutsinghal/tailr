@@ -120,6 +120,51 @@ class MissingRootTests(unittest.TestCase):
         self.assertEqual(ghost["role"], "managed-worktree")
         self.assertTrue(ghost["reason_codes"])
 
+    def _ghost_fixture(self, root: Path) -> None:
+        (root / "src").mkdir(exist_ok=True)
+        (root / "src" / "real.py").write_text("VALUE = 1\n", encoding="utf-8")
+        nested = root / ".codex" / "worktrees" / "stale" / "src" / "ghost.py"
+        nested.parent.mkdir(parents=True, exist_ok=True)
+        nested.write_text("VALUE = 2\n", encoding="utf-8")
+
+    def test_review_graph_cli_matches_library_exclusions(self) -> None:
+        import json as _json
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._ghost_fixture(root)
+            result = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "review-graph.py").as_posix(),
+                 "--root", str(root), "--changed", "src/real.py", "--format", "json",
+                 "--no-capture"],
+                text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = _json.loads(result.stdout)
+            blob = _json.dumps(payload)
+            self.assertIn("src/real.py", blob)
+            self.assertNotIn("ghost.py", blob)
+
+    def test_ast_map_cli_matches_library_exclusions(self) -> None:
+        import json as _json
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir(exist_ok=True)
+            (root / "src" / "real.py").write_text("def real():\n    return 1\n", encoding="utf-8")
+            nested = root / ".codex" / "worktrees" / "stale" / "src" / "ghost.py"
+            nested.parent.mkdir(parents=True, exist_ok=True)
+            nested.write_text("def ghost():\n    return 2\n", encoding="utf-8")
+            result = subprocess.run(
+                [sys.executable, (ROOT / "scripts" / "ast-map.py").as_posix(),
+                 "--root", str(root), "--changed", "src/real.py",
+                 "--depth", "lite", "--format", "json"],
+                text=True, capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = _json.loads(result.stdout)
+            files = {str(item.get("file", "")) for item in payload.get("symbols", [])}
+            self.assertIn("src/real.py", files)
+            self.assertNotIn(".codex/worktrees/stale/src/ghost.py", files)
+
 
 if __name__ == "__main__":
     unittest.main()
