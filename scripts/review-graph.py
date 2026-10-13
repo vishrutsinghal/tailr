@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SKIP_DIRS = {
     ".git",
+    ".claude",
     ".hg",
     ".svn",
     ".tailtrail",
@@ -40,6 +41,7 @@ SKIP_DIRS = {
     "aidlc-rules",
     "node_modules",
     "vendor",
+    "worktrees",
     "dist",
     "build",
     "target",

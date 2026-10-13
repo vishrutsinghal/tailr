@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 
 
 def load(name, relative):
@@ -23,6 +24,20 @@ astmap = load("ast_map_test", "scripts/ast-map.py")
 
 
 class MissingRootTests(unittest.TestCase):
+    def test_review_graph_excludes_nested_worktrees_but_keeps_real_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src" / "real.py").write_text("VALUE = 1\n", encoding="utf-8")
+            nested = root / ".claude" / "worktrees" / "stale" / "src" / "ghost.py"
+            nested.parent.mkdir(parents=True)
+            nested.write_text("VALUE = 2\n", encoding="utf-8")
+
+            paths = {path.relative_to(root).as_posix() for path in graph.list_candidates(root)}
+
+        self.assertIn("src/real.py", paths)
+        self.assertNotIn(".claude/worktrees/stale/src/ghost.py", paths)
+
     def test_review_graph_rejects_missing_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaisesRegex(ValueError, "does not exist"):
