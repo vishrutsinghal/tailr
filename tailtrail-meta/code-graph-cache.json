@@ -1,14 +1,16 @@
 {
   "schema_version": "1",
-  "created_at": "2026-10-14T04:28:03.722118+00:00",
-  "updated_at": "2026-10-14T04:28:03.722135+00:00",
+  "created_at": "2026-10-14T10:28:50.644792+00:00",
+  "updated_at": "2026-10-14T10:28:50.644806+00:00",
   "tailtrail_version": "local",
   "root": "/Users/vsingha7/Desktop/tailr",
-  "cache_key": "aac1644ea8846ac9ca80f5df72bee7beeefba01f73150b36794c9bffae54a4c1",
+  "cache_key": "d838882cd98d40381efaa567874eaca1a272adea4b6db8aeedf6691b4e1ae6a4",
   "graph_mode": "navigator-closure",
   "scope": [
     "hooks/hooks.json",
     "pyproject.toml",
+    "schemas/host-input-contract.schema.json",
+    "schemas/host-question-flow-event.schema.json",
     "scripts/adoption-validation.py",
     "scripts/advanced-runtime.py",
     "scripts/aidlc-check.py",
@@ -17,6 +19,7 @@
     "scripts/aidlc-official-detect.py",
     "scripts/aidlc-official-host.py",
     "scripts/aidlc-official-install.py",
+    "scripts/architecture-fitness.py",
     "scripts/architecture_planning.py",
     "scripts/ast-map.py",
     "scripts/benchmark-tailtrail.py",
@@ -30,6 +33,7 @@
     "scripts/debug-host-diagnosis.py",
     "scripts/debug-preflight.py",
     "scripts/execution-evidence.py",
+    "scripts/harness-checkpoint.py",
     "scripts/host-adapter-conformance.py",
     "scripts/install-copilot.py",
     "scripts/install-local.py",
@@ -40,27 +44,38 @@
     "scripts/navigator.py",
     "scripts/navigator_discovery.py",
     "scripts/navigator_scope.py",
+    "scripts/new_file_due_diligence.py",
     "scripts/repository_path_policy.py",
     "scripts/review-graph.py",
     "scripts/tailtrail.py",
     "scripts/task-start.py",
     "scripts/update-copilot.py",
+    "scripts/workflow_runtime/enterprise_transport.py",
     "scripts/workflow_runtime/start_integration.py",
+    "scripts/workflow_runtime/storage.py",
     "scripts/write_guardian.py",
+    "tests/test_architecture_fitness.py",
     "tests/test_code_graph_cache.py",
     "tests/test_code_graph_inventory.py",
     "tests/test_debug_start_planning.py",
     "tests/test_full_pipeline.py",
     "tests/test_host_adapter_conformance.py",
+    "tests/test_host_input_contract_schema.py",
+    "tests/test_host_question_flow_event_schema.py",
+    "tests/test_host_question_flow_phase0_artifacts.py",
     "tests/test_install_profiles.py",
     "tests/test_intake_pipeline.py",
     "tests/test_mcp_server.py",
     "tests/test_navigator_core.py",
     "tests/test_navigator_scope.py",
+    "tests/test_new_file_due_diligence.py",
     "tests/test_repository_path_policy.py",
     "tests/test_requirement_routing_phase0.py",
     "tests/test_review_graph.py",
     "tests/test_workflow_ci_continuation.py",
+    "tests/test_workflow_contracts.py",
+    "tests/test_workflow_phase7.py",
+    "tests/test_workflow_privacy.py",
     "tests/test_workflow_template_execution.py",
     "tests/test_write_guardian.py"
   ],
@@ -72,7 +87,7 @@
   "language_profiles": {
     "python": {
       "level": 2,
-      "files": 55
+      "files": 68
     }
   },
   "source_files": {
@@ -85,6 +100,16 @@
       "sha256": "57a62c872b2f32788cd03e3909abf3107bb86411e146f966c4c78596d9364569",
       "mtime": 1791368779,
       "size": 947
+    },
+    "schemas/host-input-contract.schema.json": {
+      "sha256": "6510f67729d47536860a97f48f523c5c606da308c49d090c5c30be9375e7c13b",
+      "mtime": 1791960029,
+      "size": 6583
+    },
+    "schemas/host-question-flow-event.schema.json": {
+      "sha256": "aedc430a991f5efac59ddbbc9b4ee003219a8b4200dec6d3131c1bad63f581cf",
+      "mtime": 1791960029,
+      "size": 3938
     },
     "scripts/adoption-validation.py": {
       "sha256": "2c351ed35fa97ca096be6bd17c4d4c46445564dbf7794eb24fc97e0e5222609b",
@@ -125,6 +150,11 @@
       "sha256": "d5405d0955b52e96be0abe3eb6c4ab6af5ffc6e305973b4bfda67894f3a2a6a3",
       "mtime": 1791368780,
       "size": 7518
+    },
+    "scripts/architecture-fitness.py": {
+      "sha256": "7a5d7c3b17565dd688cac29bceaf0cd70a67160d3679b404b0ed53b5f0395068",
+      "mtime": 1791972704,
+      "size": 9372
     },
     "scripts/architecture_planning.py": {
       "sha256": "62fe05e6f8817237058dbb63851273eb29f488224dc0a48a67dd52b05be1d8f1",
@@ -191,6 +221,11 @@
       "mtime": 1791791055,
       "size": 22353
     },
+    "scripts/harness-checkpoint.py": {
+      "sha256": "f0d42d234f4591f0d5b687457db8f3b6a92fc6ba77cc0c0d713b123a0d871828",
+      "mtime": 1791720309,
+      "size": 10099
+    },
     "scripts/host-adapter-conformance.py": {
       "sha256": "47e8ec22cdefa12d4f3f1a1ea1c97811ba870fd5f3cbc8cd7f396d6e66d27870",
       "mtime": 1791368780,
@@ -241,6 +276,11 @@
       "mtime": 1791904718,
       "size": 246529
     },
+    "scripts/new_file_due_diligence.py": {
+      "sha256": "d21dbe2f6832846ef1e30803e29cc9ce89d9dd63268f61bcd434acc30008000b",
+      "mtime": 1791973493,
+      "size": 12885
+    },
     "scripts/repository_path_policy.py": {
       "sha256": "c18eaf76f276d7beed70ebe0350b94e99b54fa3cdc2712546cf4221f3af9fb38",
       "mtime": 1791904718,
@@ -266,15 +306,30 @@
       "mtime": 1791368780,
       "size": 10910
     },
+    "scripts/workflow_runtime/enterprise_transport.py": {
+      "sha256": "3f6e4eb6383d8c37c9d5e9b3327bd8f5c14229a54fd04b128278d5ffeb6ee373",
+      "mtime": 1791368780,
+      "size": 12526
+    },
     "scripts/workflow_runtime/start_integration.py": {
       "sha256": "afe3215fced56c13c9978ed9bde695a1eeb30f6ce524e7eecbdbed5da51cbf53",
       "mtime": 1791647464,
       "size": 18105
     },
+    "scripts/workflow_runtime/storage.py": {
+      "sha256": "91551eb77f1a89f57f8c29871bc055adb20b66120a05fe90b766e6d189e4d81b",
+      "mtime": 1791368780,
+      "size": 13222
+    },
     "scripts/write_guardian.py": {
       "sha256": "351eaf37fa079052f1c046fb924429b3b0511283926663fc87e1a0c492d66886",
       "mtime": 1791947062,
       "size": 24537
+    },
+    "tests/test_architecture_fitness.py": {
+      "sha256": "ca718ca8b42abd9896853ea92cf6ab4e7901803627109f155ae1d5437f713a3f",
+      "mtime": 1791972704,
+      "size": 7930
     },
     "tests/test_code_graph_cache.py": {
       "sha256": "90cce6b0dae4add49461c85370196f8ec10137b19865dd80a7ba45ea043737d6",
@@ -301,6 +356,21 @@
       "mtime": 1791707517,
       "size": 16251
     },
+    "tests/test_host_input_contract_schema.py": {
+      "sha256": "05943b8731aa8c69a123c650aba0bccbc16867e40a012bcdf4009816d768db94",
+      "mtime": 1791960029,
+      "size": 6265
+    },
+    "tests/test_host_question_flow_event_schema.py": {
+      "sha256": "068916d4401b1e065ab7871fa274742bb449134aac2d197f167aeb18902d8469",
+      "mtime": 1791960029,
+      "size": 5433
+    },
+    "tests/test_host_question_flow_phase0_artifacts.py": {
+      "sha256": "59e9acda2f877547472d0067d7b0df015231a3235796a57b07bbf2b9577352ea",
+      "mtime": 1791960029,
+      "size": 11110
+    },
     "tests/test_install_profiles.py": {
       "sha256": "3211809dfc157c3c0561c007fd8bb7bf3b82bc064f71e4371ee441b1f665fb4f",
       "mtime": 1791368780,
@@ -326,6 +396,11 @@
       "mtime": 1791900919,
       "size": 191698
     },
+    "tests/test_new_file_due_diligence.py": {
+      "sha256": "74165b5cf449546d84e6fc48cd934297929a58b52201287d79c1a056387acd0d",
+      "mtime": 1791973510,
+      "size": 8907
+    },
     "tests/test_repository_path_policy.py": {
       "sha256": "867edcb75ee11c611e81cfb779a276cc6885d75067f1ff486d95b1852ca30328",
       "mtime": 1791904718,
@@ -345,6 +420,21 @@
       "sha256": "0cb86d651f5dcafa1b4245dc2d45bc515fbc86f8cad0ddfd61d517e222c5ee97",
       "mtime": 1791368780,
       "size": 12808
+    },
+    "tests/test_workflow_contracts.py": {
+      "sha256": "8aa99bb0ae2bfada0bff8f7f12c23c21d202d585bbdc1f2b779dfb8948473357",
+      "mtime": 1791368780,
+      "size": 8883
+    },
+    "tests/test_workflow_phase7.py": {
+      "sha256": "f7dfb53005707ef0e55903d3486a738bac826efd9678327aef909920ff08e150",
+      "mtime": 1791368780,
+      "size": 4333
+    },
+    "tests/test_workflow_privacy.py": {
+      "sha256": "8ef296d486a37893ba75c06895d352a2028c6a3bcc329daa278d3d7c24318ffe",
+      "mtime": 1791368780,
+      "size": 3844
     },
     "tests/test_workflow_template_execution.py": {
       "sha256": "bbe6b7efaf43d75cc35f2a8f262096b7d6401aa9b60e1b35fb6caa697055494c",
@@ -424,13 +514,15 @@
   "scanner_evidence": {},
   "inventory": {
     "algorithm": "path-size-mtime-ns-v1",
-    "file_count": 954,
-    "fingerprint": "sha256:3b8a8ea63015503f94592eac211eb3b421ee6ea37aa25e821e51e486d95c17fe"
+    "file_count": 966,
+    "fingerprint": "sha256:b4798dba8c2f359936546b894d3dc3062aaf25b13f9a0c2db01c5d5936052d0f"
   },
   "graph": {
     "changed_files": [
       "hooks/hooks.json",
       "pyproject.toml",
+      "schemas/host-input-contract.schema.json",
+      "schemas/host-question-flow-event.schema.json",
       "scripts/adoption-validation.py",
       "scripts/advanced-runtime.py",
       "scripts/aidlc-check.py",
@@ -439,6 +531,7 @@
       "scripts/aidlc-official-detect.py",
       "scripts/aidlc-official-host.py",
       "scripts/aidlc-official-install.py",
+      "scripts/architecture-fitness.py",
       "scripts/architecture_planning.py",
       "scripts/ast-map.py",
       "scripts/benchmark-tailtrail.py",
@@ -452,6 +545,7 @@
       "scripts/debug-host-diagnosis.py",
       "scripts/debug-preflight.py",
       "scripts/execution-evidence.py",
+      "scripts/harness-checkpoint.py",
       "scripts/host-adapter-conformance.py",
       "scripts/install-copilot.py",
       "scripts/install-local.py",
@@ -462,27 +556,38 @@
       "scripts/navigator.py",
       "scripts/navigator_discovery.py",
       "scripts/navigator_scope.py",
+      "scripts/new_file_due_diligence.py",
       "scripts/repository_path_policy.py",
       "scripts/review-graph.py",
       "scripts/tailtrail.py",
       "scripts/task-start.py",
       "scripts/update-copilot.py",
+      "scripts/workflow_runtime/enterprise_transport.py",
       "scripts/workflow_runtime/start_integration.py",
+      "scripts/workflow_runtime/storage.py",
       "scripts/write_guardian.py",
+      "tests/test_architecture_fitness.py",
       "tests/test_code_graph_cache.py",
       "tests/test_code_graph_inventory.py",
       "tests/test_debug_start_planning.py",
       "tests/test_full_pipeline.py",
       "tests/test_host_adapter_conformance.py",
+      "tests/test_host_input_contract_schema.py",
+      "tests/test_host_question_flow_event_schema.py",
+      "tests/test_host_question_flow_phase0_artifacts.py",
       "tests/test_install_profiles.py",
       "tests/test_intake_pipeline.py",
       "tests/test_mcp_server.py",
       "tests/test_navigator_core.py",
       "tests/test_navigator_scope.py",
+      "tests/test_new_file_due_diligence.py",
       "tests/test_repository_path_policy.py",
       "tests/test_requirement_routing_phase0.py",
       "tests/test_review_graph.py",
       "tests/test_workflow_ci_continuation.py",
+      "tests/test_workflow_contracts.py",
+      "tests/test_workflow_phase7.py",
+      "tests/test_workflow_privacy.py",
       "tests/test_workflow_template_execution.py",
       "tests/test_write_guardian.py"
     ],
@@ -16198,6 +16303,1596 @@
         }
       },
       {
+        "target": "__future__",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 23,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/planning_lock.py",
+        "referring_file": "tests/test_workflow_contracts.py",
+        "line": 22,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "os",
+        "referring_file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "datetime",
+        "referring_file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime",
+        "referring_file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/workflow_runtime/storage.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/workflow_runtime/storage.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/workflow_runtime/storage.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "os",
+        "referring_file": "scripts/workflow_runtime/storage.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/workflow_runtime/storage.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/workflow_runtime/storage.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime",
+        "referring_file": "scripts/workflow_runtime/storage.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 22,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/planning_lock.py",
+        "referring_file": "tests/test_workflow_phase7.py",
+        "line": 21,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "tests/test_workflow_privacy.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_workflow_privacy.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_workflow_privacy.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_workflow_privacy.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_workflow_privacy.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tests.test_workflow_security",
+        "referring_file": "tests/test_workflow_privacy.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime",
+        "referring_file": "tests/test_workflow_privacy.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 33,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 112,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/run-ledger.py",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 9,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/change-intent-anchor.py",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 13,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/code-graph-mapper.py",
+        "referring_file": "scripts/harness-checkpoint.py",
+        "line": 113,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "copy",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "jsonschema",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_host_question_flow_event_schema.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_host_question_flow_event_schema.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_host_question_flow_event_schema.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_host_question_flow_event_schema.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_host_question_flow_event_schema.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "jsonschema",
+        "referring_file": "tests/test_host_question_flow_event_schema.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "intake_pipeline",
+        "referring_file": "tests/test_host_question_flow_event_schema.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "jsonschema",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/quality-loop.py",
+        "referring_file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 246,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "ast",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/run-ledger.py",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 11,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/change-intent-anchor.py",
+        "referring_file": "scripts/architecture-fitness.py",
+        "line": 14,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "dataclasses",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 17,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/repository_path_policy.py",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 27,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/architecture-fitness.py",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 7,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/change-intent-anchor.py",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 7,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/run-ledger.py",
+        "referring_file": "tests/test_architecture_fitness.py",
+        "line": 7,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/new_file_due_diligence.py",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 10,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
         "target": "tailtrail",
         "referring_file": ".codex-plugin/plugin.json",
         "line": 2,
@@ -16296,9 +17991,9 @@
         "confidence": "heuristic"
       },
       {
-        "target": "completion-report",
+        "target": "harness-checkpoint",
         "referring_file": "adapters/official-aidlc-field-ownership-v1.json",
-        "line": 28,
+        "line": 10,
         "reference_type": "text-or-import-token",
         "confidence": "heuristic"
       },
@@ -16718,601 +18413,6 @@
       {
         "target": "tailtrail",
         "referring_file": "benchmarks/product-maturity/pm0-scenarios-v1.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/product-maturity/presentation-v1/closure-report.json",
-        "line": 2,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/product-maturity/presentation-v1/debug-report.json",
-        "line": 2,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "navigator",
-        "referring_file": "benchmarks/product-maturity/presentation-v1/plan-report.json",
-        "line": 9,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/public/scenarios/api-endpoint/scenario.json",
-        "line": 9,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/public/scenarios/dependency-gate/scenario.json",
-        "line": 9,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/public/scenarios/preserve-validation/scenario.json",
-        "line": 16,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/public/scenarios/service-refactor/scenario.json",
-        "line": 9,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/public/scenarios/sonar-complexity/scenario.json",
-        "line": 9,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/public/scenarios/validation-zero-quantity/scenario.json",
-        "line": 9,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "benchmarks/results/public-benchmark-2026-08.json",
-        "line": 2,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail.py",
-        "referring_file": "benchmarks/scenarios/start-command-ux/expected.json",
-        "line": 7,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "buildweek-demo-project/.codex-plugin/plugin.json",
-        "line": 2,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "buildweek-demo-project/src/claims_api/__init__.py",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/aggregate-report.json",
-        "line": 19,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/bundle-v1.json",
-        "line": 108,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/ci-wait/copilot-ci-wait-e10-real-1/evaluation-v1.json",
-        "line": 19,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "execution_evidence",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/ci-wait/copilot-ci-wait-e10-real-1/receipt-v1.json",
-        "line": 94,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/evidence-failure/copilot-evidence-failure-e10-real-1/evaluation-v1.json",
-        "line": 19,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/evidence-failure/copilot-evidence-failure-e10-real-1/receipt-v1.json",
-        "line": 4,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/hands-free-feature/copilot-hands-free-feature-e10-real-1/evaluation-v1.json",
-        "line": 19,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/hands-free-feature/copilot-hands-free-feature-e10-real-1/receipt-v1.json",
-        "line": 4,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/recovery/copilot-recovery-e10-real-1/evaluation-v1.json",
-        "line": 21,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/recovery/copilot-recovery-e10-real-1/receipt-v1.json",
-        "line": 4,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/rejected-requirement/copilot-rejected-requirement-e10-real-1/evaluation-v1.json",
-        "line": 19,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/rejected-requirement/copilot-rejected-requirement-e10-real-1/receipt-v1.json",
-        "line": 4,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/small-bug/copilot-small-bug-e10-real-1/evaluation-v1.json",
-        "line": 19,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "e10-real-run-evidence/copilot-2026-08-25/receipts/copilot/small-bug/copilot-small-bug-e10-real-1/receipt-v1.json",
-        "line": 4,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tests/test_requirement_routing_phase0.py",
-        "referring_file": "enterprise-closure-registry.json",
-        "line": 70,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "enterprise-closure-registry.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "debug-correction",
-        "referring_file": "examples/tailtrail-test-lab/test_demo_assets.py",
-        "line": 27,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "scripts/navigator",
-        "referring_file": "fsr7-real-run-evidence/copilot-2026-09-04/installed-release-proof-report.json",
-        "line": 7,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "hooks/guard-advisory-hook.py",
-        "line": 2,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "hooks/learning-capture-hook.py",
-        "line": 16,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "hooks/tailtrail-lifecycle-hook.py",
-        "line": 17,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "hooks/token-autopilot-hook.py",
-        "line": 17,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "hooks/token-router-hook.py",
-        "line": 17,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "aidlc_official_bridge",
-        "referring_file": "maturity-registry.json",
-        "line": 22,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "scripts.navigator",
-        "referring_file": "navigator.py",
-        "line": 14,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "scripts/host-adapter-conformance.py",
-        "referring_file": "package-manifest.json",
-        "line": 181,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "package-manifest.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "platform-release-contract.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "pyproject.toml",
-        "referring_file": "release-build-lock.json",
-        "line": 6,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "release-channel-v1.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "scripts/host-adapter-conformance.py",
-        "referring_file": "release-manifest.json",
-        "line": 87,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "release-manifest.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/adoption-improvement-decision.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "adoption-validation",
-        "referring_file": "schemas/adoption-validation-catalog.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "adoption-validation",
-        "referring_file": "schemas/adoption-validation-report.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "adoption-validation",
-        "referring_file": "schemas/adoption-validation-trial.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/architecture-fitness.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/behavior-harness.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/canonical-requirement-set.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/change-intent-anchor.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/closure-correction.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "closure-evaluation",
-        "referring_file": "schemas/closure-evaluation.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "closure-finalizer",
-        "referring_file": "schemas/closure-finalizer.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/closure-positive-learning.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/closure-record.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "completion-report",
-        "referring_file": "schemas/completion-report.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/context-continuity-advisory.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/context-continuity-calibration.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/context-continuity-intervention.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/context-continuity-policy.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/context-continuity-selector-policy.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/context-continuity-state.schema.json",
-        "line": 1,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-completion-report.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "debug-correction",
-        "referring_file": "schemas/debug-correction-packet.schema.json",
-        "line": 8,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-evaluation-report.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-experiment-proposal.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-experiment.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-governance.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-harness-convergence.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "debug-host-diagnosis",
-        "referring_file": "schemas/debug-host-diagnosis.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-hypothesis-ranking.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-intake.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-investigation-handoff.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-orientation.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "debug-preflight",
-        "referring_file": "schemas/debug-preflight.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-release-gate.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-reproduction-attempt-status.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-reproduction-attempt.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/debug-reproduction-contract.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/dependency-decision.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/enterprise-conformance-report.schema.json",
-        "line": 3,
-        "reference_type": "text-or-import-token",
-        "confidence": "heuristic"
-      },
-      {
-        "target": "tailtrail",
-        "referring_file": "schemas/enterprise-target-policy.schema.json",
         "line": 3,
         "reference_type": "text-or-import-token",
         "confidence": "heuristic"
@@ -24048,6 +25148,134 @@
         "file": "tests/test_install_profiles.py",
         "line": 41,
         "confidence": "python_ast"
+      },
+      {
+        "type": "WorkflowContractTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_workflow_contracts.py",
+        "line": 26,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "StateStore",
+        "inherits": "Protocol",
+        "language": "python",
+        "file": "scripts/workflow_runtime/enterprise_transport.py",
+        "line": 16,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "WorkflowPhase7Tests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_workflow_phase7.py",
+        "line": 25,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "WorkflowPrivacyTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_workflow_privacy.py",
+        "line": 12,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "HostInputContractSchemaTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_input_contract_schema.py",
+        "line": 58,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "HostQuestionFlowEventSchemaTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_question_flow_event_schema.py",
+        "line": 21,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "RunStateSchemaTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 26,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "PacketViewSchemaTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 98,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "ProofBindingSchemaTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 149,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "RedactionPolicySchemaTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_question_flow_phase0_artifacts.py",
+        "line": 209,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "ArchitectureFitnessTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_architecture_fitness.py",
+        "line": 8,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "CheckExistenceTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_new_file_due_diligence.py",
+        "line": 22,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "CheckPathEligibilityTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_new_file_due_diligence.py",
+        "line": 39,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "CheckNameSymbolCollisionTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_new_file_due_diligence.py",
+        "line": 53,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "CheckConventionPrecedentTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_new_file_due_diligence.py",
+        "line": 111,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "RunAllChecksTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_new_file_due_diligence.py",
+        "line": 137,
+        "confidence": "python_ast"
       }
     ],
     "endpoints": [],
@@ -24582,6 +25810,38 @@
         "path_hint": "",
         "edge_type": "service-config",
         "confidence": "heuristic"
+      },
+      {
+        "source_file": "schemas/host-input-contract.schema.json",
+        "line": 2,
+        "target": "json-schema.org",
+        "path_hint": "/draft/2020-12/schema",
+        "edge_type": "http-url",
+        "confidence": "heuristic"
+      },
+      {
+        "source_file": "schemas/host-input-contract.schema.json",
+        "line": 3,
+        "target": "tailtrail.dev",
+        "path_hint": "/schemas/host-input-contract.schema.json",
+        "edge_type": "http-url",
+        "confidence": "heuristic"
+      },
+      {
+        "source_file": "schemas/host-question-flow-event.schema.json",
+        "line": 2,
+        "target": "json-schema.org",
+        "path_hint": "/draft/2020-12/schema",
+        "edge_type": "http-url",
+        "confidence": "heuristic"
+      },
+      {
+        "source_file": "schemas/host-question-flow-event.schema.json",
+        "line": 3,
+        "target": "tailtrail.dev",
+        "path_hint": "/schemas/host-question-flow-event.schema.json",
+        "edge_type": "http-url",
+        "confidence": "heuristic"
       }
     ],
     "partitions": [
@@ -24608,10 +25868,26 @@
         "in_scope": true
       },
       {
+        "partition": "schemas",
+        "files": 209,
+        "languages": {},
+        "manifests": [],
+        "tests": [
+          "schemas/spec-kit-amendment.schema.json",
+          "schemas/spec-kit-convergence.schema.json",
+          "schemas/spec-kit-import.schema.json",
+          "schemas/spec-kit-mapping.schema.json",
+          "schemas/spec-kit-source.schema.json",
+          "schemas/testing-profile.schema.json"
+        ],
+        "release_paths": [],
+        "in_scope": true
+      },
+      {
         "partition": "scripts",
-        "files": 292,
+        "files": 293,
         "languages": {
-          "python": 292
+          "python": 293
         },
         "manifests": [],
         "tests": [
@@ -24631,9 +25907,9 @@
       },
       {
         "partition": "tests",
-        "files": 250,
+        "files": 254,
         "languages": {
-          "python": 226
+          "python": 230
         },
         "manifests": [],
         "tests": [
@@ -24917,22 +26193,6 @@
         "in_scope": false
       },
       {
-        "partition": "schemas",
-        "files": 202,
-        "languages": {},
-        "manifests": [],
-        "tests": [
-          "schemas/spec-kit-amendment.schema.json",
-          "schemas/spec-kit-convergence.schema.json",
-          "schemas/spec-kit-import.schema.json",
-          "schemas/spec-kit-mapping.schema.json",
-          "schemas/spec-kit-source.schema.json",
-          "schemas/testing-profile.schema.json"
-        ],
-        "release_paths": [],
-        "in_scope": false
-      },
-      {
         "partition": "setup.py",
         "files": 1,
         "languages": {
@@ -25031,6 +26291,34 @@
           "partition": "pyproject.toml",
           "owners": [],
           "likely_tests": [],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "schemas/host-input-contract.schema.json",
+          "partition": "schemas",
+          "owners": [],
+          "likely_tests": [
+            "schemas/spec-kit-amendment.schema.json",
+            "schemas/spec-kit-convergence.schema.json",
+            "schemas/spec-kit-import.schema.json",
+            "schemas/spec-kit-mapping.schema.json",
+            "schemas/spec-kit-source.schema.json"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "schemas/host-question-flow-event.schema.json",
+          "partition": "schemas",
+          "owners": [],
+          "likely_tests": [
+            "schemas/spec-kit-amendment.schema.json",
+            "schemas/spec-kit-convergence.schema.json",
+            "schemas/spec-kit-import.schema.json",
+            "schemas/spec-kit-mapping.schema.json",
+            "schemas/spec-kit-source.schema.json"
+          ],
           "release_paths": [],
           "confidence": "heuristic"
         },
@@ -25232,6 +26520,34 @@
         },
         {
           "file": "scripts/aidlc-official-install.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/flaky-test-tracker.py",
+            "scripts/higher-tier-testing.py",
+            "scripts/run-tests.py",
+            "scripts/smoke-test.py",
+            "scripts/spec-kit-amendment.py",
+            "scripts/spec-kit-bridge.py",
+            "scripts/spec-kit-ci-gate.py",
+            "scripts/spec-kit-converge.py",
+            "scripts/spec-kit-detect.py",
+            "scripts/spec-kit-evidence.py",
+            "scripts/spec-kit-import.py",
+            "scripts/spec-kit-integration.py",
+            "scripts/spec-kit-observability.py",
+            "scripts/spec-kit-policy.py",
+            "scripts/spec-kit-slices.py",
+            "scripts/test-precision.py",
+            "scripts/test-tier-selector.py",
+            "scripts/test_scope.py",
+            "scripts/testing-profile.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/architecture-fitness.py",
           "partition": "scripts",
           "owners": [],
           "likely_tests": [
@@ -25623,6 +26939,34 @@
           "confidence": "heuristic"
         },
         {
+          "file": "scripts/harness-checkpoint.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/flaky-test-tracker.py",
+            "scripts/higher-tier-testing.py",
+            "scripts/run-tests.py",
+            "scripts/smoke-test.py",
+            "scripts/spec-kit-amendment.py",
+            "scripts/spec-kit-bridge.py",
+            "scripts/spec-kit-ci-gate.py",
+            "scripts/spec-kit-converge.py",
+            "scripts/spec-kit-detect.py",
+            "scripts/spec-kit-evidence.py",
+            "scripts/spec-kit-import.py",
+            "scripts/spec-kit-integration.py",
+            "scripts/spec-kit-observability.py",
+            "scripts/spec-kit-policy.py",
+            "scripts/spec-kit-slices.py",
+            "scripts/test-precision.py",
+            "scripts/test-tier-selector.py",
+            "scripts/test_scope.py",
+            "scripts/testing-profile.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
           "file": "scripts/host-adapter-conformance.py",
           "partition": "scripts",
           "owners": [],
@@ -25903,6 +27247,34 @@
           "confidence": "heuristic"
         },
         {
+          "file": "scripts/new_file_due_diligence.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/flaky-test-tracker.py",
+            "scripts/higher-tier-testing.py",
+            "scripts/run-tests.py",
+            "scripts/smoke-test.py",
+            "scripts/spec-kit-amendment.py",
+            "scripts/spec-kit-bridge.py",
+            "scripts/spec-kit-ci-gate.py",
+            "scripts/spec-kit-converge.py",
+            "scripts/spec-kit-detect.py",
+            "scripts/spec-kit-evidence.py",
+            "scripts/spec-kit-import.py",
+            "scripts/spec-kit-integration.py",
+            "scripts/spec-kit-observability.py",
+            "scripts/spec-kit-policy.py",
+            "scripts/spec-kit-slices.py",
+            "scripts/test-precision.py",
+            "scripts/test-tier-selector.py",
+            "scripts/test_scope.py",
+            "scripts/testing-profile.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
           "file": "scripts/repository_path_policy.py",
           "partition": "scripts",
           "owners": [],
@@ -25932,146 +27304,6 @@
         },
         {
           "file": "scripts/review-graph.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/tailtrail.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/task-start.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/update-copilot.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/workflow_runtime/start_integration.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/write_guardian.py",
           "partition": "scripts",
           "owners": [],
           "likely_tests": [
@@ -26205,6 +27437,8 @@
     "suggested_read_order": [
       "hooks/hooks.json",
       "pyproject.toml",
+      "schemas/host-input-contract.schema.json",
+      "schemas/host-question-flow-event.schema.json",
       "scripts/adoption-validation.py",
       "scripts/advanced-runtime.py",
       "scripts/aidlc-check.py",
@@ -26213,6 +27447,7 @@
       "scripts/aidlc-official-detect.py",
       "scripts/aidlc-official-host.py",
       "scripts/aidlc-official-install.py",
+      "scripts/architecture-fitness.py",
       "scripts/architecture_planning.py",
       "scripts/ast-map.py",
       "scripts/benchmark-tailtrail.py",
@@ -26226,6 +27461,7 @@
       "scripts/debug-host-diagnosis.py",
       "scripts/debug-preflight.py",
       "scripts/execution-evidence.py",
+      "scripts/harness-checkpoint.py",
       "scripts/host-adapter-conformance.py",
       "scripts/install-copilot.py",
       "scripts/install-local.py",
@@ -26236,27 +27472,38 @@
       "scripts/navigator.py",
       "scripts/navigator_discovery.py",
       "scripts/navigator_scope.py",
+      "scripts/new_file_due_diligence.py",
       "scripts/repository_path_policy.py",
       "scripts/review-graph.py",
       "scripts/tailtrail.py",
       "scripts/task-start.py",
       "scripts/update-copilot.py",
+      "scripts/workflow_runtime/enterprise_transport.py",
       "scripts/workflow_runtime/start_integration.py",
+      "scripts/workflow_runtime/storage.py",
       "scripts/write_guardian.py",
+      "tests/test_architecture_fitness.py",
       "tests/test_code_graph_cache.py",
       "tests/test_code_graph_inventory.py",
       "tests/test_debug_start_planning.py",
       "tests/test_full_pipeline.py",
       "tests/test_host_adapter_conformance.py",
+      "tests/test_host_input_contract_schema.py",
+      "tests/test_host_question_flow_event_schema.py",
+      "tests/test_host_question_flow_phase0_artifacts.py",
       "tests/test_install_profiles.py",
       "tests/test_intake_pipeline.py",
       "tests/test_mcp_server.py",
       "tests/test_navigator_core.py",
       "tests/test_navigator_scope.py",
+      "tests/test_new_file_due_diligence.py",
       "tests/test_repository_path_policy.py",
       "tests/test_requirement_routing_phase0.py",
       "tests/test_review_graph.py",
       "tests/test_workflow_ci_continuation.py",
+      "tests/test_workflow_contracts.py",
+      "tests/test_workflow_phase7.py",
+      "tests/test_workflow_privacy.py",
       "tests/test_workflow_template_execution.py",
       "tests/test_write_guardian.py",
       ".github/workflows/spec-kit-closure.yml",
@@ -26274,611 +27521,10 @@
   },
   "freshness": {
     "status": "fresh",
-    "checked_at": "2026-10-14T04:28:05.923448+00:00",
+    "checked_at": "2026-10-14T10:28:52.807335+00:00",
     "reasons": []
   },
   "navigator_lifecycle_history": [
-    {
-      "action": "refresh",
-      "at": "2026-10-13T06:22:15.499203+00:00",
-      "attempt_id": "start-20261013062211-6bd251",
-      "phase": "start",
-      "reason_codes": [
-        "bounded-goal-discovery",
-        "fresh-prior-run-mapping",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        "scripts/architecture_planning.py",
-        "scripts/closure-evaluation.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/tailtrail.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ],
-      "effective_scope": [
-        "scripts/architecture_planning.py",
-        "scripts/closure-evaluation.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/tailtrail.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T09:37:02.635953+00:00",
-      "attempt_id": "start-20261013063239-27c9d9",
-      "phase": "closure",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/task-start.py",
-        "tests/test_navigator_core.py"
-      ],
-      "effective_scope": [
-        "scripts/architecture_planning.py",
-        "scripts/closure-evaluation.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_navigator_core.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T09:45:56.027553+00:00",
-      "attempt_id": "start-20261013094001-bcf04f",
-      "phase": "closure",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/navigator_scope.py",
-        "tests/test_navigator_scope.py"
-      ],
-      "effective_scope": [
-        "scripts/architecture_planning.py",
-        "scripts/closure-evaluation.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator_scope.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T09:51:44.685972+00:00",
-      "attempt_id": "start-20261013094900-6bd251",
-      "phase": "closure",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/intake_pipeline.py",
-        "tests/test_intake_pipeline.py"
-      ],
-      "effective_scope": [
-        "scripts/architecture_planning.py",
-        "scripts/closure-evaluation.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator_scope.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T14:23:38.226847+00:00",
-      "attempt_id": "start-20261013142330-37d7dd",
-      "phase": "start",
-      "reason_codes": [
-        "exact-user-literal-match",
-        "fresh-prior-run-mapping",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/architecture_planning.py",
-        "scripts/closure-evaluation.py",
-        "scripts/completion-report.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/repository_path_policy.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_review_graph.py"
-      ],
-      "effective_scope": [
-        "scripts/architecture_planning.py",
-        "scripts/closure-evaluation.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T14:36:48.866150+00:00",
-      "attempt_id": "start-20261013142501-37d7dd",
-      "phase": "closure",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/ast-map.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "tests/test_repository_path_policy.py"
-      ],
-      "effective_scope": [
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/closure-evaluation.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T15:51:02.313048+00:00",
-      "attempt_id": "start-20261013155055-f0836f",
-      "phase": "start",
-      "reason_codes": [
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "no anchor-connected path into cached scope",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/write_guardian.py"
-      ],
-      "effective_scope": [
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/closure-evaluation.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T15:54:36.656779+00:00",
-      "attempt_id": "start-20261013155430-330c0b",
-      "phase": "start",
-      "reason_codes": [
-        "bounded-goal-discovery",
-        "fresh-prior-run-mapping",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator.py",
-        "scripts/navigator_scope.py",
-        "scripts/write_guardian.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_write_guardian.py"
-      ],
-      "effective_scope": [
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/closure-evaluation.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T15:55:43.362681+00:00",
-      "attempt_id": "start-20261013155537-3aa880",
-      "phase": "start",
-      "reason_codes": [
-        "bounded-goal-discovery",
-        "fresh-prior-run-mapping",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        "scripts/check-tailtrail.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/execution-evidence.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/tailtrail.py",
-        "scripts/update-copilot.py",
-        "scripts/write_guardian.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_write_guardian.py"
-      ],
-      "effective_scope": [
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T16:04:22.690875+00:00",
-      "attempt_id": "start-20261013160416-3aa880",
-      "phase": "start",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        ".github/hooks/tailtrail-write-guardian.json"
-      ],
-      "effective_scope": [
-        ".github/hooks/tailtrail-write-guardian.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-13T16:04:50.177812+00:00",
-      "attempt_id": "start-20261013160441-3aa880",
-      "phase": "start",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        ".github/hooks/tailtrail-write-guardian.json"
-      ],
-      "effective_scope": [
-        ".github/hooks/tailtrail-write-guardian.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
     {
       "action": "refresh",
       "at": "2026-10-13T16:05:11.626170+00:00",
@@ -27379,6 +28025,1101 @@
         "tests/test_requirement_routing_phase0.py",
         "tests/test_review_graph.py",
         "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T05:59:17.904888+00:00",
+      "attempt_id": "start-20261014055908-9e4339",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "requested-scope-outside-cache"
+      ],
+      "target_paths": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "scripts/check-tailtrail.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/tailtrail.py",
+        "scripts/update-copilot.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_navigator_core.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_template_execution.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T05:59:43.916355+00:00",
+      "attempt_id": "start-20261014055938-9e4339",
+      "phase": "start",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "requested-scope-outside-cache"
+      ],
+      "target_paths": [
+        "schemas/host-input-contract.schema.json"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T06:01:56.171593+00:00",
+      "attempt_id": "start-20261014060150-9e4339",
+      "phase": "start",
+      "reason_codes": [
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "no anchor-connected path into cached scope",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "schemas/host-input-contract.schema.json"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T06:06:17.585066+00:00",
+      "attempt_id": "start-20261014060150-9e4339",
+      "phase": "closure",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "schemas/host-input-contract.schema.json",
+        "tests/test_host_input_contract_schema.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T06:14:28.686670+00:00",
+      "attempt_id": "start-20261014061422-50451e",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "requested-scope-outside-cache"
+      ],
+      "target_paths": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/storage.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_navigator_core.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T06:15:09.354850+00:00",
+      "attempt_id": "start-20261014061503-50451e",
+      "phase": "start",
+      "reason_codes": [
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "no anchor-connected path into cached scope",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "schemas/host-question-flow-event.schema.json"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T06:19:25.150949+00:00",
+      "attempt_id": "start-20261014061503-50451e",
+      "phase": "closure",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "schemas/host-question-flow-event.schema.json",
+        "tests/test_host_question_flow_event_schema.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T09:50:01.590556+00:00",
+      "attempt_id": "start-20261014094955-222b6f",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "scripts/check-tailtrail.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator.py",
+        "scripts/tailtrail.py",
+        "scripts/update-copilot.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_navigator_core.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T09:50:41.154023+00:00",
+      "attempt_id": "start-20261014095035-222b6f",
+      "phase": "start",
+      "reason_codes": [
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "no anchor-connected path into cached scope",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/new_file_due_diligence.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T09:53:34.788421+00:00",
+      "attempt_id": "start-20261014095035-222b6f",
+      "phase": "closure",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/new_file_due_diligence.py",
+        "tests/test_new_file_due_diligence.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T09:56:39.635290+00:00",
+      "attempt_id": "start-20261014095633-037cee",
+      "phase": "start",
+      "reason_codes": [
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "no anchor-connected path into cached scope",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/architecture-fitness.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T10:14:26.048334+00:00",
+      "attempt_id": "start-20261014101418-755cb8",
+      "phase": "start",
+      "reason_codes": [
+        "1 anchor paths present in cached scope",
+        "1 anchor-connected cached files",
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/new_file_due_diligence.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T10:28:52.807700+00:00",
+      "attempt_id": "start-20261014102027-755cb8",
+      "phase": "closure",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/new_file_due_diligence.py",
+        "tests/test_new_file_due_diligence.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
         "tests/test_workflow_template_execution.py",
         "tests/test_write_guardian.py"
       ]

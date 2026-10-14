@@ -6,6 +6,25 @@ filesystem and string operations only. Each returns a :class:`Finding`.
 Combining findings into the five-state verdict taxonomy (`new-confirmed`,
 `extend-recommended`, `collision-blocked`, `unverified`, `not-applicable`) is
 Phase N2/N3 work, not this module's job.
+
+Phase N2 adds ``check_existing_owner_evidence`` (Check 4): flipped-polarity
+scoring over Navigator's existing relationship-edge vocabulary
+(``scripts/navigator_scope.py``'s ``DEEP_EDGE_KINDS``). Navigator's
+``_has_deep_support`` is calibrated to disambiguate among multiple plausible
+*existing* candidates for a requirement -- there it treats ``tested-by`` as
+strong (deep) evidence, which is reasonable for *that* question. Reused
+as-is for the *different* question this protocol asks -- "is there real
+evidence this existing path already owns the proposed new functionality" --
+that same ``tested-by`` edge silently misfires: an existing file being
+covered by some test, or merely importing/being imported by another path,
+proves nothing about ownership of a brand-new, unrelated requirement. The
+live incident this phase fixes: Navigator proposed `scripts/intake_pipeline.py`
+as the owner for an unrelated new file on the strength of exactly the edges
+``raises-behavior-error``, ``imports-module``, ``tested-by`` -- none of which
+assert that the file defines, edits, or behaviourally implements the new
+concern. ``OWNERSHIP_EDGE_KINDS``/``CONSUMER_EDGE_KINDS`` below are a
+deliberately separate, narrower allowlist for this purpose; they are not a
+replacement for ``DEEP_EDGE_KINDS`` and must not be merged with it.
 """
 from __future__ import annotations
 
@@ -216,6 +235,72 @@ def check_convention_precedent(root: Path, relative: str) -> Finding:
         decisive=supports_precedent,
         reason_codes=("one-file-per-concern-precedent",) if supports_precedent else ("insufficient-or-mixed-precedent",),
         details={"path": relative, "sibling_count": len(siblings), "siblings": sorted(siblings)},
+    )
+
+
+# Phase N2 -- Check 4: flipped-polarity existing-owner evidence.
+#
+# Deliberately NOT `navigator_scope.py`'s `DEEP_EDGE_KINDS` (used by the
+# private `_has_deep_support`/`_owner_strong_support` helpers there to rank
+# *existing* candidates against each other for behaviour-shaped
+# requirements). This allowlist answers a narrower question instead: does
+# this specific edge kind, on its own, assert that an existing path already
+# *implements* or *defines* the thing the new-file requirement describes?
+# `tested-by` is excluded on purpose -- an existing file being covered by
+# some test says nothing about whether it owns an unrelated new concern,
+# and counting it as ownership evidence is exactly what produced the live
+# `scripts/intake_pipeline.py` misfire this check exists to prevent.
+OWNERSHIP_EDGE_KINDS = frozenset({
+    "declares-edit-boundary",
+    "defines-symbol",
+    "calls-symbol",
+    "captures-returned-value",
+    "catches-error",
+    "writes-ui-state",
+    "renders-ui-state",
+    "renders-caught-error",
+    "renders-destination",
+    "emits-user-visible-literal",
+    "writes-navigation-state",
+    "defines-ui-handler",
+    "binds-ui-action",
+    "defines-behavior-handler",
+})
+
+# Edge kinds that only assert the candidate is near or used by other code --
+# never ownership on their own. `tested-by` lives here, not in
+# OWNERSHIP_EDGE_KINDS, for the reason documented above.
+CONSUMER_EDGE_KINDS = frozenset({
+    "imports-module",
+    "loads-module",
+    "tested-by",
+})
+
+
+def check_existing_owner_evidence(candidate_path: str, edge_kinds: tuple[str, ...]) -> Finding:
+    """Check 4 -- flipped polarity. Weak-or-no ownership evidence supports
+    `new-confirmed` (the candidate does not already own this concern);
+    only a genuine ownership-grade edge kind is decisive against treating
+    the path as new. Consumer-only edges (imports/loads/tested-by) are
+    recorded for transparency but never count as decisive ownership."""
+    ownership_hits = sorted({kind for kind in edge_kinds if kind in OWNERSHIP_EDGE_KINDS})
+    consumer_hits = sorted({kind for kind in edge_kinds if kind in CONSUMER_EDGE_KINDS})
+    has_ownership = bool(ownership_hits)
+    if has_ownership:
+        reason_codes: tuple[str, ...] = ("strong-ownership-evidence",)
+    elif consumer_hits:
+        reason_codes = ("consumer-only-evidence",)
+    else:
+        reason_codes = ("no-owner-evidence",)
+    return Finding(
+        check="existing-owner-evidence",
+        decisive=has_ownership,
+        reason_codes=reason_codes,
+        details={
+            "path": candidate_path,
+            "ownership_edge_kinds": ownership_hits,
+            "consumer_edge_kinds": consumer_hits,
+        },
     )
 
 

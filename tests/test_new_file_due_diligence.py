@@ -147,5 +147,47 @@ class RunAllChecksTests(unittest.TestCase):
         self.assertTrue(all(hasattr(value, "as_dict") for value in findings.values()))
 
 
+class CheckExistingOwnerEvidenceTests(unittest.TestCase):
+    def test_live_intake_pipeline_misfire_is_not_decisive(self) -> None:
+        # Regression for the real observed bug: Navigator proposed
+        # scripts/intake_pipeline.py as owner of an unrelated new file on
+        # the strength of exactly these three edge kinds. None of them
+        # assert ownership of the new concern; the flipped-polarity check
+        # must not treat this as decisive.
+        finding = nfdd.check_existing_owner_evidence(
+            "scripts/intake_pipeline.py",
+            ("raises-behavior-error", "imports-module", "tested-by"),
+        )
+        self.assertFalse(finding.decisive)
+        self.assertIn("consumer-only-evidence", finding.reason_codes)
+        self.assertEqual(finding.details["ownership_edge_kinds"], [])
+        self.assertEqual(
+            finding.details["consumer_edge_kinds"], ["imports-module", "tested-by"]
+        )
+
+    def test_genuine_ownership_edge_is_decisive(self) -> None:
+        finding = nfdd.check_existing_owner_evidence(
+            "scripts/real_owner.py",
+            ("declares-edit-boundary", "imports-module"),
+        )
+        self.assertTrue(finding.decisive)
+        self.assertIn("strong-ownership-evidence", finding.reason_codes)
+        self.assertEqual(finding.details["ownership_edge_kinds"], ["declares-edit-boundary"])
+
+    def test_defines_symbol_edge_is_decisive(self) -> None:
+        finding = nfdd.check_existing_owner_evidence(
+            "scripts/real_owner.py",
+            ("defines-symbol",),
+        )
+        self.assertTrue(finding.decisive)
+
+    def test_no_edges_is_not_decisive(self) -> None:
+        finding = nfdd.check_existing_owner_evidence("scripts/unrelated.py", ())
+        self.assertFalse(finding.decisive)
+        self.assertIn("no-owner-evidence", finding.reason_codes)
+        self.assertEqual(finding.details["ownership_edge_kinds"], [])
+        self.assertEqual(finding.details["consumer_edge_kinds"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
