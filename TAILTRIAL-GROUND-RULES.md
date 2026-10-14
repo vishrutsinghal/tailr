@@ -88,6 +88,13 @@ instead of rediscovering it.
    positive/negative regressions when changing classifier vocabulary.
 18. **Correction runs need a baseline.** Do not start sequential correction
    runs against an uncommitted worktree without an explicit shared baseline.
+19. **A revised tier list is not trusted until proven.** A `proof-update`
+   revision adding tiers to the top-level `validation_contract.tiers` can be
+   silently overridden by a stale Start-time `checks[]` entry matching the
+   same command (Issue 27). Never assume a tier is approved from the anchor
+   JSON alone -- if `execution-evidence run` rejects an approved-looking
+   tier, use `--amend-proof --amendment-reason "..."` rather than retrying
+   the same call or proposing another revision.
    Commit the reviewed prior correction, reference the approved prior run, or
    record an anchor correction so legitimate earlier edits are not reported as
    unexplained drift.

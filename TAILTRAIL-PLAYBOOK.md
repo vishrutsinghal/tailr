@@ -82,6 +82,12 @@ bite repeatedly:
 - A task-type question (`implementation`/`qa`/`infra`/`doc`) may be asked
   separately even after interpretation succeeds -- answer with
   `--task-type`.
+- An `intent_terms` entry must be a single token, never a multi-word phrase
+  with a space in it, even when that exact phrase is a contiguous substring
+  of the goal. `"Worked Examples"` (present verbatim in the goal text) was
+  rejected with `malformed terms: Worked Examples`; splitting it into two
+  separate single-word terms (`"Worked"`, `"Examples"`) resolved it on the
+  next submission.
 - Multi-requirement answers use `--scope-owner "REQ-ID=path"` (repeatable),
   never a bare path when more than one requirement is unresolved.
 
@@ -136,6 +142,24 @@ implementation is fully correct. To get genuinely **trusted** evidence:
 
 Skipping step 1 is the single biggest reason a correct, fully-working
 implementation still closes as "evidence-incomplete."
+
+**A later `proof-update` revision that adds tiers does not update the
+Start-time `checks[]` entry -- `execution-evidence run` silently ignores
+the broader tier list when it does.** If Start's Focused Validation leaves
+a tier (e.g. `behaviour`, `integration`) unresolved, a `proof-update`
+revision registering `"tiers": [...]` on the *top-level*
+`validation_contract` looks correct in `planning-revision.py propose`'s
+output and in the approved anchor JSON -- but `execution-evidence.py`
+matches the exact proof command against `validation_contract.checks[]`
+first (an array populated once, at Start time), and if any check entry
+matches that command, its tiers *completely replace* the top-level tier
+list rather than being unioned with it. The result is an opaque
+`requested evidence tiers are not approved for requirement ...` error even
+though `planning show`/the anchor JSON clearly lists the tier as approved.
+The fix is not another revision -- pass `--amend-proof --amendment-reason
+"..."` on the same `execution-evidence run` call that submits all the
+tiers; this records an explicit additive proof amendment and the run
+succeeds immediately. See `TAILTRAIL-ISSUES-LOG.md` Issue 27.
 
 ## 5. Mid-implementation needs
 
