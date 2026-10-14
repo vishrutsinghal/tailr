@@ -304,6 +304,120 @@ def check_existing_owner_evidence(candidate_path: str, edge_kinds: tuple[str, ..
     )
 
 
+# Phase N3 -- verdict taxonomy (TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md
+# "Verdict taxonomy" section). Fixed order, exported for callers/tests that
+# need to validate against the full enum rather than a bare string.
+VERDICTS = ("new-confirmed", "extend-recommended", "collision-blocked", "unverified", "not-applicable")
+
+
+def _verdict(verdict: str, reason_codes: tuple[str, ...], question: str | None) -> dict[str, Any]:
+    return {"verdict": verdict, "reason_codes": tuple(reason_codes), "question": question}
+
+
+def _proposed_directory(path: str) -> str:
+    parts = PurePosixPath(path.replace("\\", "/")).parts[:-1]
+    return "/".join(parts)
+
+
+def combine_verdict(
+    *,
+    existence: Finding,
+    path_eligibility: Finding,
+    collision: Finding,
+    owner_evidence: Finding,
+    convention: Finding,
+    rationale_provided: bool = False,
+    rationale_contradicts_evidence: bool = False,
+) -> dict[str, Any]:
+    """Check 6 + verdict combination (Phase N3). Combines Phase N1's four
+    checks and Phase N2's owner-evidence check into the five-state verdict
+    taxonomy. `rationale_provided`/`rationale_contradicts_evidence` are
+    Check 6 -- a tie-breaker for the `insufficient-or-mixed-precedent` case
+    only; they never override a result Checks 1-5 already decided."""
+    if existence.decisive:
+        return _verdict("collision-blocked", ("path-already-exists",), None)
+
+    if path_eligibility.decisive:
+        return _verdict("collision-blocked", path_eligibility.reason_codes, None)
+
+    details = collision.details
+    has_3a = bool(details.get("sub_check_3a"))
+    has_3b = bool(details.get("sub_check_3b"))
+    proposed_dir = _proposed_directory(str(details.get("path", "")))
+    directory_matches = details.get("directory_matches") or []
+
+    if has_3a and has_3b:
+        question = (
+            f"`{proposed_dir}` closely resembles the existing directory "
+            f"`{directory_matches[0] if directory_matches else '?'}`, and a matching name/symbol "
+            f"already exists there (filename: {details.get('filename_matches')}, "
+            f"symbol: {details.get('symbol_matches')}) -- why does this need to be separate, "
+            "and why can't the existing file be extended or reused instead?"
+        )
+        return _verdict("extend-recommended", ("directory-and-name-collision",), question)
+
+    if has_3b and not has_3a:
+        question = (
+            f"`{proposed_dir}` closely resembles the existing directory "
+            f"`{directory_matches[0] if directory_matches else '?'}` -- why does `{proposed_dir}` "
+            "need to exist alongside it?"
+        )
+        return _verdict("unverified", ("directory-near-duplication-only",), question)
+
+    if owner_evidence.decisive:
+        candidate = owner_evidence.details.get("path")
+        kinds = owner_evidence.details.get("ownership_edge_kinds") or []
+        question = (
+            f"`{candidate}` already appears to own this responsibility (evidence: "
+            f"{', '.join(kinds)}) -- extend it, or state why this must be a separate new file?"
+        )
+        return _verdict("extend-recommended", owner_evidence.reason_codes, question)
+
+    if convention.decisive:
+        return _verdict("new-confirmed", convention.reason_codes, None)
+
+    convention_reason = convention.reason_codes[0] if convention.reason_codes else ""
+    if convention_reason == "directory-does-not-exist-yet":
+        return _verdict("new-confirmed", ("no-precedent-directory-not-yet-created",), None)
+
+    if rationale_contradicts_evidence:
+        return _verdict(
+            "unverified",
+            ("rationale-contradicts-evidence",),
+            "The stated rationale contradicts already-found evidence; please reconcile and resubmit.",
+        )
+    if rationale_provided:
+        return _verdict("new-confirmed", ("rationale-accepted-as-tiebreaker",), None)
+    question = (
+        f"No clear existing-owner evidence and no strong directory convention either way for "
+        f"`{convention.details.get('path')}` -- state why this needs to be a separate new file "
+        "(new integration, new data entity, unrelated feature surface, or a named governing convention)."
+    )
+    return _verdict("unverified", ("no-decisive-evidence-either-way",), question)
+
+
+def evaluate_existing_file_claim(candidate_path: str, edge_kinds: tuple[str, ...]) -> dict[str, Any]:
+    """Symmetry check (Example C): the same scrutiny applied to a host
+    claim of 'just edit existing file X'. Reuses `check_existing_owner_evidence`
+    unchanged -- the claim is accepted only when genuine ownership-grade
+    evidence backs it, never because 'existing' sounds safer than 'new'."""
+    finding = check_existing_owner_evidence(candidate_path, edge_kinds)
+    if finding.decisive:
+        result = _verdict("not-applicable", ("existing-owner-claim-confirmed",), None)
+    else:
+        result = _verdict(
+            "unverified",
+            ("existing-owner-claim-unsupported",),
+            (
+                f"`{candidate_path}` has no qualifying ownership relationship to this requirement "
+                "(only consumer/no edges found) -- confirm this is really the right file to edit, "
+                "or name the correct owner."
+            ),
+        )
+    result["finding"] = finding.as_dict()
+    return result
+
+
 def run_all_checks(root: Path, relative: str, *, symbols: tuple[str, ...] = ()) -> dict[str, Finding]:
     """Convenience entry point running every Phase N1 check for one path."""
     return {

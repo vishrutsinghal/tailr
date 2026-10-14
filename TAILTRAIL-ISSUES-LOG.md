@@ -34,6 +34,7 @@ the entries there.
 | 24 | Bare `"behavior"` substring match in `behaviour_planning.selected_for()` falsely selects the Behaviour Harness for non-behavioral goals | **Fixed** (word-boundary matching, same bug class as Issue 18) |
 | 25 | A proof-only test file created under the TESTING badge has no revision mechanism to join the approved anchor's proof scope, so closure always reports it as scope drift | **Fixed** (`proof-update` now accepts `editable_paths`/`proposed_paths`) |
 | 26 | `architecture-fitness.py` kept its own separate approved-scope notion (`likely_paths` only), unaware of the Issue 25 fix's `validation_contract.editable_paths`/`proposed_paths` | **Fixed** (same union pattern applied to this harness too) |
+| 27 | A `proof-update` revision that adds tiers to a requirement's top-level `validation_contract.tiers` does not update the per-command `validation_contract.checks[]` entry created at Start time; `execution-evidence run` matches `checks[]` first and silently ignores the broader top-level tier list, rejecting the new tiers | Open -- workaround: pass `--amend-proof --amendment-reason "..."` on the same `execution-evidence run` call to record an additive proof amendment covering the missing tiers |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most

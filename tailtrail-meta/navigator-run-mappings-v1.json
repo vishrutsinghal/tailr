@@ -4082,9 +4082,62 @@
       "recorded_at": "2026-10-14T10:28:53.799011+00:00",
       "run_id": "start-20261014102027-755cb8",
       "scope_decision_fingerprint": "sha256:837f4788f01b0e80b43f87b259da3a20aba40824dc4fb9c25cad5d2a49a9e82f"
+    },
+    {
+      "closure_status": "complete",
+      "goal_fingerprint": "sha256:d03b074ab752d00a204b7745cf2f6710198af2648aec38803eca07421841feeb",
+      "graph_cache_fingerprint": "sha256:1beb48817ac4692041e8618aff5336e99289573644f7c9959a2a8cd67e629cdc",
+      "mapping_fingerprint": "sha256:498714b2bded355194da357adb205cdd339439d1e0e137db75e51299090fb977",
+      "path_hashes": {
+        "scripts/new_file_due_diligence.py": "sha256:8f56b933c2e2842bd287a8fb4ae91b0e8f44f798d95d6a7aca1767b6d1216b27",
+        "tests/test_new_file_due_diligence.py": "sha256:a2f4dae061fd38ddc53056497a0911b5868bf1d3a5651c9692daac376efcb58a"
+      },
+      "query_terms": [
+        "all",
+        "and",
+        "automated",
+        "check",
+        "claims",
+        "collision-blocked",
+        "combine_verdict",
+        "combines",
+        "covering",
+        "examples",
+        "existing-file",
+        "extend-recommended",
+        "findings",
+        "five-state",
+        "for",
+        "function",
+        "host",
+        "implement",
+        "input",
+        "needing",
+        "new-confirmed",
+        "new_file_due_diligence",
+        "not-applicable",
+        "phase",
+        "question",
+        "regression",
+        "scripts",
+        "symmetry",
+        "tailtrail-new-file-due-diligence-protocol",
+        "taxonomy",
+        "tests",
+        "text",
+        "the",
+        "through",
+        "unverified",
+        "verdict",
+        "verdicts",
+        "worked"
+      ],
+      "recorded_at": "2026-10-14T10:41:16.889396+00:00",
+      "run_id": "start-20261014103418-7f52f1",
+      "scope_decision_fingerprint": "sha256:c634102c528aa711e6ca888ac01c50c8fbb7e9e25172c3e0a7310065a37116b1"
     }
   ],
   "schema_version": "1",
   "type": "tailtrail-navigator-run-mapping-index",
-  "updated_at": "2026-10-14T10:28:53.799020+00:00"
+  "updated_at": "2026-10-14T10:41:16.889408+00:00"
 }
