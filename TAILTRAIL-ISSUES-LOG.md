@@ -2805,3 +2805,146 @@ VS Code.
 - **Status:** Open. Revisit if VS Code or GitHub Copilot Chat ever exposes a
   pre-tool-execution interception point.
 
+## 23. Closure evidence and Delivery Record projections can disagree with the approved proof contract (Open)
+
+**Context:** Run `start-20261014041154-4a77b7` implemented mandatory
+`delivery-record.md` generation in `scripts/closure-finalizer.py`. The final
+implementation and live first/replay closure both completed, but reaching that
+closure exposed three product defects, one plan-conformance gap, and several
+host errors. This section records only evidence from that run. It does not
+classify the separate external Git push safety gate as a TailTrail defect.
+
+### 23.1 Confirmed defect: a later partial receipt replaces earlier tiers for the same command
+
+- **Symptom:** After the unit receipt, checkpoint 1 correctly reported missing
+  `behaviour` and `integration`. Running the same approved command for only
+  `behaviour` and `integration` then caused checkpoint 2 to report `unit` as
+  missing. A third execution carrying all three tiers in one receipt was needed
+  before checkpoint 3 completed.
+- **Evidence:**
+  `.tailtrail/runs/start-20261014041154-4a77b7/checkpoints/checkpoint-1.json`,
+  `checkpoint-2.json`, and `checkpoint-3.json` preserve the three states.
+- **Root cause:** `scripts/closure-recorder.py:122-125` declares replacement
+  semantics for later executions. The `current` identity at lines 181-185 is
+  only `(requirement_uids, command)`, so it discards the earlier receipt's
+  distinct tier set instead of retaining the latest result per tier.
+- **Impact:** A valid earlier tier can disappear when a later run adds another
+  approved tier. Hosts must know to repeat the command with the complete tier
+  union, causing unnecessary execution and confusing evidence regressions.
+- **Recommended fix:** Reduce receipts by
+  `(requirement_uid, command, tier)`, retain the latest authoritative outcome
+  independently for each tier, apply failure dominance per tier, and aggregate
+  the surviving tier results only after that reduction.
+- **Required regression:** Record unit pass followed by behaviour/integration
+  pass for the same command and verify that all three tiers remain complete;
+  then add a later unit failure and verify that only unit becomes failing.
+- **Status:** Open.
+
+### 23.2 Confirmed defect: traceability literals become bogus proof-revision commands
+
+- **Symptom:** The completed run's `delivery-record.md` lists the real approved
+  executable command, but also says `traceability-only; not executable yet`
+  and recommends a new proof revision whose command is the output path
+  `.tailtrail/runs/<run-id>/delivery-record.md`.
+- **Root cause:** `scripts/delivery-record.py:68-74` treats every quoted
+  traceability literal not equal to an approved command as `unapproved`.
+  Lines 81-98 then build a proof-update command from the first such literal.
+  Output paths and status tokens are traceability evidence, not executable
+  commands.
+- **Impact:** A successful Delivery Record contradicts its own approved proof
+  state and instructs the user to register a non-command as executable proof.
+- **Recommended fix:** Keep traceability literals and executable proof in
+  separate typed collections. Generate proof-revision guidance only from an
+  explicit unresolved proof-command candidate, and project the effective
+  approved anchor plus revision/proof-amendment overlays before choosing a
+  status.
+- **Required regression:** Render a completed requirement containing an output
+  path, status literal, and one approved command; assert that the command is
+  approved and no revision guidance is emitted for the non-command literals.
+- **Status:** Open.
+
+### 23.3 Confirmed defect: multi-tier evidence is rendered as singular `unit`
+
+- **Symptom:** The authoritative receipt and Completion Report contain
+  `unit`, `behaviour`, and `integration`, but the Delivery Record's proof row
+  displays only `Tier: unit`.
+- **Root cause:** `scripts/delivery-record.py:524` renders `row.get("tier")`
+  and ignores the authoritative `tiers` array when both fields are present.
+- **Impact:** The human-readable delivery artifact understates the evidence
+  used for closure and can make a valid higher-tier completion look like a
+  unit-only claim.
+- **Recommended fix:** Render normalized `tiers` when present, falling back to
+  singular `tier` only for legacy receipts.
+- **Required regression:** Supply one receipt with all three tiers and assert
+  that the Delivery Record prints all three in deterministic order.
+- **Status:** Open.
+
+### 23.4 Confirmed conformance gap: approval and closure tolerated unresolved or generic proof projections
+
+- **Symptom:** Revision v3's approved anchor contained the executable command
+  and all three required tiers, while its saved `focused_validation` rows still
+  said the unit and integration proof were unresolved and proposed a generic
+  UI test for behaviour. Its Behaviour Harness scenarios described a generic
+  user-visible journey and refactor instead of delivery-record generation.
+  Managed execution nevertheless linked the command to those generic scenario
+  IDs and allowed complete closure.
+- **Evidence:**
+  `.tailtrail/runs/start-20261014041154-4a77b7/planning/revisions/start-report-v3.json`,
+  `anchors/approved-v1.json`, and
+  `execution/command-artifacts/command-b784337b08a55561.json` preserve the
+  conflicting projections and accepted receipt.
+- **Assessment:** This extends Issue 21.2 rather than duplicating it. Issue
+  21.2 records missing symptom-specific proof; this run additionally shows
+  that the rendered focused-validation plan, effective anchor, and Behaviour
+  Harness scenario projection can disagree without blocking approval or
+  closure.
+- **Impact:** A plan can look unresolved to the user while execution accepts
+  it as fully authorized, and generic scenarios can provide a structurally
+  valid but semantically weak higher-tier link.
+- **Recommended fix:** Make approval compare the effective anchor, focused
+  validation, and scenario contracts. Any unresolved row or generic scenario
+  inconsistent with the requirement must block approval. Managed evidence
+  should link only to a requirement-specific scenario whose asserted behavior
+  is covered by the selected command.
+- **Required regression:** Approve a proof-update over an unresolved plan and
+  verify that the effective focused-validation projection is updated; reject
+  completion when only generic Behaviour Harness scenarios match by ID.
+- **Status:** Open.
+
+### 23.5 Host errors and missing proof from this run
+
+These are host-side mistakes, not TailTrail product defects:
+
+1. The host should have rejected v3 before approval because focused validation
+   remained unresolved and the behaviour scenarios were generic.
+2. The host first ran only the unit tier, then incorrectly assumed a separate
+   behaviour/integration receipt would combine with it. Reading the recorder's
+   replacement semantics first would have avoided two incomplete checkpoints.
+3. The approved scope kept `tests/test_closure_finalizer.py` proof-only, so the
+   host correctly did not edit it, but the plan therefore supplied no dedicated
+   red-to-green assertion for the new contract. The existing suite exercised
+   first and replay finalization and the live run generated the record, but it
+   did not explicitly assert the returned `delivery_record` path, malformed or
+   absent-record rejection, or replay restoration.
+
+- **Prevention:** Before approval, require a symptom-specific assertion and a
+  legal test-edit route when new regression coverage is needed. Run the exact
+  approved tier set once in managed execution unless TailTrail has explicit
+  per-tier aggregation semantics.
+- **Follow-up proof needed:** A separately approved test change should assert
+  first closure, replay, returned path, file contents, missing/malformed record
+  failure, and red-to-green behavior. This regression does not exist yet.
+
+### 23.6 Recommended implementation order
+
+1. Fix per-tier receipt reduction in `closure-recorder.py` because it affects
+   closure correctness and causes avoidable reruns.
+2. Fix traceability/proof typing and multi-tier rendering in
+   `delivery-record.py` so the mandatory human-readable artifact is truthful.
+3. Add effective-plan convergence gates for focused validation and Behaviour
+   Harness scenarios.
+4. Add the missing public finalizer regressions in a separately approved test
+   scope.
+
+All four changes require their own focused Planning Locks and proof contracts;
+this issue-log run authorizes documentation only.
