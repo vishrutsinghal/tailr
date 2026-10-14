@@ -39,6 +39,7 @@ ARCHITECTURE = load("closure_finalizer_architecture", "architecture-fitness.py")
 BEHAVIOUR = load("closure_finalizer_behaviour", "behavior-harness.py")
 MAINTAINABILITY = load("closure_finalizer_maintainability", "maintainability-harness.py")
 REPORT = load("closure_finalizer_report", "completion-report.py")
+DELIVERY = load("closure_finalizer_delivery_record", "delivery-record.py")
 DEBUG_SECTION = load("closure_finalizer_debug_section", "debug-completion.py")
 CORRECTION = load("closure_finalizer_correction", "closure-correction.py")
 WORKFLOW_EVIDENCE = load("closure_finalizer_workflow_evidence", "workflow_runtime/evidence.py")
@@ -75,6 +76,27 @@ def latest_record(root: Path, run_id: str) -> dict[str, Any]:
     if not candidates:
         raise ValueError("no closure record exists; run `tailtrail closure record --root . --run-id <run-id>` first or provide --input")
     return max(candidates, key=lambda row: row[:3])[3]
+
+
+def ensure_delivery_record(root: Path, run_id: str) -> str:
+    """Generate and verify the canonical human-readable closure projection."""
+    resolved_root = root.resolve()
+    generated = DELIVERY.generate(resolved_root, run_id)
+    relative_path = generated.get("path")
+    if generated.get("type") != "tailtrail-delivery-record" or generated.get("run_id") != run_id:
+        raise ValueError("delivery record generation returned mismatched run metadata")
+    if not isinstance(relative_path, str) or not relative_path:
+        raise ValueError("delivery record generation did not return its path")
+    expected = DELIVERY.record_path(resolved_root, run_id).resolve()
+    actual = (resolved_root / relative_path).resolve()
+    if actual != expected or not actual.is_file():
+        raise ValueError(f"delivery record is missing at `{expected.relative_to(resolved_root).as_posix()}`")
+    body = actual.read_text(encoding="utf-8")
+    required = [f"Run: `{run_id}`", "## Implementation", "## Closure"]
+    missing = [marker for marker in required if marker not in body]
+    if missing:
+        raise ValueError("delivery record verification failed; missing: " + ", ".join(missing))
+    return actual.relative_to(resolved_root).as_posix()
 
 
 def selected_harnesses(root: Path, run_id: str) -> list[str]:
@@ -217,7 +239,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
     directory = L.state_dir(root, run_id)
     saved = directory / "finalizers" / f"{finalizer_id}.json"
     if saved.is_file():
-        return {**read(saved), "reused": True}
+        return {**read(saved), "delivery_record": ensure_delivery_record(root, run_id), "reused": True}
 
     changed = [str(item) for item in closure.get("changed_paths", [])]
     assessments: dict[str, dict[str, Any]] = {}
@@ -231,6 +253,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
     higher = higher_tier_status(root, run_id)
     debug_section = DEBUG_SECTION.generate(root, run_id) if debug_intake.is_file() else None
     report = REPORT.build(root, run_id)
+    delivery_record = ensure_delivery_record(root, run_id)
     graph_lifecycle: dict[str, Any]
     run_mapping: dict[str, Any] | None = None
     try:
@@ -322,6 +345,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "run_mapping": run_mapping,
         "correction": correction,
         "completion_report": report.get("run_artifact"),
+        "delivery_record": delivery_record,
         "overall_status": report["overall_status"],
         "boundary": "Finalized deterministic local control evidence only. No receipt command, deployment, recovery action, or external environment was executed.",
     }
