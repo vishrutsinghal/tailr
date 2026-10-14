@@ -1,6 +1,6 @@
 # TailTrail Managed Workspace Exclusion Problem
 
-Status: observed problem statement
+Status: resolved; see `TAILTRAIL-MANAGED-WORKSPACE-EXCLUSION-DESIGN.md` for the implemented classifier and `tests/test_repository_path_policy.py` for the real-git-worktree regression coverage.
 
 ## Executive Summary
 

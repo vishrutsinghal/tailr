@@ -1,6 +1,6 @@
 # TailTrail Managed Workspace Exclusion
 
-Status: draft for review
+Status: implemented (`scripts/repository_path_policy.py`, commit `dae0b83`); real Git worktree roots are resolved via `git_worktree_roots()` and threaded through every scanner call site.
 
 ## Purpose
 

@@ -28,6 +28,7 @@ the entries there.
 | 18 | Generic `component` wording activates presentation planning | **Fixed locally** (84 navigator-core tests pass; closure evidence pending) |
 | 19 | Focused validation selects a helper script as an executable test proof | Open -- proof contract needs test-suite validation |
 | 20 | Separate correction runs inherit unrelated dirty paths and report changed-beyond-approved | Open -- correction-run isolation/dirty-worktree policy needed |
+| 22 | No real-time write-guard integration point exists for GitHub Copilot Chat in VS Code | Open -- host has no pre-tool-execution interception API; `write_guardian.py` is Copilot-payload-ready but never invoked |
 | 21 | Copilot-hook planning accepted a no-op correction and exposed host/product boundary gaps | Open -- premise/proof gates needed; host guidance added |
 
 See **Section 11** below for a separately-tracked, audited list of standing
@@ -2760,3 +2761,47 @@ reproduce the exact failure read-only
 
 This sequence prevents TailTrail from faithfully freezing a complete but
 technically incorrect host diagnosis.
+## 22. No real-time write-guard integration point exists for GitHub Copilot Chat (Open)
+
+**Context:** After `scripts/write_guardian.py` was made host-agnostic (accepting
+Claude, Codex `apply_patch`, and Copilot `toolName`/`toolArgs` payload shapes,
+with `native_copilot` response envelopes and full test coverage in
+`tests/test_write_guardian.py`), only Claude (`.claude/settings.json`) and
+Codex (`hooks/hooks.json`) actually register it as a `PreToolUse` hook. No
+equivalent registration exists, or is possible, for GitHub Copilot Chat in
+VS Code.
+
+- **Symptom:** An agent session using GitHub Copilot Chat can edit any file
+  via its built-in edit tools with zero real-time scope check, even while a
+  TailTrail run is active and an approved anchor names a narrower editable
+  set. The only enforcement is after-the-fact: `closure finalize` /
+  `completion-report` detect `changed-beyond-approved` once the edits already
+  exist on disk.
+- **Confirmed live:** during the Git-worktree-roots fix (commit `dae0b83`),
+  Copilot edited five files beyond the single approved
+  `implementation-owner` (`scripts/repository_path_policy.py`) with no block
+  of any kind. The completion report only caught it afterward.
+- **Root cause:** GitHub Copilot Chat has no documented, user-registrable
+  pre-tool-execution interception API for its own built-in file-edit tools
+  (`replace_string_in_file`, `create_file`, etc.). VS Code's extension API
+  (`vscode.lm.registerTool` with `prepareInvocation`/`confirmationMessages`)
+  only gates tools a third-party extension registers itself -- it cannot
+  intercept Copilot's native edit tools. No `.vscode/` config, no workspace
+  file, and no existing doc in this repo (including
+  `aidlc-docs/aidlc-upstream-improvement-plan.md`'s "PreToolUse exit-2" row,
+  which describes Claude's mechanism only) shows a working Copilot
+  equivalent.
+- **Recommended fix:** None available today without a VS Code/Copilot
+  platform feature that does not yet exist. Until then: (a) keep
+  `write_guardian.py`'s Copilot-payload normalization in place so it activates
+  immediately if/when such a feature ships; (b) treat approved single-owner
+  scope as a hard stop *before* editing, as a self-imposed discipline, for
+  this host; (c) continue relying on the completion-report drift check as the
+  only real safety net for Copilot sessions.
+- **Do not create a placeholder hook registration file** (e.g.
+  `.github/hooks/tailtrail-write-guardian.json`) mirroring Codex's
+  `hooks/hooks.json`: nothing in VS Code reads it, and it would create false
+  confidence that real-time enforcement exists for this host when it does not.
+- **Status:** Open. Revisit if VS Code or GitHub Copilot Chat ever exposes a
+  pre-tool-execution interception point.
+
