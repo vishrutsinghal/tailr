@@ -70,7 +70,7 @@ def assess(root:Path,run_id:str,changed:list[str],profile_path:Path|None=None)->
  paths=sorted(set(rel(item) for item in changed)); profile=read(profile_path) if profile_path else {}
  findings=[]; checks=[]; rules=profile.get("rules",[]) if isinstance(profile,dict) else []
  graph_events=[event for event in L.read_events(directory/"events.jsonl") if event.get("event_type")=="graph_receipt"]
- all_allowed=sorted({found for row in anchor["requirements"] for item in row.get("likely_paths",[]) for found in [_anchor_path(item)] if found})
+ all_allowed=sorted({found for row in anchor["requirements"] for item in row.get("likely_paths",[]) for found in [_anchor_path(item)] if found}|{found for row in anchor["requirements"] for item in ((row.get("validation_contract",{}) or {}).get("editable_paths",[])) for found in [_anchor_path(item)] if found}|{found for row in anchor["requirements"] for item in ((row.get("validation_contract",{}) or {}).get("proposed_paths",[])) for found in [_anchor_path(item)] if found})
  for path in paths:
   if all_allowed and not any(matches(path,item) for item in all_allowed):findings.append({"category":"scope","classification":"new-drift","path":path,"message":"changed path is outside approved likely paths","evidence":"approved-anchor"})
  for row in anchor["requirements"]:

@@ -33,6 +33,7 @@ the entries there.
 | 23 | Closure evidence and Delivery Record projections can disagree with the approved proof contract | Open |
 | 24 | Bare `"behavior"` substring match in `behaviour_planning.selected_for()` falsely selects the Behaviour Harness for non-behavioral goals | **Fixed** (word-boundary matching, same bug class as Issue 18) |
 | 25 | A proof-only test file created under the TESTING badge has no revision mechanism to join the approved anchor's proof scope, so closure always reports it as scope drift | **Fixed** (`proof-update` now accepts `editable_paths`/`proposed_paths`) |
+| 26 | `architecture-fitness.py` kept its own separate approved-scope notion (`likely_paths` only), unaware of the Issue 25 fix's `validation_contract.editable_paths`/`proposed_paths` | **Fixed** (same union pattern applied to this harness too) |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -3105,3 +3106,51 @@ passed on every required tier.
   `start-20261014061503-50451e`) remain `evidence-incomplete` and were not
   retrofitted: `planning revise` only works pre-activation, and both runs
   were already approved/activated before this fix existed.
+
+## 26. `architecture-fitness.py` kept its own separate approved-scope notion (Fixed)
+
+**Context:** Discovered live while running Phase N1 of the New-File
+Due-Diligence Protocol (`start-20261014095035-222b6f`, a brand-new
+`scripts/new_file_due_diligence.py` + its new test file, both pre-registered
+correctly via the Issue 25 fix). Closure still reported
+`changed-beyond-approved` despite `validation_contract.editable_paths`
+correctly containing the test file from the start.
+
+- **Symptom:** `architecture/assessment-1.json` reported
+  `{"category": "scope", "classification": "new-drift", "message": "changed
+  path is outside approved likely paths", "path":
+  "tests/test_new_file_due_diligence.py"}` even though the exact same path
+  was already correctly present in `validation_contract.editable_paths` and
+  `harness-checkpoint.py`'s own drift check (the one Issue 25 fixed) showed
+  zero findings for it.
+- **Root cause:** `scripts/architecture-fitness.py` maintains its own,
+  entirely separate "approved scope" computation --
+  `all_allowed = {... for row in anchor["requirements"] for item in
+  row.get("likely_paths", []) ...}` -- unaware of
+  `validation_contract.editable_paths`/`proposed_paths` at all. The Issue 25
+  fix only touched `harness-checkpoint.py`'s version of this same concept;
+  this is a second, independent implementation of "what counts as approved
+  scope" that happened to read a different anchor field, so it was not
+  automatically fixed alongside it.
+- **Impact:** Any run relying on the Issue 25 fix for a proof-only path
+  still fails closure via this separate harness, even with correct
+  `editable_paths`/`proposed_paths`, confirming the fix needed to be applied
+  in more than one place -- a useful signal that "approved scope" may have
+  further independent implementations elsewhere not yet audited.
+- **Fix applied:** Extended `architecture-fitness.py`'s `all_allowed` to
+  union `likely_paths` with `validation_contract.editable_paths` and
+  `.proposed_paths`, using the identical pattern already proven in
+  `harness-checkpoint.py`.
+- **Regression added:**
+  `tests/test_architecture_fitness.py::test_validation_contract_editable_paths_are_approved_scope`.
+  9/9 pass in `test_architecture_fitness.py`.
+- **Verified live end-to-end:** fixed via its own separate TailTrail run
+  (`start-20261014095633-037cee`, `overall_status: complete`), then the
+  original blocked N1 run was re-finalized (fresh evidence submission
+  required to force recomputation past a cached finalizer result) and
+  reached `overall_status: complete` with `changed_scope.status: approved`
+  and zero scope findings.
+- **Open follow-up:** no other harness/drift-check implementation has been
+  audited for the same "separate approved-scope computation" pattern. If a
+  third one exists, expect the same symptom to recur.
+- **Status:** Fixed.

@@ -16,6 +16,20 @@ class ArchitectureFitnessTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);self.setup(root);result=fitness.assess(root,"run",["other.py"])
   self.assertEqual(result["findings"][0]["category"],"scope")
+ def test_validation_contract_editable_paths_are_approved_scope(self):
+  """Issues Log 25 follow-up: architecture-fitness.py kept its own separate
+  approved-scope notion from likely_paths only, unaware of
+  validation_contract.editable_paths/proposed_paths -- the exact fields the
+  Issue 25 fix added to harness-checkpoint.py's approved scope. A proof-only
+  path registered there must not be reported as scope drift here either."""
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);self.setup(root)
+   anchor_path=root/".tailtrail"/"runs"/"run"/"anchors"/"approved-v1.json"
+   data=json.loads(anchor_path.read_text(encoding="utf-8"))
+   data["requirements"][0]["validation_contract"]={"state":"required","tiers":["unit"],"commands":[],"editable_paths":["tests/test_service.py"],"proposed_paths":[]}
+   anchor_path.write_text(json.dumps(data),encoding="utf-8")
+   result=fitness.assess(root,"run",["tests/test_service.py"])
+  self.assertFalse([f for f in result["findings"] if f.get("category")=="scope"],result["findings"])
  def test_corrected_scope_is_not_drift(self):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);self.setup(root)
