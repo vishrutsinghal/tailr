@@ -32,7 +32,7 @@ the entries there.
 | 21 | Copilot-hook planning accepted a no-op correction and exposed host/product boundary gaps | Open -- premise/proof gates needed; host guidance added |
 | 23 | Closure evidence and Delivery Record projections can disagree with the approved proof contract | Open |
 | 24 | Bare `"behavior"` substring match in `behaviour_planning.selected_for()` falsely selects the Behaviour Harness for non-behavioral goals | Open -- same bug class as Issue 18, different classifier |
-| 25 | A proof-only test file created under the TESTING badge has no revision mechanism to join the approved anchor's proof scope, so closure always reports it as scope drift | Open -- reproduced on two separate Phase 0 runs |
+| 25 | A proof-only test file created under the TESTING badge has no revision mechanism to join the approved anchor's proof scope, so closure always reports it as scope drift | **Fixed** (`proof-update` now accepts `editable_paths`/`proposed_paths`) |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -3003,7 +3003,7 @@ API, or user-facing journey yet.
   manufacturing cosmetic proof, per the user's explicit decision to log and
   defer rather than side-quest a fix mid-Phase-0.
 
-## 25. New proof-only test files have no revision path into approved anchor scope (Open)
+## 25. New proof-only test files have no revision path into approved anchor scope (Fixed)
 
 **Context:** Both Phase 0 host-question-flow schema runs
 (`start-20261014060150-9e4339` for `host-input-contract.schema.json`;
@@ -3056,5 +3056,26 @@ passed on every required tier.
   TESTING badge, bind and pass its command on every required tier, finalize
   closure, and assert `overall_status: complete` with zero scope drift for
   that path.
-- **Status:** Open. Reproduced twice in this session; no workaround found
-  other than leaving the affected runs `evidence-incomplete`.
+- **Fix applied:** The originally recommended field name
+  (`scope_evidence.proof_paths`) was wrong -- tracing `harness-checkpoint.py`'s
+  actual drift check showed `approved_proof` is built from each requirement's
+  `validation_contract.editable_paths` and `.proposed_paths`, a different
+  field than `scope_evidence.proof_paths`. `proof-update`'s existing
+  additive-union pattern (already used for `commands`/`tiers`) was extended
+  to accept these same two fields, with a symmetric guard: a path that
+  classifies as `implementation-owner` role is rejected from joining
+  `editable_paths`/`proposed_paths` (use `scope-add` instead), mirroring
+  `scope-add`'s existing rejection of `test`-role paths. No new revision kind
+  was needed -- `proof-update` already had the right additive-union shape,
+  it just never touched these two fields.
+- **Regression added:**
+  `tests/test_planning_revision.py::test_proof_path_add_joins_validation_contract_editable_paths`
+  (a proof-only path joins `editable_paths` via `proof-update`) and
+  `::test_proof_path_add_rejects_implementation_owner_role_paths` (the
+  symmetric guard). 17/17 tests pass in `test_planning_revision.py`; 51/51
+  pass across `test_planning_revision.py` + `test_harness_checkpoint.py` +
+  `test_closure_finalizer.py` + `test_write_guardian.py` together.
+- **Status:** Fixed. Reproduced twice in this session before the fix; not yet
+  re-verified against a live end-to-end TailTrail run (only unit-level
+  regression coverage so far) -- do that before closing Phase N5's
+  greenfield dependency on this issue.

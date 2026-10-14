@@ -699,7 +699,10 @@ callers, linked tests, and repository role.
 
 For a proposed-new file, checks include explicit proposed ownership, allowed
 location, convention evidence, owning requirement, and mandatory
-post-implementation verification.
+post-implementation verification. The full algorithm for deciding whether a
+proposed path is genuinely new versus an existing owner in disguise (or vice
+versa) is specified in `TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md`, not
+restated here.
 
 For a proposed proof path, checks include requirement binding, command
 specificity, and the requirement that the path be created and run before

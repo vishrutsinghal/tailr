@@ -249,6 +249,9 @@ Make Navigator the exclusive host-facing question and clarification boundary.
 - Answer normalization and acceptance states.
 - Bounded clarification loop.
 - User-decision escalation.
+- New-file due-diligence evidence collection per
+  `TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md`'s six checks, including the
+  optional host-supplied `new_file_evidence` fast path.
 
 ### Profiles
 
@@ -363,6 +366,10 @@ Turn accepted answers into one immutable operational packet.
 - Packet finalization command.
 - Anchor-bound packet-view materialization and dependency invalidation on anchor
   revision.
+- New-file verdict binding (`new-confirmed` / `extend-recommended` /
+  `collision-blocked` / `unverified` / `not-applicable`) per
+  `TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md`, recorded alongside the
+  path-role binding it resolved.
 - Projection audit showing consumed, unused, contradicted, inferred, and
   projected-without-source answers.
 

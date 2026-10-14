@@ -69,6 +69,42 @@ class PlanningRevisionTests(unittest.TestCase):
 
         self.assertFalse((root / ".tailtrail" / "runs" / "v2-proof-role" / "planning" / "revisions" / "revision-v2.json").exists())
 
+    def test_proof_path_add_joins_validation_contract_editable_paths(self) -> None:
+        """Issue 25 regression: a proof-only test file has a revision path
+        into the exact fields harness-checkpoint.py's drift check reads
+        (`validation_contract.editable_paths`/`proposed_paths`), distinct
+        from `scope_evidence.proof_paths`."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self.v2_plan(root, "v2-proof-path-add")
+            change = json.dumps([{
+                "kind": "proof-update", "requirement_uid": "REQ-01",
+                "reason": "Bind the new proof-only test file as editable proof scope.",
+                "evidence_plan": ["Run the new test module"],
+                "editable_paths": ["tests/test_owner.py"],
+            }])
+            proposed = revision.propose(root, "v2-proof-path-add", change, True)
+            activated = revision.approve(root, "v2-proof-path-add", 2, True)
+            anchor = json.loads((root / activated["anchor"]["artifact"]).read_text(encoding="utf-8"))
+
+        self.assertEqual(proposed["revision"], 2)
+        contract = anchor["requirements"][0]["validation_contract"]
+        self.assertEqual(contract["editable_paths"], ["tests/test_owner.py"])
+
+    def test_proof_path_add_rejects_implementation_owner_role_paths(self) -> None:
+        """Symmetric guard: validation_contract.editable_paths/proposed_paths
+        grant proof-assertion editability only, never implementation scope —
+        the same way scope-add already rejects test-role paths."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); self.v2_plan(root, "v2-proof-path-reject")
+            change = json.dumps([{
+                "kind": "proof-update", "requirement_uid": "REQ-01",
+                "reason": "Attempt to smuggle implementation scope through a proof field.",
+                "evidence_plan": ["Attempted proof-path smuggling"],
+                "proposed_paths": ["src/helper.py"],
+            }])
+            with self.assertRaisesRegex(ValueError, "implementation-owner path"):
+                revision.propose(root, "v2-proof-path-reject", change, True)
+
     def test_v2_explicit_scope_revision_converges_with_activation_anchor_and_handoff(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); started = self.v2_plan(root, "v2-converge")

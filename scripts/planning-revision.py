@@ -559,7 +559,7 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
         # approved proof. Omitted keys leave the contract untouched (no
         # minting); empty-string entries are rejected by _list_of_text via
         # _safe_text.
-        if "commands" in change or "tiers" in change:
+        if "commands" in change or "tiers" in change or "editable_paths" in change or "proposed_paths" in change:
             contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
             if not isinstance(contract, dict):
                 raise ValueError("revision change `validation_contract` must be an object")
@@ -572,6 +572,27 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
                 recorded_tiers = _list_of_text(change.get("tiers"), "tiers")
                 contract["tiers"] = list(dict.fromkeys(
                     [str(value) for value in contract.get("tiers", []) if str(value).strip()] + recorded_tiers
+                ))
+            # Issue 25: a proof-only path (a new test file created under the
+            # TESTING badge, most commonly) has no other revision mechanism
+            # to join `editable_paths`/`proposed_paths` — the two fields
+            # harness-checkpoint.py's drift check actually reads into
+            # `approved_proof`, distinct from `scope_evidence.proof_paths`.
+            # Rejects implementation-owner-role paths symmetrically with
+            # scope-add's rejection of test-role paths: this field grants
+            # proof-assertion editability only, never implementation scope.
+            for field in ("editable_paths", "proposed_paths"):
+                if field not in change:
+                    continue
+                recorded_paths = [_safe_path(item) for item in _list_of_text(change.get(field), field)]
+                for path in recorded_paths:
+                    role, _ = SCOPE.classify_repository_role(root, path)
+                    if role == "implementation-owner":
+                        raise ValueError(
+                            f"`{path}` classifies as an implementation-owner path and cannot join `{field}`; use scope-add instead"
+                        )
+                contract[field] = list(dict.fromkeys(
+                    [str(value) for value in contract.get(field, []) if str(value).strip()] + recorded_paths
                 ))
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "evidence_plan": row["evidence_plan"]})
     elif kind == "requirement-add":
