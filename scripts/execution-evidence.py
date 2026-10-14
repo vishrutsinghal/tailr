@@ -214,12 +214,19 @@ def run_command(
         approved_tiers |= revision_tiers
         checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
         matching_checks = [value for value in checks if str(value.get("command", "")) == command]
-        approved_tiers = {
-            str(value)
-            for check in matching_checks
-            for value in check.get("tiers", [])
-            if str(value)
-        } or ({str(value) for value in contract.get("tiers", []) if str(value)} | revision_tiers)
+        if matching_checks:
+            # A checks[] entry narrows this exact command's trusted tiers (by
+            # design, so one proof command can't silently cover another's tier).
+            # Union only with revision-added tiers, never the full top-level set,
+            # so a later proof-update revision's tiers still apply even though
+            # revisions never rewrite checks[] itself (Issue 27).
+            check_tiers = {
+                str(value)
+                for check in matching_checks
+                for value in check.get("tiers", [])
+                if str(value)
+            }
+            approved_tiers = check_tiers | revision_tiers
         missing_command = command not in approved_commands
         missing_tiers = not set(tiers) or set(tiers) - approved_tiers
         if (missing_command or missing_tiers) and amend_proof:

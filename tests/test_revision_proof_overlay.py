@@ -178,5 +178,68 @@ class RevisionOverlayExecutionTests(unittest.TestCase):
                 )
 
 
+class StaleCheckEntryTierUnionTests(unittest.TestCase):
+    """Regression for Issue 27: a Start-time checks[] entry for the exact
+    proof command must not silently discard tiers a later proof-update
+    revision added to the top-level validation_contract.tiers."""
+
+    def _approved_run_with_check(self, root: Path, run_id: str, command: str) -> None:
+        lock.create(root, "do the thing", run_id)
+        ledger.atomic_json(lock.start_report_path(root, run_id), {"report": {
+            "goal": "do the thing",
+            "aidlc_mode": {"mode": "lite"},
+            "guided_delivery": {"mode": "guided-delivery"},
+            "navigator": {"requirement_matrix": [_matrix_row()]},
+        }})
+        lock.approve(root, run_id, True)
+        anchor_dir = root / ".tailtrail" / "runs" / run_id / "anchors"
+        anchor_dir.mkdir(parents=True, exist_ok=True)
+        (anchor_dir / "approved-v1.json").write_text(json.dumps({
+            "schema_version": "1", "type": "tailtrail-change-intent-anchor",
+            "run_id": run_id, "status": "approved",
+            "requirements": [{
+                "requirement_uid": "req-1", "display_id": "REQ-01", "kind": "change",
+                "statement": "Do the thing.", "acceptance_criteria": ["Done."],
+                "preserve_rules": [], "likely_paths": ["src/work.py"],
+                "evidence_plan": ["Run unit proof."],
+                "validation_contract": {
+                    "state": "required", "tiers": ["unit"], "commands": [command],
+                    "checks": [{"command": command, "tiers": ["unit"], "candidate_paths": [], "kind": "unit"}],
+                },
+                "status": "approved",
+            }],
+        }), encoding="utf-8")
+
+    def _activate_overlay_tiers(self, root: Path, run_id: str, command: str, tiers: list[str]) -> None:
+        overlay_row = _matrix_row()
+        overlay_row["validation_contract"] = {"state": "required", "tiers": tiers, "commands": [command]}
+        snapshot = {
+            "schema_version": "1", "type": "tailtrail-start-report",
+            "run_id": run_id, "revision": 2, "goal": "do the thing",
+            "report": {"navigator": {"requirement_matrix": [overlay_row]}},
+        }
+        revisions = root / ".tailtrail" / "runs" / run_id / "planning" / "revisions"
+        revisions.mkdir(parents=True, exist_ok=True)
+        (revisions / "start-report-v2.json").write_text(json.dumps(snapshot), encoding="utf-8")
+        ledger.atomic_json(lock.revision_state_path(root, run_id), {
+            "schema_version": "1", "type": "tailtrail-plan-revision-state",
+            "run_id": run_id, "active_revision": 2,
+            "active_report": f".tailtrail/runs/{run_id}/planning/revisions/start-report-v2.json",
+            "pending_revision": None, "pending_artifact": None,
+        })
+
+    def test_revision_added_tier_survives_matching_check_entry(self):
+        command = "echo tailtrail-proof"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._approved_run_with_check(root, "plan-stale-check", command)
+            self._activate_overlay_tiers(root, "plan-stale-check", command, ["unit", "behaviour"])
+            result = evidence.run_command(
+                root, "plan-stale-check", ["req-1"], ["behaviour"], command,
+                "late-proof", [], True,
+            )
+        self.assertEqual(result["outcome"], "pass")
+
+
 if __name__ == "__main__":
     unittest.main()

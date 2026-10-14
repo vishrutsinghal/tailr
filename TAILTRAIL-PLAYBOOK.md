@@ -143,23 +143,45 @@ implementation is fully correct. To get genuinely **trusted** evidence:
 Skipping step 1 is the single biggest reason a correct, fully-working
 implementation still closes as "evidence-incomplete."
 
-**A later `proof-update` revision that adds tiers does not update the
-Start-time `checks[]` entry -- `execution-evidence run` silently ignores
-the broader tier list when it does.** If Start's Focused Validation leaves
+**A later `proof-update` revision that adds tiers did not update the
+Start-time `checks[]` entry -- `execution-evidence run` silently ignored
+the broader tier list when it did.** If Start's Focused Validation left
 a tier (e.g. `behaviour`, `integration`) unresolved, a `proof-update`
 revision registering `"tiers": [...]` on the *top-level*
-`validation_contract` looks correct in `planning-revision.py propose`'s
+`validation_contract` looked correct in `planning-revision.py propose`'s
 output and in the approved anchor JSON -- but `execution-evidence.py`
-matches the exact proof command against `validation_contract.checks[]`
+matched the exact proof command against `validation_contract.checks[]`
 first (an array populated once, at Start time), and if any check entry
-matches that command, its tiers *completely replace* the top-level tier
-list rather than being unioned with it. The result is an opaque
+matched that command, its tiers *completely replaced* the top-level tier
+list rather than being unioned with it. The result was an opaque
 `requested evidence tiers are not approved for requirement ...` error even
-though `planning show`/the anchor JSON clearly lists the tier as approved.
-The fix is not another revision -- pass `--amend-proof --amendment-reason
-"..."` on the same `execution-evidence run` call that submits all the
-tiers; this records an explicit additive proof amendment and the run
-succeeds immediately. See `TAILTRAIL-ISSUES-LOG.md` Issue 27.
+though `planning show`/the anchor JSON clearly listed the tier as approved.
+**This is now fixed** -- `execution-evidence.py run_command` unions a
+matching `checks[]` entry's tiers with whatever a revision overlay added,
+instead of replacing the full tier set, so no workaround is needed for
+this specific cause any more. `--amend-proof --amendment-reason "..."`
+remains available as a general additive-proof-amendment mechanism for
+other cases, but is no longer required just to make a revision-added tier
+usable. See `TAILTRAIL-ISSUES-LOG.md` Issue 27.
+
+**`change-intent-anchor.py correct`'s `--likely-path` *replaces* a
+requirement's `likely_paths`, it does not append to them.** Passing only
+the newly-drifted path (e.g. a test file edited mid-run) silently drops
+every previously-approved path (e.g. the original implementation-owner
+file) from scope, which then shows up as a *new* drift finding on the very
+next closure check. Always pass the full target list -- every path that
+should remain in scope plus the new one -- in a single `correct` call.
+
+**After a `change-intent-anchor.py correct`, closure can keep reporting
+the stale drift finding until a new evidence event busts the cache.**
+Both `closure-recorder.py` and `closure-finalizer.py` key their cached
+record/finalizer artifacts off a hash of the *evidence stream's content*,
+not the current anchor version -- so correcting the anchor after evidence
+was already submitted does not by itself invalidate the cached
+`new-drift` finding. Re-run the exact same proof command through
+`execution-evidence.py run --approved` again (a fresh receipt has a new
+timestamp, so it naturally produces a new record hash) before re-checking
+`closure-finalizer.py`; do not hand-edit anything under `.tailtrail/`.
 
 ## 5. Mid-implementation needs
 

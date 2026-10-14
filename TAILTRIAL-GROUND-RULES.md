@@ -88,13 +88,22 @@ instead of rediscovering it.
    positive/negative regressions when changing classifier vocabulary.
 18. **Correction runs need a baseline.** Do not start sequential correction
    runs against an uncommitted worktree without an explicit shared baseline.
-19. **A revised tier list is not trusted until proven.** A `proof-update`
-   revision adding tiers to the top-level `validation_contract.tiers` can be
-   silently overridden by a stale Start-time `checks[]` entry matching the
-   same command (Issue 27). Never assume a tier is approved from the anchor
-   JSON alone -- if `execution-evidence run` rejects an approved-looking
-   tier, use `--amend-proof --amendment-reason "..."` rather than retrying
-   the same call or proposing another revision.
+19. **A revised tier list is not trusted until proven.** `execution-evidence.py`
+   was fixed so a matching Start-time `checks[]` entry unions its tiers with a
+   `proof-update` revision's added tiers instead of replacing them (Issue 27,
+   fixed). Still never assume a tier is usable from the anchor JSON alone --
+   confirm with a real `execution-evidence run --approved` call; `--amend-proof
+   --amendment-reason "..."` remains available as a general fallback for other
+   evidence gaps.
+20. **Anchor `correct` replaces `likely_paths`, it does not append.** Always
+   pass every path that should remain in scope -- not just the newly-drifted
+   one -- in a single `change-intent-anchor.py correct --likely-path ...`
+   call, or the omitted paths silently drop out of approved scope.
+21. **Closure caches on evidence content, not anchor state.** After an anchor
+   `correct`, re-submit the same proof command through
+   `execution-evidence.py run --approved` before re-checking
+   `closure-finalizer.py` -- otherwise the stale `new-drift` finding is
+   returned from a cached closure record that predates the correction.
    Commit the reviewed prior correction, reference the approved prior run, or
    record an anchor correction so legitimate earlier edits are not reported as
    unexplained drift.
