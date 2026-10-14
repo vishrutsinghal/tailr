@@ -32,6 +32,7 @@ the entries there.
 | 21 | Copilot-hook planning accepted a no-op correction and exposed host/product boundary gaps | Open -- premise/proof gates needed; host guidance added |
 | 23 | Closure evidence and Delivery Record projections can disagree with the approved proof contract | Open |
 | 24 | Bare `"behavior"` substring match in `behaviour_planning.selected_for()` falsely selects the Behaviour Harness for non-behavioral goals | Open -- same bug class as Issue 18, different classifier |
+| 25 | A proof-only test file created under the TESTING badge has no revision mechanism to join the approved anchor's proof scope, so closure always reports it as scope drift | Open -- reproduced on two separate Phase 0 runs |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -3001,3 +3002,59 @@ API, or user-facing journey yet.
   (`start-20261014060150-9e4339`) was left `evidence-incomplete` rather than
   manufacturing cosmetic proof, per the user's explicit decision to log and
   defer rather than side-quest a fix mid-Phase-0.
+
+## 25. New proof-only test files have no revision path into approved anchor scope (Open)
+
+**Context:** Both Phase 0 host-question-flow schema runs
+(`start-20261014060150-9e4339` for `host-input-contract.schema.json`;
+`start-20261014061503-50451e` for `host-question-flow-event.schema.json`)
+followed the documented mid-run flow exactly: `pipeline handoff --from-stage
+IMPLEMENTATION` to reach the TESTING badge, then created a new
+`tests/test_*.py` proof file, then bound and ran its command via
+`execution-evidence run`/`record`. In both runs, `closure finalize` kept
+reporting the new test file as unresolved scope drift even after its proof
+passed on every required tier.
+
+- **Symptom:** `checkpoints/checkpoint-N.json`'s `drift` array always contains
+  ```json
+  {"category": "scope", "classification": "new-drift",
+   "message": "actual edit `tests/test_X.py` is outside approved editable scope"}
+  ```
+  for the newly created test file, even though: (a) the pipeline badge
+  legitimately allowed the write (TESTING stage), (b) the file is listed as an
+  approved-looking entry under `changed_paths` with `verified: true`, and (c)
+  its bound proof command passes on every required tier. The Requirement
+  Completion Harness stays `fail` and the overall run stays `evidence-incomplete`
+  solely because of this one drift finding.
+- **Root cause:** `scripts/planning-revision.py`'s `CHANGE_KINDS` are
+  `{scope-add, scope-remove, requirement-add, requirement-remove,
+  requirement-update, proof-update}`. `scope-add` explicitly refuses a
+  `role == "test"` candidate (`raise ValueError("... is proof-only test
+  evidence and cannot become an implementation owner...")`), which is correct
+  for implementation ownership but means there is no revision kind that adds a
+  path to `scope_evidence.proof_paths`/`editable_paths` for a *proof* role.
+  `proof-update` only appends to `validation_contract.commands`/`tiers`; it
+  never touches `proof_paths`. The TESTING-badge handoff authorizes the write
+  at the pipeline-badge layer but has no corresponding effect on the anchor's
+  scope-evidence layer, so the two layers disagree permanently for any new
+  proof-only file.
+- **Impact:** Every new-feature or Phase-0-style requirement that legitimately
+  needs a brand-new test file (not an existing one) cannot reach a clean
+  `overall_status: complete` through the documented flow alone. The only
+  escape hatch found working in this session was a correction-round
+  continuity packet from a different incident (Issue 23's run), not a
+  repeatable, documented primitive.
+- **Recommended fix:** Add a `proof-path-add` (and `proof-path-remove`)
+  revision kind, mirroring `scope-add`/`scope-remove` but writing to
+  `scope_evidence.proof_paths` with `claim_role: "proof"` instead of
+  `implementation_owners`, with no implementation-owner evidence requirement
+  (a proof path needs a passing bound command, not ownership evidence).
+  Alternatively, make `pipeline handoff --from-stage IMPLEMENTATION` itself
+  register the eventual new test path once created, if the host declares it
+  in the handoff `--context` or a new `--declare-proof-path` flag.
+- **Required regression:** Create a new proof-only test file under the
+  TESTING badge, bind and pass its command on every required tier, finalize
+  closure, and assert `overall_status: complete` with zero scope drift for
+  that path.
+- **Status:** Open. Reproduced twice in this session; no workaround found
+  other than leaving the affected runs `evidence-incomplete`.

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/host-question-flow-event.schema.json",
+  "title": "TailTrail Host Question Flow Event",
+  "description": "Canonical append-only event envelope for the Host Question Flow (Phase 0). Matches the envelope shape already emitted by scripts/intake_pipeline.py exactly: schema_version, type, event_id, run_id, contract_id, packet_version, sequence, event_type, payload. Typed payload validation is provided for the three Phase 1A event types already implemented (question-issued, host-observation-recorded, answer-recorded); the remaining design-vocabulary event types are reserved for the phases that implement them (see TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md Phase 1B/2/3) and accept any object payload until then.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "event_id",
+    "run_id",
+    "contract_id",
+    "packet_version",
+    "sequence",
+    "event_type",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-intake-event" },
+    "event_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "contract_id": { "type": "string", "minLength": 1 },
+    "packet_version": { "type": "integer", "minimum": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "event_type": {
+      "enum": [
+        "question-issued",
+        "host-observation-recorded",
+        "answer-recorded",
+        "run-created",
+        "profile-selected",
+        "answer-accepted",
+        "answer-rejected",
+        "clarification-required",
+        "packet-finalized",
+        "anchor-revised",
+        "packet-view-materialized",
+        "packet-view-invalidated",
+        "projection-created",
+        "projection-invalidated",
+        "approval-recorded"
+      ]
+    },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "event_type": { "const": "question-issued" } }, "required": ["event_type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/questionIssuedPayload" } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "host-observation-recorded" } }, "required": ["event_type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/observationRecordedPayload" } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "answer-recorded" } }, "required": ["event_type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/answerRecordedPayload" } } }
+    }
+  ],
+  "$defs": {
+    "questionIssuedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_id", "field_id", "text"],
+      "properties": {
+        "question_id": { "type": "string", "minLength": 1 },
+        "field_id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 }
+      }
+    },
+    "observationRecordedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "question_id", "observation"],
+      "properties": {
+        "observation_id": { "type": "string", "minLength": 1 },
+        "question_id": { "type": ["string", "null"] },
+        "observation": { "type": "object", "minProperties": 1 }
+      }
+    },
+    "answerRecordedPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["answer_id", "field_id", "value", "source", "question_id", "observation_id"],
+      "properties": {
+        "answer_id": { "type": "string", "minLength": 1 },
+        "field_id": { "type": "string", "minLength": 1 },
+        "value": {},
+        "source": { "type": "string", "minLength": 1 },
+        "question_id": { "type": ["string", "null"] },
+        "observation_id": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
+
