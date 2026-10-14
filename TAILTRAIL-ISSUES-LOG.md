@@ -3075,7 +3075,14 @@ passed on every required tier.
   symmetric guard). 17/17 tests pass in `test_planning_revision.py`; 51/51
   pass across `test_planning_revision.py` + `test_harness_checkpoint.py` +
   `test_closure_finalizer.py` + `test_write_guardian.py` together.
-- **Status:** Fixed. Reproduced twice in this session before the fix; not yet
-  re-verified against a live end-to-end TailTrail run (only unit-level
-  regression coverage so far) -- do that before closing Phase N5's
-  greenfield dependency on this issue.
+- **Status:** Fixed. Reproduced twice in this session before the fix.
+  Verified live end-to-end afterward: a fresh real TailTrail run (throwaway
+  target repo) that pre-registered its new test file's `editable_paths` in
+  the same pre-activation `proof-update` revision as its proof command
+  reached `overall_status: complete`, `Delivery: complete`,
+  `Drift: resolved`, zero drift findings -- the first such clean closure for
+  a new-file-plus-new-test-file requirement all session. The two earlier
+  Phase 0 runs (`start-20261014060150-9e4339`,
+  `start-20261014061503-50451e`) remain `evidence-incomplete` and were not
+  retrofitted: `planning revise` only works pre-activation, and both runs
+  were already approved/activated before this fix existed.
