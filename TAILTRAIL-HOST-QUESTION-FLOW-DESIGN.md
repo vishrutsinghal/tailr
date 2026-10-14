@@ -67,6 +67,14 @@ Relevant dimensions include:
 The profile selects the smallest useful question set. A prose-only document
 change should not receive the same questionnaire as a new production feature.
 
+Task type and change intent are input dimensions, not the delivered profile
+list itself: the profiler flattens their combination into one of the fixed
+profiles enumerated in the implementation plan's Phase 2 (`documentation-only`,
+`existing-code change`, `new feature`, `configuration/data`, `QA/validation-only`,
+`review/read-only`). A correction change-intent against an implementation task
+type resolves to `existing-code change` with the correction-premise contract
+attached, not to a separate profile.
+
 Profiling must be deterministic and appealable, not clever: a wrong
 profile corrupts everything downstream while looking like a correct run,
 so derive it from checkable facts in fixed priority order -- named paths'
@@ -829,7 +837,7 @@ projection:
 
 ```text
 run_id
-  -> intake_contract_id
+  -> contract_id
       -> question_id
           -> answer_id
               -> requirement_id
@@ -1053,18 +1061,11 @@ The P7 incident should be the first end-to-end regression: an incomplete P7
 contract must remain in clarification, while a complete contract must produce
 the same owner, proof, and requirement IDs in every downstream artifact.
 
-## Recommended Delivery Order
-
-1. Add a shared semantic host-input preflight validator.
-2. Route CLI and MCP Start through the validator.
-3. Return typed questions without creating a Planning Lock when input is
-   incomplete.
-4. Support proposed-new implementation and proof paths.
-5. Store one hash-bound host contract and reference it from projections.
-6. Add the P7 regression test.
-7. Add profile-specific question selection.
-8. Add bounded clarification and user-decision states if existing lifecycle
-   states cannot represent them.
+Delivery order and phasing are owned by
+`TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md`'s "Incremental Value by
+Phase" table (Phase 0 -> 1A -> 2 -> 1B -> 3 -> 4A -> 4B -> 5 -> 6 -> 7 -> 8,
+per Review Resolution #5); this design doc does not maintain a second,
+independent delivery sequence.
 
 ## Design Constraint
 
