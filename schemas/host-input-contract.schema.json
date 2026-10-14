@@ -137,7 +137,20 @@
       "properties": {
         "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "role": { "$ref": "#/$defs/pathRole" },
-        "source_answer_id": { "type": "string", "minLength": 1 }
+        "source_answer_id": { "type": "string", "minLength": 1 },
+        "new_file_evidence": { "$ref": "#/$defs/newFileEvidence" }
+      }
+    },
+
+    "newFileEvidence": {
+      "description": "Phase N4 fast path (TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md). Optional, host-declared claims for a proposed-new path. A claim never substitutes for verification -- the new-file due-diligence checks run exactly as if no evidence had been supplied, and only ever earn speed (skipping Check 6's rationale question) when every supplied claim is independently confirmed; an unconfirmed claim routes identically to no evidence at all.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "collision_claim": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "convention_cited": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "no_owner_claim": { "type": "string", "minLength": 1, "maxLength": 1000 }
       }
     },
 

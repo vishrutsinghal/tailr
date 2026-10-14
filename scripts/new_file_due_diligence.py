@@ -29,6 +29,7 @@ replacement for ``DEEP_EDGE_KINDS`` and must not be merged with it.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from dataclasses import dataclass, field
@@ -426,4 +427,144 @@ def run_all_checks(root: Path, relative: str, *, symbols: tuple[str, ...] = ()) 
         "name_symbol_collision": check_name_symbol_collision(root, relative, symbols=symbols),
         "convention_precedent": check_convention_precedent(root, relative),
     }
+
+
+# Phase N4 -- fast path (TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md "Phase N4").
+#
+# `new_file_evidence` claims (`collision_claim`, `convention_cited`,
+# `no_owner_claim`) never substitute for verification: every Phase N1/N2
+# check below runs exactly as if no evidence had been supplied. A claim only
+# ever earns speed -- skipping Check 6's rationale question in the final
+# no-decisive-evidence-either-way fallback -- and only when every supplied
+# claim is independently confirmed against the real check it maps to. Any
+# unconfirmed (false) claim is never silently accepted; it routes through
+# `rationale_contradicts_evidence`, landing on the same `unverified` verdict
+# a plain no-evidence submission would reach, never `new-confirmed`.
+_NEW_FILE_EVIDENCE_CLAIM_KEYS = ("collision_claim", "convention_cited", "no_owner_claim")
+
+
+def evaluate_new_file_evidence(
+    root: Path,
+    relative: str,
+    new_file_evidence: dict[str, Any] | None,
+    *,
+    symbols: tuple[str, ...] = (),
+    edge_kinds: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Fast-path evaluator (Phase N4). Independently re-verifies every
+    supplied `new_file_evidence` claim through the existing Check 1-5
+    functions; the claims themselves are read only to decide whether they
+    were right, never trusted as a substitute for the checks."""
+    checks = run_all_checks(root, relative, symbols=symbols)
+    owner_evidence = check_existing_owner_evidence(relative, edge_kinds)
+
+    claims = {
+        key: new_file_evidence[key]
+        for key in _NEW_FILE_EVIDENCE_CLAIM_KEYS
+        if isinstance(new_file_evidence, dict) and key in new_file_evidence
+    }
+    contradicted_claims: list[str] = []
+    if "collision_claim" in claims and checks["name_symbol_collision"].decisive:
+        contradicted_claims.append("collision_claim")
+    if "no_owner_claim" in claims and owner_evidence.decisive:
+        contradicted_claims.append("no_owner_claim")
+    if "convention_cited" in claims:
+        convention = checks["convention_precedent"]
+        convention_reason = convention.reason_codes[0] if convention.reason_codes else ""
+        # A directory that simply does not exist yet is its own clean
+        # new-confirmed branch in combine_verdict, not a contradiction of a
+        # cited convention -- only an existing directory that fails to back
+        # the cited convention counts against the claim.
+        if not convention.decisive and convention_reason != "directory-does-not-exist-yet":
+            contradicted_claims.append("convention_cited")
+
+    claims_present = bool(claims)
+    contradicted = bool(contradicted_claims)
+    result = combine_verdict(
+        existence=checks["existence"],
+        path_eligibility=checks["path_eligibility"],
+        collision=checks["name_symbol_collision"],
+        owner_evidence=owner_evidence,
+        convention=checks["convention_precedent"],
+        rationale_provided=claims_present and not contradicted,
+        rationale_contradicts_evidence=claims_present and contradicted,
+    )
+    result["checks"] = {name: finding.as_dict() for name, finding in checks.items()}
+    result["owner_evidence_finding"] = owner_evidence.as_dict()
+    result["claims_supplied"] = sorted(claims)
+    result["contradicted_claims"] = contradicted_claims
+    return result
+
+
+# Phase N4 -- mandatory post-implementation verification. Runs regardless of
+# which verdict was reached before implementation: a brand-new repository
+# has no graph to search pre-approval, and a dead-code collision or a
+# reachability gap can only surface once the edit has actually landed.
+def _check_reachability(root: Path, relative: str) -> tuple[bool, str]:
+    full = root / relative
+    posix = relative.replace("\\", "/")
+    name = PurePosixPath(posix).name
+    if posix.endswith(".py"):
+        if name.startswith("test_") or name.endswith("_test.py"):
+            return True, "file name follows the test_*.py / *_test.py discovery convention"
+        if "/tests/" in f"/{posix}" or posix.startswith("tests/"):
+            return (
+                False,
+                f"`{name}` is under a tests/ directory but its name does not match the "
+                "test_*.py / *_test.py discovery convention; the test runner will not collect it",
+            )
+        spec = importlib.util.spec_from_file_location("tailtrail_post_impl_reachability_check", full)
+        if spec is None or spec.loader is None:
+            return False, "unable to build an import spec for this Python file"
+        try:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception as exc:  # noqa: BLE001 - exact failure reason varies by file
+            return False, f"module import failed: {exc!r}"
+        return True, "module imports without error"
+    if posix.endswith(".json"):
+        try:
+            json.loads(full.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            return False, f"file is not valid JSON: {exc!r}"
+        return True, "file parses as valid JSON"
+    return True, "no language-specific reachability check applies to this file type; existence is the only requirement"
+
+
+def verify_post_implementation(
+    root: Path, relative: str, *, symbols: tuple[str, ...] = ()
+) -> dict[str, Any]:
+    """Mandatory regardless of verdict: re-checks existence, re-runs the
+    collision check (to catch a collision the edit itself introduced, not
+    just one a pre-approval search could find), and confirms reachability."""
+    findings: list[dict[str, Any]] = []
+    exists = (root / relative).is_file()
+    findings.append({
+        "check": "post-implementation-existence",
+        "pass": exists,
+        "detail": f"`{relative}` {'exists' if exists else 'does not exist'} at the approved path",
+    })
+    if not exists:
+        return {"complete": False, "findings": findings}
+
+    collision = check_name_symbol_collision(root, relative, symbols=symbols)
+    # The path itself now legitimately exists, so a 3a filename-stem match
+    # against its own name is expected, not a new collision; only a
+    # directory-level near-duplication or a real symbol match elsewhere
+    # counts against a post-implementation collision.
+    post_collision_decisive = collision.details.get("sub_check_3b") or bool(collision.details.get("symbol_matches"))
+    findings.append({
+        "check": "post-implementation-collision",
+        "pass": not post_collision_decisive,
+        "detail": collision.as_dict(),
+    })
+
+    reachable, reachable_detail = _check_reachability(root, relative)
+    findings.append({
+        "check": "post-implementation-reachability",
+        "pass": reachable,
+        "detail": reachable_detail,
+    })
+
+    return {"complete": all(item["pass"] for item in findings), "findings": findings}
 

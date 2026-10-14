@@ -1,7 +1,7 @@
 {
   "schema_version": "1",
-  "created_at": "2026-10-14T11:08:25.892709+00:00",
-  "updated_at": "2026-10-14T11:08:25.892722+00:00",
+  "created_at": "2026-10-14T11:27:08.069696+00:00",
+  "updated_at": "2026-10-14T11:27:08.069715+00:00",
   "tailtrail_version": "local",
   "root": "/Users/vsingha7/Desktop/tailr",
   "cache_key": "68a7cc375d94991c576f8c83be15849096c9f40e1342d474eba3b1d9a4e5ddf3",
@@ -108,9 +108,9 @@
       "size": 947
     },
     "schemas/host-input-contract.schema.json": {
-      "sha256": "6510f67729d47536860a97f48f523c5c606da308c49d090c5c30be9375e7c13b",
-      "mtime": 1791960029,
-      "size": 6583
+      "sha256": "b37bfabb631d55997b9e30333870107675fc9fcce9e61048a2889055905b401e",
+      "mtime": 1791977064,
+      "size": 7510
     },
     "schemas/host-question-flow-event.schema.json": {
       "sha256": "aedc430a991f5efac59ddbbc9b4ee003219a8b4200dec6d3131c1bad63f581cf",
@@ -298,9 +298,9 @@
       "size": 246529
     },
     "scripts/new_file_due_diligence.py": {
-      "sha256": "8f56b933c2e2842bd287a8fb4ae91b0e8f44f798d95d6a7aca1767b6d1216b27",
-      "mtime": 1791974561,
-      "size": 18211
+      "sha256": "107e55c4d809e1bea9187cd075ea1bbfa98305052a884ed0c4b232a5cbb2a324",
+      "mtime": 1791977099,
+      "size": 25084
     },
     "scripts/planning_lock.py": {
       "sha256": "04197ffc8a890220f195b279da23e15439de9f4df7fb8e2c00888f86cbb1a213",
@@ -388,9 +388,9 @@
       "size": 16251
     },
     "tests/test_host_input_contract_schema.py": {
-      "sha256": "05943b8731aa8c69a123c650aba0bccbc16867e40a012bcdf4009816d768db94",
-      "mtime": 1791960029,
-      "size": 6265
+      "sha256": "e71e69be10cb64c12466b6404f37d2db4f3f086c957e778af2076f46b9ebe950",
+      "mtime": 1791977117,
+      "size": 7764
     },
     "tests/test_host_question_flow_event_schema.py": {
       "sha256": "068916d4401b1e065ab7871fa274742bb449134aac2d197f167aeb18902d8469",
@@ -428,9 +428,9 @@
       "size": 191698
     },
     "tests/test_new_file_due_diligence.py": {
-      "sha256": "a2f4dae061fd38ddc53056497a0911b5868bf1d3a5651c9692daac376efcb58a",
-      "mtime": 1791974561,
-      "size": 15516
+      "sha256": "3714209d9c7ef1a6b20e127b333c2927e363fcb996f6109d63076f12abea9daa",
+      "mtime": 1791977143,
+      "size": 23580
     },
     "tests/test_repository_path_policy.py": {
       "sha256": "867edcb75ee11c611e81cfb779a276cc6885d75067f1ff486d95b1852ca30328",
@@ -551,7 +551,7 @@
   "inventory": {
     "algorithm": "path-size-mtime-ns-v1",
     "file_count": 966,
-    "fingerprint": "sha256:2951b630fa09a4183ea1f1af1ed41cc082d9a1996065b867b2a74cc5cb338b66"
+    "fingerprint": "sha256:722cb5303fc69dd0876b5d2f603284442b604e08610ad836ac7df3f92818d02e"
   },
   "graph": {
     "changed_files": [
@@ -28203,83 +28203,10 @@
   },
   "freshness": {
     "status": "fresh",
-    "checked_at": "2026-10-14T11:08:28.382470+00:00",
+    "checked_at": "2026-10-14T11:27:10.330711+00:00",
     "reasons": []
   },
   "navigator_lifecycle_history": [
-    {
-      "action": "refresh",
-      "at": "2026-10-14T03:43:35.173175+00:00",
-      "attempt_id": "start-20261014034329-68a4cd",
-      "phase": "start",
-      "reason_codes": [
-        "anchor-insufficient-extend",
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "no anchor-connected path into cached scope"
-      ],
-      "target_paths": [
-        "scripts/closure-finalizer.py"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
     {
       "action": "refresh",
       "at": "2026-10-14T04:28:05.923792+00:00",
@@ -29831,6 +29758,101 @@
       "target_paths": [
         "scripts/execution-evidence.py",
         "tests/test_revision_proof_overlay.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T11:27:10.331086+00:00",
+      "attempt_id": "start-20261014112225-a81afe",
+      "phase": "closure",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "schemas/host-input-contract.schema.json",
+        "scripts/new_file_due_diligence.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_new_file_due_diligence.py"
       ],
       "effective_scope": [
         "hooks/hooks.json",

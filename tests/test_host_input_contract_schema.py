@@ -148,6 +148,35 @@ class HostInputContractSchemaTests(unittest.TestCase):
         contract = copy.deepcopy(_base_contract())
         self.assertTrue(self.validator.is_valid(contract))
 
+    def test_new_file_evidence_with_all_three_claims_is_valid(self) -> None:
+        contract = _base_contract()
+        contract["paths"][0]["new_file_evidence"] = {
+            "collision_claim": "no existing file or symbol named this",
+            "convention_cited": "schemas/ already holds one-schema-per-topic files",
+            "no_owner_claim": "no existing file owns this responsibility",
+        }
+        self.assertEqual(list(self.validator.iter_errors(contract)), [])
+
+    def test_new_file_evidence_with_one_claim_is_valid(self) -> None:
+        contract = _base_contract()
+        contract["paths"][0]["new_file_evidence"] = {"no_owner_claim": "no existing file owns this responsibility"}
+        self.assertEqual(list(self.validator.iter_errors(contract)), [])
+
+    def test_new_file_evidence_empty_object_is_rejected(self) -> None:
+        contract = _base_contract()
+        contract["paths"][0]["new_file_evidence"] = {}
+        self.assertFalse(self.validator.is_valid(contract))
+
+    def test_new_file_evidence_unknown_key_is_rejected(self) -> None:
+        contract = _base_contract()
+        contract["paths"][0]["new_file_evidence"] = {"not_a_real_claim": "nope"}
+        self.assertFalse(self.validator.is_valid(contract))
+
+    def test_new_file_evidence_non_string_claim_is_rejected(self) -> None:
+        contract = _base_contract()
+        contract["paths"][0]["new_file_evidence"] = {"collision_claim": 123}
+        self.assertFalse(self.validator.is_valid(contract))
+
 
 if __name__ == "__main__":
     unittest.main()

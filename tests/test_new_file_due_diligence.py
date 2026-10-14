@@ -312,5 +312,158 @@ class CombineVerdictWorkedExamplesTests(unittest.TestCase):
         self.assertIsNotNone(verdict["question"])
 
 
+class EvaluateNewFileEvidenceTests(unittest.TestCase):
+    """Phase N4 fast path: a claim is independently re-verified through the
+    existing checks, never trusted on its own."""
+
+    def test_correct_evidence_resolves_new_confirmed_with_zero_questions(self) -> None:
+        # Every claim holds up against an independent re-check: no existing
+        # collision, no existing owner, and no directory yet (so there is no
+        # convention for "convention_cited" to contradict).
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = nfdd.evaluate_new_file_evidence(
+                root,
+                "brand_new_dir/thing.py",
+                {
+                    "collision_claim": "no existing file or symbol named this",
+                    "no_owner_claim": "no existing file owns this responsibility",
+                },
+            )
+        self.assertEqual(result["verdict"], "new-confirmed")
+        self.assertIsNone(result["question"])
+        self.assertEqual(result["contradicted_claims"], [])
+
+    def test_false_claim_is_blocked_identically_to_no_evidence(self) -> None:
+        # The host claims "no existing file or symbol named this" but a real
+        # collision exists -- the claim must never be silently accepted;
+        # the verdict must still require a host decision, exactly as a
+        # plain no-evidence submission against the same files would.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "validate/user.py", "def validate_user():\n    return True\n")
+            relative = "validate2/user.py"
+            with_claim = nfdd.evaluate_new_file_evidence(
+                root, relative, {"collision_claim": "no existing file or symbol named this"}
+            )
+            without_claim_findings = nfdd.run_all_checks(root, relative)
+            owner_evidence = nfdd.check_existing_owner_evidence(relative, ())
+            without_claim = nfdd.combine_verdict(
+                existence=without_claim_findings["existence"],
+                path_eligibility=without_claim_findings["path_eligibility"],
+                collision=without_claim_findings["name_symbol_collision"],
+                owner_evidence=owner_evidence,
+                convention=without_claim_findings["convention_precedent"],
+            )
+        self.assertIn("collision_claim", with_claim["contradicted_claims"])
+        self.assertNotEqual(with_claim["verdict"], "new-confirmed")
+        self.assertEqual(with_claim["verdict"], without_claim["verdict"])
+        self.assertIsNotNone(with_claim["question"])
+
+    def test_no_claims_behaves_exactly_like_run_all_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "misc/other.py")
+            relative = "misc/new_thing.py"
+            result = nfdd.evaluate_new_file_evidence(root, relative, None)
+        self.assertEqual(result["verdict"], "unverified")
+        self.assertIsNotNone(result["question"])
+        self.assertEqual(result["claims_supplied"], [])
+
+    def test_convention_cited_claim_contradicted_by_mixed_precedent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "schemas/a.schema.json")  # only one sibling: insufficient precedent
+            result = nfdd.evaluate_new_file_evidence(
+                root,
+                "schemas/new.schema.json",
+                {"convention_cited": "schemas/ already holds one-schema-per-topic files"},
+            )
+        self.assertIn("convention_cited", result["contradicted_claims"])
+        self.assertEqual(result["verdict"], "unverified")
+
+    def test_convention_cited_claim_not_contradicted_when_directory_is_new(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = nfdd.evaluate_new_file_evidence(
+                root,
+                "brand_new_dir/thing.schema.json",
+                {"convention_cited": "schemas/ already holds one-schema-per-topic files"},
+            )
+        self.assertEqual(result["contradicted_claims"], [])
+        self.assertEqual(result["verdict"], "new-confirmed")
+
+
+class VerifyPostImplementationTests(unittest.TestCase):
+    """Phase N4 mandatory post-implementation verification: runs regardless
+    of the pre-approval verdict, after the edit has actually landed."""
+
+    def test_missing_file_is_incomplete(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = nfdd.verify_post_implementation(root, "scripts/never_written.py")
+        self.assertFalse(result["complete"])
+        self.assertFalse(result["findings"][0]["pass"])
+
+    def test_clean_new_python_module_is_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "scripts/clean_module.py", "def do_thing():\n    return True\n")
+            result = nfdd.verify_post_implementation(root, "scripts/clean_module.py")
+        self.assertTrue(result["complete"])
+
+    def test_catches_a_collision_pre_approval_evidence_missed(self) -> None:
+        # Simulates a brand-new/near-empty repository where Check 3 had
+        # nothing to compare against before implementation (no sibling
+        # existed yet), but a second file landed in the same edit batch
+        # that introduces a genuine post-implementation symbol collision.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "scripts/new_module.py", "def process_payment():\n    return True\n")
+            _write(root, "scripts/other_new_module.py", "def process_payment():\n    return True\n")
+            result = nfdd.verify_post_implementation(
+                root, "scripts/new_module.py", symbols=("process_payment",)
+            )
+        self.assertFalse(result["complete"])
+        collision_finding = next(item for item in result["findings"] if item["check"] == "post-implementation-collision")
+        self.assertFalse(collision_finding["pass"])
+        self.assertIn("scripts/other_new_module.py", collision_finding["detail"]["details"]["symbol_matches"])
+
+    def test_test_file_naming_convention_is_reachable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "tests/test_clean_module.py", "import unittest\n")
+            result = nfdd.verify_post_implementation(root, "tests/test_clean_module.py")
+        self.assertTrue(result["complete"])
+
+    def test_test_file_wrong_naming_convention_is_unreachable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "tests/clean_module_tests.py", "import unittest\n")
+            result = nfdd.verify_post_implementation(root, "tests/clean_module_tests.py")
+        self.assertFalse(result["complete"])
+
+    def test_broken_python_module_fails_reachability(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "scripts/broken_module.py", "def broken(:\n    pass\n")
+            result = nfdd.verify_post_implementation(root, "scripts/broken_module.py")
+        self.assertFalse(result["complete"])
+
+    def test_valid_json_schema_file_is_reachable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "schemas/new.schema.json", "{}")
+            result = nfdd.verify_post_implementation(root, "schemas/new.schema.json")
+        self.assertTrue(result["complete"])
+
+    def test_invalid_json_schema_file_fails_reachability(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _write(root, "schemas/new.schema.json", "{not valid json")
+            result = nfdd.verify_post_implementation(root, "schemas/new.schema.json")
+        self.assertFalse(result["complete"])
+
+
 if __name__ == "__main__":
     unittest.main()
