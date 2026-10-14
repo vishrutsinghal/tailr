@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/host-question-flow-packet-view.schema.json",
+  "title": "TailTrail Host Question Flow Packet View",
+  "description": "A packet view is a pointer into one anchor version, never a second version history. Per TAILTRAIL-HOST-QUESTION-FLOW-DESIGN.md's 'One version chain, not two' rule and TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md's Review Resolution #1: the anchor version is the only versioned truth. This schema deliberately has no packet_version/revision counter of its own -- packet_view_id identifies the projection, anchor_version identifies the sole authority it is bound to, and invalidated views are replaced, not revised in place.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "packet_view_id",
+    "run_id",
+    "contract_id",
+    "anchor_version",
+    "status",
+    "requirement_projections"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-host-question-flow-packet-view" },
+    "packet_view_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "contract_id": { "type": "string", "minLength": 1 },
+    "anchor_version": {
+      "description": "e.g. 'anchor-v3'. The packet view is materialized for exactly this anchor version; it must be invalidated and regenerated when the anchor is corrected to a later version.",
+      "type": "string",
+      "pattern": "^anchor-v[0-9]+$"
+    },
+    "status": { "enum": ["materialized", "invalidated"] },
+    "invalidated_reason": { "type": "string", "minLength": 1 },
+    "superseded_by": {
+      "description": "packet_view_id of the replacement view materialized for the next anchor version, once one exists.",
+      "type": "string",
+      "minLength": 1
+    },
+    "requirement_projections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/requirementProjection" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "invalidated" } }, "required": ["status"] },
+      "then": { "required": ["invalidated_reason"] }
+    }
+  ],
+  "$defs": {
+    "requirementProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement_uid", "consumer_component_id", "projection_kind"],
+      "properties": {
+        "requirement_uid": { "type": "string", "minLength": 1 },
+        "consumer_component_id": {
+          "description": "Must resolve against the versioned component/adapter registry (Phase 6); an unregistered consumer cannot be projected to.",
+          "type": "string",
+          "minLength": 1
+        },
+        "projection_kind": {
+          "enum": ["scope", "requirement", "validation", "approval"]
+        }
+      }
+    }
+  }
+}

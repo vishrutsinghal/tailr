@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/host-question-flow-state.schema.json",
+  "title": "TailTrail Host Question Flow Run State",
+  "description": "Canonical state-transition table for the Host Question Flow (Phase 0). Encodes both the primary intake-to-activation lifecycle and the awaiting-host-answers pause/expire/abandon/resume sub-lifecycle from TAILTRAIL-HOST-QUESTION-FLOW-DESIGN.md. A run record names its current_state and (optionally) the state it came from; TRANSITIONS is the only source of truth for which moves are legal, so an invalid transition fails schema validation rather than being silently accepted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "type", "run_id", "current_state"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-host-question-flow-run-state" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "current_state": { "$ref": "#/$defs/state" },
+    "previous_state": { "$ref": "#/$defs/state" },
+    "reason": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["previous_state"] },
+      "then": {
+        "properties": {
+          "previous_state": { "$ref": "#/$defs/state" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "state": {
+      "enum": [
+        "intake",
+        "profiling",
+        "awaiting-host-answers",
+        "due-diligence",
+        "awaiting-clarification",
+        "awaiting-reproduction-input",
+        "premise-validated",
+        "awaiting-user-decision",
+        "requirements-finalized",
+        "internal-due-diligence",
+        "internal-clarification-routed-to-navigator",
+        "awaiting-approval",
+        "approved",
+        "activated",
+        "invalidated-false-premise",
+        "paused",
+        "expired",
+        "abandoned",
+        "resumed"
+      ]
+    }
+  }
+}

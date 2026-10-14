@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/host-question-flow-redaction-policy.schema.json",
+  "title": "TailTrail Host Question Flow Redaction and Retention Policy",
+  "description": "Redaction and retention for host observations, answers, and artifacts (Phase 0). Per TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md's Review Resolution #3, this starts from the shipped shaped-secret catalog already enforced in scripts/quality-loop.py (SECRET_SHAPES: AWS access key, GitHub token, Slack token, PEM private key, bearer token) rather than inventing a parallel pattern list. tests/test_host_question_flow_redaction_policy.py asserts this schema's shape_name enum stays in sync with that module.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "artifact_class",
+    "redaction",
+    "retention"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-host-question-flow-redaction-policy" },
+    "artifact_class": {
+      "enum": ["observation", "answer", "contract", "event", "completion-report", "delivery-record"]
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "shape_catalog"],
+      "properties": {
+        "stage": {
+          "description": "Redaction happens at ingestion, not only at report-rendering time (design doc Implementation Risks: 'Redact at ingestion, not only during report rendering').",
+          "const": "ingestion"
+        },
+        "shape_catalog": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "AWS access key",
+              "GitHub token",
+              "Slack token",
+              "PEM private key",
+              "bearer token"
+            ]
+          }
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["duration", "storage_boundary"],
+      "properties": {
+        "duration": {
+          "enum": ["run-lifetime", "90-days", "indefinite-immutable-history"]
+        },
+        "storage_boundary": {
+          "enum": [".tailtrail/runs/<run_id>", "tailtrail-meta", "not-persisted"]
+        }
+      }
+    }
+  }
+}

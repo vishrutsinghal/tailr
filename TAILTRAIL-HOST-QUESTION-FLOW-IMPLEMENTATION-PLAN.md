@@ -136,6 +136,49 @@ Freeze the protocol before changing components.
 - Invalid state transitions fail closed.
 - No implementation component is required to interpret raw host answers.
 
+### Status: complete
+
+All Phase 0 deliverables are shipped as versioned JSON Schema (and one
+companion data) artifacts under `schemas/`, with regression coverage under
+`tests/`:
+
+- `host-input-contract.schema.json` -- canonical host input contract: profile,
+  change_intent, request_mode, behavior_surface, path role bindings
+  (existing/proposed status), positive/negative criteria, proof binding,
+  correction_premise with owner_hypothesis gating.
+  (`tests/test_host_input_contract_schema.py`, 14 tests)
+- `host-question-flow-event.schema.json` -- the append-only event envelope,
+  verified against `scripts/intake_pipeline.py`'s real emitted shape, with
+  typed payloads for `question-issued`, `host-observation-recorded`, and
+  `answer-recorded`; remaining design-vocabulary event types are reserved for
+  the phases that implement them.
+  (`tests/test_host_question_flow_event_schema.py`, 7 tests)
+- `host-question-flow-state.schema.json` + `host-question-flow-transitions.json`
+  -- the full state enum and the authoritative transition adjacency list,
+  transcribed edge-for-edge from the design doc's two resumable-state
+  diagrams (main intake-to-activation sequence, plus the
+  paused/expired/abandoned/resumed sub-lifecycle). No edges beyond what the
+  design doc specifies are encoded.
+- `host-question-flow-packet-view.schema.json` -- anchor-bound packet
+  projections with no independent version counter of their own, enforcing
+  the single-version-chain rule (Review Resolution #1).
+- `proof-binding.schema.json` -- reproduction and post-change proof bindings
+  as separate, non-interchangeable kinds; `post-change` requires
+  `preservation_boundaries`, `reproduction` rejects it.
+- `host-question-flow-redaction-policy.schema.json` -- redaction at ingestion
+  (never report-rendering only) using the real, already-shipped
+  `scripts/quality-loop.py` `SECRET_SHAPES` catalog as the enum, kept in sync
+  by an explicit regression test, plus a retention/storage-boundary policy
+  shape.
+
+(`tests/test_host_question_flow_phase0_artifacts.py`, 24 tests, covers the
+last four artifacts above.)
+
+Not yet built, deferred to the phases that need them: the full "packet"/
+"projection" schemas beyond the packet-view pointer shape (Phase 3), and the
+versioned component/adapter registry that `consumer_component_id` resolves
+against (Phase 6).
+
 ## Phase 1A: Minimal Intake and Event Correlation
 
 ### Purpose

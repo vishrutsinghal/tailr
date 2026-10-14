@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/proof-binding.schema.json",
+  "title": "TailTrail Proof Binding",
+  "description": "What a reproduction_binding/post_change_binding id (as referenced by schemas/host-input-contract.schema.json's correction proof shape) resolves to. Reproduction shows the original expected-vs-actual symptom at the public route; post-change proof must cover the same positive behavior plus its preservation boundary -- the two kinds are never interchangeable (TAILTRAIL-HOST-QUESTION-FLOW-DESIGN.md, 'Correction Premise Contract' and Phase 5 of the implementation plan). An executable passing suite with no requirement-linked assertion is not symptom-specific proof, so every binding must name at least one asserted_behavior and the scenario/assertion that establishes it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "proof_binding_id",
+    "requirement_uid",
+    "kind",
+    "asserted_behaviors",
+    "command"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-proof-binding" },
+    "proof_binding_id": { "type": "string", "minLength": 1 },
+    "requirement_uid": { "type": "string", "minLength": 1 },
+    "kind": {
+      "enum": ["reproduction", "post-change"],
+      "description": "reproduction: demonstrates the original failing symptom at the public route. post-change: demonstrates the corrected positive behavior plus its preservation boundary."
+    },
+    "command": { "type": "string", "minLength": 1 },
+    "tiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "asserted_behaviors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scenario_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "preservation_boundaries": {
+      "description": "Only meaningful for kind=post-change: the preserved behaviors the correction must not regress.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "paired_binding_id": {
+      "description": "For kind=post-change, the proof_binding_id of the reproduction this binding corrects; for kind=reproduction, the post-change binding that will close it once implemented (may be absent until then).",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "post-change" } }, "required": ["kind"] },
+      "then": { "required": ["preservation_boundaries"] },
+      "else": { "not": { "required": ["preservation_boundaries"] } }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-question-flow-transitions",
+  "description": "Authoritative adjacency list for schemas/host-question-flow-state.schema.json, transcribed directly from the two resumable-state diagrams in TAILTRAIL-HOST-QUESTION-FLOW-DESIGN.md's 'Resumable States' section. This is the only source of truth for which (from, to) moves are legal; it intentionally does not invent edges beyond what the design doc specifies (e.g. bounded clarification re-entry loops are enforced by Phase 2's round-limit logic, not encoded here as a graph edge).",
+  "edges": [
+    { "from": "intake", "to": "profiling" },
+    { "from": "profiling", "to": "awaiting-host-answers" },
+    { "from": "awaiting-host-answers", "to": "due-diligence" },
+    { "from": "due-diligence", "to": "awaiting-clarification" },
+    { "from": "awaiting-clarification", "to": "awaiting-reproduction-input" },
+    { "from": "awaiting-reproduction-input", "to": "premise-validated" },
+    { "from": "premise-validated", "to": "awaiting-user-decision" },
+    { "from": "awaiting-user-decision", "to": "requirements-finalized" },
+    { "from": "requirements-finalized", "to": "internal-due-diligence" },
+    { "from": "internal-due-diligence", "to": "internal-clarification-routed-to-navigator" },
+    { "from": "internal-clarification-routed-to-navigator", "to": "awaiting-approval" },
+    { "from": "awaiting-approval", "to": "approved" },
+    { "from": "approved", "to": "activated" },
+    { "from": "activated", "to": "invalidated-false-premise" },
+    { "from": "awaiting-host-answers", "to": "paused" },
+    { "from": "paused", "to": "expired" },
+    { "from": "expired", "to": "abandoned" },
+    { "from": "abandoned", "to": "resumed" }
+  ]
+}
