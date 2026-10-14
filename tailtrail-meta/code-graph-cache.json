@@ -1,10 +1,10 @@
 {
   "schema_version": "1",
-  "created_at": "2026-10-14T11:27:08.069696+00:00",
-  "updated_at": "2026-10-14T11:27:08.069715+00:00",
+  "created_at": "2026-10-14T12:34:03.242049+00:00",
+  "updated_at": "2026-10-14T12:34:03.242064+00:00",
   "tailtrail_version": "local",
   "root": "/Users/vsingha7/Desktop/tailr",
-  "cache_key": "68a7cc375d94991c576f8c83be15849096c9f40e1342d474eba3b1d9a4e5ddf3",
+  "cache_key": "267519cf301996122afb347173fdb2aa839b5f5a38d1f52dba5dbd28d07261ee",
   "graph_mode": "navigator-closure",
   "scope": [
     "hooks/hooks.json",
@@ -36,6 +36,7 @@
     "scripts/debug-host-diagnosis.py",
     "scripts/debug-preflight.py",
     "scripts/execution-evidence.py",
+    "scripts/greenfield_e2e_fixture.py",
     "scripts/harness-checkpoint.py",
     "scripts/host-adapter-conformance.py",
     "scripts/install-copilot.py",
@@ -64,6 +65,7 @@
     "tests/test_code_graph_inventory.py",
     "tests/test_debug_start_planning.py",
     "tests/test_full_pipeline.py",
+    "tests/test_greenfield_e2e.py",
     "tests/test_host_adapter_conformance.py",
     "tests/test_host_input_contract_schema.py",
     "tests/test_host_question_flow_event_schema.py",
@@ -93,7 +95,7 @@
   "language_profiles": {
     "python": {
       "level": 2,
-      "files": 74
+      "files": 76
     }
   },
   "source_files": {
@@ -108,9 +110,9 @@
       "size": 947
     },
     "schemas/host-input-contract.schema.json": {
-      "sha256": "b37bfabb631d55997b9e30333870107675fc9fcce9e61048a2889055905b401e",
-      "mtime": 1791977064,
-      "size": 7510
+      "sha256": "1176d22d413eebab5332f8e49b9e74e627e0686186a28b3d2b86d45e8c4ad768",
+      "mtime": 1791980041,
+      "size": 7887
     },
     "schemas/host-question-flow-event.schema.json": {
       "sha256": "aedc430a991f5efac59ddbbc9b4ee003219a8b4200dec6d3131c1bad63f581cf",
@@ -242,6 +244,11 @@
       "mtime": 1791975922,
       "size": 22758
     },
+    "scripts/greenfield_e2e_fixture.py": {
+      "sha256": "2afee022f7995ddd0b4d74f7f9e33264568c058110c03463d80a526a081eb918",
+      "mtime": 1791980339,
+      "size": 1720
+    },
     "scripts/harness-checkpoint.py": {
       "sha256": "f0d42d234f4591f0d5b687457db8f3b6a92fc6ba77cc0c0d713b123a0d871828",
       "mtime": 1791720309,
@@ -293,13 +300,13 @@
       "size": 19062
     },
     "scripts/navigator_scope.py": {
-      "sha256": "f4dde83e90556a64d0d4eabf891561b3a2053771746b6d6f5dc0c07336d04907",
-      "mtime": 1791904718,
-      "size": 246529
+      "sha256": "ebe16cd6f51f7f77eedae147f939e8f3828f88b20c26a47f30d56cde480ddc8f",
+      "mtime": 1791980041,
+      "size": 248378
     },
     "scripts/new_file_due_diligence.py": {
       "sha256": "107e55c4d809e1bea9187cd075ea1bbfa98305052a884ed0c4b232a5cbb2a324",
-      "mtime": 1791977099,
+      "mtime": 1791980041,
       "size": 25084
     },
     "scripts/planning_lock.py": {
@@ -382,6 +389,11 @@
       "mtime": 1791368780,
       "size": 5365
     },
+    "tests/test_greenfield_e2e.py": {
+      "sha256": "122fb9cf1609ab0d917e9b5dfe3096b5eeddd0183ca0c82b52fb367c1ec10907",
+      "mtime": 1791980367,
+      "size": 7929
+    },
     "tests/test_host_adapter_conformance.py": {
       "sha256": "624b07c48cf37308b102bcc2dc7c72d13a4e707e571e44c9f1fba3339be05711",
       "mtime": 1791707517,
@@ -389,7 +401,7 @@
     },
     "tests/test_host_input_contract_schema.py": {
       "sha256": "e71e69be10cb64c12466b6404f37d2db4f3f086c957e778af2076f46b9ebe950",
-      "mtime": 1791977117,
+      "mtime": 1791980041,
       "size": 7764
     },
     "tests/test_host_question_flow_event_schema.py": {
@@ -423,13 +435,13 @@
       "size": 82843
     },
     "tests/test_navigator_scope.py": {
-      "sha256": "1ce19d3329eff961bc06b5bfc3b0b0308b41a3626ac031ef2e8010ebe406a40a",
-      "mtime": 1791900919,
-      "size": 191698
+      "sha256": "3db705f29ee97870710f2b844f712dfb71b801c03f8423fcf4f6294f00f0ebdc",
+      "mtime": 1791980041,
+      "size": 194176
     },
     "tests/test_new_file_due_diligence.py": {
       "sha256": "3714209d9c7ef1a6b20e127b333c2927e363fcb996f6109d63076f12abea9daa",
-      "mtime": 1791977143,
+      "mtime": 1791980041,
       "size": 23580
     },
     "tests/test_repository_path_policy.py": {
@@ -550,8 +562,8 @@
   "scanner_evidence": {},
   "inventory": {
     "algorithm": "path-size-mtime-ns-v1",
-    "file_count": 966,
-    "fingerprint": "sha256:722cb5303fc69dd0876b5d2f603284442b604e08610ad836ac7df3f92818d02e"
+    "file_count": 968,
+    "fingerprint": "sha256:5abe1899412488ea25642b2f3519ba4b18a6f7f3f2a8a34d2529bd77f5dd7c9c"
   },
   "graph": {
     "changed_files": [
@@ -584,6 +596,7 @@
       "scripts/debug-host-diagnosis.py",
       "scripts/debug-preflight.py",
       "scripts/execution-evidence.py",
+      "scripts/greenfield_e2e_fixture.py",
       "scripts/harness-checkpoint.py",
       "scripts/host-adapter-conformance.py",
       "scripts/install-copilot.py",
@@ -612,6 +625,7 @@
       "tests/test_code_graph_inventory.py",
       "tests/test_debug_start_planning.py",
       "tests/test_full_pipeline.py",
+      "tests/test_greenfield_e2e.py",
       "tests/test_host_adapter_conformance.py",
       "tests/test_host_input_contract_schema.py",
       "tests/test_host_question_flow_event_schema.py",
@@ -11618,336 +11632,6 @@
         }
       },
       {
-        "target": "__future__",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 1,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "copy",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 4,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 5,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "io",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 6,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 7,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 8,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 9,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "tempfile",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 10,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "unittest",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 11,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "contextlib",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 12,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 13,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 22,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_discovery",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 23,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_graph_lifecycle",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 24,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_scope",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 25,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "code_relationships",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 26,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "requirement_discovery",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 27,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "workflow_runtime",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 28,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "code_graph_inventory",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 3537,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/task-start.py",
-        "referring_file": "tests/test_navigator_scope.py",
-        "line": 31,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "importlib.util",
         "referring_file": "tests/test_review_graph.py",
         "line": 1,
@@ -12220,20 +11904,6 @@
         "target": "scripts/navigator_discovery.py",
         "referring_file": "scripts/navigator.py",
         "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/navigator_discovery.py",
-        "referring_file": "tests/test_navigator_scope.py",
-        "reference_type": "test-link",
         "confidence": "heuristic",
         "module_resolution": {
           "state": "unresolved",
@@ -12908,336 +12578,6 @@
         "target": "scripts/repository_path_policy.py",
         "referring_file": "scripts/navigator_discovery.py",
         "line": 29,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 11,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "copy",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 13,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 15,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 16,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "os",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 17,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "re",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 18,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 19,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 20,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "time",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 21,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "unicodedata",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 22,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "dataclasses",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 23,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 24,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 25,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "capture_hooks",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 27,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "code_relationships",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 28,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "requirement_discovery",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 29,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "code_graph_inventory",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 30,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "module_resolution",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 31,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 3361,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "metrics_extractor",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 3500,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/repository_path_policy.py",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 42,
         "reference_type": "loader",
         "confidence": "static-text",
         "module_resolution": {
@@ -16877,81 +16217,6 @@
         }
       },
       {
-        "target": "copy",
-        "referring_file": "tests/test_host_input_contract_schema.py",
-        "line": 1,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "tests/test_host_input_contract_schema.py",
-        "line": 2,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "unittest",
-        "referring_file": "tests/test_host_input_contract_schema.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "tests/test_host_input_contract_schema.py",
-        "line": 4,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "jsonschema",
-        "referring_file": "tests/test_host_input_contract_schema.py",
-        "line": 6,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "json",
         "referring_file": "tests/test_host_question_flow_event_schema.py",
         "line": 1,
@@ -17767,126 +17032,6 @@
       },
       {
         "target": "__future__",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 29,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 31,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "re",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 32,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 33,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "dataclasses",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 34,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 35,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 36,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/repository_path_policy.py",
-        "referring_file": "scripts/new_file_due_diligence.py",
-        "line": 46,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
         "referring_file": "scripts/planning_lock.py",
         "line": 3,
         "reference_type": "import",
@@ -18550,96 +17695,6 @@
         }
       },
       {
-        "target": "importlib.util",
-        "referring_file": "tests/test_new_file_due_diligence.py",
-        "line": 1,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "tests/test_new_file_due_diligence.py",
-        "line": 2,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "tempfile",
-        "referring_file": "tests/test_new_file_due_diligence.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "unittest",
-        "referring_file": "tests/test_new_file_due_diligence.py",
-        "line": 4,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "tests/test_new_file_due_diligence.py",
-        "line": 5,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/new_file_due_diligence.py",
-        "referring_file": "tests/test_new_file_due_diligence.py",
-        "line": 10,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "__future__",
         "referring_file": "scripts/debug-harness-convergence.py",
         "line": 3,
@@ -19073,6 +18128,965 @@
           ],
           "reason_codes": [
             "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/greenfield_e2e_fixture.py",
+        "referring_file": "tests/test_greenfield_e2e.py",
+        "reference_type": "test-link",
+        "confidence": "heuristic",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "copy",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "os",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 17,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 18,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 19,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 20,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "time",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 21,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unicodedata",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 22,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "dataclasses",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 23,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 24,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 25,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "capture_hooks",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 27,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_relationships",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 28,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "new_file_due_diligence",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 29,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "requirement_discovery",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 30,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_graph_inventory",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 31,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "module_resolution",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 32,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 3390,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "metrics_extractor",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 3529,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/repository_path_policy.py",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 43,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 29,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 31,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 32,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 33,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 34,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "dataclasses",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 35,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 36,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 37,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/repository_path_policy.py",
+        "referring_file": "scripts/new_file_due_diligence.py",
+        "line": 47,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "copy",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "jsonschema",
+        "referring_file": "tests/test_host_input_contract_schema.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "copy",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "io",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "contextlib",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 22,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_discovery",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 23,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_graph_lifecycle",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 24,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_scope",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 25,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_relationships",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 26,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "requirement_discovery",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 27,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 28,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "code_graph_inventory",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 3579,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/task-start.py",
+        "referring_file": "tests/test_navigator_scope.py",
+        "line": 31,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 1,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 2,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tempfile",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "unittest",
+        "referring_file": "tests/test_new_file_due_diligence.py",
+        "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
           ],
           "config_paths": []
         }
@@ -25618,126 +25632,6 @@
         "confidence": "python_ast"
       },
       {
-        "type": "NavigatorScopeBaselineTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 135,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "NavigatorScopeEvidenceV2Tests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 445,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "NavigatorScopeInvestigationTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 753,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "NavigatorScopeAtomicStartTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 2372,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "ScopeAnswerTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 2736,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "ThinEvidenceGateTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 2911,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "DepthGateTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 2969,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "TrivialLaneTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3088,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "PacketIdentityTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3130,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "UnavailableRouteAnswerTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3189,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "ScopeQuestionRankingTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3289,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "LegacyShimDemotionTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3359,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "InfraConfigurationOwnershipTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3405,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "CacheEvidencePolicyTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3518,
-        "confidence": "python_ast"
-      },
-      {
-        "type": "Phase4WorkspaceExclusionTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_navigator_scope.py",
-        "line": 3584,
-        "confidence": "python_ast"
-      },
-      {
         "type": "MissingRootTests",
         "inherits": "TestCase",
         "language": "python",
@@ -25842,14 +25736,6 @@
         "confidence": "python_ast"
       },
       {
-        "type": "HostInputContractSchemaTests",
-        "inherits": "TestCase",
-        "language": "python",
-        "file": "tests/test_host_input_contract_schema.py",
-        "line": 58,
-        "confidence": "python_ast"
-      },
-      {
         "type": "HostQuestionFlowEventSchemaTests",
         "inherits": "TestCase",
         "language": "python",
@@ -25895,6 +25781,134 @@
         "language": "python",
         "file": "tests/test_architecture_fitness.py",
         "line": 8,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "HostInputContractSchemaTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_host_input_contract_schema.py",
+        "line": 58,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "NavigatorScopeBaselineTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 135,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "NavigatorScopeEvidenceV2Tests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 445,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "NavigatorScopeInvestigationTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 753,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "NavigatorScopeAtomicStartTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 2372,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "ScopeAnswerTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 2736,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "ThinEvidenceGateTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 2911,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "DepthGateTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 2969,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "TrivialLaneTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3088,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "PacketIdentityTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3130,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "UnavailableRouteAnswerTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3189,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "ScopeQuestionRankingTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3331,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "LegacyShimDemotionTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3401,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "InfraConfigurationOwnershipTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3447,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "CacheEvidencePolicyTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3560,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "Phase4WorkspaceExclusionTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_navigator_scope.py",
+        "line": 3626,
         "confidence": "python_ast"
       },
       {
@@ -25951,6 +25965,22 @@
         "language": "python",
         "file": "tests/test_new_file_due_diligence.py",
         "line": 192,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "EvaluateNewFileEvidenceTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_new_file_due_diligence.py",
+        "line": 315,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "VerifyPostImplementationTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_new_file_due_diligence.py",
+        "line": 397,
         "confidence": "python_ast"
       }
     ],
@@ -26464,14 +26494,6 @@
         "confidence": "heuristic"
       },
       {
-        "source_file": "tests/test_navigator_scope.py",
-        "line": 1611,
-        "target": "repository",
-        "path_hint": "",
-        "edge_type": "service-config",
-        "confidence": "heuristic"
-      },
-      {
         "source_file": "scripts/install-local.py",
         "line": 427,
         "target": "codex",
@@ -26485,6 +26507,22 @@
         "target": "raise",
         "path_hint": "",
         "edge_type": "service-config",
+        "confidence": "heuristic"
+      },
+      {
+        "source_file": "schemas/host-question-flow-event.schema.json",
+        "line": 2,
+        "target": "json-schema.org",
+        "path_hint": "/draft/2020-12/schema",
+        "edge_type": "http-url",
+        "confidence": "heuristic"
+      },
+      {
+        "source_file": "schemas/host-question-flow-event.schema.json",
+        "line": 3,
+        "target": "tailtrail.dev",
+        "path_hint": "/schemas/host-question-flow-event.schema.json",
+        "edge_type": "http-url",
         "confidence": "heuristic"
       },
       {
@@ -26504,19 +26542,11 @@
         "confidence": "heuristic"
       },
       {
-        "source_file": "schemas/host-question-flow-event.schema.json",
-        "line": 2,
-        "target": "json-schema.org",
-        "path_hint": "/draft/2020-12/schema",
-        "edge_type": "http-url",
-        "confidence": "heuristic"
-      },
-      {
-        "source_file": "schemas/host-question-flow-event.schema.json",
-        "line": 3,
-        "target": "tailtrail.dev",
-        "path_hint": "/schemas/host-question-flow-event.schema.json",
-        "edge_type": "http-url",
+        "source_file": "tests/test_navigator_scope.py",
+        "line": 1611,
+        "target": "repository",
+        "path_hint": "",
+        "edge_type": "service-config",
         "confidence": "heuristic"
       }
     ],
@@ -26561,9 +26591,9 @@
       },
       {
         "partition": "scripts",
-        "files": 293,
+        "files": 294,
         "languages": {
-          "python": 293
+          "python": 294
         },
         "manifests": [],
         "tests": [
@@ -26583,9 +26613,9 @@
       },
       {
         "partition": "tests",
-        "files": 254,
+        "files": 255,
         "languages": {
-          "python": 230
+          "python": 231
         },
         "manifests": [],
         "tests": [
@@ -27699,6 +27729,34 @@
           "confidence": "heuristic"
         },
         {
+          "file": "scripts/greenfield_e2e_fixture.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/flaky-test-tracker.py",
+            "scripts/higher-tier-testing.py",
+            "scripts/run-tests.py",
+            "scripts/smoke-test.py",
+            "scripts/spec-kit-amendment.py",
+            "scripts/spec-kit-bridge.py",
+            "scripts/spec-kit-ci-gate.py",
+            "scripts/spec-kit-converge.py",
+            "scripts/spec-kit-detect.py",
+            "scripts/spec-kit-evidence.py",
+            "scripts/spec-kit-import.py",
+            "scripts/spec-kit-integration.py",
+            "scripts/spec-kit-observability.py",
+            "scripts/spec-kit-policy.py",
+            "scripts/spec-kit-slices.py",
+            "scripts/test-precision.py",
+            "scripts/test-tier-selector.py",
+            "scripts/test_scope.py",
+            "scripts/testing-profile.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
           "file": "scripts/harness-checkpoint.py",
           "partition": "scripts",
           "owners": [],
@@ -27977,34 +28035,6 @@
           ],
           "release_paths": [],
           "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/navigator_scope.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
         }
       ],
       "release_paths": [
@@ -28140,6 +28170,7 @@
       "scripts/debug-host-diagnosis.py",
       "scripts/debug-preflight.py",
       "scripts/execution-evidence.py",
+      "scripts/greenfield_e2e_fixture.py",
       "scripts/harness-checkpoint.py",
       "scripts/host-adapter-conformance.py",
       "scripts/install-copilot.py",
@@ -28168,6 +28199,7 @@
       "tests/test_code_graph_inventory.py",
       "tests/test_debug_start_planning.py",
       "tests/test_full_pipeline.py",
+      "tests/test_greenfield_e2e.py",
       "tests/test_host_adapter_conformance.py",
       "tests/test_host_input_contract_schema.py",
       "tests/test_host_question_flow_event_schema.py",
@@ -28203,317 +28235,10 @@
   },
   "freshness": {
     "status": "fresh",
-    "checked_at": "2026-10-14T11:27:10.330711+00:00",
+    "checked_at": "2026-10-14T12:34:05.481393+00:00",
     "reasons": []
   },
   "navigator_lifecycle_history": [
-    {
-      "action": "refresh",
-      "at": "2026-10-14T04:28:05.923792+00:00",
-      "attempt_id": "start-20261014041154-4a77b7",
-      "phase": "closure",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/closure-finalizer.py"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-14T05:59:17.904888+00:00",
-      "attempt_id": "start-20261014055908-9e4339",
-      "phase": "start",
-      "reason_codes": [
-        "bounded-goal-discovery",
-        "fresh-prior-run-mapping",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "scripts/check-tailtrail.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/tailtrail.py",
-        "scripts/update-copilot.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_template_execution.py"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-14T05:59:43.916355+00:00",
-      "attempt_id": "start-20261014055938-9e4339",
-      "phase": "start",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        "schemas/host-input-contract.schema.json"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "schemas/host-input-contract.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-14T06:01:56.171593+00:00",
-      "attempt_id": "start-20261014060150-9e4339",
-      "phase": "start",
-      "reason_codes": [
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "no anchor-connected path into cached scope",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "schemas/host-input-contract.schema.json"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "schemas/host-input-contract.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
     {
       "action": "refresh",
       "at": "2026-10-14T06:06:17.585066+00:00",
@@ -29912,6 +29637,380 @@
         "tests/test_code_graph_inventory.py",
         "tests/test_debug_start_planning.py",
         "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T12:07:12.523883+00:00",
+      "attempt_id": "start-20261014120706-45010d",
+      "phase": "start",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/greenfield_e2e_fixture.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T12:11:36.200373+00:00",
+      "attempt_id": "start-20261014121129-45010d",
+      "phase": "start",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "requested-scope-outside-cache"
+      ],
+      "target_paths": [
+        "scripts/greenfield_e2e_fixture.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T12:13:02.027204+00:00",
+      "attempt_id": "start-20261014121255-45010d",
+      "phase": "start",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "requested-scope-outside-cache"
+      ],
+      "target_paths": [
+        "scripts/greenfield_e2e_fixture.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T12:34:05.482496+00:00",
+      "attempt_id": "start-20261014121255-45010d",
+      "phase": "closure",
+      "reason_codes": [
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/greenfield_e2e_fixture.py",
+        "tests/test_greenfield_e2e.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
         "tests/test_host_adapter_conformance.py",
         "tests/test_host_input_contract_schema.py",
         "tests/test_host_question_flow_event_schema.py",
