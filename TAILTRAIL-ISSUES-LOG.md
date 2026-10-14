@@ -31,7 +31,7 @@ the entries there.
 | 22 | No real-time write-guard integration point exists for GitHub Copilot Chat in VS Code | Open -- host has no pre-tool-execution interception API; `write_guardian.py` is Copilot-payload-ready but never invoked |
 | 21 | Copilot-hook planning accepted a no-op correction and exposed host/product boundary gaps | Open -- premise/proof gates needed; host guidance added |
 | 23 | Closure evidence and Delivery Record projections can disagree with the approved proof contract | Open |
-| 24 | Bare `"behavior"` substring match in `behaviour_planning.selected_for()` falsely selects the Behaviour Harness for non-behavioral goals | Open -- same bug class as Issue 18, different classifier |
+| 24 | Bare `"behavior"` substring match in `behaviour_planning.selected_for()` falsely selects the Behaviour Harness for non-behavioral goals | **Fixed** (word-boundary matching, same bug class as Issue 18) |
 | 25 | A proof-only test file created under the TESTING badge has no revision mechanism to join the approved anchor's proof scope, so closure always reports it as scope drift | **Fixed** (`proof-update` now accepts `editable_paths`/`proposed_paths`) |
 
 See **Section 11** below for a separately-tracked, audited list of standing
@@ -2952,7 +2952,7 @@ These are host-side mistakes, not TailTrail product defects:
 All four changes require their own focused Planning Locks and proof contracts;
 this issue-log run authorizes documentation only.
 
-## 24. Bare `"behavior"` substring match falsely selects the Behaviour Harness (Open)
+## 24. Bare `"behavior"` substring match falsely selects the Behaviour Harness (Fixed)
 
 **Context:** While implementing Phase 0 of the Host Question Flow (a new
 `schemas/host-input-contract.schema.json`, requirement text legitimately using
@@ -2998,10 +2998,29 @@ API, or user-facing journey yet.
   not select the Behaviour Harness; a goal containing a bare standalone word
   like "behavior" or "workflow" describing an actual user-facing change must
   still select it.
-- **Status:** Open. Not fixed in this session; the affected Phase 0 schema run
-  (`start-20261014060150-9e4339`) was left `evidence-incomplete` rather than
-  manufacturing cosmetic proof, per the user's explicit decision to log and
-  defer rather than side-quest a fix mid-Phase-0.
+- **Fix applied:** Added `_matches_word_boundary()` using the exact
+  `(?<![a-z0-9_])...(?![a-z0-9_])` pattern `_ui_only()`'s own `BACKEND_SIGNALS`
+  check already used two lines below the bug; applied it to
+  `selected_for()`'s `BEHAVIOUR_SIGNALS`/`UI_SIGNALS` check and to
+  `_ui_only()`'s own `UI_SIGNALS` check (same bug class: `page` inside
+  `homepage`/`webpage` was an identical latent false positive in the same
+  file, fixed at the same time since it shares the exact same fix).
+- **Regression added:** `tests/test_behaviour_planning.py` gained
+  `test_compound_identifier_does_not_falsely_select_behaviour_harness`
+  (the exact `behavior_surface` case), `test_standalone_behavior_word_still_
+  selects_behaviour_harness` (no overcorrection), and
+  `test_compound_identifier_inside_ui_word_does_not_select_ui_only`
+  (`homepage`/`webpage` case). 15/15 pass in `test_behaviour_planning.py`;
+  107/107 pass across that suite plus `test_navigator_core.py` and
+  `test_architecture_planning.py` together.
+- **Note:** `scripts/behaviour_planning.py` has several more bare substring
+  checks further down (lines ~100-214) used for scenario *detail* selection
+  once the harness is already selected, not for the selection gate itself.
+  Those are out of scope for this fix -- Issue 24 was specifically about
+  `selected_for()` causing false-positive harness *selection*, not about
+  which scenario sub-details get generated afterward. Flagged here in case a
+  similar false positive is found in that code later.
+- **Status:** Fixed.
 
 ## 25. New proof-only test files have no revision path into approved anchor scope (Fixed)
 

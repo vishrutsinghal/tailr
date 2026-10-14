@@ -55,6 +55,32 @@ def project(root: Path) -> None:
 
 
 class BehaviourPlanningTests(unittest.TestCase):
+    def test_compound_identifier_does_not_falsely_select_behaviour_harness(self) -> None:
+        """Issues Log 24 regression: `behavior_surface` is a schema field name
+        being defined, not prose describing actual user-facing behavior. A
+        bare substring match on `behavior` inside it must not select the
+        harness."""
+        goal = (
+            "Add a new canonical host input contract JSON Schema covering "
+            "profile, change_intent, request_mode, behavior_surface, path "
+            "role bindings, positive and negative acceptance criteria, and "
+            "a proof binding."
+        )
+        self.assertFalse(behaviour.selected_for(goal))
+
+    def test_standalone_behavior_word_still_selects_behaviour_harness(self) -> None:
+        """The fix must not overcorrect: real prose describing user-facing
+        behavior still selects the harness."""
+        goal = "Fix the checkout behavior so returning customers see the correct order status."
+        self.assertTrue(behaviour.selected_for(goal))
+
+    def test_compound_identifier_inside_ui_word_does_not_select_ui_only(self) -> None:
+        """Same bug class, same fix, applied to _ui_only's own UI_SIGNALS
+        check: `homepage`/`webpage` contain the substring `page` without
+        being UI prose about a page."""
+        goal = "Add a homepage_visit_count field to the analytics API service."
+        self.assertFalse(behaviour._ui_only(goal))
+
     def test_cross_layer_customer_journey_adds_existing_integration_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

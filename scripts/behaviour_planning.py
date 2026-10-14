@@ -24,9 +24,16 @@ UI_SIGNALS = ("ui", "user interface", "frontend", "front end", "screen", "page",
 BACKEND_SIGNALS = ("api", "endpoint", "backend", "service", "database", "server")
 
 
+def _matches_word_boundary(lowered: str, signal: str) -> bool:
+    """Whole-word/phrase match only -- a bare substring match (e.g. `behavior`
+    inside the compound identifier `behavior_surface`) is not evidence of
+    actual user-facing behavior wording (Issues Log 24)."""
+    return bool(re.search(rf"(?<![a-z0-9_]){re.escape(signal)}(?![a-z0-9_])", lowered))
+
+
 def selected_for(goal: str, impacted: list[dict[str, Any]] | None = None) -> bool:
     lowered = goal.lower()
-    if any(signal in lowered for signal in (*BEHAVIOUR_SIGNALS, *UI_SIGNALS)) or " api " in f" {lowered} ":
+    if any(_matches_word_boundary(lowered, signal) for signal in (*BEHAVIOUR_SIGNALS, *UI_SIGNALS)) or " api " in f" {lowered} ":
         return True
     # A Gherkin/BDD scenario file already in scope is itself behavior-level
     # evidence, regardless of whether the goal wording used a signal word.
@@ -45,9 +52,8 @@ def _ui_only(goal: str, requirements: list[dict[str, Any]] | None = None) -> boo
     ):
         return True
     lowered = goal.lower()
-    return any(signal in lowered for signal in UI_SIGNALS) and not any(
-        re.search(rf"(?<![a-z0-9_]){re.escape(signal)}(?![a-z0-9_])", lowered)
-        for signal in BACKEND_SIGNALS
+    return any(_matches_word_boundary(lowered, signal) for signal in UI_SIGNALS) and not any(
+        _matches_word_boundary(lowered, signal) for signal in BACKEND_SIGNALS
     )
 
 
