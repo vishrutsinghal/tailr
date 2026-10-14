@@ -15,6 +15,8 @@ pipeline while keeping Navigator as the only host-facing boundary.
 - Feed validated projections into old and new TailTrail components through
   adapters.
 - Prevent stale or unrelated scope and proof from reaching approval or closure.
+- Prevent correction plans from reaching approval without a validated failing
+  premise, owner participation, and symptom-specific proof.
 - Preserve resumability, replay, CLI/MCP parity, and historical artifacts.
 
 ## Non-Goals
@@ -24,6 +26,11 @@ pipeline while keeping Navigator as the only host-facing boundary.
 - Rewriting historical TailTrail runs.
 - Making every observation a new packet version.
 - Automatically approving inferred implementation ownership.
+- Treating host root-cause or owner hypotheses as authority.
+- Requiring failing baselines for new capabilities, refactors, documentation,
+  or other non-correction profiles.
+- Executing reproduction commands automatically during command-free Debug
+  Start.
 
 ## Core Invariants
 
@@ -41,6 +48,14 @@ pipeline while keeping Navigator as the only host-facing boundary.
 9. Components return typed evidence or clarification events to the pipeline.
 10. CLI, orchestration, MCP, and internal entry points use the same state
     machine and validation rules.
+11. A correction cannot finalize while its premise is `unverified`,
+    `contradicted`, or `already-satisfied`.
+12. The host supplies observations and hypotheses; TailTrail derives the first
+    failing transition and owner participation.
+13. Reproduction and post-change proof are separate requirement-bound objects;
+    executability alone is not semantic coverage.
+14. A post-activation false premise terminates as an audited non-success state
+    and never authorizes cosmetic implementation.
 
 ## Canonical Objects
 
@@ -51,6 +66,7 @@ pipeline while keeping Navigator as the only host-facing boundary.
 | `question_id` | Correlates a Navigator question and host response | Intake pipeline |
 | `observation_id` | Identifies an ingested host observation | Intake pipeline |
 | `answer_id` | Identifies a validated answer | Navigator through pipeline |
+| `premise_binding_id` | Binds a correction premise to its public-route evidence and state | Intake pipeline |
 | `requirement_id` | Identifies a finalized requirement | Navigator through pipeline |
 | `path_binding_id` | Binds a path to a role and requirement | Intake pipeline |
 | `proof_binding_id` | Binds a proof path/command to a requirement | Intake pipeline |
@@ -75,6 +91,10 @@ Freeze the protocol before changing components.
 - Question, observation, answer, packet, projection, and event schemas.
 - Semantic host context schema for request mode, behavior surface, path roles,
   positive/negative criteria, exclusions, and proof surface.
+- Correction-premise schema for change intent, premise state, public route,
+  expected/actual behavior, provenance, evidence references, and owner
+  hypothesis.
+- Separate reproduction and post-change proof-binding schemas.
 - Role enum for existing, proposed, inspection, proof, generated, excluded,
   and external paths.
 - State transition table.
@@ -105,6 +125,9 @@ Freeze the protocol before changing components.
 - Unknown role/state rejection tests.
 - ID uniqueness and deterministic replay tests.
 - Packet-version compatibility tests.
+- Correction-premise state and transition tests.
+- Schema rejection when a correction treats a Planning Lock or scope rejection
+  as defect evidence without an observed public-route failure.
 
 ### Exit criteria
 
@@ -176,6 +199,8 @@ Make Navigator the exclusive host-facing question and clarification boundary.
 - Question issuance through the intake pipeline.
 - Host observation ingestion.
 - Behavior-surface and proof-boundary context collection.
+- Correction-specific expected/actual behavior, public-route, and evidence
+  collection without accepting host root-cause authority.
 - Initial narration ingestion as an observation batch.
 - Candidate-answer extraction mapped to profile fields.
 - Answer normalization and acceptance states.
@@ -232,6 +257,10 @@ narration must produce an explicit candidate mapping before evidence checking.
 - Clarification rounds resume after process interruption.
 - Paused runs can expire or be explicitly abandoned without deleting evidence;
   resuming never approves or activates a run.
+- An unverified correction enters `awaiting-reproduction-input` and creates no
+  Planning Lock.
+- An already-satisfied proposed layer routes to re-diagnosis instead of asking
+  the host to invent a different failure.
 
 ### Exit criteria
 
@@ -287,6 +316,7 @@ Turn accepted answers into one immutable operational packet.
 - Proof binding builder.
 - Candidate-answer to profile-field binding builder.
 - Positive and negative criteria binding.
+- Correction-premise binding and owner-participation evidence binding.
 - Packet finalization command.
 - Anchor-bound packet-view materialization and dependency invalidation on anchor
   revision.
@@ -313,6 +343,11 @@ Existing paths require existence and role evidence. Proposed paths require:
 - Narration-derived candidates use the same evidence gate as direct responses.
 - Changing a requirement creates a new anchor revision and packet view.
 - Dependent scope and proof projections are invalidated after anchor revision.
+- A correction with `unverified`, `contradicted`, or `already-satisfied`
+  premise cannot finalize.
+- A scope or planning failure by itself cannot satisfy the correction premise.
+- A new-capability profile finalizes without a failing baseline when its normal
+  path, criteria, and proof contracts are complete.
 
 ### Exit criteria
 
@@ -320,6 +355,8 @@ Existing paths require existence and role evidence. Proposed paths require:
 - The packet contains all requirement, path, proof, and criteria bindings.
 - Every binding has source answer IDs.
 - No downstream component needs raw host conversation data.
+- Every correction packet has an accepted premise binding and derived
+  owner-participation evidence.
 
 ## Phase 4A: Existing Scope Authority Baseline
 
@@ -426,6 +463,9 @@ Ensure proof is requirement-specific and cannot be replaced by a nearby test.
 - Existing and proposed proof path handling.
 - Requirement-to-command binding.
 - Positive and negative assertion coverage.
+- Separate reproduction and post-change proof bindings for corrections.
+- Assertion/scenario identifiers linking both proof bindings to the reported
+  symptom and preservation criteria.
 - Proof relevance check.
 - Managed execution evidence correlation.
 - Stale proof invalidation after packet revision.
@@ -437,6 +477,10 @@ Ensure proof is requirement-specific and cannot be replaced by a nearby test.
 - A command with no requirement binding is rejected.
 - A passing command that does not cover the requirement remains incomplete.
 - Amended proof remains requirement-bound and auditable.
+- An executable passing suite with no requirement-linked assertion remains
+  unresolved.
+- Reproduction covers the original expected/actual symptom at the public route;
+  post-change proof covers the corrected behavior and preservation boundary.
 
 ### Exit criteria
 
@@ -445,6 +489,8 @@ Ensure proof is requirement-specific and cannot be replaced by a nearby test.
   presentation harness from generic implementation wording.
 - Proof commands are validated before execution.
 - Completion reports retain proof-binding and artifact IDs.
+- Correction completion reports retain premise, reproduction, post-change
+  proof, and owner-participation binding IDs.
 
 ## Phase 6: Component Adapter Integration
 
@@ -508,6 +554,8 @@ Make the pipeline unavoidable and safe across all supported entry points.
 - Resume/replay support.
 - Redaction and retention enforcement.
 - Authorization checks for user decisions and approval.
+- Audited `invalidated-false-premise` non-success disposition after activation,
+  with reason codes including `already-satisfied-no-op`.
 - Event ordering and concurrency controls.
 
 ### Tests
@@ -518,6 +566,9 @@ Make the pipeline unavoidable and safe across all supported entry points.
 - Concurrent answers cannot overwrite a newer anchor revision or packet view.
 - Sensitive observations are redacted in reports and logs.
 - Historical runs remain readable through a compatibility adapter.
+- Contradictory post-activation evidence preserves the anchor and audit trail,
+  prohibits project writes, and requires a separate corrected Start.
+- Invalidated false-premise runs cannot finalize as successful delivery.
 
 ### Exit criteria
 
@@ -525,11 +576,12 @@ Make the pipeline unavoidable and safe across all supported entry points.
 - Recovery does not lose accepted answers or create duplicate IDs.
 - Sensitive host data is not copied into unrestricted artifacts.
 
-## Phase 8: P7 End-to-End Validation
+## Phase 8: P7 and Correction-Premise End-to-End Validation
 
 ### Purpose
 
-Use the original P7 failure as the proving scenario for the complete pipeline.
+Use the original P7 failure and Issue 21 false-premise correction as the proving
+scenarios for the complete pipeline.
 
 ### Negative scenario
 
@@ -573,6 +625,59 @@ Host declares proposed implementation, inspection, and proof paths
 - No generic graph match becomes an owner or proof without accepted evidence.
 - The same packet and binding IDs appear in all downstream artifacts.
 
+### Issue 21 correction-premise scenarios
+
+Negative scenario:
+
+```text
+Host reports a downstream scope failure
+  -> proposes an upstream classifier as root cause
+  -> direct evidence shows that classifier already provides the requested role
+  -> premise becomes already-satisfied/contradicted
+  -> no correction Planning Lock
+  -> Navigator routes re-diagnosis to the next downstream transition
+```
+
+Unverified Debug scenario:
+
+```text
+Host reports a plausible defect with no authoritative reproduction
+  -> command-free Debug Start records orientation only
+  -> awaiting-reproduction-input
+  -> separately approved reproduction
+  -> premise accepted or contradicted
+```
+
+Positive scenario:
+
+```text
+Observed public-route failure with fresh evidence
+  -> TailTrail derives owner participation at the first failing transition
+  -> reproduction and post-change proof bindings cover the same symptom
+  -> packet finalizes
+  -> approval and activation may proceed
+```
+
+Post-activation contradiction:
+
+```text
+New read-only evidence proves the approved layer already satisfied the behavior
+  -> invalidated-false-premise
+  -> no cosmetic edit and no successful closure
+  -> separate Start required for corrected scope
+```
+
+### Issue 21 phase and fix map
+
+| Issue section | Owning phases | Planned fix | Required proof |
+|---|---|---|---|
+| 21.1 failing-premise gate | 0, 2, 3, 8 | Schema and questions for premise state; finalization gate; owner-participation derivation | already-satisfied and unverified corrections create no lock |
+| 21.2 symptom-specific proof | 0, 3, 5, 8 | Separate reproduction/post-change bindings with assertion coverage | unrelated passing suite remains unresolved |
+| 21.3 path-layer conflation | 2, 3, 4A, 4B | Host diagnosis stays a hypothesis; TailTrail records first failing transition and path-binding lineage | downstream failure cannot authorize an upstream owner |
+| 21.4 activated no-op recovery | 1B, 6, 7, 8 | Append-only invalidation event and non-success terminal disposition | invalidated run blocks writes and cannot report successful closure |
+| 21.5 one-time observations | 3-7 owning adapters | Focused regressions only; no new canonical host fields until reproduced | typed inspect envelope, proposed-new routing, role preservation, metadata isolation as separately owned tests |
+| 21.6 corrected workflow | 2, 3, 5, 7, 8 | End-to-end premise-to-proof flow with approved Debug reproduction boundary | negative, unverified, positive, and post-activation scenarios above |
+
 ## Migration Strategy
 
 Existing runs and components must remain usable during rollout.
@@ -602,7 +707,7 @@ for Phase 8 before becoming safer.
 | 5 | Requirement-specific proof and rejection of nearby unrelated tests |
 | 6 | Safe plug-and-play component integration without direct host access |
 | 7 | CLI/MCP parity, recovery, replay, redaction, and entry-point hardening |
-| 8 | End-to-end P7 validation and acceptance evidence |
+| 8 | End-to-end P7 and correction-premise validation and acceptance evidence |
 
 The first major user-facing value arrives in Phase 2. The first major safety
 value arrives in Phase 4B, while Phase 4A verifies the existing baseline. Phase
@@ -621,6 +726,8 @@ Track at least:
 - stale component submissions;
 - scope violations prevented;
 - proof relevance failures;
+- correction-premise states, re-diagnosis routes, and no-op plans prevented;
+- unverified corrections routed to approved reproduction;
 - replay and recovery outcomes;
 - CLI/MCP projection parity.
 
@@ -636,6 +743,10 @@ Track at least:
   tests before migration.
 - Host observations may contain secrets. Redact at ingestion, not only during
   report rendering.
+- A premise gate could be over-applied to new work. Apply it only when
+  `change_intent=correction`; other profiles keep their existing criteria.
+- Reproduction evidence may become stale. Bind it to target identity, relevant
+  content fingerprints, command/artifact provenance, and observation time.
 
 ## Definition of Done
 
@@ -647,11 +758,16 @@ The implementation is complete when:
 - finalized packets are immutable views bound to one anchor version;
 - every editable path is bound to an answer, packet view, and anchor version;
 - every proof command is bound to a requirement;
+- every correction has an accepted premise binding, derived owner-participation
+  evidence, and separate symptom-specific reproduction/post-change proof;
 - internal components consume projections and emit typed events only;
 - CLI, orchestration, and MCP behavior is equivalent;
 - incomplete P7 input produces clarification rather than inferred scope;
 - complete P7 input produces end-to-end traceable evidence;
 - historical runs remain readable.
+- false-premise corrections cannot reach approval, and contradictions found
+  after activation terminate audibly without cosmetic edits or successful
+  closure.
 
 ## Independent Review Findings (read-only review captured before resolution)
 

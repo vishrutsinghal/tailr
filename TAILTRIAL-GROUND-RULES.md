@@ -91,6 +91,18 @@ instead of rediscovering it.
    Commit the reviewed prior correction, reference the approved prior run, or
    record an anchor correction so legitimate earlier edits are not reported as
    unexplained drift.
+19. **Validate the correction premise before persistence.** A corrective Start
+   requires current read-only evidence that the reported behavior fails at the
+   real public route and that the proposed owner participates in that failure.
+   A planning or scope rejection alone is not root-cause evidence.
+20. **Do not conflate path-policy layers.** Workspace eligibility, repository
+   file-kind, requirement ownership, approved-anchor authority, and write-time
+   enforcement are separate decisions. Identify the first failing transition
+   before naming an implementation owner.
+21. **No cosmetic fixes for no-op plans.** Focused proof must exercise the
+   reported symptom and preservation criteria. If approved behavior already
+   exists, stop instead of manufacturing a source change; report the run
+   incomplete and plan the actual failing layer separately.
 
 ## 3. Command wiring checklist
 

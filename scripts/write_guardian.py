@@ -9,11 +9,10 @@ Three enforcement surfaces, all with explicit arguments (no guessing):
   paths against the active badge *before* approval, since host-agent
   writes happen outside this repo and cannot be intercepted in-process.
 - the ``hook`` CLI entrypoint (``main()``) — closes that last gap for
-  hosts that support a pre-write interception point. Registered as a
-  Claude Code ``PreToolUse`` hook on Edit/Write/NotebookEdit, it reads
-  the edited path from the hook's own stdin JSON and denies the tool
-  call in real time when it falls outside the active run's approved
-  scope, instead of only catching the drift after the fact at closure.
+  hosts that support a pre-write interception point. It normalizes Claude,
+  Codex ``apply_patch``, and GitHub Copilot hook payloads, then denies the
+  tool call in real time when any edited path falls outside the active run's
+  approved scope instead of only catching the drift after the fact at closure.
 
 A guardian without a pipeline run denies writes unless the caller openly
 declares ``permissive=True`` (installer flows, which have no run by
@@ -24,6 +23,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -415,48 +415,178 @@ def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, 
     return judge.validate_write_access(path)
 
 
-def _hook_response(decision: str, reason: str | None = None) -> dict[str, Any]:
+def _hook_response(
+    decision: str,
+    reason: str | None = None,
+    *,
+    native_copilot: bool = False,
+) -> dict[str, Any]:
+    if native_copilot:
+        output: dict[str, Any] = {"permissionDecision": decision}
+        if reason:
+            output["permissionDecisionReason"] = reason
+        return output
     output: dict[str, Any] = {"hookEventName": "PreToolUse", "permissionDecision": decision}
     if reason:
         output["permissionDecisionReason"] = reason
     return {"hookSpecificOutput": output}
 
 
+_WRITE_TOOL_NAMES = {
+    "apply_patch",
+    "create",
+    "edit",
+    "notebookedit",
+    "str_replace_editor",
+    "write",
+}
+_PATCH_FILE_HEADER = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$")
+_PATCH_MOVE_HEADER = re.compile(r"^\*\*\* Move to: (.+)$")
+
+
+def _hook_tool_name(payload: dict[str, Any]) -> str | None:
+    """Return the normalized tool name from snake_case or Copilot camelCase."""
+    value = payload.get("tool_name", payload.get("toolName"))
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _hook_tool_input(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Return parsed tool arguments from Claude/Codex or Copilot payloads."""
+    value = payload.get("tool_input", payload.get("toolArgs"))
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+        return decoded if isinstance(decoded, dict) else None
+    return None
+
+
+def _apply_patch_paths(command: Any) -> list[str] | None:
+    """Extract every source and destination path from one Codex patch command."""
+    if not isinstance(command, str) or "*** Begin Patch" not in command or "*** End Patch" not in command:
+        return None
+    paths: list[str] = []
+    for line in command.splitlines():
+        match = _PATCH_FILE_HEADER.match(line) or _PATCH_MOVE_HEADER.match(line)
+        if match:
+            path = match.group(1).strip()
+            if not path:
+                return None
+            paths.append(path)
+    return list(dict.fromkeys(paths)) if paths else None
+
+
+def _write_paths(tool_name: str, tool_input: dict[str, Any]) -> list[str] | None:
+    """Extract all edited paths without guessing when a write payload is ambiguous."""
+    command = tool_input.get("command")
+    if tool_name.lower() == "apply_patch" or (
+        isinstance(command, str) and "*** Begin Patch" in command
+    ):
+        return _apply_patch_paths(command)
+    for key in ("file_path", "path", "notebook_path"):
+        value = tool_input.get(key)
+        if isinstance(value, str) and value.strip():
+            return [value.strip()]
+    return None
+
+
+def _hook_root(cwd: Path) -> Path:
+    """Find the nearest TailTrail project root when a host starts below it."""
+    resolved = cwd.resolve()
+    for candidate in (resolved, *resolved.parents):
+        if (candidate / ".tailtrail" / "runs").is_dir():
+            return candidate
+    return resolved
+
+
+def _active_run_payload_error(
+    run_id: str,
+    tool_name: str,
+    detail: str,
+    *,
+    native_copilot: bool = False,
+) -> dict[str, Any]:
+    return _hook_response(
+        "deny",
+        f"Write access denied: active TailTrail run `{run_id}` could not validate "
+        f"the `{tool_name}` payload ({detail}).",
+        native_copilot=native_copilot,
+    )
+
+
 def run_hook(payload: dict[str, Any]) -> dict[str, Any] | None:
     """Decide one PreToolUse event. Returns a hook response, or None to allow silently.
 
-    Fails open on anything unexpected (missing fields, no active run,
-    path outside the project, no anchor yet): a bug here must never
-    become a blanket block on unrelated work. Only an affirmative,
-    evidence-backed scope violation produces a "deny" response.
+    Non-write tools and work with no active TailTrail run pass silently. Once
+    a run is active, malformed or ambiguous write payloads fail closed: the
+    hook must identify and validate every edited path before bytes reach disk.
     """
-    if payload.get("tool_name") not in {"Edit", "Write", "NotebookEdit"}:
+    native_copilot = "toolName" in payload or "toolArgs" in payload
+    tool_name = _hook_tool_name(payload)
+    if tool_name is None or tool_name.lower() not in _WRITE_TOOL_NAMES:
         return None
-    tool_input = payload.get("tool_input")
-    if not isinstance(tool_input, dict):
-        return None
-    file_path = tool_input.get("file_path")
     cwd = payload.get("cwd")
-    if not file_path or not cwd:
+    if not isinstance(cwd, str) or not cwd.strip():
+        explicit_run = os.environ.get("TAILTRAIL_ACTIVE_RUN_ID")
+        if explicit_run:
+            return _active_run_payload_error(
+                explicit_run,
+                tool_name,
+                "missing cwd",
+                native_copilot=native_copilot,
+            )
         return None
-    root = Path(cwd).resolve()
-    guardian = WriteGuardian(root, permissive=True)
-    if guardian.is_exempt(Path(file_path)):
-        return None
+    working_dir = Path(cwd).resolve()
+    root = _hook_root(working_dir)
     run_id = resolve_active_run(root)
     if run_id is None:
         return None
-    try:
-        relative_path = Path(file_path).resolve().relative_to(root).as_posix()
-    except ValueError:
-        return None
-    try:
-        allowed, error = anchor_aware_write_check(root, run_id, relative_path)
-    except Exception:
-        return None
-    if allowed:
-        return None
-    return _hook_response("deny", error)
+    tool_input = _hook_tool_input(payload)
+    if tool_input is None:
+        return _active_run_payload_error(
+            run_id,
+            tool_name,
+            "missing or invalid tool input",
+            native_copilot=native_copilot,
+        )
+    raw_paths = _write_paths(tool_name, tool_input)
+    if raw_paths is None:
+        return _active_run_payload_error(
+            run_id,
+            tool_name,
+            "no complete edited-path set",
+            native_copilot=native_copilot,
+        )
+
+    guardian = WriteGuardian(root, run_id)
+    for raw_path in raw_paths:
+        candidate = Path(raw_path)
+        absolute = candidate.resolve() if candidate.is_absolute() else (working_dir / candidate).resolve()
+        if guardian.is_exempt(absolute):
+            continue
+        try:
+            relative_path = absolute.relative_to(root).as_posix()
+        except ValueError:
+            return _hook_response(
+                "deny",
+                f"Write access denied: Path `{absolute}` is outside the project root `{root}`.",
+                native_copilot=native_copilot,
+            )
+        try:
+            allowed, error = anchor_aware_write_check(root, run_id, relative_path)
+        except Exception as exc:
+            return _active_run_payload_error(
+                run_id,
+                tool_name,
+                f"scope validation failed: {type(exc).__name__}",
+                native_copilot=native_copilot,
+            )
+        if not allowed:
+            return _hook_response("deny", error, native_copilot=native_copilot)
+    return None
 
 
 def main() -> int:

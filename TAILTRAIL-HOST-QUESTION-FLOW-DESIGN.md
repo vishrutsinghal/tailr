@@ -55,6 +55,7 @@ The profiler should classify the request before detailed scope resolution.
 Relevant dimensions include:
 
 - task type: implementation, documentation, QA, infrastructure, or review;
+- change intent: correction, new capability, refactor, validation, or prose-only;
 - existing file versus proposed new file;
 - single-file versus multi-file change;
 - source, configuration, data, documentation, or test paths;
@@ -93,7 +94,12 @@ Ask only:
 
 Ask:
 
-- Which existing path owns the behavior?
+- Is this a correction, and if so what observable behavior is wrong?
+- Which public route produced the observation, and what were the expected and
+  actual results?
+- Does existing evidence already reproduce the symptom, or is a separately
+  approved reproduction still required?
+- Which existing path participates in the behavior or is suspected by the host?
 - What behavior changes?
 - Which callers or consumers must remain compatible?
 - Which existing test proves the behavior?
@@ -194,6 +200,63 @@ them and converts accepted values into the finalized packet. The host cannot
 mark the behavior surface, owner, proof, or criteria as accepted by assertion
 alone.
 
+## Correction Premise Contract (Issue 21)
+
+Correction work needs one additional boundary before requirement and scope
+finalization: TailTrail must establish that the claimed behavior is actually
+missing or failing at the relevant public route. A rejected scope answer,
+ambiguous Planning Lock, or failed host proposal proves only that planning
+could not establish authority; it is not evidence that the nearest source
+classifier is defective.
+
+The host may report observations and a proposed diagnosis, but the diagnosis
+never grants ownership:
+
+```json
+{
+  "change_intent": "correction",
+  "correction_premise": {
+    "state": "observed-failing",
+    "public_route": "Navigator proposed-new configuration scope",
+    "expected_behavior": "The proposed Copilot hook path can own its requirement.",
+    "actual_behavior": "Scope finalization rejected or replaced the proposed path.",
+    "observation_source": "host-inspection",
+    "evidence_refs": ["observation-42"]
+  },
+  "owner_hypothesis": {
+    "path": "scripts/navigator_scope.py",
+    "status": "proposed"
+  },
+  "proof": {
+    "reproduction_binding": "proof-binding-repro-7",
+    "post_change_binding": "proof-binding-fix-8"
+  }
+}
+```
+
+`owner_hypothesis` is deliberately weaker than a path binding. Navigator and
+the due-diligence pipeline must establish the first failing transition and the
+candidate owner's participation through repository evidence before the path
+can become an implementation owner.
+
+| Premise state | Meaning | Required route |
+|---|---|---|
+| `observed-failing` | Current evidence shows expected versus actual behavior at the public route | Validate evidence freshness and owner participation |
+| `unverified` | The report is plausible but has no authoritative reproduction | `awaiting-reproduction-input`; no Planning Lock |
+| `contradicted` | Current evidence conflicts with the claimed failure or proposed diagnosis | Navigator clarification or user decision |
+| `already-satisfied` | The proposed layer already provides the requested behavior | no-op/re-diagnosis route; no correction Planning Lock |
+| `not-applicable` | The task is a new capability, refactor, documentation, or other non-correction profile | use that profile's normal contract |
+
+A Debug Start remains command-free. When reproduction evidence is missing, the
+contract records `unverified` and routes to the separately approved Debug
+reproduction lifecycle; it must not silently run project or test commands
+during Start.
+
+Reproduction and post-change proof are different bindings. Reproduction shows
+the original symptom at the public route. Post-change proof must cover the same
+positive behavior plus its preservation boundary. An executable passing suite
+with no requirement-linked assertion is not symptom-specific proof.
+
 The `behavior_surface` value determines the appropriate evidence shape:
 
 | Surface | Appropriate evidence |
@@ -222,11 +285,15 @@ For the proof-selection correction, the host context should therefore say:
 
 After receiving the host answers, TailTrail independently checks:
 
+- correction premise state, evidence freshness, and public-route specificity;
+- whether the proposed owner participates in the first failing transition;
 - paths exist or are explicitly proposed as new;
 - roles do not conflict;
 - implementation ownership has evidence;
 - proof is relevant to the requirement;
 - validation commands are executable;
+- reproduction and post-change proof are requirement-specific rather than
+  merely executable;
 - test paths are not promoted to implementation owners;
 - generated and worktree paths are excluded from product scope;
 - positive and negative criteria are covered;
@@ -239,6 +306,8 @@ The internal due-diligence result should be one of:
 - user-decision: route a product or scope choice through Navigator to the user;
 - revise-profile: change the task profile and ask a smaller or different set of
   questions.
+- re-diagnose: the claimed layer already satisfies the behavior, so preserve
+  the observation and return through Navigator without a correction lock.
 
 TailTrail must not promote a generic graph match into an implementation owner
 when the host contract is incomplete.
@@ -253,6 +322,8 @@ intake
   -> awaiting-host-answers
   -> due-diligence
   -> awaiting-clarification
+  -> awaiting-reproduction-input
+  -> premise-validated
   -> awaiting-user-decision
   -> requirements-finalized
   -> internal-due-diligence
@@ -261,6 +332,11 @@ intake
   -> approved
   -> activated
 ```
+
+`activated` continues into the normal execution lifecycle. Only contradictory
+read-only evidence creates the exceptional branch
+`activated -> invalidated-false-premise`; invalidation is never the default
+post-activation transition.
 
 A missing answer keeps the run resumable. It does not create a Planning Lock and
 does not silently infer scope.
@@ -304,6 +380,8 @@ The workflow should not loop indefinitely between the host and TailTrail.
 ### Host
 
 - provide the user's goal and known context;
+- report observable expected/actual behavior and existing evidence for a
+  correction, while labeling any root-cause or owner statement as a hypothesis;
 - answer profile-specific questions with facts only the host can know
   (goals, paths involved, proof commands, what must stay unchanged) --
   never roles, ownership verdicts, or scope claims; those are derived
@@ -315,6 +393,8 @@ The workflow should not loop indefinitely between the host and TailTrail.
 ### Navigator
 
 - select the task profile;
+- validate correction-premise state and route missing evidence to clarification
+  or the approved reproduction lifecycle;
 - generate the smallest relevant question set;
 - collect and validate host answers;
 - finalize the requirement and scope packet;
@@ -617,6 +697,11 @@ For a proposed proof path, checks include requirement binding, command
 specificity, and the requirement that the path be created and run before
 completion.
 
+For a correction premise, checks include a public route, expected and actual
+behavior, evidence freshness, observation provenance, and evidence that the
+proposed owner participates in the first failing transition. Scope or approval
+failures are not accepted as defect reproduction evidence.
+
 ## Authority by Input Type
 
 | Input | Immediate meaning | Can grant authority? |
@@ -894,6 +979,8 @@ The pipeline design still needs explicit decisions for:
   storage boundaries for host answers;
 - whether components may reject a projection or must return a typed
   clarification event.
+- the exact evidence freshness policy for correction premises and the audited
+  transition into `invalidated-false-premise` after activation.
 
 The most important gap is the proposed-new path lifecycle. A new file cannot
 have normal relationship evidence before it exists, so the contract must allow
@@ -916,11 +1003,36 @@ remain implementation or workflow work.
 | 18 | Generic adapter wording selected presentation planning | Lexical classifier treated `component` as a presentation keyword | Use contextual presentation signals; generic adapter/component language must not route presentation work | Fixed locally; closure evidence pending |
 | 19 | Helper script selected as executable proof | Proof selection trusted a linked script without checking test collection or execution semantics | Validate proof collection before approval; reject zero-test helpers and select real test modules | Open |
 | 20 | Correction runs reported unrelated dirty paths as drift | Sequential runs shared a dirty worktree without a committed or explicitly approved baseline | Bind correction runs to a clean/shared-worktree baseline and distinguish approved prior edits from new drift | Open |
+| 21 | Copilot-hook planning accepted a no-op classifier correction | The host supplied a downstream planning failure as an upstream classifier diagnosis; Start validated structural completeness without a failing-premise or symptom-specific-proof gate | Add the correction-premise contract, derived owner-participation evidence, semantic proof binding, and audited no-op recovery | Open |
 
 The table is a design input, not a replacement for the detailed entries in
 `TAILTRAIL-ISSUES-LOG.md`. A future implementation must preserve the issue IDs
 in answer, scope, proof, and completion evidence where the issue affects that
 stage.
+
+### Issue 21 design disposition
+
+| Issue section | Contract fit | Root cause | Design response |
+|---|---|---|---|
+| 21.1 failing-premise gate | Full | A complete-looking correction could finalize without evidence that the behavior failed at the proposed layer | Add `correction_premise`, premise states, public-route evidence, and a finalization gate |
+| 21.2 symptom-specific proof | Full | Executability was treated as enough even when no assertion covered the symptom | Split reproduction/post-change bindings and require requirement-linked positive and preservation coverage |
+| 21.3 path layers conflated | Partial | Host diagnosis collapsed workspace eligibility, file-kind, requirement ownership, anchor authority, and write enforcement | Treat root cause and owner as hypotheses; TailTrail derives the first failing transition and owner participation |
+| 21.4 activated no-op recovery | Partial | Immutable activation had no explicit non-success disposition for later contradictory evidence | Add `invalidated-false-premise`; preserve history, prohibit edits, require a separate corrected Start |
+| 21.5 one-time observations | Regression backlog only | Individual route, owner-selection, and metadata behaviors need isolated reproduction | Keep them out of canonical host fields; add focused regressions to their owning phases |
+| 21.6 corrected workflow | Full, adjusted | The original flow allowed planning before premise validation | Insert premise validation before finalization; missing Debug evidence routes to separately approved reproduction, never automatic Start execution |
+
+The Issue 21 acceptance sequence is:
+
+```text
+host reports observable expected/actual behavior
+  -> Navigator classifies correction intent
+  -> premise evidence accepted, contradicted, or marked unverified
+  -> unverified Debug work waits for approved reproduction
+  -> TailTrail derives first failing transition and owner participation
+  -> symptom-specific reproduction and post-change proof are bound
+  -> finalized packet and Planning Lock
+  -> post-activation contradiction, if any, invalidates as a non-success no-op
+```
 
 ## Migration Strategy
 

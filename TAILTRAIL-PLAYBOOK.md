@@ -437,3 +437,21 @@ correction plan:
   focused suite does not clear an invalid original proof contract, stale packet
   scope, or a selected Behaviour/Architecture harness without its required
   evidence.
+
+## 15. Validate a correction before planning it
+
+- **Prove the premise at the real call site before Start.** A rejected scope
+  answer or Planning Lock proves only that planning could not establish
+  authority; it does not prove the nearest classifier is defective. Reproduce
+  the reported behavior read-only, and do not plan a correction for a layer
+  where the behavior already succeeds.
+- **Keep path decisions separate.** Trace workspace eligibility, repository
+  file-kind, requirement ownership/proposed-new grounding, approved-anchor
+  authority, and write-time enforcement independently. The first failing
+  transition owns the investigation; never assign a downstream failure to an
+  upstream policy without call-chain evidence.
+- **Require symptom-specific proof and stop no-op work.** Before approval, the
+  proof must exercise the reported positive behavior and preservation boundary,
+  not merely name a passing suite. If post-approval inspection shows the
+  approved behavior already exists, do not add cosmetic code for evidence;
+  report the run incomplete and plan the actual failing layer separately.

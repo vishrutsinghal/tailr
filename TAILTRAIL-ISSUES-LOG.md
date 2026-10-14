@@ -28,6 +28,7 @@ the entries there.
 | 18 | Generic `component` wording activates presentation planning | **Fixed locally** (84 navigator-core tests pass; closure evidence pending) |
 | 19 | Focused validation selects a helper script as an executable test proof | Open -- proof contract needs test-suite validation |
 | 20 | Separate correction runs inherit unrelated dirty paths and report changed-beyond-approved | Open -- correction-run isolation/dirty-worktree policy needed |
+| 21 | Copilot-hook planning accepted a no-op correction and exposed host/product boundary gaps | Open -- premise/proof gates needed; host guidance added |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -2621,3 +2622,141 @@ uncommitted source/test edits were present in the shared worktree.
   approved changes from unrelated dirty changes already present at Start.
 - **Status:** Open. No source correction is required for the two completed
   fixes, but run-isolation policy needs a design and regression test.
+
+## 21. Copilot-hook planning accepted a no-op correction and exposed host/product boundary gaps (Open)
+
+**Context:** While planning a repository-local GitHub Copilot `preToolUse`
+hook at `.github/hooks/tailtrail-write-guardian.json`, the host treated a
+scope-planning failure as evidence that `scripts/repository_path_policy.py`
+could not classify the path. Run `start-20261013164726-9dc305` was approved
+and activated for that classifier correction. The first post-approval direct
+probe showed that the premise was false:
+
+```text
+repository_path_policy.classify_path(...) -> application / application-path
+navigator_scope.classify_repository_role(...) -> configuration / configuration-path-convention
+```
+
+No source edit was made. The run correctly remained `evidence-incomplete`,
+but approval and activation had already frozen a correction that could not
+solve the Copilot-hook planning problem.
+
+### 21.1 Confirmed gap: corrective plans have no failing-premise gate
+
+- **Symptom:** A structurally complete Start could be approved even though the
+  proposed owner already produced the requested behavior.
+- **Cause:** The host supplied the wrong diagnosis, and TailTrail validated
+  scope/proof structure without requiring evidence that the reported symptom
+  currently failed at the public route or that the proposed owner participated
+  in that failure.
+- **Impact:** Approval made an incorrect correction immutable. Implementing it
+  would have required cosmetic or dead code merely to produce changed-path
+  evidence.
+- **Recommended fix:** Add a correction-premise field to the host-input and
+  Start contracts: exact failing public route, observed failure, proposed
+  owner's participation, and preservation baseline. A correction plan must be
+  non-approvable when the behavior already passes at the proposed layer. Route
+  that case back to read-only diagnosis of the next downstream transition.
+- **Required regression:** Build a Start for a behavior that already passes in
+  the named owner and assert that no approvable Planning Lock is produced.
+- **Status:** Open. Host-side prevention is now documented in
+  `TAILTRAIL-PLAYBOOK.md` Section 15 and Ground Rules 19-21; no product gate
+  exists yet.
+
+### 21.2 Confirmed gap: proof can be executable but not symptom-specific
+
+- **Symptom:** The correction plan carried a runnable repository-policy test
+  command, but the suite had no assertion for
+  `.github/hooks/tailtrail-write-guardian.json` or the proposed-new Copilot
+  planning route.
+- **Impact:** The plan appeared proof-complete even though a green command could
+  not validate the claimed defect or distinguish a real fix from a no-op.
+- **Recommended fix:** Require each correction proof contract to identify the
+  collected assertion or scenario covering the reported positive behavior and
+  preservation boundary. Executability and non-zero collection remain
+  necessary but are not sufficient. If no such assertion exists, focused
+  validation stays unresolved until a test plan is approved.
+- **Required regression:** Present an executable passing suite with no
+  requirement-linked assertion and verify that Start reports proof unresolved.
+- **Status:** Open; related to Issue 19, but this gap concerns semantic coverage
+  rather than zero-test or import-failing proof candidates.
+
+### 21.3 Host error: path-policy layers were conflated
+
+The host incorrectly treated these separate decisions as one classifier:
+
+1. workspace eligibility in `repository_path_policy.py`;
+2. repository file-kind in `navigator_scope.py`;
+3. requirement ownership and proposed-new grounding;
+4. approved-anchor authority;
+5. write-time pipeline enforcement in `write_guardian.py`.
+
+The scope failure occurred downstream, but the proposed correction targeted
+the first layer. This was primarily a host diagnosis failure, not evidence of
+a repository-policy defect.
+
+- **Prevention:** Trace the full decision chain and identify the first failing
+  transition before Start. A rejected scope answer or Planning Lock proves
+  only that planning could not establish authority.
+- **Status:** Mitigated in `TAILTRAIL-PLAYBOOK.md` Section 15 and Ground Rules
+  19-21. Product-side premise and semantic-proof gates are still recommended.
+
+### 21.4 Recovery gap: an activated no-op plan has no explicit disposition
+
+- **Symptom:** Once the false-premise plan was activated, Interactive Plan Mode
+  could no longer revise it. The only safe behavior was to make no edit and
+  return an `evidence-incomplete` Completion Report.
+- **Assessment:** Immutability is intentional and should remain. The gap is the
+  absence of a clear terminal disposition for an approved plan invalidated by
+  new read-only evidence.
+- **Recommended fix:** Add a non-success terminal state such as
+  `invalidated-no-op` or `invalidated-false-premise`. It must preserve the
+  approved anchor and audit history, prohibit implementation, record the
+  contradictory evidence, and require a separate Start for any corrected
+  scope. It must never be reported as successful closure.
+- **Status:** Open usability/recovery recommendation.
+
+### 21.5 One-time observations requiring isolated reproduction
+
+The same investigation also observed the following, but they must be
+reproduced in clean focused tests before being promoted to confirmed defects:
+
+- `navigator scope inspect` raised `KeyError: 'scope_evidence'` for a neutral
+  correction goal. Recommended fix: every inspect route returns a typed scope
+  envelope, including unavailable/deferred/error states, and the renderer
+  never indexes an optional field directly.
+- A `new:` answer reported that canonical Navigator scope evidence was
+  required even though the target was a valid missing configuration path.
+  Recommended fix: ensure the CLI exposes a scope-answer prompt only when the
+  same request carries the canonical packet needed to resolve it; otherwise
+  return the precise proposal route.
+- Navigator initially introduced `tests/test_code_graph_cache.py` as an
+  implementation owner for the repository-policy correction. Recommended fix:
+  test-role paths remain proof-only for implementation tasks unless the user
+  explicitly requests a QA-only change.
+- Planning rewrote `tailtrail-meta/code-graph-cache.json` and
+  `tailtrail-meta/navigator-run-mappings-v1.json`, increasing dirty-worktree
+  noise. Recommended fix: keep planning metadata transactional or explicitly
+  exclude expected metadata writes from later project-scope drift while still
+  auditing them as TailTrail state.
+
+- **Status:** Needs isolated reproduction. Do not claim these items fixed or
+  use them as implementation authority until focused regressions establish the
+  exact failing routes.
+
+### 21.6 Correct host workflow
+
+For future correction work, the mandatory sequence is:
+
+```text
+reproduce the exact failure read-only
+  -> trace decision layers and first failing transition
+  -> prove the proposed owner participates
+  -> bind symptom-specific positive and preservation proof
+  -> persist Start and review scope/proof
+  -> approve and activate
+  -> implement; stop if new evidence proves the plan is a no-op
+```
+
+This sequence prevents TailTrail from faithfully freezing a complete but
+technically incorrect host diagnosis.

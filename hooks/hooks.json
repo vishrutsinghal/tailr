@@ -1,0 +1,19 @@
+{
+  "description": "TailTrail pre-write scope enforcement for Codex.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/write_guardian.py\"",
+            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\write_guardian.py\"",
+            "timeout": 30,
+            "statusMessage": "Checking TailTrail approved write scope"
+          }
+        ]
+      }
+    ]
+  }
+}

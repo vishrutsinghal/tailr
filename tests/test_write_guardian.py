@@ -21,6 +21,7 @@ from write_guardian import (  # noqa: E402
     WriteGuardian,
     anchor_aware_write_check,
     guard_write,
+    run_hook,
     validate_planned_paths,
 )
 
@@ -117,6 +118,90 @@ class WriteGuardianTests(unittest.TestCase):
         allowed, error = anchor_aware_write_check(self.root, self.run_id, "registry.json")
         self.assertFalse(allowed)
         self.assertIn("not in run", error or "")
+
+    def test_codex_apply_patch_allows_only_approved_paths(self) -> None:
+        self._write_anchor([{"likely_paths": ["src/app.py"]}])
+        allowed = run_hook({
+            "tool_name": "apply_patch",
+            "tool_input": {
+                "command": "*** Begin Patch\n*** Update File: src/app.py\n@@\n-print(\"old\")\n+print(\"new\")\n*** End Patch",
+            },
+            "cwd": str(self.root),
+        })
+        self.assertIsNone(allowed)
+
+        denied = run_hook({
+            "tool_name": "apply_patch",
+            "tool_input": {
+                "command": (
+                    "*** Begin Patch\n"
+                    "*** Update File: src/app.py\n"
+                    "@@\n-old\n+new\n"
+                    "*** Update File: tests/test_app.py\n"
+                    "@@\n-old\n+new\n"
+                    "*** End Patch"
+                ),
+            },
+            "cwd": str(self.root),
+        })
+        self.assertEqual("deny", denied["hookSpecificOutput"]["permissionDecision"])
+        self.assertIn("tests/test_app.py", denied["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_copilot_camel_case_json_args_are_normalized(self) -> None:
+        self._write_anchor([{"likely_paths": ["src/app.py"]}])
+        response = run_hook({
+            "toolName": "edit",
+            "toolArgs": json.dumps({"path": str(self.root / "src" / "app.py")}),
+            "cwd": str(self.root),
+        })
+        self.assertIsNone(response)
+
+    def test_copilot_native_denial_uses_top_level_decision_envelope(self) -> None:
+        self._write_anchor([{"likely_paths": ["src/app.py"]}])
+        response = run_hook({
+            "toolName": "edit",
+            "toolArgs": {"path": str(self.root / "tests" / "test_app.py")},
+            "cwd": str(self.root),
+        })
+        self.assertEqual("deny", response["permissionDecision"])
+        self.assertIn("tests/test_app.py", response["permissionDecisionReason"])
+        self.assertNotIn("hookSpecificOutput", response)
+
+    def test_copilot_pascal_case_alias_is_normalized(self) -> None:
+        self._write_anchor([{"likely_paths": ["src/app.py"]}])
+        response = run_hook({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {"file_path": str(self.root / "tests" / "test_app.py")},
+            "cwd": str(self.root),
+        })
+        self.assertEqual("deny", response["hookSpecificOutput"]["permissionDecision"])
+
+    def test_active_run_denies_malformed_write_payload(self) -> None:
+        response = run_hook({
+            "tool_name": "apply_patch",
+            "tool_input": {"command": "not a complete patch"},
+            "cwd": str(self.root),
+        })
+        self.assertEqual("deny", response["hookSpecificOutput"]["permissionDecision"])
+        self.assertIn("no complete edited-path set", response["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_non_edit_tool_is_unchanged(self) -> None:
+        response = run_hook({
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(self.root / "tests" / "test_app.py")},
+            "cwd": str(self.root),
+        })
+        self.assertIsNone(response)
+
+    def test_codex_hook_config_is_synchronous(self) -> None:
+        config = json.loads((REPO / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+        groups = config["hooks"]["PreToolUse"]
+        self.assertEqual("Edit|Write", groups[0]["matcher"])
+        handler = groups[0]["hooks"][0]
+        self.assertEqual("command", handler["type"])
+        self.assertIn("scripts/write_guardian.py", handler["command"])
+        self.assertIsNot(handler.get("async"), True)
 
 
 if __name__ == "__main__":
