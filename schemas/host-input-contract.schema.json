@@ -27,11 +27,12 @@
     "private_reasoning_excluded": { "const": true },
 
     "profile": {
-      "description": "The flattened Phase 2 task profile. Task type and change intent are input dimensions that select this value; they are not a second profile list.",
+      "description": "The flattened Phase 2 task profile. Task type and change intent are input dimensions that select this value; they are not a second profile list. `greenfield-new-project` (TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md Phase N5, Open Question 5) reuses `new feature`'s question set as-is -- it is not a distinct question design, since the greenfield case is just what the New-File Due-Diligence Protocol's six checks naturally produce when a near-empty repository has no evidence to search.",
       "enum": [
         "documentation-only",
         "existing-code change",
         "new feature",
+        "greenfield-new-project",
         "configuration/data",
         "QA/validation-only",
         "review/read-only"

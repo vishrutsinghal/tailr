@@ -3285,6 +3285,48 @@ class UnavailableRouteAnswerTests(unittest.TestCase):
             self.assertEqual(decision["round"], 2)
             self.assertIn("scope_evidence_fingerprint", navigator["scope_host_packet"])
 
+    def test_declared_new_file_in_untouched_directory_is_grounded(self) -> None:
+        # TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md Phase N5: a `new:`
+        # answer into a directory with zero repository evidence either way
+        # resolves via the six-check protocol, not a bare directory-
+        # membership heuristic.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            document, packet = self._packet(root)
+            updated, errors = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, ["new:fresh/thing.py"], 1)
+        self.assertEqual(errors, [])
+        assert updated is not None
+        self.assertEqual(updated["state"], "resolved")
+        disposition = updated["answer_dispositions"][0]
+        self.assertEqual(disposition["status"], "declared-new")
+        self.assertEqual(disposition["reason_codes"], [])
+        requirement = updated["requirements"][0]
+        self.assertEqual(requirement["implementation_owners"], ["fresh/thing.py"])
+        self.assertEqual(requirement.get("owner_kind"), "declared-new")
+
+    def test_declared_new_file_near_duplicate_directory_is_rejected(self) -> None:
+        # The live incident this protocol exists to catch: proposing
+        # `validate2/user.py` while `validate/user.py` already exists must
+        # never ground silently, even though `validate2/` itself has no
+        # existing owner -- the old same-directory-only heuristic accepted
+        # this; the six-check protocol's Check 3b does not.
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "validate").mkdir()
+            (root / "validate" / "user.py").write_text("def validate_user():\n    return True\n", encoding="utf-8")
+            document, packet = self._packet(root)
+            updated, errors = navigator_scope.resolve_unavailable_scope_answers(
+                root, "Fix the handler.", ["bug"], packet, ["new:validate2/user.py"], 1)
+        self.assertEqual(errors, [])
+        assert updated is not None
+        self.assertNotEqual(updated["state"], "resolved")
+        disposition = updated["answer_dispositions"][0]
+        self.assertEqual(disposition["status"], "rejected")
+        self.assertIn("directory-and-name-collision", disposition["reason_codes"])
+        requirement = updated["requirements"][0]
+        self.assertEqual(requirement["implementation_owners"], [])
+
 
 class ScopeQuestionRankingTests(unittest.TestCase):
     def _document(self, candidates, edges):

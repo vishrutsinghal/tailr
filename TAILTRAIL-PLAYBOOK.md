@@ -65,6 +65,25 @@ interchangeable:**
   without a specific reason code, retry before assuming your packet content
   is wrong. See section 8 below for the parked root-cause investigation.
 
+**A not-yet-existing test file can never be declared via `--changed`, in a
+near-empty/greenfield repo or otherwise.** `target_workspace._greenfield_eligible`
+only accepts a missing `--changed` path when its repository role classifies as
+`implementation-owner`; a `tests/`-convention path always classifies as
+`test`, so it is rejected as `changed-path-missing` even when its parent
+directory already exists. Verified live implementing
+TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md Phase N5 (greenfield profile)
+against a synthetic near-empty repository: `--changed greeting.py --changed
+tests/test_greeting.py` failed target confirmation on the test path alone.
+Fix: declare only the implementation file via `--changed`; register the new
+test file's path and command through a **pre-activation** `proof-update`
+revision (`editable_paths`/`proposed_paths` + `commands`/`tiers`) in the same
+`planning revise` round, then approve that revision (`revision-approve`,
+which also activates the run). Do this *before* activating -- R6 ("late
+proof registration ... is unavailable after activation") is still open, so a
+`pipeline handoff --from-stage IMPLEMENTATION` alone does not let a brand-new
+test file join approved proof scope; only the pre-activation `proof-update`
+path does.
+
 ## 2. Requirement interpretation gotchas
 
 When submitting `--requirement-interpretation` by hand, three grounding rules

@@ -580,3 +580,10 @@ end, proving this protocol and the Issue 25 fix interact correctly together.
    question set (per Phase 2's per-profile question design), or does it
    reuse the `new feature` profile's questions with this protocol's
    evidence model swapped underneath?
+
+   **Resolved (Phase N5):** Reuses `new feature`'s question set as-is.
+   The greenfield case is not a distinct question design -- it is what
+   this protocol's six checks naturally produce when a near-empty
+   repository has no evidence to search (see "Greenfield / brand-new-
+   project degenerate case" above). A separate question set would encode
+   a distinction the protocol itself says should not exist.

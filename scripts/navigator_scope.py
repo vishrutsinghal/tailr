@@ -26,6 +26,7 @@ from typing import Any, Iterable
 
 import capture_hooks
 import code_relationships
+import new_file_due_diligence
 import requirement_discovery
 from code_graph_inventory import snapshot as inventory_snapshot
 from module_resolution import RepositoryModuleResolver, ResolutionResult
@@ -3217,6 +3218,34 @@ def _owner_strong_support(candidate_rows: list[dict[str, Any]], edge_rows: list[
     return len(touching), kinds
 
 
+def _directory_ownership_edge_kinds(candidate_rows: list[dict[str, Any]], edge_rows: list[dict[str, Any]], directory: str) -> tuple[str, ...]:
+    """Edge kinds touching any qualified implementation-owner candidate that
+    lives in `directory` -- feeds the New-File Due-Diligence Protocol's
+    Check 4 (existing-owner evidence) for a declared-new path proposed into
+    that same directory."""
+    edges = {str(row.get("edge_id")): row for row in edge_rows if isinstance(row, dict)}
+    kinds: set[str] = set()
+    for row in candidate_rows:
+        if not isinstance(row, dict):
+            continue
+        if row.get("status") != "included" or row.get("role") != "implementation-owner":
+            continue
+        if str(Path(str(row.get("path", ""))).parent) != directory:
+            continue
+        candidate_id = str(row.get("candidate_id", ""))
+        for edge_id in row.get("evidence_edge_ids", []):
+            edge = edges.get(str(edge_id))
+            if not isinstance(edge, dict):
+                continue
+            if not candidate_id or candidate_id not in {
+                str(edge.get("from_candidate_id", "")),
+                str(edge.get("to_candidate_id", "")),
+            }:
+                continue
+            kinds.add(str(edge.get("kind", "")))
+    return tuple(sorted(kinds))
+
+
 def _thin_owner_evidence(candidate_rows: list[dict[str, Any]], edge_rows: list[dict[str, Any]], path: str) -> bool:
     """Check whether one resolved owner rests on thin relationship evidence.
 
@@ -5026,22 +5055,28 @@ def resolve_unavailable_scope_answers(
     # implementation/configuration owner is the documented proposed-new lane:
     # the explicit host declaration is sufficient to preserve the proposed
     # role, while post-implementation verification remains mandatory.
-    qualified_candidates = [
-        row for row in document.get("candidates", [])
-        if isinstance(row, dict) and row.get("status") == "included" and row.get("role") == "implementation-owner"
-    ]
-    qualified_dirs = {str(Path(str(row.get("path", ""))).parent) for row in qualified_candidates}
-    existing_owner_dirs = {
-        str(Path(str(row.get("path", ""))).parent)
-        for row in document.get("candidates", [])
-        if isinstance(row, dict)
-        and row.get("status") not in {"excluded", "rejected"}
-        and row.get("role") in {"implementation-owner", "configuration"}
-    }
+    #
+    # Grounding runs the New-File Due-Diligence Protocol's six checks
+    # (TAILTRAIL-NEW-FILE-DUE-DILIGENCE-PROTOCOL.md) instead of a bare
+    # same-directory-membership heuristic: existence, path eligibility,
+    # name/symbol collision (including the validate2/validate near-duplicate-
+    # directory case), existing-owner evidence, and convention precedent.
+    new_file_verdicts: dict[str, dict[str, Any]] = {}
     new_file_grounded: dict[str, bool] = {}
     for req_id, new_path in declared_new.items():
         parent = str(Path(new_path).parent)
-        new_file_grounded[req_id] = parent in qualified_dirs or parent not in existing_owner_dirs
+        edge_kinds = _directory_ownership_edge_kinds(document.get("candidates", []), list(packet_edges.values()), parent)
+        checks = new_file_due_diligence.run_all_checks(root, new_path)
+        owner_evidence = new_file_due_diligence.check_existing_owner_evidence(new_path, edge_kinds)
+        verdict = new_file_due_diligence.combine_verdict(
+            existence=checks["existence"],
+            path_eligibility=checks["path_eligibility"],
+            collision=checks["name_symbol_collision"],
+            owner_evidence=owner_evidence,
+            convention=checks["convention_precedent"],
+        )
+        new_file_verdicts[req_id] = verdict
+        new_file_grounded[req_id] = verdict["verdict"] == "new-confirmed"
     # A grounded declared-new file resolves its requirement row the same way
     # a confirmed existing owner does, so the scope-quality gate and Planning
     # Lock approval path proceed identically -- but the row stays tagged
@@ -5124,12 +5159,13 @@ def resolve_unavailable_scope_answers(
         grounded = new_file_grounded.get(req_id, False)
         if not grounded:
             all_confirmed = False
+        verdict = new_file_verdicts.get(req_id, {})
         dispositions.append({
             "requirement_id": req_id,
             "display_id": str(row.get("display_id", "") or req_id),
             "path": new_path,
             "status": "declared-new" if grounded else "rejected",
-            "reason_codes": [] if grounded else ["new-file-ungrounded:no-related-existing-owner-in-same-directory"],
+            "reason_codes": [] if grounded else list(verdict.get("reason_codes", ()) or ["new-file-ungrounded"]),
         })
     document["answer_dispositions"] = dispositions
     rejected = [row for row in dispositions if row["status"] == "rejected"]
