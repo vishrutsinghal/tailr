@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.dev/schemas/host-input-contract.schema.json",
+  "title": "TailTrail Host Input Contract",
+  "description": "Canonical, hash-bound record of validated host answers for the TailTrail Host Question Flow (Phase 0). Later requirement, scope, proof, and report artifacts reference this contract by id instead of repeating or reinterpreting its fields. See TAILTRAIL-HOST-QUESTION-FLOW-DESIGN.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "run_id",
+    "contract_id",
+    "profile",
+    "change_intent",
+    "request_mode",
+    "behavior_surface",
+    "paths",
+    "criteria",
+    "proof",
+    "private_reasoning_excluded"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "type": { "const": "tailtrail-host-input-contract" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "contract_id": { "type": "string", "minLength": 1 },
+    "private_reasoning_excluded": { "const": true },
+
+    "profile": {
+      "description": "The flattened Phase 2 task profile. Task type and change intent are input dimensions that select this value; they are not a second profile list.",
+      "enum": [
+        "documentation-only",
+        "existing-code change",
+        "new feature",
+        "configuration/data",
+        "QA/validation-only",
+        "review/read-only"
+      ]
+    },
+
+    "change_intent": {
+      "enum": ["correction", "new-capability", "refactor", "validation", "prose-only"]
+    },
+
+    "request_mode": {
+      "enum": ["implementation", "read-only", "validation-only"]
+    },
+
+    "behavior_surface": {
+      "enum": ["cli-contract", "workflow", "presentation", "data", "documentation", "internal"]
+    },
+
+    "out_of_scope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+
+    "proof_surface": { "type": "string", "minLength": 1 },
+
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/pathBinding" }
+    },
+
+    "criteria": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positive", "negative"],
+      "properties": {
+        "positive": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "negative": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+
+    "proof": { "$ref": "#/$defs/proofBinding" },
+
+    "correction_premise": { "$ref": "#/$defs/correctionPremise" },
+
+    "owner_hypothesis": { "$ref": "#/$defs/ownerHypothesis" }
+  },
+
+  "allOf": [
+    {
+      "description": "A correction change_intent must carry a correction_premise; no other change_intent may carry one.",
+      "if": {
+        "properties": { "change_intent": { "const": "correction" } },
+        "required": ["change_intent"]
+      },
+      "then": { "required": ["correction_premise"] },
+      "else": { "not": { "required": ["correction_premise"] } }
+    },
+    {
+      "description": "A correction_premise other than not-applicable must carry owner_hypothesis.",
+      "if": {
+        "required": ["correction_premise"],
+        "properties": {
+          "correction_premise": {
+            "properties": { "state": { "not": { "const": "not-applicable" } } },
+            "required": ["state"]
+          }
+        }
+      },
+      "then": { "required": ["owner_hypothesis"] }
+    }
+  ],
+
+  "$defs": {
+    "pathRole": {
+      "description": "Phase 0 role enum: existing, proposed, inspection, proof, generated, excluded, or external. Compound values combine existing-versus-proposed status with the owning function, matching the design doc's host-input-contract examples. This is the host-contract role; it is a separate decision from repository_path_policy workspace eligibility and from navigator_scope repository file-kind (see Issues Log 21.3).",
+      "enum": [
+        "existing-implementation-owner",
+        "proposed-implementation-owner",
+        "inspection-input",
+        "existing-proof-path",
+        "proposed-proof-path",
+        "configuration",
+        "generated",
+        "excluded",
+        "external"
+      ]
+    },
+
+    "pathBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "role": { "$ref": "#/$defs/pathRole" },
+        "source_answer_id": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "proofBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "command": { "type": "string", "minLength": 1 },
+        "tiers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "reproduction_binding": { "type": "string", "minLength": 1 },
+        "post_change_binding": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [
+        { "required": ["command", "tiers"] },
+        { "required": ["reproduction_binding", "post_change_binding"] }
+      ]
+    },
+
+    "correctionPremise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "public_route", "expected_behavior", "actual_behavior", "observation_source"],
+      "properties": {
+        "state": {
+          "enum": ["observed-failing", "unverified", "contradicted", "already-satisfied", "not-applicable"]
+        },
+        "public_route": { "type": "string", "minLength": 1 },
+        "expected_behavior": { "type": "string", "minLength": 1 },
+        "actual_behavior": { "type": "string", "minLength": 1 },
+        "observation_source": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+
+    "ownerHypothesis": {
+      "description": "Deliberately weaker than a path binding. Navigator and the due-diligence pipeline must establish the first failing transition and the candidate owner's participation through repository evidence before this path can become an implementation owner.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "status"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "status": { "const": "proposed" }
+      }
+    }
+  }
+}
+

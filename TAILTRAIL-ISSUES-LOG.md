@@ -30,6 +30,8 @@ the entries there.
 | 20 | Separate correction runs inherit unrelated dirty paths and report changed-beyond-approved | Open -- correction-run isolation/dirty-worktree policy needed |
 | 22 | No real-time write-guard integration point exists for GitHub Copilot Chat in VS Code | Open -- host has no pre-tool-execution interception API; `write_guardian.py` is Copilot-payload-ready but never invoked |
 | 21 | Copilot-hook planning accepted a no-op correction and exposed host/product boundary gaps | Open -- premise/proof gates needed; host guidance added |
+| 23 | Closure evidence and Delivery Record projections can disagree with the approved proof contract | Open |
+| 24 | Bare `"behavior"` substring match in `behaviour_planning.selected_for()` falsely selects the Behaviour Harness for non-behavioral goals | Open -- same bug class as Issue 18, different classifier |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -2948,3 +2950,54 @@ These are host-side mistakes, not TailTrail product defects:
 
 All four changes require their own focused Planning Locks and proof contracts;
 this issue-log run authorizes documentation only.
+
+## 24. Bare `"behavior"` substring match falsely selects the Behaviour Harness (Open)
+
+**Context:** While implementing Phase 0 of the Host Question Flow (a new
+`schemas/host-input-contract.schema.json`, requirement text legitimately using
+the schema field name `behavior_surface`), the Behaviour Harness was
+auto-selected and failed closure with two generic scenarios ("the approved
+user-visible journey completes with authoritative ordered states", "Existing
+API responses remain compatible across the affected workflow") that do not
+apply: the change is a standalone JSON Schema document with no runtime wiring,
+API, or user-facing journey yet.
+
+- **Root cause, confirmed in code** (`scripts/behaviour_planning.py`):
+  ```python
+  BEHAVIOUR_SIGNALS = ("behaviour", "behavior", "customer", "journey",
+      "notification", "state", "status", "transition", "user-facing", "workflow")
+  if any(signal in lowered for signal in (*BEHAVIOUR_SIGNALS, *UI_SIGNALS)):
+      return True
+  ```
+  This is a bare substring match with no word-boundary check. The requirement
+  statement's field name `behavior_surface` contains the substring `behavior`,
+  which fires the harness regardless of whether the goal describes an actual
+  user-facing behavior change.
+- **Impact:** A requirement that only defines or references a schema field
+  happening to contain a behaviour-signal substring cannot reach a clean
+  `overall_status: complete` without either (a) fabricating cosmetic
+  `contract`/`integration`/`behaviour` tier proof for scenarios that do not
+  exist, which Ground Rule 21 ("No cosmetic fixes for no-op plans") explicitly
+  forbids, or (b) leaving the run `evidence-incomplete` despite correct,
+  fully-tested implementation.
+- **Same bug class as Issue 18:** Issue 18 fixed an identical substring-match
+  false positive in the UI classifier (`"component"` falsely triggering
+  presentation planning). `behaviour_planning.selected_for()` has the same
+  defect and was not covered by that fix because it lives in a separate
+  module.
+- **Recommended fix:** Use word-boundary matching (`re.search(rf"(?<![a-z0-9_])
+  {signal}(?![a-z0-9_])", lowered)`) consistent with `_ui_only()`'s own
+  `BACKEND_SIGNALS` check two lines below the bug, which already does this
+  correctly in the same file. Additionally, consider excluding signal matches
+  that occur only inside a `snake_case` compound identifier the goal is
+  quoting verbatim from a schema/field name, as opposed to prose describing
+  actual behavior.
+- **Required regression:** A goal containing a schema/field identifier like
+  `behavior_surface` or `user_status` (compound identifier, not prose) must
+  not select the Behaviour Harness; a goal containing a bare standalone word
+  like "behavior" or "workflow" describing an actual user-facing change must
+  still select it.
+- **Status:** Open. Not fixed in this session; the affected Phase 0 schema run
+  (`start-20261014060150-9e4339`) was left `evidence-incomplete` rather than
+  manufacturing cosmetic proof, per the user's explicit decision to log and
+  defer rather than side-quest a fix mid-Phase-0.
