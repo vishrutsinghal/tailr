@@ -471,6 +471,113 @@ class PlanningLockTests(unittest.TestCase):
         self.assertEqual(activity["aidlc_requirements_answered"], 1)
         self.assertEqual(activity["aidlc_requirements_approved"], 1)
 
+    def test_material_free_form_answer_stays_observation_until_projection_is_validated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "plan-aidlc-observation-only"
+            lock.create(root, "notify callers after a status change", run_id)
+            ledger.atomic_json(lock.start_report_path(root, run_id), {"report": {
+                "goal": "notify callers after a status change",
+                "navigator": {"requirement_matrix": [{
+                    "requirement_uid": "req-1",
+                    "display_id": "REQ-01",
+                    "statement": "Change the status.",
+                    "acceptance_criteria": [],
+                    "preserve_rules": [],
+                    "likely_paths": ["src/notify.py"],
+                    "scope_evidence": {
+                        "implementation_owners": ["src/notify.py"],
+                        "inspection_paths": [],
+                        "proof_paths": ["tests/test_notify.py"],
+                    },
+                    "validation_contract": {"state": "required", "tiers": ["unit"]},
+                }]},
+                "guided_delivery": {},
+            }})
+            lock.request_aidlc_requirements(root, run_id)
+            result = lock.submit_aidlc_answers(root, run_id, json.dumps([
+                {"question_id": "Q1", "choice": "Other", "detail": "Notify the caller after the status changes."},
+                {"question_id": "Q2", "choice": "A"},
+                {"question_id": "Q3", "choice": "A"},
+            ]))
+            rendered = lock.render_aidlc_revision(result)
+            planning = root / ".tailtrail" / "runs" / run_id / "planning"
+            with self.assertRaisesRegex(ValueError, "correction projection is revision-required"):
+                lock.approve_aidlc_requirements(root, run_id, True)
+            self.assertEqual(result["state"], "revision-required")
+            self.assertEqual(result["reason_code"], "validated-correction-projection-required")
+            self.assertTrue((planning / "aidlc-correction-observations-v1.json").is_file())
+            self.assertFalse((planning / "aidlc-revised-requirements-v1.json").exists())
+            self.assertIn("Correction Projection Required", rendered)
+            self.assertNotIn("## Navigator Decision", rendered)
+
+    def test_validated_correction_projection_updates_canonical_requirement_and_exact_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "plan-aidlc-projected"
+            lock.create(root, "notify callers after a status change", run_id)
+            ledger.atomic_json(lock.start_report_path(root, run_id), {"report": {
+                "goal": "notify callers after a status change",
+                "navigator": {
+                    "requirement_matrix": [{
+                        "requirement_uid": "req-1",
+                        "display_id": "REQ-01",
+                        "statement": "Change the status.",
+                        "acceptance_criteria": [],
+                        "preserve_rules": [],
+                        "likely_paths": ["src/notify.py"],
+                        "scope_evidence": {
+                            "implementation_owners": ["src/notify.py"],
+                            "inspection_paths": [],
+                            "proof_paths": ["tests/test_notify.py"],
+                        },
+                        "validation_contract": {"state": "required", "tiers": ["unit"]},
+                    }],
+                    "likely_impacted_files": [
+                        {"path": "src/notify.py"},
+                        {"path": "tests/test_notify.py"},
+                    ],
+                },
+                "guided_delivery": {},
+            }})
+            lock.request_aidlc_requirements(root, run_id)
+            statement = "Notify the caller after the status changes."
+            proof_detail = "Use tests/test_notify.py with command python3 -m unittest tests.test_notify -v for unit and behaviour proof."
+            result = lock.submit_aidlc_answers(root, run_id, json.dumps({
+                "answers": [
+                    {"question_id": "Q1", "choice": "Other", "detail": statement},
+                    {"question_id": "Q2", "choice": "A"},
+                    {"question_id": "Q3", "choice": "Other", "detail": proof_detail},
+                ],
+                "correction_projection": {
+                    "schema_version": "1",
+                    "requirements": [{
+                        "requirement_id": "REQ-01",
+                        "source_question_ids": ["Q1"],
+                        "statement": statement,
+                    }],
+                    "scope": [],
+                    "proof": [{
+                        "requirement_id": "REQ-01",
+                        "source_question_ids": ["Q3"],
+                        "path": "tests/test_notify.py",
+                        "command": "python3 -m unittest tests.test_notify -v",
+                        "tiers": ["unit", "behaviour"],
+                    }],
+                },
+            }))
+            planning = root / ".tailtrail" / "runs" / run_id / "planning"
+            projection = json.loads((planning / "aidlc-correction-projection-v1.json").read_text(encoding="utf-8"))
+            self.assertEqual(result["state"], "aidlc-revision-ready")
+            self.assertEqual(result["requirements"][0]["statement"], statement)
+            self.assertEqual(projection["status"], "validated")
+            self.assertEqual(projection["changed_surfaces"], ["requirements", "validation"])
+            self.assertEqual(result["resolved_plan"]["validation"], [
+                {"tier": "unit", "candidate": "tests/test_notify.py", "command": "python3 -m unittest tests.test_notify -v"},
+                {"tier": "behaviour", "candidate": "tests/test_notify.py", "command": "python3 -m unittest tests.test_notify -v"},
+            ])
+            self.assertTrue((planning / "aidlc-revised-requirements-v1.json").is_file())
+
     def test_aidlc_answer_base64_matches_inline_answers(self) -> None:
         import base64
         import subprocess

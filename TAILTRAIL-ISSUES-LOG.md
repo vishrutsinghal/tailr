@@ -3244,3 +3244,124 @@ because nothing in the Start Report flagged that step as required.
   and fully tested independently of this TailTrail bookkeeping gap.
 - **Status:** Open -- same root cause as Issue 25, recurring because the fix
   is opt-in and has no pre-activation safety net or Start-time warning.
+
+## 29. Material AIDLC answers were saved but not projected into the canonical plan (Fixed)
+
+**Context:** Reproduced in run `start-20261015052506-d968a5` while trying to
+make bundled Full AIDLC usable. The host supplied expanded answers covering
+the product outcome, compatibility boundary, six-slice delivery scope, and
+CLI/MCP/package/offline proof. TailTrail persisted those answers, then rendered
+the original requirement rows, original one-file owner scope, and original
+unit-only validation plan as if the answers had revised them.
+
+- **Root cause:** `scripts/aidlc-requirements.py::revise()` used a generic
+  fallback that appended the same acceptance sentence to each requirement.
+  `scripts/planning_lock.py::submit_aidlc_answers()` treated that result as
+  canonical-ready and `_resolved_aidlc_plan()` reconstructed scope and proof
+  primarily from the saved Start report. There was no validated transformation
+  between non-authoritative free-form observations and authoritative canonical
+  requirements, scope roles, and proof commands.
+- **Impact:** A user could approve a report that visually acknowledged their
+  answers but authorized the unchanged implementation boundary. This is a
+  fail-open planning defect: material corrections could be lost while the run
+  still appeared ready for approval.
+- **Fix applied:** Added a versioned, validated correction-projection boundary.
+  Material answers without that artifact are saved only as
+  `aidlc-correction-observations-vN.json`, return `revision-required`, render no
+  old Navigator/scope/proof plan, and cannot be approved. A valid projection
+  must bind every material question to grounded requirement, requested-scope,
+  or exact-proof deltas. New owner paths remain proposed candidates and are
+  accepted only if saved Navigator evidence already resolves the role. The
+  resulting `aidlc-correction-projection-vN.json` is fingerprint-bound to the
+  answers and records which canonical surfaces actually changed. A material
+  projection that leaves all canonical fingerprints unchanged fails closed.
+- **Approval safety:** `aidlc-correction-state.json` points to the current
+  revision/projection and prevents a later blocked attempt from accidentally
+  approving an older `aidlc-revised-requirements-v1.json`. Revisions are now
+  versioned and approval resolves the active version.
+- **Proof preservation:** `_resolved_aidlc_plan()` now consumes recorded checks
+  and commands from the validated requirement contract before synthesizing a
+  generic command, and it renders per-requirement owner, inspection, and proof
+  roles rather than flattening everything back to the original impact list.
+- **Regression coverage:** `tests/test_planning_lock.py` proves that a material
+  free-form answer creates only an observation and blocks approval, and that a
+  grounded projection changes the canonical requirement plus preserves the
+  exact unit/behaviour proof command. Existing zero-quantity AIDLC lifecycle
+  coverage remains compatible.
+- **Status:** Fixed.
+
+## 30. The phrase `free-form` falsely selected UI planning (Fixed)
+
+**Context:** Run `start-20261015074534-02cc79` described free-form AIDLC
+answers. Its plan incorrectly introduced pages, responsive/accessibility work,
+UI contracts, and UI discovery even though the named implementation surface
+was backend planning code.
+
+- **Root cause:** Both `scripts/navigator_core.py::ui_change_requested()` and
+  `scripts/ui_planning.py::selected_for()` treated the bounded keyword `form`
+  inside the compound phrase `free-form` as evidence of an HTML/application
+  form.
+- **Impact:** Backend planning changes acquired unrelated UI requirements and
+  validation obligations, making the plan materially unsafe to approve.
+- **Fix applied:** Remove the lexical phrase `free-form`/`free form` from the
+  UI-routing text before evaluating UI terms. Any other explicit UI term in the
+  same goal still selects UI planning, so this does not hide a real UI request.
+- **Regression coverage:** Added focused tests in
+  `tests/test_navigator_core.py` and `tests/test_ui_consistency.py` using the
+  exact non-authoritative free-form-answer wording.
+- **Status:** Fixed.
+
+## 31. Declared exact proof path and command can be replaced by unresolved generic proof (Open)
+
+**Context:** The same rejected run (`start-20261015074534-02cc79`) was started
+with an explicit proof path and runnable command, but the generated plan showed
+an unresolved/component-oriented validation candidate instead of the declared
+proof contract.
+
+- **Root cause:** `scripts/task-start.py::focused_validation_plan()` derives
+  proof primarily from requirement `scope_evidence.proof_paths`, impacted test
+  candidates, and repository command inference. Host-declared proof text that
+  has been accepted by requirement intake is not yet carried through as a
+  first-class `validation_contract.checks`/`commands` input before this
+  inference runs. `attach_focused_validation_contracts()` therefore has
+  nothing exact to preserve and can overwrite the contract with unresolved
+  derived rows.
+- **Impact:** The plan can ignore a complete host-input proof contract, report
+  proof as unresolved, or substitute the wrong tier. This violates the
+  fail-closed host-input rule and can make a correct plan look incomplete or
+  make later closure evidence diverge from what the user specified.
+- **Recommended fix:** Carry validated host proof declarations into each
+  requirement's canonical `validation_contract` before focused-validation
+  inference. Treat exact declared checks as authoritative proof candidates;
+  inference may supplement but must not overwrite them. Add a Start-level
+  invariant that the rendered path and command fingerprint match the accepted
+  host-input contract.
+- **Required regression:** Supply an exact proof-only path and runnable command
+  through requirement intake, build the Start report, and assert the same path,
+  command, tier, and requirement binding appear in `focused_validation`, the
+  requirement validation contract, and the rendered Validation table.
+- **Status:** Open. The new correction-projection path preserves exact proof
+  commands once supplied there, but the earlier general Start-input carry is a
+  separate defect and is not claimed fixed by Issue 29.
+
+## 32. Plan explanation ignored rejection state and still invited approval (Fixed)
+
+**Context:** After the bad plan was rejected, `planning explain` still said the
+run was awaiting approval and returned the generic approval choice. The stored
+Planning Lock correctly remained pre-implementation, but the presentation
+ignored the newer `proposal_rejected`/`revision-required` decision.
+
+- **Root cause:** `scripts/planning-discussion.py` rendered the storage-level
+  Planning Lock status (`awaiting-approval`) as the user-facing lifecycle state
+  and evaluated plan quality without consulting later decision events.
+- **Impact:** The explanation could encourage approval of the exact proposal
+  the user had rejected, obscuring the required correction cycle.
+- **Fix applied:** Added a planning-presentation state projection over saved
+  events. A latest `proposal_rejected` or blocked correction projection now
+  yields `revision-required`; plan-quality explanation explicitly says the
+  proposal is not approvable and routes to correction. A later recorded AIDLC
+  revision restores the awaiting-approval presentation state.
+- **Regression coverage:** `tests/test_planning_discussion.py` now records a
+  rejection and verifies both the structured answer and Markdown render say
+  `revision required` and do not call the plan ready for approval.
+- **Status:** Fixed.

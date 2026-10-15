@@ -233,6 +233,18 @@ def _feature_rows(report: dict[str, Any], key: str) -> list[dict[str, Any]]:
     return values
 
 
+def _planning_presentation_state(root: Path, run_id: str, lock_status: str) -> str:
+    """Project the latest planning decision instead of echoing lock storage state."""
+    events = LEDGER.read_events(LEDGER.state_dir(root, run_id) / "events.jsonl")
+    for event in reversed(events):
+        event_type = event.get("event_type")
+        if event_type in {"aidlc_requirements_answered", "planning_revision_approved"}:
+            return "awaiting-approval"
+        if event_type in {"proposal_rejected", "aidlc_correction_projection_blocked"}:
+            return "revision-required"
+    return lock_status
+
+
 def explain(root: Path, run_id: str, question: str, kind: str | None = None) -> dict[str, Any]:
     """Return an evidence-labelled answer from the saved run artifacts only."""
     report = _saved_report(root, run_id)
@@ -247,6 +259,18 @@ def explain(root: Path, run_id: str, question: str, kind: str | None = None) -> 
     impacted = [item for item in navigator.get("likely_impacted_files", []) if isinstance(item, dict)]
 
     if classification == "explain-plan-quality":
+        lock_status = LOCK.show(root, run_id).get("status", "unknown")
+        presentation_state = _planning_presentation_state(root, run_id, str(lock_status))
+        if presentation_state == "revision-required":
+            return _answer(
+                "revision-required",
+                "The saved proposal was rejected or its correction projection is unresolved; it is not ready for approval.",
+                [{"label": "planning-decision", "detail": "The latest saved planning decision requires revision before another approval request."}],
+                "Revise the same run from the recorded feedback or resolve the correction-projection questions.",
+                "Approving the unchanged proposal would ignore the latest user decision.",
+                "Revision is required; the rejected proposal remains non-authoritative.",
+                "Present a corrected canonical plan for review before requesting approval.",
+            )
         scope_quality = navigator.get("scope_quality") if isinstance(navigator.get("scope_quality"), dict) else {}
         scope_evidence = navigator.get("scope_evidence") if isinstance(navigator.get("scope_evidence"), dict) else {}
         matrix = [row for row in navigator.get("requirement_matrix", []) if isinstance(row, dict)]
@@ -582,11 +606,13 @@ def discuss(root: Path, run_id: str, question: str) -> dict[str, Any]:
     root = root.resolve()
     lock = LOCK.assert_discussion_allowed(root, run_id)
     kind = classify(question)
+    presentation_state = _planning_presentation_state(root, run_id, str(lock["status"]))
     base = {
         "schema_version": "1",
         "type": "tailtrail-planning-discussion-route",
         "run_id": run_id,
         "planning_lock_status": lock["status"],
+        "planning_state": presentation_state,
         "classification": kind,
         "source_changed": False,
         "tools_run": [],
@@ -628,7 +654,7 @@ def discuss(root: Path, run_id: str, question: str) -> dict[str, Any]:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n")
-        state = _write_state(root, run_id, len(receipts) + 1, str(lock["status"]))
+        state = _write_state(root, run_id, len(receipts) + 1, presentation_state)
     LEDGER.append_event(root, run_id, "planning_discussion_recorded", {
         "conversation_id": receipt["conversation_id"],
         "classification": kind,
@@ -703,11 +729,17 @@ def render_explanation(payload: dict[str, Any]) -> str:
     """Render the saved-evidence response without exposing the raw question."""
     answer = payload.get("answer", {})
     evidence = answer.get("evidence", []) if isinstance(answer, dict) else []
+    state = str(payload.get("planning_state", "awaiting-approval"))
+    state_detail = (
+        "revision required — the latest saved decision is not approvable and no implementation commands were run."
+        if state == "revision-required"
+        else "awaiting approval — no source, tests, scanners, Git, or implementation commands were run."
+    )
     lines = [
         "# TailTrail Plan Explanation",
         "",
         f"**Run ID:** `{payload.get('run_id', 'unknown')}`",
-        "**State:** awaiting approval — no source, tests, scanners, Git, or implementation commands were run.",
+        f"**State:** {state_detail}",
         "",
         "## Answer",
         "",

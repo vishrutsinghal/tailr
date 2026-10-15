@@ -37,6 +37,12 @@ code_graph_mapper = load_script_module("tailtrail_code_graph_mapper_test", "scri
 
 
 class NavigatorCoreTests(unittest.TestCase):
+    def test_free_form_answer_wording_does_not_select_ui_work(self) -> None:
+        self.assertFalse(core.ui_change_requested(
+            "Keep free-form answers non-authoritative in planning_lock.py",
+            ["scripts/planning_lock.py"],
+        ))
+
     def test_generic_adapter_wording_does_not_select_presentation_planning(self) -> None:
         self.assertFalse(core.ui_change_requested("implement a component adapter", []))
         self.assertTrue(core.ui_change_requested("implement a UI component", []))

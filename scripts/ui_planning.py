@@ -39,7 +39,8 @@ def _contains(text: str, term: str) -> bool:
 
 
 def selected_for(goal: str, changed: list[str]) -> bool:
-    if any(_contains(goal, term) for term in UI_TERMS):
+    routing_goal = re.sub(r"\bfree[-\s]+form\b", "", goal, flags=re.IGNORECASE)
+    if any(_contains(routing_goal, term) for term in UI_TERMS):
         return True
     return any(_role(path) != "non-ui" for path in changed)
 

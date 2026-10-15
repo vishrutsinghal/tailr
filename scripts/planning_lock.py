@@ -973,16 +973,298 @@ def _proof_runner(command_prefix: str) -> str:
     return "python3"
 
 
+def _canonical_fingerprint(value: Any) -> str:
+    return "sha256:" + hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _aidlc_plan_fingerprints(revision: dict[str, Any], resolved: dict[str, Any]) -> dict[str, str]:
+    requirements = [{
+        "display_id": row.get("display_id"),
+        "statement": row.get("statement"),
+        "acceptance_criteria": row.get("acceptance_criteria", []),
+        "preserve_rules": row.get("preserve_rules", []),
+    } for row in revision.get("requirements", []) if isinstance(row, dict)]
+    return {
+        "requirements": _canonical_fingerprint(requirements),
+        "scope": _canonical_fingerprint(resolved.get("scope", [])),
+        "validation": _canonical_fingerprint(resolved.get("validation", [])),
+    }
+
+
+def _next_versioned_artifact(directory: Path, stem: str) -> tuple[Path, int]:
+    versions: list[int] = []
+    for path in directory.glob(f"{stem}-v*.json"):
+        try:
+            versions.append(int(path.stem.rsplit("v", 1)[-1]))
+        except ValueError:
+            continue
+    version = max(versions, default=0) + 1
+    return directory / f"{stem}-v{version}.json", version
+
+
+def _latest_versioned_artifact(directory: Path, stem: str) -> Path | None:
+    values: list[tuple[int, Path]] = []
+    for path in directory.glob(f"{stem}-v*.json"):
+        try:
+            values.append((int(path.stem.rsplit("v", 1)[-1]), path))
+        except ValueError:
+            continue
+    return max(values, default=(0, None), key=lambda item: item[0])[1]
+
+
+def _aidlc_correction_state_path(root: Path, run_id: str) -> Path:
+    return L.state_dir(root, run_id) / "planning" / "aidlc-correction-state.json"
+
+
+def _record_aidlc_correction_state(root: Path, run_id: str, payload: dict[str, Any]) -> Path:
+    path = _aidlc_correction_state_path(root, run_id)
+    L.atomic_json(path, {
+        "schema_version": "1",
+        "type": "tailtrail-aidlc-correction-state",
+        "run_id": run_id,
+        **payload,
+    })
+    return path
+
+
+def _normalized_grounding(value: Any) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _correction_projection(
+    root: Path,
+    run_id: str,
+    stage_document: dict[str, Any],
+    answers: list[dict[str, Any]],
+    revision: dict[str, Any],
+    supplied: Any,
+) -> dict[str, Any]:
+    """Validate non-authoritative answers before they can change a canonical plan."""
+    resolved = revision.get("aidlc_answers", {})
+    if not isinstance(resolved, dict):
+        raise ValueError("AIDLC revision has no validated answer map")
+    questions = {str(row.get("id")): row for row in stage_document.get("questions", []) if isinstance(row, dict)}
+    base_rows = [row for row in stage_document.get("requirements", []) if isinstance(row, dict)]
+    revised_rows = [row for row in revision.get("requirements", []) if isinstance(row, dict)]
+    by_id = {str(row.get("display_id")): row for row in revised_rows}
+    base_by_id = {str(row.get("display_id")): row for row in base_rows}
+    answer_fingerprint = _canonical_fingerprint(answers)
+    engine_changed = any(
+        _canonical_fingerprint({key: row.get(key) for key in ("statement", "likely_paths", "validation_contract")})
+        != _canonical_fingerprint({key: base_by_id.get(identifier, {}).get(key) for key in ("statement", "likely_paths", "validation_contract")})
+        for identifier, row in by_id.items()
+    )
+    material_ids = sorted({
+        question_id for question_id, answer in resolved.items()
+        if str(answer.get("detail", "")).strip()
+        or str(answer.get("choice", "")).strip() not in {"", "A"}
+        or engine_changed
+    })
+    if not material_ids:
+        return {
+            "status": "passed", "source": "non-material-answers",
+            "source_answers_fingerprint": answer_fingerprint,
+            "material_question_ids": [], "requirements": revised_rows,
+            "scope": [], "proof": [], "open_questions": [],
+        }
+    if supplied is None:
+        if engine_changed and not any(str(answer.get("detail", "")).strip() for answer in resolved.values()):
+            return {
+                "status": "passed", "source": "aidlc-stage-engine",
+                "source_answers_fingerprint": answer_fingerprint,
+                "material_question_ids": material_ids, "requirements": revised_rows,
+                "scope": [], "proof": [], "open_questions": [],
+            }
+        return {
+            "status": "blocked", "reason_code": "validated-correction-projection-required",
+            "source_answers_fingerprint": answer_fingerprint,
+            "material_question_ids": material_ids,
+            "open_questions": [
+                "Classify each material answer into explicit requirement, scope-role, and proof deltas.",
+                "Ground every delta in its source question answer and provide exact runnable proof commands.",
+                "Keep every new owner path as a proposed candidate until Navigator evidence resolves it.",
+            ],
+        }
+    if not isinstance(supplied, dict) or str(supplied.get("schema_version")) != "1":
+        return {
+            "status": "blocked", "reason_code": "invalid-correction-projection",
+            "source_answers_fingerprint": answer_fingerprint,
+            "material_question_ids": material_ids,
+            "open_questions": ["Supply correction_projection schema_version 1 as an object."],
+        }
+    requirement_deltas = supplied.get("requirements", [])
+    scope_deltas = supplied.get("scope", [])
+    proof_deltas = supplied.get("proof", [])
+    if not all(isinstance(value, list) for value in (requirement_deltas, scope_deltas, proof_deltas)):
+        return {
+            "status": "blocked", "reason_code": "invalid-correction-projection",
+            "source_answers_fingerprint": answer_fingerprint,
+            "material_question_ids": material_ids,
+            "open_questions": ["requirements, scope, and proof must each be arrays."],
+        }
+    problems: list[str] = []
+    covered: set[str] = set()
+
+    def source_ids(item: dict[str, Any], label: str) -> list[str]:
+        values = item.get("source_question_ids", [])
+        ids = [str(value) for value in values] if isinstance(values, list) else []
+        if not ids or any(value not in material_ids for value in ids):
+            problems.append(f"{label} needs source_question_ids drawn from the material answer set")
+            return []
+        covered.update(ids)
+        return ids
+
+    def grounded(value: Any, ids: list[str], original: Any = "") -> bool:
+        needle = _normalized_grounding(value)
+        sources = " ".join(_normalized_grounding(resolved.get(identifier, {}).get("detail", "")) for identifier in ids)
+        return bool(needle) and (needle in sources or needle in _normalized_grounding(original))
+
+    projected = copy.deepcopy(revised_rows)
+    projected_by_id = {str(row.get("display_id")): row for row in projected}
+    for index, item in enumerate(requirement_deltas, start=1):
+        if not isinstance(item, dict):
+            problems.append(f"requirement delta {index} must be an object"); continue
+        identifier = str(item.get("requirement_id", ""))
+        row = projected_by_id.get(identifier)
+        ids = source_ids(item, f"requirement delta {index}")
+        if row is None:
+            problems.append(f"requirement delta {index} references unknown requirement {identifier}"); continue
+        changed = False
+        for key in ("statement", "acceptance_criteria", "preserve_rules"):
+            if key not in item:
+                continue
+            values = item[key] if isinstance(item[key], list) else [item[key]]
+            originals = row.get(key, []) if isinstance(row.get(key), list) else [row.get(key, "")]
+            if not values or any(not grounded(value, ids, " ".join(str(v) for v in originals)) for value in values):
+                problems.append(f"requirement delta {index} has ungrounded {key}"); continue
+            row[key] = [str(value) for value in values] if key != "statement" else str(values[0])
+            changed = True
+        if not changed:
+            problems.append(f"requirement delta {index} changes no grounded canonical field")
+    validated_scope: list[dict[str, Any]] = []
+    allowed_roles = {"proposed-owner-candidate", "inspection-input", "proof-only"}
+    for index, item in enumerate(scope_deltas, start=1):
+        if not isinstance(item, dict):
+            problems.append(f"scope delta {index} must be an object"); continue
+        identifier, path = str(item.get("requirement_id", "")), str(item.get("path", ""))
+        requested_role = str(item.get("requested_role", ""))
+        row = projected_by_id.get(identifier)
+        ids = source_ids(item, f"scope delta {index}")
+        if row is None or requested_role not in allowed_roles or not path:
+            problems.append(f"scope delta {index} has an unknown requirement, path, or requested role"); continue
+        if not grounded(path, ids, " ".join(str(v) for v in row.get("likely_paths", []))):
+            problems.append(f"scope delta {index} path is not grounded in its source answer"); continue
+        scope = row.get("scope_evidence", {}) if isinstance(row.get("scope_evidence"), dict) else {}
+        role_key = {"proposed-owner-candidate": "implementation_owners", "inspection-input": "inspection_paths", "proof-only": "proof_paths"}[requested_role]
+        if path not in [str(value) for value in scope.get(role_key, [])]:
+            problems.append(f"scope delta {index} leaves `{path}` unresolved as `{requested_role}`; Navigator evidence must resolve it")
+            continue
+        validated_scope.append({"requirement_id": identifier, "path": path, "requested_role": requested_role, "resolved_role": "implementation-owner" if requested_role == "proposed-owner-candidate" else requested_role, "source_question_ids": ids})
+    validated_proof: list[dict[str, Any]] = []
+    for index, item in enumerate(proof_deltas, start=1):
+        if not isinstance(item, dict):
+            problems.append(f"proof delta {index} must be an object"); continue
+        identifier, path, command = str(item.get("requirement_id", "")), str(item.get("path", "")), str(item.get("command", ""))
+        tiers = [str(value) for value in item.get("tiers", [])] if isinstance(item.get("tiers"), list) else []
+        row = projected_by_id.get(identifier)
+        ids = source_ids(item, f"proof delta {index}")
+        if row is None or not path or not command or not tiers:
+            problems.append(f"proof delta {index} needs a known requirement, path, command, and tiers"); continue
+        scope = row.get("scope_evidence", {}) if isinstance(row.get("scope_evidence"), dict) else {}
+        if path not in [str(value) for value in scope.get("proof_paths", [])]:
+            problems.append(f"proof delta {index} leaves `{path}` unresolved as proof-only; Navigator evidence must resolve it"); continue
+        if not grounded(path, ids, " ".join(str(v) for v in scope.get("proof_paths", []))) or not grounded(command, ids):
+            problems.append(f"proof delta {index} path or command is not grounded in its source answer"); continue
+        contract = row.setdefault("validation_contract", {"state": "required", "tiers": []})
+        contract["state"] = "required"
+        contract["tiers"] = list(dict.fromkeys([str(value) for value in contract.get("tiers", [])] + tiers))
+        contract["commands"] = list(dict.fromkeys([str(value) for value in contract.get("commands", [])] + [command]))
+        contract["candidate_paths"] = list(dict.fromkeys([str(value) for value in contract.get("candidate_paths", [])] + [path]))
+        checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
+        checks.append({"kind": "proof", "command": command, "tiers": tiers, "candidate_paths": [path]})
+        contract["checks"] = list({str(value.get("command")): value for value in checks}.values())
+        validated_proof.append({"requirement_id": identifier, "path": path, "command": command, "tiers": tiers, "source_question_ids": ids})
+    missing = sorted(set(material_ids) - covered)
+    if missing:
+        problems.append("material answers have no projected delta: " + ", ".join(missing))
+    impact_requirements = {"acceptance-criteria", "public-behavior"}
+    impact_scope = {"architecture", "scope"}
+    impact_proof = {"completion", "testing"}
+    for question_id in material_ids:
+        impacts = set(str(value) for value in questions.get(question_id, {}).get("decision_impact", []))
+        if impacts & impact_requirements and not any(question_id in item.get("source_question_ids", []) for item in requirement_deltas if isinstance(item, dict)):
+            problems.append(f"{question_id} requires a grounded requirement delta")
+        if impacts & impact_scope and not any(question_id in item.get("source_question_ids", []) for item in scope_deltas if isinstance(item, dict)):
+            problems.append(f"{question_id} requires a Navigator-resolvable scope delta")
+        if impacts & impact_proof and not any(question_id in item.get("source_question_ids", []) for item in proof_deltas if isinstance(item, dict)):
+            problems.append(f"{question_id} requires an exact proof delta")
+    if problems:
+        return {
+            "status": "blocked", "reason_code": "invalid-correction-projection",
+            "source_answers_fingerprint": answer_fingerprint,
+            "material_question_ids": material_ids,
+            "open_questions": list(dict.fromkeys(problems)),
+        }
+    return {
+        "status": "passed", "source": "validated-host-correction-projection",
+        "source_answers_fingerprint": answer_fingerprint,
+        "material_question_ids": material_ids, "requirements": projected,
+        "scope": validated_scope, "proof": validated_proof, "open_questions": [],
+    }
+
+
 def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> dict[str, Any]:
     """Project the saved Navigator plan through resolved AIDLC decisions."""
     report = _saved_start_report(root, run_id)
     navigator = report.get("navigator", {}) or {}
     delivery = report.get("guided_delivery", {}) or {}
     impacted = [row for row in navigator.get("likely_impacted_files", []) if isinstance(row, dict)]
-    validation: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
+    scope_rows: list[dict[str, str]] = []
+    seen_scope: set[tuple[str, str, str]] = set()
     for requirement in revision.get("requirements", []):
-        for tier in (requirement.get("validation_contract", {}) or {}).get("tiers", []):
+        if not isinstance(requirement, dict):
+            continue
+        scope = requirement.get("scope_evidence", {}) if isinstance(requirement.get("scope_evidence"), dict) else {}
+        for field, role in (("implementation_owners", "implementation-owner"), ("inspection_paths", "inspection-input"), ("proof_paths", "proof-only")):
+            for path in scope.get(field, []):
+                key = (str(requirement.get("display_id")), str(path), role)
+                if key in seen_scope:
+                    continue
+                seen_scope.add(key)
+                scope_rows.append({"path": str(path), "role": role, "requirement_id": str(requirement.get("display_id")), "reason": f"validated `{role}` mapping for {requirement.get('display_id')}"})
+    if not scope_rows:
+        scope_rows = impacted
+    validation: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for requirement in revision.get("requirements", []):
+        contract = requirement.get("validation_contract", {}) or {}
+        recorded_checks = [row for row in contract.get("checks", []) if isinstance(row, dict) and str(row.get("command", "")).strip()]
+        if recorded_checks:
+            for check in recorded_checks:
+                check_tiers = [str(value) for value in check.get("tiers", [])] or [str(value) for value in contract.get("tiers", [])]
+                candidates = [str(value) for value in check.get("candidate_paths", []) if str(value)]
+                candidate = candidates[0] if candidates else "approved evidence receipt"
+                for tier in check_tiers:
+                    key = (tier, candidate, str(check["command"]))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    validation.append({"tier": tier, "candidate": candidate, "command": str(check["command"])})
+            continue
+        recorded_commands = [str(value) for value in contract.get("commands", []) if str(value).strip()]
+        for tier in contract.get("tiers", []):
+            if recorded_commands:
+                candidates = [str(value) for value in contract.get("candidate_paths", []) if str(value)]
+                candidate = candidates[0] if candidates else "approved evidence receipt"
+                for command in recorded_commands:
+                    key = (str(tier), candidate, command)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    validation.append({"tier": str(tier), "candidate": candidate, "command": command})
+                continue
             candidates = [str(row.get("path")) for row in impacted if f"/tests/{tier}/" in f"/{str(row.get('path', '')).replace(chr(92), '/')}" or (tier == "behaviour" and "/tests/behavior/" in f"/{str(row.get('path', '')).replace(chr(92), '/')}")]
             if not candidates:
                 candidates = [str(row.get("path")) for row in impacted if str(row.get("path", "")).replace("\\", "/").startswith("tests/")]
@@ -990,15 +1272,15 @@ def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> d
             # the resolved command cannot pass vacuously with zero tests.
             candidates = sorted(candidates, key=lambda path: Path(path).name == "__init__.py")
             candidate = candidates[0] if candidates else "approved evidence receipt"
-            key = (str(tier), candidate)
-            if key in seen:
-                continue
-            seen.add(key)
             if candidate.startswith("tests/"):
                 path = Path(candidate)
                 command = f"{_proof_runner(report.get('command_prefix', 'python3'))} -m unittest discover -s {path.parent.as_posix()} -p {path.name} -v"
             else:
                 command = "Record a requirement-linked approved evidence receipt."
+            key = (str(tier), candidate, command)
+            if key in seen:
+                continue
+            seen.add(key)
             validation.append({"tier": str(tier), "candidate": candidate, "command": command})
     return {
         "navigator_decision": {
@@ -1006,7 +1288,7 @@ def _resolved_aidlc_plan(root: Path, run_id: str, revision: dict[str, Any]) -> d
             "task_types": list(navigator.get("task_types", [])),
             "risks": list(navigator.get("risk_indicators", [])),
         },
-        "scope": impacted,
+        "scope": scope_rows,
         "selected_features": [row for row in delivery.get("selected", []) if isinstance(row, dict)],
         "required_later": [row for row in delivery.get("required_later", []) if isinstance(row, dict)] or [
             {"name": "Focused testing and validation", "when": "after every approved implementation or correction, before completion", "why": "prove changed behavior, preservation cases, and regression boundaries with factual evidence"},
@@ -1566,14 +1848,144 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
     if current["status"] != "awaiting-approval":
         raise ValueError(f"AIDLC answers are available only while run `{run_id}` is awaiting approval; run `tailtrail start \"<goal>\"` for a fresh questionnaire")
     stage_document = read(_aidlc_artifact(root, run_id, "aidlc-requirements-v1.json"))
-    answers = json.loads(answers_json)
+    submitted = json.loads(answers_json)
+    if isinstance(submitted, list):
+        answers = submitted
+        supplied_projection = None
+    elif isinstance(submitted, dict) and isinstance(submitted.get("answers"), list):
+        answers = submitted["answers"]
+        supplied_projection = submitted.get("correction_projection")
+    else:
+        raise ValueError("AIDLC input must be an answer list or an object containing answers and correction_projection")
     engine = _aidlc_requirements_module()
     revision = engine.revise(stage_document, answers)
+    projection = _correction_projection(
+        root, run_id, stage_document, answers, revision, supplied_projection,
+    )
+    planning = L.state_dir(root, run_id) / "planning"
+    if projection["status"] != "passed":
+        observation_path, version = _next_versioned_artifact(planning, "aidlc-correction-observations")
+        observation = {
+            "schema_version": "1",
+            "type": "tailtrail-aidlc-correction-observations",
+            "run_id": run_id,
+            "state": "revision-required",
+            "reason_code": projection["reason_code"],
+            "source_answers_fingerprint": projection["source_answers_fingerprint"],
+            "material_question_ids": projection["material_question_ids"],
+            "answers": revision.get("aidlc_answers", {}),
+            "open_questions": projection["open_questions"],
+            "authority_boundary": "Free-form answers are observations only. They cannot revise canonical requirements, scope, proof, or an approved anchor until a validated correction-projection artifact exists.",
+        }
+        L.atomic_json(observation_path, observation)
+        state_path = _record_aidlc_correction_state(root, run_id, {
+            "state": "revision-required",
+            "reason_code": projection["reason_code"],
+            "latest_observation": observation_path.relative_to(root).as_posix(),
+            "active_revision": None,
+            "active_projection": None,
+        })
+        L.append_event(root, run_id, "aidlc_correction_projection_blocked", {
+            "artifact": observation_path.relative_to(root).as_posix(),
+            "state_artifact": state_path.relative_to(root).as_posix(),
+            "version": version,
+            "reason_code": projection["reason_code"],
+            "material_question_ids": projection["material_question_ids"],
+        })
+        return {"artifact": observation_path.relative_to(root).as_posix(), **observation}
+
+    revision["requirements"] = projection["requirements"]
     evidence_capability = _evidence_tiers_module().compile_requirements(revision["requirements"])
-    revision_path = L.state_dir(root, run_id) / "planning" / "aidlc-revised-requirements-v1.json"
-    payload = {"schema_version": "1", "type": "tailtrail-aidlc-revised-requirements", "run_id": run_id, "source_boundary": stage_document["source_boundary"], "question_revision": stage_document.get("question_revision", 1), "evidence_capability": evidence_capability, "resolved_plan": _resolved_aidlc_plan(root, run_id, revision), **revision}
+    resolved_plan = _resolved_aidlc_plan(root, run_id, revision)
+    base_revision = {"requirements": copy.deepcopy(stage_document.get("requirements", []))}
+    base_plan = _resolved_aidlc_plan(root, run_id, base_revision)
+    base_fingerprints = _aidlc_plan_fingerprints(base_revision, base_plan)
+    canonical_fingerprints = _aidlc_plan_fingerprints(revision, resolved_plan)
+    changed_surfaces = sorted(
+        name for name, fingerprint in canonical_fingerprints.items()
+        if fingerprint != base_fingerprints[name]
+    )
+    if projection["material_question_ids"] and not changed_surfaces:
+        observation_path, version = _next_versioned_artifact(planning, "aidlc-correction-observations")
+        observation = {
+            "schema_version": "1",
+            "type": "tailtrail-aidlc-correction-observations",
+            "run_id": run_id,
+            "state": "revision-required",
+            "reason_code": "canonical-revision-projection-mismatch",
+            "source_answers_fingerprint": projection["source_answers_fingerprint"],
+            "material_question_ids": projection["material_question_ids"],
+            "answers": revision.get("aidlc_answers", {}),
+            "open_questions": ["The validated correction projection did not change canonical requirements, scope, or proof; revise the projection or explicitly classify the answer as non-material."],
+            "authority_boundary": "A material answer cannot be acknowledged only in metadata while the canonical plan remains unchanged.",
+        }
+        L.atomic_json(observation_path, observation)
+        state_path = _record_aidlc_correction_state(root, run_id, {
+            "state": "revision-required",
+            "reason_code": observation["reason_code"],
+            "latest_observation": observation_path.relative_to(root).as_posix(),
+            "active_revision": None,
+            "active_projection": None,
+        })
+        L.append_event(root, run_id, "aidlc_correction_projection_blocked", {
+            "artifact": observation_path.relative_to(root).as_posix(),
+            "state_artifact": state_path.relative_to(root).as_posix(),
+            "version": version,
+            "reason_code": observation["reason_code"],
+            "material_question_ids": projection["material_question_ids"],
+        })
+        return {"artifact": observation_path.relative_to(root).as_posix(), **observation}
+
+    projection_path, projection_version = _next_versioned_artifact(planning, "aidlc-correction-projection")
+    revision_path, revision_version = _next_versioned_artifact(planning, "aidlc-revised-requirements")
+    projection_artifact = {
+        "schema_version": "1",
+        "type": "tailtrail-validated-correction-projection",
+        "run_id": run_id,
+        "status": "validated",
+        "source": projection["source"],
+        "source_answers_fingerprint": projection["source_answers_fingerprint"],
+        "material_question_ids": projection["material_question_ids"],
+        "requirement_deltas": supplied_projection.get("requirements", []) if isinstance(supplied_projection, dict) else [],
+        "scope_deltas": projection["scope"],
+        "proof_deltas": projection["proof"],
+        "base_canonical_fingerprints": base_fingerprints,
+        "projected_canonical_fingerprints": canonical_fingerprints,
+        "changed_surfaces": changed_surfaces,
+        "authority_boundary": "Only this validated projection, not the raw free-form answers, may feed the canonical revised plan.",
+    }
+    L.atomic_json(projection_path, projection_artifact)
+    payload = {
+        "schema_version": "1",
+        "type": "tailtrail-aidlc-revised-requirements",
+        "run_id": run_id,
+        "source_boundary": stage_document["source_boundary"],
+        "question_revision": stage_document.get("question_revision", 1),
+        "evidence_capability": evidence_capability,
+        "correction_projection": projection_path.relative_to(root).as_posix(),
+        "canonical_fingerprints": canonical_fingerprints,
+        "changed_surfaces": changed_surfaces,
+        "resolved_plan": resolved_plan,
+        **revision,
+    }
     L.atomic_json(revision_path, payload)
-    L.append_event(root, run_id, "aidlc_requirements_answered", {"artifact": revision_path.relative_to(root).as_posix(), "question_ids": sorted(revision["aidlc_answers"]), "status": "revision-ready"})
+    state_path = _record_aidlc_correction_state(root, run_id, {
+        "state": "revision-ready",
+        "reason_code": None,
+        "latest_observation": None,
+        "active_revision": revision_path.relative_to(root).as_posix(),
+        "active_projection": projection_path.relative_to(root).as_posix(),
+    })
+    L.append_event(root, run_id, "aidlc_requirements_answered", {
+        "artifact": revision_path.relative_to(root).as_posix(),
+        "projection": projection_path.relative_to(root).as_posix(),
+        "state_artifact": state_path.relative_to(root).as_posix(),
+        "revision_version": revision_version,
+        "projection_version": projection_version,
+        "question_ids": sorted(revision["aidlc_answers"]),
+        "status": "revision-ready",
+        "changed_surfaces": changed_surfaces,
+    })
     return {"state": "aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **payload}
 
 
@@ -1626,7 +2038,27 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
     current = show(root, run_id)
     if current["status"] != "awaiting-approval":
         raise ValueError(f"AIDLC requirements cannot activate run `{run_id}` from status `{current['status']}`; only awaiting-approval runs can be activated (check `tailtrail planning show --root . --run-id {run_id}`)")
-    revision_path = _aidlc_artifact(root, run_id, "aidlc-revised-requirements-v1.json")
+    correction_state_path = _aidlc_correction_state_path(root, run_id)
+    if correction_state_path.is_file():
+        correction_state = read(correction_state_path)
+        if correction_state.get("type") != "tailtrail-aidlc-correction-state" or correction_state.get("run_id") != run_id:
+            raise ValueError("AIDLC correction state is invalid; submit the current answers and validated correction projection again")
+        if correction_state.get("state") != "revision-ready":
+            raise ValueError("AIDLC requirements cannot be approved while correction projection is revision-required; resolve the listed open questions first")
+        revision_value = str(correction_state.get("active_revision", ""))
+        revision_relative = Path(revision_value)
+        if not revision_value or revision_relative.is_absolute() or ".." in revision_relative.parts:
+            raise ValueError("AIDLC correction state has an unsafe active revision path; submit the current answers and validated correction projection again")
+        revision_path = (root / revision_relative).resolve()
+        try:
+            revision_path.relative_to(L.state_dir(root, run_id).resolve())
+        except ValueError as error:
+            raise ValueError("AIDLC correction state has an out-of-run active revision path; submit the current answers and validated correction projection again") from error
+        if not revision_path.is_file():
+            raise ValueError("AIDLC correction state has no valid active revision; submit the current answers and validated correction projection again")
+    else:
+        latest = _latest_versioned_artifact(L.state_dir(root, run_id) / "planning", "aidlc-revised-requirements")
+        revision_path = latest or _aidlc_artifact(root, run_id, "aidlc-revised-requirements-v1.json")
     revision = read(revision_path)
     _ensure_evidence_capability(revision_path, revision)
     validate_saved_scope_decision(root, run_id)
@@ -1705,6 +2137,30 @@ def render_aidlc_requirements(payload: dict[str, Any]) -> str:
 
 
 def render_aidlc_revision(payload: dict[str, Any]) -> str:
+    if payload.get("state") == "revision-required":
+        lines = [
+            "# TailTrail AIDLC Correction Projection Required",
+            "",
+            f"**Run ID:** `{payload['run_id']}`",
+            "**State:** revision required - no canonical revised plan or implementation authority was created.",
+            f"**Reason code:** `{payload.get('reason_code', 'correction-projection-required')}`",
+            "",
+            "## Material answers",
+            "",
+        ]
+        question_ids = payload.get("material_question_ids", [])
+        lines.append("- " + (", ".join(f"`{value}`" for value in question_ids) or "None recorded."))
+        lines.extend(["", "## Open questions", ""])
+        lines.extend(f"- {_display_prose(value)}" for value in payload.get("open_questions", []))
+        lines.extend([
+            "",
+            "## Authority boundary",
+            "",
+            f"- {payload.get('authority_boundary')}",
+            "- Raw answers remain saved observations. Submit a grounded, validated correction projection before asking for approval.",
+            "",
+        ])
+        return "\n".join(lines)
     official = payload.get("authority") == "official-ai-dlc-pack"
     lines = ["# TailTrail AIDLC Revised Requirements", "", f"**Run ID:** `{payload['run_id']}`", "**State:** awaiting AIDLC approval - no source inspection or implementation has run.", "", "## Revised requirement boundary", "", "| ID | Requirement |", "| --- | --- |"]
     for row in payload["requirements"]:
@@ -1715,6 +2171,16 @@ def render_aidlc_revision(payload: dict[str, Any]) -> str:
         lines[3] = "**State:** awaiting official Requirements Analysis approval; no source inspection or implementation has run."
     for question_id, answer in payload.get("official_decisions", payload.get("aidlc_answers", {})).items():
         lines.append(f"- **{question_id}:** {answer['selected']}")
+    projection = payload.get("correction_projection")
+    if projection:
+        lines.extend([
+            "",
+            "## Validated correction projection",
+            "",
+            f"- Artifact: `{projection}`.",
+            "- Changed canonical surfaces: " + (", ".join(f"`{value}`" for value in payload.get("changed_surfaces", [])) or "none"),
+            "- Raw free-form answers remain non-authoritative; only the validated projection feeds this revised plan.",
+        ])
     capability = payload.get("evidence_capability", {}) or {}
     lines.extend(["", "## Evidence capability check", "", f"- Status: `{capability.get('status', 'unavailable')}`."])
     for row in capability.get("requirements", []):

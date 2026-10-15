@@ -33,6 +33,13 @@ def load_ui_module():
 
 
 class UiConsistencyTests(unittest.TestCase):
+    def test_free_form_answer_wording_does_not_select_ui_plan(self) -> None:
+        task_start = load_task_start_module()
+        self.assertFalse(task_start.ui_planning.selected_for(
+            "Project validated free-form answers into canonical requirements",
+            ["scripts/planning_lock.py"],
+        ))
+
     def test_static_validation_selects_lint_and_one_build_or_type_check(self) -> None:
         task_start = load_task_start_module()
         with tempfile.TemporaryDirectory() as temp:

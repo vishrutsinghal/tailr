@@ -26,6 +26,31 @@ discussion = load("planning_discussion_test", "scripts/planning-discussion.py")
 
 
 class PlanningDiscussionTests(unittest.TestCase):
+    def test_rejected_plan_explanation_reports_revision_required(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "discussion-rejected"
+            lock.create(root, "change validation", run_id)
+            lock.save_start_report(root, run_id, {
+                "goal": "change validation",
+                "navigator": {
+                    "scope_quality": {"status": "passed"},
+                    "requirement_matrix": [{
+                        "display_id": "REQ-01",
+                        "statement": "Change validation.",
+                        "likely_paths": ["src/validation.py"],
+                        "scope_evidence": {"proof_paths": ["tests/test_validation.py"]},
+                    }],
+                },
+            })
+            lock.L.append_event(root, run_id, "proposal_rejected", {"feedback": []})
+            result = discussion.discuss(root, run_id, "Is this plan ready for approval?")
+            rendered = discussion.render_explanation(result)
+        self.assertEqual(result["planning_state"], "revision-required")
+        self.assertEqual(result["answer"]["status"], "revision-required")
+        self.assertIn("not ready for approval", result["answer"]["direct"])
+        self.assertIn("**State:** revision required", rendered)
+
     def test_v2_file_explanation_names_exact_edge_role_and_confidence(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

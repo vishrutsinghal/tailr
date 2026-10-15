@@ -658,7 +658,9 @@ def ui_change_requested(goal: str, changed: list[str]) -> bool:
     repository.  This function only selects a preservation guardrail; source
     discovery remains an approved read-only delivery step.
     """
-    lowered = goal.lower()
+    # "free-form" describes unstructured input; it is not evidence of an HTML
+    # form or another UI surface. Other explicit UI terms still route to UI.
+    lowered = re.sub(r"\bfree[-\s]+form\b", "", goal.lower())
     if any(keyword_found(lowered, term) for term in UI_GOAL_TERMS):
         return True
     for raw_path in changed:
