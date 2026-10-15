@@ -2619,6 +2619,7 @@ def build_report(
     requirement_interpretation: dict[str, Any] | None = None,
     debug_diagnosis: dict[str, Any] | None = None,
     host_override: str | None = None,
+    declared_task_type: str | None = None,
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
     
@@ -2666,6 +2667,7 @@ def build_report(
         requirement_interpretation=resolved_requirement_interpretation,
         debug_diagnosis=debug_diagnosis,
         persist_host_packet=True,
+        declared_task_type=declared_task_type,
     )
     classification = plan.get("workflow_classification", {})
     if classification.get("workflow_type") == "debug-investigation":
@@ -6845,6 +6847,7 @@ def main() -> int:
             graph_mode,
             interpreted_requirements,
             validated_debug_diagnosis,
+            declared_task_type=args.task_type,
         )
         report["graph_lifecycle"] = graph_lifecycle
         if graph_mode_override is not None:

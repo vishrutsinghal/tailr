@@ -1119,8 +1119,26 @@ def evaluation_harness_plan(
     }
 
 
-def evaluation_only_requested(goal: str, evaluation_plan: dict[str, Any]) -> bool:
+IMPLEMENTATION_TASK_TYPES = frozenset({"implementation"})
+
+
+def evaluation_only_requested(
+    goal: str,
+    evaluation_plan: dict[str, Any],
+    declared_task_type: str | None = None,
+) -> bool:
+    """Whether the Evaluation Harness early-return route may be selected.
+
+    A declared implementation task type always vetoes the eval-only route,
+    even when the goal contains `proof`, `evidence`, `report`, `review`,
+    or `validation`. Keywords remain fallback hints only when no host
+    contract/declaration exists; they must never silently override an
+    accepted implementation declaration.
+    """
     if not evaluation_plan.get("selected"):
+        return False
+    declared = str(declared_task_type or "").strip().lower()
+    if declared in IMPLEMENTATION_TASK_TYPES:
         return False
     lowered = goal.lower()
     code_action_terms = (
@@ -1291,6 +1309,7 @@ def decide(
     debug_diagnosis: dict[str, Any] | None = None,
     allow_passive_capture: bool = True,
     persist_host_packet: bool = False,
+    declared_task_type: str | None = None,
 ) -> dict[str, Any]:
     workflow_classification = core.classify_workflow_intent(
         goal,
@@ -1543,7 +1562,17 @@ def decide(
             ],
         }
 
-    if evaluation_only_requested(goal, evaluation_plan) and not core.has_override(goal, "skip eval"):
+    declared = str(declared_task_type or "").strip().lower() or None
+    eval_blocked = declared in IMPLEMENTATION_TASK_TYPES and bool(evaluation_plan.get("selected"))
+    if eval_blocked:
+        evaluation_plan = {
+            **evaluation_plan,
+            "selected": False,
+            "eval_blocked_by_declaration": True,
+            "authority_source": "declared-task-type",
+            "reason": (str(evaluation_plan.get("reason", "")) + "; blocked: declared implementation task type overrides eval keywords").strip("; "),
+        }
+    if evaluation_only_requested(goal, evaluation_plan, declared) and not core.has_override(goal, "skip eval"):
         scenario = evaluation_plan["scenario"]
         return {
             "navigator_mode": "evaluation_harness",
@@ -1557,6 +1586,9 @@ def decide(
                 "triggered_terms": list(evaluation_plan.get("triggered_terms", [])),
                 "declared_paths": list(evaluation_plan.get("declared_paths", [])),
                 "scenario": scenario,
+                "declared_task_type": declared,
+                "authority_source": "declared-task-type" if declared else "keyword-fallback",
+                "eval_blocked_by_declaration": False,
             },
             "registry_workflow": registry_workflow("evaluation") or {"workflow": "evaluation", "feature_ids": ["evaluation-harness"]},
             "selected_features": [
