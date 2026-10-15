@@ -4782,6 +4782,199 @@ def parse_scope_answer(value: str) -> tuple[str | None, str]:
     return None, text
 
 
+def _new_answer_grounded(goal: str | None, clean: str) -> bool:
+    """Ground a stripped new-file path against the exact goal text.
+
+    The `new:` marker is transport, never address: grounding compares the
+    normalized repository-relative path (or its basename). Without a goal
+    the answer stays ungrounded-checked and due diligence alone gates.
+    """
+    if goal is None:
+        return True
+    lowered = goal.replace("\\", "/").lower()
+    return clean.lower() in lowered or PurePosixPath(clean).name.lower() in lowered
+
+
+def _new_answer_diligence(
+    root: Path,
+    clean: str,
+    candidates: dict[str, Any],
+    edges: dict[str, Any],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Run new-file due diligence for a scope-answer path.
+
+    Returns (lane, error). Lane carries the normalized path on
+    `new-confirmed`; error is a precise reason code otherwise. Existence,
+    eligibility, collision, owner evidence, and convention precedent run
+    exactly as if no claims had been supplied.
+    """
+    checks = new_file_due_diligence.run_all_checks(root, clean)
+    parent = str(PurePosixPath(clean).parent)
+    edge_kinds = _directory_ownership_edge_kinds(
+        [row for row in candidates.values() if isinstance(row, dict)],
+        [row for row in edges.values() if isinstance(row, dict)],
+        parent,
+    )
+    owner_evidence = new_file_due_diligence.check_existing_owner_evidence(clean, edge_kinds)
+    verdict = new_file_due_diligence.combine_verdict(
+        existence=checks["existence"],
+        path_eligibility=checks["path_eligibility"],
+        collision=checks["name_symbol_collision"],
+        owner_evidence=owner_evidence,
+        convention=checks["convention_precedent"],
+    )
+    if verdict.get("verdict") == "new-confirmed":
+        return {"path": clean, "verdict": verdict}, None
+    state = str(verdict.get("verdict", "unverified"))
+    codes = ",".join(str(code) for code in (verdict.get("reason_codes", []) or []) if str(code))
+    return None, f"answer-new-path-{state}:{clean}:{codes}"
+
+
+def _new_proposal_lane(
+    root: Path,
+    new_path: str,
+    candidates: dict[str, Any],
+    edges: dict[str, Any],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Derive the proposed-new lane for a diligence-confirmed new path.
+
+    Returns (lane, error). Anchors are included candidates in the new
+    path's own directory with fresh content fingerprints and incident
+    evidence edges; convention refs are accepted-kind edges touching the
+    anchor. Without either, the answer fails closed with a precise,
+    actionable reason instead of a fake approval.
+    """
+    parent = PurePosixPath(new_path).parent.as_posix()
+    explicit = {"explicit-path-owner-candidate", "user-provided-path"}
+    anchors: list[dict[str, Any]] = []
+    for path in sorted(candidates):
+        row = candidates.get(path)
+        if not isinstance(row, dict):
+            continue
+        if row.get("status") != "included":
+            continue
+        if str(PurePosixPath(str(row.get("path", ""))).parent.as_posix()) != parent:
+            continue
+        fingerprint_value = row.get("content_fingerprint")
+        if not isinstance(fingerprint_value, str) or not fingerprint_value:
+            continue
+        candidate_id = str(row.get("candidate_id", ""))
+        incident = sorted({
+            str(edge_id)
+            for edge_id in (row.get("evidence_edge_ids", []) or [])
+            if str(edge_id) in edges and candidate_id and candidate_id in {
+                str(edges[str(edge_id)].get("from_candidate_id", "")),
+                str(edges[str(edge_id)].get("to_candidate_id", "")),
+            }
+        })
+        if not incident and not (explicit & {str(v) for v in (row.get("reason_codes", []) or [])}):
+            continue
+        _text, rejection, current_hash = safe_text(root, path)
+        if rejection or current_hash != fingerprint_value:
+            continue
+        anchors.append({"path": path, "candidate_id": candidate_id,
+                        "content_fingerprint": fingerprint_value, "incident": incident,
+                        "reasons": {str(v) for v in (row.get("reason_codes", []) or [])}})
+    if not anchors:
+        return None, f"answer-new-path-missing-anchor:{new_path}"
+    for anchor in anchors:
+        refs = sorted({
+            edge_id for edge_id in anchor["incident"]
+            if (edges.get(edge_id, {}) or {}).get("kind") in _CONVENTION_INTEGRATION_KINDS
+            or (edges.get(edge_id, {}) or {}).get("reason") in _CONVENTION_INTEGRATION_REASONS
+            or "convention" in str((edges.get(edge_id, {}) or {}).get("reason", ""))
+            or any("convention" in str(code) for code in anchor["reasons"])
+        })
+        if not refs:
+            continue
+        if not _convention_link_present(candidates, edges, [anchor["path"]], refs):
+            continue
+        return {"path": new_path, "anchor": anchor, "convention_refs": refs}, None
+    return None, f"answer-new-path-missing-convention:{new_path}"
+
+
+def _new_proposal_requirement(
+    packet_row: dict[str, Any],
+    requirement_id: str,
+    lane: dict[str, Any],
+    eligible: set[str],
+    answer_round: int,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Build a proposed-new proposal requirement row for a confirmed new path."""
+    anchor = lane["anchor"]
+    refs = list(lane["convention_refs"])
+    claim_edges = sorted(set(anchor["incident"]))
+    references = sorted(set(claim_edges) | set(refs))
+    alternatives = sorted(path for path in eligible if path != lane["path"])
+    if not alternatives:
+        return None, f"answer-has-no-alternative:{requirement_id}"
+    return {
+        "requirement_id": requirement_id,
+        "statement_fingerprint": packet_row.get("statement_fingerprint"),
+        "implementation_owners": [],
+        "callers": [],
+        "inspection_paths": [anchor["path"]],
+        "proof_paths": [],
+        "excluded_candidates": [],
+        "path_claims": [{
+            "path": anchor["path"],
+            "candidate_id": anchor["candidate_id"],
+            "content_fingerprint": anchor["content_fingerprint"],
+            "claim_role": "inspection",
+            "evidence_edge_ids": claim_edges,
+        }],
+        "preservation_boundaries": ["A proposed new path records host selection; it grants no execution authority."],
+        "evidence_edge_ids": references,
+        "confidence": "medium",
+        "decision_reasons": [
+            f"Host scope answer round {answer_round} proposes new file {lane['path']} for {requirement_id}.",
+            f"New-file due diligence returned new-confirmed anchored at {anchor['path']}.",
+        ],
+        "alternatives": alternatives,
+        "uncertainties": [],
+        "proposed_new_path": lane["path"],
+        "anchor_paths": [anchor["path"]],
+        "convention_refs": refs,
+    }, None
+
+
+def _path_term_tokens(path: str) -> set[str]:
+    """Filename term tokens for necessity overlap (mirrors the >=3-char rule)."""
+    stem = PurePosixPath(path).stem.lower()
+    parts = set(re.split(r"[^a-z0-9]+", stem)) | {stem}
+    return {token for token in parts if len(token) >= 3}
+
+
+def _new_necessity_blocker(
+    clean: str,
+    requirement_terms: list[str],
+    candidates: dict[str, Any],
+) -> str | None:
+    """Ask whether a new file is needed at all, not just whether its name is free.
+
+    When an included implementation-owner candidate lives in the new path's
+    own directory and shares requirement-term vocabulary, the requirement
+    may belong to that file. Returns the existing path to extend-or-justify
+    against, or None when no such overlap exists. Empty requirement terms
+    cannot judge necessity and never block.
+    """
+    terms = {str(term).lower() for term in (requirement_terms or []) if len(str(term)) >= 3}
+    if not terms:
+        return None
+    parent = PurePosixPath(clean).parent.as_posix()
+    for path in sorted(candidates):
+        row = candidates.get(path)
+        if not isinstance(row, dict):
+            continue
+        if row.get("role") != "implementation-owner" or row.get("status") != "included":
+            continue
+        if PurePosixPath(path).parent.as_posix() != parent:
+            continue
+        if terms & _path_term_tokens(path):
+            return path
+    return None
+
+
 def proposal_from_scope_answers(
     root: Path,
     packet: dict[str, Any],
@@ -4800,6 +4993,12 @@ def proposal_from_scope_answers(
     capped so the dialogue fails closed instead of looping. Returns
     (proposal, []) on success or (None, reason codes) for the next round.
     Rounds always bind the fresh evidence packet, never a post-record one.
+
+    A `new:` prefix declares a file that does not exist yet. The marker is
+    stripped before normalization and grounding; the stripped path is
+    grounded against the goal, verified by new-file due diligence, and
+    proposed through the supported proposed-new lane (never merged into
+    existing-owner mappings and never approved by this proposal).
 
     When `goal` is supplied, an answered path that is not yet an eligible,
     included candidate is given the same chance to qualify that the
@@ -4863,15 +5062,21 @@ def proposal_from_scope_answers(
         return None, ["answer-required"]
     parsed: list[tuple[str | None, str]] = [parse_scope_answer(value) for value in raw_answers]
     mapped: dict[str, str] = {}
+    declared_new: dict[str, str] = {}
     errors: list[str] = []
     for reference, raw_path in parsed:
-        normalized, rejection = normalize_repository_path(root, raw_path)
+        # The `new:` marker is transport, never address: strip it before
+        # normalization and grounding so a proposed path is compared as
+        # `docs/plan.md`, never as `new:docs/plan.md`.
+        is_new_file = raw_path.startswith("new:")
+        answer_path = raw_path[len("new:"):] if is_new_file else raw_path
+        normalized, rejection = normalize_repository_path(root, answer_path)
         if normalized is None:
-            errors.append(f"answer-path-rejected:{raw_path}:{rejection}")
+            errors.append(f"answer-path-rejected:{answer_path}:{rejection}")
             continue
         if reference is None:
             if len(unresolved) != 1:
-                errors.append(f"answer-needs-requirement:{raw_path}:provide-REQ-ID=path")
+                errors.append(f"answer-needs-requirement:{answer_path}:provide-REQ-ID=path")
                 continue
             requirement_id = unresolved[0]
         else:
@@ -4883,8 +5088,33 @@ def proposal_from_scope_answers(
             if requirement_id not in unresolved:
                 errors.append(f"requirement-already-resolved:{reference}")
                 continue
-        if requirement_id in mapped:
+        if requirement_id in mapped or requirement_id in declared_new:
             errors.append(f"duplicate-requirement-answer:{requirement_id}")
+            continue
+        if is_new_file:
+            if (root.resolve() / normalized).is_file():
+                errors.append(f"declared-new-file-already-exists:{normalized}")
+                continue
+            if not _new_answer_grounded(goal, normalized):
+                errors.append(f"answer-new-path-ungrounded:{normalized}:ground-it-in-the-goal")
+                continue
+            lane, diligence_error = _new_answer_diligence(root, normalized, candidates, edges)
+            if diligence_error is not None:
+                errors.append(diligence_error)
+                continue
+            packet_row = match if reference is not None else next(
+                (row for row in packet_requirements if str(row.get("requirement_id", "")) == requirement_id), {},
+            )
+            packet_terms = packet_row.get("query_terms", []) if isinstance(packet_row, dict) else []
+            if not isinstance(packet_terms, list):
+                packet_terms = []
+            blocker = _new_necessity_blocker(normalized, packet_terms, candidates)
+            if blocker is not None:
+                errors.append(
+                    f"answer-new-path-needs-extend-justification:{normalized}:{blocker}:extend-or-justify-new-file"
+                )
+                continue
+            declared_new[requirement_id] = normalized
             continue
         candidate = candidates.get(normalized)
         if candidate is None or candidate.get("role") != "implementation-owner" or candidate.get("status") != "included":
@@ -4908,14 +5138,28 @@ def proposal_from_scope_answers(
             errors.append(f"answer-without-relationship-evidence:{normalized}")
             continue
         mapped[requirement_id] = normalized
-    missing = sorted(set(unresolved) - set(mapped))
+    missing = sorted(set(unresolved) - set(mapped) - set(declared_new))
     if missing and not errors:
         errors.append(f"answer-incomplete:unmapped-requirements:{','.join(missing)}")
     if errors:
         return None, sorted(dict.fromkeys(errors))
+    new_file_lanes: dict[str, dict[str, Any]] = {}
+    for requirement_id, new_path in declared_new.items():
+        lane, lane_error = _new_proposal_lane(root, new_path, candidates, edges)
+        if lane_error is not None:
+            return None, [lane_error]
+        new_file_lanes[requirement_id] = lane
     proposal_requirements: list[dict[str, Any]] = []
     for row in packet_requirements:
         requirement_id = str(row.get("requirement_id", ""))
+        if requirement_id in new_file_lanes:
+            new_requirement, new_error = _new_proposal_requirement(
+                row, requirement_id, new_file_lanes[requirement_id], eligible, answer_round,
+            )
+            if new_error is not None:
+                return None, [new_error]
+            proposal_requirements.append(new_requirement)
+            continue
         owner = mapped[requirement_id]
         candidate = candidates[owner]
         claim_edges = sorted({
