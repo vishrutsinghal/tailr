@@ -187,5 +187,145 @@ class RepositoryPathPolicyTests(unittest.TestCase):
         )
 
 
+def _source_checkout_fixture(root: Path) -> None:
+    (root / "scripts").mkdir(parents=True, exist_ok=True)
+    (root / "scripts" / "tailtrail.py").write_text("# launcher\n", encoding="utf-8")
+    (root / "tailtrail").mkdir(parents=True, exist_ok=True)
+    (root / "tailtrail" / "__init__.py").write_text("# pkg\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text('[project]\nname = "tailtrail"\n', encoding="utf-8")
+    (root / "package-manifest.json").write_text('{"package": "tailtrail"}', encoding="utf-8")
+    (root / "tailtrail-registry.json").write_text('{"features": []}', encoding="utf-8")
+
+
+class WorkspaceContextDetectionTests(unittest.TestCase):
+    def test_real_checkout_is_source(self) -> None:
+        receipt = policy.detect_workspace_context(ROOT)
+        self.assertEqual(receipt["state"], "tailtrail-source-checkout")
+        self.assertEqual(receipt["detector_version"], "1")
+        self.assertTrue(receipt["fingerprint"].startswith("sha256:"))
+        again = policy.detect_workspace_context(ROOT)
+        self.assertEqual(receipt, again)
+
+    def test_installed_marker_wins_over_source_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _source_checkout_fixture(root)
+            (root / ".tailtrail-install.json").write_text("{}", encoding="utf-8")
+            receipt = policy.detect_workspace_context(root)
+        self.assertEqual(receipt["state"], "installed-tailtrail-pack")
+
+    def test_empty_dir_is_ordinary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            receipt = policy.detect_workspace_context(Path(temp))
+        self.assertEqual(receipt["state"], "ordinary-repository")
+
+    def test_partial_markers_is_unknown(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "tailtrail.py").write_text("# x\n", encoding="utf-8")
+            (root / "tailtrail-registry.json").write_text("{}", encoding="utf-8")
+            receipt = policy.detect_workspace_context(root)
+        self.assertEqual(receipt["state"], "unknown")
+
+
+class SourceCheckoutEligibilityTests(unittest.TestCase):
+    def test_top_level_product_paths_eligible_in_source(self) -> None:
+        role, reasons = policy.classify_path(
+            Path("/repo"), "tailtrail/install/catalog.py",
+            workspace_context="tailtrail-source-checkout",
+        )
+        self.assertEqual(role, "application")
+        self.assertEqual(list(reasons), ["tailtrail-product-source"])
+        role, reasons = policy.classify_path(
+            Path("/repo"), "aidlc-rules/VERSION",
+            workspace_context="tailtrail-source-checkout",
+        )
+        self.assertEqual(role, "application")
+        self.assertEqual(list(reasons), ["bundled-aidlc-product-asset"])
+
+    def test_same_paths_excluded_elsewhere(self) -> None:
+        for context in ("ordinary-repository", "unknown", "installed-tailtrail-pack"):
+            with self.subTest(context=context):
+                self.assertEqual(
+                    policy.classify_path(Path("/repo"), "tailtrail/install/catalog.py", workspace_context=context)[0],
+                    "tailtrail-managed",
+                )
+                self.assertEqual(
+                    policy.classify_path(Path("/repo"), "aidlc-rules/VERSION", workspace_context=context)[0],
+                    "tailtrail-managed",
+                )
+
+    def test_negative_boundaries_hold_in_source(self) -> None:
+        cases = [
+            ".tailtrail/runs/x.json",
+            "tailtrail-meta/cache.json",
+            "fixture/tailtrail/module.py",
+            "fixture/aidlc-rules/VERSION",
+            ".codex/worktrees/x/tailtrail/a.py",
+            "vendor/tailtrail/a.py",
+            "tailtrail/vendor/a.py",
+            ".git/config",
+            "sub/.git/y",
+        ]
+        for path in cases:
+            with self.subTest(path=path):
+                role, reasons = policy.classify_path(
+                    Path("/repo"), path, workspace_context="tailtrail-source-checkout",
+                )
+                self.assertNotEqual(role, "application", path)
+                self.assertTrue(reasons, path)
+
+    def test_unknown_context_is_default_and_stable(self) -> None:
+        first = policy.classify_path(Path("/repo"), "tailtrail/api.py")
+        second = policy.classify_path(Path("/definitely/not/here"), "tailtrail/api.py")
+        self.assertEqual(first[0], "tailtrail-managed")
+        self.assertEqual(first, second)
+        self.assertEqual(
+            policy.classify_path(Path("/repo"), "tailtrail/api.py", workspace_context="bogus")[0],
+            "tailtrail-managed",
+        )
+
+
+class NavigatorPropagationTests(unittest.TestCase):
+    def test_source_checkout_product_paths_reach_file_kind(self) -> None:
+        import navigator_scope as scope
+
+        scope._WORKSPACE_CONTEXT_CACHE.clear()
+        scope._WORKTREE_ROOTS_CACHE.clear()
+        role, _ = scope.classify_repository_role(ROOT, "tailtrail/install/catalog.py")
+        self.assertEqual(role, "implementation-owner")
+        role, _ = scope.classify_repository_role(ROOT, "aidlc-rules/VERSION")
+        # Eligible asset; ownership still needs requirement evidence.
+        self.assertNotEqual(role, "workspace-excluded")
+        role, _ = scope.classify_repository_role(ROOT, "fixture/tailtrail/module.py")
+        self.assertEqual(role, "workspace-excluded")
+
+    def test_debug_route_fails_closed_without_io(self) -> None:
+        import navigator_scope as scope
+
+        role, _ = scope.classify_repository_role(
+            Path("/definitely/not/here"), "tailtrail/install/catalog.py",
+            allow_git_inventory=False,
+        )
+        self.assertEqual(role, "workspace-excluded")
+
+    def test_evidence_document_carries_context(self) -> None:
+        import navigator_scope as scope
+
+        scope._WORKSPACE_CONTEXT_CACHE.clear()
+        document = scope.evidence_document(
+            ROOT, "probe", [], [],
+            investigation={"state": "unresolved", "files_read": 0, "bytes_read": 0,
+                           "relationship_hops": 0, "stop_reason": "probe",
+                           "cache": {"status": "not-checked", "reason_codes": ["graph-cache-not-checked"]},
+                           "limits": dict(scope.LIMITS),
+                           "evidence_packet_fingerprint": scope.fingerprint({"probe": True})},
+        )
+        self.assertIn("workspace_context", document)
+        self.assertEqual(document["workspace_context"]["state"], "tailtrail-source-checkout")
+        self.assertTrue(scope.verify_decision_fingerprint(document))
+
+
 if __name__ == "__main__":
     unittest.main()

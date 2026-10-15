@@ -53,6 +53,7 @@ def _policy() -> Any:
 
 
 _WORKTREE_ROOTS_CACHE: dict[str, tuple[str, ...]] = {}
+_WORKSPACE_CONTEXT_CACHE: dict[str, dict[str, Any]] = {}
 
 
 def _worktree_roots(root: Path) -> tuple[str, ...]:
@@ -61,6 +62,27 @@ def _worktree_roots(root: Path) -> tuple[str, ...]:
     if key not in _WORKTREE_ROOTS_CACHE:
         _WORKTREE_ROOTS_CACHE[key] = _policy().git_worktree_roots(root)
     return _WORKTREE_ROOTS_CACHE[key]
+
+
+def workspace_context(root: Path, *, allow_io: bool = True) -> dict[str, Any]:
+    """Precomputed workspace context for one investigation (bounded one-time I/O).
+
+    Cached per resolved root. Command-free callers pass ``allow_io=False``
+    and receive an `unknown` receipt without touching disk (fail closed).
+    """
+    return workspace_context_receipt(root, allow_io=allow_io)
+
+
+def workspace_context_receipt(root: Path, *, allow_io: bool = True) -> dict[str, Any]:
+    if not allow_io:
+        return _policy().unknown_workspace_receipt()
+    try:
+        key = str(root.resolve())
+    except OSError:
+        return _policy().unknown_workspace_receipt()
+    if key not in _WORKSPACE_CONTEXT_CACHE:
+        _WORKSPACE_CONTEXT_CACHE[key] = _policy().detect_workspace_context(root)
+    return _WORKSPACE_CONTEXT_CACHE[key]
 
 
 SCHEMA_VERSION = "2"
@@ -583,7 +605,13 @@ def _tailtrail_source_checkout(root: Path) -> bool:
     )
 
 
-def classify_repository_role(root: Path, relative: str, *, allow_git_inventory: bool = True) -> tuple[str, tuple[str, ...]]:
+def classify_repository_role(
+    root: Path,
+    relative: str,
+    *,
+    allow_git_inventory: bool = True,
+    workspace_context: dict[str, Any] | str | None = None,
+) -> tuple[str, tuple[str, ...]]:
     """Assign a repository role without executing project code.
 
     Phase 4: file-kind roles that can reach owners, inspection paths, or
@@ -597,9 +625,20 @@ def classify_repository_role(root: Path, relative: str, *, allow_git_inventory: 
     trigger (linked-worktree discovery). Debug static orientation must stay
     command-free, so debug callers pass ``allow_git_inventory=False`` and
     this degrades to an empty worktree-roots set rather than spawning Git.
+    ``workspace_context`` is a precomputed receipt or state string; when
+    omitted it is detected once per root and cached when I/O is allowed,
+    otherwise it fails closed to `unknown` without disk access.
     """
     worktree_roots = _worktree_roots(root) if allow_git_inventory else ()
-    verdict, verdict_reasons = _policy().classify_path(root, relative, worktree_roots=worktree_roots)
+    if workspace_context is None:
+        context = workspace_context_receipt(root, allow_io=allow_git_inventory)
+    elif isinstance(workspace_context, dict):
+        context = workspace_context
+    else:
+        context = {"state": _policy()._normalize_workspace_context(workspace_context)}
+    verdict, verdict_reasons = _policy().classify_path(
+        root, relative, worktree_roots=worktree_roots, workspace_context=context,
+    )
     role, reasons = _file_kind_role(root, relative)
     if verdict == "application" or role in {"generated", "managed-tooling"}:
         return role, reasons
@@ -672,7 +711,14 @@ def _candidate_status(role: str, sources: tuple[str, ...], task_types: set[str],
     return "inspection-only", "low", "unknown-role-needs-investigation"
 
 
-def candidates_from_seeds(root: Path, seeds: Iterable[dict[str, Any] | ScopeSeed], task_types: Iterable[str] = (), *, allow_git_inventory: bool = True) -> list[dict[str, Any]]:
+def candidates_from_seeds(
+    root: Path,
+    seeds: Iterable[dict[str, Any] | ScopeSeed],
+    task_types: Iterable[str] = (),
+    *,
+    allow_git_inventory: bool = True,
+    workspace_context: dict[str, Any] | str | None = None,
+) -> list[dict[str, Any]]:
     """Validate, merge, classify, and deterministically order discovery seeds."""
     grouped: dict[str, list[ScopeSeed]] = {}
     rejected: list[ScopeCandidate] = []
@@ -745,7 +791,11 @@ def candidates_from_seeds(root: Path, seeds: Iterable[dict[str, Any] | ScopeSeed
             role = declared_roles[0]
             role_reasons = ("declared-role",)
         else:
-            role, role_reasons = classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)
+            role, role_reasons = classify_repository_role(
+                root, path,
+                allow_git_inventory=allow_git_inventory,
+                workspace_context=workspace_context,
+            )
         unsafe = sensitive or (file_rejection if file_rejection not in {None, "not-a-file"} else None)
         status, confidence, status_reason = _candidate_status(role, sources, task_set, bool(unsafe))
         if _is_legacy_shim(path) and status not in {"excluded", "rejected", "proof-only"}:
@@ -1276,13 +1326,18 @@ def _repository_inventory(
         except OSError:
             values = []
     if not values:
+        context = workspace_context_receipt(root, allow_io=allow_git_inventory)
         for path in root.rglob("*"):
             if path.is_file():
                 try:
                     relative = path.relative_to(root).as_posix()
                 except ValueError:
                     continue
-                role, _ = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root) if allow_git_inventory else ())
+                role, _ = _policy().classify_path(
+                    root, relative,
+                    worktree_roots=_worktree_roots(root) if allow_git_inventory else (),
+                    workspace_context=context,
+                )
                 if role != "application":
                     continue
                 values.append(relative)
@@ -1320,7 +1375,11 @@ def policy_excluded(root: Path) -> list[dict[str, Any]]:
             relatives.append(path.resolve().relative_to(root.resolve()).as_posix())
         except (OSError, ValueError):
             continue
-    return _policy().exclusion_records(root, relatives, worktree_roots=_worktree_roots(root))
+    return _policy().exclusion_records(
+        root, relatives,
+        worktree_roots=_worktree_roots(root),
+        workspace_context=workspace_context_receipt(root, allow_io=True),
+    )
 
 
 def _cache_evidence(
@@ -1366,7 +1425,11 @@ def _cache_evidence(
             if isinstance(value, str):
                 normalized, rejection = normalize_repository_path(root, value)
                 if normalized and not rejection:
-                    role, _ = _policy().classify_path(root, normalized, worktree_roots=_worktree_roots(root))
+                    role, _ = _policy().classify_path(
+                        root, normalized,
+                        worktree_roots=_worktree_roots(root),
+                        workspace_context=workspace_context_receipt(root, allow_io=True),
+                    )
                     if role != "application":
                         continue
                     paths.append(normalized)
@@ -3016,6 +3079,7 @@ def evidence_document(
     investigation: dict[str, Any] | None = None,
     host_reasoning: dict[str, Any] | None = None,
     semantic_matches: dict[str, set[str]] | None = None,
+    workspace_context: dict[str, Any] | str | None = None,
 ) -> dict[str, Any]:
     """Build the canonical v2 artifact and bind it with a decision hash.
 
@@ -3165,6 +3229,12 @@ def evidence_document(
                 "reason_codes": resolved_reason_codes,
             }
         )
+    if workspace_context is None:
+        context_receipt = workspace_context_receipt(root, allow_io=True)
+    elif isinstance(workspace_context, dict):
+        context_receipt = workspace_context
+    else:
+        context_receipt = {"state": _policy()._normalize_workspace_context(workspace_context)}
     document: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "type": EVIDENCE_TYPE,
@@ -3174,6 +3244,7 @@ def evidence_document(
         "requirements": requirements,
         "candidates": candidate_rows,
         "edges": edge_rows,
+        "workspace_context": context_receipt,
         "host_reasoning": host_reasoning or {"state": "not-requested", "proposal": None},
         "investigation": investigation_row,
         "limits": dict(investigation_row.get("limits", LIMITS)),

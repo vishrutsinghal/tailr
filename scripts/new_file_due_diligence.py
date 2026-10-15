@@ -96,7 +96,10 @@ def check_existence(root: Path, relative: str) -> Finding:
 
 def check_path_eligibility(root: Path, relative: str) -> Finding:
     """Check 2 -- reuses the shared classifiers; no new logic."""
-    policy_role, policy_reasons = _policy().classify_path(root, relative)
+    policy_role, policy_reasons = _policy().classify_path(
+        root, relative,
+        workspace_context=_policy().detect_workspace_context(root),
+    )
     eligible = _policy().is_eligible(policy_role)
     return Finding(
         check="path-eligibility",
@@ -146,6 +149,7 @@ def check_name_symbol_collision(root: Path, relative: str, *, symbols: tuple[str
         re.compile(rf"(?<![A-Za-z0-9_])(?:def|class)\s+{re.escape(name)}(?![A-Za-z0-9_])")
         for name in symbols
     ]
+    context = _policy().detect_workspace_context(root)
 
     for path in root.rglob("*"):
         if not path.is_file():
@@ -156,7 +160,7 @@ def check_name_symbol_collision(root: Path, relative: str, *, symbols: tuple[str
             continue
         if found_relative == relative:
             continue
-        role, _ = _policy().classify_path(root, found_relative)
+        role, _ = _policy().classify_path(root, found_relative, workspace_context=context)
         if not _policy().is_eligible(role):
             continue
 

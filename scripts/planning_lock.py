@@ -979,6 +979,127 @@ def _canonical_fingerprint(value: Any) -> str:
     ).hexdigest()
 
 
+def _canonical_requirements(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Canonical requirement rows for plan convergence.
+
+    Start reports carry rows under ``navigator.requirement_matrix``;
+    anchors and revision proposals carry them under ``requirements``.
+    Both shapes describe the same canonical contract; anything else is
+    not a plannable requirement and converges to an empty set (fail
+    closed downstream, never silent guessing).
+    """
+    navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else {}
+    matrix = (navigator.get("requirement_matrix") if isinstance(navigator, dict) else None)
+    if isinstance(matrix, list) and matrix:
+        return [row for row in matrix if isinstance(row, dict)]
+    requirements = report.get("requirements")
+    if isinstance(requirements, list):
+        return [row for row in requirements if isinstance(row, dict)]
+    return []
+
+
+def _contract_proof_paths(contract: dict[str, Any]) -> list[str]:
+    seen: list[str] = []
+    for field in ("candidate_paths", "editable_paths", "proposed_paths"):
+        for value in contract.get(field, []) or []:
+            text = str(value).strip()
+            if text and text not in seen:
+                seen.append(text)
+    return seen
+
+
+def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
+    """Derive one converged effective plan from canonical contracts.
+
+    For every requirement row, every tier in
+    ``validation_contract.tiers`` must map to an exact runnable command.
+    Mapping is positional and fail-closed: ``tiers[i]`` is proven by
+    ``commands[i]``. A tier without a positional command stays
+    ``unresolved`` and blocks approval -- adding a tier label alone must
+    never turn a plan green. The single-command multi-tier coalesced
+    proof (one executable covering several tiers, as built by
+    ``task-start.attach_focused_validation_contracts``) is preserved
+    only when the saved contract already carries one check entry with
+    that exact command covering those tiers; otherwise the extra tiers
+    remain unresolved until the host explicitly repeats the command per
+    tier or supplies distinct commands.
+    """
+    requirements = _canonical_requirements(report)
+    focused_validation: list[dict[str, Any]] = []
+    checks_by_requirement: dict[str, list[dict[str, Any]]] = {}
+    canonical_contracts: list[dict[str, Any]] = []
+
+    for req in requirements:
+        req_id = str(req.get("display_id") or req.get("requirement_uid") or "unknown")
+        contract = req.get("validation_contract", {})
+        contract = contract if isinstance(contract, dict) else {}
+        tiers = [str(item) for item in (contract.get("tiers", []) or []) if str(item).strip()]
+        commands = [str(item) for item in (contract.get("commands", []) or []) if str(item).strip()]
+        proof_paths = _contract_proof_paths(contract)
+        saved_checks = [item for item in (contract.get("checks", []) or []) if isinstance(item, dict)]
+
+        # Preserve a single-command coalesced proof only when the saved
+        # contract already proves it with one check entry covering all
+        # tiers with that exact command.
+        coalesced: dict[str, Any] | None = None
+        if len(commands) == 1 and len(tiers) > 1 and len(saved_checks) == 1:
+            only = saved_checks[0]
+            if str(only.get("command", "")) == commands[0] and sorted(
+                str(value) for value in (only.get("tiers", []) or []) if str(value).strip()
+            ) == sorted(tiers):
+                coalesced = only
+
+        expected_checks: list[dict[str, Any]] = []
+        if coalesced is not None:
+            expected_checks.append({
+                "kind": str(coalesced.get("kind", "proof")),
+                "command": commands[0],
+                "tiers": list(tiers),
+                "candidate_paths": list(coalesced.get("candidate_paths", []) or proof_paths[:1]),
+            })
+            for tier in tiers:
+                focused_validation.append({
+                    "requirement_id": req_id,
+                    "tier": tier,
+                    "status": "resolved",
+                    "command": commands[0],
+                })
+        else:
+            for index, tier in enumerate(tiers):
+                command = commands[index] if index < len(commands) else None
+                status = "resolved" if command else "unresolved"
+                focused_validation.append({
+                    "requirement_id": req_id,
+                    "tier": tier,
+                    "status": status,
+                    "command": command,
+                })
+                if command:
+                    expected_checks.append({
+                        "kind": "proof",
+                        "command": command,
+                        "tiers": [tier],
+                        "candidate_paths": proof_paths[:1],
+                    })
+        checks_by_requirement[req_id] = expected_checks
+        canonical_contracts.append({
+            "display_id": req_id,
+            "tiers": tiers,
+            "commands": commands,
+            "checks": expected_checks,
+        })
+
+    return {
+        "requirements": canonical_contracts,
+        "focused_validation": focused_validation,
+        "checks_by_requirement": checks_by_requirement,
+        "fingerprint": _canonical_fingerprint({
+            "requirements": canonical_contracts,
+            "focused_validation": focused_validation,
+        }),
+    }
+
+
 def _aidlc_plan_fingerprints(revision: dict[str, Any], resolved: dict[str, Any]) -> dict[str, str]:
     requirements = [{
         "display_id": row.get("display_id"),

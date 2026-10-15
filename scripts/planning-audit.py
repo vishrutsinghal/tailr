@@ -161,12 +161,178 @@ def _tier_findings(run_id: str, row: dict[str, Any], statement: str) -> list[dic
     return findings
 
 
+def _normalize_check(entry: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
+    command = str(entry.get("command", "")).strip()
+    tiers = tuple(sorted(str(value).strip() for value in (entry.get("tiers", []) or []) if str(value).strip()))
+    return (command, tiers)
+
+
+def _focused_covers(focused: list[dict[str, Any]], tier: str, command: str | None) -> dict[str, Any] | None:
+    for item in focused:
+        if not isinstance(item, dict):
+            continue
+        tiers = item.get("tiers") if isinstance(item.get("tiers"), list) else [item.get("tier")]
+        names = {str(value).strip() for value in (tiers or []) if str(value).strip()}
+        if not names and isinstance(item.get("tier"), str):
+            names = {part.strip() for part in str(item.get("tier", "")).split("+") if part.strip()}
+        if tier not in names:
+            continue
+        if command is None and not str(item.get("command", "")).strip():
+            return item
+        if command is not None and str(item.get("command", "")).strip() == command:
+            return item
+    return None
+
+
+def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[str, Any]) -> list[dict[str, Any]]:
+    """Mandatory convergence gate: contracts, checks, focused rows, and fingerprint must agree."""
+    findings: list[dict[str, Any]] = []
+    expected_focused = projection.get("focused_validation", [])
+    expected_by_req = projection.get("checks_by_requirement", {})
+    focused = report.get("focused_validation", [])
+    focused = focused if isinstance(focused, list) else []
+    canonical = {item.get("display_id"): item for item in projection.get("requirements", []) if isinstance(item, dict)}
+
+    for req_id, canonical_row in canonical.items():
+        uid = str(req_id)
+        # Locate the live row to read saved checks and proof paths.
+        live_rows = LOCK._canonical_requirements(report) if hasattr(LOCK, "_canonical_requirements") else []
+        live = next((row for row in live_rows if str(row.get("display_id") or row.get("requirement_uid")) == uid), {})
+        contract = live.get("validation_contract", {}) if isinstance(live, dict) else {}
+        contract = contract if isinstance(contract, dict) else {}
+        saved_checks = [item for item in (contract.get("checks", []) or []) if isinstance(item, dict)]
+        expected_checks = expected_by_req.get(uid, [])
+
+        if sorted(_normalize_check(item) for item in saved_checks) != sorted(_normalize_check(item) for item in expected_checks):
+            findings.append({
+                "type": "check-projection-mismatch",
+                "display_id": uid,
+                "requirement_uid": uid,
+                "detail": (
+                    f"requirement `{uid}` saved `validation_contract.checks[]` does not match "
+                    f"its canonical command/tier derivation."
+                ),
+                "expected": expected_checks,
+                "actual": saved_checks,
+                "suggested_fix": (
+                    f"tailtrail planning revise --root . --run-id {run_id} --changes "
+                    f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
+                    f"\"rebuild proof projection\",\"evidence_plan\":[\"Rebuild proof projection\"]}}]'"
+                ),
+            })
+
+        for item in expected_focused:
+            if str(item.get("requirement_id")) != uid:
+                continue
+            tier = str(item.get("tier", ""))
+            command = item.get("command")
+            command_text = str(command or "").strip()
+            if not command_text:
+                findings.append({
+                    "type": "unresolved-tier-proof",
+                    "display_id": uid,
+                    "requirement_uid": uid,
+                    "tier": tier,
+                    "detail": (
+                        f"requirement `{uid}` tier `{tier}` has no positional proof command; "
+                        f"adding a tier label alone must not turn the plan green."
+                    ),
+                    "suggested_fix": (
+                        f"tailtrail planning revise --root . --run-id {run_id} --changes "
+                        f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
+                        f"\"attach proof for {tier}\",\"evidence_plan\":[\"Run the {tier} proof\"],"
+                        f"\"commands\":[\"<runnable proof command>\"],\"tiers\":[\"{tier}\"]}}]'"
+                    ),
+                })
+                continue
+            covering = _focused_covers(focused, tier, command_text)
+            if covering is None:
+                findings.append({
+                    "type": "focused-validation-stale",
+                    "display_id": uid,
+                    "requirement_uid": uid,
+                    "tier": tier,
+                    "detail": (
+                        f"requirement `{uid}` tier `{tier}` command `{command_text}` has no matching "
+                        f"`focused_validation` row; the rendered proof table is stale."
+                    ),
+                    "expected": {"requirement_id": uid, "tier": tier, "command": command_text, "status": "resolved"},
+                    "suggested_fix": (
+                        f"tailtrail planning revise --root . --run-id {run_id} --changes "
+                        f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
+                        f"\"rebuild proof projection\",\"evidence_plan\":[\"Rebuild proof projection\"]}}]'"
+                    ),
+                })
+            elif str(covering.get("candidate_state", "")).strip() == "unresolved" or not str(covering.get("candidate", "")).strip() or covering.get("candidate") == "not resolved from planning evidence":
+                findings.append({
+                    "type": "focused-validation-unresolved",
+                    "display_id": uid,
+                    "requirement_uid": uid,
+                    "tier": tier,
+                    "detail": (
+                        f"requirement `{uid}` tier `{tier}` focused row has no eligible proof path."
+                    ),
+                    "suggested_fix": (
+                        f"tailtrail planning revise --root . --run-id {run_id} --changes "
+                        f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
+                        f"\"register proof path\",\"evidence_plan\":[\"Record proof path\"],"
+                        f"\"editable_paths\":[\"<proof path>\"]}}]'"
+                    ),
+                })
+
+    saved_fingerprint = report.get("effective_plan_fingerprint")
+    if isinstance(saved_fingerprint, str) and saved_fingerprint.strip():
+        if saved_fingerprint.strip() != str(projection.get("fingerprint", "")).strip():
+            findings.append({
+                "type": "fingerprint-mismatch",
+                "detail": "saved `effective_plan_fingerprint` differs from the converged derivation; approval authorizes exactly one converged plan.",
+                "expected": projection.get("fingerprint"),
+                "actual": saved_fingerprint,
+            })
+
+    # Behaviour Harness specificity: a behaviour tier needs a
+    # requirement-bound, non-generic scenario, never an ID-only link.
+    behaviour_tiers = {
+        str(item.get("requirement_id"))
+        for item in expected_focused
+        if str(item.get("tier", "")) == "behaviour" and item.get("command")
+    }
+    if behaviour_tiers:
+        behaviour_plan = report.get("behaviour_plan", {}) if isinstance(report.get("behaviour_plan"), dict) else {}
+        scenarios = behaviour_plan.get("scenarios", []) if isinstance(behaviour_plan, dict) else []
+        scenarios = [item for item in scenarios] if isinstance(scenarios, list) else []
+        for req_id in sorted(behaviour_tiers):
+            bound = [
+                item for item in scenarios
+                if isinstance(item, dict) and req_id in {str(value) for value in (item.get("requirement_ids", []) or [])}
+            ]
+            specific = [
+                item for item in bound
+                if str(item.get("expected_outcome", "")).strip() and str(item.get("action", "")).strip()
+            ]
+            if not specific:
+                findings.append({
+                    "type": "behaviour-scenario-generic",
+                    "display_id": req_id,
+                    "requirement_uid": req_id,
+                    "detail": (
+                        f"requirement `{req_id}` needs behaviour proof but has no requirement-specific "
+                        f"Behaviour Harness scenario (ID link alone is insufficient)."
+                    ),
+                })
+    return findings
+
+
 def audit_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[str, Any]:
     """Pure gap check over an in-memory Start/revision report (no file I/O)."""
     goal = str(report.get("goal", ""))
     navigator = report.get("navigator", {})
     matrix = navigator.get("requirement_matrix", []) if isinstance(navigator, dict) else []
     findings: list[dict[str, Any]] = []
+
+    projection = LOCK.effective_plan_projection(report)
+    findings.extend(_convergence_findings(run_id, report, projection))
+
     for row in matrix if isinstance(matrix, list) else []:
         if not isinstance(row, dict):
             continue

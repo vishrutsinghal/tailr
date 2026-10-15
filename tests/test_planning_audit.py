@@ -25,15 +25,84 @@ revision = load("planning_audit_revision_test", "scripts/planning-revision.py")
 audit = load("planning_audit_test", "scripts/planning-audit.py")
 
 
-def _plan(root: Path, run_id: str, requirements: list[dict[str, object]]) -> None:
-    lock.create(root, "add cancellation", run_id)
-    lock.save_start_report(root, run_id, {
+def _converged_report(requirements: list[dict[str, object]]) -> dict[str, object]:
+    """Build a converged Start report: checks[] + focused rows agree with contracts."""
+    rows = json.loads(json.dumps(requirements))
+    focused: list[dict[str, object]] = []
+    for row in rows:
+        assert isinstance(row, dict)
+        contract = row.get("validation_contract", {})
+        assert isinstance(contract, dict)
+        tiers = [str(item) for item in (contract.get("tiers", []) or [])]
+        commands = [str(item) for item in (contract.get("commands", []) or [])]
+        paths = (
+            [str(item) for item in (contract.get("candidate_paths", []) or [])]
+            or [str(item) for item in (contract.get("editable_paths", []) or [])]
+            or [str(item) for item in (contract.get("proposed_paths", []) or [])]
+        )
+        # Test fixtures with commands but no named proof path assume the
+        # conventional unit proof; fixtures with neither keep no path so
+        # missing-proof detection still fires.
+        if not paths and commands:
+            paths = ["tests/test_service.py"]
+        if paths and "candidate_paths" not in contract:
+            contract["candidate_paths"] = paths[:1]
+        checks = []
+        for index, tier in enumerate(tiers):
+            if index >= len(commands):
+                continue
+            checks.append({
+                "kind": "proof",
+                "command": commands[index],
+                "tiers": [tier],
+                "candidate_paths": paths[:1],
+            })
+        if checks:
+            contract["checks"] = checks
+        for index, tier in enumerate(tiers):
+            command = commands[index] if index < len(commands) else ""
+            candidate = paths[0] if paths else "not resolved from planning evidence"
+            focused.append({
+                "tier": tier,
+                "tiers": [tier],
+                "candidate": candidate,
+                "command": command,
+                "status": "planned after approval" if command and paths else "required",
+                "candidate_state": "existing" if command and paths else "unresolved",
+            })
+    # Coalesce rows sharing one executable proof like task-start does.
+    grouped: list[dict[str, object]] = []
+    by_proof: dict[tuple[str, str], dict[str, object]] = {}
+    for source in focused:
+        assert isinstance(source, dict)
+        key = (str(source.get("candidate", "")), str(source.get("command", "")))
+        existing = by_proof.get(key) if key[0] and key[1] else None
+        if existing is None:
+            grouped.append(source)
+            if key[0] and key[1]:
+                by_proof[key] = source
+            continue
+        assert isinstance(existing.get("tiers"), list)
+        existing_tiers = existing["tiers"]
+        assert isinstance(existing_tiers, list)
+        existing_tiers.append(source.get("tier"))
+        existing["tier"] = " + ".join(str(item) for item in existing_tiers)
+    report: dict[str, object] = {
         "goal": "add cancellation",
         "navigator": {
             "likely_impacted_files": [{"path": "src/service.py", "reason": "saved orchestration path"}],
-            "requirement_matrix": requirements,
+            "requirement_matrix": rows,
         },
-    })
+        "focused_validation": grouped,
+    }
+    projection = lock.effective_plan_projection(report)  # type: ignore[attr-defined]
+    report["effective_plan_fingerprint"] = projection.get("fingerprint")
+    return report
+
+
+def _plan(root: Path, run_id: str, requirements: list[dict[str, object]]) -> None:
+    lock.create(root, "add cancellation", run_id)
+    lock.save_start_report(root, run_id, _converged_report(requirements))
 
 
 class PlanningAuditTests(unittest.TestCase):
@@ -178,6 +247,100 @@ class PlanningAuditTests(unittest.TestCase):
             lock.activate(root, "audit-approved", True)
             with self.assertRaisesRegex(ValueError, "awaiting approval"):
                 audit.audit(root, "audit-approved")
+
+    def test_stale_projection_is_flagged(self) -> None:
+        """Gap 2: a proof-update that adds a tier/command without rebuilding
+        checks[] and focused_validation must audit as gaps-found."""
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Add a login endpoint.",
+            "acceptance_criteria": ["login succeeds"],
+            "likely_paths": ["src/auth.py"],
+            "validation_contract": {
+                "state": "required", "tiers": ["unit"], "commands": ["pytest tests/test_auth.py"],
+                "candidate_paths": ["tests/test_auth.py"],
+            },
+        }])
+        # Simulate a manual contract edit that adds a behaviour tier and
+        # command but leaves checks[] and focused_validation stale.
+        matrix = report["navigator"]["requirement_matrix"]
+        assert isinstance(matrix, list)
+        row = matrix[0]
+        assert isinstance(row, dict)
+        contract = row["validation_contract"]
+        assert isinstance(contract, dict)
+        contract["tiers"] = ["unit", "behaviour"]
+        contract["commands"] = ["pytest tests/test_auth.py", "behave tests/test_auth.py"]
+        result = audit.audit_report(Path("."), "stale-projection", report)
+
+        self.assertEqual(result["status"], "gaps-found")
+        self.assertTrue(any("mismatch" in f["type"] or "stale" in f["type"] for f in result["findings"]))
+
+    def test_tier_without_command_stays_unresolved(self) -> None:
+        """Gap 2: adding a tier label without a positional command blocks approval."""
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Add a login endpoint.",
+            "acceptance_criteria": ["login succeeds"],
+            "likely_paths": ["src/auth.py"],
+            "validation_contract": {
+                "state": "required", "tiers": ["unit", "behaviour"], "commands": ["pytest tests/test_auth.py"],
+                "candidate_paths": ["tests/test_auth.py"],
+            },
+        }])
+        result = audit.audit_report(Path("."), "tier-without-command", report)
+
+        self.assertEqual(result["status"], "gaps-found")
+        self.assertTrue(any(f["type"] == "unresolved-tier-proof" for f in result["findings"]))
+
+    def test_proof_update_rebuilds_checks_and_focused(self) -> None:
+        """Gap 2: a validated proof-update regenerates checks[], focused rows, and fingerprint atomically."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _plan(root, "rebuild-projection", [{
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Cancel an eligible order.",
+                "acceptance_criteria": ["eligible cancellation succeeds"],
+                "likely_paths": ["src/service.py"],
+                "validation_contract": {
+                    "state": "required", "tiers": ["unit"], "commands": ["pytest tests/test_service.py"],
+                    "candidate_paths": ["tests/test_service.py"],
+                },
+            }])
+            change = json.dumps([{
+                "kind": "proof-update", "requirement_uid": "REQ-01",
+                "reason": "attach integration proof",
+                "evidence_plan": ["Run unit and integration proof."],
+                "commands": ["pytest tests/test_service.py -k integration"],
+                "tiers": ["integration"],
+            }])
+            revision.propose(root, "rebuild-projection", change, True)
+            result = audit.audit(root, "rebuild-projection")
+            proposed = revision.show(root, "rebuild-projection")
+            revised = proposed.get("proposed_report", {})
+
+        contract = revised["navigator"]["requirement_matrix"][0]["validation_contract"]
+        self.assertEqual(contract["tiers"], ["unit", "integration"])
+        self.assertEqual(len(contract["commands"]), 2)
+        self.assertEqual(len(contract["checks"]), 2)
+        tiers_in_checks = sorted(tier for check in contract["checks"] for tier in check.get("tiers", []))
+        self.assertEqual(tiers_in_checks, ["integration", "unit"])
+        focused_tiers = sorted(
+            tier
+            for item in revised.get("focused_validation", [])
+            for tier in (item.get("tiers", [item.get("tier")]) or [])
+        )
+        self.assertIn("unit", focused_tiers)
+        self.assertIn("integration", focused_tiers)
+        self.assertIn("effective_plan_fingerprint", revised)
+        # Both new tiers have positional commands, so only the
+        # requirement-named-scope style findings (none here) may remain;
+        # convergence itself must not flag.
+        convergence = [f for f in result["findings"] if f["type"] in {
+            "check-projection-mismatch", "focused-validation-stale",
+            "unresolved-tier-proof", "fingerprint-mismatch",
+        }]
+        self.assertEqual(convergence, [])
 
 
 if __name__ == "__main__":

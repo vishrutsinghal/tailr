@@ -174,6 +174,112 @@ def _new_display_id(rows: list[dict[str, Any]]) -> str:
     return f"REQ-{index:02d}"
 
 
+def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]]) -> None:
+    """Rebuild every proof projection from the revised canonical contracts.
+
+    A validated ``proof-update`` must update atomically: per-requirement
+    ``validation_contract.checks[]`` with exact command-to-tier bindings,
+    the report-level ``focused_validation`` rows, and the plan
+    fingerprint. The canonical derivation lives in
+    ``planning_lock.effective_plan_projection``; this helper writes that
+    truth back into the mutable revision report without mutating any
+    unrelated projection independently.
+    """
+    temp = dict(report)
+    temp["navigator"] = dict(report.get("navigator", {}) or {})
+    temp["navigator"]["requirement_matrix"] = rows
+    # Also mirror rows under `requirements` so anchor-shaped reports
+    # converge through the same builder.
+    temp["requirements"] = rows
+    projection = LOCK.effective_plan_projection(temp)
+    expected_by_req = projection.get("checks_by_requirement", {})
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        req_id = str(row.get("display_id") or row.get("requirement_uid") or "")
+        contract = row.get("validation_contract")
+        if not isinstance(contract, dict):
+            continue
+        contract["checks"] = list(expected_by_req.get(req_id, []))
+
+    # Rebuild focused_validation preserving existing candidate metadata
+    # where the tier+command still match; stale rows are replaced, new
+    # unresolved tiers are appended, removed tiers are dropped. Rows
+    # sharing one executable proof are coalesced exactly like
+    # task-start.coalesce_focused_validation_rows so a single proof
+    # covering several tiers stays one row.
+    previous = report.get("focused_validation", [])
+    previous = previous if isinstance(previous, list) else []
+    old_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for item in previous:
+        if not isinstance(item, dict):
+            continue
+        tiers = item.get("tiers") if isinstance(item.get("tiers"), list) else [item.get("tier")]
+        for tier in tiers or []:
+            if str(tier).strip():
+                old_by_key[(str(tier).strip(), str(item.get("command", "")))] = item
+
+    fresh: list[dict[str, Any]] = []
+    for item in projection.get("focused_validation", []):
+        tier = str(item.get("tier", ""))
+        command = item.get("command")
+        command_text = str(command or "")
+        reused = old_by_key.get((tier, command_text))
+        if isinstance(reused, dict):
+            fresh.append(dict(reused))
+            continue
+        contract_paths: list[str] = []
+        for row in rows:
+            if str(row.get("display_id") or row.get("requirement_uid")) != str(item.get("requirement_id")):
+                continue
+            contract = row.get("validation_contract", {}) if isinstance(row.get("validation_contract"), dict) else {}
+            for field in ("candidate_paths", "editable_paths", "proposed_paths"):
+                for value in contract.get(field, []) or []:
+                    text = str(value).strip()
+                    if text and text not in contract_paths:
+                        contract_paths.append(text)
+        candidate = contract_paths[0] if contract_paths else "not resolved from planning evidence"
+        proposed = any(
+            isinstance(row, dict) and candidate in [
+                str(value) for value in (
+                    (row.get("validation_contract", {}) or {}).get("proposed_paths", []) or []
+                )
+            ]
+            for row in rows
+        )
+        candidate_state = "proposed" if proposed else ("existing" if contract_paths else "unresolved")
+        if command_text:
+            status = "planned after approval" if candidate_state in {"existing", "proposed"} else "resolved"
+        else:
+            status = "required: resolve a project-owned proof path and runnable command before the first edit"
+        fresh.append({
+            "tier": tier,
+            "tiers": [tier],
+            "candidate": candidate,
+            "command": command_text,
+            "status": status,
+            "candidate_state": candidate_state,
+        })
+
+    # Coalesce rows sharing one executable proof (same candidate+command).
+    grouped: list[dict[str, Any]] = []
+    by_proof: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for source in fresh:
+        key = (str(source.get("candidate", "")), str(source.get("command", "")), str(source.get("candidate_state", "")))
+        mergeable = bool(key[0] and key[1] and key[2] in {"existing", "proposed"} and key[0] != "not resolved from planning evidence")
+        existing = by_proof.get(key) if mergeable else None
+        if existing is None:
+            grouped.append(source)
+            if mergeable:
+                by_proof[key] = source
+            continue
+        existing["tiers"].append(source["tier"])
+        existing["tier"] = " + ".join(existing["tiers"])
+    report["focused_validation"] = grouped
+    report["effective_plan_fingerprint"] = projection.get("fingerprint")
+
+
 def _sync_requirement_projections(report: dict[str, Any], rows: list[dict[str, Any]], removed_display_ids: set[str]) -> None:
     """Keep derived plan projections aligned with the revised requirement matrix."""
     active_display_ids = {str(row.get("display_id")) for row in rows}
@@ -595,6 +701,7 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
                     [str(value) for value in contract.get(field, []) if str(value).strip()] + recorded_paths
                 ))
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "evidence_plan": row["evidence_plan"]})
+        _rebuild_proof_projections(report, rows)
     elif kind == "requirement-add":
         statement = _safe_text(change.get("statement"), "statement")
         display_id = _safe_text(change.get("display_id") or _new_display_id(rows), "display_id")

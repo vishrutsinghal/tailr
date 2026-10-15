@@ -37,6 +37,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/edge" }
     },
+    "workspace_context": { "$ref": "#/$defs/workspaceContext" },
     "host_reasoning": {
       "type": "object",
       "additionalProperties": false,
@@ -236,6 +237,32 @@
     "fingerprint": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "workspaceContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "type", "state", "markers_checked", "reason_codes", "detector_version", "fingerprint"],
+      "properties": {
+        "schema_version": { "const": "1" },
+        "type": { "const": "tailtrail-workspace-context" },
+        "state": { "enum": ["tailtrail-source-checkout", "installed-tailtrail-pack", "ordinary-repository", "unknown"] },
+        "markers_checked": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "present", "detail"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "present": { "type": "boolean" },
+              "detail": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "reason_codes": { "$ref": "#/$defs/reasonCodes" },
+        "detector_version": { "const": "1" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" }
+      }
     },
     "path": {
       "type": "string",
