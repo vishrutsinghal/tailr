@@ -1338,6 +1338,8 @@ def main() -> int:
         if args and args[0] in {"investigate", "investigation-show"}:
             investigation_args = ["investigate", *args[1:]] if args[0] == "investigate" else ["show", *args[1:]]
             return run_script("planning-investigation.py", investigation_args)
+        if args and args[0] == "audit":
+            return run_script("planning-audit.py", args[1:])
         if args and args[0] in {"revise", "revision-show", "revision-approve", "authority-show", "aidlc-standard", "aidlc-standard-approve", "feature-controls-show", "feature-controls-propose", "feature-controls-approve"}:
             revision_args = (
                 ["propose", *args[1:]] if args[0] == "revise"

@@ -603,6 +603,7 @@ scripts/pipeline_manager.py
 scripts/pipeline_orchestrator.py
 scripts/plan_render.py
 scripts/planning-aidlc-question.py
+scripts/planning-audit.py
 scripts/planning-discussion.py
 scripts/planning-feature-controls.py
 scripts/planning-investigation.py

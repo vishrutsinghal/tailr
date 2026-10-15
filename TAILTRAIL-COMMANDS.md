@@ -314,6 +314,7 @@ python3 scripts/tailtrail.py planning revise --root . --run-id <run-id> --change
 python3 scripts/tailtrail.py planning revise --root . --run-id <run-id> --changes '[{"kind":"requirement-remove","requirement_uid":"REQ-02","reason":"Duplicate requirement."}]' --approved-proposal --supersede-pending
 python3 scripts/tailtrail.py planning revision-show --root . --run-id <run-id> --revision 2
 python3 scripts/tailtrail.py planning revision-approve --root . --run-id <run-id> --revision 2 --approved
+python3 scripts/tailtrail.py planning audit --root . --run-id <run-id>
 python3 scripts/tailtrail.py planning aidlc-standard --root . --run-id <run-id> --approved-proposal
 python3 scripts/tailtrail.py planning aidlc-standard-approve --root . --run-id <run-id> --revision 2 --approved
 python3 scripts/tailtrail.py planning feature-controls-show --root . --run-id <run-id>
@@ -422,6 +423,41 @@ superseded in revision state, creates the next version from the last active
 reviewed report, and keeps implementation blocked until that exact replacement
 is approved. Requirement removal also converges the query frame, scope roles,
 feature slices, and workflow binding so deleted IDs cannot remain in the plan.
+
+## Mandatory Plan Gap Review (before presenting a Start Report)
+
+Issue 28 showed that a plan can be generated, approved, and activated while
+still missing scope the requirement text itself already names, and that
+`planning revise` is unconditionally blocked once a plan activates — there is
+no retroactive fix. `planning audit` is a mechanical, pre-activation check the
+host runs between Start Report generation and presenting that report to the
+user. It is **not** optional judgement: a host must run it, not just read the
+plan and decide by eye.
+
+```
+python3 scripts/tailtrail.py planning audit --root . --run-id <run-id>
+```
+
+It reads the active Start report (or the currently pending, unapproved
+revision if one exists) and flags, per requirement: a path named in the
+requirement's own statement/acceptance criteria that is absent from
+`likely_paths`, `validation_contract`, and `scope_evidence` alike
+(`named_path_missing_from_scope`); a validation tier the wording implies but
+`validation_contract.tiers` omits (`tier_mismatch`); and declared tiers with no
+runnable proof command or editable/proposed/candidate path registered
+(`missing_proof_registration`). Each finding carries a `suggested_fix`: an
+exact `planning revise --changes '[...]'` command using `scope-add` for an
+implementation-owner path or `proof-update` for a proof-only path or tier/
+command gap. It runs read-only and never touches disk outside `.tailtrail/`.
+
+The mandatory loop: run `planning audit` immediately after `tailtrail start`;
+if `status` is `gaps-found`, run the suggested `planning revise ...
+--approved-proposal` for each finding (the run stays `awaiting-approval`); run
+`planning audit` again to confirm `status: clean`; only then present the Start
+Report (or, if a revision is now pending, render it with `planning
+revision-show`) to the user for their own explicit approval. `planning audit`
+refuses to run once the run has left `awaiting-approval` — it is a
+pre-activation gate, not a post-hoc inspector.
 
 ## AIDLC and Intent Bridge authority routing (IP-4)
 

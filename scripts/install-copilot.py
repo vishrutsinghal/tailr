@@ -204,6 +204,7 @@ PACK_SCRIPTS = [
     "scripts/planning-feature-controls.py",
     "scripts/planning-investigation.py",
     "scripts/planning-revision.py",
+    "scripts/planning-audit.py",
     "scripts/aidlc-init.py",
     "scripts/aidlc-requirements.py",
     "scripts/advanced-runtime.py",
