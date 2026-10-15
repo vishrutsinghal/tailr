@@ -81,5 +81,64 @@ class ImplementationScopeInvariantTests(unittest.TestCase):
         self.assertFalse(START.declared_implementation_missing_scope(debug_report, "implementation"))
 
 
+class ImplementationLockInvariantTests(unittest.TestCase):
+    def _valid_report(self) -> dict:
+        import navigator_scope as scope
+
+        seeds = [scope.seed("scripts/task-start.py", "explicit-path", "user-provided-path")]
+        candidates = scope.candidates_from_seeds(ROOT, seeds, ["implementation"])
+        owned = [c for c in candidates if c.get("role") == "implementation-owner"]
+        self.assertTrue(owned, "fixture needs an implementation-owner candidate")
+        doc = scope.evidence_document(
+            ROOT, "do the thing",
+            [{"requirement_id": "REQ-01", "display_id": "REQ-01", "statement": "Do the thing.",
+              "query_terms": ["thing"], "quoted_literals": []}],
+            candidates,
+        )
+        # Resolve the single row the way an answered scope would: the
+        # fingerprint is recomputed so the decision stays valid.
+        doc["requirements"] = [{
+            "requirement_id": "REQ-01", "display_id": "REQ-01",
+            "statement_fingerprint": scope.fingerprint("Do the thing."),
+            "query_terms": ["thing"], "scope_state": "resolved",
+            "implementation_owners": ["scripts/task-start.py"],
+            "inspection_paths": [], "proof_paths": [],
+            "excluded_candidates": [], "confidence": "high",
+            "reason_codes": ["bounded-static-owner-resolved"],
+        }]
+        doc.pop("decision_fingerprint", None)
+        doc["decision_fingerprint"] = scope.fingerprint(scope._fingerprintable_document(doc))
+        return {"goal": "do the thing",
+                "navigator": {"scope_evidence": doc, "scope_quality": {"blocking": False},
+                              "requirement_query_frame": {"requirements": [{"display_id": "REQ-01"}]},
+                              "requirement_matrix": [{"display_id": "REQ-01"}]}}
+
+    def test_valid_report_passes(self) -> None:
+        # Seed an owner edge so the requirement resolves; quality stays passing.
+        self.assertEqual(START.implementation_lock_blockers(self._valid_report(), "implementation"), [])
+
+    def test_missing_evidence_blocks(self) -> None:
+        report = {"goal": "x", "navigator": {}}
+        blockers = START.implementation_lock_blockers(report, "implementation")
+        self.assertEqual([b["reason"] for b in blockers], ["missing-canonical-scope-evidence"])
+
+    def test_blocking_quality_blocks(self) -> None:
+        report = self._valid_report()
+        report["navigator"]["scope_quality"] = {"blocking": True}
+        reasons = [b["reason"] for b in START.implementation_lock_blockers(report, "implementation")]
+        self.assertIn("scope-quality-blocking-or-missing", reasons)
+
+    def test_invalid_fingerprint_blocks(self) -> None:
+        report = self._valid_report()
+        report["navigator"]["scope_evidence"]["decision_fingerprint"] = "sha256:tampered"
+        reasons = [b["reason"] for b in START.implementation_lock_blockers(report, "implementation")]
+        self.assertIn("scope-decision-fingerprint-invalid", reasons)
+
+    def test_non_implementation_never_blocks(self) -> None:
+        report = {"goal": "x", "navigator": {}}
+        for declared in (None, "", "qa", "doc"):
+            self.assertEqual(START.implementation_lock_blockers(report, declared), [])
+
+
 if __name__ == "__main__":
     unittest.main()

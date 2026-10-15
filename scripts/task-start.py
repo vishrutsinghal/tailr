@@ -4893,25 +4893,95 @@ def declared_implementation_missing_scope(report: dict[str, Any], declared_task_
     return not isinstance(navigator_block.get("scope_evidence"), dict)
 
 
-def implementation_scope_missing_report(report: dict[str, Any], declared: str) -> dict[str, Any]:
+def implementation_lock_blockers(report: dict[str, Any], declared_task_type: str | None) -> list[dict[str, str]]:
+    """Mode-aware pre-lock invariant for declared implementation requests.
+
+    Each item is a blocking finding with `reason` + `detail`. Empty means
+    the invariant passes. Read-only, validation-only, undeclared, and
+    debug routes never block here. Checked immediately before
+    `planning_lock.create` so absence of scope can never mean the gate
+    is not applicable.
+    """
+    declared = str(declared_task_type or "").strip().lower()
+    if declared != "implementation":
+        return []
+    if isinstance(report, dict) and "debug_plan" in report:
+        return []
+    navigator_block = report.get("navigator", {}) if isinstance(report, dict) else {}
+    navigator_block = navigator_block if isinstance(navigator_block, dict) else {}
+    blockers: list[dict[str, str]] = []
+    evidence = navigator_block.get("scope_evidence")
+    if not isinstance(evidence, dict):
+        return [{
+            "reason": "missing-canonical-scope-evidence",
+            "detail": (
+                "Declared implementation request produced no canonical scope_evidence, "
+                "so no implementation Planning Lock was created. Re-route with resolvable "
+                "scope (explicit --changed owner, scope answers, or a narrower goal)."
+            ),
+        }]
+    quality = navigator_block.get("scope_quality")
+    if not isinstance(quality, dict) or quality.get("blocking") is not False:
+        blockers.append({
+            "reason": "scope-quality-blocking-or-missing",
+            "detail": (
+                "Declared implementation request has missing or blocking scope_quality; "
+                "resolve scope questions or narrow the goal before a Planning Lock."
+            ),
+        })
+    frames = (navigator_block.get("requirement_query_frame", {}) or {}).get("requirements", [])
+    matrix = navigator_block.get("requirement_matrix", [])
+    has_requirements = any(isinstance(item, dict) for item in list(frames or []) + list(matrix or []))
+    if not has_requirements:
+        blockers.append({
+            "reason": "no-canonical-requirements",
+            "detail": "Declared implementation request has no canonical requirements; supply a goal-bound requirement before a Planning Lock.",
+        })
+    if not evidence.get("decision_fingerprint") or not navigator_scope.verify_decision_fingerprint(evidence):
+        blockers.append({
+            "reason": "scope-decision-fingerprint-invalid",
+            "detail": "Canonical scope evidence has no valid decision fingerprint; re-run scope before a Planning Lock.",
+        })
+    for row in evidence.get("requirements", []) or []:
+        if not isinstance(row, dict):
+            continue
+        if row.get("scope_state") != "resolved" or not row.get("implementation_owners"):
+            blockers.append({
+                "reason": "requirement-scope-unresolved",
+                "detail": (
+                    f"Requirement `{row.get('display_id', '?')}` has unresolved scope or no "
+                    "implementation owner; answer scope questions before a Planning Lock."
+                ),
+            })
+            break
+    return blockers
+
+
+def implementation_scope_missing_report(
+    report: dict[str, Any], declared: str, blockers: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     """Typed blocking report: declared implementation with no canonical scope.
 
     Absence of scope evidence on an implementation request is itself the
     blocking condition. It must never mean the scope-quality gate is not
     applicable. No run directory and no Planning Lock are created.
     """
+    reasons = [item.get("reason", "") for item in (blockers or []) if isinstance(item, dict)]
+    first_detail = next(
+        (str(item.get("detail", "")) for item in (blockers or []) if isinstance(item, dict) and str(item.get("detail", ""))),
+        "Declared implementation request produced no canonical scope_evidence, "
+        "so no implementation Planning Lock was created. Re-route with resolvable "
+        "scope (explicit --changed owner, scope answers, or a narrower goal).",
+    )
     return {
         "goal": report.get("goal", ""),
         "root": report.get("root", ""),
         "command_prefix": report.get("command_prefix", "tailtrail"),
         "scope_quality_boundary": True,
-        "blocking_reason": "missing-canonical-scope-evidence",
+        "blocking_reason": reasons[0] if reasons else "missing-canonical-scope-evidence",
+        "blocking_reasons": reasons,
         "declared_task_type": declared,
-        "detail": (
-            "Declared implementation request produced no canonical scope_evidence, "
-            "so no implementation Planning Lock was created. Re-route with resolvable "
-            "scope (explicit --changed owner, scope answers, or a narrower goal)."
-        ),
+        "detail": first_detail,
         "boundary": (
             "No Planning Lock, workflow, target receipt, learning receipt, graph-cache write, "
             "or implementation authority was created."
@@ -7183,9 +7253,10 @@ def main() -> int:
         if _deescalated_mode is not None:
             effective_aidlc_mode = _deescalated_mode
 
-        if declared_implementation_missing_scope(report, getattr(args, "task_type", None)):
+        _lock_blockers = implementation_lock_blockers(report, getattr(args, "task_type", None))
+        if _lock_blockers:
             boundary = implementation_scope_missing_report(
-                report, str(getattr(args, "task_type", "") or "").strip().lower(),
+                report, str(getattr(args, "task_type", "") or "").strip().lower(), _lock_blockers,
             )
             if args.format == "json":
                 print(json.dumps(boundary, indent=2, sort_keys=True, default=str))
