@@ -73,7 +73,47 @@ def _requirement_identifier(row: dict[str, Any]) -> str:
     return str(row.get("requirement_uid") or row.get("display_id", ""))
 
 
-def _named_path_findings(root: Path, run_id: str, row: dict[str, Any], text: str) -> list[dict[str, Any]]:
+def correction_command(
+    run_id: str,
+    changes: list[dict[str, Any]],
+    *,
+    pending: bool = False,
+) -> dict[str, Any]:
+    """Render one executable planning-revision correction (central renderer).
+
+    Every executable suggestion carries the complete change payload, the
+    required `--approved-proposal` marker, and `--supersede-pending` only
+    when a pending revision actually exists. `command` is the reviewable
+    form; `portable_command` is the shell-safe base64 form. Findings that
+    need host-supplied values are labeled `template` with `open_fields`;
+    unrecoverable states are `restart-required` with no command at all.
+    """
+    import base64
+
+    payload = json.dumps(changes, separators=(",", ":"))
+    tail = " --approved-proposal" + (" --supersede-pending" if pending else "")
+    portable = base64.b64encode(payload.encode("utf-8")).decode("ascii")
+    return {
+        "command": f"tailtrail planning revise --root . --run-id {run_id} --changes '{payload}'{tail}",
+        "portable_command": (
+            f"tailtrail planning revise --root . --run-id {run_id} "
+            f"--changes-base64 {portable}{tail}"
+        ),
+        "changes": changes,
+        "approved_proposal": True,
+        "supersede_pending": bool(pending),
+    }
+
+
+def _named_path_findings(
+    root: Path,
+    run_id: str,
+    row: dict[str, Any],
+    text: str,
+    *,
+    has_scope_evidence: bool = True,
+    pending: bool = False,
+) -> list[dict[str, Any]]:
     display_id = str(row.get("display_id", "?"))
     uid = _requirement_identifier(row)
     known = _known_scope_paths(row)
@@ -85,18 +125,45 @@ def _named_path_findings(root: Path, run_id: str, row: dict[str, Any], text: str
         if role in _IGNORED_ROLES:
             continue
         if role == "implementation-owner":
-            fix = (
-                f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                f"'[{{\"kind\":\"scope-add\",\"requirement_uid\":\"{uid}\",\"path\":\"{token}\","
-                f"\"reason\":\"close requirement-named scope gap\"}}]'"
-            )
-        else:
-            fix = (
-                f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
-                f"\"close requirement-named scope gap\",\"evidence_plan\":[\"Record proof for {token}\"],"
-                f"\"editable_paths\":[\"{token}\"]}}]'"
-            )
+            if not has_scope_evidence:
+                findings.append({
+                    "type": "missing-canonical-scope-evidence",
+                    "correction_kind": "restart-required",
+                    "display_id": display_id,
+                    "requirement_uid": uid,
+                    "path": token,
+                    "role": role,
+                    "detail": (
+                        f"`{token}` is named in requirement `{display_id}` but the plan has no "
+                        f"canonical scope evidence at all. A plain `scope-add` cannot repair this: "
+                        f"re-route with resolvable scope (explicit --changed owner, scope answers, "
+                        f"or a narrower goal) instead of revising."
+                    ),
+                })
+                continue
+            fix = _executable_fix(run_id, [{
+                "kind": "scope-add", "requirement_uid": uid, "path": token,
+                "reason": "close requirement-named scope gap",
+            }], pending=pending)
+            findings.append({
+                "type": "named_path_missing_from_scope",
+                "display_id": display_id,
+                "requirement_uid": uid,
+                "path": token,
+                "role": role,
+                "detail": (
+                    f"`{token}` is named in requirement `{display_id}` but is absent from `likely_paths`, "
+                    f"`validation_contract`, and `scope_evidence` alike (Issue 28 pattern)."
+                ),
+                **fix,
+            })
+            continue
+        fix = _executable_fix(run_id, [{
+            "kind": "proof-update", "requirement_uid": uid,
+            "reason": "close requirement-named scope gap",
+            "evidence_plan": [f"Record proof for {token}"],
+            "editable_paths": [token],
+        }], pending=pending)
         findings.append({
             "type": "named_path_missing_from_scope",
             "display_id": display_id,
@@ -107,12 +174,18 @@ def _named_path_findings(root: Path, run_id: str, row: dict[str, Any], text: str
                 f"`{token}` is named in requirement `{display_id}` but is absent from `likely_paths`, "
                 f"`validation_contract`, and `scope_evidence` alike (Issue 28 pattern)."
             ),
-            "suggested_fix": fix,
+            **fix,
         })
     return findings
 
 
-def _tier_findings(run_id: str, row: dict[str, Any], statement: str) -> list[dict[str, Any]]:
+def _tier_findings(
+    run_id: str,
+    row: dict[str, Any],
+    statement: str,
+    *,
+    pending: bool = False,
+) -> list[dict[str, Any]]:
     display_id = str(row.get("display_id", "?"))
     uid = _requirement_identifier(row)
     contract = row.get("validation_contract", {})
@@ -122,6 +195,12 @@ def _tier_findings(run_id: str, row: dict[str, Any], statement: str) -> list[dic
     missing = sorted(expected_tiers - actual_tiers)
     findings: list[dict[str, Any]] = []
     if missing:
+        fix = _executable_fix(run_id, [{
+            "kind": "proof-update", "requirement_uid": uid,
+            "reason": "close tier gap",
+            "evidence_plan": [f"Record proof for {', '.join(missing)}"],
+            "tiers": missing,
+        }], pending=pending)
         findings.append({
             "type": "tier_mismatch",
             "display_id": display_id,
@@ -131,12 +210,7 @@ def _tier_findings(run_id: str, row: dict[str, Any], statement: str) -> list[dic
                 f"requirement `{display_id}` wording implies tier(s) {missing} not present in "
                 f"`validation_contract.tiers` {sorted(actual_tiers)}."
             ),
-            "suggested_fix": (
-                f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
-                f"\"close tier gap\",\"evidence_plan\":[\"Record proof for {', '.join(missing)}\"],"
-                f"\"tiers\":{json.dumps(missing)}}}]'"
-            ),
+            **fix,
         })
     has_proof = bool(
         contract.get("commands") or contract.get("editable_paths")
@@ -145,6 +219,8 @@ def _tier_findings(run_id: str, row: dict[str, Any], statement: str) -> list[dic
     if actual_tiers and not has_proof:
         findings.append({
             "type": "missing_proof_registration",
+            "correction_kind": "template",
+            "open_fields": ["commands"],
             "display_id": display_id,
             "requirement_uid": uid,
             "detail": (
@@ -152,10 +228,12 @@ def _tier_findings(run_id: str, row: dict[str, Any], statement: str) -> list[dic
                 f"command or editable/proposed/candidate path is registered on `validation_contract`."
             ),
             "suggested_fix": (
-                f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
-                f"\"register a runnable proof command\",\"evidence_plan\":[\"Run the named proof command\"],"
-                f"\"commands\":[\"<runnable proof command>\"]}}]'"
+                correction_command(run_id, [{
+                    "kind": "proof-update", "requirement_uid": uid,
+                    "reason": "register a runnable proof command",
+                    "evidence_plan": ["Run the named proof command"],
+                    "commands": ["<runnable proof command>"],
+                }], pending=pending)["command"]
             ),
         })
     return findings
@@ -184,7 +262,45 @@ def _focused_covers(focused: list[dict[str, Any]], tier: str, command: str | Non
     return None
 
 
-def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[str, Any]) -> list[dict[str, Any]]:
+def _executable_fix(
+    run_id: str,
+    changes: list[dict[str, Any]],
+    *,
+    pending: bool = False,
+) -> dict[str, Any]:
+    """Executable finding fields: reviewable + portable commands and the payload.
+
+    Tests apply `correction["changes"]` through the real revision machinery;
+    hosts paste `suggested_fix` (or the shell-safe `suggested_fix_portable`).
+    """
+    rendered = correction_command(run_id, changes, pending=pending)
+    return {
+        "correction_kind": "executable",
+        "suggested_fix": rendered["command"],
+        "suggested_fix_portable": rendered["portable_command"],
+        "correction": {
+            "changes": changes,
+            "approved_proposal": True,
+            "supersede_pending": bool(pending),
+        },
+    }
+
+
+def _rebuild_fix(run_id: str, uid: str, reason: str, *, pending: bool = False) -> dict[str, Any]:
+    """Executable rebuild correction: re-derives checks, focused rows, fingerprint."""
+    return _executable_fix(run_id, [{
+        "kind": "proof-update", "requirement_uid": uid, "reason": reason,
+        "evidence_plan": ["Rebuild proof projection"],
+    }], pending=pending)
+
+
+def _convergence_findings(
+    run_id: str,
+    report: dict[str, Any],
+    projection: dict[str, Any],
+    *,
+    pending: bool = False,
+) -> list[dict[str, Any]]:
     """Mandatory convergence gate: contracts, checks, focused rows, and fingerprint must agree."""
     findings: list[dict[str, Any]] = []
     expected_focused = projection.get("focused_validation", [])
@@ -204,6 +320,7 @@ def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[
         expected_checks = expected_by_req.get(uid, [])
 
         if sorted(_normalize_check(item) for item in saved_checks) != sorted(_normalize_check(item) for item in expected_checks):
+            fix = _rebuild_fix(run_id, uid, "rebuild proof projection", pending=pending)
             findings.append({
                 "type": "check-projection-mismatch",
                 "display_id": uid,
@@ -214,11 +331,7 @@ def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[
                 ),
                 "expected": expected_checks,
                 "actual": saved_checks,
-                "suggested_fix": (
-                    f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                    f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
-                    f"\"rebuild proof projection\",\"evidence_plan\":[\"Rebuild proof projection\"]}}]'"
-                ),
+                **fix,
             })
 
         for item in expected_focused:
@@ -230,6 +343,8 @@ def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[
             if not command_text:
                 findings.append({
                     "type": "unresolved-tier-proof",
+                    "correction_kind": "template",
+                    "open_fields": ["commands"],
                     "display_id": uid,
                     "requirement_uid": uid,
                     "tier": tier,
@@ -238,15 +353,18 @@ def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[
                         f"adding a tier label alone must not turn the plan green."
                     ),
                     "suggested_fix": (
-                        f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                        f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
-                        f"\"attach proof for {tier}\",\"evidence_plan\":[\"Run the {tier} proof\"],"
-                        f"\"commands\":[\"<runnable proof command>\"],\"tiers\":[\"{tier}\"]}}]'"
+                        correction_command(run_id, [{
+                            "kind": "proof-update", "requirement_uid": uid,
+                            "reason": f"attach proof for {tier}",
+                            "evidence_plan": [f"Run the {tier} proof"],
+                            "commands": ["<runnable proof command>"], "tiers": [tier],
+                        }], pending=pending)["command"]
                     ),
                 })
                 continue
             covering = _focused_covers(focused, tier, command_text)
             if covering is None:
+                fix = _rebuild_fix(run_id, uid, "rebuild proof projection", pending=pending)
                 findings.append({
                     "type": "focused-validation-stale",
                     "display_id": uid,
@@ -257,15 +375,13 @@ def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[
                         f"`focused_validation` row; the rendered proof table is stale."
                     ),
                     "expected": {"requirement_id": uid, "tier": tier, "command": command_text, "status": "resolved"},
-                    "suggested_fix": (
-                        f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                        f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
-                        f"\"rebuild proof projection\",\"evidence_plan\":[\"Rebuild proof projection\"]}}]'"
-                    ),
+                    **fix,
                 })
             elif str(covering.get("candidate_state", "")).strip() == "unresolved" or not str(covering.get("candidate", "")).strip() or covering.get("candidate") == "not resolved from planning evidence":
                 findings.append({
                     "type": "focused-validation-unresolved",
+                    "correction_kind": "template",
+                    "open_fields": ["editable_paths"],
                     "display_id": uid,
                     "requirement_uid": uid,
                     "tier": tier,
@@ -273,21 +389,29 @@ def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[
                         f"requirement `{uid}` tier `{tier}` focused row has no eligible proof path."
                     ),
                     "suggested_fix": (
-                        f"tailtrail planning revise --root . --run-id {run_id} --changes "
-                        f"'[{{\"kind\":\"proof-update\",\"requirement_uid\":\"{uid}\",\"reason\":"
-                        f"\"register proof path\",\"evidence_plan\":[\"Record proof path\"],"
-                        f"\"editable_paths\":[\"<proof path>\"]}}]'"
+                        correction_command(run_id, [{
+                            "kind": "proof-update", "requirement_uid": uid,
+                            "reason": "register proof path",
+                            "evidence_plan": ["Record proof path"],
+                            "editable_paths": ["<proof path>"],
+                        }], pending=pending)["command"]
                     ),
                 })
 
     saved_fingerprint = report.get("effective_plan_fingerprint")
     if isinstance(saved_fingerprint, str) and saved_fingerprint.strip():
         if saved_fingerprint.strip() != str(projection.get("fingerprint", "")).strip():
+            first_uid = next(
+                (str(item.get("display_id")) for item in projection.get("requirements", []) if isinstance(item, dict)),
+                "REQ-01",
+            )
+            fix = _rebuild_fix(run_id, first_uid, "rebuild proof projection", pending=pending)
             findings.append({
                 "type": "fingerprint-mismatch",
                 "detail": "saved `effective_plan_fingerprint` differs from the converged derivation; approval authorizes exactly one converged plan.",
                 "expected": projection.get("fingerprint"),
                 "actual": saved_fingerprint,
+                **fix,
             })
 
     # Behaviour Harness specificity: a behaviour tier needs a
@@ -313,33 +437,44 @@ def _convergence_findings(run_id: str, report: dict[str, Any], projection: dict[
             if not specific:
                 findings.append({
                     "type": "behaviour-scenario-generic",
+                    "correction_kind": "template",
+                    "open_fields": ["behaviour scenario"],
                     "display_id": req_id,
                     "requirement_uid": req_id,
                     "detail": (
                         f"requirement `{req_id}` needs behaviour proof but has no requirement-specific "
-                        f"Behaviour Harness scenario (ID link alone is insufficient)."
+                        f"Behaviour Harness scenario (ID link alone is insufficient). Author a scenario "
+                        f"with this requirement ID, a concrete action, and an expected outcome; no "
+                        f"revision command can author it for you."
                     ),
                 })
     return findings
 
 
-def audit_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[str, Any]:
+def audit_report(
+    root: Path,
+    run_id: str,
+    report: dict[str, Any],
+    *,
+    pending: bool = False,
+) -> dict[str, Any]:
     """Pure gap check over an in-memory Start/revision report (no file I/O)."""
     goal = str(report.get("goal", ""))
     navigator = report.get("navigator", {})
     matrix = navigator.get("requirement_matrix", []) if isinstance(navigator, dict) else []
     findings: list[dict[str, Any]] = []
+    has_scope_evidence = isinstance(navigator.get("scope_evidence"), dict) if isinstance(navigator, dict) else False
 
     projection = LOCK.effective_plan_projection(report)
-    findings.extend(_convergence_findings(run_id, report, projection))
+    findings.extend(_convergence_findings(run_id, report, projection, pending=pending))
 
     for row in matrix if isinstance(matrix, list) else []:
         if not isinstance(row, dict):
             continue
         statement = str(row.get("statement", ""))
         text = " ".join([statement, goal, " ".join(row.get("acceptance_criteria", []) or [])])
-        findings.extend(_named_path_findings(root, run_id, row, text))
-        findings.extend(_tier_findings(run_id, row, statement))
+        findings.extend(_named_path_findings(root, run_id, row, text, has_scope_evidence=has_scope_evidence, pending=pending))
+        findings.extend(_tier_findings(run_id, row, statement, pending=pending))
     return {
         "schema_version": "1",
         "type": "tailtrail-planning-audit",
@@ -370,7 +505,7 @@ def audit(root: Path, run_id: str) -> dict[str, Any]:
         report = proposed.get("proposed_report")
         if not isinstance(report, dict):
             raise ValueError(f"pending plan revision v{state['pending_revision']} has no proposed report")
-        return audit_report(root, run_id, report)
+        return audit_report(root, run_id, report, pending=True)
     report_path = root / state["active_report"]
     payload = LOCK.read(report_path)
     return audit_report(root, run_id, payload["report"])

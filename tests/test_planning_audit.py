@@ -25,6 +25,28 @@ revision = load("planning_audit_revision_test", "scripts/planning-revision.py")
 audit = load("planning_audit_test", "scripts/planning-audit.py")
 
 
+def _revise_parser():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", default=".")
+    parser.add_argument("--run-id", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--changes")
+    source.add_argument("--changes-base64")
+    parser.add_argument("--approved-proposal", action="store_true")
+    parser.add_argument("--supersede-pending", action="store_true")
+    return parser
+
+
+def _parse_correction(command: str) -> dict:
+    import shlex
+
+    tokens = shlex.split(command, posix=True)
+    assert tokens[:3] == ["tailtrail", "planning", "revise"], tokens[:3]
+    return vars(_revise_parser().parse_args(tokens[3:]))
+
+
 def _converged_report(requirements: list[dict[str, object]]) -> dict[str, object]:
     """Build a converged Start report: checks[] + focused rows agree with contracts."""
     rows = json.loads(json.dumps(requirements))
@@ -92,6 +114,7 @@ def _converged_report(requirements: list[dict[str, object]]) -> dict[str, object
         "navigator": {
             "likely_impacted_files": [{"path": "src/service.py", "reason": "saved orchestration path"}],
             "requirement_matrix": rows,
+            "scope_evidence": {"state": "resolved"},
         },
         "focused_validation": grouped,
     }
@@ -341,6 +364,88 @@ class PlanningAuditTests(unittest.TestCase):
             "unresolved-tier-proof", "fingerprint-mismatch",
         }]
         self.assertEqual(convergence, [])
+
+
+class CorrectionExecutabilityTests(unittest.TestCase):
+    def test_executable_suggestions_parse_with_authority_marker(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Cancel an eligible order and cover it with tests/test_cancellation.py.",
+            "acceptance_criteria": ["eligible cancellation succeeds"],
+            "likely_paths": ["src/service.py"],
+            "validation_contract": {"state": "required", "tiers": ["unit"], "commands": ["pytest"]},
+        }])
+        result = audit.audit_report(Path("."), "audit-exec", report)
+        executable = [f for f in result["findings"] if f.get("correction_kind") == "executable"]
+        self.assertTrue(executable)
+        for finding in executable:
+            parsed = _parse_correction(finding["suggested_fix"])
+            self.assertTrue(parsed["approved_proposal"])
+            self.assertFalse(parsed["supersede_pending"])
+            changes = json.loads(parsed["changes"])
+            self.assertEqual(changes, finding["correction"]["changes"])
+            portable = _parse_correction(finding["suggested_fix_portable"])
+            import base64
+
+            self.assertEqual(
+                json.loads(base64.b64decode(portable["changes_base64"]).decode("utf-8")),
+                changes,
+            )
+
+    def test_executable_correction_applies_clean_through_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _plan(root, "audit-exec-apply", [{
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Cancel an eligible order and cover it with tests/test_cancellation.py.",
+                "acceptance_criteria": ["eligible cancellation succeeds"],
+                "likely_paths": ["src/service.py"],
+                "validation_contract": {"state": "required", "tiers": ["unit"], "commands": ["pytest"]},
+            }])
+            before = audit.audit(root, "audit-exec-apply")
+            fixable = next(f for f in before["findings"] if f.get("correction_kind") == "executable")
+            correction = fixable["correction"]
+            revision.propose(root, "audit-exec-apply", json.dumps(correction["changes"]), True)
+            after = audit.audit(root, "audit-exec-apply")
+
+        self.assertEqual(before["status"], "gaps-found")
+        self.assertNotIn(fixable["type"], {f["type"] for f in after["findings"]})
+
+    def test_templates_name_open_fields_and_restart_needs_no_command(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Cancel an eligible order.",
+            "acceptance_criteria": ["eligible cancellation succeeds"],
+            "likely_paths": ["src/service.py"],
+            "validation_contract": {"state": "required", "tiers": ["unit"]},
+        }])
+        result = audit.audit_report(Path("."), "audit-template", report)
+        template = next(f for f in result["findings"] if f.get("correction_kind") == "template")
+        self.assertTrue(template.get("open_fields"))
+        self.assertNotIn("correction", template)
+
+    def test_missing_scope_evidence_blocks_scope_add(self) -> None:
+        report = {
+            "goal": "Update src/billing.py to cancel an eligible order.",
+            "navigator": {
+                "requirement_matrix": [{
+                    "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                    "statement": "Update src/billing.py to cancel an eligible order.",
+                    "acceptance_criteria": ["eligible cancellation succeeds"],
+                    "likely_paths": ["src/service.py"],
+                    "validation_contract": {"state": "required", "tiers": ["unit"], "commands": ["pytest"]},
+                }],
+            },
+            "focused_validation": [],
+        }
+        result = audit.audit_report(Path("."), "audit-no-scope", report)
+        blocking = next(f for f in result["findings"] if f["type"] == "missing-canonical-scope-evidence")
+        self.assertEqual(blocking["correction_kind"], "restart-required")
+        self.assertNotIn("suggested_fix", blocking)
+        self.assertFalse(any(
+            f.get("type") == "named_path_missing_from_scope" and "scope-add" in str(f.get("suggested_fix", ""))
+            for f in result["findings"]
+        ))
 
 
 if __name__ == "__main__":
