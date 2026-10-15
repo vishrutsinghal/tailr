@@ -1424,7 +1424,7 @@ def decide(
                 for path in git_changed(root)
             ]
             target_origin = "git-changes" if scope_seeds else "none"
-    scope_candidates = navigator_scope.candidates_from_seeds(root, scope_seeds, tasks)
+    scope_candidates = navigator_scope.candidates_from_seeds(root, scope_seeds, tasks, allow_git_inventory=not debug_planning)
     changed = [
         str(candidate["path"])
         for candidate in scope_candidates
@@ -1996,7 +1996,7 @@ def decide(
                 navigator_scope.seed(path, "fresh-graph", "review-graph-suggested-read")
                 for path in graph_paths
             )
-            scope_candidates = navigator_scope.candidates_from_seeds(root, scope_seeds, tasks)
+            scope_candidates = navigator_scope.candidates_from_seeds(root, scope_seeds, tasks, allow_git_inventory=not debug_planning)
 
     scope_candidates, scope_edges, scope_investigation = navigator_scope.investigate(
         root,
@@ -2021,7 +2021,7 @@ def decide(
     # real Start flows. `navigator scope inspect` is a non-persisting probe
     # and must leave no state behind, so saving stays opt-in via
     # persist_host_packet (task-start passes True; inspect keeps the default).
-    if persist_host_packet:
+    if persist_host_packet and not debug_planning:
         navigator_scope.save_host_packet(root, scope_host_packet)
     scope_quality = navigator_scope.assess_scope_quality(root, goal, tasks, scope_evidence)
 

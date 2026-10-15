@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import re
 import shlex
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,16 @@ def load(name: str, filename: str) -> Any:
 LOCK = load("delivery_record_lock", "planning_lock.py")
 L = load("delivery_record_ledger", "run-ledger.py")
 ANCHOR = load("delivery_record_anchor", "change-intent-anchor.py")
+
+# Same command-prefix heuristic ci-summary.py's COMMAND_PATTERN and
+# summarize-output.py's BARE_COMMAND_PATTERN use to recognize a runnable
+# command line. A quoted literal that does not match this is traceability
+# evidence (an output path, a status sentence, ...), never a proof candidate.
+PROOF_COMMAND_PATTERN = re.compile(
+    r"^\s*(?:\$|>|Run |Running |Executing )?\s*"
+    r"(?:python3?|pytest|tox|npm|yarn|pnpm|mvn|gradle|\./gradlew|dotnet|go|make|cargo|"
+    r"node|sonar-scanner|trivy|semgrep|tailtrail)\b"
+)
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -71,21 +82,26 @@ def proof_authorization_fields(
         for value in [*(requirement.get("quoted_literals", []) or []), *(traceability_literals or [])]
         if str(value).strip()
     ))
-    unapproved = [value for value in traceability if value not in approved]
+    unresolved_commands = [
+        value for value in traceability
+        if value not in approved and PROOF_COMMAND_PATTERN.match(value)
+    ]
     if not traceability and not approved:
         return []
     fields = [
         ("Traceability evidence", "; ".join(f"`{report_text(value)}`" for value in traceability) if traceability else "none recorded"),
         ("Approved executable proof", "; ".join(f"`{report_text(value)}`" for value in sorted(approved)) if approved else "none registered"),
     ]
-    if unapproved:
+    if approved:
+        fields.append(("Status", "approved executable proof"))
+    elif unresolved_commands:
         tiers = [str(value) for value in contract.get("tiers", []) if str(value)] or ["unit"]
         payload = {
             "kind": "proof-update",
             "requirement_uid": str(requirement.get("display_id") or requirement.get("requirement_uid") or "REQ"),
             "reason": "Register traceability-only proof before activation.",
             "evidence_plan": ["Run the focused validation."],
-            "commands": [unapproved[0]],
+            "commands": [unresolved_commands[0]],
             "tiers": tiers,
         }
         revise = (
@@ -98,7 +114,7 @@ def proof_authorization_fields(
             ("Next action", f"`{revise}`"),
         ])
     else:
-        fields.append(("Status", "approved executable proof"))
+        fields.append(("Status", "traceability-only; no executable proof registered"))
     return fields
 
 
@@ -520,8 +536,10 @@ def render_closure(root: Path, run_id: str) -> str:
                 lines.append(f"  - Command: `{report_text(row.get('command'))}`")
                 if row.get("command_label"):
                     lines.append(f"    - Label: {report_text(row.get('command_label'))}")
+                tiers = [str(value) for value in row.get("tiers", []) if str(value).strip()]
+                tier_label = ", ".join(tiers) if tiers else report_text(row.get("tier"))
                 lines.append(
-                    f"    - Tier: {report_text(row.get('tier'))}; "
+                    f"    - Tier: {tier_label}; "
                     f"evidence quality: {report_text(row.get('evidence_quality'))}; "
                     f"outcome: {report_text(row.get('outcome'))}"
                 )

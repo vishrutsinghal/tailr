@@ -169,6 +169,7 @@ PACK_FILES = [
     "aidlc-docs/phase-pm-l5-requirements.md",
     "aidlc-docs/phase-installation-experience-design.md",
     "aidlc-docs/phase-installation-experience-requirements.md",
+    "TAILTRIAL-GROUND-RULES.md",
 ]
 
 PACK_DIRS = [
@@ -468,6 +469,17 @@ PACK_SCRIPTS = [
     "scripts/debug-governance.py",
     "scripts/debug-evaluation.py",
     "scripts/write_guardian.py",
+    "scripts/new_file_due_diligence.py",
+    "scripts/greenfield_e2e_fixture.py",
+    "scripts/repository_path_policy.py",
+    "scripts/intake_pipeline.py",
+    "scripts/run-closeout.py",
+    "scripts/delivery-record.py",
+    "scripts/host-interpretation-builder.py",
+    "scripts/prompt_builder.py",
+    "scripts/start_request.py",
+    "scripts/docs-only.py",
+    "scripts/ground-rules.py",
 ]
 
 MANIFEST_NAME = ".tailtrail-install.json"

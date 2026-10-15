@@ -1,11 +1,11 @@
 {
   "schema_version": "1",
-  "created_at": "2026-10-14T12:34:03.242049+00:00",
-  "updated_at": "2026-10-14T12:34:03.242064+00:00",
+  "created_at": "2026-10-14T16:39:47.329990+00:00",
+  "updated_at": "2026-10-14T16:39:47.330013+00:00",
   "tailtrail_version": "local",
   "root": "/Users/vsingha7/Desktop/tailr",
-  "cache_key": "267519cf301996122afb347173fdb2aa839b5f5a38d1f52dba5dbd28d07261ee",
-  "graph_mode": "navigator-closure",
+  "cache_key": "b07b7af3ccc5bc39bd221b2d4ea6ab04509f50b2de510059f418cb1b6f79f6f2",
+  "graph_mode": "navigator-start",
   "scope": [
     "hooks/hooks.json",
     "pyproject.toml",
@@ -28,6 +28,7 @@
     "scripts/closure-contract.py",
     "scripts/closure-evaluation.py",
     "scripts/closure-finalizer.py",
+    "scripts/closure-recorder.py",
     "scripts/code-graph-mapper.py",
     "scripts/completion-report.py",
     "scripts/debug-completion.py",
@@ -35,6 +36,7 @@
     "scripts/debug-harness-convergence.py",
     "scripts/debug-host-diagnosis.py",
     "scripts/debug-preflight.py",
+    "scripts/delivery-record.py",
     "scripts/execution-evidence.py",
     "scripts/greenfield_e2e_fixture.py",
     "scripts/harness-checkpoint.py",
@@ -61,9 +63,11 @@
     "scripts/workflow_runtime/storage.py",
     "scripts/write_guardian.py",
     "tests/test_architecture_fitness.py",
+    "tests/test_closure_recorder.py",
     "tests/test_code_graph_cache.py",
     "tests/test_code_graph_inventory.py",
     "tests/test_debug_start_planning.py",
+    "tests/test_delivery_record.py",
     "tests/test_full_pipeline.py",
     "tests/test_greenfield_e2e.py",
     "tests/test_host_adapter_conformance.py",
@@ -89,13 +93,13 @@
   ],
   "build_limit": 40,
   "task_tags": [
-    "closure",
-    "navigator"
+    "navigator",
+    "start"
   ],
   "language_profiles": {
     "python": {
       "level": 2,
-      "files": 76
+      "files": 80
     }
   },
   "source_files": {
@@ -200,9 +204,14 @@
       "size": 4495
     },
     "scripts/closure-finalizer.py": {
-      "sha256": "8b8c9281f686fec20ebf5ef24a3b222af0abbf5e942ac9ccd9bd84b9a32c1711",
-      "mtime": 1791951600,
-      "size": 19439
+      "sha256": "c1d42cdd5b4833ed634d1bcde82d6865bc098b434e8899f75b20f9fab050779c",
+      "mtime": 1791992756,
+      "size": 19645
+    },
+    "scripts/closure-recorder.py": {
+      "sha256": "edf06a7a6ab0b1e806ef96f546ce0a07196fb370e554e3354d63d131b4b7e8dd",
+      "mtime": 1791987360,
+      "size": 14172
     },
     "scripts/code-graph-mapper.py": {
       "sha256": "214952646f0583b73ecbdb81e0b41fac27bc7fb81683041334d7d2506459c68c",
@@ -239,14 +248,19 @@
       "mtime": 1791368780,
       "size": 62083
     },
+    "scripts/delivery-record.py": {
+      "sha256": "e19e2bde101c042f253eae206a14e9a2018876348da0f218a1845d9e5fbffa76",
+      "mtime": 1791987360,
+      "size": 35685
+    },
     "scripts/execution-evidence.py": {
-      "sha256": "f8a314b2cff61cf32046fa86f85f9b2d24806b1ec2456378a6956a45ffa3a756",
-      "mtime": 1791975922,
-      "size": 22758
+      "sha256": "29ca2496742d6cb941ce9d8ee2c80a1107afb6cf3195877abb0b848689dc0dd4",
+      "mtime": 1791992736,
+      "size": 23182
     },
     "scripts/greenfield_e2e_fixture.py": {
       "sha256": "2afee022f7995ddd0b4d74f7f9e33264568c058110c03463d80a526a081eb918",
-      "mtime": 1791980339,
+      "mtime": 1791982258,
       "size": 1720
     },
     "scripts/harness-checkpoint.py": {
@@ -260,9 +274,9 @@
       "size": 28297
     },
     "scripts/install-copilot.py": {
-      "sha256": "d822e00d602adda5dd8524c7dc6538dc0f32d30ae86656fd7ec2a8d420abc1a7",
-      "mtime": 1791462317,
-      "size": 37867
+      "sha256": "16a47ccbf49e8aa6246c1c67bb685dee419f71034cd0bc5106905f3a59fe51a2",
+      "mtime": 1791992607,
+      "size": 38292
     },
     "scripts/install-local.py": {
       "sha256": "90ed1c8a2c3893df509df7cb102a00519d18ad2df5d7668604746d89f16afb92",
@@ -291,7 +305,7 @@
     },
     "scripts/navigator.py": {
       "sha256": "9db7e01a25ca091426018e5ee77fbd6dea22fe672c0367b92e3411c1af8119b9",
-      "mtime": 1791704442,
+      "mtime": 1791995949,
       "size": 108187
     },
     "scripts/navigator_discovery.py": {
@@ -301,7 +315,7 @@
     },
     "scripts/navigator_scope.py": {
       "sha256": "ebe16cd6f51f7f77eedae147f939e8f3828f88b20c26a47f30d56cde480ddc8f",
-      "mtime": 1791980041,
+      "mtime": 1791995949,
       "size": 248378
     },
     "scripts/new_file_due_diligence.py": {
@@ -369,6 +383,11 @@
       "mtime": 1791972704,
       "size": 7930
     },
+    "tests/test_closure_recorder.py": {
+      "sha256": "ca1b0932f73d37a9126efcf0e0dbc9eaf8c9052f240e3b12e250f69c0da9526e",
+      "mtime": 1791987360,
+      "size": 13440
+    },
     "tests/test_code_graph_cache.py": {
       "sha256": "90cce6b0dae4add49461c85370196f8ec10137b19865dd80a7ba45ea043737d6",
       "mtime": 1791900919,
@@ -384,6 +403,11 @@
       "mtime": 1791368780,
       "size": 63677
     },
+    "tests/test_delivery_record.py": {
+      "sha256": "f8e53436086a677644a3871beaa4de0e253b89b4054ae60c945825b44d2f16b3",
+      "mtime": 1791987360,
+      "size": 8934
+    },
     "tests/test_full_pipeline.py": {
       "sha256": "9d65092cf55c0b4796e9e7f99bdaa05543fa1d8b04c7327119b9157e44c7ea1e",
       "mtime": 1791368780,
@@ -391,7 +415,7 @@
     },
     "tests/test_greenfield_e2e.py": {
       "sha256": "122fb9cf1609ab0d917e9b5dfe3096b5eeddd0183ca0c82b52fb367c1ec10907",
-      "mtime": 1791980367,
+      "mtime": 1791982258,
       "size": 7929
     },
     "tests/test_host_adapter_conformance.py": {
@@ -563,7 +587,7 @@
   "inventory": {
     "algorithm": "path-size-mtime-ns-v1",
     "file_count": 968,
-    "fingerprint": "sha256:5abe1899412488ea25642b2f3519ba4b18a6f7f3f2a8a34d2529bd77f5dd7c9c"
+    "fingerprint": "sha256:ef99347d4640e0ade59f8e54e338b6d5a416aa3c31486f4dfe07072b488c9b07"
   },
   "graph": {
     "changed_files": [
@@ -588,6 +612,7 @@
       "scripts/closure-contract.py",
       "scripts/closure-evaluation.py",
       "scripts/closure-finalizer.py",
+      "scripts/closure-recorder.py",
       "scripts/code-graph-mapper.py",
       "scripts/completion-report.py",
       "scripts/debug-completion.py",
@@ -595,6 +620,7 @@
       "scripts/debug-harness-convergence.py",
       "scripts/debug-host-diagnosis.py",
       "scripts/debug-preflight.py",
+      "scripts/delivery-record.py",
       "scripts/execution-evidence.py",
       "scripts/greenfield_e2e_fixture.py",
       "scripts/harness-checkpoint.py",
@@ -621,9 +647,11 @@
       "scripts/workflow_runtime/storage.py",
       "scripts/write_guardian.py",
       "tests/test_architecture_fitness.py",
+      "tests/test_closure_recorder.py",
       "tests/test_code_graph_cache.py",
       "tests/test_code_graph_inventory.py",
       "tests/test_debug_start_planning.py",
+      "tests/test_delivery_record.py",
       "tests/test_full_pipeline.py",
       "tests/test_greenfield_e2e.py",
       "tests/test_host_adapter_conformance.py",
@@ -4490,494 +4518,6 @@
       },
       {
         "kind": "function",
-        "name": "load_registry_module",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 35,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "load_bootstrap_module",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 45,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "load_learning_retrieval_module",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 55,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "registry_workflow",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 66,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "bootstrap_snapshot_status",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 77,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "class",
-        "name": "FeatureDecision",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 118,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "git_changed",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 140,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "goal_discovery_terms",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 144,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "goal_discovered_paths",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 148,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "repository_discovered_paths",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 158,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "is_actionable_changed_path",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 162,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "bounded_review_graph_paths",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 166,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "existing_state",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 170,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "run_review_graph",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 183,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "run_graph_learning",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 187,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "graph_learning_index_exists",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 191,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "learning_retrieval_mode",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 195,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "learning_use_proposal",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 204,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "normalized_learning_tags",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 257,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "learning_skip_reason",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 262,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "learning_approval",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 273,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "capture_mode",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 303,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "get_stage_aware_instructions",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 312,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "get_stage_aware_profile",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 337,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "read_jsonl",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 355,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "meta_harness_hints",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 376,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "root_arg",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 437,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "cross_repo_reference_requested",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 441,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "labeled_path",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 446,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "cross_repo_reference_plan",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 457,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "learning_capture_suggestion",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 480,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "learning_refresh_awareness",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 511,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "file_sha256",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 544,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "term_found",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 554,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "ci_sonar_requested",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 559,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "vulnerability_requested",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 563,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "vulnerability_has_exact_evidence",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 567,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "heavy_graph_candidate",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 585,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "code_change_candidate",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 593,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "graph_mapper_candidate",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 623,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "cache_entries",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 627,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "graph_cache_candidates",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 633,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "graph_inventory",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 637,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "choose_graph_cache_path",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 646,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "saved_graph_cache_evidence",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 653,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "graph_cache_status",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 689,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "context_strategy",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 810,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "quality_scan_requested",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 845,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "scan_approval_prompt",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 870,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "review_scope_plan",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 979,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "evaluation_harness_plan",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 1076,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "evaluation_only_requested",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 1122,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "navigator_phase_context",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 1161,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "explicit_navigator_report",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 1194,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "decide",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 1279,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "markdown",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 2145,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "main",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 2148,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "start_hands_free_slice",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 2169,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "process_handoff",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 2196,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "blocked",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 207,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "exists",
-        "language": "python",
-        "file": "scripts/navigator.py",
-        "line": 878,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
         "name": "display_prose",
         "language": "python",
         "file": "scripts/task-start.py",
@@ -7046,6 +6586,494 @@
         "language": "python",
         "file": "tests/test_revision_proof_overlay.py",
         "line": 42,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 26,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 52,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "canonical",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 56,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "relative",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 60,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "latest_record",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 67,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "ensure_delivery_record",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 81,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "selected_harnesses",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 102,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "behavior_scenarios",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 122,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "missing_behavior",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 137,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run_behavior",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 160,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "higher_tier_status",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 181,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "finalize",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 210,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 363,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 22,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "canonical",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 40,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "receipt_rows",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 44,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "selected_harnesses",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 63,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "artifact_pointer",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 75,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "approved_proof_amendments",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 83,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "collected_input",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 119,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "record",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 210,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/closure-recorder.py",
+        "line": 267,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 33,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 56,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "record_path",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 60,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "report_text",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 64,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "proof_authorization_fields",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 71,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "render_plan",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 121,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "render_scope_revisions",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 293,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "render_anchor_corrections",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 367,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "render_closure",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 429,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "generate",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 640,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/delivery-record.py",
+        "line": 699,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 21,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "directory",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 32,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "stream",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 33,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "proof_amendments",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 34,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "canonical",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 35,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "append_proof_amendment",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 38,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "validate",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 70,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_redact",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 106,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_anchor_requirements",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 120,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_approved_revision_overlay",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 132,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run_command",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 180,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "append",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 344,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "show",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 360,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 366,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "shared_files",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 28,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "copy_file",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 519,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "pack_ignore",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 527,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "copy_dir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 534,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "pack_entries_for",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 544,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "pack_entries",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 558,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "sha256",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 562,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "install_timestamp",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 566,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_manifest",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 570,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "validate_pack_dir",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 623,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "copilot_body",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 632,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_copilot",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 717,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "start_prompt_body",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 726,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "write_start_prompt",
+        "language": "python",
+        "file": "scripts/install-copilot.py",
+        "line": 735,
         "confidence": "python_ast"
       }
     ],
@@ -10118,366 +10146,6 @@
       },
       {
         "target": "__future__",
-        "referring_file": "scripts/navigator.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "argparse",
-        "referring_file": "scripts/navigator.py",
-        "line": 5,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "scripts/navigator.py",
-        "line": 6,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/navigator.py",
-        "line": 7,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/navigator.py",
-        "line": 8,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "re",
-        "referring_file": "scripts/navigator.py",
-        "line": 9,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "scripts/navigator.py",
-        "line": 10,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/navigator.py",
-        "line": 11,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "dataclasses",
-        "referring_file": "scripts/navigator.py",
-        "line": 12,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/navigator.py",
-        "line": 13,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/navigator.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_core",
-        "referring_file": "scripts/navigator.py",
-        "line": 16,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_discovery",
-        "referring_file": "scripts/navigator.py",
-        "line": 17,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_render",
-        "referring_file": "scripts/navigator.py",
-        "line": 18,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_scope",
-        "referring_file": "scripts/navigator.py",
-        "line": 19,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "prompt_profile",
-        "referring_file": "scripts/navigator.py",
-        "line": 20,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "requirement_discovery",
-        "referring_file": "scripts/navigator.py",
-        "line": 21,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "token_budget_coach",
-        "referring_file": "scripts/navigator.py",
-        "line": 22,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pipeline_manager",
-        "referring_file": "scripts/navigator.py",
-        "line": 23,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pipeline_judge",
-        "referring_file": "scripts/navigator.py",
-        "line": 24,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts.pipeline_manager",
-        "referring_file": "scripts/navigator.py",
-        "line": 2186,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts.pipeline_manager",
-        "referring_file": "scripts/navigator.py",
-        "line": 2211,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts.pipeline_judge",
-        "referring_file": "scripts/navigator.py",
-        "line": 2212,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/code_graph_inventory.py",
-        "referring_file": "scripts/navigator.py",
-        "line": 639,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
         "referring_file": "scripts/task-start.py",
         "line": 3,
         "reference_type": "import",
@@ -11901,20 +11569,6 @@
         }
       },
       {
-        "target": "scripts/navigator_discovery.py",
-        "referring_file": "scripts/navigator.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "__future__",
         "referring_file": "scripts/ast-map.py",
         "line": 3,
@@ -13326,201 +12980,6 @@
       },
       {
         "target": "__future__",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "argparse",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 5,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 6,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 7,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "shutil",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 8,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 9,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 10,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "datetime",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 11,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 12,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "install_surfaces",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "tailtrail.install",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 39,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 43,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "tailtrail.install.cli",
-        "referring_file": "scripts/install-copilot.py",
-        "line": 915,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
         "referring_file": "scripts/install-local.py",
         "line": 3,
         "reference_type": "import",
@@ -14193,20 +13652,6 @@
       },
       {
         "target": "scripts/aidlc-official-detect.py",
-        "referring_file": "scripts/install-copilot.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/aidlc-official-detect.py",
         "referring_file": "scripts/mcp-server.py",
         "reference_type": "caller",
         "confidence": "heuristic",
@@ -14235,20 +13680,6 @@
       },
       {
         "target": "scripts/aidlc-official-host.py",
-        "referring_file": "scripts/install-copilot.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/aidlc-official-host.py",
         "referring_file": "scripts/tailtrail.py",
         "reference_type": "caller",
         "confidence": "heuristic",
@@ -14263,35 +13694,7 @@
       },
       {
         "target": "scripts/aidlc-official-install.py",
-        "referring_file": "scripts/install-copilot.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/aidlc-official-install.py",
         "referring_file": "scripts/tailtrail.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/write_guardian.py",
-        "referring_file": "scripts/install-copilot.py",
         "reference_type": "caller",
         "confidence": "heuristic",
         "module_resolution": {
@@ -15010,20 +14413,6 @@
       },
       {
         "target": "scripts/benchmark-tailtrail.py",
-        "referring_file": "scripts/install-copilot.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/benchmark-tailtrail.py",
         "referring_file": "scripts/tailtrail.py",
         "reference_type": "caller",
         "confidence": "heuristic",
@@ -15037,380 +14426,8 @@
         }
       },
       {
-        "target": "__future__",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 10,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "argparse",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 12,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 13,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 15,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 16,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 17,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 18,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "run-ledger.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 35,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/run-ledger.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "planning_lock.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 36,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/planning_lock.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "closure-recorder.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 37,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/closure-recorder.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "architecture-fitness.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 38,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/architecture-fitness.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "behavior-harness.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 39,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/behavior-harness.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "maintainability-harness.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 40,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/maintainability-harness.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "completion-report.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 41,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/completion-report.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "debug-completion.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 42,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/debug-completion.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "closure-correction.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 43,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/closure-correction.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "workflow_runtime/evidence.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 44,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/workflow_runtime/evidence.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_graph_lifecycle.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 45,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/navigator_graph_lifecycle.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "learning-refresh.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 46,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/learning-refresh.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "harness-review.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 47,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/harness-review.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "change-intent-anchor.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 48,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/change-intent-anchor.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
         "target": "scripts/closure-finalizer.py",
         "referring_file": "scripts/check-tailtrail.py",
-        "reference_type": "caller",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/closure-finalizer.py",
-        "referring_file": "scripts/install-copilot.py",
         "reference_type": "caller",
         "confidence": "heuristic",
         "module_resolution": {
@@ -17920,579 +16937,6 @@
       },
       {
         "target": "__future__",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 3,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "argparse",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 5,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 6,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 7,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 8,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "platform",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 9,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "re",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 10,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 11,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "time",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 12,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "datetime",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 13,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 15,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "run-ledger.py",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 26,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/run-ledger.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "planning_lock.py",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 27,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/planning_lock.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/greenfield_e2e_fixture.py",
-        "referring_file": "tests/test_greenfield_e2e.py",
-        "reference_type": "test-link",
-        "confidence": "heuristic",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 11,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "copy",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 13,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 15,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 16,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "os",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 17,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "re",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 18,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "subprocess",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 19,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 20,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "time",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 21,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "unicodedata",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 22,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "dataclasses",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 23,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 24,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 25,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "capture_hooks",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 27,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "code_relationships",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 28,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "new_file_due_diligence",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 29,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "requirement_discovery",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 30,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "code_graph_inventory",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 31,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "module_resolution",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 32,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 3390,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "metrics_extractor",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 3529,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "scripts/repository_path_policy.py",
-        "referring_file": "scripts/navigator_scope.py",
-        "line": 43,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "relative-module-reference-unresolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
         "referring_file": "scripts/new_file_due_diligence.py",
         "line": 29,
         "reference_type": "import",
@@ -19080,6 +17524,1626 @@
         "target": "unittest",
         "referring_file": "tests/test_new_file_due_diligence.py",
         "line": 4,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/greenfield_e2e_fixture.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 17,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 18,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "run-ledger.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 35,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/run-ledger.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "planning_lock.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 36,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/planning_lock.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "closure-recorder.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 37,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/closure-recorder.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "architecture-fitness.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 38,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/architecture-fitness.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "behavior-harness.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 39,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/behavior-harness.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "maintainability-harness.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 40,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/maintainability-harness.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "completion-report.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 41,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/completion-report.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "delivery-record.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 42,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/delivery-record.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "debug-completion.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 43,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/debug-completion.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "closure-correction.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 44,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/closure-correction.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime/evidence.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 45,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/workflow_runtime/evidence.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_graph_lifecycle.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 46,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/navigator_graph_lifecycle.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "learning-refresh.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 47,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/learning-refresh.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "harness-review.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 48,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/harness-review.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "change-intent-anchor.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 49,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/change-intent-anchor.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "run-ledger.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 30,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/run-ledger.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "closure-contract.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 31,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/closure-contract.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "planning_lock.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 32,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/planning_lock.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "harness-checkpoint.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 33,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/harness-checkpoint.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "completion-review.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 34,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/completion-review.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "requirement-completion.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 35,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/requirement-completion.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "execution-evidence.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 36,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/execution-evidence.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "change-intent-anchor.py",
+        "referring_file": "scripts/closure-recorder.py",
+        "line": 37,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/change-intent-anchor.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 20,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 22,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 23,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 24,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 25,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "shlex",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 26,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 27,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 28,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "planning_lock.py",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 41,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/planning_lock.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "run-ledger.py",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 42,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/run-ledger.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "change-intent-anchor.py",
+        "referring_file": "scripts/delivery-record.py",
+        "line": 43,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/change-intent-anchor.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "platform",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "time",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "datetime",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "run-ledger.py",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 26,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/run-ledger.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "planning_lock.py",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 27,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/planning_lock.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "closure-contract.py",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 28,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/closure-contract.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "change-intent-anchor.py",
+        "referring_file": "scripts/execution-evidence.py",
+        "line": 29,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/change-intent-anchor.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "shutil",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "datetime",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "install_surfaces",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tailtrail.install",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 39,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 43,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "tailtrail.install.cli",
+        "referring_file": "scripts/install-copilot.py",
+        "line": 927,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/navigator.py",
+        "line": 3,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/navigator.py",
+        "line": 5,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/navigator.py",
+        "line": 6,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/navigator.py",
+        "line": 7,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/navigator.py",
+        "line": 8,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "re",
+        "referring_file": "scripts/navigator.py",
+        "line": 9,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "subprocess",
+        "referring_file": "scripts/navigator.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/navigator.py",
+        "line": 11,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "dataclasses",
+        "referring_file": "scripts/navigator.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/navigator.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/navigator.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_core",
+        "referring_file": "scripts/navigator.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_discovery",
+        "referring_file": "scripts/navigator.py",
+        "line": 17,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_render",
+        "referring_file": "scripts/navigator.py",
+        "line": 18,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_scope",
+        "referring_file": "scripts/navigator.py",
+        "line": 19,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "prompt_profile",
+        "referring_file": "scripts/navigator.py",
+        "line": 20,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "requirement_discovery",
+        "referring_file": "scripts/navigator.py",
+        "line": 21,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "token_budget_coach",
+        "referring_file": "scripts/navigator.py",
+        "line": 22,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pipeline_manager",
+        "referring_file": "scripts/navigator.py",
+        "line": 23,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pipeline_judge",
+        "referring_file": "scripts/navigator.py",
+        "line": 24,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts.pipeline_manager",
+        "referring_file": "scripts/navigator.py",
+        "line": 2186,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts.pipeline_manager",
+        "referring_file": "scripts/navigator.py",
+        "line": 2211,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts.pipeline_judge",
+        "referring_file": "scripts/navigator.py",
+        "line": 2212,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "scripts/code_graph_inventory.py",
+        "referring_file": "scripts/navigator.py",
+        "line": 639,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "relative-module-reference-unresolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
+        "referring_file": "scripts/navigator_scope.py",
+        "line": 11,
         "reference_type": "import",
         "confidence": "static-text",
         "module_resolution": {
@@ -25982,6 +26046,30 @@
         "file": "tests/test_new_file_due_diligence.py",
         "line": 397,
         "confidence": "python_ast"
+      },
+      {
+        "type": "GreenfieldEndToEndTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_greenfield_e2e.py",
+        "line": 37,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "ClosureRecorderTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_closure_recorder.py",
+        "line": 32,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "DeliveryRecordRoleTaggedPathTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_delivery_record.py",
+        "line": 29,
+        "confidence": "python_ast"
       }
     ],
     "endpoints": [],
@@ -27505,6 +27593,34 @@
           "confidence": "heuristic"
         },
         {
+          "file": "scripts/closure-recorder.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/flaky-test-tracker.py",
+            "scripts/higher-tier-testing.py",
+            "scripts/run-tests.py",
+            "scripts/smoke-test.py",
+            "scripts/spec-kit-amendment.py",
+            "scripts/spec-kit-bridge.py",
+            "scripts/spec-kit-ci-gate.py",
+            "scripts/spec-kit-converge.py",
+            "scripts/spec-kit-detect.py",
+            "scripts/spec-kit-evidence.py",
+            "scripts/spec-kit-import.py",
+            "scripts/spec-kit-integration.py",
+            "scripts/spec-kit-observability.py",
+            "scripts/spec-kit-policy.py",
+            "scripts/spec-kit-slices.py",
+            "scripts/test-precision.py",
+            "scripts/test-tier-selector.py",
+            "scripts/test_scope.py",
+            "scripts/testing-profile.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
           "file": "scripts/code-graph-mapper.py",
           "partition": "scripts",
           "owners": [],
@@ -27674,6 +27790,34 @@
         },
         {
           "file": "scripts/debug-preflight.py",
+          "partition": "scripts",
+          "owners": [],
+          "likely_tests": [
+            "scripts/flaky-test-tracker.py",
+            "scripts/higher-tier-testing.py",
+            "scripts/run-tests.py",
+            "scripts/smoke-test.py",
+            "scripts/spec-kit-amendment.py",
+            "scripts/spec-kit-bridge.py",
+            "scripts/spec-kit-ci-gate.py",
+            "scripts/spec-kit-converge.py",
+            "scripts/spec-kit-detect.py",
+            "scripts/spec-kit-evidence.py",
+            "scripts/spec-kit-import.py",
+            "scripts/spec-kit-integration.py",
+            "scripts/spec-kit-observability.py",
+            "scripts/spec-kit-policy.py",
+            "scripts/spec-kit-slices.py",
+            "scripts/test-precision.py",
+            "scripts/test-tier-selector.py",
+            "scripts/test_scope.py",
+            "scripts/testing-profile.py"
+          ],
+          "release_paths": [],
+          "confidence": "heuristic"
+        },
+        {
+          "file": "scripts/delivery-record.py",
           "partition": "scripts",
           "owners": [],
           "likely_tests": [
@@ -27979,62 +28123,6 @@
           ],
           "release_paths": [],
           "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/navigator.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
-        },
-        {
-          "file": "scripts/navigator_discovery.py",
-          "partition": "scripts",
-          "owners": [],
-          "likely_tests": [
-            "scripts/flaky-test-tracker.py",
-            "scripts/higher-tier-testing.py",
-            "scripts/run-tests.py",
-            "scripts/smoke-test.py",
-            "scripts/spec-kit-amendment.py",
-            "scripts/spec-kit-bridge.py",
-            "scripts/spec-kit-ci-gate.py",
-            "scripts/spec-kit-converge.py",
-            "scripts/spec-kit-detect.py",
-            "scripts/spec-kit-evidence.py",
-            "scripts/spec-kit-import.py",
-            "scripts/spec-kit-integration.py",
-            "scripts/spec-kit-observability.py",
-            "scripts/spec-kit-policy.py",
-            "scripts/spec-kit-slices.py",
-            "scripts/test-precision.py",
-            "scripts/test-tier-selector.py",
-            "scripts/test_scope.py",
-            "scripts/testing-profile.py"
-          ],
-          "release_paths": [],
-          "confidence": "heuristic"
         }
       ],
       "release_paths": [
@@ -28162,6 +28250,7 @@
       "scripts/closure-contract.py",
       "scripts/closure-evaluation.py",
       "scripts/closure-finalizer.py",
+      "scripts/closure-recorder.py",
       "scripts/code-graph-mapper.py",
       "scripts/completion-report.py",
       "scripts/debug-completion.py",
@@ -28169,6 +28258,7 @@
       "scripts/debug-harness-convergence.py",
       "scripts/debug-host-diagnosis.py",
       "scripts/debug-preflight.py",
+      "scripts/delivery-record.py",
       "scripts/execution-evidence.py",
       "scripts/greenfield_e2e_fixture.py",
       "scripts/harness-checkpoint.py",
@@ -28195,9 +28285,11 @@
       "scripts/workflow_runtime/storage.py",
       "scripts/write_guardian.py",
       "tests/test_architecture_fitness.py",
+      "tests/test_closure_recorder.py",
       "tests/test_code_graph_cache.py",
       "tests/test_code_graph_inventory.py",
       "tests/test_debug_start_planning.py",
+      "tests/test_delivery_record.py",
       "tests/test_full_pipeline.py",
       "tests/test_greenfield_e2e.py",
       "tests/test_host_adapter_conformance.py",
@@ -28235,436 +28327,10 @@
   },
   "freshness": {
     "status": "fresh",
-    "checked_at": "2026-10-14T12:34:05.481393+00:00",
+    "checked_at": "2026-10-14T16:39:49.614895+00:00",
     "reasons": []
   },
   "navigator_lifecycle_history": [
-    {
-      "action": "refresh",
-      "at": "2026-10-14T06:06:17.585066+00:00",
-      "attempt_id": "start-20261014060150-9e4339",
-      "phase": "closure",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "schemas/host-input-contract.schema.json",
-        "tests/test_host_input_contract_schema.py"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "schemas/host-input-contract.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-14T06:14:28.686670+00:00",
-      "attempt_id": "start-20261014061422-50451e",
-      "phase": "start",
-      "reason_codes": [
-        "bounded-goal-discovery",
-        "fresh-prior-run-mapping",
-        "requested-scope-outside-cache"
-      ],
-      "target_paths": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/enterprise_transport.py",
-        "scripts/workflow_runtime/storage.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_workflow_privacy.py"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "schemas/host-input-contract.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/enterprise_transport.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/workflow_runtime/storage.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_workflow_privacy.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-14T06:15:09.354850+00:00",
-      "attempt_id": "start-20261014061503-50451e",
-      "phase": "start",
-      "reason_codes": [
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "no anchor-connected path into cached scope",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "schemas/host-question-flow-event.schema.json"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "schemas/host-input-contract.schema.json",
-        "schemas/host-question-flow-event.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/enterprise_transport.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/workflow_runtime/storage.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_workflow_privacy.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-14T06:19:25.150949+00:00",
-      "attempt_id": "start-20261014061503-50451e",
-      "phase": "closure",
-      "reason_codes": [
-        "explicit-scope-paths",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "schemas/host-question-flow-event.schema.json",
-        "tests/test_host_question_flow_event_schema.py"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "schemas/host-input-contract.schema.json",
-        "schemas/host-question-flow-event.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/enterprise_transport.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/workflow_runtime/storage.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_host_question_flow_event_schema.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_workflow_privacy.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-14T09:50:01.590556+00:00",
-      "attempt_id": "start-20261014094955-222b6f",
-      "phase": "start",
-      "reason_codes": [
-        "bounded-goal-discovery",
-        "fresh-prior-run-mapping",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "scripts/check-tailtrail.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator.py",
-        "scripts/tailtrail.py",
-        "scripts/update-copilot.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_question_flow_phase0_artifacts.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_navigator_core.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py"
-      ],
-      "effective_scope": [
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "schemas/host-input-contract.schema.json",
-        "schemas/host-question-flow-event.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/execution-evidence.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/mcp-server.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/enterprise_transport.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/workflow_runtime/storage.py",
-        "scripts/write_guardian.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_host_question_flow_event_schema.py",
-        "tests/test_host_question_flow_phase0_artifacts.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_workflow_privacy.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
     {
       "action": "refresh",
       "at": "2026-10-14T09:50:41.154023+00:00",
@@ -30009,6 +29675,531 @@
         "tests/test_code_graph_cache.py",
         "tests/test_code_graph_inventory.py",
         "tests/test_debug_start_planning.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T12:40:55.254842+00:00",
+      "attempt_id": "start-20261014124045-aa9278",
+      "phase": "start",
+      "reason_codes": [
+        "anchor-insufficient-extend",
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "no anchor-connected path into cached scope"
+      ],
+      "target_paths": [
+        "scripts/closure-recorder.py",
+        "scripts/delivery-record.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_delivery_record.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/closure-recorder.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/delivery-record.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_delivery_record.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T12:58:24.310689+00:00",
+      "attempt_id": "start-20261014125817-aa9278",
+      "phase": "start",
+      "reason_codes": [
+        "4 anchor paths present in cached scope",
+        "4 anchor-connected cached files",
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/closure-recorder.py",
+        "scripts/delivery-record.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_delivery_record.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/closure-recorder.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/delivery-record.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_delivery_record.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T13:14:41.970991+00:00",
+      "attempt_id": "start-20261014131435-b44e47",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/architecture-fitness.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/execution-evidence.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/closure-recorder.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/delivery-record.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_delivery_record.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T15:55:05.840618+00:00",
+      "attempt_id": "start-20261014155443-b44e47",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/architecture-fitness.py",
+        "scripts/closure-evaluation.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/intake_pipeline.py",
+        "scripts/navigator-scope-release.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/closure-recorder.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/delivery-record.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_delivery_record.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-14T16:39:49.615631+00:00",
+      "attempt_id": "start-20261014163941-b44e47",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/architecture-fitness.py",
+        "scripts/closure-evaluation.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/intake_pipeline.py",
+        "scripts/navigator-scope-release.py"
+      ],
+      "effective_scope": [
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/closure-recorder.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/delivery-record.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/mcp-server.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/planning_lock.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_delivery_record.py",
         "tests/test_full_pipeline.py",
         "tests/test_greenfield_e2e.py",
         "tests/test_host_adapter_conformance.py",

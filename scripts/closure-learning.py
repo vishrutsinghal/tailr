@@ -167,11 +167,13 @@ def gap_signals(report: dict[str, Any]) -> list[dict[str, Any]]:
                 continue
             for tier in check.get("tiers", []) or []:
                 if str(tier) not in passed_tiers:
+                    display_id = str(requirement.get("display_id", uid))
                     signals.append({
                         "kind": "unproven-tier",
                         "requirement_uid": uid,
-                        "display_id": str(requirement.get("display_id", uid)),
+                        "display_id": display_id,
                         "tier": str(tier),
+                        "text": f"{display_id}: required tier `{tier}` has no passing evidence",
                     })
     return signals
 

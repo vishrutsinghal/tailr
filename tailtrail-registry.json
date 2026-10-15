@@ -786,7 +786,9 @@
         "scripts/prompt_builder.py",
         "scripts/start_request.py",
         "scripts/host-interpretation-builder.py",
-        "scripts/ground-rules.py"
+        "scripts/ground-rules.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/greenfield_e2e_fixture.py"
       ],
       "tests": [
         "tests/test_navigator_core.py",
@@ -799,7 +801,9 @@
         "tests/test_navigator_scope_calibration.py",
         "tests/test_navigator_scope_release.py",
         "tests/test_navigator_installed_release.py",
-        "tests/test_release4_maintainability.py"
+        "tests/test_release4_maintainability.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_greenfield_e2e.py"
       ],
       "mcp_tools": [
         "navigator_plan",
@@ -955,13 +959,16 @@
         "schemas/orchestrated-question-set.schema.json"
       ],
       "scripts": [
-        "scripts/question-orchestrator.py"
+        "scripts/question-orchestrator.py",
+        "scripts/intake_pipeline.py"
       ],
       "tests": [
         "tests/test_question_orchestrator.py",
         "tests/test_aidlc_requirements.py",
         "tests/test_aidlc_official_bridge.py",
-        "tests/test_mcp_server.py"
+        "tests/test_mcp_server.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_host_question_flow_event_schema.py"
       ],
       "mcp_tools": [
         "planning_question_context_show"
@@ -1358,11 +1365,13 @@
         "scripts/graph_builder.py",
         "scripts/code_graph_cache.py",
         "scripts/capture_hooks.py",
-        "scripts/commit_prompt.py"
+        "scripts/commit_prompt.py",
+        "scripts/repository_path_policy.py"
       ],
       "tests": [
         "tests/test_navigator_core.py",
-        "tests/test_navigator_graph_lifecycle.py"
+        "tests/test_navigator_graph_lifecycle.py",
+        "tests/test_repository_path_policy.py"
       ],
       "mcp_tools": [
         "graph_map"

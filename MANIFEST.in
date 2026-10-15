@@ -83,3 +83,4 @@ exclude AI-MODE-INSPIRED-ADDITIONS.md
 exclude DURABLE-WORKFLOW-RUNTIME.local-backup.md
 prune **/__pycache__
 prune tests
+prune .claude/worktrees

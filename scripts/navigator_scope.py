@@ -583,7 +583,7 @@ def _tailtrail_source_checkout(root: Path) -> bool:
     )
 
 
-def classify_repository_role(root: Path, relative: str) -> tuple[str, tuple[str, ...]]:
+def classify_repository_role(root: Path, relative: str, *, allow_git_inventory: bool = True) -> tuple[str, tuple[str, ...]]:
     """Assign a repository role without executing project code.
 
     Phase 4: file-kind roles that can reach owners, inspection paths, or
@@ -592,8 +592,14 @@ def classify_repository_role(root: Path, relative: str) -> tuple[str, tuple[str,
     codes attached. Roles that are already terminally excluded
     (``generated``, ``managed-tooling``) keep their own verdicts so the
     existing taxonomy and its tests stay intact.
+
+    ``allow_git_inventory`` gates the one Git subprocess this classifier can
+    trigger (linked-worktree discovery). Debug static orientation must stay
+    command-free, so debug callers pass ``allow_git_inventory=False`` and
+    this degrades to an empty worktree-roots set rather than spawning Git.
     """
-    verdict, verdict_reasons = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root))
+    worktree_roots = _worktree_roots(root) if allow_git_inventory else ()
+    verdict, verdict_reasons = _policy().classify_path(root, relative, worktree_roots=worktree_roots)
     role, reasons = _file_kind_role(root, relative)
     if verdict == "application" or role in {"generated", "managed-tooling"}:
         return role, reasons
@@ -666,7 +672,7 @@ def _candidate_status(role: str, sources: tuple[str, ...], task_types: set[str],
     return "inspection-only", "low", "unknown-role-needs-investigation"
 
 
-def candidates_from_seeds(root: Path, seeds: Iterable[dict[str, Any] | ScopeSeed], task_types: Iterable[str] = ()) -> list[dict[str, Any]]:
+def candidates_from_seeds(root: Path, seeds: Iterable[dict[str, Any] | ScopeSeed], task_types: Iterable[str] = (), *, allow_git_inventory: bool = True) -> list[dict[str, Any]]:
     """Validate, merge, classify, and deterministically order discovery seeds."""
     grouped: dict[str, list[ScopeSeed]] = {}
     rejected: list[ScopeCandidate] = []
@@ -739,7 +745,7 @@ def candidates_from_seeds(root: Path, seeds: Iterable[dict[str, Any] | ScopeSeed
             role = declared_roles[0]
             role_reasons = ("declared-role",)
         else:
-            role, role_reasons = classify_repository_role(root, path)
+            role, role_reasons = classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)
         unsafe = sensitive or (file_rejection if file_rejection not in {None, "not-a-file"} else None)
         status, confidence, status_reason = _candidate_status(role, sources, task_set, bool(unsafe))
         if _is_legacy_shim(path) and status not in {"excluded", "rejected", "proof-only"}:
@@ -1276,7 +1282,7 @@ def _repository_inventory(
                     relative = path.relative_to(root).as_posix()
                 except ValueError:
                     continue
-                role, _ = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root))
+                role, _ = _policy().classify_path(root, relative, worktree_roots=_worktree_roots(root) if allow_git_inventory else ())
                 if role != "application":
                     continue
                 values.append(relative)
@@ -1287,7 +1293,7 @@ def _repository_inventory(
         normalized, rejection = normalize_repository_path(root, raw)
         if rejection or normalized is None or sensitive_path_reason(normalized):
             continue
-        role, _ = classify_repository_role(root, normalized)
+        role, _ = classify_repository_role(root, normalized, allow_git_inventory=allow_git_inventory)
         suffix = PurePosixPath(normalized).suffix.lower()
         if role in {"generated", "managed-tooling", "documentation", "workspace-excluded"}:
             continue
@@ -2345,11 +2351,11 @@ def investigate(
         for row in initial
         if set(row.get("seed_sources", [])) & {"explicit-path", "lexical-body", "lexical-path"}
     }
-    seeded_tests = [path for path in focus_eligible if classify_repository_role(root, path)[0] == "test"]
+    seeded_tests = [path for path in focus_eligible if classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0] == "test"]
     max_seed_match = max((len(semantic_matches.get(path, set())) for path in seeded_tests), default=0)
     focus_seeds = set()
     for path in focus_eligible:
-        focus_role = classify_repository_role(root, path)[0]
+        focus_role = classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0]
         if focus_role == "workspace-excluded":
             continue
         if focus_role != "test" or len(semantic_matches.get(path, set())) == max_seed_match:
@@ -2382,7 +2388,7 @@ def investigate(
     behavior_owner_paths: set[str] = set()
     ui_renderer_paths: set[str] = set()
     for path, (evidence_rows, _score, qualifies) in behavior_evidence.items():
-        if not qualifies or classify_repository_role(root, path)[0] != "implementation-owner":
+        if not qualifies or classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0] != "implementation-owner":
             continue
         behavior_owner_paths.add(path)
         qualify_owner(path, "task-specific-behavior")
@@ -2395,7 +2401,7 @@ def investigate(
     # only the literal source until a rendering caller is traced.
     exact_emitters: list[str] = []
     for path in sorted(exact_literal_emission_paths):
-        if classify_repository_role(root, path)[0] == "implementation-owner":
+        if classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0] == "implementation-owner":
             exact_emitters.append(path)
     if len(exact_emitters) == 1:
         path = exact_emitters[0]
@@ -2411,7 +2417,7 @@ def investigate(
         ))
 
     for importer, value in facts.items():
-        importer_role, _ = classify_repository_role(root, importer)
+        importer_role, _ = classify_repository_role(root, importer, allow_git_inventory=allow_git_inventory)
         if importer_role == "workspace-excluded":
             # Phase 4: an excluded file contributes no edges, callers, or
             # proof -- its imports/registrations/behavior rows would
@@ -2437,7 +2443,7 @@ def investigate(
                 if len(targets) != 1:
                     continue
                 target = targets[0]
-                target_role, _ = classify_repository_role(root, target)
+                target_role, _ = classify_repository_role(root, target, allow_git_inventory=allow_git_inventory)
                 if target_role != "implementation-owner":
                     continue
                 edge_kind = "loads-module" if relation_kind == "loaders" else "imports-module"
@@ -2512,7 +2518,7 @@ def investigate(
             if len(targets) != 1:
                 continue
             target = targets[0]
-            if classify_repository_role(root, target)[0] != "implementation-owner":
+            if classify_repository_role(root, target, allow_git_inventory=allow_git_inventory)[0] != "implementation-owner":
                 continue
             relationship_rows.append((importer, target, "registered-by", "strong", "static-registration-reference"))
             relevant_paths.update({importer, target})
@@ -2531,10 +2537,10 @@ def investigate(
     production_by_stem = {
         PurePosixPath(path).stem.lower(): path
         for path in facts
-        if classify_repository_role(root, path)[0] == "implementation-owner"
+        if classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0] == "implementation-owner"
     }
     for path in facts:
-        if classify_repository_role(root, path)[0] != "test":
+        if classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0] != "test":
             continue
         test_stem = next(iter(_module_stems([path])), "")
         owner = production_by_stem.get(test_stem)
@@ -2553,7 +2559,7 @@ def investigate(
     definition_match_terms: dict[str, frozenset[str]] = {}
     semantic_owner_terms = _owner_query_terms(query_terms)
     for path, value in facts.items():
-        if classify_repository_role(root, path)[0] != "implementation-owner" or not value.get("definitions"):
+        if classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0] != "implementation-owner" or not value.get("definitions"):
             continue
         if ui_surface_requested and not _is_ui_implementation_path(path):
             continue
@@ -2625,7 +2631,7 @@ def investigate(
             if len(value) >= 3
         }
         for path, value in facts.items():
-            if classify_repository_role(root, path)[0] != "configuration":
+            if classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0] != "configuration":
                 continue
             reference_values = {
                 str(reference.get("value", "")).lower()
@@ -2641,7 +2647,7 @@ def investigate(
             if target == owner
             and source != owner
             and kind in {"imports-module", "loads-module", "registered-by"}
-            and classify_repository_role(root, source)[0] != "test"
+            and classify_repository_role(root, source, allow_git_inventory=allow_git_inventory)[0] != "test"
         }
         owner_stem = PurePosixPath(owner).stem.lower()
         direct_proof_paths = {
@@ -2677,7 +2683,7 @@ def investigate(
             for row in initial
         ],
         *extra_seeds,
-    ], task_types)
+    ], task_types, allow_git_inventory=allow_git_inventory)
     by_path = {str(row["path"]): row for row in merged}
     edges: list[dict[str, Any]] = []
     for source, target, kind, strength, reason in sorted(set(relationship_rows)):
@@ -2698,7 +2704,7 @@ def investigate(
             row["reason_codes"] = sorted(reasons)
             continue
         presentation_owner = path in behavior_owner_paths or path in ui_renderer_paths
-        repository_role = classify_repository_role(root, path)[0]
+        repository_role = classify_repository_role(root, path, allow_git_inventory=allow_git_inventory)[0]
         test_only_task = (
             "qa" in {str(value) for value in task_types}
             and not ({"feature", "implementation", "bug", "refactor"} & {str(value) for value in task_types})

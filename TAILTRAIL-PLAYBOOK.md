@@ -332,6 +332,19 @@ there before re-investigating from scratch.
 - **Resolve tmp roots in `setUp`.** Windows 8.3 short-path aliases
   (`VISHRU~1`) break `relative_to` against resolved walk roots --
   `self.root = Path(self.tmp.name).resolve()` in every fixture.
+- **The host's `read_file` tool can return stale content for a file you are
+  rewriting rapidly (e.g. re-generating a Start Report into the same temp
+  path across several commands in quick succession).** Verified live
+  rereading `/tmp/tt_start_3.md` immediately after a fresh write -- `read_file`
+  showed an older version. Falling back to a direct terminal read
+  (`sed -n '1,40p' /tmp/tt_start_3.md`, or `cat`) returned the true current
+  bytes. If a just-written file's content looks suspiciously unchanged,
+  reread it through the terminal before trusting the diff.
+- **Before trusting a full test-suite "clean" or "pre-existing failure"
+  claim, verify with `git stash push -- <impl+test-paths>` and rerun the
+  exact failing test in isolation**, not just by inspection -- a failure in
+  a module your change never touches is not automatically unrelated until
+  it's shown to fail identically on the stashed (pre-change) tree too.
 
 ## 10. R6 lessons before declaring a bug
 

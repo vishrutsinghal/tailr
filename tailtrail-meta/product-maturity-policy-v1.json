@@ -38,7 +38,11 @@
         {"id":"resume","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose exact-run resume reattachment without approving or advancing the workflow."},
         {"id":"session","approved_by":"TAILTRIAL-STOP-RESUME-CONTROL-IMPLEMENTATION-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose session status inspection for the common stop/resume control."},
         {"id":"requirements","approved_by":"VISUAL-REQUIREMENT-INTAKE-PLAN.md (shipped in V1.1 batch 101322e)","reason":"Expose the read-only requirement intake surface for pre-lock requirement answers."},
-        {"id":"host-reply","approved_by":"Cross-platform quoting, routing fixes, and host-reply scoring (5ac950b)","reason":"Expose host reply scoring for Codex, Copilot, and Claude guidance conformance without changing planning authority."}
+        {"id":"host-reply","approved_by":"Cross-platform quoting, routing fixes, and host-reply scoring (5ac950b)","reason":"Expose host reply scoring for Codex, Copilot, and Claude guidance conformance without changing planning authority."},
+        {"id":"docs-only","approved_by":"Navigator feature authority","reason":"Expose the docs-only fast lane that mints a real approved anchor for pure-prose edits without the full code-graph gate."},
+        {"id":"ground-rules","approved_by":"Navigator feature authority","reason":"Expose TAILTRIAL-GROUND-RULES.md printing so hosts can read binding rules without a file read."},
+        {"id":"pipeline","approved_by":"Navigator feature authority","reason":"Expose pipeline badge handoff/regression controls that gate test-file writes by implementation stage."},
+        {"id":"prompt","approved_by":"Navigator feature authority","reason":"Expose the prompt builder used to assemble host-specific planning and review prompts."}
       ],
       "mcp_tools": [
         {"id":"presentation_conformance","approved_by":"PM-3 implementation authority","reason":"Expose read-only semantic presentation conformance to MCP hosts."},
@@ -295,6 +299,36 @@
           "id": "schemas/debug-reproduction-attempt-status.schema.json",
           "approved_by": "DEBUG-HARNESS.md under the debug-harness-exception freeze exception granted 2026-08-29 (shipped in V1.1 batch 101322e)",
           "reason": "The Debug harness requires a closed reproduction projection contract for attempt states."
+        },
+        {
+          "id": "schemas/host-input-contract.schema.json",
+          "approved_by": "Host input contract authority",
+          "reason": "Closes the host-input completeness contract (mode, edit authority, path roles, success criteria, proof) required before any persisting TailTrail call."
+        },
+        {
+          "id": "schemas/proof-binding.schema.json",
+          "approved_by": "Host input contract authority",
+          "reason": "Closes the exact artifact-bound proof-command binding contract used by requirement evidence."
+        },
+        {
+          "id": "schemas/host-question-flow-event.schema.json",
+          "approved_by": "TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md Phase 1A",
+          "reason": "Closes the typed host question-flow interaction event contract (question-issued, host-observation-recorded, answer-recorded)."
+        },
+        {
+          "id": "schemas/host-question-flow-state.schema.json",
+          "approved_by": "TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md Phase 1A",
+          "reason": "Closes the durable Phase 1A intake contract and correlated interaction-event state."
+        },
+        {
+          "id": "schemas/host-question-flow-packet-view.schema.json",
+          "approved_by": "TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md Phase 1A",
+          "reason": "Closes the read-only host-facing packet view projection over question-flow state."
+        },
+        {
+          "id": "schemas/host-question-flow-redaction-policy.schema.json",
+          "approved_by": "TAILTRAIL-HOST-QUESTION-FLOW-IMPLEMENTATION-PLAN.md Phase 1A",
+          "reason": "Closes the redaction policy contract bounding what host question-flow events may persist."
         }
       ],
       "hosts": [],

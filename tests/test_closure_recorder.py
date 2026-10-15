@@ -33,7 +33,8 @@ class ClosureRecorderTests(unittest.TestCase):
     def proof_command(self) -> str:
         return f"{quote(sys.executable)} -m unittest discover -s tests -p test_service.py -v"
 
-    def setup_run(self, root: Path, *, approved: bool = True) -> list[str]:
+    def setup_run(self, root: Path, *, approved: bool = True, tiers: list[str] | None = None) -> list[str]:
+        tiers = tiers or ["unit"]
         (root / "src").mkdir()
         (root / "tests").mkdir()
         (root / "src" / "service.py").write_text("def cancel():\n    return True\n", encoding="utf-8")
@@ -44,8 +45,8 @@ class ClosureRecorderTests(unittest.TestCase):
         lock.create(root, "cancel an order", "run")
         proposal = root / "proposal.json"
         proposal.write_text(json.dumps({"requirements": [
-            {"statement": "Reject cancellation after shipment.", "acceptance_criteria": ["shipped order rejects"], "preserve_rules": [], "likely_paths": ["src/service.py", "tests/test_service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"], "commands": [self.proof_command()]}},
-            {"statement": "Release inventory once for eligible cancellation.", "acceptance_criteria": ["inventory returns"], "preserve_rules": [], "likely_paths": ["src/service.py", "tests/test_service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": ["unit"], "commands": [self.proof_command()]}},
+            {"statement": "Reject cancellation after shipment.", "acceptance_criteria": ["shipped order rejects"], "preserve_rules": [], "likely_paths": ["src/service.py", "tests/test_service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": tiers, "commands": [self.proof_command()]}},
+            {"statement": "Release inventory once for eligible cancellation.", "acceptance_criteria": ["inventory returns"], "preserve_rules": [], "likely_paths": ["src/service.py", "tests/test_service.py"], "evidence_plan": [], "validation_contract": {"state": "required", "tiers": tiers, "commands": [self.proof_command()]}},
         ]}), encoding="utf-8")
         anchor.draft(root, "run", proposal)
         approved_anchor = anchor.approve(root, "run")
@@ -169,6 +170,43 @@ class ClosureRecorderTests(unittest.TestCase):
 
         self.assertEqual(1, len(result["receipt_artifacts"]))
         self.assertTrue(result["completion_gate"]["complete"])
+
+    def test_separate_behaviour_and_integration_execution_retains_earlier_unit_tier(self) -> None:
+        """Issue 23.1 regression: a later partial-tier run must not discard an earlier tier."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root, tiers=["unit", "behaviour", "integration"])
+            evidence.run_command(root, "run", uids, ["unit"], self.proof_command(), "cancellation tests", ["src/service.py"], True, 30)
+            evidence.run_command(root, "run", uids, ["behaviour", "integration"], self.proof_command(), "cancellation tests", ["src/service.py"], True, 30)
+            result = recorder.record(root, run_id="run")
+            receipts = [json.loads((root / path).read_text(encoding="utf-8")) for path in result["receipt_artifacts"]]
+
+        all_tiers = {tier for receipt in receipts for tier in receipt["tiers"]}
+        self.assertEqual({"unit", "behaviour", "integration"}, all_tiers)
+        self.assertTrue(all(receipt["outcome"] == "pass" for receipt in receipts))
+        self.assertTrue(result["completion_gate"]["complete"])
+
+    def test_later_unit_failure_only_fails_the_unit_tier(self) -> None:
+        """Issue 23.1 regression: a later failing rerun of one tier must not fail sibling tiers."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root, tiers=["unit", "behaviour", "integration"])
+            evidence.run_command(root, "run", uids, ["unit"], self.proof_command(), "cancellation tests", ["src/service.py"], True, 30)
+            evidence.run_command(root, "run", uids, ["behaviour", "integration"], self.proof_command(), "cancellation tests", ["src/service.py"], True, 30)
+            evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": uids,
+                "changed_paths": ["src/service.py"], "tiers": ["unit"],
+                "command_label": "cancellation tests", "command": self.proof_command(),
+                "outcome": "fail", "environment": "local",
+                "asserted_behavior": "later unit regression",
+            }, True)
+            result = recorder.record(root, run_id="run")
+            receipts = [json.loads((root / path).read_text(encoding="utf-8")) for path in result["receipt_artifacts"]]
+
+        by_outcome = {receipt["outcome"]: set(receipt["tiers"]) for receipt in receipts}
+        self.assertEqual({"unit"}, by_outcome.get("fail"))
+        self.assertEqual({"behaviour", "integration"}, by_outcome.get("pass"))
+        self.assertFalse(result["completion_gate"]["complete"])
 
     def test_requires_an_approved_planning_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

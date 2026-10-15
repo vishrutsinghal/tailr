@@ -20,8 +20,6 @@ EVALUATION-HARNESS.md
 GEMINI.md
 GOVERNANCE.md
 GUARDRAILS.md
-HONEST-REVIEW-IMPLEMENTATION-PLAN.md
-HONEST-REVIEW.md
 HOST-ADAPTERS.md
 IMPROVEMENT-PLAN.md
 INSTALL.md
@@ -35,8 +33,6 @@ NAVIGATOR-FALSE-STOP-REMEDIATION-PLAN.md
 NAVIGATOR-TEST-SCENARIOS.md
 NAVIGATOR_CODE_REVIEW.md
 NAVIGATOR_FIX_GUIDE.md
-NAVIGATOR_ISSUE_DIAGNOSTIC.md
-NAVIGATOR_RESOLUTION_COMPLETE.md
 NOTICE.md
 PACKAGE-CONTRACT.md
 PITCH-DECK-OUTLINE.md
@@ -104,6 +100,9 @@ tailtrail-runtime-foundation.md
 tailtrail-spec-kit-integration.md
 tailtrail_cli.py
 testing-confidence.md
+.claude/scheduled_tasks.lock
+.claude/settings.json
+.claude/settings.local.json
 .claude/commands/tailtrail-start.md
 .codex-plugin/plugin.json
 .cursor/rules/tailtrail.mdc
@@ -131,8 +130,12 @@ adapters/prompts/copilot.md
 adapters/prompts/cursor.md
 adapters/prompts/gemini.md
 aidlc-docs/aidlc-state.md
+aidlc-docs/aidlc-upstream-improvement-plan.md
 aidlc-docs/audit.md
+aidlc-docs/dry-run-evidence-log.md
 aidlc-docs/implementation-plan.md
+aidlc-docs/navigator-generic-graph-packet-implementation-plan.md
+aidlc-docs/phase-divergence-guard-questions.md
 aidlc-docs/phase-e0-design.md
 aidlc-docs/phase-e0-requirements.md
 aidlc-docs/phase-e1-design.md
@@ -171,6 +174,7 @@ aidlc-docs/phase11-requirements.md
 aidlc-docs/phase12-enterprise-design.md
 aidlc-docs/phase12-requirements.md
 aidlc-docs/requirements.md
+aidlc-docs/session-work-phases.md
 aidlc-docs/validation-handoff.md
 aidlc-docs/workflow-plan.md
 aidlc/extensions/security-baseline.md
@@ -239,6 +243,7 @@ examples/tailtrail-test-lab/test_demo_assets.py
 examples/tailtrail-test-lab/tailtrail-meta/code-graph-cache.json
 hooks/README.md
 hooks/guard-advisory-hook.py
+hooks/hooks.json
 hooks/learning-capture-hook.py
 hooks/tailtrail-lifecycle-hook.py
 hooks/token-autopilot-hook.py
@@ -296,6 +301,13 @@ schemas/harness-convergence.schema.json
 schemas/harness-result.schema.json
 schemas/harness-template-selection.schema.json
 schemas/host-adapter-contract.schema.json
+schemas/host-decision.schema.json
+schemas/host-input-contract.schema.json
+schemas/host-question-flow-event.schema.json
+schemas/host-question-flow-packet-view.schema.json
+schemas/host-question-flow-redaction-policy.schema.json
+schemas/host-question-flow-state.schema.json
+schemas/host-question-flow-transitions.json
 schemas/host-requirement-routing-conformance.schema.json
 schemas/host-runtime-receipt.schema.json
 schemas/host-scope-conformance.schema.json
@@ -318,6 +330,7 @@ schemas/maintainability-baseline.schema.json
 schemas/maintainability-harness.schema.json
 schemas/maintainability-inventory.schema.json
 schemas/navigator-graph-lifecycle.schema.json
+schemas/navigator-host-scope-packet-v2.schema.json
 schemas/navigator-host-scope-proposal.schema.json
 schemas/navigator-installed-release-proof.schema.json
 schemas/navigator-run-mapping-index.schema.json
@@ -348,6 +361,7 @@ schemas/product-maturity-baseline.schema.json
 schemas/product-maturity-learning-inventory.schema.json
 schemas/program-plan.schema.json
 schemas/program-state.schema.json
+schemas/proof-binding.schema.json
 schemas/question-context.schema.json
 schemas/real-evaluation-portfolio.schema.json
 schemas/recovery-reconciliation.schema.json
@@ -499,7 +513,9 @@ scripts/debug-preflight.py
 scripts/debug-privacy.py
 scripts/debug-reproduction.py
 scripts/delivery-orchestrator.py
+scripts/delivery-record.py
 scripts/dependency-decision.py
+scripts/docs-only.py
 scripts/drift_analysis.py
 scripts/efficacy-benchmark.py
 scripts/efficacy-run.py
@@ -520,6 +536,8 @@ scripts/flaky-test-tracker.py
 scripts/git-readiness.py
 scripts/graph-learning.py
 scripts/graph_builder.py
+scripts/greenfield_e2e_fixture.py
+scripts/ground-rules.py
 scripts/guardrail-check.py
 scripts/guardrail-precision.py
 scripts/harness-checkpoint.py
@@ -528,8 +546,12 @@ scripts/harness-convergence.py
 scripts/harness-feedback.py
 scripts/harness-review.py
 scripts/harness-template.py
+scripts/harness-trend-snapshot.py
 scripts/higher-tier-testing.py
 scripts/host-adapter-conformance.py
+scripts/host-decision.py
+scripts/host-interpretation-builder.py
+scripts/host-reply-validate.py
 scripts/host-runtime-conformance.py
 scripts/host-workspace-adapter.py
 scripts/install-copilot.py
@@ -538,6 +560,7 @@ scripts/install-local.py
 scripts/install_surfaces.py
 scripts/installation-qualification.py
 scripts/installer.py
+scripts/intake_pipeline.py
 scripts/learning-agent.py
 scripts/learning-calibration.py
 scripts/learning-governance.py
@@ -549,6 +572,7 @@ scripts/learning-v3.py
 scripts/learnings.py
 scripts/maintainability-harness.py
 scripts/maintainability_planning.py
+scripts/maturity.py
 scripts/mcp-server.py
 scripts/meta-harness-analyze.py
 scripts/meta-harness-propose.py
@@ -564,6 +588,7 @@ scripts/navigator_discovery.py
 scripts/navigator_graph_lifecycle.py
 scripts/navigator_render.py
 scripts/navigator_scope.py
+scripts/new_file_due_diligence.py
 scripts/official-aidlc-checkpoint.py
 scripts/official-aidlc-requirements.py
 scripts/official-aidlc-runtime.py
@@ -591,6 +616,7 @@ scripts/product-maturity.py
 scripts/program-checkpoint.py
 scripts/program-plan.py
 scripts/prompt-profile.py
+scripts/prompt_builder.py
 scripts/prompt_profile.py
 scripts/prune-context.py
 scripts/public-benchmark.py
@@ -609,8 +635,11 @@ scripts/release-info.py
 scripts/release-publication.py
 scripts/release_manifest.py
 scripts/repository-enforcement.py
+scripts/repository_path_policy.py
 scripts/requirement-completion.py
 scripts/requirement-impact-map.py
+scripts/requirement-interpretation-draft.py
+scripts/requirement-interpretation-scaffold.py
 scripts/requirement-recovery-manifest.py
 scripts/requirement_discovery.py
 scripts/requirement_evidence.py
@@ -618,12 +647,14 @@ scripts/requirement_intake.py
 scripts/review-graph.py
 scripts/review-run.py
 scripts/route-context.py
+scripts/run-closeout.py
 scripts/run-ledger.py
 scripts/run-tests.py
 scripts/scanner-graph-overlay.py
 scripts/session-control.py
 scripts/session_control.py
 scripts/setup-scan.py
+scripts/shell_quote.py
 scripts/slice-context.py
 scripts/smoke-test.py
 scripts/sonar-summary.py
@@ -639,6 +670,7 @@ scripts/spec-kit-observability.py
 scripts/spec-kit-policy.py
 scripts/spec-kit-slices.py
 scripts/start_posture.py
+scripts/start_request.py
 scripts/summarize-output.py
 scripts/supply-chain.py
 scripts/sync-adapters.py
@@ -674,6 +706,7 @@ scripts/update-tailtrail.py
 scripts/upgrade-tailtrail.py
 scripts/validation-receipt.py
 scripts/validation-summary.py
+scripts/visual_requirement.py
 scripts/vulnerability-run.py
 scripts/vulnerability-scan.py
 scripts/vulnerability-summary.py

@@ -119,10 +119,12 @@ def approved_proof_amendments(root: Path, run_id: str, requirements: dict[str, d
 def collected_input(root: Path, run_id: str) -> dict[str, Any]:
     """Build one current closure snapshot from saved factual evidence.
 
-    A later execution of the same approved requirement/command replaces its
-    earlier attempt for completion judgment, including when the later run
-    records a more complete tier set. The append-only stream still retains
-    every attempt for audit and diagnosis.
+    Receipts are reduced per (requirement_uids, command, tier). A later
+    execution of the same approved requirement/command/tier replaces its
+    earlier attempt for completion judgment, but a later run that records
+    only some tiers never discards a different tier recorded by an earlier
+    run of the same command. The append-only stream still retains every
+    attempt for audit and diagnosis.
     """
     saved = EVIDENCE.show(root, run_id)["events"]
     _, anchor = ANCHOR.latest_approved(root, run_id)
@@ -138,17 +140,20 @@ def collected_input(root: Path, run_id: str) -> dict[str, Any]:
         "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
         "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
     )
-    current: dict[tuple[tuple[str, ...], str], dict[str, Any]] = {}
+    # Latest-wins and failure-dominance decided independently per exact tier;
+    # tiers whose surviving decision still points at the same source event
+    # are then aggregated back into one receipt row (see Issue 23.1/23.3).
+    winners: dict[tuple[tuple[str, ...], str, str], dict[str, Any]] = {}
     for item in saved:
         if item.get("kind") not in {"command-result", "ci-receipt"}:
             continue
+        command = str(item.get("command", ""))
+        item_tiers = {
+            str(value)
+            for value in item.get("tiers", [item.get("tier")])
+            if str(value)
+        }
         if item.get("kind") == "command-result":
-            command = str(item.get("command", ""))
-            item_tiers = {
-                str(value)
-                for value in item.get("tiers", [item.get("tier")])
-                if str(value)
-            }
             valid_pair = True
             for uid in item.get("requirement_uids", []):
                 row = requirements.get(str(uid))
@@ -178,12 +183,26 @@ def collected_input(root: Path, run_id: str) -> dict[str, Any]:
                     break
             if not valid_pair:
                 continue
-        identity = (
-            tuple(sorted(str(value) for value in item.get("requirement_uids", []))),
-            str(item.get("command", "")),
-        )
-        current[identity] = item
-    receipts = [{key: item[key] for key in receipt_fields if key in item} for item in current.values()]
+        uids = tuple(sorted(str(value) for value in item.get("requirement_uids", [])))
+        for tier in sorted(item_tiers) if item_tiers else [""]:
+            winners[(uids, command, tier)] = item
+
+    grouped: dict[int, dict[str, Any]] = {}
+    order: list[int] = []
+    for (_uids, _command, tier), item in winners.items():
+        group_key = id(item)
+        if group_key not in grouped:
+            grouped[group_key] = {**item, "tiers": []}
+            order.append(group_key)
+        if tier and tier not in grouped[group_key]["tiers"]:
+            grouped[group_key]["tiers"].append(tier)
+    for group_key in order:
+        tiers_list = sorted(grouped[group_key]["tiers"])
+        grouped[group_key]["tiers"] = tiers_list
+        if tiers_list:
+            grouped[group_key]["tier"] = tiers_list[0]
+    current = [grouped[group_key] for group_key in order]
+    receipts = [{key: item[key] for key in receipt_fields if key in item} for item in current]
     paths = sorted({path for item in saved for path in item.get("changed_paths", [])})
     return {"schema_version": "1", "type": "tailtrail-execution-closure-input", "run_id": run_id, "changed_paths": paths, "receipts": receipts}
 

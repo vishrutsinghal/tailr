@@ -44,9 +44,9 @@ def append_proof_amendment(
     reason: str,
 ) -> dict[str, Any]:
     if not isinstance(command, str) or not command.strip():
-        raise ValueError("proof amendment requires a non-empty command")
+        raise ValueError("proof amendment requires a non-empty command; pass `tailtrail execution-evidence run --root . --run-id <run-id> --command \"<non-empty command>\" --amend-proof --amendment-reason \"<reason>\" --approved`")
     if not isinstance(reason, str) or not reason.strip():
-        raise ValueError("proof amendment requires a non-empty reason")
+        raise ValueError("proof amendment requires a non-empty reason; pass `tailtrail execution-evidence run --root . --run-id <run-id> --amend-proof --amendment-reason \"<reason>\" --approved`")
     normalized = {
         "schema_version": "1",
         "type": "tailtrail-proof-amendment",
@@ -231,7 +231,7 @@ def run_command(
         missing_tiers = not set(tiers) or set(tiers) - approved_tiers
         if (missing_command or missing_tiers) and amend_proof:
             if not tiers:
-                raise ValueError("proof amendment requires at least one tier")
+                raise ValueError(f"proof amendment requires at least one tier; pass `tailtrail execution-evidence run --root . --run-id {run_id} --tier <tier> --amend-proof --amendment-reason \"<reason>\" --approved`")
             append_proof_amendment(root, run_id, uid, command, tiers, amendment_reason)
             approved_commands.add(command)
             approved_tiers.update(tiers)

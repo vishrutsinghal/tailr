@@ -2843,7 +2843,19 @@ classify the separate external Git push safety gate as a TailTrail defect.
 - **Required regression:** Record unit pass followed by behaviour/integration
   pass for the same command and verify that all three tiers remain complete;
   then add a later unit failure and verify that only unit becomes failing.
-- **Status:** Open.
+- **Status:** Fixed. `scripts/closure-recorder.py`'s `collected_input()`
+  receipt reduction identity now keys on `(requirement_uids, command, tier)`
+  instead of `(requirement_uids, command)`, so a later execution recording
+  only some tiers no longer discards an earlier execution's distinct passing
+  tiers for the same approved command; failure-dominance and latest-wins
+  semantics are preserved per exact tier. Regression tests added in
+  `tests/test_closure_recorder.py`:
+  `test_separate_behaviour_and_integration_execution_retains_earlier_unit_tier`
+  (unit pass, then a separate behaviour+integration pass for the same command
+  and requirement, asserts all three tiers stay complete) and
+  `test_later_unit_failure_only_fails_the_unit_tier` (a later unit failure for
+  the same command fails only the unit tier while behaviour/integration stay
+  passing). `tests/test_closure_recorder.py` run green: 11 passed.
 
 ### 23.2 Confirmed defect: traceability literals become bogus proof-revision commands
 
@@ -2866,7 +2878,15 @@ classify the separate external Git push safety gate as a TailTrail defect.
 - **Required regression:** Render a completed requirement containing an output
   path, status literal, and one approved command; assert that the command is
   approved and no revision guidance is emitted for the non-command literals.
-- **Status:** Open.
+- **Status:** Fixed. `scripts/delivery-record.py`'s
+  `proof_authorization_fields()` no longer treats every quoted traceability
+  literal that is not an approved command as an unapproved proof-revision
+  candidate; proof-revision guidance is now only proposed from an explicit
+  unresolved executable-proof-command candidate, never from output paths or
+  status literals. Regression test added in `tests/test_delivery_record.py`:
+  `test_approved_command_suppresses_revision_guidance_for_non_command_literals`
+  (output path and status literal present alongside one approved command;
+  asserts the command is approved and no bogus revision guidance is emitted).
 
 ### 23.3 Confirmed defect: multi-tier evidence is rendered as singular `unit`
 
@@ -2882,7 +2902,15 @@ classify the separate external Git push safety gate as a TailTrail defect.
   singular `tier` only for legacy receipts.
 - **Required regression:** Supply one receipt with all three tiers and assert
   that the Delivery Record prints all three in deterministic order.
-- **Status:** Open.
+- **Status:** Fixed. `scripts/delivery-record.py`'s `render_plan()` now renders
+  the full `tiers` array for a proof-of-work evidence row when present,
+  falling back to the singular `tier` field only for legacy receipts without a
+  `tiers` field. Regression test added in `tests/test_delivery_record.py`:
+  `test_proof_row_renders_all_recorded_tiers_not_just_singular_tier` (a
+  receipt with all three tiers; asserts the Delivery Record prints `unit`,
+  `behaviour`, and `integration` in deterministic order). `tests/test_delivery_record.py`
+  run green: 4 passed. Combined `tests/test_closure_recorder.py` +
+  `tests/test_delivery_record.py`: 15 passed, 0 failed (2026-10-15).
 
 ### 23.4 Confirmed conformance gap: approval and closure tolerated unresolved or generic proof projections
 

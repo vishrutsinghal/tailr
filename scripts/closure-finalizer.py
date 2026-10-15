@@ -84,13 +84,13 @@ def ensure_delivery_record(root: Path, run_id: str) -> str:
     generated = DELIVERY.generate(resolved_root, run_id)
     relative_path = generated.get("path")
     if generated.get("type") != "tailtrail-delivery-record" or generated.get("run_id") != run_id:
-        raise ValueError("delivery record generation returned mismatched run metadata")
+        raise ValueError(f"delivery record generation returned mismatched run metadata; retry with `tailtrail closure finalize --root . --run-id {run_id}`")
     if not isinstance(relative_path, str) or not relative_path:
-        raise ValueError("delivery record generation did not return its path")
+        raise ValueError(f"delivery record generation did not return its path; retry with `tailtrail closure finalize --root . --run-id {run_id}`")
     expected = DELIVERY.record_path(resolved_root, run_id).resolve()
     actual = (resolved_root / relative_path).resolve()
     if actual != expected or not actual.is_file():
-        raise ValueError(f"delivery record is missing at `{expected.relative_to(resolved_root).as_posix()}`")
+        raise ValueError(f"delivery record is missing at `{expected.relative_to(resolved_root).as_posix()}`; retry with `tailtrail closure finalize --root . --run-id {run_id}`")
     body = actual.read_text(encoding="utf-8")
     required = [f"Run: `{run_id}`", "## Implementation", "## Closure"]
     missing = [marker for marker in required if marker not in body]

@@ -21,8 +21,8 @@
     }
   },
   "candidate_baseline": {
-    "captured_at": "2026-10-08",
-    "git_commit": "82defa13bb0d14e4237da1614a848353cea59653",
+    "captured_at": "2026-10-14",
+    "git_commit": "74b9fa25a31aed8b7c8dab13dc0e46b4b2bbc74a",
     "branch": "tailtrail_v3",
     "worktree_state": "dirty-explicitly-classified",
     "release_candidate_state": "blocked",
