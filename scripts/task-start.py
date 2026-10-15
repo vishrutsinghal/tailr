@@ -18,6 +18,7 @@ from typing import Any, Iterable
 import target_workspace
 import visual_requirement
 import start_posture
+import host_contract
 import requirement_discovery
 import requirement_evidence
 import requirement_intake
@@ -2620,6 +2621,7 @@ def build_report(
     debug_diagnosis: dict[str, Any] | None = None,
     host_override: str | None = None,
     declared_task_type: str | None = None,
+    host_contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     command_prefix = normalize_command_prefix(root, command_prefix)
     
@@ -2669,6 +2671,17 @@ def build_report(
         persist_host_packet=True,
         declared_task_type=declared_task_type,
     )
+    if host_contract is not None and isinstance(plan, dict):
+        plan["host_input_contract"] = {
+            "contract_id": host_contract.get("contract_id"),
+            "fingerprint": host_contract.get("fingerprint"),
+            "request_mode": host_contract.get("request_mode"),
+            "authority_source": "host-contract",
+        }
+        routing = plan.get("routing_evidence")
+        if isinstance(routing, dict):
+            routing["authority_source"] = "host-contract"
+            routing["contract_fingerprint"] = host_contract.get("fingerprint")
     classification = plan.get("workflow_classification", {})
     if classification.get("workflow_type") == "debug-investigation":
         parser_contract = deterministic_requirement_parser_contract(goal)
@@ -4989,6 +5002,80 @@ def implementation_scope_missing_report(
     }
 
 
+def host_contract_boundary_report(
+    goal: str, root: Path, command_prefix: str, result: dict[str, Any],
+) -> dict[str, Any]:
+    """Typed blocking report for insufficient or contradicted host contracts.
+
+    No Planning Lock, scope, or authority is created. The host must close
+    the listed open fields or resolve the listed conflicts and resubmit.
+    """
+    state = str(result.get("state", "insufficient"))
+    return {
+        "goal": goal,
+        "root": root.as_posix() if isinstance(root, Path) else str(root),
+        "command_prefix": command_prefix,
+        "host_contract_boundary": True,
+        "contract_state": state,
+        "open_fields": list(result.get("open_fields", []) or []),
+        "conflicts": list(result.get("conflicts", []) or []),
+        "detail": (
+            "Host contract is insufficient: close the listed open fields and resubmit."
+            if state == "insufficient"
+            else "Host contract is contradicted: resolve the listed conflicts and resubmit."
+        ),
+        "boundary": (
+            "No Planning Lock, workflow, target receipt, learning receipt, graph-cache write, "
+            "or implementation authority was created."
+        ),
+    }
+
+
+def resolve_host_contract(args: Any, root: Path, goal: str) -> dict[str, Any] | None:
+    """Parse and validate the host-input-contract transports, if supplied.
+
+    Returns the validated artifact, or None when no transport was given.
+    Raises ValueError for transport errors; returns boundary-states via
+    the validator for content problems.
+    """
+    if not (getattr(args, "host_contract", None) or getattr(args, "host_contract_file", None) or getattr(args, "host_contract_base64", None)):
+        return None
+    raw = host_contract.parse_transport(
+        inline=getattr(args, "host_contract", None),
+        path=getattr(args, "host_contract_file", None),
+        encoded=getattr(args, "host_contract_base64", None),
+    )
+    result = host_contract.validate(raw, root=root, goal=goal)
+    if result.get("state") != "accepted":
+        raise _HostContractBlocked(result)
+    validated = result.get("validated", {})
+    declared = str(getattr(args, "task_type", "") or "").strip().lower()
+    mode = str(validated.get("request_mode", ""))
+    if declared == "implementation" and mode != "implementation":
+        raise _HostContractBlocked({
+            "state": "contradicted",
+            "open_fields": [],
+            "conflicts": [
+                f"explicit --task-type implementation conflicts with contract request_mode `{mode}`",
+            ],
+        })
+    if mode == "implementation" and declared in {"qa", "infra", "doc"}:
+        raise _HostContractBlocked({
+            "state": "contradicted",
+            "open_fields": [],
+            "conflicts": [
+                f"contract request_mode `implementation` conflicts with explicit --task-type `{declared}`",
+            ],
+        })
+    return validated
+
+
+class _HostContractBlocked(Exception):
+    def __init__(self, result: dict[str, Any]) -> None:
+        super().__init__("host contract blocked")
+        self.result = result
+
+
 def scope_quality_boundary_report(report: dict[str, Any]) -> dict[str, Any]:
     plan = report.get("navigator", {}) if isinstance(report, dict) else {}
     scope_evidence = plan.get("scope_evidence", {}) if isinstance(plan.get("scope_evidence"), dict) else {}
@@ -6431,6 +6518,19 @@ def main() -> int:
         "--requirement-intake-id",
         help="Resume one fully answered, exact goal/root/host-bound pre-lock requirement intake.",
     )
+    host_contract_group = parser.add_mutually_exclusive_group()
+    host_contract_group.add_argument(
+        "--host-contract",
+        help="Validated host-input-contract JSON bound to the exact goal. Validated before routing; raw narration never grants authority.",
+    )
+    host_contract_group.add_argument(
+        "--host-contract-file",
+        help="Local JSON file holding a host-input-contract bound to the exact goal.",
+    )
+    host_contract_group.add_argument(
+        "--host-contract-base64",
+        help="Base64 UTF-8 host-input-contract JSON for native-shell safety.",
+    )
     debug_diagnosis_group = parser.add_mutually_exclusive_group()
     debug_diagnosis_group.add_argument(
         "--debug-diagnosis",
@@ -6760,6 +6860,20 @@ def main() -> int:
                 parser.error("a host scope proposal requires --host codex, copilot, or claude")
             if host_scope_proposal.get("host") != args.host:
                 parser.error("host scope proposal host does not match the active --host")
+        validated_host_contract: dict[str, Any] | None = None
+        try:
+            validated_host_contract = resolve_host_contract(args, root, goal)
+        except ValueError as error:
+            parser.error(str(error))
+        except _HostContractBlocked as blocked:
+            boundary = host_contract_boundary_report(
+                goal, root, args.command_prefix, blocked.result,
+            )
+            if args.format == "json":
+                print(json.dumps(boundary, indent=2, sort_keys=True))
+            else:
+                print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
+            return 2
         if saved_requirement_intake is not None:
             saved_visual = saved_requirement_intake.get("visual_requirements", [])
             if isinstance(saved_visual, list) and saved_visual:
@@ -6943,6 +7057,10 @@ def main() -> int:
             canonical_literals=graph_canonical_literals,
             anchor_slice=graph_anchor_slice if graph_anchor_slice.get("paths") else None,
         )
+        effective_declared_task_type = args.task_type
+        if effective_declared_task_type is None and validated_host_contract is not None:
+            if str(validated_host_contract.get("request_mode", "")) == "implementation":
+                effective_declared_task_type = "implementation"
         report = build_report(
             goal,
             root,
@@ -6959,8 +7077,16 @@ def main() -> int:
             graph_mode,
             interpreted_requirements,
             validated_debug_diagnosis,
-            declared_task_type=args.task_type,
+            declared_task_type=effective_declared_task_type,
+            host_contract=validated_host_contract,
         )
+        if validated_host_contract is not None:
+            report["host_input_contract"] = {
+                "contract_id": validated_host_contract.get("contract_id"),
+                "fingerprint": validated_host_contract.get("fingerprint"),
+                "request_mode": validated_host_contract.get("request_mode"),
+                "authority_source": "host-contract",
+            }
         report["graph_lifecycle"] = graph_lifecycle
         if graph_mode_override is not None:
             report["graph_mode_override"] = graph_mode_override

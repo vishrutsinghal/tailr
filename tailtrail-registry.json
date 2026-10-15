@@ -786,6 +786,7 @@
         "scripts/prompt_builder.py",
         "scripts/start_request.py",
         "scripts/host-interpretation-builder.py",
+        "scripts/host_contract.py",
         "scripts/ground-rules.py",
         "scripts/new_file_due_diligence.py",
         "scripts/greenfield_e2e_fixture.py"
