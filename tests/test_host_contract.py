@@ -135,5 +135,113 @@ class ContractTaskTypeConsistencyTests(unittest.TestCase):
         self.assertEqual(validated["request_mode"], "implementation")
 
 
+class ContractProofProjectionTests(unittest.TestCase):
+    def _load_start(self):
+        spec = importlib.util.spec_from_file_location(
+            "contract_proof_start", ROOT / "scripts" / "task-start.py",
+        )
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    def _validated(self, root: Path, **overrides):
+        contract = _contract(**overrides)
+        return {
+            "contract_id": "ctr-01", "request_mode": "implementation",
+            "paths": [
+                {"path": item["path"], "role": item["role"]}
+                for item in contract["paths"]
+            ],
+            "criteria": contract["criteria"],
+            "proof": dict(contract["proof"]),
+            "fingerprint": "sha256:" + "0" * 64,
+        }
+
+    def _row(self):
+        return {
+            "display_id": "REQ-01",
+            "acceptance_criteria": ["Done."],
+            "preserve_rules": ["Keep scope."],
+            "likely_paths": ["src/work.py"],
+            "validation_contract": {"state": "required", "tiers": ["unit"]},
+        }
+
+    def test_single_row_projects_command_and_criteria(self) -> None:
+        start = self._load_start()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_work.py").write_text("x = 1\n", encoding="utf-8")
+            rows = [self._row()]
+            focused = [{
+                "tier": "unit", "tiers": ["unit"], "candidate": "tests/test_work.py",
+                "command": "pytest tests/test_work.py", "status": "planned",
+                "candidate_state": "existing",
+            }]
+            out = start.apply_host_contract_proof(root, rows, focused, self._validated(root))
+        self.assertEqual(len(out), 2)
+        injected = out[1]
+        self.assertEqual(injected["command"], "pytest tests/test_work.py")
+        self.assertEqual(injected["tiers"], ["unit"])
+        self.assertEqual(injected["candidate_state"], "existing")
+        self.assertIn("work ships", rows[0]["acceptance_criteria"])
+        self.assertIn("nothing else breaks", rows[0]["preserve_rules"])
+        self.assertEqual(rows[0]["likely_paths"], ["src/work.py"])
+        self.assertEqual(rows[0]["host_contract_proof"]["contract_id"], "ctr-01")
+
+    def test_attach_compiles_contract_command_into_checks(self) -> None:
+        start = self._load_start()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_work.py").write_text("x = 1\n", encoding="utf-8")
+            rows = [self._row()]
+            focused = [{
+                "tier": "unit", "tiers": ["unit"], "candidate": "tests/test_work.py",
+                "command": "pytest tests/test_other.py", "status": "planned",
+                "candidate_state": "existing",
+            }]
+            out = start.apply_host_contract_proof(root, rows, focused, self._validated(root))
+            start.attach_focused_validation_contracts(rows, out)
+        contract = rows[0]["validation_contract"]
+        self.assertIn("pytest tests/test_work.py", contract["commands"])
+        self.assertTrue(any(
+            check["command"] == "pytest tests/test_work.py" and check["tiers"] == ["unit"]
+            for check in contract["checks"]
+        ))
+
+    def test_multi_row_plans_keep_contract_recorded_only(self) -> None:
+        start = self._load_start()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            rows = [self._row(), dict(self._row(), display_id="REQ-02")]
+            focused = [{"tier": "unit"}]
+            out = start.apply_host_contract_proof(root, rows, focused, self._validated(root))
+        self.assertEqual(out, focused)
+        self.assertNotIn("host_contract_proof", rows[0])
+
+    def test_non_command_proof_and_none_are_noops(self) -> None:
+        start = self._load_start()
+        with tempfile.TemporaryDirectory() as temp:
+            rows = [self._row()]
+            focused = [{"tier": "unit"}]
+            repro = self._validated(Path(temp))
+            repro["proof"] = {"reproduction_binding": "r", "post_change_binding": "p"}
+            self.assertEqual(start.apply_host_contract_proof(Path(temp), rows, focused, repro), focused)
+            self.assertEqual(start.apply_host_contract_proof(Path(temp), rows, focused, None), focused)
+
+    def test_missing_proof_file_is_proposed_not_existing(self) -> None:
+        start = self._load_start()
+        with tempfile.TemporaryDirectory() as temp:
+            rows = [self._row()]
+            out = start.apply_host_contract_proof(
+                Path(temp), rows, [], self._validated(Path(temp),
+                    paths=[{"path": "tests/test_new.py", "role": "proposed-proof-path"}]),
+            )
+        self.assertEqual(out[0]["candidate_state"], "proposed")
+
+
 if __name__ == "__main__":
     unittest.main()

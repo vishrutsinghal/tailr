@@ -2678,6 +2678,7 @@ def build_report(
             "request_mode": host_contract.get("request_mode"),
             "authority_source": "host-contract",
         }
+        plan["host_input_contract_validated"] = host_contract
         routing = plan.get("routing_evidence")
         if isinstance(routing, dict):
             routing["authority_source"] = "host-contract"
@@ -3162,6 +3163,12 @@ def build_report(
         if str(path)
     ))
     focused_validation.extend(static_validation_plan(root, approved_owner_paths))
+    focused_validation = apply_host_contract_proof(
+        root,
+        [item for item in plan.get("requirement_matrix", []) if isinstance(item, dict)],
+        focused_validation,
+        plan.get("host_input_contract_validated"),
+    )
     attach_focused_validation_contracts(plan.get("requirement_matrix", []), focused_validation)
     testing_plan = build_testing_plan(ui_plan, focused_validation)
     attribute_test_precision_planning(delivery, testing_plan, focused_validation)
@@ -3824,6 +3831,93 @@ def focused_validation_plan(
             "candidate_state": candidate_state,
         })
     return coalesce_focused_validation_rows(rows)
+
+
+def apply_host_contract_proof(
+    root: Path,
+    rows: list[dict[str, Any]],
+    focused: list[dict[str, Any]],
+    validated: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Project an accepted host-contract proof into the canonical plan.
+
+    Single-requirement plans only: the contract carries no per-requirement
+    linkage, so projecting one command across several rows would
+    over-claim. The validated command joins focused validation (which the
+    contract attach step then compiles into checks), proof-role paths join
+    candidate linkage, and criteria union into acceptance/preservation.
+    Owner-role paths are recorded but never promoted: ownership still
+    requires Navigator evidence. Multi-requirement plans keep the contract
+    recorded with routing only. Returns the (possibly extended) focused
+    list; requirement rows are updated in place.
+    """
+    if not isinstance(validated, dict):
+        return focused
+    proof = validated.get("proof")
+    if not isinstance(proof, dict) or not str(proof.get("command", "") or "").strip():
+        return focused
+    command = str(proof.get("command", "")).strip()
+    tiers = [str(value) for value in (proof.get("tiers", []) or []) if str(value).strip()]
+    if not tiers:
+        return focused
+    targets = [row for row in rows if isinstance(row, dict)]
+    if len(targets) != 1:
+        return focused
+    row = targets[0]
+    proof_paths = [
+        str(item.get("path", ""))
+        for item in (validated.get("paths", []) or [])
+        if isinstance(item, dict)
+        and str(item.get("role", "")) in {"existing-proof-path", "proposed-proof-path"}
+        and str(item.get("path", "")).strip()
+    ]
+    candidate = ""
+    candidate_state = "unresolved"
+    for path in proof_paths:
+        role = next(
+            str(item.get("role", ""))
+            for item in (validated.get("paths", []) or [])
+            if isinstance(item, dict) and str(item.get("path", "")) == path
+        )
+        if role == "existing-proof-path" and (root / path).is_file():
+            candidate, candidate_state = path, "existing"
+            break
+        if role == "proposed-proof-path" and not candidate:
+            candidate, candidate_state = path, "proposed"
+    if not candidate:
+        candidate, candidate_state = (proof_paths[0], "proposed") if proof_paths else ("not resolved from planning evidence", "unresolved")
+    contract = row.get("validation_contract", {})
+    existing_paths = []
+    if isinstance(contract, dict):
+        for field in ("candidate_paths", "editable_paths", "proposed_paths"):
+            existing_paths.extend(str(v) for v in (contract.get(field, []) or []) if str(v).strip())
+    criteria = validated.get("criteria", {}) if isinstance(validated.get("criteria"), dict) else {}
+    for positive in (criteria.get("positive", []) or []):
+        text = str(positive).strip()
+        if text and text not in list(row.get("acceptance_criteria", []) or []):
+            row.setdefault("acceptance_criteria", []).append(text)
+    for negative in (criteria.get("negative", []) or []):
+        text = str(negative).strip()
+        if text and text not in list(row.get("preserve_rules", []) or []):
+            row.setdefault("preserve_rules", []).append(text)
+    if candidate not in existing_paths:
+        existing_paths.append(candidate)
+    out = list(focused) + [{
+        "tier": tiers[0],
+        "tiers": list(tiers),
+        "candidate": candidate,
+        "command": command,
+        "status": "host-contract proof; planned after approval" if candidate_state != "unresolved" else "required",
+        "candidate_state": candidate_state,
+        "proof_paths": [path for path in proof_paths if path != candidate],
+    }]
+    row["host_contract_proof"] = {
+        "contract_id": validated.get("contract_id"),
+        "fingerprint": validated.get("fingerprint"),
+        "command": command,
+        "tiers": list(tiers),
+    }
+    return out
 
 
 def attach_focused_validation_contracts(
