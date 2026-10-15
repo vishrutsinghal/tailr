@@ -2555,6 +2555,9 @@ class NavigatorScopeAtomicStartTests(unittest.TestCase):
         self.assertEqual(requirement["likely_paths"], ["src/requirement_discovery.py"])
         self.assertEqual(requirement["scope_evidence"]["proof_paths"], ["tests/test_requirement_discovery.py"])
         self.assertEqual(requirement["validation_contract"]["candidate_paths"], ["tests/test_requirement_discovery.py"])
+        # Issue 28: a discovered proof-only path must auto-join editable_paths
+        # at Start time, with no manual pre-activation proof-update needed.
+        self.assertEqual(requirement["validation_contract"]["editable_paths"], ["tests/test_requirement_discovery.py"])
         self.assertTrue((self.root / ".tailtrail" / "runs" / "ns4-resolved" / "planning" / "start-report-v1.json").is_file())
         rendered = task_start.render_markdown(payload)
         for section in (

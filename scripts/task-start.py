@@ -2089,6 +2089,15 @@ def apply_requirement_scope_evidence(
         contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
         if isinstance(contract, dict):
             contract["candidate_paths"] = proof
+            # Issue 28: scope evidence already classified these as proof-role
+            # paths (never implementation-owner, see the guard above); seed
+            # editable_paths with them so closure does not require a manual
+            # pre-activation proof-update revision just to assert proof on a
+            # path Navigator already discovered and approved as proof-only.
+            if proof:
+                contract["editable_paths"] = list(dict.fromkeys(
+                    [str(value) for value in contract.get("editable_paths", []) if str(value).strip()] + proof
+                ))
         evidence_plan = row.setdefault("evidence_plan", [])
         if isinstance(evidence_plan, list) and proof:
             statement = "Run focused proof: " + ", ".join(proof)
