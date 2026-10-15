@@ -4877,6 +4877,48 @@ def task_type_boundary_report(report: dict[str, Any], decision: dict[str, Any]) 
     }
 
 
+def declared_implementation_missing_scope(report: dict[str, Any], declared_task_type: str | None) -> bool:
+    """Predicate for the fail-closed Planning Lock invariant.
+
+    True only for a declared implementation request whose report carries
+    no canonical scope_evidence and is not a debug plan. Read-only,
+    validation-only, undeclared, and debug routes never trigger it.
+    """
+    declared = str(declared_task_type or "").strip().lower()
+    if declared != "implementation":
+        return False
+    if isinstance(report, dict) and "debug_plan" in report:
+        return False
+    navigator_block = report.get("navigator", {}) if isinstance(report, dict) else {}
+    return not isinstance(navigator_block.get("scope_evidence"), dict)
+
+
+def implementation_scope_missing_report(report: dict[str, Any], declared: str) -> dict[str, Any]:
+    """Typed blocking report: declared implementation with no canonical scope.
+
+    Absence of scope evidence on an implementation request is itself the
+    blocking condition. It must never mean the scope-quality gate is not
+    applicable. No run directory and no Planning Lock are created.
+    """
+    return {
+        "goal": report.get("goal", ""),
+        "root": report.get("root", ""),
+        "command_prefix": report.get("command_prefix", "tailtrail"),
+        "scope_quality_boundary": True,
+        "blocking_reason": "missing-canonical-scope-evidence",
+        "declared_task_type": declared,
+        "detail": (
+            "Declared implementation request produced no canonical scope_evidence, "
+            "so no implementation Planning Lock was created. Re-route with resolvable "
+            "scope (explicit --changed owner, scope answers, or a narrower goal)."
+        ),
+        "boundary": (
+            "No Planning Lock, workflow, target receipt, learning receipt, graph-cache write, "
+            "or implementation authority was created."
+        ),
+    }
+
+
 def scope_quality_boundary_report(report: dict[str, Any]) -> dict[str, Any]:
     plan = report.get("navigator", {}) if isinstance(report, dict) else {}
     scope_evidence = plan.get("scope_evidence", {}) if isinstance(plan.get("scope_evidence"), dict) else {}
@@ -7141,6 +7183,15 @@ def main() -> int:
         if _deescalated_mode is not None:
             effective_aidlc_mode = _deescalated_mode
 
+        if declared_implementation_missing_scope(report, getattr(args, "task_type", None)):
+            boundary = implementation_scope_missing_report(
+                report, str(getattr(args, "task_type", "") or "").strip().lower(),
+            )
+            if args.format == "json":
+                print(json.dumps(boundary, indent=2, sort_keys=True, default=str))
+            else:
+                print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
+            return 2
         if not args.no_planning_lock:
             created_run_id: str | None = None
             try:
