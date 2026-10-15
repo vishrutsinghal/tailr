@@ -38,7 +38,7 @@
         "properties": {
           "clause_id": { "type": "string", "minLength": 1, "maxLength": 64 },
           "role": { "enum": ["context", "outcome", "constraint", "evidence", "scope", "question"] },
-          "text": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 1500 },
           "source_input_id": { "type": "string", "pattern": "^IN-[0-9]{2,}$" }
         }
       }
@@ -71,7 +71,7 @@
         "required": ["display_id", "statement", "source_clause_ids", "intent_terms"],
         "properties": {
           "display_id": { "type": "string", "minLength": 1, "maxLength": 64 },
-          "statement": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "statement": { "type": "string", "minLength": 1, "maxLength": 1500 },
           "kind": { "enum": ["change", "preserve", "constraint", "safety"] },
           "source_clause_ids": {
             "type": "array",

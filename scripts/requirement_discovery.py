@@ -37,6 +37,11 @@ QUERY_LOW_SIGNAL_WORDS = {
 }
 HOSTS = {"codex", "copilot", "claude"}
 CLAUSE_ROLES = {"context", "outcome", "constraint", "evidence", "scope", "question"}
+# One canonical ceiling for requirement prose, shared by intake,
+# interpretation schemas, revision, anchors, and replay. Field-specific
+# limits (reasons, questions, IDs) keep their own smaller contracts and
+# must never be substituted for this one.
+MAX_CANONICAL_REQUIREMENT_STATEMENT_CHARS = 1500
 REQUIREMENT_KINDS = {"change", "preserve", "constraint", "safety"}
 INTENT_CLASSES = {"general", "ui-visibility", "ui-interaction", "api-behavior", "data", "configuration"}
 SUFFICIENCY_STATES = {"sufficient", "clarification-required", "standard-recommended", "full-recommended"}
@@ -822,7 +827,7 @@ def interpretation(
         clause_id = str(raw.get("clause_id") or f"C-{index:02d}").strip()
         role = str(raw.get("role", "")).strip().lower()
         text = str(raw.get("text", "")).strip()
-        if not clause_id or len(clause_id) > 64 or clause_id in clause_ids or role not in CLAUSE_ROLES or not text or len(text) > 1000:
+        if not clause_id or len(clause_id) > 64 or clause_id in clause_ids or role not in CLAUSE_ROLES or not text or len(text) > MAX_CANONICAL_REQUIREMENT_STATEMENT_CHARS:
             raise ValueError("host requirement interpretation contains an invalid clause")
         source_input_id = str(raw.get("source_input_id", "")).strip()
         if source_input_id:
@@ -897,7 +902,7 @@ def interpretation(
         statement = str(raw.get("statement", "")).strip()
         raw_source_ids = raw.get("source_clause_ids", [])
         source_ids = [str(value) for value in raw_source_ids] if isinstance(raw_source_ids, list) else []
-        if not display_id or len(display_id) > 64 or display_id in display_ids or not statement or len(statement) > 1000:
+        if not display_id or len(display_id) > 64 or display_id in display_ids or not statement or len(statement) > MAX_CANONICAL_REQUIREMENT_STATEMENT_CHARS:
             raise ValueError("host requirement interpretation contains an invalid requirement")
         if not source_ids or any(value not in clause_ids for value in source_ids):
             raise ValueError("every interpreted requirement must reference valid source clauses")

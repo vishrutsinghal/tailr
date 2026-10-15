@@ -91,6 +91,32 @@ def _safe_text(value: Any, field: str, *, required: bool = True) -> str:
     return result
 
 
+def _canonical_limit() -> int:
+    limit = getattr(REQUIREMENTS, "MAX_CANONICAL_REQUIREMENT_STATEMENT_CHARS", 1500)
+    return int(limit) if isinstance(limit, int) and limit > 0 else 1500
+
+
+def _safe_statement(value: Any, *, saved: bool) -> str:
+    """Validate a canonical requirement statement against the shared contract.
+
+    `saved=True` names saved canonical data; `saved=False` names new
+    revision input. A valid saved plan must never become unrevisionable
+    under a stricter downstream limit, so the loader uses this contract
+    instead of the generic 500-character revision helper.
+    """
+    result = str(value or "").strip()
+    limit = _canonical_limit()
+    if not result:
+        raise ValueError("saved canonical requirement needs `statement`" if saved else "revision change needs `statement`")
+    if len(result) > limit or "\x00" in result:
+        raise ValueError(
+            f"saved canonical requirement `statement` exceeds {limit} characters"
+            if saved
+            else f"revision change `statement` exceeds {limit} characters"
+        )
+    return result
+
+
 def _safe_path(value: Any) -> str:
     path = Path(_safe_text(value, "path"))
     if path.is_absolute() or ".." in path.parts or path.as_posix() in {"", "."}:
@@ -120,7 +146,7 @@ def _requirements(report: dict[str, Any], root: Path, run_id: str) -> list[dict[
         if not isinstance(raw, dict):
             raise ValueError("saved requirement matrix contains an invalid row")
         row = copy.deepcopy(raw)
-        statement = _safe_text(row.get("statement"), "statement")
+        statement = _safe_statement(row.get("statement"), saved=True)
         row["statement"] = statement
         row["display_id"] = _safe_text(row.get("display_id") or f"REQ-{index:02d}", "display_id")
         row["requirement_uid"] = _safe_text(row.get("requirement_uid") or ANCHOR.uid(run_id, statement), "requirement_uid")
@@ -650,7 +676,7 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
         row = _requirement(rows, change.get("requirement_uid"))
         if _v2_scope(report) is not None and change.get("retain_scope_confirmed") is not True:
             raise ValueError("v2 requirement-update needs `retain_scope_confirmed: true` so ownership is not silently carried across changed wording")
-        row["statement"] = _safe_text(change.get("statement"), "statement")
+        row["statement"] = _safe_statement(change.get("statement"), saved=False)
         if row.get("requirement_id"):
             row["requirement_id"] = REQUIREMENTS.stable_requirement_id(row["statement"])
         if row.get("query_terms"):
@@ -703,7 +729,7 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "evidence_plan": row["evidence_plan"]})
         _rebuild_proof_projections(report, rows)
     elif kind == "requirement-add":
-        statement = _safe_text(change.get("statement"), "statement")
+        statement = _safe_statement(change.get("statement"), saved=False)
         display_id = _safe_text(change.get("display_id") or _new_display_id(rows), "display_id")
         if any(row["display_id"] == display_id for row in rows):
             raise ValueError(f"requirement display ID `{display_id}` already exists")
