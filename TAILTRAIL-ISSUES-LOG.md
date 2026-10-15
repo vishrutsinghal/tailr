@@ -35,6 +35,7 @@ the entries there.
 | 25 | A proof-only test file created under the TESTING badge has no revision mechanism to join the approved anchor's proof scope, so closure always reports it as scope drift | **Fixed** (`proof-update` now accepts `editable_paths`/`proposed_paths`) |
 | 26 | `architecture-fitness.py` kept its own separate approved-scope notion (`likely_paths` only), unaware of the Issue 25 fix's `validation_contract.editable_paths`/`proposed_paths` | **Fixed** (same union pattern applied to this harness too) |
 | 27 | A `proof-update` revision that adds tiers to a requirement's top-level `validation_contract.tiers` does not update the per-command `validation_contract.checks[]` entry created at Start time; `execution-evidence run` matches `checks[]` first and silently ignores the broader top-level tier list, rejecting the new tiers | **Fixed** (revision-added tiers now union with -- never replace -- a matching `checks[]` entry's own narrower tier list) |
+| 28 | Anchor generation at Start time does not auto-populate `likely_paths`/`validation_contract.editable_paths` for a new proof-only test file implied by the goal text, so a run approved without a manual pre-activation `proof-update` step permanently closes `evidence-incomplete` (Issue 25's fix exists but is opt-in, not automatic, and is unusable once the run is activated) | Open |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -3183,3 +3184,63 @@ correctly containing the test file from the start.
   audited for the same "separate approved-scope computation" pattern. If a
   third one exists, expect the same symptom to recur.
 - **Status:** Fixed.
+
+## 28. Anchor generation never auto-registers a new proof-only test file's path, and the escape hatch is pre-activation-only (Open)
+
+**Context:** Hit live completing Phase 1A of the host-question-flow intake
+pipeline (`start-20261015035801-017243`, goal: implement
+`scripts/intake_pipeline.py` plus its tests in
+`tests/test_intake_pipeline.py`, both named explicitly in the approved goal
+text and in REQ-02's/REQ-04's own requirement statements). The run was
+approved and activated (`planning activate --approved`) without first
+running a pre-activation `proof-update` revision to register
+`tests/test_intake_pipeline.py` under `editable_paths`/`proposed_paths`,
+because nothing in the Start Report flagged that step as required.
+
+- **Symptom:** after implementation, tests, and execution-evidence were all
+  recorded and passing, `completion-report`/`closure finalize` kept
+  reporting `overall_status: evidence-incomplete`,
+  `changed_scope.status: changed-beyond-approved`, with a `new-drift` finding
+  `"actual edit `tests/test_intake_pipeline.py` is outside approved editable
+  scope"` against REQ-01 -- the same class of symptom Issue 25 already
+  describes and fixed.
+- **Root cause:** Issue 25's fix (and the matching `architecture-fitness.py`
+  fix in Issue 26) require the orchestrating agent to proactively run a
+  `planning revise --changes '[{"kind":"proof-update", ...,
+  "editable_paths": [...]}]' --approved-proposal` step *before* calling
+  `planning activate --approved`. Nothing in `tailtrail start`'s own anchor
+  generation inspects the goal/requirement text (which here explicitly named
+  `tests/test_intake_pipeline.py` three separate times) and pre-populates
+  `likely_paths`/`editable_paths` with that file automatically. The fix is a
+  manual, opt-in step an agent must remember to take at exactly the right
+  moment; skipping it is invisible until closure.
+- **Impact:** once the plan is activated, `planning revise` unconditionally
+  refuses with `"Interactive Plan Mode is available only while a plan is
+  awaiting approval ... run is approved"`, and no other documented CLI
+  command (`harness boundary`, `harness reconcile`,
+  `architecture-fitness.py` directly) can retroactively add a path to an
+  already-approved requirement's scope. The run is permanently stuck at
+  `evidence-incomplete` even though every actual deliverable (implementation
+  + tests) is correct and fully passing. This is the same permanent-stuck
+  outcome Issue 25 already recorded for its two original Phase 0 runs
+  (`start-20261014060150-9e4339`, `start-20261014061503-50451e`); this is a
+  third confirmed occurrence after the fix shipped, proving the fix alone
+  does not prevent recurrence.
+- **Recommended fix:** make anchor generation at Start time scan each
+  requirement's statement (and the overall goal text) for explicit
+  `tests/...`/`test_*.py`-shaped path mentions and auto-seed
+  `validation_contract.editable_paths`/`proposed_paths` with them, so the
+  pre-activation `proof-update` step becomes a no-op safety net instead of a
+  silent prerequisite. Alternatively, have the Start Report explicitly warn
+  "the following named test paths are not yet in any requirement's editable
+  scope; run `proof-update` before approving" whenever a requirement
+  statement or goal text names a path under `tests/` that isn't already
+  covered.
+- **Workaround used:** none available post-activation; the run was finalized
+  honestly as `evidence-incomplete` (3/4 requirements `complete`, REQ-01
+  `implemented-unverified` with unresolved drift) and reported to the user
+  as-is rather than fabricating a clean closure. The actual code
+  (`scripts/intake_pipeline.py`, `tests/test_intake_pipeline.py`) is correct
+  and fully tested independently of this TailTrail bookkeeping gap.
+- **Status:** Open -- same root cause as Issue 25, recurring because the fix
+  is opt-in and has no pre-activation safety net or Start-time warning.
