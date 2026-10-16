@@ -494,13 +494,20 @@ def apply_contracts(requirements: list[dict[str, Any]], plan: dict[str, Any]) ->
         contract["completion_states"] = list(plan.get("completion_states", []))
         contract["evidence_boundary"] = plan.get("evidence_boundary")
         row["behavior_contract"] = contract
-        tiers = list((row.get("validation_contract", {}) or {}).get("tiers", []))
+        tiers = [
+            str(tier) for tier in ((row.get("validation_contract", {}) or {}).get("tiers", []) or [])
+            if str(tier) != "behaviour"
+        ]
         for scenario in linked:
+            action = str(scenario.get("action", "")).strip()
+            expected = str(scenario.get("expected_outcome", "")).strip()
+            if not action or not expected:
+                continue
             for evidence in scenario.get("evidence", []):
                 tier = str(evidence.get("tier", ""))
                 if tier and tier not in tiers:
                     tiers.append(tier)
-        row["validation_contract"] = {"state": "required", "tiers": tiers or ["behaviour"]}
+        row["validation_contract"] = {"state": "required", "tiers": tiers}
 
 
 def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = False) -> list[str]:

@@ -116,6 +116,65 @@ class IntakePipelineTests(unittest.TestCase):
             self.assertEqual(first["content_fingerprint"], second["content_fingerprint"])
             self.assertNotEqual(first["content_fingerprint"], third["content_fingerprint"])
 
+    def test_replay_materializes_the_same_contract_and_packet_view(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pipeline = IntakePipeline(Path(temp))
+            run = pipeline.create_run("collect host context", "new-feature")
+            question = pipeline.issue_question(run["run_id"], "implementation-owner", "Which path owns the behavior?")
+            pipeline.record_answer(
+                run["run_id"], "implementation-owner", "scripts/example.py",
+                source="direct-question", question_id=question["payload"]["question_id"],
+            )
+            first = pipeline.replay(run["run_id"])
+            second = pipeline.replay(run["run_id"])
+
+        self.assertEqual(first["contract_fingerprint"], second["contract_fingerprint"])
+        self.assertEqual(first["packet_view_fingerprint"], second["packet_view_fingerprint"])
+        self.assertEqual(first["event_count"], 2)
+
+    def test_tampered_event_is_rejected_by_replay(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pipeline = IntakePipeline(Path(temp))
+            run = pipeline.create_run("collect host context", "new-feature")
+            pipeline.issue_question(run["run_id"], "implementation-owner", "Which path owns the behavior?")
+            events_path = Path(temp) / ".tailtrail" / "intake" / run["run_id"] / "events.jsonl"
+            event = json.loads(events_path.read_text(encoding="utf-8").splitlines()[0])
+            event["payload"]["text"] = "Tampered question"
+            events_path.write_text(json.dumps(event) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(IntakeError, "event integrity failure"):
+                pipeline.replay(run["run_id"])
+
+    def test_redacted_values_do_not_reappear_in_packet_view(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pipeline = IntakePipeline(Path(temp))
+            run = pipeline.create_run("collect host context", "new-feature")
+            question = pipeline.issue_question(run["run_id"], "credentials", "Provide the access details")
+            pipeline.record_observation(
+                run["run_id"],
+                {"api_token": "super-secret-token", "note": "Bearer bearer-secret"},
+                question_id=question["payload"]["question_id"],
+            )
+            projection = pipeline.replay(run["run_id"])
+            rendered = json.dumps(projection["packet_view"])
+
+        self.assertNotIn("super-secret-token", rendered)
+        self.assertNotIn("bearer-secret", rendered)
+        self.assertIn("[REDACTED]", rendered)
+
+    def test_expired_and_abandoned_runs_require_explicit_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pipeline = IntakePipeline(Path(temp))
+            run = pipeline.create_run("collect host context", "new-feature")
+            pipeline.expire_run(run["run_id"])
+            with self.assertRaisesRegex(IntakeError, "explicit resume"):
+                pipeline.assert_execution_allowed(run["run_id"])
+            pipeline.resume_run(run["run_id"])
+            pipeline.assert_execution_allowed(run["run_id"])
+            pipeline.abandon_run(run["run_id"])
+            with self.assertRaisesRegex(IntakeError, "explicit resume"):
+                pipeline.assert_execution_allowed(run["run_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

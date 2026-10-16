@@ -22,7 +22,7 @@ BOUNDARY = (
     "A plan revision changes only versioned TailTrail planning metadata. It does not inspect or edit project "
     "source, run tests, scanners, builds, package managers, Git, or implementation commands."
 )
-CHANGE_KINDS = {"scope-add", "scope-remove", "requirement-add", "requirement-remove", "requirement-update", "proof-update"}
+CHANGE_KINDS = {"scope-add", "scope-remove", "requirement-add", "requirement-remove", "requirement-update", "proof-update", "behaviour-scenario-add"}
 STANDARD_MODE_FEATURES = {
     "included": [
         "Navigator planning and Planning Lock",
@@ -682,6 +682,58 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
         if row.get("query_terms"):
             row["query_terms"] = REQUIREMENTS.query_terms(row["statement"])
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "statement": row["statement"]})
+    elif kind == "behaviour-scenario-add":
+        row = _requirement(rows, change.get("requirement_uid"))
+        raw_scenario = change.get("scenario")
+        if not isinstance(raw_scenario, dict):
+            raise ValueError("behaviour-scenario-add requires a scenario object")
+        scenario_id = _safe_text(raw_scenario.get("scenario_id"), "scenario.scenario_id")
+        action = _safe_text(raw_scenario.get("action"), "scenario.action")
+        expected = _safe_text(raw_scenario.get("expected_outcome"), "scenario.expected_outcome")
+        existing_plan = report.setdefault("behaviour_plan", {})
+        scenarios = existing_plan.setdefault("scenarios", [])
+        if any(isinstance(item, dict) and str(item.get("scenario_id", "")) == scenario_id for item in scenarios):
+            raise ValueError(f"behaviour scenario `{scenario_id}` already exists")
+        scenario = dict(raw_scenario)
+        scenario.update({
+            "scenario_id": scenario_id,
+            "requirement_ids": [row["display_id"]],
+            "action": action,
+            "expected_outcome": expected,
+            "provenance": "host-declared",
+        })
+        scenario.setdefault("evidence", [{"tier": "behaviour", "asserted_behavior": expected}])
+        scenarios.append(scenario)
+        contract = row.setdefault("behavior_contract", {})
+        linked = list(contract.get("scenarios", []) or []) if isinstance(contract, dict) else []
+        linked.append({key: value for key, value in scenario.items() if key != "requirement_ids"})
+        row["behavior_contract"] = {**(contract if isinstance(contract, dict) else {}), "scenarios": linked}
+        validation = row.setdefault("validation_contract", {"state": "required", "tiers": []})
+        if not isinstance(validation, dict):
+            raise ValueError("requirement validation_contract must be an object")
+        tiers = [str(item) for item in validation.get("tiers", []) or []]
+        if "behaviour" not in tiers:
+            tiers.append("behaviour")
+        validation["tiers"] = tiers
+        covered = sorted({str(value) for item in scenarios for value in item.get("requirement_ids", [])})
+        requirement_ids = sorted(str(item.get("display_id", "REQ")) for item in rows if isinstance(item, dict))
+        existing_plan["coverage"] = {
+            **(existing_plan.get("coverage", {}) if isinstance(existing_plan.get("coverage"), dict) else {}),
+            "requirements_covered": covered,
+            "requirements_uncovered": [item for item in requirement_ids if item not in covered],
+            "unknowns": [f"no scenario covers {item}" for item in requirement_ids if item not in covered],
+        }
+        normalized.update({
+            "requirement_uid": row["requirement_uid"],
+            "display_id": row["display_id"],
+            "scenario_id": scenario_id,
+            "scenario": {
+                "scenario_id": scenario_id,
+                "action": action,
+                "expected_outcome": expected,
+            },
+        })
+        _rebuild_proof_projections(report, rows)
     elif kind == "proof-update":
         row = _requirement(rows, change.get("requirement_uid"))
         row["evidence_plan"] = _list_of_text(change.get("evidence_plan"), "evidence_plan")
@@ -1108,6 +1160,11 @@ def render(payload: dict[str, Any]) -> str:
     for item in payload["changes"]:
         target = item.get("display_id", item.get("requirement_uid", "plan"))
         lines.append(f"- **{target}:** `{item['kind']}` — {item['reason']}")
+        if item.get("kind") == "behaviour-scenario-add":
+            scenario = item.get("scenario", {})
+            lines.append(f"  - Scenario: `{scenario.get('scenario_id', '')}`")
+            lines.append(f"  - Action: {scenario.get('action', '')}")
+            lines.append(f"  - Expected outcome: {scenario.get('expected_outcome', '')}")
     delta = payload["delta_summary"]
     lines.extend(["", "## Delta", "", f"- Requirement rows changed: {len(delta['requirements_changed'])}", f"- Scope added: {', '.join(f'`{item}`' for item in delta['scope_added']) or 'none'}", f"- Scope removed: {', '.join(f'`{item}`' for item in delta['scope_removed']) or 'none'}", f"- Proof rows changed: {', '.join(f'`{item}`' for item in delta['proof_changed']) or 'none'}"])
     report = payload.get("proposed_report", {})

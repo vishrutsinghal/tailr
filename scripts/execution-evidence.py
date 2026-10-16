@@ -71,7 +71,7 @@ def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
     if not isinstance(event, dict): raise ValueError("execution evidence must be a JSON object; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     allowed = {
         "kind", "requirement_uids", "changed_paths", "tier", "tiers", "scenario_ids",
-        "command_label", "command", "outcome", "environment", "asserted_behavior",
+        "scenario_assertion_fingerprint", "command_label", "command", "outcome", "environment", "asserted_behavior",
         "artifact", "evidence_label", "classification", "collector", "evidence_quality",
         "exit_code", "started_at", "finished_at", "duration_ms", "stdout_artifact",
         "stderr_artifact", "stdout_sha256", "stderr_sha256", "revision_overlay_uids",
@@ -91,7 +91,7 @@ def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
     if kind == "source-edit" and not normalized["changed_paths"]: raise ValueError("source-edit evidence requires at least one changed path; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     if kind in {"command-result", "ci-receipt"}:
         receipt = CONTRACT.validate_receipt({key: event[key] for key in (
-            "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
+            "requirement_uids", "tier", "tiers", "scenario_ids", "scenario_assertion_fingerprint", "command_label", "command",
             "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
             "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
             "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
@@ -255,16 +255,47 @@ def run_command(
         }
         for uid_key in set(overlay) | set(amended)
     }
-    plan_fingerprint = ANCHOR.approved_plan_fingerprint(ANCHOR.effective_plan_contracts(requirements, merged_overlay))
+    plan_fingerprint = ANCHOR.approved_plan_fingerprint(
+        ANCHOR.effective_plan_contracts(requirements, merged_overlay),
+        requirements_data=requirements
+    )
     if not isinstance(timeout_seconds, int) or timeout_seconds < 1 or timeout_seconds > 3600:
         raise ValueError("timeout must be between 1 and 3600 seconds; pass `--timeout <1-3600>` to `tailtrail execution-evidence run --approved`")
 
+    # Build approved command-to-scenario mappings (Gap 3: approved binding, not just presence)
+    # For each requirement/tier combination, map approved commands to their bound scenarios
+    command_to_scenario_binding: dict[str, set[str]] = {}
+    for row in selected:
+        req_uid = str(row.get("requirement_uid", ""))
+        validation_contract = row.get("validation_contract", {})
+        if isinstance(validation_contract, dict):
+            for cmd_check in validation_contract.get("commands", []):
+                cmd = str(cmd_check).strip() if isinstance(cmd_check, (str, dict)) else ""
+                if not cmd and isinstance(cmd_check, dict):
+                    cmd = str(cmd_check.get("command", "")).strip()
+                if cmd:
+                    # Bind this command to all scenarios with concrete action/outcome for its tiers
+                    for scenario in ((row.get("behavior_contract", {}) or {}).get("scenarios", [])):
+                        if (isinstance(scenario, dict) and scenario.get("scenario_id")
+                            and str(scenario.get("action", "")).strip() 
+                            and str(scenario.get("expected_outcome", "")).strip()
+                            and any(str(item.get("tier")) in set(tiers) for item in scenario.get("evidence", []) if isinstance(item, dict))):
+                            scenario_id = str(scenario.get("scenario_id"))
+                            if cmd not in command_to_scenario_binding:
+                                command_to_scenario_binding[cmd] = set()
+                            command_to_scenario_binding[cmd].add(scenario_id)
+    
+    # Attach scenario IDs only for scenarios with concrete action and expected_outcome
+    # that are explicitly bound to the executed command (approved binding validation)
     scenario_ids = sorted({
         str(scenario.get("scenario_id"))
         for row in selected
         for scenario in ((row.get("behavior_contract", {}) or {}).get("scenarios", []))
         if isinstance(scenario, dict) and scenario.get("scenario_id")
+        and str(scenario.get("action", "")).strip() and str(scenario.get("expected_outcome", "")).strip()
         and any(str(item.get("tier")) in set(tiers) for item in scenario.get("evidence", []) if isinstance(item, dict))
+        # NEW: Check if this scenario is bound to the approved command
+        and str(scenario.get("scenario_id")) in command_to_scenario_binding.get(command, set())
     })
     asserted = "; ".join(
         str(scenario.get("expected_outcome"))
@@ -313,12 +344,32 @@ def run_command(
     relative_stdout = stdout_path.relative_to(root).as_posix()
     relative_stderr = stderr_path.relative_to(root).as_posix()
     relative_result = result_path.relative_to(root).as_posix()
+    
+    # Compute scenario assertion fingerprint (Gap 3: scenario specificity fingerprint)
+    # Includes all bound scenarios' action/outcome/assertions so changes are detected
+    scenario_assertion_data = []
+    for row in selected:
+        for scenario in ((row.get("behavior_contract", {}) or {}).get("scenarios", [])):
+            if (isinstance(scenario, dict) and str(scenario.get("scenario_id")) in scenario_ids):
+                scenario_assertion_data.append({
+                    "id": str(scenario.get("scenario_id")),
+                    "action": str(scenario.get("action", "")).strip(),
+                    "outcome": str(scenario.get("expected_outcome", "")).strip(),
+                    "assertion": str(scenario.get("assertion", "")).strip() if scenario.get("assertion") else None,
+                })
+    scenario_assertion_fp = (
+        "sha256:" + hashlib.sha256(
+            json.dumps(scenario_assertion_data, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    ) if scenario_assertion_data else None
+    
     event = {
         "kind": "command-result",
         "requirement_uids": sorted(set(requirement_uids)),
         "changed_paths": changed_paths,
         "tiers": list(dict.fromkeys(tiers)),
         "scenario_ids": scenario_ids,
+        "scenario_assertion_fingerprint": scenario_assertion_fp,
         "command_label": command_label,
         "command": command,
         "outcome": outcome,
@@ -346,7 +397,7 @@ def run_command(
         "schema_version": "2", "type": "tailtrail-managed-command-result",
         "run_id": run_id, "command": command, "command_label": command_label,
         "requirement_uids": sorted(set(requirement_uids)), "tiers": list(dict.fromkeys(tiers)),
-        "scenario_ids": scenario_ids, "outcome": outcome, "exit_code": exit_code,
+        "scenario_ids": scenario_ids, "scenario_assertion_fingerprint": scenario_assertion_fp, "outcome": outcome, "exit_code": exit_code,
         "plan_fingerprint": plan_fingerprint,
         "started_at": started.isoformat(), "finished_at": finished.isoformat(),
         "duration_ms": duration_ms, "stdout_artifact": relative_stdout,

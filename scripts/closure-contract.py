@@ -75,7 +75,7 @@ def validate_receipt(receipt: Any, known_requirements: set[str], index: int, roo
     if not isinstance(receipt, dict):
         raise ValueError(f"receipts[{index}] must be an object")
     allowed = {
-        "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
+        "requirement_uids", "tier", "tiers", "scenario_ids", "scenario_assertion_fingerprint", "command_label", "command",
         "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
         "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
         "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
@@ -119,6 +119,10 @@ def validate_receipt(receipt: Any, known_requirements: set[str], index: int, roo
         "asserted_behavior": short_text(receipt.get("asserted_behavior"), f"receipts[{index}].asserted_behavior"),
         "evidence_label": label,
     }
+    if "scenario_assertion_fingerprint" in receipt:
+        fp = receipt.get("scenario_assertion_fingerprint")
+        if fp and isinstance(fp, str) and fp.startswith("sha256:"):
+            normalized["scenario_assertion_fingerprint"] = fp
     if "artifact" in receipt:
         normalized["artifact"] = repository_path(receipt["artifact"], f"receipts[{index}].artifact")
     managed = label == "managed-command"

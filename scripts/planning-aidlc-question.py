@@ -18,6 +18,80 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 REASON_CODES = {"unclear", "incorrect-assumption", "missing-option", "unclear-reasoning", "other"}
 
+# Phase 2.5: Task profile definitions with acceptance criteria
+TASK_PROFILES = {
+    "documentation-only": {
+        "name": "Documentation Only",
+        "description": "Changes to documentation, comments, or non-executable content only",
+        "acceptance_criteria": [
+            "No executable code changes",
+            "All changes are documentation or comments",
+            "No runtime behavior modifications",
+        ],
+        "question_template": "Is this change documentation-only (comments, docs, README)?",
+    },
+    "existing-code-change": {
+        "name": "Existing Code Change",
+        "description": "Modifications to existing executable code without creating new features",
+        "acceptance_criteria": [
+            "Modifies existing functions or classes",
+            "No new public API surface created",
+            "Maintains backward compatibility",
+        ],
+        "question_template": "Does this modify existing code without adding new public APIs?",
+    },
+    "new-feature": {
+        "name": "New Feature",
+        "description": "Implementation of new functionality and public API surface",
+        "acceptance_criteria": [
+            "Creates new public functions, classes, or modules",
+            "Backward compatible with existing code",
+            "Has explicit acceptance tests",
+        ],
+        "question_template": "Is this a new feature with new public APIs?",
+    },
+    "configuration-data": {
+        "name": "Configuration / Data",
+        "description": "Changes to configuration files, data structures, or constants",
+        "acceptance_criteria": [
+            "Only configuration or data structure changes",
+            "No code logic modifications",
+            "Updates validated against schema if applicable",
+        ],
+        "question_template": "Is this change to configuration or data only?",
+    },
+    "qa-validation-only": {
+        "name": "QA / Validation Only",
+        "description": "Test-only changes: unit tests, integration tests, validation logic",
+        "acceptance_criteria": [
+            "No production code changes",
+            "Only test or validation code",
+            "Covers at least one production code path",
+        ],
+        "question_template": "Is this change test or validation code only?",
+    },
+    "review-read-only": {
+        "name": "Review / Read-Only",
+        "description": "Code review, audit, or inspection without making changes",
+        "acceptance_criteria": [
+            "No source code modifications",
+            "Documentation or process review only",
+            "Read-only inspection or analysis",
+        ],
+        "question_template": "Is this a read-only review or inspection?",
+    },
+    "integration": {
+        "name": "Integration",
+        "description": "Integration testing, multi-component interaction, end-to-end validation",
+        "acceptance_criteria": [
+            "Tests multiple components or systems",
+            "Validates integration points",
+            "Includes end-to-end or contract testing",
+        ],
+        "question_template": "Does this cover integration testing across components?",
+    },
+}
+
 
 def module(name: str, filename: str) -> Any:
     spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
@@ -30,6 +104,70 @@ def module(name: str, filename: str) -> Any:
 LOCK = module("aidlc_question_lock", "planning_lock.py")
 LEDGER = module("aidlc_question_ledger", "run-ledger.py")
 OFFICIAL = module("aidlc_question_official", "official-aidlc-requirements.py")
+
+
+# Phase 2.5: Task profile detection and routing
+def detect_task_profile(task_metadata: dict[str, Any] | None) -> str:
+    """Detect task profile from metadata. Returns profile key or raises ValueError for unknown profile."""
+    if not task_metadata:
+        return "existing-code-change"  # default profile
+    
+    profile = task_metadata.get("profile", "existing-code-change")
+    if profile not in TASK_PROFILES:
+        raise ValueError(f"unknown task profile `{profile}`; supported profiles: {', '.join(sorted(TASK_PROFILES.keys()))}")
+    return profile
+
+
+def get_profile_questions(profile: str) -> list[dict[str, Any]]:
+    """Generate profile-specific questions and acceptance criteria."""
+    if profile not in TASK_PROFILES:
+        raise ValueError(f"unknown task profile `{profile}`")
+    
+    prof = TASK_PROFILES[profile]
+    return [
+        {
+            "id": f"PROFILE-{profile.upper()}-1",
+            "question": prof["question_template"],
+            "profile": profile,
+            "reasoning": f"Confirms this work fits the {prof['name']} category",
+            "options": [
+                {"id": "yes", "text": f"Yes, this is {prof['name'].lower()}"},
+                {"id": "no", "text": f"No, this is a different profile"},
+                {"id": "review", "text": "Needs clarification"},
+            ],
+            "recommended": "yes",
+            "acceptance_criteria": prof["acceptance_criteria"],
+        }
+    ]
+
+
+def validate_profile_requirements(profile: str, requirements: list[dict[str, Any]]) -> bool:
+    """Validate that requirements align with profile acceptance criteria."""
+    if profile not in TASK_PROFILES:
+        return False
+    
+    prof = TASK_PROFILES[profile]
+    # Check that at least one requirement description mentions profile-relevant keywords
+    profile_keywords = {kw.lower() for kw in prof["name"].split() + prof["description"].split()}
+    req_text = " ".join(str(r.get("description", "")).lower() for r in requirements)
+    
+    return any(kw in req_text for kw in profile_keywords) or len(requirements) == 0
+
+
+def route_to_profile_questions(profile: str) -> dict[str, Any]:
+    """Route question planning to profile-specific question generator."""
+    prof = TASK_PROFILES.get(profile)
+    if not prof:
+        raise ValueError(f"unknown task profile `{profile}`")
+    
+    return {
+        "type": "tailtrail-profile-question-route",
+        "profile": profile,
+        "profile_name": prof["name"],
+        "profile_description": prof["description"],
+        "acceptance_criteria": prof["acceptance_criteria"],
+        "guidance": f"Questions for {prof['name']} profile: {prof['description']}",
+    }
 
 
 def _paths(root: Path, run_id: str) -> tuple[Path, Path, bool]:
@@ -182,6 +320,21 @@ def approve(root: Path, run_id: str, approved: bool) -> dict[str, Any]:
     return {"type": "tailtrail-aidlc-question-revision-approved", "run_id": run_id, "question_revision": document["question_revision"], "question_id": pending["question_id"], "next": "The affected question is reopened. Answer the current AIDLC question set again before approving the requirements boundary.", "boundary": "Only the question artifact changed. The approved anchor and implementation remain blocked."}
 
 
+def list_profiles() -> dict[str, Any]:
+    """List all available task profiles."""
+    return {
+        "type": "tailtrail-task-profiles-list",
+        "profiles": {
+            name: {
+                "name": prof["name"],
+                "description": prof["description"],
+                "acceptance_criteria": prof["acceptance_criteria"],
+            }
+            for name, prof in TASK_PROFILES.items()
+        },
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -190,12 +343,25 @@ def main() -> int:
         if name == "challenge": item.add_argument("--reason-code", required=True, choices=sorted(REASON_CODES))
     record_parser = sub.add_parser("record"); record_parser.add_argument("--root", type=Path, default=Path.cwd()); record_parser.add_argument("--run-id", required=True); record_parser.add_argument("--question", required=True)
     approve_parser = sub.add_parser("approve"); approve_parser.add_argument("--root", type=Path, default=Path.cwd()); approve_parser.add_argument("--run-id", required=True); approve_parser.add_argument("--approved", action="store_true")
+    
+    # Phase 2.5: Task profile commands
+    list_profiles_parser = sub.add_parser("list-profiles"); list_profiles_parser.add_argument("--root", type=Path, default=Path.cwd())
+    detect_parser = sub.add_parser("detect-profile"); detect_parser.add_argument("--root", type=Path, default=Path.cwd()); detect_parser.add_argument("--task-metadata", required=True)
+    route_parser = sub.add_parser("route-profile"); route_parser.add_argument("--root", type=Path, default=Path.cwd()); route_parser.add_argument("--profile", required=True)
+    
     args = parser.parse_args()
     try:
         if args.command == "show": payload = show(args.root, args.run_id, args.question_id)
         elif args.command == "clarify": payload = clarify(args.root, args.run_id, args.question_id)
         elif args.command == "challenge": payload = challenge(args.root, args.run_id, args.question_id, args.reason_code)
         elif args.command == "record": payload = record(args.root, args.run_id, args.question)
+        elif args.command == "approve": payload = approve(args.root, args.run_id, args.approved)
+        elif args.command == "list-profiles": payload = list_profiles()
+        elif args.command == "detect-profile":
+            task_metadata = json.loads(args.task_metadata)
+            profile = detect_task_profile(task_metadata)
+            payload = {"type": "tailtrail-profile-detected", "profile": profile, "details": TASK_PROFILES[profile]}
+        elif args.command == "route-profile": payload = route_to_profile_questions(args.profile)
         else: payload = approve(args.root, args.run_id, args.approved)
         print(json.dumps(payload, indent=2, sort_keys=True)); return 0
     except (OSError, ValueError, json.JSONDecodeError) as error:

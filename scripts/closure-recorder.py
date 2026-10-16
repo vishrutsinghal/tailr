@@ -103,7 +103,10 @@ def current_plan_fingerprint(root: Path, run_id: str) -> str:
         }
         for uid_key in set(requirements) | set(overlay) | set(amendments)
     }
-    return ANCHOR.approved_plan_fingerprint(ANCHOR.effective_plan_contracts(requirements, merged))
+    return ANCHOR.approved_plan_fingerprint(
+        ANCHOR.effective_plan_contracts(requirements, merged),
+        requirements_data=requirements
+    )
 
 
 def partition_plan_receipts(

@@ -954,6 +954,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         and payload["architecture"]["status"] in {"pass", "not-assessed"}
         and payload["behaviour"]["status"] in {"pass", "not-assessed"}
         and payload["canonical_state"]["valid"]
+        and plan_evidence["stale"] == 0
         and (not debug_run or payload["debug"]["debug_status"] == "pass")
     )
     payload["overall_status"] = "complete" if ready else "evidence-incomplete"

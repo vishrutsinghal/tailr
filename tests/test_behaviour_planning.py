@@ -258,6 +258,48 @@ class BehaviourPlanningTests(unittest.TestCase):
         self.assertIn("REQ-02", plan["coverage"]["requirements_uncovered"])
         self.assertTrue(any("REQ-02" in item for item in plan["coverage"]["unknowns"]))
 
+    def test_empty_linked_scenario_does_not_add_behaviour_tier(self) -> None:
+        requirements = [{
+            "display_id": "REQ-01",
+            "statement": "Finalize the packet.",
+            "validation_contract": {"state": "required", "tiers": ["unit"]},
+        }]
+        behaviour.apply_contracts(requirements, {
+            "selected": True,
+            "scenarios": [{
+                "scenario_id": "BHV-EMPTY",
+                "requirement_ids": ["REQ-01"],
+                "action": "",
+                "expected_outcome": "",
+                "evidence": [{"tier": "behaviour", "asserted_behavior": "generic"}],
+            }],
+            "completion_states": [],
+            "evidence_boundary": "test",
+        })
+
+        self.assertEqual(requirements[0]["validation_contract"]["tiers"], ["unit"])
+
+    def test_concrete_linked_scenario_adds_behaviour_tier(self) -> None:
+        requirements = [{
+            "display_id": "REQ-01",
+            "statement": "Finalize the packet.",
+            "validation_contract": {"state": "required", "tiers": ["unit"]},
+        }]
+        behaviour.apply_contracts(requirements, {
+            "selected": True,
+            "scenarios": [{
+                "scenario_id": "BHV-CONCRETE",
+                "requirement_ids": ["REQ-01"],
+                "action": "Finalize accepted answers",
+                "expected_outcome": "Every binding contains a source answer ID",
+                "evidence": [{"tier": "behaviour", "asserted_behavior": "packet is source-linked"}],
+            }],
+            "completion_states": [],
+            "evidence_boundary": "test",
+        })
+
+        self.assertEqual(requirements[0]["validation_contract"]["tiers"], ["unit", "behaviour"])
+
     def test_calibration_reads_bounded_run_history(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

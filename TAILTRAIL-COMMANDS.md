@@ -100,6 +100,79 @@ Hands-free and Intent Bridge plans are also comprehensive. `--verbose` always
 renders the comprehensive canonical plan. Completion Reports are comprehensive
 for every AIDLC route; no presentation flag is required.
 
+## Plan validation enforcement
+
+To enforce mandatory host validation before plan review, use the `--require-host-validation` flag:
+
+```bash
+tailtrail start "fix claim validation bug" --require-host-validation
+# Output: Run ID only + validation command
+# Host MUST run: tailtrail planning show --root . --run-id <ID>
+# Only after validation can host review and approve the plan
+```
+
+This creates a two-stage workflow:
+1. **Generation (validated but not displayed):** `tailtrail start ... --require-host-validation`
+2. **Host validation gate (unlock + display):** `tailtrail planning show --root . --run-id <ID>`
+
+The validation gate is a governance control, not a security gate. It ensures the host
+(CI/CD, IDE, governance layer) explicitly reviews the plan before presenting it to the user,
+preventing accidental approval of unreviewed scope/proof changes.
+
+## Plan audit with Review Cycles Summary
+
+Automatically audit awaiting-approval plans and display transparent gap reporting with approval assessment:
+
+```bash
+tailtrail planning audit --root . --run-id <run-id>
+# Output includes:
+#   - status: "clean" or "gaps-found"
+#   - findings: list of audit gaps (if any)
+#   - review_cycles_summary: iteration history and current cycle count
+#   - approval_assessment: whether plan is ready to approve
+```
+
+The `planning audit` command displays:
+
+**Review Cycles Summary** — Shows planning lifecycle history:
+- Total number of audit cycles/revisions
+- Status of each revision (proposed, superseded, approved)
+- Actions taken at each stage (gaps identified, fixes applied)
+- Approval readiness assessment
+
+**Approval Assessment** — Transparent decision readiness:
+- `readiness`: "ready-to-approve" | "gaps-remain-revise-needed" | "awaiting-review"
+- `approval_decision`: "READY FOR APPROVAL" | "REVISE PLAN AND RE-AUDIT"
+- `gaps_closed`: boolean (true if all proof commands and paths are registered)
+- `total_cycles`: count of planning iterations
+
+**Example workflow:**
+```bash
+# Cycle 1: Generate and audit initial plan
+tailtrail start "Your goal" --aidlc lite
+tailtrail planning audit --root . --run-id <run-id>
+# → Review Cycles Summary shows: 0 cycles, approval_decision: "REVISE PLAN AND RE-AUDIT"
+
+# Cycle 2: Fix gaps and audit revised plan
+tailtrail planning revise --root . --run-id <run-id> --changes '[...]' --approved-proposal
+tailtrail planning audit --root . --run-id <run-id>
+# → Review Cycles Summary shows: 1 cycle (revision v2 proposed), still gaps remain
+
+# Cycle 3+: Continue revising until clean
+tailtrail planning revise --root . --run-id <run-id> --changes '[...]' --supersede-pending
+tailtrail planning audit --root . --run-id <run-id>
+# → Review Cycles Summary shows: N cycles, approval_decision: "READY FOR APPROVAL"
+
+# Final: Approve and activate
+tailtrail planning revision-approve --root . --run-id <run-id> --revision <n> --approved
+```
+
+The Review Cycles Summary is **mandatory** in every audit output, providing transparent visibility into:
+- How many planning iterations occurred
+- What changed at each cycle
+- Current approval readiness based on gap closure
+- Whether the plan is safe to present to the user
+
 ## Presentation and host conformance
 
 TailTrail validates report semantics before projecting them to Markdown,

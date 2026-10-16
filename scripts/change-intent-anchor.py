@@ -80,14 +80,77 @@ def effective_plan_contracts(
     return effective
 
 
-def approved_plan_fingerprint(effective: dict[str, dict[str, Any]]) -> str:
+def approved_plan_fingerprint(effective: dict[str, dict[str, Any]], requirements_data: dict[str, dict[str, Any]] | None = None) -> str:
     """Fingerprint one converged approved plan for execution/closure custody.
 
     Approval authorizes exactly one converged plan: execution stamps it on
     every receipt and closure refuses receipts stamped with any other
     fingerprint. Union applies within one fingerprint, never across plans.
+    
+    Includes:
+    - Proof contracts (tiers/commands/checks)
+    - Requirement statements, acceptance criteria, preservation rules
+    - Scope bindings (implementation_owners, proof_paths, inspection_paths)
+    - Behavior scenarios with action/outcome/assertions
+    
+    Any material plan change (requirement text, criteria, scope, scenario) 
+    will change the fingerprint and invalidate old receipts.
     """
-    return fingerprint({uid_key: effective[uid_key] for uid_key in sorted(effective)})
+    fingerprint_data: dict[str, Any] = {}
+    
+    for uid_key in sorted(effective):
+        entry: dict[str, Any] = {}
+        
+        # Include proof contracts (tiers/commands/checks)
+        entry["proof"] = effective[uid_key]
+        
+        # Include requirement statement and criteria if available
+        if requirements_data and uid_key in requirements_data:
+            req = requirements_data[uid_key]
+            if isinstance(req, dict):
+                if "statement" in req:
+                    entry["statement"] = str(req.get("statement", ""))
+                if "acceptance_criteria" in req:
+                    criteria = req.get("acceptance_criteria", [])
+                    if isinstance(criteria, list):
+                        entry["acceptance_criteria"] = sorted(set(str(c) for c in criteria if c))
+                if "preserve_rules" in req:
+                    rules = req.get("preserve_rules", [])
+                    if isinstance(rules, list):
+                        entry["preserve_rules"] = sorted(set(str(r) for r in rules if r))
+                
+                # Include scope bindings (implementation owners, proof paths)
+                if "scope_evidence" in req and isinstance(req["scope_evidence"], dict):
+                    scope_data = {}
+                    for key in ("implementation_owners", "proof_paths", "inspection_paths"):
+                        if key in req["scope_evidence"]:
+                            paths = req["scope_evidence"][key]
+                            if isinstance(paths, list):
+                                scope_data[key] = sorted(set(str(p) for p in paths if p))
+                    if scope_data:
+                        entry["scope"] = scope_data
+                
+                # Include behavior scenarios with action/outcome specificity
+                if "behavior_contract" in req and isinstance(req["behavior_contract"], dict):
+                    scenarios = req["behavior_contract"].get("scenarios", [])
+                    if isinstance(scenarios, list):
+                        scenario_specs = []
+                        for scenario in scenarios:
+                            if isinstance(scenario, dict) and scenario.get("scenario_id"):
+                                spec: dict[str, Any] = {"id": str(scenario["scenario_id"])}
+                                if "action" in scenario:
+                                    spec["action"] = str(scenario.get("action", "")).strip()
+                                if "expected_outcome" in scenario:
+                                    spec["outcome"] = str(scenario.get("expected_outcome", "")).strip()
+                                if "assertion" in scenario:
+                                    spec["assertion"] = str(scenario.get("assertion", "")).strip()
+                                scenario_specs.append(spec)
+                        if scenario_specs:
+                            entry["scenarios"] = scenario_specs
+        
+        fingerprint_data[str(uid_key)] = entry
+    
+    return fingerprint(fingerprint_data)
 
 
 def normalize_likely_path_entry(item: Any) -> str | dict[str, str]:

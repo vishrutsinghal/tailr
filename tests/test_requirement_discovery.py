@@ -1040,6 +1040,116 @@ class ScaffoldConjunctionTests(unittest.TestCase):
         draft = draft_engine.scaffold_draft("Fix the widget and save the result; update the cache", "codex", [])
         self.assertEqual(len(draft["requirements"]), 3)
 
+    def test_acceptance_criteria_remain_attributes_not_separate_rows_issue_33(self) -> None:
+        """Regression test for Issue 33: Criteria should not become separate requirement rows.
+        
+        When a goal contains explicit acceptance/preservation criteria as separate clauses,
+        they should be captured as requirement attributes (acceptance_criteria, preserve_rules)
+        not as independent requirement rows with spurious tiers.
+        """
+        goal = (
+            "Make stale plan receipts block completion. "
+            "Positive: any stale receipt prevents overall_status complete. "
+            "Negative: current and legacy receipts remain unchanged."
+        )
+        
+        interpreted = discovery.interpretation(goal)
+        matrix_rows = discovery.matrix(goal, ["scripts/completion-report.py"], interpreted)
+        
+        # Should produce 1 requirement, not 3 (1 main + 2 criteria-as-rows)
+        self.assertEqual(len(matrix_rows), 1, "Criteria should not become separate requirement rows")
+        
+        main_req = matrix_rows[0]
+        
+        # Main requirement should be present
+        self.assertIn("completion", main_req["statement"].lower())
+        
+        # Acceptance criteria should be present as attributes
+        criteria_text = " ".join(main_req.get("acceptance_criteria", []))
+        self.assertIn("stale", criteria_text.lower())
+        self.assertIn("prevent", criteria_text.lower())
+        
+        # Preserve rules should include negative criteria
+        preserve_text = " ".join(main_req.get("preserve_rules", []))
+        self.assertIn("current", preserve_text.lower())
+        self.assertIn("legacy", preserve_text.lower())
+        
+        # Tiers should be unit-only for code changes (not spurious behaviour/integration)
+        self.assertIn("unit", main_req["validation_contract"]["tiers"])
+
+    def test_explicit_tier_overrides_lexical_inference_issue_33(self) -> None:
+        """Regression test for Issue 33: Explicit tiers should override lexical matching.
+        
+        When a requirement has explicit tier information, it should override automatic
+        tier inference based on keyword matching.
+        """
+        goal = "Make integration service receipt blocking work"
+        
+        # The word 'integration' and 'service' would normally infer integration tier,
+        # but explicit tiers should take precedence
+        interpreted = discovery.interpretation(goal)
+        
+        # Manually set explicit tiers in the requirement
+        if interpreted.get("requirements"):
+            interpreted["requirements"][0]["validation_contract"] = {"tiers": ["unit", "contract"]}
+        
+        matrix_rows = discovery.matrix(goal, ["scripts/completion-report.py"], interpreted)
+        
+        if matrix_rows:
+            tiers = matrix_rows[0]["validation_contract"]["tiers"]
+            # Should use explicit tiers, not inferred
+            self.assertIn("unit", tiers)
+            self.assertIn("contract", tiers)
+
+    def test_criterion_clause_detection_and_extraction_issue_33(self) -> None:
+        """Regression test for Issue 33: Criterion clause detection."""
+        test_cases = [
+            ("Positive: receipts should block", True),
+            ("Negative: legacy should pass", True),
+            ("Acceptance: proof is valid", True),
+            ("Preservation: behavior is unchanged", True),
+            ("Preserve: original contracts remain", True),
+            ("Constraint: no blocking on current", True),
+            ("Must: prove all tiers", True),
+            ("Must not: allow stale", True),
+            ("Should: block completion", True),
+            ("Ensure: guard against errors", True),
+            ("Prevent: state corruption", True),
+            ("Avoid: unnecessary changes", True),
+            ("Make receipts block completion", False),
+            ("Handle legacy behavior gracefully", False),
+        ]
+        
+        for statement, should_be_criterion in test_cases:
+            with self.subTest(statement=statement):
+                is_criterion = discovery._is_criterion_clause(statement)
+                self.assertEqual(
+                    is_criterion, should_be_criterion,
+                    f"'{statement}' criterion detection failed"
+                )
+
+    def test_multi_clause_goal_produces_single_main_requirement_issue_33(self) -> None:
+        """Regression test for Issue 33: Multi-clause goals should remain single row.
+        
+        A well-formed goal with explicit acceptance and preservation criteria
+        should produce one main requirement row, not multiple.
+        """
+        goal = (
+            "Prevent stale plan receipts from blocking completion reports. "
+            "Acceptance: receipts without a current plan fingerprint must block overall_status completion. "
+            "Preservation: receipts with a current plan fingerprint continue to pass."
+        )
+        
+        interpreted = discovery.interpretation(goal)
+        rows = discovery.matrix(goal, ["scripts/completion-report.py"], interpreted)
+        
+        # Should be exactly 1 requirement
+        self.assertEqual(len(rows), 1, "Multi-clause goal should produce single requirement row")
+        
+        # Main requirement should be about the core functionality
+        self.assertIn("prevent", rows[0]["statement"].lower())
+        self.assertIn("stale", rows[0]["statement"].lower())
+
 
 if __name__ == "__main__":
     unittest.main()

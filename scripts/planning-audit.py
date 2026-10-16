@@ -25,6 +25,94 @@ if str(ROOT / "scripts") not in sys.path:
 import navigator_scope as SCOPE
 
 
+def _build_review_cycles_summary(root: Path, run_id: str) -> dict[str, Any]:
+    """Build review cycles summary from run events and revision history.
+    
+    Reads the events.jsonl to reconstruct the planning lifecycle and summarize:
+    - Number of audit cycles
+    - What changed in each revision
+    - Current gap status
+    - Approval readiness
+    """
+    run_dir = root / ".tailtrail" / "runs" / run_id
+    events_file = run_dir / "events.jsonl"
+    
+    cycles: list[dict[str, Any]] = []
+    revision_events: list[dict[str, Any]] = []
+    
+    try:
+        if events_file.exists():
+            with open(events_file, "r") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    event = json.loads(line)
+                    if event.get("event_type") in ("planning_revision_proposed", "planning_revision_superseded", "planning_revision_approved"):
+                        revision_events.append(event)
+    except Exception as e:
+        # If we can't read events, just return empty summary
+        return {
+            "total_cycles": 0,
+            "cycles": [],
+            "approval_readiness": "unknown",
+            "review_note": f"Could not load review history: {str(e)}"
+        }
+    
+    # Group events by revision and build cycles
+    revision_map: dict[int, dict[str, Any]] = {}
+    for event in revision_events:
+        rev = event.get("payload", {}).get("revision")
+        if rev is not None:
+            if rev not in revision_map:
+                revision_map[rev] = {"events": []}
+            revision_map[rev]["events"].append(event)
+    
+    # Build cycle entries
+    for rev in sorted(revision_map.keys()):
+        events_for_rev = revision_map[rev]["events"]
+        cycle_info = {
+            "revision": rev,
+            "status": "pending",
+            "actions": []
+        }
+        
+        for event in events_for_rev:
+            event_type = event.get("event_type")
+            if event_type == "planning_revision_proposed":
+                cycle_info["status"] = "proposed"
+                payload = event.get("payload", {})
+                cycle_info["actions"].append(f"Revision v{rev} proposed")
+                if "requirement_uids" in payload:
+                    cycle_info["actions"].append(f"Updated {len(payload.get('requirement_uids', []))} requirement(s)")
+            elif event_type == "planning_revision_superseded":
+                cycle_info["status"] = "superseded"
+                cycle_info["actions"].append(f"Superseded by v{event.get('payload', {}).get('superseded_by')}")
+            elif event_type == "planning_revision_approved":
+                cycle_info["status"] = "approved"
+                audit_result = event.get("payload", {}).get("audit", {})
+                if audit_result.get("status") == "clean":
+                    cycle_info["actions"].append("✓ Audit status: clean - READY FOR APPROVAL")
+                else:
+                    cycle_info["actions"].append(f"Audit status: {audit_result.get('status')}")
+        
+        if cycle_info.get("actions"):
+            cycles.append(cycle_info)
+    
+    # Determine approval readiness
+    approval_readiness = "awaiting-review"
+    if any(c.get("status") == "approved" for c in cycles):
+        approval_readiness = "ready-to-approve"
+    elif any(c.get("status") == "pending" for c in cycles):
+        approval_readiness = "revision-pending"
+    
+    return {
+        "total_cycles": len(cycles),
+        "cycles": cycles,
+        "approval_readiness": approval_readiness,
+        "review_note": "Cycles show planning iterations through proposed revisions until audit status reaches clean state."
+    }
+
+
 def _module(name: str, filename: str) -> Any:
     spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
     loaded = importlib.util.module_from_spec(spec)
@@ -435,6 +523,16 @@ def _convergence_findings(
                 if str(item.get("expected_outcome", "")).strip() and str(item.get("action", "")).strip()
             ]
             if not specific:
+                scenario_change = json.dumps([{
+                    "kind": "behaviour-scenario-add",
+                    "requirement_uid": req_id,
+                    "reason": "add requirement-specific behaviour scenario",
+                    "scenario": {
+                        "scenario_id": f"BHV-{req_id}",
+                        "action": "<concrete action>",
+                        "expected_outcome": "<observable expected outcome>",
+                    },
+                }], separators=(",", ":"))
                 findings.append({
                     "type": "behaviour-scenario-generic",
                     "correction_kind": "template",
@@ -443,9 +541,13 @@ def _convergence_findings(
                     "requirement_uid": req_id,
                     "detail": (
                         f"requirement `{req_id}` needs behaviour proof but has no requirement-specific "
-                        f"Behaviour Harness scenario (ID link alone is insufficient). Author a scenario "
-                        f"with this requirement ID, a concrete action, and an expected outcome; no "
-                        f"revision command can author it for you."
+                        f"Behaviour Harness scenario (ID link alone is insufficient). Add a scenario "
+                        f"with this requirement ID, a concrete action, and an expected outcome."
+                    ),
+                    "suggested_fix": (
+                        "tailtrail planning revise --root . --run-id <run-id> --changes "
+                        f"'{scenario_change}' "
+                        "--approved-proposal"
                     ),
                 })
     return findings
@@ -475,12 +577,26 @@ def audit_report(
         text = " ".join([statement, goal, " ".join(row.get("acceptance_criteria", []) or [])])
         findings.extend(_named_path_findings(root, run_id, row, text, has_scope_evidence=has_scope_evidence, pending=pending))
         findings.extend(_tier_findings(run_id, row, statement, pending=pending))
+    
+    # Build review cycles summary from run history
+    review_cycles = _build_review_cycles_summary(root, run_id)
+    
+    # Determine approval readiness based on gap status and history
+    approval_readiness = "ready-to-approve" if not findings else "gaps-remain-revise-needed"
+    
     return {
         "schema_version": "1",
         "type": "tailtrail-planning-audit",
         "run_id": run_id,
         "status": "clean" if not findings else "gaps-found",
         "findings": findings,
+        "review_cycles_summary": review_cycles,
+        "approval_assessment": {
+            "readiness": approval_readiness,
+            "gaps_closed": len(findings) == 0,
+            "total_cycles": review_cycles.get("total_cycles", 0),
+            "approval_decision": "READY FOR APPROVAL" if not findings else "REVISE PLAN AND RE-AUDIT",
+        },
     }
 
 

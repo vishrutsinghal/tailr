@@ -6669,6 +6669,7 @@ def main() -> int:
     )
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
     parser.add_argument("--verbose", action="store_true", help="Include full decision menu, posture details, and Navigator output.")
+    parser.add_argument("--require-host-validation", action="store_true", help="Mandatory host validation gate: plan is not displayed until host runs 'tailtrail planning show' to validate it first.")
     args = parser.parse_args()
 
     goal = " ".join(args.goal).strip()
@@ -7561,7 +7562,29 @@ def main() -> int:
             report["workflow_runtime"] = workflow_start_integration.draft(report, "not-persisted", disabled=True)
     except ValueError as error:
         parser.error(str(error))
-    if args.format == "json":
+    # Mandatory host validation gate: if enabled, require host to run planning show first
+    if args.require_host_validation and report.get("planning_lock"):
+        lock = report["planning_lock"]
+        run_id = lock.get("run_id", "<run-id>")
+        validation_command = f"{args.command_prefix} planning show --root . --run-id {run_id}"
+        if args.format == "json":
+            output = {
+                "type": "tailtrail-start-with-validation-gate",
+                "run_id": run_id,
+                "status": "awaiting-host-validation",
+                "message": f"Plan generated. Host must validate before review.",
+                "validation_command": validation_command,
+                "lock_artifact": lock.get("artifact", "")
+            }
+            print(json.dumps(output, indent=2, sort_keys=True))
+        else:
+            print(f"# TailTrail Start Plan (Awaiting Host Validation)\n")
+            print(f"**Run ID:** `{run_id}`\n")
+            print(f"**Status:** Plan generated and locked. Host validation required before review.\n")
+            print(f"**Next step (host-enforced):**\n\n")
+            print(f"```\n{validation_command}\n```\n")
+            print(f"After validation succeeds, the complete plan will be displayed for approval.\n")
+    elif args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")

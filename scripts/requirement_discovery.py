@@ -716,7 +716,10 @@ def interpretation(
             requirement_rows = special["requirements"]
         else:
             requirement_rows = []
-            for index, statement in enumerate(statements(requirement_goal), start=1):
+            all_statements = statements(requirement_goal)
+            
+            # Build initial requirement rows from statements
+            for index, statement in enumerate(all_statements, start=1):
                 kind, kind_confidence = _kind_with_confidence(statement)
                 requirement_rows.append({
                     "display_id": f"REQ-{index:02d}",
@@ -729,6 +732,19 @@ def interpretation(
                     "intent_class": inferred_intent_class(statement),
                     "confidence": "deterministic",
                 })
+            
+            # Extract criteria clauses and attach to main requirement
+            main_rows, acceptance_criteria_list, preserve_rules_list = _extract_criteria_from_statements(requirement_rows)
+            
+            # Only use extracted logic if we actually found criterion clauses
+            if acceptance_criteria_list or preserve_rules_list:
+                # We extracted criteria, so use the filtered requirement rows
+                requirement_rows = main_rows
+                
+                # Attach extracted criteria to the first requirement
+                if requirement_rows:
+                    requirement_rows[0]["extracted_acceptance_criteria"] = acceptance_criteria_list
+                    requirement_rows[0]["extracted_preserve_rules"] = preserve_rules_list
         clauses = (special["clauses"] if special else [
             {"clause_id": f"C-{index:02d}", "role": "outcome", "text": row["statement"]}
             for index, row in enumerate(requirement_rows, start=1)
@@ -1261,7 +1277,89 @@ def _kind_clarification_question(statement: str) -> str:
     return f"Is '{short}' new work, a preserve constraint, or a rule?"
 
 
-def _tiers(statement: str) -> list[str]:
+def _is_criterion_clause(statement: str) -> bool:
+    """Detect if a statement is an acceptance/preservation criterion clause.
+    
+    Criterion clauses typically start with keywords like 'Positive:', 'Negative:',
+    'Acceptance:', 'Preservation:', 'Preserve:', 'Constraint:', etc.
+    """
+    normalized = statement.strip().lower()
+    criterion_prefixes = (
+        "positive:", "negative:", "acceptance:", "preservation:", "preserve:",
+        "constraint:", "must:", "must not:", "should:", "should not:",
+        "ensure:", "prevent:", "avoid:"
+    )
+    return any(normalized.startswith(prefix) for prefix in criterion_prefixes)
+
+
+def _extract_criteria_from_statements(requirement_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str], list[str]]:
+    """Extract acceptance criteria and preservation rules from requirement rows.
+    
+    Separates criterion clauses from the main requirement, returning:
+    - main_rows: requirement rows that are not criteria
+    - acceptance_criteria: criterion statements with positive/acceptance intent
+    - preserve_rules: criterion statements with preservation/constraint intent
+    """
+    main_rows: list[dict[str, Any]] = []
+    acceptance_criteria: list[str] = []
+    preserve_rules: list[str] = []
+    
+    for row in requirement_rows:
+        statement = str(row.get("statement", "")).strip()
+        if not _is_criterion_clause(statement):
+            main_rows.append(row)
+            continue
+        
+        # Extract criterion text (remove prefix)
+        criterion_text = statement
+        for prefix in ("positive:", "negative:", "acceptance:", "preservation:", "preserve:",
+                      "constraint:", "must:", "must not:", "should:", "should not:",
+                      "ensure:", "prevent:", "avoid:"):
+            if criterion_text.lower().startswith(prefix):
+                criterion_text = criterion_text[len(prefix):].strip()
+                break
+        
+        # Classify based on prefix - negative/constraint/preservation clauses are preserve rules
+        lower_statement = statement.lower()
+        if any(lower_statement.startswith(p) for p in (
+            "preserve:", "preservation:", "constraint:", "must not:", "should not:",
+            "negative:", "avoid:", "prevent:"
+        )):
+            preserve_rules.append(criterion_text)
+        else:
+            acceptance_criteria.append(criterion_text)
+    
+    # If no main rows found but we have criteria, treat first criterion as main
+    if not main_rows and (acceptance_criteria or preserve_rules):
+        # Reconstruct main requirement from combined criteria
+        combined = " ".join(acceptance_criteria + preserve_rules)
+        if combined:
+            main_rows.append({
+                "display_id": "REQ-01",
+                "statement": combined,
+                "kind": "change",
+                "kind_confidence": "low-from-criteria",
+                "source_clause_ids": ["C-01"],
+                "intent_terms": query_terms(combined),
+                "quoted_literals": [],
+                "intent_class": inferred_intent_class(combined),
+                "confidence": "deterministic",
+            })
+            acceptance_criteria = []
+            preserve_rules = []
+    
+    return main_rows, acceptance_criteria, preserve_rules
+
+
+def _tiers(statement: str, explicit_tiers: list[str] | None = None) -> list[str]:
+    """Infer validation tiers from statement, optionally respecting explicit tiers.
+    
+    If explicit_tiers is provided, use those instead of lexical inference.
+    This allows host-supplied tier specifications to override automatic detection.
+    """
+    if explicit_tiers and isinstance(explicit_tiers, list) and explicit_tiers:
+        return explicit_tiers
+    
     lowered = statement.lower()
     tiers: list[str] = []
     unit_is_excluded = bool(re.search(r"(?:instead of|rather than|without|not)\b.{0,50}\bunit", lowered))
@@ -1276,6 +1374,11 @@ def _tiers(statement: str) -> list[str]:
     repository_layer_requested = bool(re.search(r"\brepository\s+(?:layer|model|adapter|implementation|contract)\b", lowered))
     if integration_requested or repository_layer_requested: tiers.append("integration")
     if any(word in lowered for word in ("rollout", "deployment", "migration", "infrastructure", "terraform")): tiers.append("release")
+    # Exclude inferred tiers if criterion clause contains negation
+    if _is_criterion_clause(statement):
+        if re.search(r"(?:preserve|constraint|must not|should not|avoid)", lowered):
+            # Preservation rules inherit tiers from main requirement, not inferred from criterion text
+            return ["unit"]  # Conservative default for criteria
     return tiers or ["unit"]
 
 
@@ -1288,12 +1391,29 @@ def matrix(goal: str, paths: list[str], interpreted: dict[str, Any] | None = Non
     for frame in frames(goal, resolved):
         statement = str(frame["statement"])
         interpreted_row = interpreted_by_id.get(str(frame["display_id"]), {})
-        kind = str(interpreted_row.get("kind") or _kind(statement)); tiers = _tiers(statement)
+        kind = str(interpreted_row.get("kind") or _kind(statement))
+        explicit_tiers = interpreted_row.get("validation_contract", {}).get("tiers") if isinstance(interpreted_row.get("validation_contract"), dict) else None
+        tiers = _tiers(statement, explicit_tiers=explicit_tiers)
+        
+        # Build acceptance criteria and preserve rules, preferring extracted ones
+        acceptance_criteria = [
+            "The stated requirement is observably satisfied on its approved path."
+        ]
+        preserve_rules = [
+            statement
+        ] if kind == "preserve" else ["Do not change behavior outside this approved requirement boundary."]
+        
+        # Use extracted criteria if available
+        if interpreted_row.get("extracted_acceptance_criteria"):
+            acceptance_criteria.extend(interpreted_row["extracted_acceptance_criteria"])
+        if interpreted_row.get("extracted_preserve_rules"):
+            preserve_rules.extend(interpreted_row["extracted_preserve_rules"])
+        
         matrix_row = {
             "display_id": frame["display_id"], "requirement_id": frame["requirement_id"],
             "query_terms": frame["query_terms"], "kind": kind, "statement": statement,
-            "acceptance_criteria": ["The stated requirement is observably satisfied on its approved path."],
-            "preserve_rules": [statement] if kind == "preserve" else ["Do not change behavior outside this approved requirement boundary."],
+            "acceptance_criteria": acceptance_criteria,
+            "preserve_rules": preserve_rules,
             "likely_paths": deduplicated_paths,
             "evidence_plan": ["Record requirement-linked computational evidence for: " + ", ".join(tiers) + "."],
             "validation_contract": {"state": "conditional" if "release" in tiers else "required", "tiers": tiers},
@@ -1317,14 +1437,25 @@ def from_features(features: list[dict[str, Any]], paths: list[str]) -> list[dict
         statement = str(feature.get("statement", "")).strip()
         if not statement:
             continue
-        kind = _kind(statement); tiers = _tiers(statement)
+        kind = _kind(statement)
+        explicit_tiers = feature.get("validation_contract", {}).get("tiers") if isinstance(feature.get("validation_contract"), dict) else None
+        tiers = _tiers(statement, explicit_tiers=explicit_tiers)
+        
+        # Use feature-supplied acceptance criteria and preserve rules if available
+        acceptance_criteria = feature.get("acceptance_criteria", ["The stated requirement is observably satisfied on its approved path."])
+        if not acceptance_criteria or not isinstance(acceptance_criteria, list):
+            acceptance_criteria = ["The stated requirement is observably satisfied on its approved path."]
+        preserve_rules = feature.get("preserve_rules", [statement] if kind == "preserve" else ["Do not change behavior outside this approved requirement boundary."])
+        if not preserve_rules or not isinstance(preserve_rules, list):
+            preserve_rules = [statement] if kind == "preserve" else ["Do not change behavior outside this approved requirement boundary."]
+        
         rows.append({
             "display_id": str(feature.get("display_id") or f"REQ-{index:02d}"), "kind": kind,
             "requirement_id": str(feature.get("requirement_id") or stable_requirement_id(statement)),
             "query_terms": list(feature.get("query_terms") or query_terms(statement)),
             "statement": statement,
-            "acceptance_criteria": ["The stated requirement is observably satisfied on its approved path."],
-            "preserve_rules": [statement] if kind == "preserve" else ["Do not change behavior outside this approved requirement boundary."],
+            "acceptance_criteria": acceptance_criteria,
+            "preserve_rules": preserve_rules,
             "likely_paths": deduplicated_paths,
             "evidence_plan": ["Record requirement-linked computational evidence for: " + ", ".join(tiers) + "."],
             "validation_contract": {"state": "conditional" if "release" in tiers else "required", "tiers": tiers},

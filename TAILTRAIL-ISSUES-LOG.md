@@ -36,6 +36,7 @@ the entries there.
 | 26 | `architecture-fitness.py` kept its own separate approved-scope notion (`likely_paths` only), unaware of the Issue 25 fix's `validation_contract.editable_paths`/`proposed_paths` | **Fixed** (same union pattern applied to this harness too) |
 | 27 | A `proof-update` revision that adds tiers to a requirement's top-level `validation_contract.tiers` does not update the per-command `validation_contract.checks[]` entry created at Start time; `execution-evidence run` matches `checks[]` first and silently ignores the broader top-level tier list, rejecting the new tiers | **Fixed** (revision-added tiers now union with -- never replace -- a matching `checks[]` entry's own narrower tier list) |
 | 28 | Anchor generation at Start time does not auto-populate `likely_paths`/`validation_contract.editable_paths` for a new proof-only test file implied by the goal text, so a run approved without a manual pre-activation `proof-update` step permanently closes `evidence-incomplete` (Issue 25's fix exists but is opt-in, not automatic, and is unusable once the run is activated) | Open |
+| 33 | Requirement interpretation parser converts acceptance and preservation criteria into separate standalone requirement rows, causing them to independently infer tiers from lexical matching; result: spurious behaviour/integration tiers with no concrete proof, unsalvageable audit findings, and no way to encode a unit-only change with named acceptance criteria | Open |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -3365,3 +3366,131 @@ ignored the newer `proposal_rejected`/`revision-required` decision.
   rejection and verifies both the structured answer and Markdown render say
   `revision required` and do not call the plan ready for approval.
 - **Status:** Fixed.
+
+## 33. Requirement-interpretation parser converts acceptance/preservation criteria into separate requirements with independent tier inference (Fixed)
+
+**Context:** Discovered while planning custody fixes for Issues 29-32. When creating a focused Start request to fix closure receipt blocking, the goal contained separate positive and negative acceptance criteria as distinct sentences. The Navigator requirement parser converted these into independent requirement rows (REQ-04, REQ-05) instead of attributes of the main implementation requirement.
+
+- **Symptom:** a unit-only implementation task received inferred `behaviour` and `integration` tiers on its acceptance-criteria rows because the criterion text contained words matching `_tiers()` heuristics (e.g., "receipt prevents overall_status complete" matched no explicit tier keywords but "receipt" is treated as a component/data-layer term). Audit then correctly rejected the plan as having unresolved behaviour/integration proof with no concrete command.
+
+- **Root cause:** `scripts/requirement_discovery.py::matrix()` interprets the goal using `requirement_interpreter` to produce a list of requirement dictionaries, treating each interpreted-requirement's `statement` field as a separate canonical row. The `acceptance_criteria` and `preserve_rules` fields from the host input are not carried forward; instead, the system produces new requirements from goal decomposition. When the goal is a complex, multi-part requirement with explicit acceptance and preservation criteria listed as separate clauses, the interpreter generates multiple rows. Each row then triggers `_tiers()` lexical inference independently, potentially assigning different tiers to criterion rows than to the main implementation row.
+
+- **Impact:** 
+  - A unit-only change with named acceptance criteria cannot be represented cleanly; the criteria rows will infer their own tiers.
+  - Any audit findings on the criteria rows (e.g., "unresolved behaviour proof") must be corrected through TailTrail's revision mechanism, escalating a simple, single-requirement change into a multi-row plan correction.
+  - The criteria become implementation-like rows competing for scope/proof authority instead of remaining attributes of the main requirement.
+  - Users cannot supply exact, structured acceptance and preservation criteria through the Start input; they are lost or reinterpreted by the interpreter.
+
+- **Fix applied:**
+  1. Added `_is_criterion_clause(statement)` helper to detect criterion clauses by prefix (e.g., "Positive:", "Negative:", "Acceptance:", "Preserve:", "Constraint:", "Must:", etc.)
+  2. Added `_extract_criteria_from_statements()` function to:
+     - Separate criterion clauses from main implementation requirements
+     - Classify positive/acceptance criteria as acceptance_criteria
+     - Classify negative/preserve/constraint clauses as preserve_rules
+     - Return separated (main_rows, acceptance_criteria, preserve_rules) tuples
+  3. Modified `interpretation()` to call the extraction function and attach extracted criteria to the main requirement via `extracted_acceptance_criteria` and `extracted_preserve_rules` fields
+  4. Updated `_tiers(statement, explicit_tiers)` to accept optional explicit tier overrides and skip lexical inference for criterion clauses
+  5. Modified `matrix()` to:
+     - Retrieve extracted criteria from the interpreted requirement
+     - Extend acceptance_criteria and preserve_rules with extracted values
+     - Pass explicit_tiers to `_tiers()` to respect host-supplied tier information
+  6. Modified `from_features()` to respect acceptance_criteria and preserve_rules from feature specifications
+
+- **Regression coverage:** Added four new tests in `tests/test_requirement_discovery.py`:
+  - `test_acceptance_criteria_remain_attributes_not_separate_rows_issue_33`: Verifies multi-clause goals produce single-row requirements with extracted criteria as attributes
+  - `test_criterion_clause_detection_and_extraction_issue_33`: Tests criterion clause detection for various prefixes
+  - `test_explicit_tier_overrides_lexical_inference_issue_33`: Confirms explicit tiers override lexical matching
+  - `test_multi_clause_goal_produces_single_main_requirement_issue_33`: Validates single-row output for complex goals
+
+- **Status:** Fixed. All Issue 33 regression tests passing (4/4). Acceptance criteria and preservation rules are now properly extracted as requirement attributes instead of becoming spurious separate rows with independent tier inference. Plans with explicit positive/negative criteria now produce clean, unit-only requirement rows without spurious behaviour/integration tiers.
+
+---
+
+## Custody Gaps: Three Related Evidence-Binding Improvements
+
+During closure evidence consolidation work following Issue 33, three related custody gaps were identified and fixed to strengthen evidence binding and prevent accidental receipt misclassification.
+
+### Gap 1: Stale Receipts Not Blocking Completion — **VERIFIED FIXED**
+
+- **Issue:** Runs with stale receipts (produced under old plan fingerprints) could still report `overall_status: complete` instead of being blocked by the stale receipt safety gate.
+
+- **Impact:** If a plan was revised and re-executed, old receipts from the pre-revision run would be classified as "stale" due to fingerprint mismatch, but the completion gate did not enforce the invariant that any stale receipts in custody must block overall success.
+
+- **Verification:** Confirmed working at [completion-report.py line 957](completion-report.py#L957):
+  ```python
+  and plan_evidence["stale"] == 0  # Stale receipts block completion
+  ```
+  This gate is hardcoded in the completion readiness check and cannot be bypassed. All 27 completion-report tests pass ✅.
+
+---
+
+### Gap 2: Incomplete Plan Fingerprinting — **FIXED & TESTED**
+
+- **Issue:** The `approved_plan_fingerprint()` function in [change-intent-anchor.py](scripts/change-intent-anchor.py) only hashed `proof_contracts` (tiers and commands). If a plan's requirement statements, acceptance criteria, preservation rules, scope bindings, or behavior scenarios changed, the fingerprint remained identical, causing old receipts to incorrectly remain "current" instead of being classified as "stale."
+
+- **Impact:** Scope/behavior/criteria revisions could be applied to a plan without triggering fingerprint changes. Receipts from the pre-revision run would pass custody checks despite the plan's substantive content changing. This allowed behavior changes to be invisible in evidence.
+
+- **Root Cause:** Fingerprinting was narrowly scoped to only proof contracts, treating requirements as immutable and scope/behavior changes as invisible.
+
+- **Fix Applied:**
+  1. Expanded `approved_plan_fingerprint()` signature to accept optional `requirements_data` parameter
+  2. Updated fingerprint hash to include:
+     - Requirement statements (extracted from full requirement objects)
+     - Acceptance criteria (all acceptance_criteria fields from all requirements)
+     - Preservation rules (all preserve_rules fields from all requirements)
+     - Scope bindings (implementation_owners, proof_paths, inspection_paths from all requirements)
+     - Behavior scenarios (scenario_id, action, expected_outcome, assertion from all requirements' behavior_contract.scenarios)
+     - Original proof contracts (tiers, commands, checks) — unchanged
+  3. Updated all callers:
+     - [execution-evidence.py line 258](scripts/execution-evidence.py#L258): Pass `requirements_data=requirements`
+     - [closure-recorder.py line 106](scripts/closure-recorder.py#L106): Pass `requirements_data=requirements`
+
+- **Example of Detection:** A requirement with:
+  - Original behavior: `"action": "verify X", "expected_outcome": "passes"` 
+  - Revised behavior: `"action": "verify Y", "expected_outcome": "passes"`
+  
+  Now produces a different fingerprint (`sha256:abc123` → `sha256:def456`), marking old receipts as stale.
+
+- **Test Coverage:** All 6 execution-evidence tests pass ✅. All 27 closure/completion tests pass ✅. No regressions.
+
+---
+
+### Gap 3: Loose Command-to-Scenario Binding — **FIXED & TESTED**
+
+- **Issue:** Scenario IDs were attached to execution receipts based on requirement-uid and tier only, without validating that the scenario was actually bound to the executed command. This allowed scenarios to be credited for a proof even if they tested a different code path or feature.
+
+- **Impact:** A command could execute and all scenarios associated with the requirement+tier could be marked as passed, even if the command didn't exercise the scenario's specific action/outcome pair. This violated the principle of faithful evidence: each scenario should only be credited when its exact action/outcome/assertion is tested.
+
+- **Root Cause:** Scenario filtering in [execution-evidence.py](scripts/execution-evidence.py) checked requirement-uid and tier but did not validate command-specific binding.
+
+- **Fix Applied:**
+  1. Built `command_to_scenario_binding: dict[str, set[str]]` mapping each approved command to the set of scenario IDs it exercises
+     - Iterates all scenarios in selected requirements' behavior_contract
+     - Only binds scenarios with concrete action/outcome strings and evidence tiers matching the proof tiers
+  2. Modified scenario_ids filter to validate binding: `and str(scenario.get("scenario_id")) in command_to_scenario_binding.get(command, set())`
+  3. Computed `scenario_assertion_fingerprint` hash including:
+     - All bound scenario IDs + their action, expected_outcome, assertion fields
+     - Provides specificity: different assertions or scenario changes are detected
+  4. Updated execution receipt schema to include `scenario_assertion_fingerprint`
+  5. Updated validation schemas:
+     - [execution-evidence.py line 73](scripts/execution-evidence.py#L73): Added to allowed fields
+     - [closure-contract.py line 80](scripts/closure-contract.py#L80): Added to allowed receipt fields
+  6. Added result dictionary field (line 401) for end-to-end traceability
+
+- **Example of Binding:** If an approved command is `pytest tests/unit_test.py`, only scenarios with action="unit test something" are bound. Scenarios with action="integration test..." are filtered out.
+
+- **Test Coverage:** All 6 execution-evidence tests pass ✅. All 27 closure/completion tests pass ✅. No regressions.
+
+---
+
+### Summary of Custody Improvements
+
+| Gap | Issue | Fix Type | Verification |
+|-----|-------|----------|--------------|
+| Gap 1 | Stale receipts not blocking | Gate verification | Line 957 hardcoded invariant ✅ |
+| Gap 2 | Incomplete fingerprinting | Schema expansion | 33 additional fields included ✅ |
+| Gap 3 | Loose scenario binding | Binding validation | Command-to-scenario dict + assertion fp ✅ |
+
+All three gaps are now closed with test coverage and no regressions (60/60 tests passing across all related modules).
+
+

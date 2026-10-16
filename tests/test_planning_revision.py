@@ -90,6 +90,30 @@ class PlanningRevisionTests(unittest.TestCase):
         contract = anchor["requirements"][0]["validation_contract"]
         self.assertEqual(contract["editable_paths"], ["tests/test_owner.py"])
 
+    def test_behaviour_scenario_revision_adds_concrete_source_bound_scenario(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "scenario-revision")
+            change = json.dumps([{
+                "kind": "behaviour-scenario-add",
+                "requirement_uid": "REQ-01",
+                "reason": "Add the user-observable packet finalization scenario.",
+                "scenario": {
+                    "scenario_id": "BHV-REQ-01",
+                    "action": "Finalize accepted answers into an operational packet",
+                    "expected_outcome": "Every packet binding contains a source answer ID",
+                },
+            }])
+            proposed = revision.propose(root, "scenario-revision", change, True)
+            report = proposed["proposed_report"]
+            row = next(item for item in report["navigator"]["requirement_matrix"] if item["display_id"] == "REQ-01")
+
+        scenario = report["behaviour_plan"]["scenarios"][-1]
+        self.assertEqual(scenario["scenario_id"], "BHV-REQ-01")
+        self.assertEqual(scenario["requirement_ids"], ["REQ-01"])
+        self.assertTrue(row["behavior_contract"]["scenarios"])
+        self.assertIn("behaviour", row["validation_contract"]["tiers"])
+
     def test_proof_path_add_rejects_implementation_owner_role_paths(self) -> None:
         """Symmetric guard: validation_contract.editable_paths/proposed_paths
         grant proof-assertion editability only, never implementation scope —
