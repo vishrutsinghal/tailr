@@ -347,6 +347,26 @@ class PlanningAuditTests(unittest.TestCase):
         self.assertEqual(result["status"], "gaps-found")
         self.assertTrue(any(f["type"] == "unresolved-tier-proof" for f in result["findings"]))
 
+    def test_multiple_required_commands_same_tier_are_preserved(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Wire the orchestrator.",
+            "acceptance_criteria": ["records through intake"],
+            "likely_paths": ["scripts/question-orchestrator.py"],
+            "validation_contract": {
+                "state": "required", "tiers": ["unit"],
+                "commands": ["python3 -m unittest tests.test_question_orchestrator", "python3 -m unittest tests.test_phase1a"],
+            },
+        }])
+        projection = lock.effective_plan_projection(report)
+        checks = projection["checks_by_requirement"]["REQ-01"]
+
+        self.assertEqual([check["command"] for check in checks], [
+            "python3 -m unittest tests.test_question_orchestrator",
+            "python3 -m unittest tests.test_phase1a",
+        ])
+        self.assertEqual(len(projection["focused_validation"]), 2)
+
     def test_proof_update_rebuilds_checks_and_focused(self) -> None:
         """Gap 2: a validated proof-update regenerates checks[], focused rows, and fingerprint atomically."""
         with tempfile.TemporaryDirectory() as temp:

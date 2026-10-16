@@ -100,6 +100,21 @@ class AttachFocusedValidationContractsTests(unittest.TestCase):
         self.assertIn("static", contract["tiers"])
         self.assertEqual(contract["commands"], ["python -m compileall scripts"])
 
+    def test_preserves_multiple_commands_for_one_tier(self):
+        requirement = {"display_id": "REQ-01", "validation_contract": {"state": "required", "tiers": ["unit"]}}
+        rows = [
+            {"tiers": ["unit"], "command": "python -m unittest tests.test_question_orchestrator", "candidate": "tests/test_question_orchestrator.py", "candidate_state": "existing"},
+            {"tiers": ["unit"], "command": "python -m unittest tests.test_phase1a", "candidate": "tests/test_phase1a.py", "candidate_state": "existing"},
+        ]
+        task_start.attach_focused_validation_contracts([requirement], rows)
+        contract = requirement["validation_contract"]
+        self.assertEqual(contract["tiers"], ["unit"])
+        self.assertEqual(contract["commands"], [
+            "python -m unittest tests.test_question_orchestrator",
+            "python -m unittest tests.test_phase1a",
+        ])
+        self.assertEqual(len(contract["checks"]), 2)
+
 
 class ReresolvedMatrixRestampTests(unittest.TestCase):
     def setUp(self):

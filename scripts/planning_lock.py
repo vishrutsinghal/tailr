@@ -1123,30 +1123,54 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
                 "tiers": list(tiers),
                 "candidate_paths": list(coalesced.get("candidate_paths", []) or proof_paths[:1]),
             })
-            for tier in tiers:
+        else:
+            used_commands: set[str] = set()
+            covered_tiers: set[str] = set()
+            for saved in saved_checks:
+                command = str(saved.get("command", "")).strip()
+                saved_tiers = [str(value) for value in (saved.get("tiers", []) or []) if str(value).strip()]
+                if not command or command not in commands or not set(saved_tiers).intersection(tiers):
+                    continue
+                normalized = {
+                    "kind": str(saved.get("kind", "proof")),
+                    "command": command,
+                    "tiers": [tier for tier in saved_tiers if tier in tiers],
+                    "candidate_paths": list(saved.get("candidate_paths", []) or proof_paths[:1]),
+                }
+                expected_checks.append(normalized)
+                used_commands.add(command)
+                covered_tiers.update(normalized["tiers"])
+
+            missing_tiers = [tier for tier in tiers if tier not in covered_tiers]
+            remaining_commands = [command for command in commands if command not in used_commands]
+            if not saved_checks:
+                missing_tiers = list(tiers)
+            for index, command in enumerate(remaining_commands):
+                tier = missing_tiers[index] if index < len(missing_tiers) else (tiers[-1] if tiers else "unit")
+                expected_checks.append({
+                    "kind": "proof",
+                    "command": command,
+                    "tiers": [tier],
+                    "candidate_paths": proof_paths[:1],
+                })
+
+        for check in expected_checks:
+            for tier in check.get("tiers", []) or []:
                 focused_validation.append({
                     "requirement_id": req_id,
                     "tier": tier,
                     "status": "resolved",
-                    "command": commands[0],
+                    "command": check["command"],
                 })
-        else:
-            for index, tier in enumerate(tiers):
-                command = commands[index] if index < len(commands) else None
-                status = "resolved" if command else "unresolved"
+        covered_tiers = {str(tier) for check in expected_checks for tier in check.get("tiers", []) or []}
+        for tier in tiers:
+            if tier not in covered_tiers:
                 focused_validation.append({
                     "requirement_id": req_id,
                     "tier": tier,
-                    "status": status,
-                    "command": command,
+                    "status": "unresolved",
+                    "command": None,
                 })
-                if command:
-                    expected_checks.append({
-                        "kind": "proof",
-                        "command": command,
-                        "tiers": [tier],
-                        "candidate_paths": proof_paths[:1],
-                    })
         checks_by_requirement[req_id] = expected_checks
         canonical_contracts.append({
             "display_id": req_id,
