@@ -22,6 +22,7 @@ def load(name: str, relative: str):
 
 lock = load("planning_lock_test", "scripts/planning_lock.py")
 ledger = load("planning_lock_ledger_test", "scripts/run-ledger.py")
+revision = load("planning_lock_revision_test", "scripts/planning-revision.py")
 
 
 class PlanningLockTests(unittest.TestCase):
@@ -887,6 +888,105 @@ class ApprovalScopeGuardTests(unittest.TestCase):
             ledger.atomic_json(lock.start_report_path(root, "plan-lean"), {"report": report})
             approved = lock.approve(root, "plan-lean", True)
             self.assertEqual(approved["status"], "approved")
+
+
+class AuditGateApprovalTests(unittest.TestCase):
+    def _converged_row(self):
+        return {
+            "requirement_uid": "req-1", "display_id": "REQ-01", "kind": "change",
+            "statement": "Do the thing.", "acceptance_criteria": ["Done."],
+            "preserve_rules": [], "likely_paths": ["src/work.py"],
+            "evidence_plan": ["Run unit proof."],
+            "scope_evidence": {"decision_fingerprint": "sha256:abc"},
+            "validation_contract": {
+                "state": "required", "tiers": ["unit"],
+                "commands": ["pytest tests/test_work.py"],
+                "checks": [{"kind": "proof", "command": "pytest tests/test_work.py",
+                            "tiers": ["unit"], "candidate_paths": ["tests/test_work.py"]}],
+                "candidate_paths": ["tests/test_work.py"],
+            },
+        }
+
+    def _converged_report(self):
+        row = self._converged_row()
+        report = {
+            "goal": "do the thing",
+            "aidlc_mode": {"mode": "lite"},
+            "guided_delivery": {"mode": "guided-delivery"},
+            "navigator": {"requirement_matrix": [row]},
+            "focused_validation": [{
+                "tier": "unit", "tiers": ["unit"], "candidate": "tests/test_work.py",
+                "command": "pytest tests/test_work.py",
+                "status": "planned after approval", "candidate_state": "existing",
+            }],
+        }
+        projection = lock.effective_plan_projection(report)
+        report["effective_plan_fingerprint"] = projection["fingerprint"]
+        return report
+
+    def _create_scoped(self, root: Path, run_id: str):
+        return lock.create(root, "do the thing", run_id, scope_decision={
+            "decision_fingerprint": "sha256:abc",
+            "target_identity_fingerprint": "sha256:def",
+        })
+
+    def test_gappy_converged_plan_approval_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._create_scoped(root, "plan-gappy")
+            report = self._converged_report()
+            report["effective_plan_fingerprint"] = "sha256:tampered"
+            ledger.atomic_json(lock.start_report_path(root, "plan-gappy"), {"report": report})
+            with self.assertRaisesRegex(ValueError, "audit reports gaps-found"):
+                lock.approve(root, "plan-gappy", True)
+            self.assertEqual(lock.show(root, "plan-gappy")["status"], "awaiting-approval")
+
+    def test_clean_converged_plan_approves_with_audit_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._create_scoped(root, "plan-clean")
+            ledger.atomic_json(lock.start_report_path(root, "plan-clean"),
+                               {"report": self._converged_report()})
+            approved = lock.approve(root, "plan-clean", True)
+            self.assertEqual(approved["status"], "approved")
+            self.assertEqual(approved["approval"]["audit"]["status"], "clean")
+            self.assertTrue(approved["approval"]["audit"]["report_fingerprint"].startswith("sha256:"))
+
+    def test_thin_legacy_plan_records_exemption(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._create_scoped(root, "plan-thin")
+            ledger.atomic_json(lock.start_report_path(root, "plan-thin"), {"report": {
+                "goal": "do the thing",
+                "aidlc_mode": {"mode": "lite"},
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"requirement_matrix": [{
+                    "requirement_uid": "req-1", "display_id": "REQ-01",
+                    "statement": "Do the thing.",
+                    "scope_evidence": {"decision_fingerprint": "sha256:abc"},
+                    "validation_contract": {"state": "required", "tiers": ["unit"]},
+                }]},
+            }})
+            approved = lock.approve(root, "plan-thin", True)
+            self.assertEqual(approved["status"], "approved")
+            self.assertEqual(approved["approval"]["audit"]["status"], "exempt")
+            self.assertEqual(approved["approval"]["audit"]["exemption"], "legacy-thin-plan")
+
+    def test_gappy_pending_revision_approval_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._create_scoped(root, "plan-pending-gappy")
+            ledger.atomic_json(lock.start_report_path(root, "plan-pending-gappy"),
+                               {"report": self._converged_report()})
+            revision.propose(root, "plan-pending-gappy", json.dumps([{
+                "kind": "proof-update", "requirement_uid": "req-1",
+                "reason": "add tier without command",
+                "evidence_plan": ["Run integration proof."],
+                "tiers": ["integration"],
+            }]), True)
+            with self.assertRaisesRegex(ValueError, "audit reports gaps-found"):
+                revision.approve(root, "plan-pending-gappy", 2, True)
+            self.assertEqual(lock.show(root, "plan-pending-gappy")["status"], "awaiting-approval")
 
 
 if __name__ == "__main__":

@@ -1038,6 +1038,7 @@ def approve(root: Path, run_id: str, revision: int, approved: bool) -> dict[str,
         raise ValueError("plan revision base no longer matches the active reviewed revision")
     if proposed["revised_report_fingerprint"] != fingerprint(proposed.get("proposed_report", {})):
         raise ValueError("plan revision artifact fingerprint does not match its proposed report")
+    audit_receipt = LOCK.require_clean_audit(root, run_id, proposed.get("proposed_report", {}))
     snapshot = {"schema_version": "1", "type": "tailtrail-start-report", "run_id": run_id, "revision": revision, "goal": proposed["proposed_report"].get("goal", ""), "report": proposed["proposed_report"]}
     report_path = revision_report_path(root, run_id, revision)
     old_state = copy.deepcopy(state)
@@ -1053,8 +1054,9 @@ def approve(root: Path, run_id: str, revision: int, approved: bool) -> dict[str,
     LEDGER.append_event(root, run_id, "planning_revision_approved", {
         "revision": revision, "artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(),
         "anchor": (activated.get("anchor") or {}).get("artifact"),
+        "audit": audit_receipt,
     })
-    return {"run_id": run_id, "revision": revision, "state": "execution-ready", "revision_artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(), **activated}
+    return {"run_id": run_id, "revision": revision, "state": "execution-ready", "revision_artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(), "audit": audit_receipt, **activated}
 
 
 def approve_aidlc_standard(root: Path, run_id: str, revision: int, approved: bool) -> dict[str, Any]:

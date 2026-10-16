@@ -710,6 +710,67 @@ def _require_anchor_for_approval(root: Path, run_id: str) -> None:
     )
 
 
+def _audit_module() -> Any:
+    return load_module("planning_lock_planning_audit", "planning-audit.py")
+
+
+def _audit_gate_exemption(report: dict[str, Any]) -> str | None:
+    """Return an exemption reason when the audit gate does not apply, else None.
+
+    Exemptions are mode-aware and recorded, never silent: debug orientation,
+    lean plans, and legacy thin plans that predate converged proof
+    projections. The gate binds exactly the projections it verifies, so it
+    applies only when the plan carries maintained convergence state --
+    focused-validation rows, per-command checks, or a plan fingerprint.
+    Bare tiers alone do not trigger it: Start-time tier inference predates
+    the convergence pipeline. Any plan carrying maintained projections
+    gets the full gate.
+    """
+    if not isinstance(report, dict) or not report:
+        return "missing-report"
+    if "debug_plan" in report:
+        return "debug-orientation"
+    delivery = report.get("guided_delivery", {})
+    if isinstance(delivery, dict) and delivery.get("mode") == "lean":
+        return "lean-plan"
+    navigator = report.get("navigator", {})
+    matrix = navigator.get("requirement_matrix", []) if isinstance(navigator, dict) else []
+    has_checks = any(
+        isinstance(row, dict) and isinstance(row.get("validation_contract"), dict)
+        and row.get("validation_contract", {}).get("checks")
+        for row in (matrix if isinstance(matrix, list) else [])
+    )
+    focused = report.get("focused_validation", [])
+    if (
+        not has_checks
+        and not (isinstance(focused, list) and focused)
+        and not report.get("effective_plan_fingerprint")
+    ):
+        return "legacy-thin-plan"
+    return None
+
+
+def require_clean_audit(root: Path, run_id: str, report: dict[str, Any]) -> dict[str, Any]:
+    """Fail closed unless a fresh audit clears the exact report being approved.
+
+    The audit runs in this call on the same in-memory bytes the approval
+    proceeds with, so a clean verdict is bound to this approval by
+    construction. Returns an audit receipt recorded on the approval.
+    """
+    exemption = _audit_gate_exemption(report)
+    if exemption is not None:
+        return {"status": "exempt", "exemption": exemption, "run_id": run_id}
+    audit = _audit_module().audit_report(root, run_id, report)
+    if audit.get("status") != "clean":
+        kinds = sorted({str(f.get("type", "?")) for f in audit.get("findings", []) if isinstance(f, dict)})
+        raise ValueError(
+            f"planning approval blocked for run `{run_id}`: audit reports gaps-found "
+            f"({', '.join(kinds)}); revise the plan with `tailtrail planning revise --root . "
+            f"--run-id {run_id} --changes '<json>' --approved-proposal`, then re-audit before approval"
+        )
+    return {"status": "clean", "run_id": run_id, "report_fingerprint": _canonical_fingerprint(report)}
+
+
 def approve(root: Path, run_id: str, approved: bool, rationale: str | None = None, record_decision: bool = True) -> dict[str, Any]:
     if approved is not True:
         raise ValueError(f"planning approval requires --approved; run `tailtrail planning approve --root . --run-id {run_id} --approved`")
@@ -721,14 +782,19 @@ def approve(root: Path, run_id: str, approved: bool, rationale: str | None = Non
         return payload
     if payload["status"] != "awaiting-approval":
         raise ValueError(f"planning lock is not approvable from status `{payload['status']}`; approve only while the run is awaiting-approval (check `tailtrail planning show --root . --run-id {run_id}`)")
+    try:
+        saved_report = active_start_report(root, run_id).get("report", {})
+    except (OSError, ValueError):
+        saved_report = {}
+    audit_receipt = require_clean_audit(root, run_id, saved_report)
     payload["status"] = "approved"
     payload["writes_allowed"] = True
-    payload["approval"] = {"kind": "explicit-command", "run_id": run_id}
+    payload["approval"] = {"kind": "explicit-command", "run_id": run_id, "audit": audit_receipt}
     payload.pop("artifact", None)
     lite_anchor = _ensure_lite_anchor(root, run_id)
     _require_anchor_for_approval(root, run_id)
     L.atomic_json(path, payload)
-    L.append_event(root, run_id, "planning_lock_approved", {"artifact": path.relative_to(L.state_dir(root, run_id)).as_posix(), "writes_allowed": True})
+    L.append_event(root, run_id, "planning_lock_approved", {"artifact": path.relative_to(L.state_dir(root, run_id)).as_posix(), "writes_allowed": True, "audit": audit_receipt})
     if record_decision:
         _record_decision(root, run_id, "approve", "approved", rationale=rationale,
                          prior_state="awaiting-approval", resulting_state="approved")
