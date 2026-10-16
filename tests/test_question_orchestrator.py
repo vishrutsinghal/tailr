@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -88,6 +90,52 @@ class QuestionOrchestratorTests(unittest.TestCase):
         result = orchestrator.evaluate_questions([conditional], self.context(), "local-lite")
 
         self.assertEqual(result["quality"]["status"], "passed")
+
+    def test_navigator_intake_issues_and_records_direct_answer(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            intake = orchestrator.NavigatorIntake(root)
+            from scripts.intake_pipeline import IntakePipeline
+
+            run = IntakePipeline(root).create_run("collect owner", "existing-code-change")
+            question = intake.issue_question(
+                run["run_id"],
+                "implementation-owner",
+                {"id": "Q1", "question": "Which path owns the behavior?"},
+            )
+            answer = intake.record_direct_answer(
+                run["run_id"],
+                "implementation-owner",
+                "scripts/question-orchestrator.py",
+                question_id=question["payload"]["question_id"],
+            )
+
+            events_path = root / ".tailtrail" / "intake" / run["run_id"] / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual([event["event_type"] for event in events], ["question-issued", "answer-recorded"])
+        self.assertEqual(answer["payload"]["source"], "direct-question")
+
+    def test_narration_answer_keeps_observation_and_answer_correlation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            intake = orchestrator.NavigatorIntake(root)
+            from scripts.intake_pipeline import IntakePipeline
+
+            run = IntakePipeline(root).create_run("collect owner", "existing-code-change")
+            answer = intake.record_narration_answer(
+                run["run_id"],
+                "implementation-owner",
+                "scripts/question-orchestrator.py",
+                "The orchestrator should own the question exchange.",
+            )
+
+            events_path = root / ".tailtrail" / "intake" / run["run_id"] / "events.jsonl"
+            events = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual([event["event_type"] for event in events], ["host-observation-recorded", "answer-recorded"])
+        self.assertEqual(answer["payload"]["source"], "narration-observation")
+        self.assertEqual(answer["payload"]["observation_id"], events[0]["payload"]["observation_id"])
 
 
 if __name__ == "__main__":

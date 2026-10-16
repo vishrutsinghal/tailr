@@ -10,10 +10,117 @@ both paths.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 from pathlib import Path
 from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_intake_pipeline() -> Any:
+    spec = importlib.util.spec_from_file_location("question_orchestrator_intake", ROOT / "scripts" / "intake_pipeline.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load the approved intake pipeline dependency")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.IntakePipeline
+
+
+class NavigatorIntake:
+    """Navigator-owned host exchange boundary backed by the intake pipeline."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+        self._pipeline = _load_intake_pipeline()(self.root)
+
+    def issue_question(
+        self,
+        run_id: str,
+        field_id: str,
+        question: dict[str, Any],
+        *,
+        packet_version: int | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        text = str(question.get("question", "")).strip()
+        if not text:
+            raise ValueError("question requires non-empty question text")
+        return self._pipeline.issue_question(
+            run_id,
+            field_id,
+            text,
+            packet_version=packet_version,
+            idempotency_key=idempotency_key,
+        )
+
+    def record_observation(
+        self,
+        run_id: str,
+        observation: dict[str, Any],
+        *,
+        question_id: str | None = None,
+        packet_version: int | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return self._pipeline.record_observation(
+            run_id,
+            observation,
+            question_id=question_id,
+            packet_version=packet_version,
+            idempotency_key=idempotency_key,
+        )
+
+    def record_direct_answer(
+        self,
+        run_id: str,
+        field_id: str,
+        value: Any,
+        *,
+        question_id: str,
+        packet_version: int | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return self._pipeline.record_answer(
+            run_id,
+            field_id,
+            value,
+            source="direct-question",
+            question_id=question_id,
+            packet_version=packet_version,
+            idempotency_key=idempotency_key,
+        )
+
+    def record_narration_answer(
+        self,
+        run_id: str,
+        field_id: str,
+        value: Any,
+        narration: str,
+        *,
+        question_id: str | None = None,
+        packet_version: int | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        observation = self.record_observation(
+            run_id,
+            {"narration": narration},
+            question_id=question_id,
+            packet_version=packet_version,
+            idempotency_key=f"{idempotency_key}:observation" if idempotency_key else None,
+        )
+        return self._pipeline.record_answer(
+            run_id,
+            field_id,
+            value,
+            source="narration-observation",
+            question_id=question_id,
+            observation_id=observation["payload"]["observation_id"],
+            packet_version=packet_version,
+            idempotency_key=idempotency_key,
+        )
 
 
 DECISION_CLASSES = {

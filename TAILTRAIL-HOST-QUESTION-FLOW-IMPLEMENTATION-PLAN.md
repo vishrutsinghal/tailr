@@ -1,10 +1,26 @@
 # TailTrail Host Question Flow Implementation Plan
 
-Status: draft for review
+Status: draft for review; implementation status is tracked below.
 
 This plan implements the design in
 `TAILTRAIL-HOST-QUESTION-FLOW-DESIGN.md`. It introduces a central intake
 pipeline while keeping Navigator as the only host-facing boundary.
+
+## Current implementation status (2026-10-16)
+
+| Phase | Status | Current boundary |
+| --- | --- | --- |
+| Phase 0 | complete | Contract, state, role, redaction, and compatibility baseline. |
+| Phase 1A | **remaining integration gap** | `intake_pipeline.py` exists, but `question-orchestrator.py` still needs real call-site wiring. |
+| Phase 2 | partial / not complete | Navigator host-boundary, acceptance, clarification, and due-diligence flow is not complete end to end. |
+| Phase 2.5 | partial | Task profile support exists with focused tests; it is not a substitute for Phase 2. |
+| Phase 1B | partial implementation | Replay, integrity, redacted projection, and lifecycle primitives exist; integrated validation depends on Phase 1A wiring. |
+| Phase 3 | not complete | Requirement and packet finalization remains planned; its current plan is blocked until concrete behaviour scenarios are supplied. |
+| Phases 4A-8 | not started or not fully validated | Remain future delivery work. |
+
+The delivery order remains Phase 1A, Phase 2, then Phase 1B. Some Phase 1B and
+Phase 2.5 primitives were implemented out of order for investigation and
+should not be interpreted as completion of their full phase exit criteria.
 
 ## Goals
 
@@ -181,6 +197,8 @@ against (Phase 6).
 
 ## Phase 1A: Minimal Intake and Event Correlation
 
+**Status: foundation present; real call-site integration remains.**
+
 ### Purpose
 
 Create the smallest source of IDs and event correlation needed to support
@@ -227,8 +245,12 @@ approval-recorded
 - Question, observation, and answer IDs are generated centrally.
 - Navigator can correlate narration and direct responses without creating
   independent host state.
+- `scripts/question-orchestrator.py` issues and records through the intake
+  pipeline at its production call site.
 
 ## Phase 2: Navigator Host Protocol
+
+**Status: partial; not an approved phase completion.**
 
 ### Purpose
 
@@ -316,7 +338,18 @@ narration must produce an explicit candidate mapping before evidence checking.
 - Runs have explicit paused, expired, abandoned, and resumed states.
 - Narration reduces unnecessary questions without bypassing acceptance checks.
 
+### Phase 2.5 status note
+
+Task profile support has been added for documentation-only,
+existing-code-change, new-feature, configuration/data, QA/validation-only,
+review/read-only, and integration work. The profile planner and focused tests
+are present, but the Phase 2 exit criteria above remain open until Navigator is
+the verified exclusive host-facing boundary for the complete flow.
+
 ## Phase 1B: Full Event Durability and Replay
+
+**Status: core primitives implemented; integrated phase completion remains
+blocked on Phase 1A call-site wiring.**
 
 ### Purpose
 
@@ -350,6 +383,9 @@ working.
 - Recovery preserves lineage without creating duplicate IDs.
 
 ## Phase 3: Requirement and Packet Finalization
+
+**Status: not complete. The current planning attempt requires concrete,
+requirement-specific Behaviour Harness scenarios before approval.**
 
 ### Purpose
 

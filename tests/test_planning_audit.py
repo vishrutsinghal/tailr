@@ -181,6 +181,37 @@ class PlanningAuditTests(unittest.TestCase):
         self.assertEqual(finding["role"], "implementation-owner")
         self.assertIn("scope-add", finding["suggested_fix"])
 
+    def test_inspection_only_named_dependency_is_known_but_not_editable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _plan(root, "audit-inspection-dependency", [{
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Wire scripts/question-orchestrator.py using scripts/intake_pipeline.py.",
+                "acceptance_criteria": ["the orchestrator records through the intake dependency"],
+                "likely_paths": ["scripts/question-orchestrator.py"],
+                "validation_contract": {
+                    "state": "required", "tiers": ["unit"],
+                    "commands": ["python3 -m unittest discover -s tests -p test_question_orchestrator.py -v"],
+                },
+            }])
+            report = lock.active_start_report(root, "audit-inspection-dependency")["report"]
+            report["navigator"]["scope_evidence"] = {
+                "implementation_owners": ["scripts/question-orchestrator.py"],
+                "inspection_paths": ["scripts/intake_pipeline.py"],
+                "proof_paths": ["tests/test_question_orchestrator.py"],
+            }
+            lock.start_report_path(root, "audit-inspection-dependency").write_text(json.dumps({
+                "schema_version": "1",
+                "type": "tailtrail-start-report",
+                "run_id": "audit-inspection-dependency",
+                "goal": report["goal"],
+                "report": report,
+            }), encoding="utf-8")
+            result = audit.audit(root, "audit-inspection-dependency")
+
+        findings = [item for item in result["findings"] if item.get("path") == "scripts/intake_pipeline.py"]
+        self.assertEqual(findings, [])
+
     def test_suggested_fix_falls_back_to_display_id_when_requirement_uid_unminted(self) -> None:
         """A fresh Start Report has no `requirement_uid` yet (anchor-owned,
         minted at revision/activation time); the suggested fix must still

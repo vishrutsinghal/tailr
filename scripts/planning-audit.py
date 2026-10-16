@@ -200,11 +200,12 @@ def _named_path_findings(
     text: str,
     *,
     has_scope_evidence: bool = True,
+    known_scope_paths: set[str] | None = None,
     pending: bool = False,
 ) -> list[dict[str, Any]]:
     display_id = str(row.get("display_id", "?"))
     uid = _requirement_identifier(row)
-    known = _known_scope_paths(row)
+    known = _known_scope_paths(row) | set(known_scope_paths or set())
     findings: list[dict[str, Any]] = []
     for token in _candidate_paths_in_text(text):
         if token in known:
@@ -570,12 +571,26 @@ def audit_report(
     projection = LOCK.effective_plan_projection(report)
     findings.extend(_convergence_findings(run_id, report, projection, pending=pending))
 
+    global_scope_paths: set[str] = set()
+    scope_evidence = navigator.get("scope_evidence", {}) if isinstance(navigator, dict) else {}
+    if isinstance(scope_evidence, dict):
+        for field in ("implementation_owners", "inspection_paths", "proof_paths"):
+            global_scope_paths.update(str(item) for item in scope_evidence.get(field, []) or [])
+        for requirement in scope_evidence.get("requirements", []) or []:
+            if isinstance(requirement, dict):
+                for field in ("implementation_owners", "inspection_paths", "proof_paths"):
+                    global_scope_paths.update(str(item) for item in requirement.get(field, []) or [])
+    declared_roles = navigator.get("host_declared_scope_roles", {}) if isinstance(navigator, dict) else {}
+    if isinstance(declared_roles, dict):
+        for field in ("implementation_owners", "inspection_paths", "proof_paths"):
+            global_scope_paths.update(str(item) for item in declared_roles.get(field, []) or [])
+
     for row in matrix if isinstance(matrix, list) else []:
         if not isinstance(row, dict):
             continue
         statement = str(row.get("statement", ""))
         text = " ".join([statement, goal, " ".join(row.get("acceptance_criteria", []) or [])])
-        findings.extend(_named_path_findings(root, run_id, row, text, has_scope_evidence=has_scope_evidence, pending=pending))
+        findings.extend(_named_path_findings(root, run_id, row, text, has_scope_evidence=has_scope_evidence, known_scope_paths=global_scope_paths, pending=pending))
         findings.extend(_tier_findings(run_id, row, statement, pending=pending))
     
     # Build review cycles summary from run history

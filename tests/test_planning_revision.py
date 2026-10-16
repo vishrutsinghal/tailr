@@ -114,6 +114,31 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertTrue(row["behavior_contract"]["scenarios"])
         self.assertIn("behaviour", row["validation_contract"]["tiers"])
 
+    def test_requirement_update_rebuilds_explicit_narrowed_proof_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "narrow-proof-revision")
+            change = json.dumps([{
+                "kind": "requirement-update",
+                "requirement_uid": "REQ-01",
+                "statement": "Wire the orchestrator through the intake dependency.",
+                "reason": "Narrow the change to internal wiring and focused unit proof.",
+                "validation_contract": {
+                    "state": "required",
+                    "tiers": ["unit"],
+                    "commands": ["python3 -m unittest discover -s tests -p test_question_orchestrator.py -v"],
+                    "candidate_paths": ["tests/test_question_orchestrator.py"],
+                },
+                "behavior_contract": {"scenarios": []},
+            }])
+            proposed = revision.propose(root, "narrow-proof-revision", change, True)
+            report = proposed["proposed_report"]
+            row = next(item for item in report["navigator"]["requirement_matrix"] if item["display_id"] == "REQ-01")
+
+        self.assertEqual(row["validation_contract"]["tiers"], ["unit"])
+        self.assertEqual(row["validation_contract"]["commands"], ["python3 -m unittest discover -s tests -p test_question_orchestrator.py -v"])
+        self.assertEqual(report["focused_validation"][0]["tier"], "unit")
+
     def test_proof_path_add_rejects_implementation_owner_role_paths(self) -> None:
         """Symmetric guard: validation_contract.editable_paths/proposed_paths
         grant proof-assertion editability only, never implementation scope —

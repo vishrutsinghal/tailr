@@ -572,6 +572,18 @@ def _finalize_v2_scope(root: Path, run_id: str, report: dict[str, Any], rows: li
     by_path = {str(item.get("path")): item for item in candidates}
     for row in rows:
         requirement = _ensure_v2_requirement(evidence, row)
+        if not requirement.get("inspection_paths"):
+            requirement["inspection_paths"] = sorted(
+                str(item.get("path"))
+                for item in candidates
+                if item.get("status") == "inspection-only" and item.get("path")
+            )
+        if not requirement.get("proof_paths"):
+            requirement["proof_paths"] = sorted(
+                str(item.get("path"))
+                for item in candidates
+                if item.get("status") == "proof-only" and item.get("path")
+            )
         requirement["statement_fingerprint"] = SCOPE.fingerprint(str(row.get("statement", "")))
         requirement["query_terms"] = REQUIREMENTS.query_terms(str(row.get("statement", "")))
         owners = sorted(set(str(value) for value in requirement.get("implementation_owners", []) if str(value)))
@@ -681,7 +693,22 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
             row["requirement_id"] = REQUIREMENTS.stable_requirement_id(row["statement"])
         if row.get("query_terms"):
             row["query_terms"] = REQUIREMENTS.query_terms(row["statement"])
+        rebuild_projections = False
+        if "validation_contract" in change:
+            contract = change.get("validation_contract")
+            if not isinstance(contract, dict):
+                raise ValueError("requirement-update validation_contract must be an object")
+            row["validation_contract"] = copy.deepcopy(contract)
+            rebuild_projections = True
+        if "behavior_contract" in change:
+            behavior_contract = change.get("behavior_contract")
+            if not isinstance(behavior_contract, dict):
+                raise ValueError("requirement-update behavior_contract must be an object")
+            row["behavior_contract"] = copy.deepcopy(behavior_contract)
+            rebuild_projections = True
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "statement": row["statement"]})
+        if rebuild_projections:
+            _rebuild_proof_projections(report, rows)
     elif kind == "behaviour-scenario-add":
         row = _requirement(rows, change.get("requirement_uid"))
         raw_scenario = change.get("scenario")

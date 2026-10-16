@@ -2051,6 +2051,9 @@ def apply_requirement_scope_evidence(
         str(row.get("authority_requirement_id")): row for row in mappings
     }
     quality = plan.get("scope_quality", {}) if isinstance(plan.get("scope_quality"), dict) else {}
+    declared_roles = plan.get("host_declared_scope_roles", {}) if isinstance(plan.get("host_declared_scope_roles"), dict) else {}
+    declared_inspection = [str(value) for value in declared_roles.get("inspection_paths", []) if str(value)]
+    declared_proof = [str(value) for value in declared_roles.get("proof_paths", []) if str(value)]
     for index, row in enumerate(matrix, start=1):
         if not isinstance(row, dict):
             continue
@@ -2059,8 +2062,12 @@ def apply_requirement_scope_evidence(
         if not isinstance(scope, dict):
             continue
         owners = [str(value) for value in scope.get("implementation_owners", []) if str(value)]
-        inspection = [str(value) for value in scope.get("inspection_paths", []) if str(value)]
-        proof = [str(value) for value in scope.get("proof_paths", []) if str(value)]
+        inspection = list(dict.fromkeys(
+            [str(value) for value in scope.get("inspection_paths", []) if str(value)] + declared_inspection
+        ))
+        proof = list(dict.fromkeys(
+            [str(value) for value in scope.get("proof_paths", []) if str(value)] + declared_proof
+        ))
         accepted = [str(value) for value in quality.get("accepted_paths", []) if str(value)]
         if quality.get("mode") == "supporting-assets-only":
             query_terms = {str(value).lower() for value in scope.get("query_terms", [])}
@@ -2672,6 +2679,23 @@ def build_report(
         declared_task_type=declared_task_type,
     )
     if host_contract is not None and isinstance(plan, dict):
+        role_paths = {"implementation_owners": [], "inspection_paths": [], "proof_paths": []}
+        for path_entry in host_contract.get("paths", []) if isinstance(host_contract.get("paths"), list) else []:
+            if not isinstance(path_entry, dict):
+                continue
+            path = str(path_entry.get("path", "")).strip()
+            role = str(path_entry.get("role", ""))
+            if not path:
+                continue
+            if role in {"existing-implementation-owner", "proposed-implementation-owner"}:
+                role_paths["implementation_owners"].append(path)
+            elif role == "inspection-input":
+                role_paths["inspection_paths"].append(path)
+            elif role in {"existing-proof-path", "proposed-proof-path"}:
+                role_paths["proof_paths"].append(path)
+        plan["host_declared_scope_roles"] = {
+            key: list(dict.fromkeys(value)) for key, value in role_paths.items()
+        }
         plan["host_input_contract"] = {
             "contract_id": host_contract.get("contract_id"),
             "fingerprint": host_contract.get("fingerprint"),
