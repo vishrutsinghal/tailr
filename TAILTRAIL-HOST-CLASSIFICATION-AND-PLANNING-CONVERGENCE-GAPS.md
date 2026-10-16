@@ -6,6 +6,8 @@ This document records observed TailTrail planning failures and proposes generic 
 
 The document was created outside a TailTrail Planning Lock under an explicit user override. TailTrail could not create a valid plan for this new documentation file because the `REQ-ID=new:path` scope-answer route rejected an exact, goal-bound path even after deterministic new-file due diligence returned `new-confirmed`. That failure is recorded as Gap 5.
 
+Implementation status (branch `tailtrail_v3`, user waived TailTrail ceremony for the fixes): Gaps 1–9 are implemented; the approval-audit gate below is implemented in the working tree and awaiting commit. See `## Implementation log` and the per-gap `Fix status` lines.
+
 Primary incident evidence:
 
 - Stopped run: `start-20261015145324-7ca58a`.
@@ -84,6 +86,8 @@ This is not one isolated parsing error. It is a convergence failure across host 
 
 ### Gap 1: lexical routing can override the host's semantic classification
 
+**Fix status: implemented** (`89085d9` Gap 1 routing precedence). `evaluation_only_requested()` takes the declared task type and a declared `implementation` always vetoes the eval-only route; no keyword list was extended. The declaration threads `task-start build_report()` → `navigator.decide()` before early-return selection, with `routing_evidence.authority_source` recording `declared-task-type` vs `keyword-fallback`.
+
 `evaluation_harness_plan()` selects the Evaluation Harness when trigger words such as `proof`, `evidence`, or `report` appear and no `--changed` path is present. `evaluation_only_requested()` tries to veto that selection with another keyword list of code-action terms.
 
 The approach is structurally fragile:
@@ -97,6 +101,8 @@ In the observed run, `Create the Phase 2A Navigator Host Protocol...` did not ma
 
 ### Gap 2: explicit task type is checked after the route that needs it
 
+**Fix status: implemented** (`89085d9` plus `4c678fc` Gap 2 fail-closed lock). The declaration now enters routing before special-route selection, and a declared implementation with no resulting scope evidence returns a typed `missing-canonical-scope-evidence` boundary (exit 2, no run) instead of skipping the gate.
+
 The public Start flow calls Navigator before passing the declared task type into routing. The later task-type gate runs only if `scope_evidence` is already a dictionary.
 
 This creates a circular dependency:
@@ -109,6 +115,8 @@ This creates a circular dependency:
 The host supplied the correct request type, but the product architecture prevented it from influencing the decision at the necessary point.
 
 ### Gap 3: missing scope evidence disables the safety gate instead of activating it
+
+**Fix status: implemented** (`f5b1a95` Gap 3 pre-lock invariant). Immediately before `planning_lock.create`, a mode-aware invariant blocks declared implementation requests with missing/blocking scope quality, no canonical requirements, an invalid decision fingerprint, or any unresolved requirement row — typed `missing-canonical-scope-evidence` (and siblings), exit 2, no run. Read-only, validation-only, undeclared, and debug routes never trigger it.
 
 The scope-quality gate currently applies only when `scope_evidence` exists. That is appropriate for genuinely read-only advisory routes, but unsafe for a declared implementation request.
 
@@ -125,6 +133,8 @@ The observed Planning Lock contained:
 Despite that state, it was persisted as `awaiting-approval`.
 
 ### Gap 4: the host-input contract exists as a schema but is not a public runtime boundary
+
+**Fix status: implemented** (`6d50035` Gap 4 intake; `21466bd` Gap 8 projection). `scripts/host_contract.py` parses one transport (inline/file/base64), validates shape, enums, path safety, and mode/authority consistency (`read-only`+owners and owner+proof same-path are `contradicted`; missing fields are `insufficient`), binds goal/target fingerprints, and returns `accepted` only. Accepted `implementation` maps into routing; the validated proof projection joins focused validation for single-requirement plans (multi-requirement stays recorded-only, no over-claim). MCP/adapter parity remains open.
 
 `schemas/host-input-contract.schema.json` already models the correct concepts:
 
@@ -149,6 +159,8 @@ Consequences:
 - raw goal text is overloaded as both user intent and a machine-readable transport.
 
 ### Gap 5: verified new files cannot reliably enter canonical scope
+
+**Fix status: implemented** (`b05b9ed` Gap 5 lane). `proposal_from_scope_answers()` strips `new:` before normalization/grounding, grounds the stripped path against the goal, runs full due diligence, asks the necessity question when same-directory owners share requirement vocabulary (`extend-or-justify`, fail closed), and emits validated `proposed_new_path` + `anchor_paths` + `convention_refs` rows. The confirmed root cause matched the hypothesis: the prefixed token was normalized and looked up instead of the stripped path.
 
 While creating this document, deterministic new-file due diligence for `TAILTRAIL-HOST-CLASSIFICATION-AND-PLANNING-CONVERGENCE-GAPS.md` returned:
 
@@ -179,6 +191,8 @@ Probable boundary failure: the `new:` answer is being checked against candidate 
 
 ### Gap 6: planning revision uses a stricter limit than canonical intake
 
+**Fix status: implemented** (`e37e830` Gap 6 contract). One shared `MAX_CANONICAL_REQUIREMENT_STATEMENT_CHARS = 1500` in `requirement_discovery.py`, consumed by intake, both schemas, and revision; `_safe_statement(saved=True/False)` gives field-specific errors naming saved data vs new input; reasons/paths/IDs keep their own smaller limits.
+
 Canonical requirement intake and its JSON schema allowed the observed 840-character requirement because their maximum was 1,000 characters. Planning revision later passed that saved statement through a generic helper capped at 500 characters.
 
 As a result:
@@ -192,6 +206,8 @@ The requested interim product limit is now 1,500 characters. The important corre
 
 ### Gap 7: audit suggestions are not executable as emitted
 
+**Fix status: implemented** (`0608bc5` Gap 7 renderer). Central `correction_command()` renders every executable suggestion with the complete payload, `--approved-proposal`, `--supersede-pending` only when pending, plus a shell-safe `--changes-base64` form; templates name `open_fields`; missing scope evidence yields `restart-required` with re-route guidance instead of a doomed `scope-add`. Tests parse every executable under a mirror of the real parser and apply one through real `propose()`.
+
 Planning audit suggested `planning revise` commands without `--approved-proposal`, while the revision command requires that marker before it records a host-reviewed proposal.
 
 The tests only verified that suggestion text contained terms such as `scope-add` or `proof-update`. They did not execute the rendered suggestion through the public CLI.
@@ -200,11 +216,15 @@ Audit guidance is part of the product contract. A suggested correction must eith
 
 ### Gap 8: proof information is transported as prose instead of a validated projection
 
+**Fix status: implemented** (`21466bd` Gap 8 projection). `apply_host_contract_proof()` consumes the validated envelope (never regexes): single-requirement plans get the command in focused validation (compiled into `checks[]`), proof-role paths in candidate linkage with verified `existing`/`proposed` states, criteria unioned, owner paths recorded-but-never-promoted. No prose extraction exists anywhere.
+
 The exact proof command appeared in the host's requirement text, but the requirement matrix derives only proof tiers from prose. This is safer than executing or authorizing arbitrary extracted shell text, but it leaves no supported structured Start input that carries the already-known command into `validation_contract`.
 
 The correct fix is not command extraction with a regular expression. A command becomes authoritative only after it is supplied through a validated, exact-request-bound proof artifact and checked against path roles, requirement identity, tiers, and repository conventions.
 
 ### Gap 9: focused tests did not cover the complete public workflow
+
+**Fix status: implemented** (`1f5874b` Gap 9 gate). `tests/test_public_route_gate.py` runs real subprocess CLIs in temp repos asserting artifacts and non-creation: declared-implementation skips eval, contradicted contracts create no run directory, accepted contracts route and record, and an audit→revise(`--approved-proposal`)→re-audit loop clears its finding. Each earlier gap added its own public-route tests (`decide()`, `evidence_document()`, propose→validate→record, intake→routing, 500/1000/1500/1501, real `propose()`).
 
 The pulled fix correctly passed focused tests for:
 
@@ -324,6 +344,8 @@ It is not permitted when accepted mode is `implementation`, even if the goal con
 Do not fix this by adding `create` or more synonyms to the current keyword list. That would be a case-specific patch.
 
 ### Fix 3: add an independent fail-closed Planning Lock invariant
+
+**Fix status: implemented, then extended to approval time.** `f5b1a95` enforces the pre-creation invariant (`implementation_lock_blockers()`); the follow-up approval-audit gate (working tree, uncommitted) enforces the same convergence at approval: `planning_lock.approve()` and `planning-revision approve()` run a fresh audit on the exact bytes being approved and refuse `gaps-found`, recording the receipt. Exemptions (debug, lean, legacy-thin, missing report) are explicit and recorded. Proof-disposition and per-slice owner cardinality remain open by design (see log).
 
 Immediately before `planning_lock.create`, enforce a mode-aware invariant.
 
@@ -633,17 +655,36 @@ These are investigation targets, not pre-approved implementation owners:
 
 Each implementation run must establish its own evidence-backed owner and proof roles before editing.
 
+## Implementation log
+
+Branch `tailtrail_v3` (TailTrail ceremony waived by the user for these fixes; every change red-proven and measured):
+
+| Commit | Gap | What landed |
+| --- | --- | --- |
+| `89085d9` | 1, 2 | Declared `implementation` vetoes the eval-only route before early-return selection; `routing_evidence.authority_source` |
+| `4c678fc` | 2 | `missing-canonical-scope-evidence` boundary: no scope on implementation means no run |
+| `f5b1a95` | 3 | `implementation_lock_blockers()`: quality, requirements, decision fingerprint, per-requirement scope |
+| `6d50035` | 4 | `scripts/host_contract.py`: parse/validate/bind (`accepted`/`insufficient`/`contradicted`), `--host-contract` transports, routing + recorded authority |
+| `21466bd` | 8 | `apply_host_contract_proof()`: validated command into focused validation/`checks[]`, single-requirement scope |
+| `b05b9ed` | 5 | `new:` stripped before grounding, due diligence, necessity question, `declared-new` proposed lane |
+| `e37e830` | 6 | Shared 1500-char ceiling, `_safe_statement(saved=True/False)`, schema bumps |
+| `0608bc5` | 7 | Central correction renderer with `--approved-proposal`, portable base64 form, kind labels |
+| `1f5874b` | 9 | `tests/test_public_route_gate.py`: subprocess Start/audit/revise loops with non-creation asserts |
+| uncommitted | 3 ext | Approval-audit gate: `require_clean_audit()` in `planning_lock.approve()` and `planning-revision approve()`; recorded `debug`/`lean`/`legacy-thin`/`missing-report` exemptions |
+
+Open by design: proof-disposition and per-slice owner cardinality at lock time; MCP/Codex/Copilot/Claude parity; replay/recovery and packaging qualification; multi-requirement contract proof projection (recorded-only, no over-claim).
+
 ## Definition of done
 
 The issue is complete only when all of the following are true:
 
-1. Host semantic classification is a validated proposal and keyword routing is fallback-only.
-2. Implementation cannot persist without accepted request mode, canonical scope, and proof disposition.
-3. The existing host-input-contract schema is exercised by the public runtime.
-4. New-file scope answers work through the documented evidence-first route.
-5. The 1,500-character canonical statement contract is consistent across schemas and code.
-6. Audit corrections are executable or explicitly non-executable.
-7. Revision accepts every statement that canonical intake accepts.
-8. Positive and negative public-route regressions pass for CLI, MCP, and all supported hosts.
-9. Completion evidence names exact commands, results, remaining risks, and any skipped qualification.
+1. [x] Host semantic classification is a validated proposal and keyword routing is fallback-only.
+2. [~] Implementation cannot persist without accepted request mode, canonical scope, and proof disposition. (Mode/scope/fingerprint gated at creation and approval; per-tier proof disposition and owner cardinality still advisory.)
+3. [~] The existing host-input-contract schema is exercised by the public runtime. (CLI done; MCP/adapters open.)
+4. [x] New-file scope answers work through the documented evidence-first route.
+5. [x] The 1,500-character canonical statement contract is consistent across schemas and code.
+6. [x] Audit corrections are executable or explicitly non-executable.
+7. [x] Revision accepts every statement that canonical intake accepts.
+8. [~] Positive and negative public-route regressions pass for CLI, MCP, and all supported hosts. (CLI done; MCP/hosts open.)
+9. [x] Completion evidence names exact commands, results, remaining risks, and any skipped qualification. (This log plus per-commit red/green reports.)
 
