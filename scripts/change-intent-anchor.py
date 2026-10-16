@@ -45,6 +45,51 @@ def uid(run_id: str, statement: str) -> str:
     return "req-" + hashlib.sha256(f"{run_id}:{statement.strip()}".encode()).hexdigest()[:12]
 
 
+def effective_plan_contracts(
+    requirements: dict[str, dict[str, Any]],
+    overlay: dict[str, dict[str, list[str]]],
+) -> dict[str, dict[str, Any]]:
+    """Merge approved-revision proof tiers/commands over frozen anchor contracts.
+
+    The anchor is immutable; Shape-A proof updates union tiers/commands at
+    execution time without rewriting per-command `checks[]` (Issue 27).
+    Returns per-requirement {tiers, commands, checks} with sorted values.
+    """
+    effective: dict[str, dict[str, Any]] = {}
+    for uid_key, row in requirements.items():
+        contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
+        contract = contract if isinstance(contract, dict) else {}
+        tiers = sorted({str(v).strip() for v in contract.get("tiers", []) if str(v).strip()})
+        commands = sorted({str(v).strip() for v in contract.get("commands", []) if str(v).strip()})
+        revision = overlay.get(str(uid_key), {})
+        tiers = sorted(set(tiers) | {str(v).strip() for v in revision.get("tiers", []) if str(v).strip()})
+        commands = sorted(set(commands) | {str(v).strip() for v in revision.get("commands", []) if str(v).strip()})
+        checks = sorted(
+            (
+                str(item.get("command", "")),
+                tuple(sorted(str(v).strip() for v in (item.get("tiers", []) or []) if str(v).strip())),
+            )
+            for item in (contract.get("checks", []) or [])
+            if isinstance(item, dict) and str(item.get("command", "")).strip()
+        )
+        effective[str(uid_key)] = {
+            "tiers": tiers,
+            "commands": commands,
+            "checks": [{"command": command, "tiers": list(tier_list)} for command, tier_list in checks],
+        }
+    return effective
+
+
+def approved_plan_fingerprint(effective: dict[str, dict[str, Any]]) -> str:
+    """Fingerprint one converged approved plan for execution/closure custody.
+
+    Approval authorizes exactly one converged plan: execution stamps it on
+    every receipt and closure refuses receipts stamped with any other
+    fingerprint. Union applies within one fingerprint, never across plans.
+    """
+    return fingerprint({uid_key: effective[uid_key] for uid_key in sorted(effective)})
+
+
 def normalize_likely_path_entry(item: Any) -> str | dict[str, str]:
     """Accept a plain path string (the original shape) or a {path, role} object.
 

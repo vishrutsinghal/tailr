@@ -79,6 +79,7 @@ def validate_receipt(receipt: Any, known_requirements: set[str], index: int, roo
         "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
         "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
         "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+        "plan_fingerprint",
     }
     unknown = set(receipt) - allowed
     if unknown:
@@ -160,6 +161,9 @@ def validate_receipt(receipt: Any, known_requirements: set[str], index: int, roo
         })
     else:
         normalized["evidence_quality"] = quality
+    fingerprint_value = receipt.get("plan_fingerprint")
+    if isinstance(fingerprint_value, str) and fingerprint_value.strip():
+        normalized["plan_fingerprint"] = fingerprint_value.strip()
     return normalized
 
 

@@ -23,6 +23,8 @@ def assess(root:Path,run_id:str,scenarios_path:Path,evidence_path:Path)->dict[st
  for scenario in scenarios:
   uid=str(scenario.get("requirement_uid",""));sid=str(scenario.get("scenario_id",""));required=scenario.get("evidence",[])
   if not sid or uid not in known:raise ValueError("each scenario needs an ID and approved requirement_uid")
+  if not str(scenario.get("action","")).strip() or not str(scenario.get("expected_outcome","")).strip():
+   generic_missing=[{"tier":None,"asserted_behavior":None,"note":"scenario is generic: a concrete action and expected outcome are required"}];results.append({"scenario_id":sid,"requirement_uid":uid,"state":"incomplete","preconditions":scenario.get("preconditions",[]),"action":scenario.get("action",""),"expected_outcome":scenario.get("expected_outcome",""),"preservation":scenario.get("preservation",[]),"provenance":scenario.get("provenance","template-hypothesis"),"missing_evidence":generic_missing});findings.append({"scenario_id":sid,"requirement_uid":uid,"category":"behaviour","classification":"needs-decision","message":"behaviour scenario is generic: it needs a concrete action and expected outcome bound to its requirement; an ID link alone is insufficient","missing_evidence":generic_missing});continue
   missing=[]
   for item in required:
    if not any(

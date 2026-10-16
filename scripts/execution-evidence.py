@@ -75,6 +75,7 @@ def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
         "artifact", "evidence_label", "classification", "collector", "evidence_quality",
         "exit_code", "started_at", "finished_at", "duration_ms", "stdout_artifact",
         "stderr_artifact", "stdout_sha256", "stderr_sha256", "revision_overlay_uids",
+        "plan_fingerprint",
     }
     unknown = set(event) - allowed
     if unknown: raise ValueError(f"execution evidence has unsupported fields: {', '.join(sorted(unknown))}; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
@@ -94,6 +95,7 @@ def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
             "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
             "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
             "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+            "plan_fingerprint",
         ) if key in event}, known, 0, root)
         normalized.update(receipt)
         if receipt.get("evidence_label") == "managed-command":
@@ -199,6 +201,7 @@ def run_command(
     overlay = _approved_revision_overlay(root, run_id)
     selected = []
     revision_overlaid: list[str] = []
+    amended: dict[str, dict[str, set[str]]] = {}
     for uid in sorted(set(requirement_uids)):
         row = requirements.get(uid)
         if row is None:
@@ -235,6 +238,9 @@ def run_command(
             append_proof_amendment(root, run_id, uid, command, tiers, amendment_reason)
             approved_commands.add(command)
             approved_tiers.update(tiers)
+            amended.setdefault(uid, {"commands": set(), "tiers": set()})
+            amended[uid]["commands"].add(command)
+            amended[uid]["tiers"].update(tiers)
         if command not in approved_commands:
             raise ValueError(f"command is not approved for requirement `{uid}`; revise the plan with `tailtrail planning revise --root . --run-id {run_id} --changes '<json>' --approved-proposal` before execution")
         if not set(tiers) or set(tiers) - approved_tiers:
@@ -242,6 +248,14 @@ def run_command(
         selected.append(row)
     if not selected:
         raise ValueError(f"managed execution requires at least one approved requirement; pass `--requirement <approved-uid>` from `tailtrail planning show --root . --run-id {run_id}`")
+    merged_overlay = {
+        uid_key: {
+            "commands": sorted(set(overlay.get(uid_key, {}).get("commands", [])) | amended.get(uid_key, {}).get("commands", set())),
+            "tiers": sorted(set(overlay.get(uid_key, {}).get("tiers", [])) | amended.get(uid_key, {}).get("tiers", set())),
+        }
+        for uid_key in set(overlay) | set(amended)
+    }
+    plan_fingerprint = ANCHOR.approved_plan_fingerprint(ANCHOR.effective_plan_contracts(requirements, merged_overlay))
     if not isinstance(timeout_seconds, int) or timeout_seconds < 1 or timeout_seconds > 3600:
         raise ValueError("timeout must be between 1 and 3600 seconds; pass `--timeout <1-3600>` to `tailtrail execution-evidence run --approved`")
 
@@ -309,6 +323,7 @@ def run_command(
         "command": command,
         "outcome": outcome,
         "revision_overlay_uids": sorted(revision_overlaid),
+        "plan_fingerprint": plan_fingerprint,
         "environment": f"{platform.system()} {platform.machine()} Python {platform.python_version()}",
         "asserted_behavior": asserted,
         "artifact": relative_result,
@@ -332,6 +347,7 @@ def run_command(
         "run_id": run_id, "command": command, "command_label": command_label,
         "requirement_uids": sorted(set(requirement_uids)), "tiers": list(dict.fromkeys(tiers)),
         "scenario_ids": scenario_ids, "outcome": outcome, "exit_code": exit_code,
+        "plan_fingerprint": plan_fingerprint,
         "started_at": started.isoformat(), "finished_at": finished.isoformat(),
         "duration_ms": duration_ms, "stdout_artifact": relative_stdout,
         "stderr_artifact": relative_stderr, "evidence_fingerprint": saved["fingerprint"],

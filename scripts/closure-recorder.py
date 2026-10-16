@@ -55,6 +55,7 @@ def receipt_rows(validated: dict[str, Any], record_id: str) -> list[dict[str, An
         **{key: receipt[key] for key in (
             "collector", "exit_code", "started_at", "finished_at", "duration_ms",
             "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+            "plan_fingerprint", "revision_overlay_uids",
         ) if key in receipt},
         "closure_record_id": record_id,
     } for receipt in validated["receipts"]]
@@ -70,6 +71,55 @@ def selected_harnesses(root: Path, run_id: str) -> list[str]:
         return []
     closure = payload.get("closure", {}) if isinstance(payload, dict) else {}
     return [str(item) for item in closure.get("selected_harnesses", []) if isinstance(item, str)]
+
+
+def current_plan_fingerprint(root: Path, run_id: str) -> str:
+    """Fingerprint the currently approved effective plan for custody checks.
+
+    Unions the frozen anchor with the active revision overlay and accepted
+    additive amendments -- the same effective contracts execution stamps on
+    receipts. A receipt stamped with any other fingerprint is stale.
+    """
+    _, anchor = ANCHOR.latest_approved(root, run_id)
+    requirements = {
+        str(row.get("requirement_uid")): row
+        for row in anchor.get("requirements", [])
+        if isinstance(row, dict) and row.get("requirement_uid")
+    }
+    overlay = EVIDENCE._approved_revision_overlay(root, run_id)
+    amendments, _ = approved_proof_amendments(root, run_id, requirements)
+    merged = {
+        uid_key: {
+            "commands": sorted(
+                set(overlay.get(uid_key, {}).get("commands", []))
+                | {str(row.get("command", "")) for row in amendments.get(uid_key, [])
+                   if str(row.get("command", "")).strip()}
+            ),
+            "tiers": sorted(
+                set(overlay.get(uid_key, {}).get("tiers", []))
+                | {str(value) for row in amendments.get(uid_key, []) for value in row.get("tiers", [])
+                   if str(value).strip()}
+            ),
+        }
+        for uid_key in set(requirements) | set(overlay) | set(amendments)
+    }
+    return ANCHOR.approved_plan_fingerprint(ANCHOR.effective_plan_contracts(requirements, merged))
+
+
+def partition_plan_receipts(
+    receipts: list[dict[str, Any]], current_fingerprint: str,
+) -> dict[str, list[dict[str, Any]]]:
+    """Split closure receipts by plan custody: current, legacy, or stale.
+
+    Legacy receipts predate fingerprint stamping and keep historical
+    behavior. Stale receipts (a different fingerprint) are excluded from
+    pass aggregation: the plan changed under them, so their tiers need
+    re-proof against the approved plan, not inheritance.
+    """
+    current = [r for r in receipts if isinstance(r, dict) and r.get("plan_fingerprint") == current_fingerprint]
+    legacy = [r for r in receipts if isinstance(r, dict) and not r.get("plan_fingerprint")]
+    stale = [r for r in receipts if isinstance(r, dict) and r.get("plan_fingerprint") and r.get("plan_fingerprint") != current_fingerprint]
+    return {"current": current, "legacy": legacy, "stale": stale}
 
 
 def artifact_pointer(root: Path, path: Path) -> str:
@@ -139,6 +189,7 @@ def collected_input(root: Path, run_id: str) -> dict[str, Any]:
         "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
         "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
         "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+        "plan_fingerprint", "revision_overlay_uids",
     )
     # Latest-wins and failure-dominance decided independently per exact tier;
     # tiers whose surviving decision still points at the same source event

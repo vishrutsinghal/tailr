@@ -88,6 +88,18 @@ def planning_lock_module() -> Any:
     return module
 
 
+def closure_recorder_module() -> Any:
+    spec = importlib.util.spec_from_file_location("completion_report_closure_recorder", ROOT / "scripts" / "closure-recorder.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+RECORDER = closure_recorder_module()
+
+
 L = ledger()
 STATE = canonical_state_module()
 RECEIPTS = learning_receipts_module()
@@ -704,6 +716,23 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     boundary_path = directory / "recovery" / "boundary.json"
     boundary = read(boundary_path) if boundary_path.is_file() else None
     receipts, receipt_refs = latest_closure_receipts(root, directory)
+    try:
+        current_plan = RECORDER.current_plan_fingerprint(root, run_id)
+    except (OSError, ValueError):
+        current_plan = None
+    plan_parts = RECORDER.partition_plan_receipts(receipts, current_plan or "") if current_plan else {
+        "current": [], "legacy": list(receipts), "stale": [],
+    }
+    stale_plan_receipts = plan_parts["stale"]
+    usable_receipts = plan_parts["current"] + plan_parts["legacy"]
+    plan_evidence = {
+        "current_fingerprint": current_plan,
+        "current": len(plan_parts["current"]),
+        "legacy": len(plan_parts["legacy"]),
+        "stale": len(stale_plan_receipts),
+        "stale_commands": sorted({str(item.get("command", "")) for item in stale_plan_receipts if str(item.get("command", ""))}),
+        "boundary": "Receipts stamped with a superseded plan fingerprint prove nothing about the approved plan; re-run them after re-approval. Fingerprint-less legacy receipts keep historical behavior.",
+    }
     failures = failure_summary(directory)
     debug_section_path = directory / "debug" / "completion" / "debug-closure-section-v1.json"
     debug_section = read(debug_section_path) if debug_section_path.is_file() else None
@@ -775,10 +804,10 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     )
     behavior_required = "Behaviour Harness" in selected_names or behavior is not None
     maintainability_required = "Maintainability Harness" in selected_names
-    tier_results = aggregate_tiers(receipts)
+    tier_results = aggregate_tiers(usable_receipts)
     passed_tiers = sorted(tier for tier, outcome in tier_results.items() if outcome == "pass")
-    failed_receipts = [item for item in receipts if item.get("evidence_quality") in {"trusted", "attested"} and item.get("outcome") != "pass"]
-    unverified_receipts = [item for item in receipts if item.get("evidence_quality") not in {"trusted", "attested"}]
+    failed_receipts = [item for item in usable_receipts if item.get("evidence_quality") in {"trusted", "attested"} and item.get("outcome") != "pass"]
+    unverified_receipts = [item for item in usable_receipts if item.get("evidence_quality") not in {"trusted", "attested"}]
     receipt_outcomes = set(tier_results.values())
     if gate and gate.get("complete"):
         test_status = "pass"
@@ -851,6 +880,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "unverified_receipts": unverified_receipts,
             "findings": (gate or {}).get("findings", []),
         },
+        "plan_evidence": plan_evidence,
         "drift": {
             "status": "none-unresolved" if checkpoint and not unresolved_drift else ("unresolved" if unresolved_drift else "not-assessed"),
             "findings": unresolved_drift,
@@ -929,6 +959,21 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     payload["overall_status"] = "complete" if ready else "evidence-incomplete"
     execution_blockers: list[dict[str, Any]] = []
     seen_blockers: set[tuple[str, str, str]] = set()
+    for item in stale_plan_receipts:
+        blocker = {
+            "outcome": "stale-plan",
+            "command_label": str(item.get("command_label", item.get("tier", "validation"))),
+            "asserted_behavior": "Receipt was stamped with a superseded plan fingerprint; re-run it after re-approval.",
+            "command": str(item.get("command", "")),
+            "exit_code": item.get("exit_code"),
+            "duration_ms": item.get("duration_ms"),
+            "evidence_quality": str(item.get("evidence_quality", "declared")),
+            "stdout_artifact": item.get("stdout_artifact"),
+            "stderr_artifact": item.get("stderr_artifact"),
+        }
+        identity = (blocker["outcome"], blocker["command_label"], blocker["command"])
+        if identity not in seen_blockers:
+            seen_blockers.add(identity); execution_blockers.append(blocker)
     for item in [*failed_receipts, *unverified_receipts]:
         blocker = {
             "outcome": str(item.get("outcome")) if item not in unverified_receipts else (f"reported-{item.get('outcome')} (unverified)" if item.get("outcome") != "pass" else "unverified"),
