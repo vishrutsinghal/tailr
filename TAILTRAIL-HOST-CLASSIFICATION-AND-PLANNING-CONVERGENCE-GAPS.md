@@ -688,3 +688,34 @@ The issue is complete only when all of the following are true:
 8. [~] Positive and negative public-route regressions pass for CLI, MCP, and all supported hosts. (CLI done; MCP/hosts open.)
 9. [x] Completion evidence names exact commands, results, remaining risks, and any skipped qualification. (This log plus per-commit red/green reports.)
 
+## Post-Gap review: execution and closure custody
+
+### The issue
+
+Approval learned to refuse gappy plans, but the two gates *after* approval still trusted the stamp blindly. Three concrete drifts were possible: approve v2 (clean) → amend proof → execute against the v1 command set with no record of which plan authorized it; revise to v3 → close using v2 receipts; and a generic journey scenario ID linked to a unit test that never touched the user flow, filed as behaviour proof. The chain of custody ended at approval.
+
+### What was fixed (`1ad5d7f`, `96c279e`)
+
+- **Approval gate.** `planning_lock.approve()` and `planning-revision approve()` run a fresh audit on the exact bytes being approved and refuse `gaps-found`, recording the receipt on the approval and ledger event. Exemptions (`debug`, `lean`, `legacy-thin`, `missing-report`) are explicit and recorded, never silent. The gate binds only plans carrying maintained convergence state (focused rows, `checks[]`, or plan fingerprint), so all 11 pre-existing approval tests pass unchanged.
+- **Execution stamping.** `execution-evidence run` computes `approved_plan_fingerprint()` (frozen anchor ∪ active revision overlay ∪ accepted amendments, per-requirement tiers/commands/`checks[]`) and stamps it on the stream event and the result receipt.
+- **Closure enforcement.** `closure-recorder` carries the stamp through both allowlists into normalized receipts; `completion-report` partitions receipts into current/legacy/stale, excludes stale from pass aggregation, lists them as `stale-plan` blockers, and publishes a `plan_evidence` section (current fingerprint, counts, boundary text).
+- **Scenario specificity.** `behavior-harness assess` marks scenarios without a concrete action *and* expected outcome `incomplete` with a generic-scenario finding. ID links alone never validate.
+
+### Trade-offs (read before complaining)
+
+1. **Any plan edit re-runs proof, even untouched tiers.** The fingerprint names one converged plan; a changed plan is a different plan. Statement-only edits (typo fixes) also re-fingerprint.
+2. **Blast radius is plan-wide, not per-requirement.** One edited requirement stales every receipt. Per-requirement fingerprints would fix this at the cost of join complexity at closure.
+3. **Amendments are the pressure valve.** `--amend-proof` authorizes on the spot and merges into the stamp — convenient, auditable in the ledger, abusable under deadline.
+4. **Legacy unstamped receipts are grandfathered.** They keep historical behavior and are counted separately; mixed old/new runs have weaker guarantees. No backfill scheduled.
+5. **Flakes become blockers.** A timing-sensitive pass that later fails now also blocks closure until re-run.
+6. **Fingerprints are unreadable by design.** Debugging means re-deriving hashes; the `stale-plan` blocker names the command to re-run to compensate.
+
+### How to check everything
+
+- Fingerprint determinism/sensitivity: `python -m pytest tests/test_plan_custody.py -v` (5 tests: helper hash, run stamping, overlay drift, partition, stamp==current).
+- Specificity: `python -m pytest tests/test_behavior_harness.py -v` (6 tests; the 3 pre-existing ID-only fixtures were given concrete action/outcome, 1 new generic test).
+- No regressions: `tests/test_execution_evidence.py`, `test_closure_recorder.py`, `test_closure_contract.py`, `test_closure_finalizer.py`, `test_revision_proof_overlay.py`, `test_planning_audit.py`, `test_planning_lock.py`, `test_change_intent_anchor.py`, `test_completion_report.py` (130 green at push time).
+- Red proof: stash the 8 implementation files → custody tests fail with `no attribute`/collection errors; behavior tests fail the 2 updated fixtures; unstash → green.
+- Live chain: approve a converged run → `execution-evidence run --approved` → check `plan_fingerprint` on the receipt → `planning revise` adding a tier → old receipt appears under `plan_evidence.stale` with a `stale-plan` blocker after re-closure.
+- Boundary texts to grep: `plan_evidence.boundary`, `stale-plan`, `behaviour scenario is generic`, `audit reports gaps-found`.
+
