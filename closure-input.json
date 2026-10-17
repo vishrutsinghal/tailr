@@ -1,0 +1,23 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-execution-closure-input",
+  "run_id": "start-20261016080248-c12eec",
+  "changed_paths": [
+    "scripts/new_file_due_diligence.py"
+  ],
+  "receipts": [
+    {
+      "requirement_uids": [
+        "req-7d5676251d7c",
+        "req-8e2a6bc2cdf3",
+        "req-96493a92be99",
+        "req-cc2736533d29",
+        "req-333fa3c60d8a",
+        "req-6c61f5418b2b",
+        "req-1f7d3099cadb",
+        "req-75fcf620e904"
+      ],
+      "tiers": ["unit"]
+    }
+  ]
+}
