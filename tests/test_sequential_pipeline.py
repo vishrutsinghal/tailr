@@ -3,6 +3,8 @@ from pathlib import Path
 import shutil
 import json
 import os
+import subprocess
+import sys
 
 from scripts.pipeline_manager import PipelineManager, HandoffManifest
 from scripts.pipeline_judge import PipelineJudge
@@ -90,6 +92,30 @@ class TestSequentialPipeline(unittest.TestCase):
         lock = json.loads((self.lock_path).read_text())
         self.assertIn("IMPLEMENTATION", lock["pipeline"]["completed_stages"])
         self.assertEqual(lock["pipeline"]["active_stage"], "TESTING")
+
+    def test_public_handoff_records_destination_stage(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                (Path(__file__).resolve().parents[1] / "scripts" / "tailtrail.py").as_posix(),
+                "pipeline", "handoff",
+                "--root", self.root.as_posix(),
+                "--run-id", self.run_id,
+                "--from-stage", "IMPLEMENTATION",
+                "--context", "Verify saved destination stage.",
+                "--requirement-pointer", "REQ-01",
+            ],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+
+        lock = json.loads(self.lock_path.read_text())
+        manifest = lock["pipeline"]["handoff_history"][0]["manifest"]
+
+        self.assertIn("Transitioned to TESTING", result.stdout)
+        self.assertEqual("TESTING", lock["pipeline"]["active_stage"])
+        self.assertEqual("TESTING", manifest["to_stage"])
 
     def test_regression_circuit_breaker(self):
         """Test that the circuit breaker blocks too many regressions."""

@@ -107,7 +107,7 @@ class PipelineOrchestrator:
         try:
             manifest = HandoffManifest(
                 from_stage=from_stage,
-                to_stage=self.manager.get_current_stage(), # Simplified for now
+                to_stage=self._next_stage(from_stage),
                 change_manifest=manifest_data.get("change_manifest", []),
                 requirement_pointers=manifest_data.get("requirement_pointers", []),
                 context=manifest_data.get("context", ""),
@@ -128,6 +128,17 @@ class PipelineOrchestrator:
             return f"Slicing successful. Transitioned to {next_stage}. New badge active."
         
         return "Pipeline complete. All stages verified."
+
+    def _next_stage(self, from_stage: str) -> str:
+        """Return the destination that PipelineManager will persist for a handoff."""
+        sequence = self.manager.get_current_stage()
+        lock = pl.show(self.root, self.run_id)
+        stages = lock.get("pipeline", {}).get("stage_sequence", [])
+        if from_stage in stages:
+            index = stages.index(from_stage)
+            if index + 1 < len(stages):
+                return stages[index + 1]
+        return sequence
 
     def handle_regression(
         self,

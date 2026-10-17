@@ -172,6 +172,43 @@ class CompletionReportTests(unittest.TestCase):
         self.assertEqual(result["tests"]["status"], "not-evidenced")
         self.assertEqual(result["overall_status"], "evidence-incomplete")
 
+    def test_passing_managed_proof_names_missing_closure_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root)
+            run = ledger.state_dir(root, "run")
+            approved = run / "anchors" / "approved-v1.json"
+            saved_anchor = json.loads(approved.read_text(encoding="utf-8"))
+            command = "python3 -m unittest tests.test_target -v"
+            saved_anchor["requirements"][0]["validation_contract"] = {
+                "state": "required", "commands": [command], "tiers": ["unit"],
+            }
+            approved.write_text(json.dumps(saved_anchor), encoding="utf-8")
+            (run / "execution").mkdir(parents=True)
+            event = {
+                "kind": "command-result", "requirement_uids": [uid],
+                "changed_paths": ["src/validation.py"], "command": command,
+                "tiers": ["unit"], "outcome": "pass", "evidence_quality": "trusted",
+            }
+            (run / "execution" / "evidence-stream.jsonl").write_text(
+                json.dumps(event) + "\n", encoding="utf-8",
+            )
+
+            result = report.build(root, "run", record=False)
+            rendered = report.render(result)
+
+        self.assertEqual(result["overall_status"], "evidence-incomplete")
+        self.assertTrue(result["closure_guidance"]["managed_proof_passing"])
+        self.assertEqual(
+            ["source-edit receipt", "closure record"],
+            [item["artifact"] for item in result["closure_guidance"]["missing"]],
+        )
+        self.assertIn("Managed command evidence is already passing", rendered)
+        self.assertIn("Missing source-edit receipt", rendered)
+        self.assertIn("tailtrail execution-evidence record --root . --run-id run", rendered)
+        self.assertIn("tailtrail closure record --root . --run-id run", rendered)
+        self.assertNotIn("approved validation command(s) still need authoritative passing evidence", rendered)
+
     def test_unavailable_execution_is_blocked_not_reported_as_failed_tests(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); uid = self.setup_run(root)

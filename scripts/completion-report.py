@@ -306,6 +306,110 @@ def required_validation_checks(anchor: dict[str, Any]) -> list[dict[str, Any]]:
     return grouped
 
 
+def closure_recovery_guidance(
+    root: Path,
+    run_id: str,
+    directory: Path,
+    required_checks: list[dict[str, Any]],
+    current_plan: str | None,
+) -> dict[str, Any]:
+    """Explain closure-only gaps without misdirecting the user to rerun passing proof.
+
+    Completion reports normally consume receipts selected by a closure record.
+    Before that record exists, inspect the saved managed execution stream only
+    to decide whether the missing work is closure custody rather than proof.
+    This projection never treats raw events as completed closure evidence.
+    """
+    try:
+        events = RECORDER.EVIDENCE.show(root, run_id).get("events", [])
+        direct = RECORDER.collected_input(root, run_id).get("receipts", [])
+    except (OSError, ValueError, KeyError, TypeError):
+        return {"managed_proof_passing": False, "missing": []}
+    if not isinstance(events, list) or not isinstance(direct, list):
+        return {"managed_proof_passing": False, "missing": []}
+    if current_plan:
+        plan_parts = RECORDER.partition_plan_receipts(direct, current_plan)
+        direct = plan_parts["current"] + plan_parts["legacy"]
+
+    def has_passing_receipt(check: dict[str, Any]) -> bool:
+        command = str(check.get("command", ""))
+        required_tiers = {str(value) for value in check.get("tiers", []) if value}
+        matching = [
+            item for item in direct
+            if str(item.get("command", "")) == command
+            and item.get("evidence_quality") in {"trusted", "attested"}
+            and item.get("outcome") == "pass"
+        ]
+        passing_tiers = {tier for item in matching for tier in receipt_tiers(item)}
+        return bool(matching) and (not required_tiers or required_tiers.issubset(passing_tiers))
+
+    managed_proof_passing = bool(direct) and (
+        all(has_passing_receipt(check) for check in required_checks)
+        if required_checks else all(
+            item.get("evidence_quality") in {"trusted", "attested"}
+            and item.get("outcome") == "pass"
+            for item in direct
+        )
+    )
+    if not managed_proof_passing:
+        return {"managed_proof_passing": False, "missing": []}
+
+    source_edits = [item for item in events if item.get("kind") == "source-edit"]
+    direct_identities = {
+        (
+            str(item.get("command", "")),
+            tuple(sorted(str(uid) for uid in item.get("requirement_uids", []) if str(uid))),
+            tuple(sorted(receipt_tiers(item))),
+        )
+        for item in direct
+    }
+    proof_events = [
+        item for item in events
+        if item.get("kind") in {"command-result", "ci-receipt"}
+        and item.get("evidence_quality") in {"trusted", "attested"}
+        and item.get("outcome") == "pass"
+        and (
+            str(item.get("command", "")),
+            tuple(sorted(str(uid) for uid in item.get("requirement_uids", []) if str(uid))),
+            tuple(sorted(receipt_tiers(item))),
+        ) in direct_identities
+    ]
+    records = [
+        path for path in (directory / "closure-records").glob("closure-*.json")
+        if read(path).get("type") == "tailtrail-closure-record"
+    ]
+    missing: list[dict[str, str]] = []
+    if not source_edits:
+        requirement_uids = sorted({
+            str(uid) for item in proof_events for uid in item.get("requirement_uids", []) if str(uid)
+        })
+        changed_paths = sorted({
+            str(path) for item in proof_events for path in item.get("changed_paths", []) if str(path)
+        })
+        if requirement_uids and changed_paths:
+            event = json.dumps({
+                "kind": "source-edit",
+                "requirement_uids": requirement_uids,
+                "changed_paths": changed_paths,
+            }, separators=(",", ":"))
+            action = (
+                f"tailtrail execution-evidence record --root . --run-id {run_id} "
+                f"--event '{event}' --approved"
+            )
+        else:
+            action = (
+                "Record a `source-edit` execution-evidence event with the approved requirement UID "
+                "and changed path, then rerun this Completion Report."
+            )
+        missing.append({"artifact": "source-edit receipt", "action": action})
+    if not records:
+        missing.append({
+            "artifact": "closure record",
+            "action": f"tailtrail closure record --root . --run-id {run_id}",
+        })
+    return {"managed_proof_passing": True, "missing": missing}
+
+
 def aggregate_tiers(receipts: list[dict[str, Any]]) -> dict[str, str]:
     """Collapse current authoritative evidence with non-pass precedence."""
     tiers = sorted({tier for receipt in receipts for tier in receipt_tiers(receipt)})
@@ -804,6 +908,10 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     )
     behavior_required = "Behaviour Harness" in selected_names or behavior is not None
     maintainability_required = "Maintainability Harness" in selected_names
+    required_checks = required_validation_checks(anchor)
+    closure_guidance = closure_recovery_guidance(
+        root, run_id, directory, required_checks, current_plan,
+    )
     tier_results = aggregate_tiers(usable_receipts)
     passed_tiers = sorted(tier for tier, outcome in tier_results.items() if outcome == "pass")
     failed_receipts = [item for item in usable_receipts if item.get("evidence_quality") in {"trusted", "attested"} and item.get("outcome") != "pass"]
@@ -873,7 +981,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "status": test_status,
             "passed_tiers": passed_tiers,
             "tier_results": tier_results,
-            "required_checks": required_validation_checks(anchor),
+            "required_checks": required_checks,
             "receipts": receipts,
             "receipt_refs": receipt_refs,
             "failed_or_unavailable_receipts": failed_receipts,
@@ -881,6 +989,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "findings": (gate or {}).get("findings", []),
         },
         "plan_evidence": plan_evidence,
+        "closure_guidance": closure_guidance,
         "drift": {
             "status": "none-unresolved" if checkpoint and not unresolved_drift else ("unresolved" if unresolved_drift else "not-assessed"),
             "findings": unresolved_drift,
@@ -1168,7 +1277,15 @@ def render(payload: dict[str, Any]) -> str:
     if payload["overall_status"] == "complete":
         attention.append("No closure blocker remains; every required tier has authoritative passing evidence.")
     else:
-        if incomplete_checks:
+        closure_guidance = payload.get("closure_guidance", {})
+        closure_missing = closure_guidance.get("missing", []) if isinstance(closure_guidance, dict) else []
+        if closure_guidance.get("managed_proof_passing") and closure_missing:
+            attention.append("Managed command evidence is already passing; closure is blocked only by the following saved artifacts.")
+            for item in closure_missing:
+                attention.append(
+                    f"Missing {report_text(item.get('artifact'))}. Recover with: `{report_text(item.get('action'))}`."
+                )
+        elif incomplete_checks:
             attention.append(f"{len(incomplete_checks)} approved validation command(s) still need authoritative passing evidence.")
         elif not required_checks and tests.get("status") != "pass":
             attention.append("No runnable approved validation command is saved; resolve the proof command before claiming completion.")
@@ -1466,7 +1583,16 @@ def render(payload: dict[str, Any]) -> str:
         lines.append(f"- **Official AI-DLC:** {report_text(payload['official_aidlc'].get('evidence_status'))}")
     if payload["overall_status"] != "complete":
         lines.extend(["", "## Next actions", ""])
-        if incomplete_checks:
+        closure_guidance = payload.get("closure_guidance", {})
+        closure_missing = closure_guidance.get("missing", []) if isinstance(closure_guidance, dict) else []
+        if closure_guidance.get("managed_proof_passing") and closure_missing:
+            lines.append("1. Record the missing closure artifacts in this order:")
+            for index, item in enumerate(closure_missing, start=1):
+                lines.append(f"   {index}. `{report_text(item.get('action'))}`")
+            lines.append(f"2. Finalize the same run: `tailtrail closure finalize --root . --run-id {report_text(payload['run_id'])}`")
+            lines.append("3. Generate the Completion Report again.")
+            lines.append("- Completion remains unverified until the listed closure artifacts are recorded.")
+        elif incomplete_checks:
             lines.append("1. Run the approved required proof through TailTrail managed execution:")
             for check, state in incomplete_checks:
                 affected = ", ".join(requirement_ids.get(uid, uid) for uid in check.get("requirement_uids", [])) or "unlinked"
