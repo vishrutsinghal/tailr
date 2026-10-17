@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.intake_pipeline import IntakePipeline
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("tailtrail_question_orchestrator", ROOT / "scripts" / "question-orchestrator.py")
@@ -136,6 +138,59 @@ class QuestionOrchestratorTests(unittest.TestCase):
         self.assertEqual([event["event_type"] for event in events], ["host-observation-recorded", "answer-recorded"])
         self.assertEqual(answer["payload"]["source"], "narration-observation")
         self.assertEqual(answer["payload"]["observation_id"], events[0]["payload"]["observation_id"])
+
+    def test_host_protocol_profiles_questions_and_clarification_are_bounded(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            intake = orchestrator.NavigatorIntake(root)
+            protocol = orchestrator.NavigatorHostProtocol(intake)
+            documentation = protocol.profile_task("Update the guide", paths=["docs/guide.md"])
+            feature = protocol.profile_task("Create a new feature", change_intent="new-feature")
+            self.assertEqual(documentation["profile"], "documentation-only")
+            self.assertEqual(feature["profile"], "new-feature")
+            self.assertLess(
+                len(protocol.plan_questions(documentation["profile"])),
+                len(protocol.plan_questions(feature["profile"])),
+            )
+
+            run = IntakePipeline(root).create_run("collect feature context", "new-feature")
+            issued = protocol.issue_profile_questions(run["run_id"], feature["profile"])
+            self.assertEqual(len(issued), protocol.max_questions_per_round)
+            self.assertNotEqual(issued[0]["field_id"], issued[0]["question_id"])
+
+            candidate = protocol.record_direct_candidate(run["run_id"], issued[0]["question_id"], " src/new_feature.py ")
+            host_claim = protocol.evidence_check(candidate, {"outcome": "accepted", "verified_by": "host"})
+            self.assertEqual(host_claim["state"], "clarification-required")
+            self.assertFalse(host_claim["authority_granted"])
+
+            for _ in range(protocol.max_clarification_rounds):
+                route = protocol.clarification_route(run["run_id"], feature["profile"], {issued[0]["field_id"]})
+                self.assertEqual(route["state"], "awaiting-clarification")
+                self.assertLessEqual(len(route["questions"]), protocol.max_questions_per_round)
+            dead_end = protocol.clarification_route(run["run_id"], feature["profile"], {issued[0]["field_id"]})
+            self.assertEqual(dead_end["state"], "user-decision-required")
+
+    def test_host_protocol_narration_stays_candidate_until_navigator_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            intake = orchestrator.NavigatorIntake(root)
+            protocol = orchestrator.NavigatorHostProtocol(intake)
+            run = IntakePipeline(root).create_run("collect feature context", "new-feature")
+            result = protocol.ingest_narration(
+                run["run_id"],
+                "new-feature",
+                "The public route is the command handler.",
+                [{"field_id": "public-route", "value": " command handler "}],
+            )
+
+            candidate = result["candidates"][0]
+            self.assertEqual(candidate["state"], "mapped-to-profile-field")
+            self.assertIsNone(candidate["question_id"])
+            self.assertFalse(candidate["authority_granted"])
+            accepted = protocol.evidence_check(candidate, {"outcome": "accepted", "verified_by": "navigator"})
+            self.assertEqual(accepted["state"], "accepted")
+            self.assertFalse(accepted["authority_granted"])
+            self.assertFalse(accepted["finalization_allowed"])
 
 
 if __name__ == "__main__":

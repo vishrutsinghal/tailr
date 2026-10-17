@@ -23,6 +23,7 @@ def load(name: str, relative: str):
 lock = load("planning_audit_lock_test", "scripts/planning_lock.py")
 revision = load("planning_audit_revision_test", "scripts/planning-revision.py")
 audit = load("planning_audit_test", "scripts/planning-audit.py")
+task_start = load("planning_audit_task_start_test", "scripts/task-start.py")
 
 
 def _revise_parser():
@@ -129,6 +130,50 @@ def _plan(root: Path, run_id: str, requirements: list[dict[str, object]]) -> Non
 
 
 class PlanningAuditTests(unittest.TestCase):
+    def test_already_satisfied_behavior_blocks_implementation_plan(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Wire the orchestrator.",
+            "acceptance_criteria": ["records through intake"],
+            "likely_paths": ["scripts/question-orchestrator.py"],
+            "validation_contract": {"state": "required", "tiers": ["unit"], "commands": ["pytest"]},
+        }])
+        report["navigator"]["behavior_check"] = {"state": "already-satisfied", "owner_paths": ["scripts/question-orchestrator.py"], "proof_paths": ["tests/test_question_orchestrator.py"]}
+        result = audit.audit_report(Path("."), "already-satisfied", report)
+
+        finding = next(item for item in result["findings"] if item["type"] == "already-satisfied-implementation-plan")
+        self.assertEqual(finding["correction_kind"], "restart-required")
+
+    def test_unrecorded_behavior_preflight_does_not_claim_satisfaction(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            owner = root / "scripts" / "owner.py"
+            proof = root / "tests" / "test_owner.py"
+            owner.parent.mkdir(parents=True); proof.parent.mkdir(parents=True)
+            owner.write_text("def owner():\n    return True\n", encoding="utf-8")
+            proof.write_text("def test_owner():\n    pass\n", encoding="utf-8")
+            result = task_start.behavior_preflight(
+                root,
+                "Wire scripts/owner.py using scripts/dependency.py.",
+                ["scripts/owner.py"],
+                ["tests/test_owner.py"],
+            )
+
+        self.assertEqual(result["state"], "missing")
+
+    def test_host_proof_boundary_rejects_inferred_higher_tiers(self) -> None:
+        requirements = [{
+            "display_id": "REQ-01",
+            "validation_contract": {"tiers": ["unit", "behaviour", "integration"]},
+        }]
+        conflict = task_start.enforce_host_proof_boundary(
+            requirements,
+            {"behavior_surface": "internal", "allowed_tiers": ["unit"]},
+        )
+
+        self.assertEqual(conflict["state"], "inferred-tier-conflicts-host-proof-boundary")
+        self.assertEqual(conflict["conflicts"][0]["inferred_tiers"], ["behaviour", "integration"])
+        self.assertEqual(requirements[0]["validation_contract"]["tiers"], ["unit"])
     def test_clean_plan_reports_no_findings(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

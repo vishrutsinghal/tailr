@@ -123,6 +123,267 @@ class NavigatorIntake:
         )
 
 
+PROFILE_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
+    "documentation-only": (
+        ("document-path", "Which document is changing?"),
+        ("prose-only", "Are code and configuration changes excluded?"),
+    ),
+    "existing-code-change": (
+        ("expected-behavior", "What observable behavior should change?"),
+        ("existing-owner", "Which existing path participates in that behavior?"),
+        ("proof-command", "Which existing test and command prove the change?"),
+    ),
+    "new-feature": (
+        ("proposed-owner", "Which proposed implementation path owns the feature?"),
+        ("public-route", "Which entry point or caller will use the feature?"),
+        ("proof-command", "Which test path and command will prove the feature?"),
+    ),
+    "configuration-data": (
+        ("configuration-path", "Which configuration or data path changes?"),
+        ("behavior-surface", "Which behavior consumes the changed value?"),
+        ("proof-command", "Which command validates the changed configuration or data?"),
+    ),
+    "qa-validation-only": (
+        ("validation-target", "Which behavior or requirement is being validated?"),
+        ("proof-command", "Which command should run for the validation?"),
+    ),
+    "review-read-only": (
+        ("review-scope", "What should be inspected?"),
+        ("review-question", "What decision or conclusion is required?"),
+    ),
+}
+
+ACCEPTANCE_STATES = (
+    "received",
+    "normalized",
+    "mapped-to-profile-field",
+    "evidence-checked",
+    "accepted",
+    "contradicted",
+    "insufficient",
+    "clarification-required",
+    "user-decision-required",
+)
+
+
+class NavigatorHostProtocol:
+    """Phase 2's Navigator-owned host-question protocol core.
+
+    This class deliberately keeps the host exchange separate from Planning
+    Lock, scope, and proof authorization.  It can collect and evidence-check
+    *candidates*, but it never turns a host assertion into operational
+    authority.  Later phases own packet finalization and the authorization
+    projection.
+    """
+
+    max_clarification_rounds = 5
+    max_questions_per_round = 3
+
+    def __init__(self, intake: NavigatorIntake) -> None:
+        self.intake = intake
+        self._issued_fields: dict[str, str] = {}
+        self._clarification_rounds: dict[str, int] = {}
+
+    @staticmethod
+    def profile_task(
+        goal: str,
+        *,
+        task_type: str = "",
+        change_intent: str = "",
+        paths: list[str] | None = None,
+        request_mode: str = "implementation",
+    ) -> dict[str, str]:
+        """Choose one bounded profile from explicit facts before judgment."""
+        normalized_paths = [str(path).lower() for path in (paths or [])]
+        kinds = {Path(path).suffix for path in normalized_paths}
+        text = f"{goal} {task_type} {change_intent}".lower()
+        if request_mode == "read-only" or task_type.lower() == "review":
+            return {"profile": "review-read-only", "reason": "declared read-only or review task", "confidence": "declared"}
+        if normalized_paths and kinds <= {".md", ".rst", ".txt", ".adoc"}:
+            return {"profile": "documentation-only", "reason": "named paths are documentation", "confidence": "path-kind"}
+        if normalized_paths and kinds <= {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".csv"}:
+            return {"profile": "configuration-data", "reason": "named paths are configuration or data", "confidence": "path-kind"}
+        if task_type.lower() in {"qa", "validation"} or "validation-only" in text:
+            return {"profile": "qa-validation-only", "reason": "declared QA or validation task", "confidence": "declared"}
+        if change_intent.lower() in {"new", "new-feature", "new capability"} or any(word in text for word in ("create", "new feature", "add feature")):
+            return {"profile": "new-feature", "reason": "declared or explicit new-capability intent", "confidence": "declared"}
+        return {"profile": "existing-code-change", "reason": "default implementation change profile", "confidence": "judgment"}
+
+    @staticmethod
+    def profile_fields(profile: str) -> list[dict[str, str]]:
+        try:
+            fields = PROFILE_FIELDS[profile]
+        except KeyError as error:
+            raise ValueError(f"unsupported Navigator profile `{profile}`") from error
+        return [{"field_id": field_id, "question": question} for field_id, question in fields]
+
+    def plan_questions(
+        self,
+        profile: str,
+        *,
+        answered_fields: set[str] | None = None,
+    ) -> list[dict[str, str]]:
+        """Plan at most one small question batch without allocating IDs."""
+        answered = answered_fields or set()
+        return [
+            field for field in self.profile_fields(profile)
+            if field["field_id"] not in answered
+        ][:self.max_questions_per_round]
+
+    def issue_profile_questions(
+        self,
+        run_id: str,
+        profile: str,
+        *,
+        answered_fields: set[str] | None = None,
+        packet_version: int | None = None,
+    ) -> list[dict[str, str]]:
+        """Issue planned questions through Phase 1A and retain ID-to-field lineage."""
+        issued: list[dict[str, str]] = []
+        for field in self.plan_questions(profile, answered_fields=answered_fields):
+            event = self.intake.issue_question(
+                run_id,
+                field["field_id"],
+                {"question": field["question"]},
+                packet_version=packet_version,
+            )
+            question_id = str(event["payload"]["question_id"])
+            self._issued_fields[question_id] = field["field_id"]
+            issued.append({**field, "question_id": question_id})
+        return issued
+
+    @staticmethod
+    def _candidate(
+        field_id: str,
+        value: Any,
+        *,
+        source: str,
+        question_id: str | None,
+        observation_id: str | None,
+    ) -> dict[str, Any]:
+        if not field_id.strip():
+            raise ValueError("candidate answer requires a profile field")
+        normalized = " ".join(value.split()) if isinstance(value, str) else value
+        if normalized in (None, ""):
+            raise ValueError("candidate answer requires a value")
+        return {
+            "field_id": field_id,
+            "value": normalized,
+            "source": source,
+            "question_id": question_id,
+            "observation_id": observation_id,
+            "state": "mapped-to-profile-field",
+            "state_history": ["received", "normalized", "mapped-to-profile-field"],
+            "authority_granted": False,
+            "finalization_allowed": False,
+        }
+
+    def record_direct_candidate(
+        self,
+        run_id: str,
+        question_id: str,
+        value: Any,
+        *,
+        packet_version: int | None = None,
+    ) -> dict[str, Any]:
+        """Record a direct response as a candidate; caller status is ignored."""
+        field_id = self._issued_fields.get(question_id)
+        if field_id is None:
+            raise ValueError("direct response references an unknown Navigator question")
+        self.intake.record_direct_answer(
+            run_id, field_id, value, question_id=question_id, packet_version=packet_version
+        )
+        return self._candidate(field_id, value, source="direct-question", question_id=question_id, observation_id=None)
+
+    def ingest_narration(
+        self,
+        run_id: str,
+        profile: str,
+        narration: str,
+        candidates: list[dict[str, Any]],
+        *,
+        packet_version: int | None = None,
+    ) -> dict[str, Any]:
+        """Persist narration once as an observation batch, never as accepted answers."""
+        if not narration.strip():
+            raise ValueError("narration must be non-empty")
+        allowed = {row["field_id"] for row in self.profile_fields(profile)}
+        mapped: list[dict[str, Any]] = []
+        for row in candidates:
+            field_id = str(row.get("field_id", "")).strip()
+            if field_id not in allowed:
+                raise ValueError(f"candidate field `{field_id}` is not part of profile `{profile}`")
+            mapped.append({"field_id": field_id, "value": row.get("value")})
+        event = self.intake.record_observation(
+            run_id,
+            {"narration": narration, "candidate_fields": [row["field_id"] for row in mapped]},
+            packet_version=packet_version,
+        )
+        observation_id = str(event["payload"]["observation_id"])
+        return {
+            "observation": event["payload"],
+            "candidates": [
+                self._candidate(row["field_id"], row["value"], source="narration", question_id=None, observation_id=observation_id)
+                for row in mapped
+            ],
+        }
+
+    @staticmethod
+    def evidence_check(candidate: dict[str, Any], evidence: dict[str, Any]) -> dict[str, Any]:
+        """Advance a candidate only from Navigator-owned evidence, never host status."""
+        if candidate.get("state") != "mapped-to-profile-field":
+            raise ValueError("candidate must be mapped to a profile field before evidence checking")
+        outcome = str(evidence.get("outcome", "insufficient"))
+        verified_by = str(evidence.get("verified_by", ""))
+        if outcome not in {"accepted", "contradicted", "insufficient"}:
+            raise ValueError("evidence outcome must be accepted, contradicted, or insufficient")
+        if outcome == "accepted" and verified_by != "navigator":
+            outcome = "insufficient"
+        state = outcome if outcome != "insufficient" else "clarification-required"
+        return {
+            **candidate,
+            "state": state,
+            "state_history": [*candidate["state_history"], "evidence-checked", outcome, *( ["clarification-required"] if outcome == "insufficient" else [] )],
+            "evidence": dict(evidence),
+            "authority_granted": False,
+            "finalization_allowed": False,
+        }
+
+    def clarification_route(
+        self,
+        run_id: str,
+        profile: str,
+        unresolved_fields: set[str],
+    ) -> dict[str, Any]:
+        """Bound clarification and make a dead end an explicit user decision."""
+        round_number = self._clarification_rounds.get(run_id, 0) + 1
+        if round_number > self.max_clarification_rounds:
+            return {
+                "state": "user-decision-required",
+                "reason": "clarification-round-limit-reached",
+                "unresolved_fields": sorted(unresolved_fields),
+                "authority_granted": False,
+            }
+        self._clarification_rounds[run_id] = round_number
+        questions = [
+            row for row in self.plan_questions(profile)
+            if row["field_id"] in unresolved_fields
+        ]
+        if not questions:
+            return {
+                "state": "user-decision-required",
+                "reason": "no-bounded-question-can-resolve-the-gap",
+                "unresolved_fields": sorted(unresolved_fields),
+                "authority_granted": False,
+            }
+        return {
+            "state": "awaiting-clarification",
+            "round": round_number,
+            "questions": questions[:self.max_questions_per_round],
+            "authority_granted": False,
+        }
+
+
 DECISION_CLASSES = {
     "user-decision",
     "policy-decision",

@@ -2019,6 +2019,107 @@ def likely_used_files(plan: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(files))
 
 
+def behavior_preflight(root: Path, goal: str, owner_paths: list[str], proof_paths: list[str]) -> dict[str, Any]:
+    """Read-only call-site preflight to prevent plans for already-satisfied work."""
+    lowered_goal = goal.lower()
+    change_claim = any(token in lowered_goal for token in ("wire", "integrat", "complete", "remaining", "connect"))
+    named_paths = [
+        token.strip(".,;:()'\"")
+        for token in re.findall(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+", goal)
+    ]
+    dependencies = [path for path in named_paths if path not in owner_paths and path not in proof_paths]
+    owner_evidence: list[str] = []
+    proof_evidence: list[str] = []
+    owner_text = ""
+    for path in owner_paths:
+        target = root / path
+        if not target.is_file():
+            continue
+        try:
+            owner_text += "\n" + target.read_text(encoding="utf-8")
+            owner_evidence.append(path)
+        except OSError:
+            continue
+    for path in proof_paths:
+        target = root / path
+        if not target.is_file():
+            continue
+        try:
+            proof_text = target.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if any(token in proof_text for token in ("issue_question", "record_answer", "NavigatorIntake", "record_narration")):
+            proof_evidence.append(path)
+    dependency_matches = [
+        path for path in dependencies
+        if Path(path).stem.lower() in owner_text.lower()
+        or Path(path).stem.lower().replace("_", "") in owner_text.lower().replace("_", "")
+    ]
+    if change_claim and owner_evidence and dependency_matches and proof_evidence:
+        state = "already-satisfied"
+    elif owner_evidence and dependencies and not dependency_matches:
+        state = "missing"
+    else:
+        state = "ambiguous"
+    return {
+        "state": state,
+        "method": "bounded-static-call-site-and-proof-symbol-check",
+        "owner_paths": owner_evidence,
+        "dependency_paths": dependencies,
+        "dependency_matches": dependency_matches,
+        "proof_paths": proof_evidence,
+        "boundary": "Read-only local source and proof-path inspection; no project execution or authority granted.",
+    }
+
+
+def host_proof_boundary(validated: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(validated, dict):
+        return None
+    proof = validated.get("proof")
+    if not isinstance(proof, dict):
+        return None
+    tiers = [str(value).strip() for value in (proof.get("tiers", []) or []) if str(value).strip()]
+    return {
+        "behavior_surface": str(validated.get("behavior_surface", "")),
+        "allowed_tiers": tiers,
+        "source": "validated-host-contract",
+        "boundary": "Inferred higher-tier evidence is advisory only; host-approved proof tiers are the required cap.",
+    }
+
+
+def enforce_host_proof_boundary(
+    requirements: list[dict[str, Any]],
+    boundary: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(boundary, dict):
+        return None
+    allowed = set(str(value) for value in boundary.get("allowed_tiers", []) if str(value))
+    conflicts: list[dict[str, Any]] = []
+    for row in requirements:
+        contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
+        if not isinstance(contract, dict):
+            continue
+        inferred = [str(value) for value in contract.get("tiers", []) if str(value)]
+        rejected = [tier for tier in inferred if tier not in allowed]
+        if rejected:
+            conflicts.append({"requirement_id": row.get("display_id"), "inferred_tiers": rejected})
+        contract["tiers"] = [tier for tier in inferred if tier in allowed]
+        if isinstance(contract.get("checks"), list):
+            contract["checks"] = [
+                check for check in contract["checks"]
+                if isinstance(check, dict) and set(str(value) for value in check.get("tiers", []) if str(value)) & allowed
+            ]
+    if not conflicts:
+        return None
+    return {
+        "state": "inferred-tier-conflicts-host-proof-boundary",
+        "conflicts": conflicts,
+        "allowed_tiers": sorted(allowed),
+        "behavior_surface": boundary.get("behavior_surface"),
+        "boundary": boundary.get("boundary"),
+    }
+
+
 def apply_requirement_scope_evidence(
     plan: dict[str, Any],
     authority: dict[str, Any] | None = None,
@@ -3048,6 +3149,11 @@ def build_report(
             root, goal, plan.get("task_types", []), plan["scope_evidence"]
         )
     initial_paths = [str(item.get("path")) for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
+    proof_candidates = [
+        str(item.get("path")) for item in plan.get("likely_impacted_files", [])
+        if isinstance(item, dict) and str(item.get("path", "")).startswith("tests/")
+    ]
+    plan["behavior_check"] = behavior_preflight(root, goal, changed or initial_paths[:1], proof_candidates)
     plan.setdefault("requirement_interpretation", resolved_requirement_interpretation)
     if not plan.get("revision_requirement_matrix"):
         plan["requirement_matrix"] = requirement_discovery.matrix(
@@ -3067,6 +3173,14 @@ def build_report(
         canonical_requirements,
     )
     delivery = guided_delivery(plan, goal, changed, root, run_id)
+    proof_boundary = host_proof_boundary(host_contract)
+    if isinstance(proof_boundary, dict):
+        plan["host_proof_boundary"] = proof_boundary
+        if str(proof_boundary.get("behavior_surface")) == "internal" or "behaviour" not in set(proof_boundary.get("allowed_tiers", [])):
+            delivery["selected"] = [
+                item for item in delivery.get("selected", [])
+                if item.get("name") != "Behaviour Harness"
+            ]
     scope_authority: dict[str, Any] | None = None
     requirement_interpretation = plan.get("requirement_interpretation", {})
     official_requirement_source = (
@@ -3152,6 +3266,7 @@ def build_report(
         calibration=behaviour_planning.calibration_from_history(root),
     )
     behaviour_planning.apply_contracts(plan.get("requirement_matrix", []), behaviour_plan)
+    host_proof_conflict = enforce_host_proof_boundary(plan.get("requirement_matrix", []), proof_boundary)
     maintainability_selected = any(
         item.get("name") == "Maintainability Harness"
         for item in delivery.get("selected", [])
@@ -3172,6 +3287,8 @@ def build_report(
         canonical_requirements,
     )
     apply_requirement_scope_evidence(plan, scope_authority)
+    if host_proof_conflict is not None:
+        plan["host_proof_boundary_conflict"] = host_proof_conflict
     focused_validation = focused_validation_plan(
         root,
         [item for item in plan.get("likely_impacted_files", []) if isinstance(item, dict)],

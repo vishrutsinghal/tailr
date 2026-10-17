@@ -585,6 +585,32 @@ def audit_report(
         for field in ("implementation_owners", "inspection_paths", "proof_paths"):
             global_scope_paths.update(str(item) for item in declared_roles.get(field, []) or [])
 
+    behavior_check = navigator.get("behavior_check", {}) if isinstance(navigator, dict) else {}
+    if isinstance(behavior_check, dict) and behavior_check.get("state") == "already-satisfied":
+        findings.append({
+            "type": "already-satisfied-implementation-plan",
+            "correction_kind": "restart-required",
+            "open_fields": ["implementation decision"],
+            "detail": (
+                "The read-only behavior preflight found the requested behavior already present at the proposed owner "
+                "and linked proof path. Re-route as validation-only or provide evidence that the requested outcome differs."
+            ),
+            "behavior_check": behavior_check,
+        })
+
+    proof_boundary_conflict = navigator.get("host_proof_boundary_conflict") if isinstance(navigator, dict) else None
+    if isinstance(proof_boundary_conflict, dict):
+        findings.append({
+            "type": "inferred-tier-conflicts-host-proof-boundary",
+            "correction_kind": "restart-required",
+            "open_fields": ["host-approved proof boundary"],
+            "detail": (
+                "Inferred validation tiers exceed the host-approved proof boundary; "
+                "supply host-approved criteria and proof or narrow the plan before approval."
+            ),
+            "proof_boundary": proof_boundary_conflict,
+        })
+
     for row in matrix if isinstance(matrix, list) else []:
         if not isinstance(row, dict):
             continue
