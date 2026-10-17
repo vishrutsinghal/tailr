@@ -47,6 +47,88 @@ def latest(folder: Path, pattern: str) -> dict[str, Any] | None:
     files = sorted(folder.glob(pattern)); return read(files[-1]) if files else None
 
 
+def _relative(root: Path, path: Path) -> str:
+    return path.relative_to(root).as_posix()
+
+
+def _checklist_item(
+    item_id: str, label: str, complete: bool, evidence: list[str], missing: str | None, action: str | None,
+    requirement_ids: list[str],
+) -> dict[str, Any]:
+    """Build a read-only checklist row from facts, never a host assertion."""
+    return {
+        "item_id": item_id,
+        "label": label,
+        "status": "complete" if complete else "incomplete",
+        "requirement_ids": requirement_ids,
+        "evidence": evidence,
+        "missing": missing,
+        "next_action": action,
+        "authority": "projection-only; saved artifacts remain authoritative",
+    }
+
+
+def _checklist(root: Path, run_id: str, directory: Path, anchor: dict[str, Any], checkpoint: dict[str, Any] | None,
+               review: dict[str, Any] | None, gate: dict[str, Any] | None, completion: dict[str, Any] | None) -> dict[str, Any]:
+    """Project closure readiness from stored artifacts without changing any state."""
+    requirement_ids = [str(item.get("display_id")) for item in anchor.get("requirements", []) if item.get("display_id")]
+    anchor_path = directory / "anchors" / "approved-v1.json"
+    plan = directory / "planning" / "execution-handoff-v1.json"
+    closure_paths = sorted((directory / "closure-records").glob("closure-*.json"))
+    delivery_path = directory / "delivery-record.md"
+    proof_commands = sorted({
+        str(command) for requirement in anchor.get("requirements", [])
+        for command in (requirement.get("validation_contract") or {}).get("commands", [])
+        if isinstance(command, str) and command.strip()
+    })
+    scope_ready = all((requirement.get("scope_evidence") or {}).get("implementation_owners") for requirement in anchor.get("requirements", []))
+    planned_proof = bool(proof_commands)
+    validated = bool(checkpoint and review and gate and review.get("complete") and gate.get("complete"))
+    closure_recorded = bool(closure_paths)
+    completion_generated = completion is not None
+    prefix = f"python3 scripts/tailtrail.py"
+    items = [
+        _checklist_item(
+            "approved-plan", "Approved plan", anchor_path.is_file(), [_relative(root, anchor_path)] if anchor_path.is_file() else [],
+            None if anchor_path.is_file() else "approved anchor", None if anchor_path.is_file() else f"{prefix} planning activate --root . --run-id {run_id} --approved", requirement_ids,
+        ),
+        _checklist_item(
+            "resolved-scope", "Resolved implementation scope", scope_ready and plan.is_file(), [_relative(root, plan)] if plan.is_file() else [],
+            None if scope_ready and plan.is_file() else "approved scope owners or execution handoff", None if scope_ready and plan.is_file() else f"{prefix} planning audit --root . --run-id {run_id}", requirement_ids,
+        ),
+        _checklist_item(
+            "planned-proof", "Executable proof plan", planned_proof, proof_commands,
+            None if planned_proof else "approved runnable proof command", None if planned_proof else f"{prefix} planning revise --root . --run-id {run_id} --changes '<proof update>' --approved-proposal", requirement_ids,
+        ),
+        _checklist_item(
+            "validated-proof", "Recorded passing proof", validated,
+            [_relative(root, directory / "checkpoints")] if checkpoint else [],
+            None if validated else "complete checkpoint, completion review, and evidence gate", None if validated else (proof_commands[0] if proof_commands else f"{prefix} planning audit --root . --run-id {run_id}"), requirement_ids,
+        ),
+        _checklist_item(
+            "completion-report", "Completion report", completion_generated,
+            [_relative(root, directory / "completion-reports")] if completion_generated else [],
+            None if completion_generated else "completion report", None if completion_generated else f"{prefix} completion-report --root . --run-id {run_id}", requirement_ids,
+        ),
+        _checklist_item(
+            "closure-record", "Closure record", closure_recorded,
+            [_relative(root, path) for path in closure_paths[-1:]],
+            None if closure_recorded else "closure record", None if closure_recorded else f"{prefix} closure record --root . --run-id {run_id}", requirement_ids,
+        ),
+        _checklist_item(
+            "delivery-record", "Delivery record", delivery_path.is_file(), [_relative(root, delivery_path)] if delivery_path.is_file() else [],
+            None if delivery_path.is_file() else "delivery-record.md", None if delivery_path.is_file() else f"{prefix} closure finalize --root . --run-id {run_id}", requirement_ids,
+        ),
+    ]
+    return {
+        "type": "tailtrail-host-checklist",
+        "run_id": run_id,
+        "status": "complete" if all(item["status"] == "complete" for item in items) else "incomplete",
+        "items": items,
+        "boundary": "Derived only from saved local artifacts. Host assertions never complete an item.",
+    }
+
+
 def _base_dashboard(root: Path, run_id: str) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
     canonical_state = STATE.project(root, run_id)
@@ -88,7 +170,7 @@ def _base_dashboard(root: Path, run_id: str) -> dict[str, Any]:
         harness("Maintainability Harness", maintainability, basis="recorded refactor/maintainability assessment"),
         harness("Evidence-Aware Testing", gate, required=True, basis="completion gate and validation receipts"),
     ]
-    return {"schema_version": "1", "type": "tailtrail-workflow-dashboard", "run_id": run_id, "goal": anchor.get("goal", ""), "requirements": rows, "harnesses": harnesses, "official_perspectives": (official_design or {}).get("perspectives", []), "canonical_state": {"status": canonical_state["status"], "valid": canonical_state["valid"], "issues": canonical_state["issues"]}, "active_requirement": active, "checkpoint": (checkpoint or {}).get("checkpoint"), "completion_review": "pass" if (review or {}).get("complete") else ("fail" if review else "unavailable"), "evidence_gate": "pass" if (gate or {}).get("complete") else ("fail" if gate else "unavailable"), "drift": {"unresolved": unresolved, "status": "unresolved" if unresolved else ("none-unresolved" if checkpoint else "unavailable")}, "execution_failures": {"status": "none-recorded" if not failure_records else ("unresolved" if open_failures else "resolved"), "open": [{"failure_id": item.get("failure_id"), "requirement_uid": (item.get("requirement") or {}).get("requirement_uid"), "route": (item.get("correction_route") or {}).get("action")} for item in open_failures]}, "recovery": "available" if recovery else "not-configured", "completion": (completion or {}).get("overall_status", "not-generated"), "boundary": "Read-only summary of saved local run artifacts. It does not run checks, edit source, apply recovery, or create a completion claim."}
+    return {"schema_version": "1", "type": "tailtrail-workflow-dashboard", "run_id": run_id, "goal": anchor.get("goal", ""), "requirements": rows, "harnesses": harnesses, "official_perspectives": (official_design or {}).get("perspectives", []), "canonical_state": {"status": canonical_state["status"], "valid": canonical_state["valid"], "issues": canonical_state["issues"]}, "active_requirement": active, "checkpoint": (checkpoint or {}).get("checkpoint"), "completion_review": "pass" if (review or {}).get("complete") else ("fail" if review else "unavailable"), "evidence_gate": "pass" if (gate or {}).get("complete") else ("fail" if gate else "unavailable"), "drift": {"unresolved": unresolved, "status": "unresolved" if unresolved else ("none-unresolved" if checkpoint else "unavailable")}, "execution_failures": {"status": "none-recorded" if not failure_records else ("unresolved" if open_failures else "resolved"), "open": [{"failure_id": item.get("failure_id"), "requirement_uid": (item.get("requirement") or {}).get("requirement_uid"), "route": (item.get("correction_route") or {}).get("action")} for item in open_failures]}, "recovery": "available" if recovery else "not-configured", "completion": (completion or {}).get("overall_status", "not-generated"), "checklist": _checklist(root, run_id, directory, anchor, checkpoint, review, gate, completion), "boundary": "Read-only summary of saved local run artifacts. It does not run checks, edit source, apply recovery, or create a completion claim."}
 
 
 def dashboard(root: Path, run_id: str) -> dict[str, Any]:
@@ -114,7 +196,34 @@ def dashboard(root: Path, run_id: str) -> dict[str, Any]:
     return payload
 
 
+def parent_dashboard(root: Path, run_ids: list[str]) -> dict[str, Any]:
+    """Aggregate only explicitly named child runs; never discover runs implicitly."""
+    unique_ids = list(dict.fromkeys(run_ids))
+    if len(unique_ids) < 2:
+        raise ValueError("a parent dashboard requires at least two explicit --run-id values")
+    children = [dashboard(root, run_id) for run_id in unique_ids]
+    incomplete = [child["run_id"] for child in children if child["checklist"]["status"] != "complete"]
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-workflow-parent-dashboard",
+        "run_ids": unique_ids,
+        "status": "complete" if not incomplete else "incomplete",
+        "children": [{
+            "run_id": child["run_id"], "goal": child["goal"], "status": child["checklist"]["status"],
+            "checklist": child["checklist"],
+        } for child in children],
+        "incomplete_run_ids": incomplete,
+        "boundary": "Aggregates only explicitly supplied run IDs and reads their saved artifacts without mutation.",
+    }
+
+
 def markdown(payload: dict[str, Any]) -> str:
+    if payload["type"] == "tailtrail-workflow-parent-dashboard":
+        lines = ["# TailTrail Parent Workflow Checklist", "", f"Runs: {', '.join(f'`{run_id}`' for run_id in payload['run_ids'])}", f"Status: **{payload['status']}**", "", "| Run | Status | Next action |", "| --- | --- | --- |"]
+        for child in payload["children"]:
+            pending = next((item for item in child["checklist"]["items"] if item["status"] != "complete"), None)
+            lines.append(f"| `{child['run_id']}` | {child['status']} | {pending['next_action'] if pending else 'none'} |")
+        return "\n".join(lines) + "\n"
     active = payload["active_requirement"]
     lines = ["# TailTrail Workflow Dashboard", "", f"Run: `{payload['run_id']}`", f"Goal: {payload['goal'] or 'not recorded'}", "", f"Active requirement: **{active['display_id']} — {active['statement']}**" if active else "Active requirement: **none; all checkpoint requirements validated**", f"Canonical state: **{payload['canonical_state']['status']}**", f"Checkpoint: **{payload['checkpoint'] or 'none'}**", f"Completion review: **{payload['completion_review']}**", f"Evidence gate: **{payload['evidence_gate']}**", f"Drift: **{payload['drift']['status']}**", f"Recovery: **{payload['recovery']}**", f"Completion report: **{payload['completion']}**", "", "| Requirement | State | Evidence |", "| --- | --- | ---: |", *[f"| {row['display_id']} — {row['statement']} | {row['state']} | {row['evidence_count']} |" for row in payload["requirements"]]]
     harness_index = lines.index("| Requirement | State | Evidence |")
@@ -133,6 +242,11 @@ def markdown(payload: dict[str, Any]) -> str:
     ]
     if payload["official_perspectives"]:
         lines[harness_index:harness_index] = ["## Official AI-DLC perspectives", "", "| Perspective | Status | Reason |", "| --- | --- | --- |", *[f"| {item['perspective']} | {item['status']} | {item['reason']} |" for item in payload["official_perspectives"]], ""]
+    checklist = payload["checklist"]
+    lines.extend(["", "## Host checklist", "", f"Status: **{checklist['status']}**", "", "| Item | Status | Evidence / missing artifact | Next action |", "| --- | --- | --- | --- |"])
+    for item in checklist["items"]:
+        evidence = ", ".join(f"`{value}`" for value in item["evidence"]) or item["missing"] or "-"
+        lines.append(f"| {item['label']} | {item['status']} | {evidence} | {item['next_action'] or '-'} |")
     return "\n".join(lines) + "\n"
 
 
@@ -162,11 +276,11 @@ def html_page(payload: dict[str, Any]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path.cwd()); parser.add_argument("--run-id", required=True)
+    parser.add_argument("--root", type=Path, default=Path.cwd()); parser.add_argument("--run-id", action="append", required=True)
     parser.add_argument("--format", choices=("markdown", "json", "html"), default="markdown"); parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
-        payload = dashboard(args.root.resolve(), args.run_id)
+        payload = dashboard(args.root.resolve(), args.run_id[0]) if len(args.run_id) == 1 else parent_dashboard(args.root.resolve(), args.run_id)
         output = json.dumps(payload, indent=2, sort_keys=True) if args.format == "json" else (html_page(payload) if args.format == "html" else markdown(payload))
         if args.output: args.output.parent.mkdir(parents=True, exist_ok=True); args.output.write_text(output, encoding="utf-8")
         print(output)
