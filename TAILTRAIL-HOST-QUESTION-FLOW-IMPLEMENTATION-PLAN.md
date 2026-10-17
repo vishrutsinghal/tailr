@@ -384,8 +384,12 @@ working.
 
 ## Phase 3: Requirement and Packet Finalization
 
-**Status: not complete. The current planning attempt requires concrete,
-requirement-specific Behaviour Harness scenarios before approval.**
+**Status: not complete. The Phase 2B immutable packet-view core is present;
+the remaining bindings and finalization behavior still need delivery. Proof is
+conditional on the selected behavior surface: an internal-only
+packet-finalization slice uses focused unit or contract proof, while a slice
+that exposes a public CLI, MCP, workflow, presentation, or other observable
+route requires concrete, requirement-specific Behaviour Harness scenarios.**
 
 ### Purpose
 
@@ -434,6 +438,19 @@ Existing paths require existence and role evidence. Proposed paths require:
 - A scope or planning failure by itself cannot satisfy the correction premise.
 - A new-capability profile finalizes without a failing baseline when its normal
   path, criteria, and proof contracts are complete.
+
+### Proof boundary
+
+The internal packet-finalization core is proved with focused unit or contract
+coverage. It must verify successful materialization, source-answer lineage,
+rejection of unsafe input, and invalidation after an anchor revision. Do not
+select a Behaviour Harness merely because an internal packet will later be
+consumed by another component.
+
+If a Phase 3 slice adds or changes a public CLI, MCP, workflow, presentation,
+or other externally observable route, define the Behaviour Harness scenario
+before approval. That scenario must identify the public route, the expected
+result, its preservation boundary, and the requirement bindings it proves.
 
 ### Exit criteria
 

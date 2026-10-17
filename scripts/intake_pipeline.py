@@ -36,6 +36,11 @@ _SENSITIVE_KEY = re.compile(r"(?:password|passphrase|secret|token|api[_-]?key|pr
 _SENSITIVE_VALUE = re.compile(r"(?:Bearer\s+|token\s*[:=]\s*|secret\s*[:=]\s*)\S+", re.I)
 _ANCHOR_VERSION = re.compile(r"^anchor-v[1-9][0-9]*$")
 _PACKET_VIEW_PROJECTION_KINDS = frozenset({"scope", "requirement", "validation", "approval"})
+_PATH_ROLES = frozenset({"implementation-owner", "inspection-input", "proof-only"})
+_NEW_FILE_VERDICTS = frozenset({
+    "new-confirmed", "extend-recommended", "collision-blocked", "unverified", "not-applicable",
+})
+_CORRECTION_PREMISES = frozenset({"accepted", "not-applicable"})
 
 
 def _redact(value: Any, key: str | None = None) -> Any:
@@ -105,6 +110,10 @@ class IntakePipeline:
     def _packet_finalization_receipt_path(self, run_id: str, anchor_version: str) -> Path:
         """Keep private source-evidence separate from the public packet-view schema."""
         return self._run_root(run_id) / "packet-views" / f"{anchor_version}.receipt.json"
+
+    def _packet_invalidation_path(self, run_id: str, anchor_version: str) -> Path:
+        """Keep invalidation evidence beside, but never inside, immutable views."""
+        return self._run_root(run_id) / "packet-views" / f"{anchor_version}.invalidation.json"
 
     def _state_path(self, run_id: str) -> Path:
         return self._run_root(run_id) / "lifecycle.json"
@@ -197,6 +206,8 @@ class IntakePipeline:
         accepted_answers: list[dict[str, Any]],
         requirement_projections: list[dict[str, Any]],
         expected_packet_view_fingerprint: str,
+        anchor_fingerprint: str | None = None,
+        operational_bindings: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Materialize one immutable Navigator packet view for an anchor.
 
@@ -308,6 +319,16 @@ class IntakePipeline:
                 "projection_kind": projection_kind,
             })
 
+        operational_packet: dict[str, Any] | None = None
+        if anchor_fingerprint is not None or operational_bindings is not None:
+            operational_packet = self._build_operational_packet(
+                anchor_version=anchor_version,
+                anchor_fingerprint=anchor_fingerprint,
+                operational_bindings=operational_bindings,
+                accepted_records=accepted_records,
+                projected_requirement_ids={projection["requirement_uid"] for projection in normalized_projections},
+            )
+
         view_path = self._packet_view_path(run_id, anchor_version)
         if view_path.exists():
             raise IntakeError(
@@ -323,6 +344,8 @@ class IntakePipeline:
             "status": "materialized",
             "requirement_projections": normalized_projections,
         }
+        if operational_packet is not None:
+            packet_view["operational_packet"] = operational_packet
         source_answer_fingerprint = _content_fingerprint(accepted_records)
         receipt = {
             "schema_version": "1",
@@ -338,6 +361,7 @@ class IntakePipeline:
         }
         _write_json(view_path, packet_view)
         _write_json(self._packet_finalization_receipt_path(run_id, anchor_version), receipt)
+        invalidated = self._invalidate_prior_packet_views(run_id, anchor_version, packet_view["packet_view_id"])
         self._append_event(
             replay["contract"],
             "packet-finalized",
@@ -345,9 +369,191 @@ class IntakePipeline:
                 "packet_view_id": packet_view["packet_view_id"],
                 "anchor_version": anchor_version,
                 "source_answer_fingerprint": source_answer_fingerprint,
+                "invalidated_packet_view_ids": invalidated,
             },
         )
         return {"status": "requirements-finalized", "packet_view": packet_view, "receipt": receipt}
+
+    def _build_operational_packet(
+        self,
+        *,
+        anchor_version: str,
+        anchor_fingerprint: str | None,
+        operational_bindings: dict[str, Any] | None,
+        accepted_records: list[dict[str, Any]],
+        projected_requirement_ids: set[str],
+    ) -> dict[str, Any]:
+        """Build the Phase 3 redacted operational projection from accepted IDs only.
+
+        The input remains deliberately narrow: it can cite accepted answer IDs,
+        but it cannot import raw host answers or invent an acceptance decision.
+        Every derived item carries its source IDs so downstream consumers only
+        receive an immutable, auditable projection.
+        """
+        if not isinstance(anchor_fingerprint, str) or not re.fullmatch(r"sha256:[a-f0-9]{64}", anchor_fingerprint):
+            raise IntakeError("operational packet finalization requires an anchor SHA-256 fingerprint")
+        if not isinstance(operational_bindings, dict):
+            raise IntakeError("operational packet finalization requires binding objects")
+        requirements = operational_bindings.get("requirements")
+        if not isinstance(requirements, list) or not requirements:
+            raise IntakeError("operational packet finalization requires at least one requirement binding")
+
+        accepted_by_id = {record["answer_id"]: record for record in accepted_records}
+        consumed_ids: set[str] = set()
+        path_roles: dict[str, str] = {}
+        requirement_ids: set[str] = set()
+        normalized_requirements: list[dict[str, Any]] = []
+
+        def source_ids(value: Any, label: str) -> list[str]:
+            if not isinstance(value, list) or not value or any(not isinstance(item, str) or item not in accepted_by_id for item in value):
+                raise IntakeError(f"{label} must cite one or more Navigator-accepted answer IDs")
+            normalized = sorted(set(value))
+            consumed_ids.update(normalized)
+            return normalized
+
+        for index, requirement in enumerate(requirements, start=1):
+            if not isinstance(requirement, dict):
+                raise IntakeError(f"requirement binding {index} must be an object")
+            requirement_uid = str(requirement.get("requirement_uid", "")).strip()
+            statement = str(requirement.get("statement", "")).strip()
+            if not requirement_uid or not statement or requirement_uid in requirement_ids:
+                raise IntakeError("requirement bindings need unique requirement_uids and statements")
+            requirement_ids.add(requirement_uid)
+            requirement_sources = source_ids(requirement.get("source_answer_ids"), f"requirement `{requirement_uid}`")
+            profile_fields = requirement.get("profile_fields")
+            if not isinstance(profile_fields, list) or not profile_fields or any(not isinstance(field, str) or not field for field in profile_fields):
+                raise IntakeError(f"requirement `{requirement_uid}` needs profile_fields")
+            accepted_fields = {accepted_by_id[answer_id]["field_id"] for answer_id in requirement_sources}
+            if not set(profile_fields).issubset(accepted_fields):
+                raise IntakeError(f"requirement `{requirement_uid}` profile_fields must be evidenced by its source answers")
+
+            normalized_paths: list[dict[str, Any]] = []
+            path_bindings = requirement.get("path_bindings")
+            if not isinstance(path_bindings, list) or not path_bindings:
+                raise IntakeError(f"requirement `{requirement_uid}` needs path bindings")
+            for path_index, binding in enumerate(path_bindings, start=1):
+                if not isinstance(binding, dict):
+                    raise IntakeError(f"path binding {path_index} for `{requirement_uid}` must be an object")
+                path = str(binding.get("path", "")).strip()
+                role = str(binding.get("role", "")).strip()
+                if not path or role not in _PATH_ROLES:
+                    raise IntakeError(f"path binding {path_index} for `{requirement_uid}` has an unsupported path role")
+                existing = binding.get("existing")
+                if not isinstance(existing, bool):
+                    raise IntakeError(f"path binding `{path}` must declare whether it already exists")
+                if existing and not (self.root / path).exists():
+                    raise IntakeError(f"existing path `{path}` requires filesystem existence evidence")
+                if not existing and binding.get("host_declared") is not True:
+                    raise IntakeError(f"proposed path `{path}` requires an explicit host declaration")
+                binding_sources = source_ids(binding.get("source_answer_ids"), f"path binding `{path}`")
+                previous_role = path_roles.get(path)
+                if previous_role is not None and previous_role != role:
+                    raise IntakeError(f"contradictory path roles for `{path}`")
+                path_roles[path] = role
+                verdict = str(binding.get("new_file_verdict", "not-applicable")).strip()
+                if verdict not in _NEW_FILE_VERDICTS:
+                    raise IntakeError(f"path binding `{path}` has an unsupported new-file verdict")
+                if existing and verdict != "not-applicable":
+                    raise IntakeError(f"existing path `{path}` must use new-file verdict `not-applicable`")
+                if not existing and verdict == "not-applicable":
+                    raise IntakeError(f"proposed path `{path}` requires a new-file verdict")
+                if not existing and not str(binding.get("ownership_evidence", "")).strip():
+                    raise IntakeError(f"proposed path `{path}` requires ownership or convention evidence")
+                normalized_paths.append({
+                    "path_binding_id": _new_id("path-binding"), "path": path, "role": role,
+                    "existing": existing, "new_file_verdict": verdict,
+                    "ownership_evidence": str(binding.get("ownership_evidence", "")).strip() or None,
+                    "source_answer_ids": binding_sources,
+                })
+
+            normalized_proofs: list[dict[str, Any]] = []
+            proofs = requirement.get("proof_bindings")
+            if not isinstance(proofs, list) or not proofs:
+                raise IntakeError(f"requirement `{requirement_uid}` needs proof bindings")
+            for proof_index, proof in enumerate(proofs, start=1):
+                if not isinstance(proof, dict):
+                    raise IntakeError(f"proof binding {proof_index} for `{requirement_uid}` must be an object")
+                command = str(proof.get("command", "")).strip()
+                path = str(proof.get("path", "")).strip()
+                if not command or not path:
+                    raise IntakeError(f"proof binding {proof_index} for `{requirement_uid}` is incomplete")
+                normalized_proofs.append({
+                    "proof_binding_id": _new_id("proof-binding"), "command": command, "path": path,
+                    "source_answer_ids": source_ids(proof.get("source_answer_ids"), f"proof binding `{path}`"),
+                })
+
+            criteria = requirement.get("criteria")
+            if not isinstance(criteria, dict):
+                raise IntakeError(f"requirement `{requirement_uid}` needs criteria bindings")
+            positive = criteria.get("positive")
+            negative = criteria.get("negative")
+            if not isinstance(positive, list) or not positive or not isinstance(negative, list) or not negative:
+                raise IntakeError(f"requirement `{requirement_uid}` needs positive and negative criteria")
+            criteria_sources = source_ids(criteria.get("source_answer_ids"), f"criteria for `{requirement_uid}`")
+
+            premise = requirement.get("correction_premise", {"status": "not-applicable", "source_answer_ids": requirement_sources})
+            if not isinstance(premise, dict) or str(premise.get("status", "")).strip() not in _CORRECTION_PREMISES:
+                raise IntakeError(f"correction premise for `{requirement_uid}` must be accepted or not-applicable")
+            premise_sources = source_ids(premise.get("source_answer_ids"), f"correction premise for `{requirement_uid}`")
+            owner_evidence = requirement.get("owner_participation_evidence", [])
+            if premise.get("status") == "accepted" and (not isinstance(owner_evidence, list) or not owner_evidence):
+                raise IntakeError(f"accepted correction premise for `{requirement_uid}` requires owner participation evidence")
+            normalized_owner_evidence = []
+            for evidence_index, evidence in enumerate(owner_evidence):
+                if not isinstance(evidence, dict) or not str(evidence.get("kind", "")).strip():
+                    raise IntakeError(f"owner participation evidence {evidence_index + 1} for `{requirement_uid}` is incomplete")
+                normalized_owner_evidence.append({
+                    "kind": str(evidence["kind"]),
+                    "source_answer_ids": source_ids(evidence.get("source_answer_ids"), f"owner evidence for `{requirement_uid}`"),
+                })
+            normalized_requirements.append({
+                "requirement_id": _new_id("requirement"), "requirement_uid": requirement_uid, "statement": statement,
+                "source_answer_ids": requirement_sources, "profile_fields": sorted(set(profile_fields)),
+                "path_bindings": normalized_paths, "proof_bindings": normalized_proofs,
+                "criteria": {"positive": list(positive), "negative": list(negative), "source_answer_ids": criteria_sources},
+                "correction_premise": {"status": str(premise["status"]), "source_answer_ids": premise_sources},
+                "owner_participation_evidence": normalized_owner_evidence,
+            })
+
+        unconsumed = sorted(set(accepted_by_id) - consumed_ids)
+        if unconsumed:
+            raise IntakeError(f"unused Navigator-accepted answers require clarification: {', '.join(unconsumed)}")
+        if projected_requirement_ids != requirement_ids:
+            raise IntakeError("operational requirements must exactly match their approved requirement projections")
+        audit = {
+            "consumed": sorted(consumed_ids), "unused": [], "contradicted": [],
+            "inferred": [], "projected_without_source": [],
+        }
+        return {
+            "anchor_fingerprint": anchor_fingerprint,
+            "requirements": normalized_requirements,
+            "projection_audit": audit,
+        }
+
+    def _invalidate_prior_packet_views(self, run_id: str, anchor_version: str, replacement_view_id: str) -> list[str]:
+        """Record dependent-view invalidation when a newer anchor is finalized."""
+        target_number = int(anchor_version.removeprefix("anchor-v"))
+        invalidated: list[str] = []
+        views_root = self._run_root(run_id) / "packet-views"
+        for view_path in sorted(views_root.glob("anchor-v*.json")):
+            prior_version = view_path.stem
+            if prior_version == anchor_version or not _ANCHOR_VERSION.fullmatch(prior_version):
+                continue
+            if int(prior_version.removeprefix("anchor-v")) >= target_number:
+                continue
+            prior_view = json.loads(view_path.read_text(encoding="utf-8"))
+            receipt_path = self._packet_invalidation_path(run_id, prior_version)
+            if receipt_path.exists():
+                continue
+            invalidation = {
+                "schema_version": "1", "type": "tailtrail-host-question-flow-packet-view-invalidation",
+                "invalidated_packet_view_id": prior_view["packet_view_id"], "invalidated_anchor_version": prior_version,
+                "replacement_anchor_version": anchor_version, "replacement_packet_view_id": replacement_view_id,
+                "reason": "anchor-revised",
+            }
+            _write_json(receipt_path, invalidation)
+            invalidated.append(prior_view["packet_view_id"])
+        return invalidated
 
     def _check_packet_version(self, contract: dict[str, Any], packet_version: int | None) -> None:
         if packet_version is None:

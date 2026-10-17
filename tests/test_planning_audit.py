@@ -86,6 +86,7 @@ def _converged_report(requirements: list[dict[str, object]]) -> dict[str, object
             command = commands[index] if index < len(commands) else ""
             candidate = paths[0] if paths else "not resolved from planning evidence"
             focused.append({
+                "requirement_id": str(row.get("display_id") or row.get("requirement_uid") or "REQ-01"),
                 "tier": tier,
                 "tiers": [tier],
                 "candidate": candidate,
@@ -95,10 +96,14 @@ def _converged_report(requirements: list[dict[str, object]]) -> dict[str, object
             })
     # Coalesce rows sharing one executable proof like task-start does.
     grouped: list[dict[str, object]] = []
-    by_proof: dict[tuple[str, str], dict[str, object]] = {}
+    by_proof: dict[tuple[str, str, str], dict[str, object]] = {}
     for source in focused:
         assert isinstance(source, dict)
-        key = (str(source.get("candidate", "")), str(source.get("command", "")))
+        key = (
+            str(source.get("requirement_id", "")),
+            str(source.get("candidate", "")),
+            str(source.get("command", "")),
+        )
         existing = by_proof.get(key) if key[0] and key[1] else None
         if existing is None:
             grouped.append(source)
@@ -174,6 +179,49 @@ class PlanningAuditTests(unittest.TestCase):
         self.assertEqual(conflict["state"], "inferred-tier-conflicts-host-proof-boundary")
         self.assertEqual(conflict["conflicts"][0]["inferred_tiers"], ["behaviour", "integration"])
         self.assertEqual(requirements[0]["validation_contract"]["tiers"], ["unit"])
+
+    def test_internal_host_proof_boundary_caps_inferred_tiers(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Bind positive and negative criteria for a workflow.",
+            "acceptance_criteria": ["internal packet remains valid"],
+            "likely_paths": ["scripts/intake_pipeline.py"],
+            "validation_contract": {"state": "required", "tiers": ["unit"], "commands": ["pytest"]},
+        }])
+        report["navigator"]["host_proof_boundary"] = {"behavior_surface": "internal", "allowed_tiers": ["unit"]}
+        report["navigator"]["host_proof_boundary_conflict"] = {
+            "state": "inferred-tier-conflicts-host-proof-boundary",
+            "behavior_surface": "internal",
+            "allowed_tiers": ["unit"],
+            "conflicts": [{"requirement_id": "REQ-01", "inferred_tiers": ["behaviour"]}],
+        }
+
+        result = audit.audit_report(Path("."), "internal-tier-cap", report)
+
+        self.assertEqual(result["status"], "clean")
+        self.assertEqual(result["findings"], [])
+
+    def test_public_cli_contract_boundary_keeps_tier_enforcement(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Expose a public API contract endpoint for cancellation.",
+            "acceptance_criteria": ["eligible cancellation succeeds"],
+            "likely_paths": ["src/service.py"],
+            "validation_contract": {"state": "required", "tiers": ["unit"], "commands": ["pytest"]},
+        }])
+        report["navigator"]["host_proof_boundary"] = {"behavior_surface": "cli-contract", "allowed_tiers": ["unit"]}
+        report["navigator"]["host_proof_boundary_conflict"] = {
+            "state": "inferred-tier-conflicts-host-proof-boundary",
+            "behavior_surface": "cli-contract",
+            "allowed_tiers": ["unit"],
+            "conflicts": [{"requirement_id": "REQ-01", "inferred_tiers": ["contract"]}],
+        }
+
+        result = audit.audit_report(Path("."), "public-tier-boundary", report)
+
+        self.assertTrue(any(item["type"] == "inferred-tier-conflicts-host-proof-boundary" for item in result["findings"]))
+        self.assertTrue(any(item["type"] == "tier_mismatch" for item in result["findings"]))
+
     def test_clean_plan_reports_no_findings(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -304,6 +352,25 @@ class PlanningAuditTests(unittest.TestCase):
             result = audit.audit(root, "audit-no-proof")
 
         self.assertTrue(any(f["type"] == "missing_proof_registration" for f in result["findings"]))
+
+    def test_requirement_scope_rejects_another_requirements_proof_command(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Record a host observation.",
+            "acceptance_criteria": ["the observation is recorded"],
+            "likely_paths": ["scripts/intake_pipeline.py"],
+            "scope_evidence": {"proof_paths": ["tests/test_intake_pipeline.py"]},
+            "validation_contract": {
+                "state": "required", "tiers": ["unit"],
+                "commands": ["python3 -m unittest tests.test_host_question_flow_event_schema"],
+                "candidate_paths": ["tests/test_host_question_flow_event_schema.py"],
+            },
+        }])
+
+        result = audit.audit_report(Path("."), "cross-requirement-proof", report)
+        finding_types = {finding["type"] for finding in result["findings"]}
+
+        self.assertIn("proof-path-outside-requirement-scope", finding_types)
 
     def test_pending_revision_is_audited_and_can_reach_clean_before_approval(self) -> None:
         """The mandated host loop: audit v1, propose a correcting revision,

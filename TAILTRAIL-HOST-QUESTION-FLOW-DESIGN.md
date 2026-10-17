@@ -280,6 +280,22 @@ TailTrail must not infer a presentation proof merely because the implementation
 file contains words such as `component`, `page`, or `workflow`. It must use the
 accepted behavior surface and explicit path evidence.
 
+### Phase 3 packet-finalization proof boundary
+
+Phase 3 packet finalization is not automatically a public behavior surface.
+When a slice only creates, validates, or materializes the internal,
+anchor-bound packet projection, it uses `behavior_surface: internal` and
+requires focused unit or contract proof. It does not require a Behaviour
+Harness scenario merely because the packet will later be consumed elsewhere.
+
+When a Phase 3 slice exposes or changes a public CLI, MCP, workflow,
+presentation, or other externally observable route, Navigator must select the
+matching behavior surface and require a requirement-specific Behaviour Harness
+scenario in addition to focused proof. The scenario must name the route,
+observable expected result, preservation boundary, and requirement bindings it
+proves. This conditional rule preserves the Phase 3 safety boundary without
+inventing a public behavior contract for an internal-only slice.
+
 For the proof-selection correction, the host context should therefore say:
 
 - implementation owner: `scripts/task-start.py`;

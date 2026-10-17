@@ -112,6 +112,23 @@ class ManagedExecutionEvidenceTests(unittest.TestCase):
         self.assertTrue(amendment["approved"])
         self.assertEqual("Implementation revealed a required integration proof.", amendment["reason"])
 
+    def test_persisted_amendment_authorizes_a_later_execution(self) -> None:
+        command = f"{quote(sys.executable)} -c {quote('print(\"amended proof\")')}"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root, "echo original")
+            evidence.run_command(
+                root, "run", [uid], ["integration"], command,
+                "late integration proof", [], True, 30, True,
+                "Persist this amendment for the next execution.",
+            )
+            later = evidence.run_command(
+                root, "run", [uid], ["integration"], command,
+                "late integration proof retry", [], True, 30,
+            )
+
+        self.assertEqual("pass", later["outcome"])
+
     def test_amendment_requires_reason(self) -> None:
         command = f"{quote(sys.executable)} -c {quote('print(1)')}"
         with tempfile.TemporaryDirectory() as temp:

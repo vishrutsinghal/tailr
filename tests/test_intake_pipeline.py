@@ -279,6 +279,149 @@ class IntakePipelineTests(unittest.TestCase):
                     expected_packet_view_fingerprint=fresh["packet_view_fingerprint"],
                 )
 
+    def test_phase3_finalization_materializes_source_bound_operational_packet_and_invalidates_prior_anchor(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "example.py").write_text("# existing\n", encoding="utf-8")
+            pipeline = IntakePipeline(root)
+            run = pipeline.create_run("collect host context", "existing-code change")
+            question = pipeline.issue_question(run["run_id"], "implementation-owner", "Which file owns this change?")
+            answer = pipeline.record_answer(
+                run["run_id"], "implementation-owner", "scripts/example.py", source="direct-question",
+                question_id=question["payload"]["question_id"],
+            )
+            answer_id = answer["payload"]["answer_id"]
+            pipeline.accept_answer(run["run_id"], answer_id, {"outcome": "accepted", "verified_by": "navigator"})
+
+            def bindings(role: str = "implementation-owner", *, existing: bool = True, verdict: str = "not-applicable") -> dict:
+                return {
+                    "requirements": [{
+                        "requirement_uid": "req-phase3",
+                        "statement": "Materialize the approved operational packet.",
+                        "source_answer_ids": [answer_id],
+                        "profile_fields": ["implementation-owner"],
+                        "path_bindings": [{
+                            "path": "scripts/example.py" if existing else "scripts/new_example.py",
+                            "role": role, "existing": existing, "new_file_verdict": verdict,
+                            "host_declared": not existing,
+                            "ownership_evidence": "project convention" if not existing else "",
+                            "source_answer_ids": [answer_id],
+                        }],
+                        "proof_bindings": [{
+                            "path": "tests/test_intake_pipeline.py",
+                            "command": "python3 -m unittest tests.test_intake_pipeline -v",
+                            "source_answer_ids": [answer_id],
+                        }],
+                        "criteria": {
+                            "positive": ["The packet is materialized."],
+                            "negative": ["Raw host values are not projected."],
+                            "source_answer_ids": [answer_id],
+                        },
+                        "correction_premise": {"status": "not-applicable", "source_answer_ids": [answer_id]},
+                    }],
+                }
+
+            snapshot = pipeline.replay(run["run_id"])
+            first = pipeline.finalize_packet_view(
+                run["run_id"], anchor_version="anchor-v1", accepted_answers=[{"answer_id": answer_id}],
+                requirement_projections=[{"requirement_uid": "req-phase3", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
+                expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"],
+                anchor_fingerprint="sha256:" + "a" * 64, operational_bindings=bindings(),
+            )
+            packet = first["packet_view"]["operational_packet"]
+            self.assertEqual(packet["projection_audit"], {
+                "consumed": [answer_id], "unused": [], "contradicted": [], "inferred": [], "projected_without_source": [],
+            })
+            self.assertNotIn("tailtrail-host-answer", json.dumps(packet))
+            self.assertEqual(packet["requirements"][0]["path_bindings"][0]["source_answer_ids"], [answer_id])
+
+            second_snapshot = pipeline.replay(run["run_id"])
+            pipeline.finalize_packet_view(
+                run["run_id"], anchor_version="anchor-v2", accepted_answers=[{"answer_id": answer_id}],
+                requirement_projections=[{"requirement_uid": "req-phase3", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
+                expected_packet_view_fingerprint=second_snapshot["packet_view_fingerprint"],
+                anchor_fingerprint="sha256:" + "b" * 64, operational_bindings=bindings(),
+            )
+            invalidation_path = root / ".tailtrail" / "intake" / run["run_id"] / "packet-views" / "anchor-v1.invalidation.json"
+            invalidation = json.loads(invalidation_path.read_text(encoding="utf-8"))
+            self.assertEqual(invalidation["replacement_anchor_version"], "anchor-v2")
+            self.assertEqual(invalidation["invalidated_packet_view_id"], first["packet_view"]["packet_view_id"])
+
+    def test_phase3_finalization_rejects_unused_answers_unsafe_premises_and_contradictory_roles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pipeline = IntakePipeline(Path(temp))
+            (Path(temp) / "scripts").mkdir()
+            (Path(temp) / "scripts" / "one.py").write_text("# existing\n", encoding="utf-8")
+            run = pipeline.create_run("collect host context", "new-feature")
+            first_question = pipeline.issue_question(run["run_id"], "implementation-owner", "Which file owns this change?")
+            first = pipeline.record_answer(run["run_id"], "implementation-owner", "scripts/one.py", source="direct-question", question_id=first_question["payload"]["question_id"])
+            second_question = pipeline.issue_question(run["run_id"], "proof-command", "Which proof command applies?")
+            second = pipeline.record_answer(run["run_id"], "proof-command", "python3 -m unittest", source="direct-question", question_id=second_question["payload"]["question_id"])
+            for answer in (first, second):
+                pipeline.accept_answer(run["run_id"], answer["payload"]["answer_id"], {"outcome": "accepted", "verified_by": "navigator"})
+            first_id = first["payload"]["answer_id"]
+            second_id = second["payload"]["answer_id"]
+
+            def requirement(uid: str, role: str, *, premise: str = "not-applicable") -> dict:
+                return {
+                    "requirement_uid": uid, "statement": "A bounded requirement.", "source_answer_ids": [first_id],
+                    "profile_fields": ["implementation-owner"],
+                    "path_bindings": [{"path": "scripts/one.py", "role": role, "existing": True, "new_file_verdict": "not-applicable", "source_answer_ids": [first_id]}],
+                    "proof_bindings": [{"path": "tests/test_intake_pipeline.py", "command": "python3 -m unittest tests.test_intake_pipeline -v", "source_answer_ids": [first_id]}],
+                    "criteria": {"positive": ["works"], "negative": ["does not leak"], "source_answer_ids": [first_id]},
+                    "correction_premise": {"status": premise, "source_answer_ids": [first_id]},
+                }
+
+            snapshot = pipeline.replay(run["run_id"])
+            with self.assertRaisesRegex(IntakeError, "unused Navigator-accepted answers"):
+                pipeline.finalize_packet_view(
+                    run["run_id"], anchor_version="anchor-v1", accepted_answers=[{"answer_id": first_id}, {"answer_id": second_id}],
+                    requirement_projections=[{"requirement_uid": "req-one", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
+                    expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"], anchor_fingerprint="sha256:" + "c" * 64,
+                    operational_bindings={"requirements": [requirement("req-one", "implementation-owner")]},
+                )
+            with self.assertRaisesRegex(IntakeError, "contradictory path roles"):
+                pipeline.finalize_packet_view(
+                    run["run_id"], anchor_version="anchor-v1", accepted_answers=[{"answer_id": first_id}],
+                    requirement_projections=[{"requirement_uid": "req-one", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
+                    expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"], anchor_fingerprint="sha256:" + "c" * 64,
+                    operational_bindings={"requirements": [requirement("req-one", "implementation-owner"), requirement("req-two", "inspection-input")]},
+                )
+            with self.assertRaisesRegex(IntakeError, "must be accepted or not-applicable"):
+                pipeline.finalize_packet_view(
+                    run["run_id"], anchor_version="anchor-v1", accepted_answers=[{"answer_id": first_id}],
+                    requirement_projections=[{"requirement_uid": "req-one", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
+                    expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"], anchor_fingerprint="sha256:" + "c" * 64,
+                    operational_bindings={"requirements": [requirement("req-one", "implementation-owner", premise="unverified")]},
+                )
+
+    def test_phase3_proposed_new_file_remains_bound_as_unverified_until_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pipeline = IntakePipeline(Path(temp))
+            run = pipeline.create_run("collect host context", "new-feature")
+            question = pipeline.issue_question(run["run_id"], "implementation-owner", "Which new file is proposed?")
+            answer = pipeline.record_answer(run["run_id"], "implementation-owner", "scripts/new_feature.py", source="narration", question_id=question["payload"]["question_id"])
+            answer_id = answer["payload"]["answer_id"]
+            pipeline.accept_answer(run["run_id"], answer_id, {"outcome": "accepted", "verified_by": "navigator"})
+            snapshot = pipeline.replay(run["run_id"])
+            result = pipeline.finalize_packet_view(
+                run["run_id"], anchor_version="anchor-v1", accepted_answers=[{"answer_id": answer_id}],
+                requirement_projections=[{"requirement_uid": "req-new", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
+                expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"], anchor_fingerprint="sha256:" + "d" * 64,
+                operational_bindings={"requirements": [{
+                    "requirement_uid": "req-new", "statement": "Add a new bounded capability.", "source_answer_ids": [answer_id],
+                    "profile_fields": ["implementation-owner"],
+                    "path_bindings": [{"path": "scripts/new_feature.py", "role": "implementation-owner", "existing": False, "host_declared": True, "new_file_verdict": "unverified", "ownership_evidence": "scripts convention", "source_answer_ids": [answer_id]}],
+                    "proof_bindings": [{"path": "tests/test_intake_pipeline.py", "command": "python3 -m unittest tests.test_intake_pipeline -v", "source_answer_ids": [answer_id]}],
+                    "criteria": {"positive": ["new capability works"], "negative": ["existing behavior regresses"], "source_answer_ids": [answer_id]},
+                    "correction_premise": {"status": "not-applicable", "source_answer_ids": [answer_id]},
+                }]},
+            )
+            binding = result["packet_view"]["operational_packet"]["requirements"][0]["path_bindings"][0]
+            self.assertFalse(binding["existing"])
+            self.assertEqual(binding["new_file_verdict"], "unverified")
+
     def test_expired_and_abandoned_runs_require_explicit_resume(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             pipeline = IntakePipeline(Path(temp))

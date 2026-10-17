@@ -3814,12 +3814,13 @@ def proposed_ui_proof(root: Path, owner_paths: list[str]) -> tuple[str, str] | N
 def coalesce_focused_validation_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Collapse one executable proof covering multiple requested evidence tiers."""
     grouped: list[dict[str, Any]] = []
-    by_proof: dict[tuple[str, str, str], dict[str, Any]] = {}
+    by_proof: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for source in rows:
         row = dict(source)
         tier = str(row.get("tier", "unit"))
         row["tiers"] = [tier]
         key = (
+            str(row.get("requirement_id", "")),
             str(row.get("candidate", "")),
             str(row.get("command", "")),
             str(row.get("candidate_state", "unresolved")),
@@ -3880,27 +3881,12 @@ def focused_validation_plan(
     required proof-selection step explicitly.  This is stronger than silently
     deferring testing while still avoiding a fabricated file or command.
     """
-    requested: list[str] = []
-    for row in requirements:
-        contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
-        for tier in contract.get("tiers", []) if isinstance(contract, dict) else []:
-            if isinstance(tier, str) and tier not in requested:
-                requested.append(tier)
-    proof_paths = list(dict.fromkeys(
-        str(path)
-        for row in requirements if isinstance(row, dict)
-        for path in ((row.get("scope_evidence", {}) or {}).get("proof_paths", []))
-        if str(path)
-    ))
     impacted_by_path = {
         str(item.get("path")): item
         for item in impacted
         if isinstance(item, dict) and item.get("path")
     }
-    test_items = [
-        impacted_by_path.get(path, {"path": path, "role": "test", "status": "proof-only"})
-        for path in proof_paths
-    ] or [
+    fallback_test_items = [
         item for item in impacted
         if isinstance(item, dict) and (
             item.get("role") == "test"
@@ -3908,69 +3894,78 @@ def focused_validation_plan(
             or "test" in str(item.get("path", "")).lower()
             or any(marker in Path(str(item.get("path", ""))).name.lower() for marker in (".cy.", ".spec."))
         )
-    ] or _declared_test_items(root, declared_test_paths)
-    test_items = [item for item in test_items if executable_test_candidate(root, item)]
-    owner_paths = list(dict.fromkeys(
-        str(path)
-        for row in requirements if isinstance(row, dict)
-        for path in row.get("likely_paths", [])
-        if str(path)
-    ))
-    ui_proof = proposed_ui_proof(root, owner_paths)
-    rows: list[dict[str, str]] = []
-    for tier in requested or ["unit"]:
-        tier_paths = [
-            item for item in test_items
-            if f"/{tier}/" in "/" + str(item.get("path", "")).lower().replace("\\", "/") + "/"
+    ]
+    targets = [row for row in requirements if isinstance(row, dict)] or [{
+        "display_id": "REQ-01", "validation_contract": {"tiers": ["unit"]},
+    }]
+    if len(targets) <= 1:
+        fallback_test_items = fallback_test_items or _declared_test_items(root, declared_test_paths)
+    rows: list[dict[str, Any]] = []
+    for index, requirement in enumerate(targets, start=1):
+        requirement_id = str(requirement.get("display_id") or requirement.get("requirement_uid") or f"REQ-{index:02d}")
+        contract = requirement.get("validation_contract", {})
+        contract = contract if isinstance(contract, dict) else {}
+        requested = [str(tier) for tier in (contract.get("tiers", []) or []) if str(tier)] or ["unit"]
+        scope = requirement.get("scope_evidence", {})
+        scope = scope if isinstance(scope, dict) else {}
+        proof_paths = [
+            str(path) for path in (scope.get("proof_paths", []) or [])
+            if str(path)
         ]
-        if tier in {"component", "behaviour"} and not tier_paths:
+        # A proof path belongs to the requirement whose scope evidence named
+        # it.  Shared impacted/declared test discovery is safe only for a
+        # single requirement; applying it to every same-tier requirement was
+        # the source of cross-requirement proof leakage.
+        test_items = [
+            impacted_by_path.get(path, {"path": path, "role": "test", "status": "proof-only"})
+            for path in proof_paths
+        ] or (fallback_test_items if len(targets) <= 1 else [])
+        test_items = [item for item in test_items if executable_test_candidate(root, item)]
+        owner_paths = [str(path) for path in requirement.get("likely_paths", []) if str(path)]
+        ui_proof = proposed_ui_proof(root, owner_paths)
+        for tier in requested:
             tier_paths = [
                 item for item in test_items
-                if "/tests/ui/" in "/" + str(item.get("path", "")).lower().replace("\\", "/")
-                or any(
-                    marker in str(item.get("path", "")).lower()
-                    for marker in (".cy.", ".spec.", ".component.", "accessibility", "a11y", "visual")
-                )
+                if f"/{tier}/" in "/" + str(item.get("path", "")).lower().replace("\\", "/") + "/"
             ]
-        # A repository's focused unit test does not need to live in a literal
-        # ``tests/unit`` folder. Generic proof paths are valid unit candidates,
-        # but a path explicitly nested under a higher-tier folder must not be
-        # relabelled as unit proof.
-        higher_tier_markers = ("/integration/", "/contract/", "/component/", "/e2e/", "/infrastructure/", "/release-smoke/")
-        generic_unit_items = [
-            item for item in test_items
-            if not any(marker in "/" + str(item.get("path", "")).lower().replace("\\", "/") + "/" for marker in higher_tier_markers)
-        ]
-        candidate_items = tier_paths or (generic_unit_items if tier == "unit" else [])
-        command = focused_validation_command(root, candidate_items[:1], command_prefix) if candidate_items else None
-        if candidate_items:
-            candidate = str(candidate_items[0].get("path"))
-            status = "planned after approval" if command else "required proof path identified; resolve its project-owned command before the first edit"
-            candidate_state = "existing"
-        elif tier in {"component", "behaviour", "e2e"} and ui_proof:
-            candidate, command = ui_proof
-            exists = (root / candidate).is_file()
-            candidate_state = "existing" if exists else "proposed"
-            status = (
-                "planned after approval"
-                if exists
-                else "proposed page-level Cypress component proof; create this approved proof path and execute it after implementation"
-            )
-        elif tier in {"component", "behaviour", "e2e"} and owner_paths:
-            candidate = f"new or existing focused UI test for {owner_paths[0]}"
-            status = "required: select the repository-owned test convention and runnable command before the first edit; execute after implementation"
-            candidate_state = "unresolved"
-        else:
-            candidate = "not resolved from planning evidence"
-            status = "required: resolve a project-owned proof path and runnable command before the first edit"
-            candidate_state = "unresolved"
-        rows.append({
-            "tier": tier,
-            "candidate": candidate,
-            "command": command or "",
-            "status": status,
-            "candidate_state": candidate_state,
-        })
+            if tier in {"component", "behaviour"} and not tier_paths:
+                tier_paths = [
+                    item for item in test_items
+                    if "/tests/ui/" in "/" + str(item.get("path", "")).lower().replace("\\", "/")
+                    or any(marker in str(item.get("path", "")).lower() for marker in (".cy.", ".spec.", ".component.", "accessibility", "a11y", "visual"))
+                ]
+            higher_tier_markers = ("/integration/", "/contract/", "/component/", "/e2e/", "/infrastructure/", "/release-smoke/")
+            generic_unit_items = [
+                item for item in test_items
+                if not any(marker in "/" + str(item.get("path", "")).lower().replace("\\", "/") + "/" for marker in higher_tier_markers)
+            ]
+            candidate_items = tier_paths or (generic_unit_items if tier == "unit" else [])
+            command = focused_validation_command(root, candidate_items[:1], command_prefix) if candidate_items else None
+            if candidate_items:
+                candidate = str(candidate_items[0].get("path"))
+                status = "planned after approval" if command else "required proof path identified; resolve its project-owned command before the first edit"
+                candidate_state = "existing"
+            elif tier in {"component", "behaviour", "e2e"} and ui_proof:
+                candidate, command = ui_proof
+                exists = (root / candidate).is_file()
+                candidate_state = "existing" if exists else "proposed"
+                status = "planned after approval" if exists else "proposed page-level Cypress component proof; create this approved proof path and execute it after implementation"
+            elif tier in {"component", "behaviour", "e2e"} and owner_paths:
+                candidate = f"new or existing focused UI test for {owner_paths[0]}"
+                status = "required: select the repository-owned test convention and runnable command before the first edit; execute after implementation"
+                candidate_state = "unresolved"
+            else:
+                candidate = "not resolved from planning evidence"
+                status = "required: resolve a project-owned proof path and runnable command before the first edit"
+                candidate_state = "unresolved"
+            rows.append({
+                "requirement_id": requirement_id,
+                "tier": tier,
+                "candidate": candidate,
+                "command": command or "",
+                "status": status,
+                "candidate_state": candidate_state,
+            })
     return coalesce_focused_validation_rows(rows)
 
 
@@ -4044,6 +4039,7 @@ def apply_host_contract_proof(
     if candidate not in existing_paths:
         existing_paths.append(candidate)
     out = list(focused) + [{
+        "requirement_id": str(row.get("display_id") or row.get("requirement_uid") or "REQ-01"),
         "tier": tiers[0],
         "tiers": list(tiers),
         "candidate": candidate,
@@ -4079,9 +4075,13 @@ def attach_focused_validation_contracts(
         if not isinstance(existing, dict):
             continue
         tiers = {str(value) for value in existing.get("tiers", [])}
+        requirement_id = str(requirement.get("display_id") or requirement.get("requirement_uid") or "")
         linked = [
             row for row in rows
-            if tiers.intersection(
+            if (
+                str(row.get("requirement_id", "")) == requirement_id
+                or (len(requirements) == 1 and not str(row.get("requirement_id", "")))
+            ) and tiers.intersection(
                 str(value) for value in row.get("tiers", [row.get("tier")]) if str(value)
             )
         ]

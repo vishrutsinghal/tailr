@@ -915,6 +915,7 @@ class AuditGateApprovalTests(unittest.TestCase):
             "guided_delivery": {"mode": "guided-delivery"},
             "navigator": {"requirement_matrix": [row]},
             "focused_validation": [{
+                "requirement_id": "REQ-01",
                 "tier": "unit", "tiers": ["unit"], "candidate": "tests/test_work.py",
                 "command": "pytest tests/test_work.py",
                 "status": "planned after approval", "candidate_state": "existing",
@@ -951,6 +952,25 @@ class AuditGateApprovalTests(unittest.TestCase):
             self.assertEqual(approved["status"], "approved")
             self.assertEqual(approved["approval"]["audit"]["status"], "clean")
             self.assertTrue(approved["approval"]["audit"]["report_fingerprint"].startswith("sha256:"))
+
+    def test_activation_reaudits_before_minting_a_new_anchor(self) -> None:
+        """An earlier approval must not mint an anchor after proof rows drift."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            lock.create(root, "do the thing", "plan-activation-reaudit")
+            report = self._converged_report()
+            report["focused_validation"][0].pop("requirement_id")
+            ledger.atomic_json(lock.start_report_path(root, "plan-activation-reaudit"), {"report": report})
+            lock_path = lock.lock_path(root, "plan-activation-reaudit")
+            payload = json.loads(lock_path.read_text(encoding="utf-8"))
+            payload["status"] = "approved"
+            payload["writes_allowed"] = True
+            lock_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "audit reports gaps-found"):
+                lock.activate(root, "plan-activation-reaudit", True)
+
+            self.assertFalse((root / ".tailtrail" / "runs" / "plan-activation-reaudit" / "anchors").exists())
 
     def test_thin_legacy_plan_records_exemption(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

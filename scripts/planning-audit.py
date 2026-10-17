@@ -274,6 +274,7 @@ def _tier_findings(
     statement: str,
     *,
     pending: bool = False,
+    allowed_tiers: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     display_id = str(row.get("display_id", "?"))
     uid = _requirement_identifier(row)
@@ -281,6 +282,8 @@ def _tier_findings(
     contract = contract if isinstance(contract, dict) else {}
     actual_tiers = {str(item) for item in contract.get("tiers", []) or []}
     expected_tiers = set(REQUIREMENTS._tiers(statement))
+    if allowed_tiers is not None:
+        expected_tiers &= allowed_tiers
     missing = sorted(expected_tiers - actual_tiers)
     findings: list[dict[str, Any]] = []
     if missing:
@@ -328,15 +331,38 @@ def _tier_findings(
     return findings
 
 
+def _internal_proof_boundary(navigator: dict[str, Any]) -> set[str] | None:
+    """Return the authoritative tier cap for an internal-only host boundary.
+
+    Tier inference is useful as a planning hint, but an accepted internal
+    boundary deliberately selects focused unit or contract proof. Public
+    surfaces retain ordinary inferred-tier enforcement.
+    """
+    boundary = navigator.get("host_proof_boundary")
+    if not isinstance(boundary, dict) or boundary.get("behavior_surface") != "internal":
+        return None
+    return {str(tier) for tier in boundary.get("allowed_tiers", []) if str(tier)}
+
+
 def _normalize_check(entry: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
     command = str(entry.get("command", "")).strip()
     tiers = tuple(sorted(str(value).strip() for value in (entry.get("tiers", []) or []) if str(value).strip()))
     return (command, tiers)
 
 
-def _focused_covers(focused: list[dict[str, Any]], tier: str, command: str | None) -> dict[str, Any] | None:
+def _focused_covers(
+    focused: list[dict[str, Any]],
+    requirement_id: str,
+    tier: str,
+    command: str | None,
+) -> dict[str, Any] | None:
     for item in focused:
         if not isinstance(item, dict):
+            continue
+        # A static command is intentionally shared; executable proof is not.
+        if tier == "static" and item.get("check_kind") == "static":
+            pass
+        elif str(item.get("requirement_id", "")) != requirement_id:
             continue
         tiers = item.get("tiers") if isinstance(item.get("tiers"), list) else [item.get("tier")]
         names = {str(value).strip() for value in (tiers or []) if str(value).strip()}
@@ -349,6 +375,129 @@ def _focused_covers(focused: list[dict[str, Any]], tier: str, command: str | Non
         if command is not None and str(item.get("command", "")).strip() == command:
             return item
     return None
+
+
+def _command_targets_path(command: str, path: str) -> bool:
+    """Whether an exact proof command names its declared proof target.
+
+    This is deliberately a syntactic check, not a claim that a test's
+    assertions exercise a particular implementation path. Navigator scope
+    evidence provides that relationship. The command must at least target the
+    requirement's own declared test/module instead of a same-tier test copied
+    from another requirement.
+    """
+    normalized_command = command.replace("\\", "/")
+    normalized_path = path.replace("\\", "/").strip()
+    if not normalized_path or normalized_path.startswith("not resolved"):
+        return False
+    module = normalized_path[:-3].replace("/", ".") if normalized_path.endswith(".py") else ""
+    if normalized_path in normalized_command or (module and module in normalized_command):
+        return True
+    basename = Path(normalized_path).name
+    runner = normalized_command.lower()
+    return bool(
+        basename
+        and basename in normalized_command
+        and any(tool in runner for tool in ("pytest", "unittest", "jest", "vitest", "mocha", "cypress"))
+    )
+
+
+def _proof_binding_findings(
+    run_id: str,
+    row: dict[str, Any],
+    checks: list[dict[str, Any]],
+    *,
+    pending: bool = False,
+) -> list[dict[str, Any]]:
+    """Require requirement-scoped, executable proof before approval.
+
+    A validation contract is authoritative only when each proof check names a
+    runnable command and a proof path belonging to the same requirement's
+    scope evidence. This prevents a unit command for REQ-02 being presented as
+    REQ-01 proof merely because both rows use the `unit` tier.
+    """
+    if str(row.get("kind", "")).strip() == "constraint":
+        return []
+    contract = row.get("validation_contract", {})
+    contract = contract if isinstance(contract, dict) else {}
+    if str(contract.get("state", "required")) != "required":
+        return []
+    display_id = str(row.get("display_id", "?"))
+    uid = _requirement_identifier(row)
+    proof_checks = [check for check in checks if str(check.get("kind", "proof")) == "proof"]
+    findings: list[dict[str, Any]] = []
+    if not proof_checks:
+        findings.append({
+            "type": "missing-requirement-proof-binding",
+            "correction_kind": "template",
+            "open_fields": ["commands", "editable_paths"],
+            "display_id": display_id,
+            "requirement_uid": uid,
+            "detail": (
+                f"proof-required requirement `{display_id}` has no requirement-linked proof check. "
+                "Record an exact runnable command and its proof path before approval."
+            ),
+        })
+        return findings
+    scope = row.get("scope_evidence", {})
+    scope = scope if isinstance(scope, dict) else {}
+    scoped_proof_paths = {
+        str(path) for path in (scope.get("proof_paths", []) or [])
+        if str(path)
+    }
+    for check in proof_checks:
+        command = str(check.get("command", "")).strip()
+        paths = [str(path) for path in (check.get("candidate_paths", []) or []) if str(path).strip()]
+        tiers = [str(tier) for tier in (check.get("tiers", []) or []) if str(tier)]
+        if not command or not paths:
+            findings.append({
+                "type": "incomplete-requirement-proof-binding",
+                "correction_kind": "template",
+                "open_fields": ["commands", "editable_paths"],
+                "display_id": display_id,
+                "requirement_uid": uid,
+                "tiers": tiers,
+                "detail": (
+                    f"requirement `{display_id}` proof for {tiers or ['its declared tier']} must include both "
+                    "an exact runnable command and an eligible proof path."
+                ),
+            })
+            continue
+        if scoped_proof_paths and not set(paths).intersection(scoped_proof_paths):
+            findings.append({
+                "type": "proof-path-outside-requirement-scope",
+                "correction_kind": "template",
+                "open_fields": ["editable_paths"],
+                "display_id": display_id,
+                "requirement_uid": uid,
+                "proof_paths": paths,
+                "scoped_proof_paths": sorted(scoped_proof_paths),
+                "detail": (
+                    f"requirement `{display_id}` uses proof path(s) {paths} that its own scope evidence did not "
+                    "approve. Re-scope the path or bind a proof path from this requirement's proof evidence."
+                ),
+            })
+        # If scope has not yet supplied a requirement-specific proof path,
+        # this audit cannot honestly infer semantic relevance from a command
+        # string alone. Once it has, require the command to target that exact
+        # scoped proof rather than a same-tier neighbour.
+        for path in paths if scoped_proof_paths else []:
+            if _command_targets_path(command, path):
+                continue
+            findings.append({
+                "type": "proof-command-does-not-target-path",
+                "correction_kind": "template",
+                "open_fields": ["commands"],
+                "display_id": display_id,
+                "requirement_uid": uid,
+                "command": command,
+                "proof_path": path,
+                "detail": (
+                    f"requirement `{display_id}` command `{command}` does not target declared proof path `{path}`. "
+                    "Use a focused command for that path or change the proof binding."
+                ),
+            })
+    return findings
 
 
 def _executable_fix(
@@ -451,7 +600,7 @@ def _convergence_findings(
                     ),
                 })
                 continue
-            covering = _focused_covers(focused, tier, command_text)
+            covering = _focused_covers(focused, uid, tier, command_text)
             if covering is None:
                 fix = _rebuild_fix(run_id, uid, "rebuild proof projection", pending=pending)
                 findings.append({
@@ -598,8 +747,9 @@ def audit_report(
             "behavior_check": behavior_check,
         })
 
+    internal_allowed_tiers = _internal_proof_boundary(navigator) if isinstance(navigator, dict) else None
     proof_boundary_conflict = navigator.get("host_proof_boundary_conflict") if isinstance(navigator, dict) else None
-    if isinstance(proof_boundary_conflict, dict):
+    if isinstance(proof_boundary_conflict, dict) and internal_allowed_tiers is None:
         findings.append({
             "type": "inferred-tier-conflicts-host-proof-boundary",
             "correction_kind": "restart-required",
@@ -617,7 +767,18 @@ def audit_report(
         statement = str(row.get("statement", ""))
         text = " ".join([statement, goal, " ".join(row.get("acceptance_criteria", []) or [])])
         findings.extend(_named_path_findings(root, run_id, row, text, has_scope_evidence=has_scope_evidence, known_scope_paths=global_scope_paths, pending=pending))
-        findings.extend(_tier_findings(run_id, row, statement, pending=pending))
+        findings.extend(
+            _tier_findings(
+                run_id,
+                row,
+                statement,
+                pending=pending,
+                allowed_tiers=internal_allowed_tiers,
+            )
+        )
+        req_id = str(row.get("display_id") or row.get("requirement_uid") or "")
+        checks = projection.get("checks_by_requirement", {}).get(req_id, [])
+        findings.extend(_proof_binding_findings(run_id, row, checks, pending=pending))
     
     # Build review cycles summary from run history
     review_cycles = _build_review_cycles_summary(root, run_id)

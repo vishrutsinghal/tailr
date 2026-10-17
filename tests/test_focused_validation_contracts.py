@@ -115,6 +115,31 @@ class AttachFocusedValidationContractsTests(unittest.TestCase):
         ])
         self.assertEqual(len(contract["checks"]), 2)
 
+    def test_does_not_share_same_tier_proof_between_requirements(self):
+        first = {"display_id": "REQ-01", "validation_contract": {"state": "required", "tiers": ["unit"]}}
+        second = {"display_id": "REQ-02", "validation_contract": {"state": "required", "tiers": ["unit"]}}
+        rows = [
+            {
+                "requirement_id": "REQ-01", "tiers": ["unit"],
+                "command": "python -m unittest tests.test_intake_pipeline",
+                "candidate": "tests/test_intake_pipeline.py", "candidate_state": "existing",
+            },
+            {
+                "requirement_id": "REQ-02", "tiers": ["unit"],
+                "command": "python -m unittest tests.test_host_question_flow_event_schema",
+                "candidate": "tests/test_host_question_flow_event_schema.py", "candidate_state": "existing",
+            },
+        ]
+
+        task_start.attach_focused_validation_contracts([first, second], rows)
+
+        self.assertEqual(first["validation_contract"]["commands"], [
+            "python -m unittest tests.test_intake_pipeline",
+        ])
+        self.assertEqual(second["validation_contract"]["commands"], [
+            "python -m unittest tests.test_host_question_flow_event_schema",
+        ])
+
 
 class ReresolvedMatrixRestampTests(unittest.TestCase):
     def setUp(self):

@@ -67,6 +67,41 @@ def append_proof_amendment(
     return normalized
 
 
+def approved_proof_amendments(root: Path, run_id: str, requirements: dict[str, dict[str, Any]]) -> dict[str, dict[str, set[str]]]:
+    """Load persisted approved proof amendments for managed execution."""
+    path = proof_amendments(root, run_id)
+    if not path.is_file():
+        return {}
+    accepted: dict[str, dict[str, set[str]]] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    for line in lines:
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        uid = str(item.get("requirement_uid", ""))
+        command = str(item.get("command", ""))
+        tiers = {str(value) for value in item.get("tiers", []) if str(value).strip()}
+        if (
+            item.get("type") != "tailtrail-proof-amendment"
+            or item.get("run_id") != run_id
+            or item.get("approved") is not True
+            or uid not in requirements
+            or not command.strip()
+            or not tiers
+            or str(item.get("reason", "")).strip() == ""
+            or item.get("command_fingerprint") != hashlib.sha256(command.encode("utf-8")).hexdigest()
+        ):
+            continue
+        bucket = accepted.setdefault(uid, {"commands": set(), "tiers": set()})
+        bucket["commands"].add(command)
+        bucket["tiers"].update(tiers)
+    return accepted
+
+
 def validate(root: Path, run_id: str, event: Any) -> dict[str, Any]:
     if not isinstance(event, dict): raise ValueError("execution evidence must be a JSON object; record it with `tailtrail execution-evidence record --root . --run-id <run-id> --event '<json>' --approved`")
     allowed = {
@@ -201,7 +236,7 @@ def run_command(
     overlay = _approved_revision_overlay(root, run_id)
     selected = []
     revision_overlaid: list[str] = []
-    amended: dict[str, dict[str, set[str]]] = {}
+    amended = approved_proof_amendments(root, run_id, requirements)
     for uid in sorted(set(requirement_uids)):
         row = requirements.get(uid)
         if row is None:
@@ -211,10 +246,14 @@ def run_command(
         approved_tiers = {str(value) for value in contract.get("tiers", []) if str(value)}
         revision_commands = set(overlay.get(uid, {}).get("commands", []))
         revision_tiers = set(overlay.get(uid, {}).get("tiers", []))
+        amendment_commands = set(amended.get(uid, {}).get("commands", set()))
+        amendment_tiers = set(amended.get(uid, {}).get("tiers", set()))
         if revision_commands or revision_tiers:
             revision_overlaid.append(uid)
         approved_commands |= revision_commands
         approved_tiers |= revision_tiers
+        approved_commands |= amendment_commands
+        approved_tiers |= amendment_tiers
         checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
         matching_checks = [value for value in checks if str(value.get("command", "")) == command]
         if matching_checks:

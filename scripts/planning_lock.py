@@ -2655,11 +2655,17 @@ def activate(root: Path, run_id: str, approved: bool, rationale: str | None = No
         return approve_aidlc_requirements(root, run_id, True)
     proposal = _proposal_from_start_report(root, run_id)
     anchor_result: dict[str, Any] | None = None
+    activation_audit: dict[str, Any] | None = None
     if proposal is not None:
         approved_versions = sorted((L.state_dir(root, run_id) / "anchors").glob("approved-v*.json"), key=lambda p: int(p.stem.rsplit("v", 1)[-1]))
         if approved_versions:
             anchor_result = {"status": "existing", "artifact": approved_versions[-1].relative_to(root).as_posix()}
         else:
+            # Approval may have happened earlier. Re-run the exact same
+            # in-memory audit immediately before minting a new anchor so a
+            # later report/projection change cannot create write authority
+            # from stale or cross-requirement proof evidence.
+            activation_audit = require_clean_audit(root, run_id, saved_report)
             module = _anchor_module()
             proposal_path = L.state_dir(root, run_id) / "planning" / "anchor-proposal-v1.json"
             L.atomic_json(proposal_path, proposal)
@@ -2745,6 +2751,7 @@ def activate(root: Path, run_id: str, approved: bool, rationale: str | None = No
         "scope_decision_status": scope_decision_check["status"],
         "input_role_status": role_check["status"],
         "enterprise_policy_status": policy_check["status"],
+        "activation_audit": activation_audit,
         "workflow_runtime": workflow_runtime.get("state"),
     })
     if record_decision:
@@ -2763,6 +2770,7 @@ def activate(root: Path, run_id: str, approved: bool, rationale: str | None = No
         "scope_decision": scope_decision_check,
         "input_roles": role_check,
         "enterprise_policy": policy_check,
+        "activation_audit": activation_audit,
         "workflow_runtime": workflow_runtime,
     }
 

@@ -237,23 +237,29 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
     # covering several tiers stays one row.
     previous = report.get("focused_validation", [])
     previous = previous if isinstance(previous, list) else []
-    old_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    old_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
     for item in previous:
         if not isinstance(item, dict):
             continue
+        requirement_id = str(item.get("requirement_id", ""))
         tiers = item.get("tiers") if isinstance(item.get("tiers"), list) else [item.get("tier")]
         for tier in tiers or []:
             if str(tier).strip():
-                old_by_key[(str(tier).strip(), str(item.get("command", "")))] = item
+                old_by_key[(requirement_id, str(tier).strip(), str(item.get("command", "")))] = item
 
     fresh: list[dict[str, Any]] = []
     for item in projection.get("focused_validation", []):
         tier = str(item.get("tier", ""))
+        requirement_id = str(item.get("requirement_id", ""))
         command = item.get("command")
         command_text = str(command or "")
-        reused = old_by_key.get((tier, command_text))
+        reused = old_by_key.get((requirement_id, tier, command_text))
+        if reused is None and len(rows) == 1:
+            reused = old_by_key.get(("", tier, command_text))
         if isinstance(reused, dict):
-            fresh.append(dict(reused))
+            rebuilt = dict(reused)
+            rebuilt["requirement_id"] = requirement_id
+            fresh.append(rebuilt)
             continue
         contract_paths: list[str] = []
         for row in rows:
@@ -280,6 +286,7 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
         else:
             status = "required: resolve a project-owned proof path and runnable command before the first edit"
         fresh.append({
+            "requirement_id": requirement_id,
             "tier": tier,
             "tiers": [tier],
             "candidate": candidate,
@@ -288,11 +295,17 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
             "candidate_state": candidate_state,
         })
 
-    # Coalesce rows sharing one executable proof (same candidate+command).
+    # Coalesce only within a requirement. A shared same-tier command must not
+    # erase the requirement boundary when a revision rebuilds projections.
     grouped: list[dict[str, Any]] = []
-    by_proof: dict[tuple[str, str, str], dict[str, Any]] = {}
+    by_proof: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for source in fresh:
-        key = (str(source.get("candidate", "")), str(source.get("command", "")), str(source.get("candidate_state", "")))
+        key = (
+            str(source.get("requirement_id", "")),
+            str(source.get("candidate", "")),
+            str(source.get("command", "")),
+            str(source.get("candidate_state", "")),
+        )
         mergeable = bool(key[0] and key[1] and key[2] in {"existing", "proposed"} and key[0] != "not resolved from planning evidence")
         existing = by_proof.get(key) if mergeable else None
         if existing is None:
