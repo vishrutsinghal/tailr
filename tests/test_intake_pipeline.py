@@ -162,6 +162,123 @@ class IntakePipelineTests(unittest.TestCase):
         self.assertNotIn("bearer-secret", rendered)
         self.assertIn("[REDACTED]", rendered)
 
+    def test_finalizes_an_immutable_anchor_bound_packet_view_from_navigator_accepted_answers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            pipeline = IntakePipeline(root)
+            run = pipeline.create_run("collect host context", "new-feature")
+            question = pipeline.issue_question(run["run_id"], "public-route", "Which route uses the feature?")
+            answer = pipeline.record_answer(
+                run["run_id"],
+                "public-route",
+                "tailtrail start",
+                source="direct-question",
+                question_id=question["payload"]["question_id"],
+            )
+            pipeline.accept_answer(
+                run["run_id"],
+                answer["payload"]["answer_id"],
+                {"outcome": "accepted", "verified_by": "navigator"},
+            )
+            snapshot = pipeline.replay(run["run_id"])
+
+            finalized = pipeline.finalize_packet_view(
+                run["run_id"],
+                anchor_version="anchor-v1",
+                accepted_answers=[{
+                    "answer_id": answer["payload"]["answer_id"],
+                }],
+                requirement_projections=[{
+                    "requirement_uid": "req-123",
+                    "consumer_component_id": "planning-lock",
+                    "projection_kind": "approval",
+                }],
+                expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"],
+            )
+            view_path = root / ".tailtrail" / "intake" / run["run_id"] / "packet-views" / "anchor-v1.json"
+            saved = json.loads(view_path.read_text(encoding="utf-8"))
+            after_finalization = pipeline.replay(run["run_id"])
+            with self.assertRaisesRegex(IntakeError, "already exists"):
+                pipeline.finalize_packet_view(
+                    run["run_id"],
+                    anchor_version="anchor-v1",
+                    accepted_answers=[{"answer_id": answer["payload"]["answer_id"]}],
+                    requirement_projections=[{
+                        "requirement_uid": "req-123",
+                        "consumer_component_id": "planning-lock",
+                        "projection_kind": "approval",
+                    }],
+                    expected_packet_view_fingerprint=after_finalization["packet_view_fingerprint"],
+                )
+            self.assertEqual(json.loads(view_path.read_text(encoding="utf-8")), saved)
+
+        self.assertEqual(finalized["status"], "requirements-finalized")
+        self.assertEqual(saved, finalized["packet_view"])
+        self.assertEqual(saved["anchor_version"], "anchor-v1")
+        self.assertNotIn("packet_version", saved)
+        self.assertEqual(finalized["receipt"]["accepted_answer_ids"], [answer["payload"]["answer_id"]])
+
+    def test_finalization_rejects_unaccepted_stale_and_contradictory_answer_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            pipeline = IntakePipeline(Path(temp))
+            run = pipeline.create_run("collect host context", "new-feature")
+            first_question = pipeline.issue_question(run["run_id"], "public-route", "Which route uses the feature?")
+            first = pipeline.record_answer(
+                run["run_id"], "public-route", "tailtrail start", source="direct-question",
+                question_id=first_question["payload"]["question_id"],
+            )
+            snapshot = pipeline.replay(run["run_id"])
+            projections = [{
+                "requirement_uid": "req-123",
+                "consumer_component_id": "planning-lock",
+                "projection_kind": "approval",
+            }]
+
+            with self.assertRaisesRegex(IntakeError, "no Navigator-validated acceptance event"):
+                pipeline.finalize_packet_view(
+                    run["run_id"], anchor_version="anchor-v1",
+                    accepted_answers=[{"answer_id": first["payload"]["answer_id"]}],
+                    requirement_projections=projections,
+                    expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"],
+                )
+
+            pipeline.accept_answer(
+                run["run_id"],
+                first["payload"]["answer_id"],
+                {"outcome": "accepted", "verified_by": "navigator"},
+            )
+            snapshot = pipeline.replay(run["run_id"])
+
+            second_question = pipeline.issue_question(run["run_id"], "public-route", "Which route uses the feature?")
+            second = pipeline.record_answer(
+                run["run_id"], "public-route", "tailtrail planning", source="direct-question",
+                question_id=second_question["payload"]["question_id"],
+            )
+            with self.assertRaisesRegex(IntakeError, "stale packet finalization"):
+                pipeline.finalize_packet_view(
+                    run["run_id"], anchor_version="anchor-v1",
+                    accepted_answers=[{"answer_id": first["payload"]["answer_id"]}],
+                    requirement_projections=projections,
+                    expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"],
+                )
+
+            pipeline.accept_answer(
+                run["run_id"],
+                second["payload"]["answer_id"],
+                {"outcome": "accepted", "verified_by": "navigator"},
+            )
+            fresh = pipeline.replay(run["run_id"])
+            with self.assertRaisesRegex(IntakeError, "contradictory accepted answers"):
+                pipeline.finalize_packet_view(
+                    run["run_id"], anchor_version="anchor-v1",
+                    accepted_answers=[
+                        {"answer_id": first["payload"]["answer_id"]},
+                        {"answer_id": second["payload"]["answer_id"]},
+                    ],
+                    requirement_projections=projections,
+                    expected_packet_view_fingerprint=fresh["packet_view_fingerprint"],
+                )
+
     def test_expired_and_abandoned_runs_require_explicit_resume(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             pipeline = IntakePipeline(Path(temp))

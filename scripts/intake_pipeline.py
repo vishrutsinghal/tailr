@@ -34,6 +34,8 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
 
 _SENSITIVE_KEY = re.compile(r"(?:password|passphrase|secret|token|api[_-]?key|private[_-]?key)", re.I)
 _SENSITIVE_VALUE = re.compile(r"(?:Bearer\s+|token\s*[:=]\s*|secret\s*[:=]\s*)\S+", re.I)
+_ANCHOR_VERSION = re.compile(r"^anchor-v[1-9][0-9]*$")
+_PACKET_VIEW_PROJECTION_KINDS = frozenset({"scope", "requirement", "validation", "approval"})
 
 
 def _redact(value: Any, key: str | None = None) -> Any:
@@ -95,6 +97,14 @@ class IntakePipeline:
 
     def _projection_path(self, run_id: str) -> Path:
         return self._run_root(run_id) / "projection.json"
+
+    def _packet_view_path(self, run_id: str, anchor_version: str) -> Path:
+        """Return the immutable view location for one authoritative anchor."""
+        return self._run_root(run_id) / "packet-views" / f"{anchor_version}.json"
+
+    def _packet_finalization_receipt_path(self, run_id: str, anchor_version: str) -> Path:
+        """Keep private source-evidence separate from the public packet-view schema."""
+        return self._run_root(run_id) / "packet-views" / f"{anchor_version}.receipt.json"
 
     def _state_path(self, run_id: str) -> Path:
         return self._run_root(run_id) / "lifecycle.json"
@@ -178,6 +188,166 @@ class IntakePipeline:
         }
         _write_json(self._projection_path(run_id), result)
         return result
+
+    def finalize_packet_view(
+        self,
+        run_id: str,
+        *,
+        anchor_version: str,
+        accepted_answers: list[dict[str, Any]],
+        requirement_projections: list[dict[str, Any]],
+        expected_packet_view_fingerprint: str,
+    ) -> dict[str, Any]:
+        """Materialize one immutable Navigator packet view for an anchor.
+
+        The caller selects only answers already accepted by Navigator through
+        the append-only intake stream; it cannot supply acceptance assertions.
+        The pipeline verifies answer lineage and the exact replay snapshot
+        before minting an anchor-bound view.  This deliberately does not
+        change ``contract.packet_version``: the anchor is the only versioned
+        authority for a finalized packet.
+        """
+        if not _ANCHOR_VERSION.fullmatch(anchor_version):
+            raise IntakeError("anchor_version must use the form anchor-vN")
+        if not isinstance(expected_packet_view_fingerprint, str) or not re.fullmatch(
+            r"sha256:[a-f0-9]{64}", expected_packet_view_fingerprint
+        ):
+            raise IntakeError("expected_packet_view_fingerprint must be a SHA-256 fingerprint")
+        if not isinstance(accepted_answers, list) or not accepted_answers:
+            raise IntakeError("packet finalization requires at least one Navigator-accepted answer")
+        if not isinstance(requirement_projections, list) or not requirement_projections:
+            raise IntakeError("packet finalization requires at least one requirement projection")
+
+        replay = self.replay(run_id)
+        if replay["packet_view_fingerprint"] != expected_packet_view_fingerprint:
+            raise IntakeError("stale packet finalization input; replay intake and obtain a fresh fingerprint")
+
+        events_path = self._run_root(run_id) / "events.jsonl"
+        events = [
+            json.loads(line)
+            for line in events_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ] if events_path.is_file() else []
+        answers = {
+            str(event.get("payload", {}).get("answer_id")): event.get("payload", {})
+            for event in events
+            if event.get("event_type") == "answer-recorded"
+            and str(event.get("payload", {}).get("answer_id", "")).strip()
+        }
+        question_ids = {
+            str(event.get("payload", {}).get("question_id"))
+            for event in events
+            if event.get("event_type") == "question-issued"
+        }
+        observation_ids = {
+            str(event.get("payload", {}).get("observation_id"))
+            for event in events
+            if event.get("event_type") == "host-observation-recorded"
+        }
+        accepted_by_navigator = {
+            str(event.get("payload", {}).get("answer_id"))
+            for event in events
+            if event.get("event_type") == "answer-accepted"
+            and event.get("payload", {}).get("evidence") == {"outcome": "accepted", "verified_by": "navigator"}
+        }
+
+        accepted_ids: list[str] = []
+        accepted_records: list[dict[str, Any]] = []
+        values_by_field: dict[str, str] = {}
+        for index, accepted in enumerate(accepted_answers, start=1):
+            if not isinstance(accepted, dict):
+                raise IntakeError(f"accepted answer {index} must be an object")
+            answer_id = str(accepted.get("answer_id", "")).strip()
+            if not answer_id or answer_id in accepted_ids:
+                raise IntakeError("accepted answers must contain unique recorded answer IDs")
+            if answer_id not in accepted_by_navigator:
+                raise IntakeError(f"accepted answer `{answer_id}` has no Navigator-validated acceptance event")
+            answer = answers.get(answer_id)
+            if not isinstance(answer, dict):
+                raise IntakeError(f"accepted answer `{answer_id}` is missing from the integrity-checked intake stream")
+            field_id = str(answer.get("field_id", "")).strip()
+            if not field_id or answer.get("value") in (None, ""):
+                raise IntakeError(f"accepted answer `{answer_id}` has incomplete field or value")
+            question_id = answer.get("question_id")
+            observation_id = answer.get("observation_id")
+            if question_id is not None and str(question_id) not in question_ids:
+                raise IntakeError(f"accepted answer `{answer_id}` has an unknown question lineage")
+            if observation_id is not None and str(observation_id) not in observation_ids:
+                raise IntakeError(f"accepted answer `{answer_id}` has an unknown observation lineage")
+            value_fingerprint = _canonical(answer["value"])
+            previous = values_by_field.get(field_id)
+            if previous is not None and previous != value_fingerprint:
+                raise IntakeError(f"contradictory accepted answers for profile field `{field_id}`")
+            values_by_field[field_id] = value_fingerprint
+            accepted_ids.append(answer_id)
+            accepted_records.append({
+                "answer_id": answer_id,
+                "field_id": field_id,
+                "value": answer["value"],
+                "question_id": question_id,
+                "observation_id": observation_id,
+            })
+
+        normalized_projections: list[dict[str, str]] = []
+        seen_projections: set[tuple[str, str, str]] = set()
+        for index, projection in enumerate(requirement_projections, start=1):
+            if not isinstance(projection, dict):
+                raise IntakeError(f"requirement projection {index} must be an object")
+            requirement_uid = str(projection.get("requirement_uid", "")).strip()
+            consumer_component_id = str(projection.get("consumer_component_id", "")).strip()
+            projection_kind = str(projection.get("projection_kind", "")).strip()
+            if not requirement_uid or not consumer_component_id or projection_kind not in _PACKET_VIEW_PROJECTION_KINDS:
+                raise IntakeError(f"requirement projection {index} is incomplete or has an unsupported kind")
+            key = (requirement_uid, consumer_component_id, projection_kind)
+            if key in seen_projections:
+                raise IntakeError("packet finalization requires unique requirement projections")
+            seen_projections.add(key)
+            normalized_projections.append({
+                "requirement_uid": requirement_uid,
+                "consumer_component_id": consumer_component_id,
+                "projection_kind": projection_kind,
+            })
+
+        view_path = self._packet_view_path(run_id, anchor_version)
+        if view_path.exists():
+            raise IntakeError(
+                f"packet view for `{anchor_version}` already exists; material changes require a new anchor version"
+            )
+        packet_view = {
+            "schema_version": "1",
+            "type": "tailtrail-host-question-flow-packet-view",
+            "packet_view_id": _new_id("packet-view"),
+            "run_id": run_id,
+            "contract_id": replay["contract"]["contract_id"],
+            "anchor_version": anchor_version,
+            "status": "materialized",
+            "requirement_projections": normalized_projections,
+        }
+        source_answer_fingerprint = _content_fingerprint(accepted_records)
+        receipt = {
+            "schema_version": "1",
+            "type": "tailtrail-host-question-flow-packet-finalization-receipt",
+            "packet_view_id": packet_view["packet_view_id"],
+            "run_id": run_id,
+            "contract_id": replay["contract"]["contract_id"],
+            "anchor_version": anchor_version,
+            "accepted_answer_ids": accepted_ids,
+            "source_answer_fingerprint": source_answer_fingerprint,
+            "source_packet_view_fingerprint": replay["packet_view_fingerprint"],
+            "packet_view_fingerprint": _content_fingerprint(packet_view),
+        }
+        _write_json(view_path, packet_view)
+        _write_json(self._packet_finalization_receipt_path(run_id, anchor_version), receipt)
+        self._append_event(
+            replay["contract"],
+            "packet-finalized",
+            {
+                "packet_view_id": packet_view["packet_view_id"],
+                "anchor_version": anchor_version,
+                "source_answer_fingerprint": source_answer_fingerprint,
+            },
+        )
+        return {"status": "requirements-finalized", "packet_view": packet_view, "receipt": receipt}
 
     def _check_packet_version(self, contract: dict[str, Any], packet_version: int | None) -> None:
         if packet_version is None:
@@ -295,6 +465,47 @@ class IntakePipeline:
         }
         return self._append_event(
             contract, "answer-recorded", payload, primary_id_key="answer_id", idempotency_key=idempotency_key
+        )
+
+    def accept_answer(
+        self,
+        run_id: str,
+        answer_id: str,
+        evidence: dict[str, Any],
+        *,
+        packet_version: int | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Record Navigator-owned acceptance for one existing answer.
+
+        Phase 2 produces the acceptance evidence. This method records its
+        constrained result so Phase 2B finalization never trusts a caller's
+        assertion that an answer was accepted.
+        """
+        if not answer_id.strip():
+            raise IntakeError("answer_id is required for acceptance")
+        if not isinstance(evidence, dict) or evidence.get("outcome") != "accepted" or evidence.get("verified_by") != "navigator":
+            raise IntakeError("answer acceptance requires Navigator-validated evidence")
+        contract = self.load_contract(run_id)
+        self._check_packet_version(contract, packet_version)
+        self.replay(run_id)
+        events_path = self._run_root(run_id) / "events.jsonl"
+        answer_exists = any(
+            event.get("event_type") == "answer-recorded"
+            and str(event.get("payload", {}).get("answer_id", "")) == answer_id
+            for event in (
+                json.loads(line)
+                for line in events_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+        )
+        if not answer_exists:
+            raise IntakeError(f"answer `{answer_id}` is missing from the integrity-checked intake stream")
+        return self._append_event(
+            contract,
+            "answer-accepted",
+            {"answer_id": answer_id, "evidence": {"outcome": "accepted", "verified_by": "navigator"}},
+            idempotency_key=idempotency_key,
         )
 
     def _idempotency_index_path(self, run_id: str) -> Path:
