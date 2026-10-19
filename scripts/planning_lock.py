@@ -27,7 +27,16 @@ def ledger() -> Any:
     return module
 
 
+def verbose_reporting() -> Any:
+    spec = importlib.util.spec_from_file_location("planning_lock_verbose", ROOT / "scripts" / "verbose-reporting.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
 L = ledger()
+VR = verbose_reporting()
 
 
 def load_module(name: str, filename: str) -> Any:
@@ -1074,6 +1083,19 @@ def _contract_proof_paths(contract: dict[str, Any]) -> list[str]:
     return seen
 
 
+def _command_id(command: str) -> str:
+    """Generate a deterministic short ID for a command string.
+    
+    Uses first 6 characters of SHA256 hash prefixed with 'cmd-' for readability.
+    Same command always produces same ID, enabling reference-based deduplication.
+    """
+    if not command or not isinstance(command, str):
+        return "cmd-none"
+    normalized = command.strip()
+    hash_val = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"cmd-{hash_val[:6]}"
+
+
 def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
     """Derive one converged effective plan from canonical contracts.
 
@@ -1089,11 +1111,15 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
     that exact command covering those tiers; otherwise the extra tiers
     remain unresolved until the host explicitly repeats the command per
     tier or supplies distinct commands.
+    
+    Emits command registry with deterministic IDs to enable single-source-of-truth
+    command references across checks and focused_validation rows.
     """
     requirements = _canonical_requirements(report)
     focused_validation: list[dict[str, Any]] = []
     checks_by_requirement: dict[str, list[dict[str, Any]]] = {}
     canonical_contracts: list[dict[str, Any]] = []
+    command_registry: dict[str, dict[str, Any]] = {}
 
     for req in requirements:
         req_id = str(req.get("display_id") or req.get("requirement_uid") or "unknown")
@@ -1155,13 +1181,24 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
                 })
 
         for check in expected_checks:
-            for tier in check.get("tiers", []) or []:
-                focused_validation.append({
-                    "requirement_id": req_id,
-                    "tier": tier,
-                    "status": "resolved",
-                    "command": check["command"],
-                })
+            command_str = str(check.get("command", "")).strip()
+            if command_str:
+                cmd_id = _command_id(command_str)
+                # Register command in global registry if not already present
+                if cmd_id not in command_registry:
+                    command_registry[cmd_id] = {
+                        "command": command_str,
+                        "kind": str(check.get("kind", "proof")),
+                    }
+                # Emit focused_validation with command_id reference
+                for tier in check.get("tiers", []) or []:
+                    focused_validation.append({
+                        "requirement_id": req_id,
+                        "tier": tier,
+                        "status": "resolved",
+                        "command_id": cmd_id,
+                    })
+            
         covered_tiers = {str(tier) for check in expected_checks for tier in check.get("tiers", []) or []}
         for tier in tiers:
             if tier not in covered_tiers:
@@ -1169,23 +1206,39 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
                     "requirement_id": req_id,
                     "tier": tier,
                     "status": "unresolved",
-                    "command": None,
+                    "command_id": None,
                 })
-        checks_by_requirement[req_id] = expected_checks
+        
+        # Build checks with command_id references
+        checks_with_ids: list[dict[str, Any]] = []
+        for check in expected_checks:
+            command_str = str(check.get("command", "")).strip()
+            if command_str:
+                cmd_id = _command_id(command_str)
+                checks_with_ids.append({
+                    "kind": check.get("kind", "proof"),
+                    "command_id": cmd_id,
+                    "tiers": check.get("tiers", []),
+                    "candidate_paths": check.get("candidate_paths", []),
+                })
+        
+        checks_by_requirement[req_id] = checks_with_ids
         canonical_contracts.append({
             "display_id": req_id,
             "tiers": tiers,
             "commands": commands,
-            "checks": expected_checks,
+            "checks": checks_with_ids,
         })
 
     return {
         "requirements": canonical_contracts,
         "focused_validation": focused_validation,
         "checks_by_requirement": checks_by_requirement,
+        "command_registry": command_registry,
         "fingerprint": _canonical_fingerprint({
             "requirements": canonical_contracts,
             "focused_validation": focused_validation,
+            "command_registry": command_registry,
         }),
     }
 
@@ -2790,6 +2843,78 @@ def assert_write_allowed(root: Path, run_id: str) -> dict[str, Any]:
     return payload
 
 
+def generate_start_plan_verbose_report(root: Path, run_id: str) -> dict[str, Any]:
+    """Generate and save the comprehensive start plan verbose report.
+    
+    MANDATORY: This report must be generated for every activated run.
+    Called after approval to generate professional markdown documentation
+    with command registry, architecture validation, and approval checklist.
+    
+    Raises:
+        ValueError: If report generation fails (mandatory requirement)
+    """
+    root = root.resolve()
+    anchor = approved(root, run_id)
+    
+    if not isinstance(anchor, dict) or "requirements" not in anchor:
+        raise ValueError(f"Cannot generate start plan verbose report: no approved requirements found for run {run_id}")
+    
+    requirements = anchor.get("requirements", [])
+    
+    # Extract command registry from requirements
+    command_registry: dict[str, dict[str, Any]] = {}
+    for req in requirements:
+        if isinstance(req, dict):
+            contract = req.get("validation_contract", {})
+            if isinstance(contract, dict):
+                reg = contract.get("command_registry", {})
+                if isinstance(reg, dict):
+                    command_registry.update(reg)
+    
+    # Get the goal from the planning lock
+    lock = show(root, run_id)
+    goal = lock.get("goal", "")
+    
+    # Generate markdown report
+    report_markdown = VR.generate_start_plan_verbose(
+        run_id,
+        requirements,
+        command_registry,
+        goal
+    )
+    
+    if not report_markdown or len(report_markdown) < 100:
+        raise ValueError(f"Start plan verbose report generation produced invalid output (length: {len(report_markdown or '')})")
+    
+    # Save reports (both markdown and JSON metadata)
+    report_path = VR.save_verbose_reports(root, run_id, "start-plan", report_markdown)
+    
+    # Verify both files were created
+    markdown_path = report_path
+    json_path = report_path.parent / f"{report_path.stem.replace('-v1', '')}-v1.json"
+    
+    if not markdown_path.is_file():
+        raise ValueError(f"Start plan verbose markdown report not created: {markdown_path}")
+    if not json_path.is_file():
+        raise ValueError(f"Start plan verbose metadata not created: {json_path}")
+    
+    L.append_event(root, run_id, "start_plan_verbose_generated", {
+        "artifact": report_path.relative_to(root).as_posix(),
+        "markdown_size": len(report_markdown),
+        "mandatory": True,
+        "status": "verified"
+    })
+    
+    return {
+        "status": "generated",
+        "artifact": report_path.relative_to(root).as_posix(),
+        "markdown_size": len(report_markdown),
+        "run_id": run_id,
+        "mandatory": True,
+    }
+
+
+
 def assert_source_write_allowed(root: Path, run_id: str) -> dict[str, Any]:
     payload = assert_write_allowed(root, run_id)
     if payload.get("source_writes_allowed") is False or payload.get("authority_scope") == "debug-investigation-only":
@@ -2874,6 +2999,25 @@ def main() -> int:
             payload = approve(args.root, args.run_id, args.approved, rationale=args.rationale)
         elif args.command == "activate":
             payload = activate(args.root, args.run_id, args.approved, rationale=args.rationale)
+            # Generate verbose start plan report - MANDATORY for every activated run
+            if isinstance(payload, dict) and payload.get("state") == "execution-ready":
+                try:
+                    verbose_result = generate_start_plan_verbose_report(args.root, args.run_id)
+                    if isinstance(verbose_result, dict):
+                        # Ensure mandatory report was generated
+                        if verbose_result.get("mandatory") and verbose_result.get("status") == "generated":
+                            L.append_event(args.root, args.run_id, "verbose_report_generated", verbose_result)
+                            print(f"✓ Start plan verbose report: {verbose_result.get('artifact')}")
+                        else:
+                            raise ValueError(f"Start plan verbose report generation failed: {verbose_result}")
+                except Exception as error:
+                    # Mandatory report generation failed - log and re-raise
+                    L.append_event(args.root, args.run_id, "verbose_report_generation_failed", {
+                        "error": str(error),
+                        "mandatory": True,
+                        "run_id": args.run_id,
+                    })
+                    raise ValueError(f"MANDATORY: Start plan verbose report generation failed: {error}")
         elif args.command == "feedback-template":
             payload = feedback_template(args.root, args.run_id)
         elif args.command == "feedback":

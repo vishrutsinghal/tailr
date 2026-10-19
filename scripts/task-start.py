@@ -3819,10 +3819,12 @@ def coalesce_focused_validation_rows(rows: list[dict[str, Any]]) -> list[dict[st
         row = dict(source)
         tier = str(row.get("tier", "unit"))
         row["tiers"] = [tier]
+        # Use command_id if present (new format), fallback to command (old format)
+        command_ref = str(row.get("command_id", "")) or str(row.get("command", ""))
         key = (
             str(row.get("requirement_id", "")),
             str(row.get("candidate", "")),
-            str(row.get("command", "")),
+            command_ref,
             str(row.get("candidate_state", "unresolved")),
         )
         mergeable = bool(key[0] and key[1] and key[2] in {"existing", "proposed"})
@@ -4113,21 +4115,36 @@ def attach_focused_validation_contracts(
             for row in [*linked, *required_static]
             if str(row.get("command", ""))
         ]
+        
+        # Build command registry with deterministic IDs
+        command_registry: dict[str, dict[str, Any]] = {}
         checks = []
+        
         for proof in linked:
             command = str(proof.get("command", ""))
             if not command:
                 continue
+            # Generate deterministic command ID using planning_lock._command_id
+            cmd_id = planning_lock._command_id(command)
+            if cmd_id not in command_registry:
+                command_registry[cmd_id] = {"command": command, "kind": "proof"}
+            
             checks.append({
                 "kind": "proof",
-                "command": command,
+                "command_id": cmd_id,
                 "tiers": [str(value) for value in proof.get("tiers", [proof.get("tier")]) if str(value)],
                 "candidate_paths": [str(proof.get("candidate"))] if proof.get("candidate") else [],
             })
+        
         for static in required_static:
+            command = str(static["command"])
+            cmd_id = planning_lock._command_id(command)
+            if cmd_id not in command_registry:
+                command_registry[cmd_id] = {"command": command, "kind": "static"}
+            
             checks.append({
                 "kind": "static",
-                "command": str(static["command"]),
+                "command_id": cmd_id,
                 "tiers": ["static"],
                 "candidate_paths": [],
             })
@@ -4137,6 +4154,7 @@ def attach_focused_validation_contracts(
         # (candidate_paths) come from scope evidence as well as focused
         # validation, and dropping them would brick downstream authority.
         # Only `state` (a planning input, not proof content) is preserved.
+        # NEW: Include command_registry for single-source-of-truth references.
         prior = existing
         prior_paths = lambda key: [str(v) for v in prior.get(key, []) if str(v)]
         requirement["validation_contract"] = {
@@ -4146,7 +4164,8 @@ def attach_focused_validation_contracts(
             "proposed_paths": list(dict.fromkeys([*prior_paths("proposed_paths"), *proposed])),
             "editable_paths": list(dict.fromkeys([*prior_paths("editable_paths"), *paths])),
             "commands": list(dict.fromkeys(commands)),
-            "checks": list({item["command"]: item for item in checks}.values()),
+            "checks": list({item["command_id"]: item for item in checks}.values()),
+            "command_registry": command_registry,
         }
 
 

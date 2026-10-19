@@ -35,6 +35,31 @@ def proof_amendments(root: Path, run_id: str) -> Path: return directory(root, ru
 def canonical(value: Any) -> str: return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
+def _resolve_command_for_execution(command_id_or_str: str, registry: dict[str, Any]) -> str:
+    """Resolve command_id to actual command string for execution.
+    
+    Supports both new format (command_id: "cmd-abc123") and old format
+    (embedded command string). Returns the actual command to execute.
+    
+    Args:
+        command_id_or_str: Either a command ID (cmd-XXXXXX) or command string
+        registry: Command registry mapping IDs to metadata
+    
+    Returns:
+        The actual command string to execute
+    
+    Raises:
+        ValueError: If command_id is provided but not found in registry
+    """
+    if isinstance(command_id_or_str, str) and command_id_or_str.startswith("cmd-"):
+        # New format: command_id reference
+        if command_id_or_str not in registry:
+            raise ValueError(f"command_id {command_id_or_str} not found in registry; use `tailtrail planning show --root . --run-id <run-id>` to view approved commands")
+        return str(registry[command_id_or_str].get("command", ""))
+    # Old format or string command: return as-is
+    return command_id_or_str
+
+
 def append_proof_amendment(
     root: Path,
     run_id: str,
@@ -242,6 +267,7 @@ def run_command(
         if row is None:
             raise ValueError(f"managed execution references unknown approved requirement `{uid}`; use a UID from the approved anchor (check `tailtrail planning show --root . --run-id {run_id}`)")
         contract = row.get("validation_contract", {}) if isinstance(row.get("validation_contract"), dict) else {}
+        command_registry = contract.get("command_registry", {}) if isinstance(contract.get("command_registry"), dict) else {}
         approved_commands = {str(value) for value in contract.get("commands", []) if str(value)}
         approved_tiers = {str(value) for value in contract.get("tiers", []) if str(value)}
         revision_commands = set(overlay.get(uid, {}).get("commands", []))
@@ -255,7 +281,21 @@ def run_command(
         approved_commands |= amendment_commands
         approved_tiers |= amendment_tiers
         checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
-        matching_checks = [value for value in checks if str(value.get("command", "")) == command]
+        
+        # Match checks by command or command_id (support both old and new formats)
+        matching_checks = []
+        for check in checks:
+            check_cmd = check.get("command", "")
+            check_cmd_id = check.get("command_id", "")
+            
+            # Try to match by command_id first (new format)
+            if check_cmd_id and check_cmd_id.startswith("cmd-"):
+                resolved_cmd = _resolve_command_for_execution(check_cmd_id, command_registry)
+                if resolved_cmd == command:
+                    matching_checks.append(check)
+            # Fallback to command string match (old format)
+            elif check_cmd and check_cmd == command:
+                matching_checks.append(check)
         if matching_checks:
             # A checks[] entry narrows this exact command's trusted tiers (by
             # design, so one proof command can't silently cover another's tier).

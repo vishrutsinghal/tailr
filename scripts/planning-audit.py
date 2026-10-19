@@ -345,9 +345,29 @@ def _internal_proof_boundary(navigator: dict[str, Any]) -> set[str] | None:
 
 
 def _normalize_check(entry: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
+    """Normalize a check entry for comparison, handling both command strings and command_id refs."""
+    # Support both old (embedded command) and new (command_id) formats
     command = str(entry.get("command", "")).strip()
+    if not command:
+        command = str(entry.get("command_id", "")).strip()
     tiers = tuple(sorted(str(value).strip() for value in (entry.get("tiers", []) or []) if str(value).strip()))
     return (command, tiers)
+
+
+def _resolve_command_from_registry(command_id_or_str: str, registry: dict[str, Any]) -> str | None:
+    """Resolve a command_id to actual command string, or return string if already embedded.
+    
+    Supports both new registry-based refs (cmd-xxxxx) and old embedded commands.
+    """
+    if not command_id_or_str:
+        return None
+    # If it looks like a command_id, resolve from registry
+    if isinstance(command_id_or_str, str) and command_id_or_str.startswith("cmd-"):
+        if isinstance(registry, dict) and command_id_or_str in registry:
+            return str(registry[command_id_or_str].get("command", ""))
+        return None  # command_id not found in registry
+    # Otherwise treat as embedded command string
+    return str(command_id_or_str).strip() if command_id_or_str else None
 
 
 def _focused_covers(
@@ -355,7 +375,13 @@ def _focused_covers(
     requirement_id: str,
     tier: str,
     command: str | None,
+    registry: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
+    """Find a focused_validation row matching requirement, tier, and command (or command_id).
+    
+    Handles both old format (command string) and new format (command_id reference).
+    """
+    registry = registry or {}
     for item in focused:
         if not isinstance(item, dict):
             continue
@@ -370,11 +396,24 @@ def _focused_covers(
             names = {part.strip() for part in str(item.get("tier", "")).split("+") if part.strip()}
         if tier not in names:
             continue
-        if command is None and not str(item.get("command", "")).strip():
+        
+        # Handle both command (old) and command_id (new) fields
+        item_command = str(item.get("command", "")).strip() or str(item.get("command_id", "")).strip()
+        if not item_command:
+            if command is None:
+                return item
+            continue
+        
+        # Resolve command_id if present
+        if item_command.startswith("cmd-"):
+            item_command = _resolve_command_from_registry(item_command, registry) or item_command
+        
+        if command is None and not item_command:
             return item
-        if command is not None and str(item.get("command", "")).strip() == command:
+        if command is not None and item_command == command:
             return item
     return None
+
 
 
 def _command_targets_path(command: str, path: str) -> bool:
@@ -543,6 +582,7 @@ def _convergence_findings(
     findings: list[dict[str, Any]] = []
     expected_focused = projection.get("focused_validation", [])
     expected_by_req = projection.get("checks_by_requirement", {})
+    command_registry = projection.get("command_registry", {})
     focused = report.get("focused_validation", [])
     focused = focused if isinstance(focused, list) else []
     canonical = {item.get("display_id"): item for item in projection.get("requirements", []) if isinstance(item, dict)}
@@ -576,9 +616,12 @@ def _convergence_findings(
             if str(item.get("requirement_id")) != uid:
                 continue
             tier = str(item.get("tier", ""))
-            command = item.get("command")
-            command_text = str(command or "").strip()
-            if not command_text:
+            # Handle both command (old) and command_id (new) fields
+            command_id_or_str = item.get("command_id") or item.get("command")
+            command_text = _resolve_command_from_registry(str(command_id_or_str or "").strip(), command_registry)
+            if not command_id_or_str:
+                command_text = None
+            if command_text is None and not command_id_or_str:
                 findings.append({
                     "type": "unresolved-tier-proof",
                     "correction_kind": "template",
@@ -600,7 +643,7 @@ def _convergence_findings(
                     ),
                 })
                 continue
-            covering = _focused_covers(focused, uid, tier, command_text)
+            covering = _focused_covers(focused, uid, tier, command_text, registry=command_registry)
             if covering is None:
                 fix = _rebuild_fix(run_id, uid, "rebuild proof projection", pending=pending)
                 findings.append({
@@ -657,7 +700,7 @@ def _convergence_findings(
     behaviour_tiers = {
         str(item.get("requirement_id"))
         for item in expected_focused
-        if str(item.get("tier", "")) == "behaviour" and item.get("command")
+        if str(item.get("tier", "")) == "behaviour" and (item.get("command") or item.get("command_id"))
     }
     if behaviour_tiers:
         behaviour_plan = report.get("behaviour_plan", {}) if isinstance(report.get("behaviour_plan"), dict) else {}

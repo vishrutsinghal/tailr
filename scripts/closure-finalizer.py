@@ -47,6 +47,30 @@ NAVIGATOR_GRAPH = load("closure_finalizer_navigator_graph", "navigator_graph_lif
 REFRESH = load("closure_finalizer_refresh", "learning-refresh.py")
 HARNESS = load("closure_finalizer_harness", "harness-review.py")
 ANCHOR = load("closure_finalizer_anchor", "change-intent-anchor.py")
+VR = load("closure_finalizer_verbose_reporting", "verbose-reporting.py")
+
+
+def _resolve_command_from_registry(command_id_or_str: str, registry: dict[str, Any]) -> str:
+    """Resolve command_id to actual command string for display and reporting.
+    
+    Supports both new format (command_id: "cmd-abc123") and old format
+    (embedded command string). Returns the actual command.
+    
+    Args:
+        command_id_or_str: Either a command ID (cmd-XXXXXX) or command string
+        registry: Command registry mapping IDs to metadata
+    
+    Returns:
+        The actual command string to display
+    """
+    if isinstance(command_id_or_str, str) and command_id_or_str.startswith("cmd-"):
+        # New format: command_id reference
+        if command_id_or_str in registry:
+            return str(registry[command_id_or_str].get("command", ""))
+        # Fallback if not found
+        return command_id_or_str
+    # Old format or string command: return as-is
+    return command_id_or_str
 
 
 def read(path: Path) -> dict[str, Any]:
@@ -261,6 +285,19 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         start_report = LOCK.active_start_report(root, run_id).get("report", {})
         navigator_plan = start_report.get("navigator", {}) if isinstance(start_report, dict) else {}
         scope_evidence = navigator_plan.get("scope_evidence", {}) if isinstance(navigator_plan, dict) else {}
+        
+        # Load command registry from approved requirements for traceability
+        approved_anchor = ANCHOR.approved(root, run_id)
+        command_registry = {}
+        if isinstance(approved_anchor, dict):
+            for req in approved_anchor.get("requirements", []):
+                if isinstance(req, dict):
+                    contract = req.get("validation_contract", {})
+                    if isinstance(contract, dict):
+                        req_registry = contract.get("command_registry", {})
+                        if isinstance(req_registry, dict):
+                            command_registry.update(req_registry)
+        
         graph_lifecycle = NAVIGATOR_GRAPH.manage(
             root,
             str(lock_state.get("goal", "")),
@@ -346,6 +383,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "correction": correction,
         "completion_report": report.get("run_artifact"),
         "delivery_record": delivery_record,
+        "command_registry": command_registry,
         "overall_status": report["overall_status"],
         "boundary": "Finalized deterministic local control evidence only. No receipt command, deployment, recovery action, or external environment was executed.",
     }
@@ -357,7 +395,81 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "artifact": saved.relative_to(directory).as_posix(), "closure_record_id": closure["record_id"],
         "overall_status": report["overall_status"], "selected_harnesses": selected,
     })
+    
+    # Generate verbose closure report - MANDATORY for every finalized run
+    try:
+        verbose_result = generate_closure_report_verbose(root, run_id, payload)
+        if isinstance(verbose_result, dict):
+            # Ensure mandatory report was generated
+            if verbose_result.get("mandatory") and verbose_result.get("status") == "generated":
+                L.append_event(root, run_id, "verbose_closure_report_generated", verbose_result)
+            else:
+                raise ValueError(f"Closure verbose report generation failed: {verbose_result}")
+    except Exception as error:
+        # Mandatory report generation failed - log and re-raise
+        L.append_event(root, run_id, "verbose_closure_report_generation_failed", {
+            "error": str(error),
+            "mandatory": True,
+            "run_id": run_id,
+        })
+        raise ValueError(f"MANDATORY: Closure verbose report generation failed: {error}")
+    
     return {**payload, "reused": False}
+
+
+def generate_closure_report_verbose(root: Path, run_id: str, closure_payload: dict[str, Any]) -> dict[str, Any]:
+    """Generate and save the comprehensive closure report verbose report.
+    
+    MANDATORY: This report must be generated for every finalized run.
+    Called after finalization to generate professional markdown documentation
+    with proof execution summary, token metrics, and completion checklist.
+    
+    Raises:
+        ValueError: If report generation fails (mandatory requirement)
+    """
+    root = root.resolve()
+    
+    # Extract command registry from closure payload
+    command_registry = closure_payload.get("command_registry", {})
+    if not isinstance(command_registry, dict):
+        raise ValueError(f"Cannot generate closure verbose report: invalid command_registry in closure payload")
+    
+    # Generate markdown report
+    report_markdown = VR.generate_closure_report_verbose(
+        run_id,
+        closure_payload,
+        command_registry
+    )
+    
+    if not report_markdown or len(report_markdown) < 100:
+        raise ValueError(f"Closure verbose report generation produced invalid output (length: {len(report_markdown or '')})")
+    
+    # Save reports (both markdown and JSON metadata)
+    report_path = VR.save_verbose_reports(root, run_id, "closure", report_markdown)
+    
+    # Verify both files were created
+    markdown_path = report_path
+    json_path = report_path.parent / f"{report_path.stem.replace('-v1', '')}-v1.json"
+    
+    if not markdown_path.is_file():
+        raise ValueError(f"Closure verbose markdown report not created: {markdown_path}")
+    if not json_path.is_file():
+        raise ValueError(f"Closure verbose metadata not created: {json_path}")
+    
+    L.append_event(root, run_id, "closure_report_verbose_generated", {
+        "artifact": report_path.relative_to(root).as_posix(),
+        "markdown_size": len(report_markdown),
+        "mandatory": True,
+        "status": "verified"
+    })
+    
+    return {
+        "status": "generated",
+        "artifact": report_path.relative_to(root).as_posix(),
+        "markdown_size": len(report_markdown),
+        "run_id": run_id,
+        "mandatory": True,
+    }
 
 
 def main() -> int:
