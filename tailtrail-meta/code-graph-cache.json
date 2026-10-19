@@ -1,10 +1,10 @@
 {
   "schema_version": "1",
-  "created_at": "2026-10-19T06:26:37.544233+00:00",
-  "updated_at": "2026-10-19T06:26:37.544255+00:00",
+  "created_at": "2026-10-19T08:57:52.394137+00:00",
+  "updated_at": "2026-10-19T08:57:52.394157+00:00",
   "tailtrail_version": "local",
   "root": "/Users/vsingha7/Desktop/tailr",
-  "cache_key": "3f6dc8b2ee7385bb3ca141343f284abee2c1bdf7a5777bc294b9bca8db068db9",
+  "cache_key": "77e72590e51c6f6f4ee4bd471e941a446cd5000fe99ba03cdbbb6f5a585ffde6",
   "graph_mode": "navigator-start",
   "scope": [
     "buildweek-demo-project/src/claims_api/validation.py",
@@ -121,6 +121,7 @@
     "tests/test_new_file_due_diligence.py",
     "tests/test_planning_audit.py",
     "tests/test_planning_lock.py",
+    "tests/test_planning_revision.py",
     "tests/test_public_route_gate.py",
     "tests/test_question_orchestrator.py",
     "tests/test_repository_path_policy.py",
@@ -155,7 +156,7 @@
   "language_profiles": {
     "python": {
       "level": 2,
-      "files": 135
+      "files": 136
     }
   },
   "source_files": {
@@ -290,9 +291,9 @@
       "size": 4495
     },
     "scripts/closure-finalizer.py": {
-      "sha256": "c1d42cdd5b4833ed634d1bcde82d6865bc098b434e8899f75b20f9fab050779c",
-      "mtime": 1792035584,
-      "size": 19645
+      "sha256": "f11ae911be74f954505b0efe7599d84514eed82d3f524ea32e8014cb232db777",
+      "mtime": 1792393062,
+      "size": 24465
     },
     "scripts/closure-recorder.py": {
       "sha256": "849acbc5e9699c04cd670430dd89dcaf333ae2a1c5ae02814ab7b2dc4956ee4f",
@@ -350,9 +351,9 @@
       "size": 5931
     },
     "scripts/execution-evidence.py": {
-      "sha256": "0c98ae181ef5042d731ea32d15593b938b4ca987c7586b66cd2efb3bebc78983",
-      "mtime": 1792228160,
-      "size": 29078
+      "sha256": "33ea9d1241e9b1f63aa370f280b3232776d253f4b26427b51e868482ed244130",
+      "mtime": 1792392743,
+      "size": 30952
     },
     "scripts/greenfield_e2e_fixture.py": {
       "sha256": "2afee022f7995ddd0b4d74f7f9e33264568c058110c03463d80a526a081eb918",
@@ -495,9 +496,9 @@
       "size": 75432
     },
     "scripts/planning_lock.py": {
-      "sha256": "d756a5d3e3f56a7aa3024413a2d8032a062c2174fe7698edacc54e7e7673f883",
-      "mtime": 1792388571,
-      "size": 177621
+      "sha256": "79349b2b1c8c5854980c9ffde01bdab23c61b5d33891961a847824ee8032162c",
+      "mtime": 1792393062,
+      "size": 181984
     },
     "scripts/question-orchestrator.py": {
       "sha256": "908a0dbc42283bb9313d72ca297c75c2b31cfee301f1916a27c3b0279fbfc215",
@@ -525,9 +526,9 @@
       "size": 70829
     },
     "scripts/task-start.py": {
-      "sha256": "488113f9e13a89bbd9719fff717e365eae6b2a71fd5375e53347f9baa355d071",
-      "mtime": 1792225882,
-      "size": 423729
+      "sha256": "217defe695a790c6a392e31342621328c38217f2130054f63b7800f210dead52",
+      "mtime": 1792392743,
+      "size": 424661
     },
     "scripts/update-copilot.py": {
       "sha256": "2c2000a096c3b493352759cb71230051a253fcc1a048112915613cc93f3f5100",
@@ -729,6 +730,11 @@
       "mtime": 1792226152,
       "size": 57858
     },
+    "tests/test_planning_revision.py": {
+      "sha256": "ada74de85336269d8df1a56c86b55b4f255c932a3f802ee9609b54483b20aa2a",
+      "mtime": 1792156630,
+      "size": 29493
+    },
     "tests/test_public_route_gate.py": {
       "sha256": "f1b9dbfa501adf7f69afbf0dc76b0be7af36c3d8abc683ed11a62c0b0fa5c2ce",
       "mtime": 1792127142,
@@ -922,8 +928,8 @@
   "scanner_evidence": {},
   "inventory": {
     "algorithm": "path-size-mtime-ns-v1",
-    "file_count": 978,
-    "fingerprint": "sha256:9ffdd81da37eedf6a2aac753d956ae6c8ae0b93109066ba49f6e0e7693fc02ce"
+    "file_count": 979,
+    "fingerprint": "sha256:676e0944c8386733217e4209646ff4331cc14698ba58f75dc1abedb397aa60cb"
   },
   "graph": {
     "changed_files": [
@@ -1041,6 +1047,7 @@
       "tests/test_new_file_due_diligence.py",
       "tests/test_planning_audit.py",
       "tests/test_planning_lock.py",
+      "tests/test_planning_revision.py",
       "tests/test_public_route_gate.py",
       "tests/test_question_orchestrator.py",
       "tests/test_repository_path_policy.py",
@@ -5312,110 +5319,6 @@
         "kind": "function",
         "name": "load",
         "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 26,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "read",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 52,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "canonical",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 56,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "relative",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 60,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "latest_record",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 67,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "ensure_delivery_record",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 81,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "selected_harnesses",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 102,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "behavior_scenarios",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 122,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "missing_behavior",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 137,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "run_behavior",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 160,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "higher_tier_status",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 181,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "finalize",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 210,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "main",
-        "language": "python",
-        "file": "scripts/closure-finalizer.py",
-        "line": 363,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "load",
-        "language": "python",
         "file": "scripts/delivery-record.py",
         "line": 33,
         "confidence": "python_ast"
@@ -7360,6 +7263,126 @@
         "kind": "function",
         "name": "load",
         "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 26,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "_resolve_command_from_registry",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 53,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "read",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 76,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "canonical",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 80,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "relative",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 84,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "latest_record",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 91,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "ensure_delivery_record",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 105,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "selected_harnesses",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 126,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "behavior_scenarios",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 146,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "missing_behavior",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 161,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "run_behavior",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 184,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "higher_tier_status",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 205,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "finalize",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 234,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "generate_closure_report_verbose",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 420,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "main",
+        "language": "python",
+        "file": "scripts/closure-finalizer.py",
+        "line": 475,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
+        "name": "load",
+        "language": "python",
         "file": "scripts/execution-evidence.py",
         "line": 21,
         "confidence": "python_ast"
@@ -7398,7 +7421,7 @@
       },
       {
         "kind": "function",
-        "name": "append_proof_amendment",
+        "name": "_resolve_command_for_execution",
         "language": "python",
         "file": "scripts/execution-evidence.py",
         "line": 38,
@@ -7406,10 +7429,18 @@
       },
       {
         "kind": "function",
+        "name": "append_proof_amendment",
+        "language": "python",
+        "file": "scripts/execution-evidence.py",
+        "line": 63,
+        "confidence": "python_ast"
+      },
+      {
+        "kind": "function",
         "name": "approved_proof_amendments",
         "language": "python",
         "file": "scripts/execution-evidence.py",
-        "line": 70,
+        "line": 95,
         "confidence": "python_ast"
       },
       {
@@ -7417,7 +7448,7 @@
         "name": "validate",
         "language": "python",
         "file": "scripts/execution-evidence.py",
-        "line": 105,
+        "line": 130,
         "confidence": "python_ast"
       },
       {
@@ -7425,7 +7456,7 @@
         "name": "_redact",
         "language": "python",
         "file": "scripts/execution-evidence.py",
-        "line": 143,
+        "line": 168,
         "confidence": "python_ast"
       },
       {
@@ -7433,7 +7464,7 @@
         "name": "_anchor_requirements",
         "language": "python",
         "file": "scripts/execution-evidence.py",
-        "line": 157,
+        "line": 182,
         "confidence": "python_ast"
       },
       {
@@ -7441,31 +7472,7 @@
         "name": "_approved_revision_overlay",
         "language": "python",
         "file": "scripts/execution-evidence.py",
-        "line": 169,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "run_command",
-        "language": "python",
-        "file": "scripts/execution-evidence.py",
-        "line": 217,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "append",
-        "language": "python",
-        "file": "scripts/execution-evidence.py",
-        "line": 450,
-        "confidence": "python_ast"
-      },
-      {
-        "kind": "function",
-        "name": "show",
-        "language": "python",
-        "file": "scripts/execution-evidence.py",
-        "line": 466,
+        "line": 194,
         "confidence": "python_ast"
       }
     ],
@@ -15177,381 +15184,6 @@
       },
       {
         "target": "__future__",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 10,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "argparse",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 12,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "hashlib",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 13,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "importlib.util",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 14,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "json",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 15,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "sys",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 16,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "pathlib",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 17,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "typing",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 18,
-        "reference_type": "import",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "unresolved",
-          "resolved_targets": [],
-          "reason_codes": [
-            "module-alias-config-missing"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "run-ledger.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 35,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/run-ledger.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "planning_lock.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 36,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/planning_lock.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "closure-recorder.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 37,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/closure-recorder.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "architecture-fitness.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 38,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/architecture-fitness.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "behavior-harness.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 39,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/behavior-harness.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "maintainability-harness.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 40,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/maintainability-harness.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "completion-report.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 41,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/completion-report.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "delivery-record.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 42,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/delivery-record.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "debug-completion.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 43,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/debug-completion.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "closure-correction.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 44,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/closure-correction.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "workflow_runtime/evidence.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 45,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/workflow_runtime/evidence.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "navigator_graph_lifecycle.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 46,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/navigator_graph_lifecycle.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "learning-refresh.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 47,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/learning-refresh.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "harness-review.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 48,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/harness-review.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "change-intent-anchor.py",
-        "referring_file": "scripts/closure-finalizer.py",
-        "line": 49,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/change-intent-anchor.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "__future__",
         "referring_file": "scripts/delivery-record.py",
         "line": 20,
         "reference_type": "import",
@@ -19324,6 +18956,398 @@
       },
       {
         "target": "__future__",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 10,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "argparse",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 12,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "hashlib",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 13,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "importlib.util",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 14,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "json",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 15,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "sys",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 16,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "pathlib",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 17,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "typing",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 18,
+        "reference_type": "import",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "unresolved",
+          "resolved_targets": [],
+          "reason_codes": [
+            "module-alias-config-missing"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "run-ledger.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 35,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/run-ledger.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "planning_lock.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 36,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/planning_lock.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "closure-recorder.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 37,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/closure-recorder.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "architecture-fitness.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 38,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/architecture-fitness.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "behavior-harness.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 39,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/behavior-harness.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "maintainability-harness.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 40,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/maintainability-harness.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "completion-report.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 41,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/completion-report.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "delivery-record.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 42,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/delivery-record.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "debug-completion.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 43,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/debug-completion.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "closure-correction.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 44,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/closure-correction.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "workflow_runtime/evidence.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 45,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/workflow_runtime/evidence.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "navigator_graph_lifecycle.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 46,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/navigator_graph_lifecycle.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "learning-refresh.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 47,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/learning-refresh.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "harness-review.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 48,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/harness-review.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "change-intent-anchor.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 49,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/change-intent-anchor.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "verbose-reporting.py",
+        "referring_file": "scripts/closure-finalizer.py",
+        "line": 50,
+        "reference_type": "loader",
+        "confidence": "static-text",
+        "module_resolution": {
+          "state": "resolved",
+          "resolved_targets": [
+            "scripts/verbose-reporting.py"
+          ],
+          "reason_codes": [
+            "relative-module-reference-resolved"
+          ],
+          "config_paths": []
+        }
+      },
+      {
+        "target": "__future__",
         "referring_file": "scripts/execution-evidence.py",
         "line": 3,
         "reference_type": "import",
@@ -19546,23 +19570,6 @@
           "state": "resolved",
           "resolved_targets": [
             "scripts/closure-contract.py"
-          ],
-          "reason_codes": [
-            "relative-module-reference-resolved"
-          ],
-          "config_paths": []
-        }
-      },
-      {
-        "target": "change-intent-anchor.py",
-        "referring_file": "scripts/execution-evidence.py",
-        "line": 29,
-        "reference_type": "loader",
-        "confidence": "static-text",
-        "module_resolution": {
-          "state": "resolved",
-          "resolved_targets": [
-            "scripts/change-intent-anchor.py"
           ],
           "reason_codes": [
             "relative-module-reference-resolved"
@@ -26767,14 +26774,6 @@
         "confidence": "python_ast"
       },
       {
-        "type": "_HostContractBlocked",
-        "inherits": "Exception",
-        "language": "python",
-        "file": "scripts/task-start.py",
-        "line": 5308,
-        "confidence": "python_ast"
-      },
-      {
         "type": "PlanningAuditTests",
         "inherits": "TestCase",
         "language": "python",
@@ -26852,6 +26851,22 @@
         "language": "python",
         "file": "tests/test_tailtrail_registry.py",
         "line": 28,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "_HostContractBlocked",
+        "inherits": "Exception",
+        "language": "python",
+        "file": "scripts/task-start.py",
+        "line": 5327,
+        "confidence": "python_ast"
+      },
+      {
+        "type": "PlanningRevisionTests",
+        "inherits": "TestCase",
+        "language": "python",
+        "file": "tests/test_planning_revision.py",
+        "line": 33,
         "confidence": "python_ast"
       }
     ],
@@ -27397,8 +27412,16 @@
         "confidence": "heuristic"
       },
       {
+        "source_file": "tests/test_tailtrail_registry.py",
+        "line": 35,
+        "target": "json-schema.org",
+        "path_hint": "/draft/2020-12/schema",
+        "edge_type": "http-url",
+        "confidence": "heuristic"
+      },
+      {
         "source_file": "scripts/task-start.py",
-        "line": 4713,
+        "line": 4732,
         "target": "debug_plan.get",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27406,7 +27429,7 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 4895,
+        "line": 4914,
         "target": "lock.get",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27414,7 +27437,7 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 5993,
+        "line": 6012,
         "target": "lock.get",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27422,7 +27445,7 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 6822,
+        "line": 6841,
         "target": "parser.error",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27430,7 +27453,7 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 7079,
+        "line": 7098,
         "target": "parser.error",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27438,7 +27461,7 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 7095,
+        "line": 7114,
         "target": "parser.error",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27446,7 +27469,7 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 7097,
+        "line": 7116,
         "target": "parser.error",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27454,7 +27477,7 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 7207,
+        "line": 7226,
         "target": "args.host",
         "path_hint": "",
         "edge_type": "service-config",
@@ -27462,18 +27485,10 @@
       },
       {
         "source_file": "scripts/task-start.py",
-        "line": 7474,
+        "line": 7493,
         "target": "task_decision",
         "path_hint": "",
         "edge_type": "service-config",
-        "confidence": "heuristic"
-      },
-      {
-        "source_file": "tests/test_tailtrail_registry.py",
-        "line": 35,
-        "target": "json-schema.org",
-        "path_hint": "/draft/2020-12/schema",
-        "edge_type": "http-url",
         "confidence": "heuristic"
       }
     ],
@@ -27554,9 +27569,9 @@
       },
       {
         "partition": "scripts",
-        "files": 296,
+        "files": 297,
         "languages": {
-          "python": 296
+          "python": 297
         },
         "manifests": [],
         "tests": [
@@ -29133,305 +29148,20 @@
       "tests/test_new_file_due_diligence.py",
       "tests/test_planning_audit.py",
       "tests/test_planning_lock.py",
+      "tests/test_planning_revision.py",
       "tests/test_public_route_gate.py",
       "tests/test_question_orchestrator.py",
       "tests/test_repository_path_policy.py",
       "tests/test_requirement_discovery.py",
-      "tests/test_requirement_routing_phase0.py",
-      "tests/test_review_graph.py"
+      "tests/test_requirement_routing_phase0.py"
     ]
   },
   "freshness": {
     "status": "fresh",
-    "checked_at": "2026-10-19T06:26:40.161753+00:00",
+    "checked_at": "2026-10-19T08:57:55.052486+00:00",
     "reasons": []
   },
   "navigator_lifecycle_history": [
-    {
-      "action": "refresh",
-      "at": "2026-10-16T09:41:33.370672+00:00",
-      "attempt_id": "start-20261016094125-b46534",
-      "phase": "start",
-      "reason_codes": [
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "no anchor-connected path into cached scope",
-        "persistent-graph-stale"
-      ],
-      "target_paths": [
-        "scripts/host_contract.py"
-      ],
-      "effective_scope": [
-        "buildweek-demo-project/src/claims_api/validation.py",
-        "demo-project-layout/tailtrail-demo-workspace/services/claims-api/tests/test_validation.py",
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "release-manifest.json",
-        "schemas/host-input-contract.schema.json",
-        "schemas/host-question-flow-event.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/architecture-fitness.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-close.py",
-        "scripts/closure-contract.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/closure-recorder.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/code_graph_cache.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-harness-convergence.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/delivery-record.py",
-        "scripts/docs-only.py",
-        "scripts/execution-evidence.py",
-        "scripts/greenfield_e2e_fixture.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/host-decision.py",
-        "scripts/host-reply-validate.py",
-        "scripts/host_contract.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/mcp-server.py",
-        "scripts/meta-harness-analyze.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/new_file_due_diligence.py",
-        "scripts/official-aidlc-checkpoint.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/planning-aidlc-question.py",
-        "scripts/planning-discussion.py",
-        "scripts/planning-revision.py",
-        "scripts/planning_lock.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/run-ledger.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/enterprise_transport.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/workflow_runtime/storage.py",
-        "scripts/write_guardian.py",
-        "tests/test_aidlc_official_host.py",
-        "tests/test_architecture_fitness.py",
-        "tests/test_closure_recorder.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_completion_review.py",
-        "tests/test_debug_host_integration.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_delivery_record.py",
-        "tests/test_demo_prompt_book.py",
-        "tests/test_enterprise_host_adapters.py",
-        "tests/test_evaluation_audit.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_greenfield_e2e.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_host_contract.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_host_packet_tickets.py",
-        "tests/test_host_question_flow_event_schema.py",
-        "tests/test_host_question_flow_phase0_artifacts.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_graph_lifecycle.py",
-        "tests/test_navigator_installed_release.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_new_file_due_diligence.py",
-        "tests/test_planning_audit.py",
-        "tests/test_planning_lock.py",
-        "tests/test_public_route_gate.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_discovery.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_review_scope.py",
-        "tests/test_revision_proof_overlay.py",
-        "tests/test_task_recovery.py",
-        "tests/test_task_type_contract.py",
-        "tests/test_task_type_gate.py",
-        "tests/test_workflow_adapters.py",
-        "tests/test_workflow_approvals.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_documentation.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_workflow_privacy.py",
-        "tests/test_workflow_start_integration.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
-    {
-      "action": "refresh",
-      "at": "2026-10-16T10:43:29.002140+00:00",
-      "attempt_id": "start-20261016104322-8e1cda",
-      "phase": "start",
-      "reason_codes": [
-        "anchor-insufficient-extend",
-        "anchor-slice-bounded-targets",
-        "explicit-scope-paths",
-        "no anchor-connected path into cached scope"
-      ],
-      "target_paths": [
-        "scripts/behaviour_planning.py"
-      ],
-      "effective_scope": [
-        "buildweek-demo-project/src/claims_api/validation.py",
-        "demo-project-layout/tailtrail-demo-workspace/services/claims-api/tests/test_validation.py",
-        "hooks/hooks.json",
-        "pyproject.toml",
-        "release-manifest.json",
-        "schemas/host-input-contract.schema.json",
-        "schemas/host-question-flow-event.schema.json",
-        "scripts/adoption-validation.py",
-        "scripts/advanced-runtime.py",
-        "scripts/aidlc-check.py",
-        "scripts/aidlc-init.py",
-        "scripts/aidlc-official-bridge.py",
-        "scripts/aidlc-official-detect.py",
-        "scripts/aidlc-official-host.py",
-        "scripts/aidlc-official-install.py",
-        "scripts/aidlc-requirements.py",
-        "scripts/architecture-fitness.py",
-        "scripts/architecture_planning.py",
-        "scripts/ast-map.py",
-        "scripts/behaviour_planning.py",
-        "scripts/benchmark-tailtrail.py",
-        "scripts/change-intent-anchor.py",
-        "scripts/check-tailtrail.py",
-        "scripts/closure-close.py",
-        "scripts/closure-contract.py",
-        "scripts/closure-evaluation.py",
-        "scripts/closure-finalizer.py",
-        "scripts/closure-recorder.py",
-        "scripts/code-graph-mapper.py",
-        "scripts/code_graph_cache.py",
-        "scripts/completion-report.py",
-        "scripts/debug-completion.py",
-        "scripts/debug-correction.py",
-        "scripts/debug-harness-convergence.py",
-        "scripts/debug-host-diagnosis.py",
-        "scripts/debug-preflight.py",
-        "scripts/delivery-record.py",
-        "scripts/docs-only.py",
-        "scripts/execution-evidence.py",
-        "scripts/greenfield_e2e_fixture.py",
-        "scripts/harness-checkpoint.py",
-        "scripts/host-adapter-conformance.py",
-        "scripts/host-decision.py",
-        "scripts/host-reply-validate.py",
-        "scripts/host_contract.py",
-        "scripts/install-copilot.py",
-        "scripts/install-local.py",
-        "scripts/intake_pipeline.py",
-        "scripts/learning-agent.py",
-        "scripts/learning-refresh.py",
-        "scripts/learning-use-receipt.py",
-        "scripts/mcp-server.py",
-        "scripts/meta-harness-analyze.py",
-        "scripts/navigator-scope-release.py",
-        "scripts/navigator-scope.py",
-        "scripts/navigator.py",
-        "scripts/navigator_discovery.py",
-        "scripts/navigator_scope.py",
-        "scripts/new_file_due_diligence.py",
-        "scripts/official-aidlc-checkpoint.py",
-        "scripts/official-aidlc-requirements.py",
-        "scripts/official-aidlc-state.py",
-        "scripts/planning-aidlc-question.py",
-        "scripts/planning-discussion.py",
-        "scripts/planning-revision.py",
-        "scripts/planning_lock.py",
-        "scripts/repository_path_policy.py",
-        "scripts/review-graph.py",
-        "scripts/run-ledger.py",
-        "scripts/tailtrail.py",
-        "scripts/task-start.py",
-        "scripts/update-copilot.py",
-        "scripts/workflow_runtime/enterprise_transport.py",
-        "scripts/workflow_runtime/start_integration.py",
-        "scripts/workflow_runtime/storage.py",
-        "scripts/write_guardian.py",
-        "tests/test_aidlc_official_host.py",
-        "tests/test_architecture_fitness.py",
-        "tests/test_closure_recorder.py",
-        "tests/test_code_graph_cache.py",
-        "tests/test_code_graph_inventory.py",
-        "tests/test_completion_review.py",
-        "tests/test_debug_host_integration.py",
-        "tests/test_debug_start_planning.py",
-        "tests/test_delivery_record.py",
-        "tests/test_demo_prompt_book.py",
-        "tests/test_enterprise_host_adapters.py",
-        "tests/test_evaluation_audit.py",
-        "tests/test_full_pipeline.py",
-        "tests/test_greenfield_e2e.py",
-        "tests/test_host_adapter_conformance.py",
-        "tests/test_host_contract.py",
-        "tests/test_host_input_contract_schema.py",
-        "tests/test_host_packet_tickets.py",
-        "tests/test_host_question_flow_event_schema.py",
-        "tests/test_host_question_flow_phase0_artifacts.py",
-        "tests/test_install_profiles.py",
-        "tests/test_intake_pipeline.py",
-        "tests/test_mcp_server.py",
-        "tests/test_navigator_core.py",
-        "tests/test_navigator_graph_lifecycle.py",
-        "tests/test_navigator_installed_release.py",
-        "tests/test_navigator_scope.py",
-        "tests/test_new_file_due_diligence.py",
-        "tests/test_planning_audit.py",
-        "tests/test_planning_lock.py",
-        "tests/test_public_route_gate.py",
-        "tests/test_repository_path_policy.py",
-        "tests/test_requirement_discovery.py",
-        "tests/test_requirement_routing_phase0.py",
-        "tests/test_review_graph.py",
-        "tests/test_review_scope.py",
-        "tests/test_revision_proof_overlay.py",
-        "tests/test_task_recovery.py",
-        "tests/test_task_type_contract.py",
-        "tests/test_task_type_gate.py",
-        "tests/test_workflow_adapters.py",
-        "tests/test_workflow_approvals.py",
-        "tests/test_workflow_ci_continuation.py",
-        "tests/test_workflow_contracts.py",
-        "tests/test_workflow_documentation.py",
-        "tests/test_workflow_phase7.py",
-        "tests/test_workflow_privacy.py",
-        "tests/test_workflow_start_integration.py",
-        "tests/test_workflow_template_execution.py",
-        "tests/test_write_guardian.py"
-      ]
-    },
     {
       "action": "refresh",
       "at": "2026-10-16T11:15:50.921427+00:00",
@@ -32111,6 +31841,332 @@
         "tests/test_new_file_due_diligence.py",
         "tests/test_planning_audit.py",
         "tests/test_planning_lock.py",
+        "tests/test_public_route_gate.py",
+        "tests/test_question_orchestrator.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_review_scope.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_sequential_pipeline.py",
+        "tests/test_start_entrypoints.py",
+        "tests/test_tailtrail_registry.py",
+        "tests/test_task_recovery.py",
+        "tests/test_task_type_contract.py",
+        "tests/test_task_type_gate.py",
+        "tests/test_workflow_adapters.py",
+        "tests/test_workflow_approvals.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_dashboard.py",
+        "tests/test_workflow_documentation.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_start_integration.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-19T08:32:44.259017+00:00",
+      "attempt_id": "start-20261019083234-440122",
+      "phase": "start",
+      "reason_codes": [
+        "1 anchor paths present in cached scope",
+        "1 anchor-connected cached files",
+        "anchor-slice-bounded-targets",
+        "explicit-scope-paths",
+        "persistent-graph-stale"
+      ],
+      "target_paths": [
+        "scripts/planning-revision.py"
+      ],
+      "effective_scope": [
+        "buildweek-demo-project/src/claims_api/validation.py",
+        "demo-project-layout/tailtrail-demo-workspace/services/claims-api/tests/test_validation.py",
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "release-manifest.json",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/aidlc-requirements.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/behaviour_planning.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-close.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/closure-recorder.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/code_graph_cache.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/delivery-record.py",
+        "scripts/docs-only.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/host-decision.py",
+        "scripts/host-reply-validate.py",
+        "scripts/host_contract.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/learning-agent.py",
+        "scripts/learning-refresh.py",
+        "scripts/learning-use-receipt.py",
+        "scripts/mcp-server.py",
+        "scripts/meta-harness-analyze.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/official-aidlc-checkpoint.py",
+        "scripts/official-aidlc-requirements.py",
+        "scripts/official-aidlc-state.py",
+        "scripts/pipeline_orchestrator.py",
+        "scripts/planning-aidlc-question.py",
+        "scripts/planning-audit.py",
+        "scripts/planning-discussion.py",
+        "scripts/planning-revision.py",
+        "scripts/planning_lock.py",
+        "scripts/question-orchestrator.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow-dashboard.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_aidlc_official_bridge.py",
+        "tests/test_aidlc_official_host.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_closure_finalizer.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_completion_report.py",
+        "tests/test_completion_review.py",
+        "tests/test_debug_host_integration.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_delivery_record.py",
+        "tests/test_demo_prompt_book.py",
+        "tests/test_enterprise_host_adapters.py",
+        "tests/test_evaluation_audit.py",
+        "tests/test_execution_evidence.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_contract.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_packet_tickets.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_graph_lifecycle.py",
+        "tests/test_navigator_installed_release.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_planning_audit.py",
+        "tests/test_planning_lock.py",
+        "tests/test_public_route_gate.py",
+        "tests/test_question_orchestrator.py",
+        "tests/test_repository_path_policy.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_review_graph.py",
+        "tests/test_review_scope.py",
+        "tests/test_revision_proof_overlay.py",
+        "tests/test_sequential_pipeline.py",
+        "tests/test_start_entrypoints.py",
+        "tests/test_tailtrail_registry.py",
+        "tests/test_task_recovery.py",
+        "tests/test_task_type_contract.py",
+        "tests/test_task_type_gate.py",
+        "tests/test_workflow_adapters.py",
+        "tests/test_workflow_approvals.py",
+        "tests/test_workflow_ci_continuation.py",
+        "tests/test_workflow_contracts.py",
+        "tests/test_workflow_dashboard.py",
+        "tests/test_workflow_documentation.py",
+        "tests/test_workflow_phase7.py",
+        "tests/test_workflow_privacy.py",
+        "tests/test_workflow_start_integration.py",
+        "tests/test_workflow_template_execution.py",
+        "tests/test_write_guardian.py"
+      ]
+    },
+    {
+      "action": "refresh",
+      "at": "2026-10-19T08:57:55.052966+00:00",
+      "attempt_id": "start-20261019085746-b28c95",
+      "phase": "start",
+      "reason_codes": [
+        "bounded-goal-discovery",
+        "fresh-prior-run-mapping",
+        "requested-scope-outside-cache"
+      ],
+      "target_paths": [
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/intake_pipeline.py",
+        "tests/test_closure_finalizer.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_planning_audit.py",
+        "tests/test_planning_revision.py",
+        "tests/test_requirement_discovery.py",
+        "tests/test_requirement_routing_phase0.py",
+        "tests/test_revision_proof_overlay.py"
+      ],
+      "effective_scope": [
+        "buildweek-demo-project/src/claims_api/validation.py",
+        "demo-project-layout/tailtrail-demo-workspace/services/claims-api/tests/test_validation.py",
+        "hooks/hooks.json",
+        "pyproject.toml",
+        "release-manifest.json",
+        "schemas/host-input-contract.schema.json",
+        "schemas/host-question-flow-event.schema.json",
+        "scripts/adoption-validation.py",
+        "scripts/advanced-runtime.py",
+        "scripts/aidlc-check.py",
+        "scripts/aidlc-init.py",
+        "scripts/aidlc-official-bridge.py",
+        "scripts/aidlc-official-detect.py",
+        "scripts/aidlc-official-host.py",
+        "scripts/aidlc-official-install.py",
+        "scripts/aidlc-requirements.py",
+        "scripts/architecture-fitness.py",
+        "scripts/architecture_planning.py",
+        "scripts/ast-map.py",
+        "scripts/behaviour_planning.py",
+        "scripts/benchmark-tailtrail.py",
+        "scripts/change-intent-anchor.py",
+        "scripts/check-tailtrail.py",
+        "scripts/closure-close.py",
+        "scripts/closure-contract.py",
+        "scripts/closure-evaluation.py",
+        "scripts/closure-finalizer.py",
+        "scripts/closure-recorder.py",
+        "scripts/code-graph-mapper.py",
+        "scripts/code_graph_cache.py",
+        "scripts/completion-report.py",
+        "scripts/debug-completion.py",
+        "scripts/debug-correction.py",
+        "scripts/debug-harness-convergence.py",
+        "scripts/debug-host-diagnosis.py",
+        "scripts/debug-preflight.py",
+        "scripts/delivery-record.py",
+        "scripts/docs-only.py",
+        "scripts/execution-evidence.py",
+        "scripts/greenfield_e2e_fixture.py",
+        "scripts/harness-checkpoint.py",
+        "scripts/host-adapter-conformance.py",
+        "scripts/host-decision.py",
+        "scripts/host-reply-validate.py",
+        "scripts/host_contract.py",
+        "scripts/install-copilot.py",
+        "scripts/install-local.py",
+        "scripts/intake_pipeline.py",
+        "scripts/learning-agent.py",
+        "scripts/learning-refresh.py",
+        "scripts/learning-use-receipt.py",
+        "scripts/mcp-server.py",
+        "scripts/meta-harness-analyze.py",
+        "scripts/navigator-scope-release.py",
+        "scripts/navigator-scope.py",
+        "scripts/navigator.py",
+        "scripts/navigator_discovery.py",
+        "scripts/navigator_scope.py",
+        "scripts/new_file_due_diligence.py",
+        "scripts/official-aidlc-checkpoint.py",
+        "scripts/official-aidlc-requirements.py",
+        "scripts/official-aidlc-state.py",
+        "scripts/pipeline_orchestrator.py",
+        "scripts/planning-aidlc-question.py",
+        "scripts/planning-audit.py",
+        "scripts/planning-discussion.py",
+        "scripts/planning-revision.py",
+        "scripts/planning_lock.py",
+        "scripts/question-orchestrator.py",
+        "scripts/repository_path_policy.py",
+        "scripts/review-graph.py",
+        "scripts/run-ledger.py",
+        "scripts/tailtrail.py",
+        "scripts/task-start.py",
+        "scripts/update-copilot.py",
+        "scripts/workflow-dashboard.py",
+        "scripts/workflow_runtime/enterprise_transport.py",
+        "scripts/workflow_runtime/start_integration.py",
+        "scripts/workflow_runtime/storage.py",
+        "scripts/write_guardian.py",
+        "tests/test_aidlc_official_bridge.py",
+        "tests/test_aidlc_official_host.py",
+        "tests/test_architecture_fitness.py",
+        "tests/test_closure_finalizer.py",
+        "tests/test_closure_recorder.py",
+        "tests/test_code_graph_cache.py",
+        "tests/test_code_graph_inventory.py",
+        "tests/test_completion_report.py",
+        "tests/test_completion_review.py",
+        "tests/test_debug_host_integration.py",
+        "tests/test_debug_start_planning.py",
+        "tests/test_delivery_record.py",
+        "tests/test_demo_prompt_book.py",
+        "tests/test_enterprise_host_adapters.py",
+        "tests/test_evaluation_audit.py",
+        "tests/test_execution_evidence.py",
+        "tests/test_full_pipeline.py",
+        "tests/test_greenfield_e2e.py",
+        "tests/test_host_adapter_conformance.py",
+        "tests/test_host_contract.py",
+        "tests/test_host_input_contract_schema.py",
+        "tests/test_host_packet_tickets.py",
+        "tests/test_host_question_flow_event_schema.py",
+        "tests/test_host_question_flow_phase0_artifacts.py",
+        "tests/test_install_profiles.py",
+        "tests/test_intake_pipeline.py",
+        "tests/test_mcp_server.py",
+        "tests/test_navigator_core.py",
+        "tests/test_navigator_graph_lifecycle.py",
+        "tests/test_navigator_installed_release.py",
+        "tests/test_navigator_scope.py",
+        "tests/test_new_file_due_diligence.py",
+        "tests/test_planning_audit.py",
+        "tests/test_planning_lock.py",
+        "tests/test_planning_revision.py",
         "tests/test_public_route_gate.py",
         "tests/test_question_orchestrator.py",
         "tests/test_repository_path_policy.py",

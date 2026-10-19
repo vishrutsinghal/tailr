@@ -3174,6 +3174,25 @@ def build_report(
     )
     delivery = guided_delivery(plan, goal, changed, root, run_id)
     proof_boundary = host_proof_boundary(host_contract)
+    
+    # FIX Issue 2: Check for expanded proof boundary from planning revisions
+    # If boundary has been expanded via proof-boundary-expand revision, use new tiers
+    expanded_boundary = plan.get("proof_boundary_expansion")
+    if isinstance(expanded_boundary, dict) and expanded_boundary.get("audit_required"):
+        # Merge expanded tiers into the boundary (union, never shrink)
+        if isinstance(proof_boundary, dict):
+            original_tiers = set(proof_boundary.get("allowed_tiers", []))
+            expanded_tiers = set(expanded_boundary.get("new_allowed_tiers", []))
+            merged_tiers = sorted(original_tiers | expanded_tiers)
+            proof_boundary = {
+                **proof_boundary,
+                "allowed_tiers": merged_tiers,
+                "boundary": f"Host-approved proof tiers expanded via proof-boundary-expand revision. "
+                           f"Original: {sorted(original_tiers)}. Expanded: {merged_tiers}. "
+                           f"Rationale: {expanded_boundary.get('rationale', 'Host requirement')}"
+            }
+            plan["host_proof_boundary"] = proof_boundary
+    
     if isinstance(proof_boundary, dict):
         plan["host_proof_boundary"] = proof_boundary
         if str(proof_boundary.get("behavior_surface")) == "internal" or "behaviour" not in set(proof_boundary.get("allowed_tiers", [])):

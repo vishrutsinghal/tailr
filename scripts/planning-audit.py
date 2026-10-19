@@ -792,17 +792,37 @@ def audit_report(
 
     internal_allowed_tiers = _internal_proof_boundary(navigator) if isinstance(navigator, dict) else None
     proof_boundary_conflict = navigator.get("host_proof_boundary_conflict") if isinstance(navigator, dict) else None
+    
+    # FIX Issue 2: Check if boundary has been expanded via proof-boundary-expand revision
+    # If expanded, don't report as restart-required; boundary expansion is valid in-place fix
+    boundary_expansion = report.get("proof_boundary_expansion") if isinstance(report, dict) else None
     if isinstance(proof_boundary_conflict, dict) and internal_allowed_tiers is None:
-        findings.append({
-            "type": "inferred-tier-conflicts-host-proof-boundary",
-            "correction_kind": "restart-required",
-            "open_fields": ["host-approved proof boundary"],
-            "detail": (
-                "Inferred validation tiers exceed the host-approved proof boundary; "
-                "supply host-approved criteria and proof or narrow the plan before approval."
-            ),
-            "proof_boundary": proof_boundary_conflict,
-        })
+        # Only report restart-required if boundary hasn't been expanded
+        if not (isinstance(boundary_expansion, dict) and boundary_expansion.get("audit_required")):
+            findings.append({
+                "type": "inferred-tier-conflicts-host-proof-boundary",
+                "correction_kind": "restart-required",
+                "open_fields": ["host-approved proof boundary"],
+                "detail": (
+                    "Inferred validation tiers exceed the host-approved proof boundary; "
+                    "supply host-approved criteria and proof or narrow the plan before approval. "
+                    "Alternative: use `planning revise` with `proof-boundary-expand` to expand the allowed tier list in-place."
+                ),
+                "proof_boundary": proof_boundary_conflict,
+            })
+        else:
+            # Boundary expansion is in progress; provide status
+            findings.append({
+                "type": "inferred-tier-conflicts-host-proof-boundary-expanding",
+                "correction_kind": "in-progress-fix",
+                "detail": (
+                    f"Proof boundary expansion in progress. Previous tiers: {boundary_expansion.get('previous_allowed_tiers')}. "
+                    f"Expanded to: {boundary_expansion.get('new_allowed_tiers')}. "
+                    f"Re-run audit after approval to verify clean status."
+                ),
+                "proof_boundary": proof_boundary_conflict,
+                "boundary_expansion": boundary_expansion,
+            })
 
     for row in matrix if isinstance(matrix, list) else []:
         if not isinstance(row, dict):

@@ -1,0 +1,70 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-requirement-interpretation",
+  "host": "claude",
+  "source_goal": "Fix proof-update command binding and host-proof boundary expansion: (1) Replace positional command/tier lists with explicit structured bindings so one command can prove multiple tiers; (2) Add in-place host-proof boundary expansion without restart to unblock awaiting-approval plans when audit detects required higher tiers",
+  "requirements": [
+    {
+      "requirement_uid": "req-proof-update-binding",
+      "statement": "proof-update command binding must use explicit structured format instead of positional lists",
+      "outcome": "One command can prove multiple tiers without positional mapping failure (e.g., cmd-xxx covers unit+contract+behaviour)",
+      "scope": [
+        "scripts/planning-revision.py - proof-update kind handler and validation",
+        "scripts/execution-evidence.py - command/tier matching logic",
+        "scripts/task-start.py - validation contract building",
+        "schemas/planning-revision.schema.json - update structure definition"
+      ],
+      "constraint": "Backward compatibility: must support old positional format during transition",
+      "acceptance_criteria": [
+        "proof-update accepts checks array with explicit {command, tiers} binding",
+        "Validation rejects loose command/tiers lists at command boundary",
+        "execution-evidence reads explicit binding instead of positional mapping",
+        "Start Report shows one command × multiple tiers correctly"
+      ]
+    },
+    {
+      "requirement_uid": "req-boundary-expansion",
+      "statement": "host-proof boundary must support in-place expansion without restart",
+      "outcome": "When planning audit detects inferred tiers exceeding host boundary, awaiting-approval plan can expand tier list without restarting",
+      "scope": [
+        "scripts/planning-revision.py - add proof-boundary-expand kind",
+        "scripts/planning-audit.py - recognition of expanded boundary",
+        "scripts/task-start.py - boundary enforcement with new tier set",
+        "schemas/planning-revision.schema.json - proof-boundary-expand kind definition"
+      ],
+      "constraint": "Expansion must re-run audit to verify new boundary clears conflicts",
+      "acceptance_criteria": [
+        "planning revise accepts proof-boundary-expand change kind",
+        "Expansion merges new allowed_tiers into run anchor",
+        "Audit re-runs and reports clean after boundary expansion",
+        "No restart or plan rejection required"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "artifact": "TAILTRAIL-ISSUES-LOG.md",
+      "issue_number": 27,
+      "detail": "proof-update revision tiers do not update per-command checks[] entry created at Start time; execution matches checks[] first and ignores broader tier list, rejecting new tiers"
+    },
+    {
+      "artifact": "TAILTRAIL-ISSUES-LOG.md",
+      "issue_number": 28,
+      "detail": "Anchor generation at Start time does not auto-populate proof-only test file implications; run approved without manual proof-update closes evidence-incomplete; fix exists but is opt-in, not automatic"
+    },
+    {
+      "artifact": "scripts/planning-audit.py",
+      "finding": "inferred-tier-conflicts-host-proof-boundary conflict type reports restart-required with no in-place expansion command"
+    }
+  ],
+  "questions": [
+    {
+      "question": "Should old proof-update format (separate commands/tiers lists) be deprecated with migration warning or supported indefinitely?",
+      "options": ["deprecate-with-warning", "support-indefinitely"]
+    },
+    {
+      "question": "Should boundary expansion automatically re-run audit or require explicit user request?",
+      "options": ["automatic-audit", "explicit-rerun-required"]
+    }
+  ]
+}
