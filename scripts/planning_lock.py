@@ -606,7 +606,17 @@ def save_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[s
             "pending_artifact": None,
         })
     L.append_event(root, run_id, "start_report_saved", {"artifact": path.relative_to(root).as_posix()})
-    return {"artifact": path.relative_to(root).as_posix(), "run_id": run_id}
+    verbose = generate_start_plan_verbose_report(root, run_id, report_override=report)
+    print(
+        f"\nVisible full Start Plan: {verbose['visible_artifact']}\n"
+        f"Absolute path: {verbose['visible_absolute_path']}",
+        file=sys.stderr,
+    )
+    return {
+        "artifact": path.relative_to(root).as_posix(),
+        "run_id": run_id,
+        "verbose_report": verbose,
+    }
 
 
 def enrich_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[str, Any]:
@@ -622,7 +632,15 @@ def enrich_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict
     if not path.is_file():
         raise ValueError(f"Start report for run `{run_id}` does not exist; run `tailtrail start \"<goal>\"` for a new run")
     L.atomic_json(path, {"schema_version": "1", "type": "tailtrail-start-report", "run_id": run_id, "goal": report.get("goal", ""), "report": report})
-    return {"artifact": path.relative_to(root).as_posix(), "run_id": run_id}
+    # The normal and verbose views are both projections of this saved report.
+    # Regenerate the latter whenever enrichment changes canonical facts so the
+    # link shown in the normal view cannot point to stale content.
+    verbose = generate_start_plan_verbose_report(root, run_id, report_override=report)
+    return {
+        "artifact": path.relative_to(root).as_posix(),
+        "run_id": run_id,
+        "verbose_report": verbose,
+    }
 
 
 def _ensure_lite_anchor(root: Path, run_id: str) -> dict[str, Any]:
@@ -766,10 +784,12 @@ def require_clean_audit(root: Path, run_id: str, report: dict[str, Any]) -> dict
     proceeds with, so a clean verdict is bound to this approval by
     construction. Returns an audit receipt recorded on the approval.
     """
-    exemption = _audit_gate_exemption(report)
+    audit_module = _audit_module()
+    effective_report = audit_module._validated_aidlc_revision_report(root, run_id, report)
+    exemption = _audit_gate_exemption(effective_report)
     if exemption is not None:
         return {"status": "exempt", "exemption": exemption, "run_id": run_id}
-    audit = _audit_module().audit_report(root, run_id, report)
+    audit = audit_module.audit_report(root, run_id, effective_report)
     if audit.get("status") != "clean":
         kinds = sorted({str(f.get("type", "?")) for f in audit.get("findings", []) if isinstance(f, dict)})
         raise ValueError(
@@ -777,7 +797,12 @@ def require_clean_audit(root: Path, run_id: str, report: dict[str, Any]) -> dict
             f"({', '.join(kinds)}); revise the plan with `tailtrail planning revise --root . "
             f"--run-id {run_id} --changes '<json>' --approved-proposal`, then re-audit before approval"
         )
-    return {"status": "clean", "run_id": run_id, "report_fingerprint": _canonical_fingerprint(report)}
+    return {
+        "status": "clean",
+        "run_id": run_id,
+        "report_fingerprint": _canonical_fingerprint(effective_report),
+        "source": "validated-aidlc-revision" if effective_report is not report else "active-start-report",
+    }
 
 
 def approve(root: Path, run_id: str, approved: bool, rationale: str | None = None, record_decision: bool = True) -> dict[str, Any]:
@@ -1075,7 +1100,9 @@ def _canonical_requirements(report: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _contract_proof_paths(contract: dict[str, Any]) -> list[str]:
     seen: list[str] = []
-    for field in ("candidate_paths", "editable_paths", "proposed_paths"):
+    # A proof-update's explicit editable/proposed path must take precedence
+    # over an inherited Start-time candidate when binding a newly added command.
+    for field in ("editable_paths", "proposed_paths", "candidate_paths"):
         for value in contract.get(field, []) or []:
             text = str(value).strip()
             if text and text not in seen:
@@ -1129,6 +1156,17 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
         commands = [str(item) for item in (contract.get("commands", []) or []) if str(item).strip()]
         proof_paths = _contract_proof_paths(contract)
         saved_checks = [item for item in (contract.get("checks", []) or []) if isinstance(item, dict)]
+        saved_registry = contract.get("command_registry", {})
+        if not isinstance(saved_registry, dict):
+            saved_registry = {}
+
+        def saved_command(check: dict[str, Any]) -> str:
+            command = str(check.get("command", "")).strip()
+            if command:
+                return command
+            command_id = str(check.get("command_id", "")).strip()
+            entry = saved_registry.get(command_id, {})
+            return str(entry.get("command", "")).strip() if isinstance(entry, dict) else ""
 
         # Preserve a single-command coalesced proof only when the saved
         # contract already proves it with one check entry covering all
@@ -1136,7 +1174,7 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
         coalesced: dict[str, Any] | None = None
         if len(commands) == 1 and len(tiers) > 1 and len(saved_checks) == 1:
             only = saved_checks[0]
-            if str(only.get("command", "")) == commands[0] and sorted(
+            if saved_command(only) == commands[0] and sorted(
                 str(value) for value in (only.get("tiers", []) or []) if str(value).strip()
             ) == sorted(tiers):
                 coalesced = only
@@ -1153,7 +1191,7 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
             used_commands: set[str] = set()
             covered_tiers: set[str] = set()
             for saved in saved_checks:
-                command = str(saved.get("command", "")).strip()
+                command = saved_command(saved)
                 saved_tiers = [str(value) for value in (saved.get("tiers", []) or []) if str(value).strip()]
                 if not command or command not in commands or not set(saved_tiers).intersection(tiers):
                     continue
@@ -1449,7 +1487,42 @@ def _correction_projection(
         checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
         checks.append({"kind": "proof", "command": command, "tiers": tiers, "candidate_paths": [path]})
         contract["checks"] = list({str(value.get("command")): value for value in checks}.values())
-        validated_proof.append({"requirement_id": identifier, "path": path, "command": command, "tiers": tiers, "source_question_ids": ids})
+        validated_scenarios: list[dict[str, Any]] = []
+        raw_scenarios = item.get("scenarios", [])
+        if raw_scenarios is not None and not isinstance(raw_scenarios, list):
+            problems.append(f"proof delta {index} scenarios must be an array")
+            raw_scenarios = []
+        for scenario_index, scenario in enumerate(raw_scenarios or [], start=1):
+            if not isinstance(scenario, dict):
+                problems.append(f"proof delta {index} scenario {scenario_index} must be an object"); continue
+            scenario_id = str(scenario.get("scenario_id", "")).strip()
+            action = str(scenario.get("action", "")).strip()
+            expected = str(scenario.get("expected_outcome", "")).strip()
+            if not scenario_id or not action or not expected:
+                problems.append(f"proof delta {index} scenario {scenario_index} needs scenario_id, action, and expected_outcome"); continue
+            if not grounded(action, ids) or not grounded(expected, ids):
+                problems.append(f"proof delta {index} scenario {scenario_index} is not grounded in its source answer"); continue
+            validated_scenarios.append({
+                "scenario_id": scenario_id,
+                "action": action,
+                "expected_outcome": expected,
+                "source_question_ids": ids,
+            })
+        if validated_scenarios:
+            behavior = row.setdefault("behavior_contract", {})
+            existing_scenarios = [value for value in behavior.get("scenarios", []) if isinstance(value, dict)]
+            behavior["scenarios"] = list({
+                str(value.get("scenario_id")): value
+                for value in [*existing_scenarios, *validated_scenarios]
+            }.values())
+        validated_proof.append({
+            "requirement_id": identifier,
+            "path": path,
+            "command": command,
+            "tiers": tiers,
+            "scenarios": validated_scenarios,
+            "source_question_ids": ids,
+        })
     missing = sorted(set(material_ids) - covered)
     if missing:
         problems.append("material answers have no projected delta: " + ", ".join(missing))
@@ -1904,7 +1977,8 @@ def request_aidlc_requirements(root: Path, run_id: str, revision_context: list[d
     L.atomic_json(artifact, document)
     payload = {"rejection_number": template["rejection_number"], "reason": "user-selected-aidlc-requirements", "artifact": artifact.relative_to(root).as_posix(), "revision_context_count": len(context)}
     L.append_event(root, run_id, "aidlc_requirements_requested", payload)
-    return {"run_id": run_id, "state": "aidlc-requirements-gathering", "artifact": artifact.relative_to(root).as_posix(), "source_boundary": template["source_boundary"], "requirements": proposal["requirements"], "questions": stage["questions"], "question_context": question_context["artifact"], "question_quality": stage["question_quality"], "question_traceability": stage["question_traceability"], "aidlc_stage": stage, "prior_feedback": feedback, "revision_context": context, "approval_gate": document["approval_gate"]}
+    verbose = generate_start_plan_verbose_report(root, run_id)
+    return {"run_id": run_id, "state": "aidlc-requirements-gathering", "artifact": artifact.relative_to(root).as_posix(), "source_boundary": template["source_boundary"], "requirements": proposal["requirements"], "questions": stage["questions"], "question_context": question_context["artifact"], "question_quality": stage["question_quality"], "question_traceability": stage["question_traceability"], "aidlc_stage": stage, "prior_feedback": feedback, "revision_context": context, "approval_gate": document["approval_gate"], "verbose_report": verbose}
 
 
 def request_official_aidlc_requirements(root: Path, run_id: str, revision_context: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -2250,7 +2324,8 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
         "status": "revision-ready",
         "changed_surfaces": changed_surfaces,
     })
-    return {"state": "aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), **payload}
+    verbose = generate_start_plan_verbose_report(root, run_id)
+    return {"state": "aidlc-revision-ready", "artifact": revision_path.relative_to(root).as_posix(), "verbose_report": verbose, **payload}
 
 
 def show_aidlc_requirements(root: Path, run_id: str) -> dict[str, Any]:
@@ -2331,16 +2406,60 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
     if revision.get("question_revision", 1) != questions.get("question_revision", 1):
         raise ValueError("AIDLC answers are stale because a question revision was approved; run `tailtrail planning aidlc-cycle --root . --run-id <run-id> --answers '<json>'` with the current question set again")
     anchor = _anchor_module()
-    anchor.draft(root, run_id, revision_path)
-    anchor.approve(root, run_id)
+    approved_versions = anchor.approved_versions(anchor.anchor_dir(root, run_id))
+    if approved_versions:
+        approved_path, approved_payload = anchor.latest_approved(root, run_id)
+        def requirement_projection(rows: Any) -> list[dict[str, Any]]:
+            projected: list[dict[str, Any]] = []
+            for row in rows if isinstance(rows, list) else []:
+                if not isinstance(row, dict):
+                    continue
+                contract = row.get("validation_contract", {}) if isinstance(row.get("validation_contract"), dict) else {}
+                behavior = row.get("behavior_contract", {}) if isinstance(row.get("behavior_contract"), dict) else {}
+                scope = row.get("scope_evidence", {}) if isinstance(row.get("scope_evidence"), dict) else {}
+                projected.append({
+                    "display_id": row.get("display_id"),
+                    "statement": row.get("statement"),
+                    "acceptance_criteria": row.get("acceptance_criteria", []),
+                    "preserve_rules": row.get("preserve_rules", []),
+                    "likely_paths": row.get("likely_paths", []),
+                    "scope": {
+                        key: scope.get(key, [])
+                        for key in ("implementation_owners", "inspection_paths", "proof_paths")
+                    },
+                    "validation": {
+                        key: contract.get(key, [])
+                        for key in ("tiers", "commands", "candidate_paths", "editable_paths", "proposed_paths")
+                    },
+                    "scenarios": [
+                        {
+                            key: scenario.get(key)
+                            for key in ("scenario_id", "action", "expected_outcome")
+                        }
+                        for scenario in behavior.get("scenarios", []) or []
+                        if isinstance(scenario, dict)
+                    ],
+                })
+            return projected
+
+        if _canonical_fingerprint(requirement_projection(approved_payload.get("requirements", []))) != _canonical_fingerprint(requirement_projection(revision.get("requirements", []))):
+            raise ValueError(
+                "AIDLC approval found a partial approved anchor for a different requirement revision; "
+                f"inspect `tailtrail planning show --root . --run-id {run_id}` before retrying"
+            )
+    else:
+        anchor.draft(root, run_id, revision_path)
+        created = anchor.approve(root, run_id)
+        approved_path = Path(created["path"])
     lock = approve(root, run_id, True)
     saved = active_start_report(root, run_id).get("report", {})
-    anchor_artifact = (L.state_dir(root, run_id) / "anchors" / "approved-v1.json").relative_to(root).as_posix()
+    anchor_artifact = approved_path.relative_to(root).as_posix()
     workflow_runtime = workflow_start_integration().activate(root, run_id, saved, anchor_artifact)
     handoff = execution_handoff(root, run_id, saved, anchor_artifact)
     handoff["workflow_runtime"] = workflow_runtime
     handoff["execution_authority"] = workflow_runtime.get("execution_authority", {})
     handoff["execution_boundary"] = "Implementation may begin only within the activated AIDLC-approved anchor. TailTrail remains responsible for scope, evidence, drift, recovery, and completion controls."
+    handoff["verbose_report"] = generate_start_plan_verbose_report(root, run_id)
     handoff_path = L.state_dir(root, run_id) / "planning" / "execution-handoff-v1.json"
     L.atomic_json(handoff_path, handoff)
     L.append_event(root, run_id, "aidlc_requirements_approved", {"revision": revision_path.relative_to(root).as_posix(), "anchor": handoff["anchor"], "handoff": handoff_path.relative_to(root).as_posix()})
@@ -2364,6 +2483,13 @@ def render_aidlc_requirements(payload: dict[str, Any]) -> str:
     ]
     for index, row in enumerate(payload["requirements"], start=1):
         lines.append(f"| {row.get('display_id', f'REQ-{index:02d}')} | {_display_prose(row.get('statement', ''))} |")
+    verbose = payload.get("verbose_report", {}) if isinstance(payload.get("verbose_report"), dict) else {}
+    if verbose:
+        lines.extend([
+            "", "## Visible Full Start Plan", "",
+            f"- Workspace path: `{verbose.get('visible_artifact')}`",
+            f"- Absolute path: `{verbose.get('visible_absolute_path')}`",
+        ])
     if official:
         lines[0] = "# TailTrail Official AI-DLC Requirements"
         lines[3] = "**Stage:** official Requirements Analysis; planning only, with no source inspection or implementation."
@@ -2429,6 +2555,13 @@ def render_aidlc_revision(payload: dict[str, Any]) -> str:
     lines = ["# TailTrail AIDLC Revised Requirements", "", f"**Run ID:** `{payload['run_id']}`", "**State:** awaiting AIDLC approval - no source inspection or implementation has run.", "", "## Revised requirement boundary", "", "| ID | Requirement |", "| --- | --- |"]
     for row in payload["requirements"]:
         lines.append(f"| {row.get('display_id')} | {_display_prose(row.get('statement'))} |")
+    verbose = payload.get("verbose_report", {}) if isinstance(payload.get("verbose_report"), dict) else {}
+    if verbose:
+        lines.extend([
+            "", "## Visible Full Start Plan", "",
+            f"- Workspace path: `{verbose.get('visible_artifact')}`",
+            f"- Absolute path: `{verbose.get('visible_absolute_path')}`",
+        ])
     lines.extend(["", "## Recorded AIDLC decisions", ""])
     if official:
         lines[0] = "# TailTrail Official AI-DLC Revised Requirements"
@@ -2536,6 +2669,15 @@ def render_execution_handoff(payload: dict[str, Any]) -> str:
         lines.append(f"- Separate gates remain for: {', '.join(authority.get('separate_gate_triggers', [])) or 'none recorded'}.")
         lines.append(f"- {authority.get('boundary')}")
     lines.extend(["", "## Execution boundary", "", f"- {payload['execution_boundary']}", "- Next: inspect only the approved paths, implement the smallest compliant change, and run the selected evidence.", ""])
+    verbose = payload.get("verbose_report", {}) if isinstance(payload.get("verbose_report"), dict) else {}
+    if verbose:
+        lines.extend([
+            "## Visible Full Start Plan",
+            "",
+            f"- Workspace path: `{verbose.get('visible_artifact')}`",
+            f"- Absolute path: `{verbose.get('visible_absolute_path')}`",
+            "",
+        ])
     baseline = payload.get("maintainability_baseline")
     if isinstance(baseline, dict):
         lines.extend([
@@ -2810,7 +2952,17 @@ def activate(root: Path, run_id: str, approved: bool, rationale: str | None = No
     if record_decision:
         _record_decision(root, run_id, "activate", "approved", rationale=rationale,
                          prior_state="awaiting-approval", resulting_state="execution-ready")
+    try:
+        verbose_report = generate_start_plan_verbose_report(root, run_id)
+    except Exception as error:
+        L.append_event(root, run_id, "verbose_report_generation_failed", {
+            "error": str(error),
+            "mandatory": True,
+            "run_id": run_id,
+        })
+        raise ValueError(f"MANDATORY: Start plan verbose report generation failed: {error}")
     return {
+        "state": "execution-ready",
         "planning_lock": lock,
         "anchor": anchor_state,
         "execution_handoff": handoff,
@@ -2825,6 +2977,7 @@ def activate(root: Path, run_id: str, approved: bool, rationale: str | None = No
         "enterprise_policy": policy_check,
         "activation_audit": activation_audit,
         "workflow_runtime": workflow_runtime,
+        "verbose_report": verbose_report,
     }
 
 
@@ -2843,44 +2996,152 @@ def assert_write_allowed(root: Path, run_id: str) -> dict[str, Any]:
     return payload
 
 
-def generate_start_plan_verbose_report(root: Path, run_id: str) -> dict[str, Any]:
-    """Generate and save the comprehensive start plan verbose report.
-    
-    MANDATORY: This report must be generated for every activated run.
-    Called after approval to generate professional markdown documentation
-    with command registry, architecture validation, and approval checklist.
-    
-    Raises:
-        ValueError: If report generation fails (mandatory requirement)
-    """
+def _start_plan_material(
+    root: Path,
+    run_id: str,
+    report_override: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, dict[str, Any]], str, dict[str, Any]]:
+    """Load the one canonical saved-plan dataset for every presentation view."""
     root = root.resolve()
-    anchor = approved(root, run_id)
+    report = copy.deepcopy(report_override) if isinstance(report_override, dict) else active_start_report(root, run_id).get("report", {})
+    if not isinstance(report, dict):
+        raise ValueError(f"Cannot generate start plan verbose report: saved report is invalid for run {run_id}")
+
+    aidlc: dict[str, Any] = {}
+    planning = L.state_dir(root, run_id) / "planning"
+    for name in (
+        "aidlc-requirements-v1.json",
+        "aidlc-correction-state.json",
+    ):
+        path = planning / name
+        if path.is_file():
+            aidlc[name] = read(path)
+    for stem in ("aidlc-revised-requirements-v", "aidlc-correction-projection-v", "aidlc-correction-observations-v"):
+        candidates = sorted(
+            planning.glob(f"{stem}*.json"),
+            key=lambda path: int(path.stem.rsplit("v", 1)[-1]),
+        )
+        if candidates:
+            aidlc[candidates[-1].name] = read(candidates[-1])
+
+    anchor: dict[str, Any] | None = None
+    try:
+        _, anchor = _anchor_module().latest_approved(root, run_id)
+    except (OSError, ValueError):
+        anchor = None
+    latest_revision = next(
+        (
+            value for key, value in aidlc.items()
+            if key.startswith("aidlc-revised-requirements-v") and isinstance(value, dict)
+        ),
+        None,
+    )
+    requirements = (
+        latest_revision.get("requirements", [])
+        if isinstance(latest_revision, dict)
+        else anchor.get("requirements", []) if isinstance(anchor, dict)
+        else (report.get("navigator", {}) or {}).get("requirement_matrix", [])
+    )
+    requirements = [copy.deepcopy(row) for row in requirements if isinstance(row, dict)]
+
+    # The canonical contracts may store commands as plain strings.  The
+    # effective projection is the one place that deterministically assigns
+    # command IDs and maps each tier to a check.  The presentation must use
+    # that projection so the registry and the per-requirement matrix cannot
+    # disagree.
+    projection = effective_plan_projection({
+        "navigator": {"requirement_matrix": requirements},
+    })
+    command_registry: dict[str, dict[str, Any]] = {
+        str(key): value for key, value in projection.get("command_registry", {}).items()
+        if isinstance(value, dict)
+    }
+    checks_by_requirement = projection.get("checks_by_requirement", {})
+    if not isinstance(checks_by_requirement, dict):
+        checks_by_requirement = {}
+    for row in requirements:
+        identifier = str(row.get("display_id") or row.get("requirement_uid") or "")
+        contract = row.get("validation_contract", {})
+        if not isinstance(contract, dict):
+            contract = {}
+            row["validation_contract"] = contract
+        saved_registry = contract.get("command_registry", {})
+        if isinstance(saved_registry, dict):
+            command_registry.update({str(key): value for key, value in saved_registry.items() if isinstance(value, dict)})
+        checks = checks_by_requirement.get(identifier, [])
+        if isinstance(checks, list) and checks:
+            contract["checks"] = copy.deepcopy(checks)
+        contract["command_registry"] = copy.deepcopy(command_registry)
     
-    if not isinstance(anchor, dict) or "requirements" not in anchor:
-        raise ValueError(f"Cannot generate start plan verbose report: no approved requirements found for run {run_id}")
-    
-    requirements = anchor.get("requirements", [])
-    
-    # Extract command registry from requirements
-    command_registry: dict[str, dict[str, Any]] = {}
-    for req in requirements:
-        if isinstance(req, dict):
-            contract = req.get("validation_contract", {})
-            if isinstance(contract, dict):
-                reg = contract.get("command_registry", {})
-                if isinstance(reg, dict):
-                    command_registry.update(reg)
-    
-    # Get the goal from the planning lock
     lock = show(root, run_id)
     goal = lock.get("goal", "")
-    
-    # Generate markdown report
+    try:
+        revision_state = revision_state_path(root, run_id)
+        revision = read(revision_state) if revision_state.is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError):
+        revision = {"status": "unavailable"}
+    events = L.read_events(L.state_dir(root, run_id) / "events.jsonl")
+    planning_audits = [event for event in events if event.get("event_type") in {"planning_revision_approved", "planning_activated"}]
+    plan_data = {
+        "state": lock.get("status"),
+        "planning_lock": lock,
+        "revision_state": revision,
+        "report": report,
+        "approved_anchor": anchor,
+        "aidlc": aidlc,
+        "planning_audits": planning_audits,
+        "planning_events": events,
+        "canonical_artifact": active_start_report_path(root, run_id).relative_to(root).as_posix(),
+    }
+    return report, requirements, command_registry, goal, plan_data
+
+
+def render_start_plan(root: Path, run_id: str) -> str:
+    """Render the normal human Start Plan from saved canonical state.
+
+    ``planning show`` uses this public projection.  Raw lock JSON remains
+    available only through its explicit ``--format json`` escape hatch.
+    """
+    root = root.resolve()
+    visible_path = VR.visible_report_path(root, run_id, "start-plan")
+    try:
+        existing_verbose = visible_path.read_text(encoding="utf-8") if visible_path.is_file() else ""
+        legacy_verbose = "```json" in existing_verbose or "**Presentation version:** `4`" not in existing_verbose
+    except OSError:
+        legacy_verbose = True
+    # A verbose report is a derived view, never approval or scope authority.
+    # Refresh only missing/legacy views so older runs receive the same
+    # structured artifact linked by newly generated plans.
+    if legacy_verbose:
+        generate_start_plan_verbose_report(root, run_id)
+    report, requirements, command_registry, goal, plan_data = _start_plan_material(root, run_id)
+    visible_artifact = visible_path.relative_to(root).as_posix() if visible_path.is_file() else ""
+    return VR.generate_start_plan_normal(
+        run_id,
+        requirements,
+        command_registry,
+        goal,
+        plan_data=plan_data,
+        verbose_artifact=visible_artifact,
+    )
+
+
+def generate_start_plan_verbose_report(
+    root: Path,
+    run_id: str,
+    report_override: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Generate or refresh the lifecycle-authentic full Start Plan."""
+    root = root.resolve()
+    report, requirements, command_registry, goal, plan_data = _start_plan_material(
+        root, run_id, report_override=report_override,
+    )
     report_markdown = VR.generate_start_plan_verbose(
         run_id,
         requirements,
         command_registry,
-        goal
+        goal,
+        plan_data=plan_data,
     )
     
     if not report_markdown or len(report_markdown) < 100:
@@ -2892,14 +3153,19 @@ def generate_start_plan_verbose_report(root: Path, run_id: str) -> dict[str, Any
     # Verify both files were created
     markdown_path = report_path
     json_path = report_path.parent / f"{report_path.stem.replace('-v1', '')}-v1.json"
+    visible_path = VR.visible_report_path(root, run_id, "start-plan")
     
     if not markdown_path.is_file():
         raise ValueError(f"Start plan verbose markdown report not created: {markdown_path}")
     if not json_path.is_file():
         raise ValueError(f"Start plan verbose metadata not created: {json_path}")
+    if not visible_path.is_file():
+        raise ValueError(f"Visible full Start Plan not created: {visible_path}")
     
     L.append_event(root, run_id, "start_plan_verbose_generated", {
         "artifact": report_path.relative_to(root).as_posix(),
+        "visible_artifact": visible_path.relative_to(root).as_posix(),
+        "visible_absolute_path": visible_path.as_posix(),
         "markdown_size": len(report_markdown),
         "mandatory": True,
         "status": "verified"
@@ -2908,6 +3174,8 @@ def generate_start_plan_verbose_report(root: Path, run_id: str) -> dict[str, Any
     return {
         "status": "generated",
         "artifact": report_path.relative_to(root).as_posix(),
+        "visible_artifact": visible_path.relative_to(root).as_posix(),
+        "visible_absolute_path": visible_path.as_posix(),
         "markdown_size": len(report_markdown),
         "run_id": run_id,
         "mandatory": True,
@@ -2986,7 +3254,14 @@ def main() -> int:
     answer_source.add_argument("--answers", help="JSON list of complete question_id, choice, and optional detail answers.")
     answer_source.add_argument("--answers-base64", help="UTF-8 JSON answers encoded as Base64; use on Windows hosts where native argument quoting strips JSON quotes.")
     aidlc_cycle_parser.add_argument("--approved", action="store_true", help="Activate an already revised AIDLC boundary.")
-    for name in ("show", "assert-write", "assert-source-write"):
+    show_parser = sub.add_parser("show", help="Render the saved Start Plan for host and user review.")
+    show_parser.add_argument("--root", type=Path, default=Path.cwd())
+    show_parser.add_argument("--run-id", required=True)
+    show_parser.add_argument(
+        "--format", choices=("markdown", "json"), default="markdown",
+        help="Use markdown for the reviewable plan; JSON is the explicit machine-inspection escape hatch.",
+    )
+    for name in ("assert-write", "assert-source-write"):
         item = sub.add_parser(name)
         item.add_argument("--root", type=Path, default=Path.cwd())
         item.add_argument("--run-id", required=True)
@@ -2999,25 +3274,6 @@ def main() -> int:
             payload = approve(args.root, args.run_id, args.approved, rationale=args.rationale)
         elif args.command == "activate":
             payload = activate(args.root, args.run_id, args.approved, rationale=args.rationale)
-            # Generate verbose start plan report - MANDATORY for every activated run
-            if isinstance(payload, dict) and payload.get("state") == "execution-ready":
-                try:
-                    verbose_result = generate_start_plan_verbose_report(args.root, args.run_id)
-                    if isinstance(verbose_result, dict):
-                        # Ensure mandatory report was generated
-                        if verbose_result.get("mandatory") and verbose_result.get("status") == "generated":
-                            L.append_event(args.root, args.run_id, "verbose_report_generated", verbose_result)
-                            print(f"✓ Start plan verbose report: {verbose_result.get('artifact')}")
-                        else:
-                            raise ValueError(f"Start plan verbose report generation failed: {verbose_result}")
-                except Exception as error:
-                    # Mandatory report generation failed - log and re-raise
-                    L.append_event(args.root, args.run_id, "verbose_report_generation_failed", {
-                        "error": str(error),
-                        "mandatory": True,
-                        "run_id": args.run_id,
-                    })
-                    raise ValueError(f"MANDATORY: Start plan verbose report generation failed: {error}")
         elif args.command == "feedback-template":
             payload = feedback_template(args.root, args.run_id)
         elif args.command == "feedback":
@@ -3062,7 +3318,9 @@ def main() -> int:
             payload = assert_write_allowed(args.root, args.run_id)
         else:
             payload = assert_source_write_allowed(args.root, args.run_id)
-        if args.command == "feedback-template" and args.format == "markdown":
+        if args.command == "show" and args.format == "markdown":
+            print(render_start_plan(args.root, args.run_id), end="")
+        elif args.command == "feedback-template" and args.format == "markdown":
             print(render_feedback_template(payload))
         elif args.command == "aidlc-requirements":
             print(render_aidlc_requirements(payload))

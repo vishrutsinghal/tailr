@@ -263,7 +263,14 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
     directory = L.state_dir(root, run_id)
     saved = directory / "finalizers" / f"{finalizer_id}.json"
     if saved.is_file():
-        return {**read(saved), "delivery_record": ensure_delivery_record(root, run_id), "reused": True}
+        payload = read(saved)
+        verbose_result = generate_closure_report_verbose(root, run_id, payload)
+        return {
+            **payload,
+            "delivery_record": ensure_delivery_record(root, run_id),
+            "verbose_report": verbose_result,
+            "reused": True,
+        }
 
     changed = [str(item) for item in closure.get("changed_paths", [])]
     assessments: dict[str, dict[str, Any]] = {}
@@ -280,6 +287,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
     delivery_record = ensure_delivery_record(root, run_id)
     graph_lifecycle: dict[str, Any]
     run_mapping: dict[str, Any] | None = None
+    command_registry: dict[str, Any] = {}
     try:
         lock_state = LOCK.show(root, run_id)
         start_report = LOCK.active_start_report(root, run_id).get("report", {})
@@ -287,8 +295,7 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         scope_evidence = navigator_plan.get("scope_evidence", {}) if isinstance(navigator_plan, dict) else {}
         
         # Load command registry from approved requirements for traceability
-        approved_anchor = ANCHOR.approved(root, run_id)
-        command_registry = {}
+        _, approved_anchor = ANCHOR.latest_approved(root, run_id)
         if isinstance(approved_anchor, dict):
             for req in approved_anchor.get("requirements", []):
                 if isinstance(req, dict):
@@ -367,6 +374,11 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
             }
         else:
             correction = CORRECTION.handoff(root, run_id)
+    try:
+        execution_events = RECORDER.EVIDENCE.show(root, run_id).get("events", [])
+    except (OSError, ValueError, json.JSONDecodeError):
+        execution_events = []
+    ledger_events = L.read_events(L.state_dir(root, run_id) / "events.jsonl")
     payload = {
         "schema_version": "1", "type": "tailtrail-closure-finalizer", "finalizer_id": finalizer_id,
         "run_id": run_id, "closure_record_id": closure["record_id"], "selected_harnesses": selected,
@@ -384,26 +396,23 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         "completion_report": report.get("run_artifact"),
         "delivery_record": delivery_record,
         "command_registry": command_registry,
+        "changed_paths": changed,
+        "closure_record": closure,
+        "completion_report_payload": report,
+        "execution_events": execution_events,
+        "ledger_events": ledger_events,
         "overall_status": report["overall_status"],
         "boundary": "Finalized deterministic local control evidence only. No receipt command, deployment, recovery action, or external environment was executed.",
     }
     # Attach the existing canonical report to an already activated DWR run.
     # It never creates a workflow for a legacy/non-DWR run or changes closure status.
     payload["workflow_closure"] = WORKFLOW_EVIDENCE.sync_closure(root, run_id, report)
-    L.atomic_json(saved, payload)
-    L.append_event(root, run_id, "closure_finalized", {
-        "artifact": saved.relative_to(directory).as_posix(), "closure_record_id": closure["record_id"],
-        "overall_status": report["overall_status"], "selected_harnesses": selected,
-    })
-    
     # Generate verbose closure report - MANDATORY for every finalized run
     try:
         verbose_result = generate_closure_report_verbose(root, run_id, payload)
         if isinstance(verbose_result, dict):
             # Ensure mandatory report was generated
-            if verbose_result.get("mandatory") and verbose_result.get("status") == "generated":
-                L.append_event(root, run_id, "verbose_closure_report_generated", verbose_result)
-            else:
+            if not (verbose_result.get("mandatory") and verbose_result.get("status") == "generated"):
                 raise ValueError(f"Closure verbose report generation failed: {verbose_result}")
     except Exception as error:
         # Mandatory report generation failed - log and re-raise
@@ -413,7 +422,13 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
             "run_id": run_id,
         })
         raise ValueError(f"MANDATORY: Closure verbose report generation failed: {error}")
-    
+    payload["verbose_report"] = verbose_result
+    L.atomic_json(saved, payload)
+    L.append_event(root, run_id, "closure_finalized", {
+        "artifact": saved.relative_to(directory).as_posix(), "closure_record_id": closure["record_id"],
+        "overall_status": report["overall_status"], "selected_harnesses": selected,
+    })
+
     return {**payload, "reused": False}
 
 
@@ -450,14 +465,19 @@ def generate_closure_report_verbose(root: Path, run_id: str, closure_payload: di
     # Verify both files were created
     markdown_path = report_path
     json_path = report_path.parent / f"{report_path.stem.replace('-v1', '')}-v1.json"
+    visible_path = VR.visible_report_path(root, run_id, "closure")
     
     if not markdown_path.is_file():
         raise ValueError(f"Closure verbose markdown report not created: {markdown_path}")
     if not json_path.is_file():
         raise ValueError(f"Closure verbose metadata not created: {json_path}")
+    if not visible_path.is_file():
+        raise ValueError(f"Visible full Closure Report not created: {visible_path}")
     
     L.append_event(root, run_id, "closure_report_verbose_generated", {
         "artifact": report_path.relative_to(root).as_posix(),
+        "visible_artifact": visible_path.relative_to(root).as_posix(),
+        "visible_absolute_path": visible_path.as_posix(),
         "markdown_size": len(report_markdown),
         "mandatory": True,
         "status": "verified"
@@ -466,6 +486,8 @@ def generate_closure_report_verbose(root: Path, run_id: str, closure_payload: di
     return {
         "status": "generated",
         "artifact": report_path.relative_to(root).as_posix(),
+        "visible_artifact": visible_path.relative_to(root).as_posix(),
+        "visible_absolute_path": visible_path.as_posix(),
         "markdown_size": len(report_markdown),
         "run_id": run_id,
         "mandatory": True,

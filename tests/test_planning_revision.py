@@ -48,7 +48,13 @@ class PlanningRevisionTests(unittest.TestCase):
     def v2_plan(self, root: Path, run_id: str) -> dict[str, object]:
         owner = root / "src" / "owner.py"; owner.parent.mkdir(parents=True, exist_ok=True); owner.write_text("def owner():\n    return True\n", encoding="utf-8")
         helper = root / "src" / "helper.py"; helper.write_text("def helper():\n    return True\n", encoding="utf-8")
-        proof = root / "tests" / "test_owner.py"; proof.parent.mkdir(parents=True, exist_ok=True); proof.write_text("from src.owner import owner\n", encoding="utf-8")
+        proof = root / "tests" / "test_owner.py"; proof.parent.mkdir(parents=True, exist_ok=True); proof.write_text(
+            "import unittest\nfrom src.owner import owner\n\n"
+            "class OwnerTests(unittest.TestCase):\n"
+            "    def test_owner(self):\n"
+            "        self.assertTrue(owner())\n",
+            encoding="utf-8",
+        )
         started = subprocess.run([
             sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(),
             "fix owner behavior", "--root", root.as_posix(), "--changed", "src/owner.py",
@@ -80,6 +86,8 @@ class PlanningRevisionTests(unittest.TestCase):
                 "kind": "proof-update", "requirement_uid": "REQ-01",
                 "reason": "Bind the new proof-only test file as editable proof scope.",
                 "evidence_plan": ["Run the new test module"],
+                "commands": ["python3 -m unittest discover -s tests -p test_owner.py -v"],
+                "tiers": ["unit"],
                 "editable_paths": ["tests/test_owner.py"],
             }])
             proposed = revision.propose(root, "v2-proof-path-add", change, True)
@@ -89,6 +97,58 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(proposed["revision"], 2)
         contract = anchor["requirements"][0]["validation_contract"]
         self.assertEqual(contract["editable_paths"], ["tests/test_owner.py"])
+
+    def test_proof_boundary_expand_does_not_fall_through_to_requirement_add(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "boundary-expand-branch")
+            report_path = lock.start_report_path(root, "boundary-expand-branch")
+            saved = json.loads(report_path.read_text(encoding="utf-8"))
+            saved["report"]["navigator"]["host_proof_boundary"] = {
+                "behavior_surface": "workflow",
+                "allowed_tiers": ["unit"],
+            }
+            saved["report"]["navigator"]["host_proof_boundary_conflict"] = {
+                "state": "inferred-tier-conflicts-host-proof-boundary",
+                "allowed_tiers": ["unit"],
+                "conflicts": [{"requirement_id": "REQ-01", "inferred_tiers": ["integration"]}],
+            }
+            report_path.write_text(json.dumps(saved), encoding="utf-8")
+            proposed = revision.propose(root, "boundary-expand-branch", json.dumps([{
+                "kind": "proof-boundary-expand",
+                "reason": "Authorize the required integration proof.",
+                "allowed_tiers": ["unit", "integration"],
+                "rationale": "The public revision-to-audit route is integration proof.",
+            }]), True)
+
+        expansion = proposed["proposed_report"]["proof_boundary_expansion"]
+        self.assertEqual(expansion["new_allowed_tiers"], ["unit", "integration"])
+        self.assertTrue(expansion["audit_required"])
+        navigator = proposed["proposed_report"]["navigator"]
+        self.assertEqual(navigator["host_proof_boundary"]["allowed_tiers"], ["unit", "integration"])
+        self.assertNotIn("host_proof_boundary_conflict", navigator)
+
+    def test_proof_rebuild_preserves_registry_backed_command_and_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "registry-proof-rebuild")
+            proposed = revision.propose(root, "registry-proof-rebuild", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Bind the focused revision regression.",
+                "evidence_plan": ["Run the planning revision regression."],
+                "commands": ["python3 -m unittest tests.test_planning_revision -v"],
+                "tiers": ["unit"],
+                "editable_paths": ["tests/test_planning_revision.py"],
+            }]), True)
+
+        report = proposed["proposed_report"]
+        contract = report["navigator"]["requirement_matrix"][0]["validation_contract"]
+        check = contract["checks"][0]
+        command_id = check["command_id"]
+        self.assertEqual(contract["command_registry"][command_id]["command"], "python3 -m unittest tests.test_planning_revision -v")
+        self.assertEqual(check["candidate_paths"], ["tests/test_planning_revision.py"])
+        self.assertEqual(report["focused_validation"][0]["command_id"], command_id)
 
     def test_behaviour_scenario_revision_adds_concrete_source_bound_scenario(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -158,16 +218,32 @@ class PlanningRevisionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); started = self.v2_plan(root, "v2-converge")
             base_decision = started["navigator"]["scope_evidence"]["decision_fingerprint"]
-            change = json.dumps([{
-                "kind": "scope-add", "requirement_uid": "REQ-01", "path": "src/helper.py",
-                "reason": "The user confirmed the existing helper is part of the implementation boundary.",
-                "scope_authority": "explicit-user-scope", "confirmed": True,
-            }])
+            change = json.dumps([
+                {
+                    "kind": "scope-add", "requirement_uid": "REQ-01", "path": "src/helper.py",
+                    "reason": "The user confirmed the existing helper is part of the implementation boundary.",
+                    "scope_authority": "explicit-user-scope", "confirmed": True,
+                },
+                {
+                    "kind": "proof-update", "requirement_uid": "REQ-01",
+                    "reason": "Bind executable proof before approving the revised scope.",
+                    "evidence_plan": ["Run the owner test module."],
+                    "commands": ["python3 -m unittest discover -s tests -p test_owner.py -v"],
+                    "tiers": ["unit"],
+                    "editable_paths": ["tests/test_owner.py"],
+                },
+            ])
             proposed = revision.propose(root, "v2-converge", change, True)
             rendered = revision.render(proposed)
             activated = revision.approve(root, "v2-converge", 2, True)
             active = lock.active_start_report(root, "v2-converge")["report"]
             anchor = json.loads((root / activated["anchor"]["artifact"]).read_text(encoding="utf-8"))
+            verbose_dir = root / ".tailtrail" / "runs" / "v2-converge" / "verbose-reports"
+            start_markdown_exists = (verbose_dir / "start-plan-verbose-v1.md").is_file()
+            start_metadata_exists = (verbose_dir / "start-plan-verbose-v1.json").is_file()
+            visible_start = root / "session-reports" / "v2-converge" / "start-plan.md"
+            visible_start_exists = visible_start.is_file()
+            visible_start_body = visible_start.read_text(encoding="utf-8")
 
         revised_decision = active["navigator"]["scope_evidence"]["decision_fingerprint"]
         self.assertNotEqual(base_decision, revised_decision)
@@ -175,6 +251,11 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(anchor["scope_decision"]["decision_fingerprint"], revised_decision)
         self.assertEqual(set(anchor["requirements"][0]["likely_paths"]), {"src/owner.py", "src/helper.py"})
         self.assertEqual(set(activated["execution_handoff"]["likely_paths"]), {"src/owner.py", "src/helper.py"})
+        self.assertTrue(start_markdown_exists)
+        self.assertTrue(start_metadata_exists)
+        self.assertTrue(visible_start_exists)
+        self.assertIn("## Complete Saved Planning Payload", visible_start_body)
+        self.assertNotIn("Unit tests passed (62/62)", visible_start_body)
         self.assertIn("### Implementation owners", rendered)
         self.assertIn("### Existing proof paths", rendered)
 
@@ -306,6 +387,29 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(original, original_after)
         self.assertEqual(events["planning_aidlc_mode_switch_proposed"], 1)
         self.assertEqual(events["planning_aidlc_mode_switch_approved"], 1)
+
+    def test_required_aidlc_switch_supersedes_rejected_pending_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "standard-rejection-recovery")
+            revision.propose(root, "standard-rejection-recovery", json.dumps([{
+                "kind": "requirement-update",
+                "requirement_uid": "REQ-01",
+                "statement": "Cancel an eligible order through the recovered requirement flow.",
+                "reason": "First material proposal.",
+            }]), True)
+            ledger.append_event(root, "standard-rejection-recovery", "proposal_rejected", {"reason": "first rejection"})
+            ledger.append_event(root, "standard-rejection-recovery", "proposal_rejected", {"reason": "second rejection"})
+
+            switched = revision.propose_aidlc_standard(root, "standard-rejection-recovery", True)
+            state = lock.revision_state(root, "standard-rejection-recovery")
+            superseded = revision.show(root, "standard-rejection-recovery", 2)
+
+        self.assertEqual(switched["revision"], 3)
+        self.assertEqual(switched["supersedes_revision"], 2)
+        self.assertEqual(state["pending_revision"], 3)
+        self.assertEqual(superseded["state"], "superseded")
+        self.assertEqual(superseded["superseded_by_revision"], 3)
 
     def test_standard_switch_rejects_non_lite_or_source_owned_run(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -452,6 +556,25 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertIn("# TailTrail AIDLC Mode Switch", proposed.stdout)
         self.assertEqual(approved.returncode, 0, approved.stderr + approved.stdout)
         self.assertIn("# TailTrail Official AI-DLC Requirements", approved.stdout)
+
+    def test_public_cli_renders_lite_fallback_when_official_pack_is_unavailable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "cli-standard-fallback")
+            proposed = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "planning", "aidlc-standard", "--root", root.as_posix(),
+                "--run-id", "cli-standard-fallback", "--approved-proposal",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+            approved = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(), "planning", "aidlc-standard-approve", "--root", root.as_posix(),
+                "--run-id", "cli-standard-fallback", "--revision", "2", "--approved",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+
+        self.assertEqual(proposed.returncode, 0, proposed.stderr + proposed.stdout)
+        self.assertEqual(approved.returncode, 0, approved.stderr + approved.stdout)
+        self.assertIn("# TailTrail AIDLC Mode Switch Result", approved.stdout)
+        self.assertIn("No official AIDLC questions or answers were generated", approved.stdout)
+        self.assertIn("No implementation authority was granted", approved.stdout)
 
 
 if __name__ == "__main__":

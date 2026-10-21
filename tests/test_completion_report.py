@@ -349,6 +349,23 @@ class CompletionReportTests(unittest.TestCase):
         rendered = report.render(result)
         self.assertIn("- **Actual model tokens:** 123 from 1 linked record(s)", rendered)
 
+    def test_visible_report_paths_reflect_lifecycle_timing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root)
+            self.write_complete_evidence(root, uid)
+            visible = root / "session-reports" / "run"
+            visible.mkdir(parents=True)
+            (visible / "start-plan.md").write_text("# Start\n", encoding="utf-8")
+
+            before = report.render(report.build(root, "run"))
+            (visible / "closure-report.md").write_text("# Closure\n", encoding="utf-8")
+            after = report.render(report.build(root, "run"))
+
+        self.assertIn("session-reports/run/start-plan.md", before)
+        self.assertIn("Closure Report:** not generated", before)
+        self.assertIn("session-reports/run/closure-report.md", after)
+
     def test_report_compares_host_usage_with_loose_prompt_and_aidlc_baselines(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -445,13 +445,31 @@ class PlanningLockTests(unittest.TestCase):
             lock.save_start_report(root, "plan-aidlc-handoff", {
                 "goal": "fix the zero quantity validation defect and add focused validation",
                 "guided_delivery": {"mode": "guided-delivery", "selected": [{"name": "Requirement Completion Harness", "why": "map requirements"}], "stages": ["inspect approved scope", "implement", "validate"]},
-                "navigator": {"likely_impacted_files": [{"path": "src/validation.py"}]},
+                "navigator": {
+                    "likely_impacted_files": [{"path": "src/validation.py"}, {"path": "tests/test_validation.py"}],
+                    "requirement_matrix": [{
+                        "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                        "statement": "Fix the zero quantity validation defect.",
+                        "acceptance_criteria": ["zero quantity is rejected"],
+                        "preserve_rules": ["positive quantities remain valid"],
+                        "likely_paths": ["src/validation.py"],
+                        "scope_evidence": {
+                            "implementation_owners": ["src/validation.py"],
+                            "inspection_paths": [], "proof_paths": ["tests/test_validation.py"],
+                        },
+                        "validation_contract": {
+                            "state": "required", "tiers": ["unit"],
+                            "commands": ["python3 -m unittest tests.test_validation -v"],
+                            "candidate_paths": ["tests/test_validation.py"],
+                        },
+                    }],
+                },
             })
             aidlc = lock.request_aidlc_requirements(root, "plan-aidlc-handoff")
             answers = json.dumps([
-                {"question_id": "Q1", "choice": "B"},
+                {"question_id": "Q1", "choice": "A"},
                 {"question_id": "Q2", "choice": "A"},
-                {"question_id": "Q3", "choice": "B"},
+                {"question_id": "Q3", "choice": "A"},
             ])
             revision = lock.submit_aidlc_answers(root, "plan-aidlc-handoff", answers)
             rendered_revision = lock.render_aidlc_revision(revision)
@@ -463,7 +481,7 @@ class PlanningLockTests(unittest.TestCase):
         self.assertIn("## Selected TailTrail features", rendered_revision)
         self.assertIn("## Validation", rendered_revision)
         self.assertIn("## Token estimate", rendered_revision)
-        self.assertIn("service/API path", revision["requirements"][0]["statement"])
+        self.assertIn("zero quantity", revision["requirements"][0]["statement"].lower())
         self.assertEqual(handoff["state"], "execution-ready")
         self.assertTrue(handoff["planning_lock"]["writes_allowed"])
         self.assertIn("Requirement Completion Harness", lock.render_execution_handoff(handoff))
@@ -579,6 +597,75 @@ class PlanningLockTests(unittest.TestCase):
             ])
             self.assertTrue((planning / "aidlc-revised-requirements-v1.json").is_file())
 
+    def test_validated_correction_projection_adds_grounded_behaviour_scenario(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "plan-aidlc-scenario"
+            lock.create(root, "show a visible report", run_id)
+            ledger.atomic_json(lock.start_report_path(root, run_id), {"report": {
+                "goal": "show a visible report",
+                "navigator": {
+                    "requirement_matrix": [{
+                        "requirement_uid": "req-1",
+                        "display_id": "REQ-01",
+                        "statement": "Show a report.",
+                        "acceptance_criteria": [],
+                        "preserve_rules": [],
+                        "likely_paths": ["src/report.py"],
+                        "scope_evidence": {
+                            "implementation_owners": ["src/report.py"],
+                            "inspection_paths": [],
+                            "proof_paths": ["tests/test_report.py"],
+                        },
+                        "validation_contract": {"state": "required", "tiers": ["unit"]},
+                    }],
+                    "likely_impacted_files": [{"path": "src/report.py"}, {"path": "tests/test_report.py"}],
+                },
+                "guided_delivery": {},
+            }})
+            lock.request_aidlc_requirements(root, run_id)
+            detail = "Generate the report after execution. The report shows the completed execution facts. Use tests/test_report.py with command python3 -m unittest tests.test_report -v."
+            result = lock.submit_aidlc_answers(root, run_id, json.dumps({
+                "answers": [
+                    {"question_id": "Q1", "choice": "A"},
+                    {"question_id": "Q2", "choice": "A"},
+                    {"question_id": "Q3", "choice": "B", "detail": detail},
+                ],
+                "correction_projection": {
+                    "schema_version": "1",
+                    "requirements": [],
+                    "scope": [],
+                    "proof": [{
+                        "requirement_id": "REQ-01",
+                        "source_question_ids": ["Q3"],
+                        "path": "tests/test_report.py",
+                        "command": "python3 -m unittest tests.test_report -v",
+                        "tiers": ["unit", "behaviour"],
+                        "scenarios": [{
+                            "scenario_id": "BHV-REQ-01",
+                            "action": "Generate the report after execution.",
+                            "expected_outcome": "The report shows the completed execution facts.",
+                        }],
+                    }],
+                },
+            }))
+            audit_receipt = lock.require_clean_audit(
+                root,
+                run_id,
+                lock.active_start_report(root, run_id)["report"],
+            )
+            visible_start = root / "session-reports" / run_id / "start-plan.md"
+            visible_start_body = visible_start.read_text(encoding="utf-8")
+
+        scenario = result["requirements"][0]["behavior_contract"]["scenarios"][0]
+        self.assertEqual(scenario["scenario_id"], "BHV-REQ-01")
+        self.assertEqual(scenario["source_question_ids"], ["Q3"])
+        self.assertEqual(audit_receipt["status"], "clean")
+        self.assertEqual(audit_receipt["source"], "validated-aidlc-revision")
+        self.assertIn("AIDLC Decisions", visible_start_body)
+        self.assertIn("**Q3:**", visible_start_body)
+        self.assertIn("BHV-REQ-01", visible_start_body)
+
     def test_aidlc_answer_base64_matches_inline_answers(self) -> None:
         import base64
         import subprocess
@@ -676,14 +763,32 @@ class PlanningLockTests(unittest.TestCase):
             lock.save_start_report(root, run_id, {
                 "goal": "fix the zero quantity validation defect and add focused validation",
                 "guided_delivery": {"mode": "guided-delivery"},
-                "navigator": {"likely_impacted_files": [{"path": "src/validation.py"}]},
+                "navigator": {
+                    "likely_impacted_files": [{"path": "src/validation.py"}, {"path": "tests/test_validation.py"}],
+                    "requirement_matrix": [{
+                        "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                        "statement": "Fix the zero quantity validation defect.",
+                        "acceptance_criteria": ["zero quantity is rejected"],
+                        "preserve_rules": ["positive quantities remain valid"],
+                        "likely_paths": ["src/validation.py"],
+                        "scope_evidence": {
+                            "implementation_owners": ["src/validation.py"],
+                            "inspection_paths": [], "proof_paths": ["tests/test_validation.py"],
+                        },
+                        "validation_contract": {
+                            "state": "required", "tiers": ["unit"],
+                            "commands": ["python3 -m unittest tests.test_validation -v"],
+                            "candidate_paths": ["tests/test_validation.py"],
+                        },
+                    }],
+                },
             })
             started = lock.aidlc_cycle(root, run_id)
             resumed = lock.aidlc_cycle(root, run_id)
             answers = json.dumps([
-                {"question_id": "Q1", "choice": "B"},
+                {"question_id": "Q1", "choice": "A"},
                 {"question_id": "Q2", "choice": "A"},
-                {"question_id": "Q3", "choice": "B"},
+                {"question_id": "Q3", "choice": "A"},
             ])
             revised = lock.aidlc_cycle(root, run_id, answers_json=answers)
             activated = lock.aidlc_cycle(root, run_id, approved=True)
@@ -922,6 +1027,14 @@ class AuditGateApprovalTests(unittest.TestCase):
             }],
         }
         projection = lock.effective_plan_projection(report)
+        row["validation_contract"]["checks"] = projection["checks_by_requirement"]["REQ-01"]
+        row["validation_contract"]["command_registry"] = projection["command_registry"]
+        report["focused_validation"] = [{
+            **item,
+            "candidate": "tests/test_work.py",
+            "candidate_state": "existing",
+            "status": "planned after approval",
+        } for item in projection["focused_validation"]]
         report["effective_plan_fingerprint"] = projection["fingerprint"]
         return report
 

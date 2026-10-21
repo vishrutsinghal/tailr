@@ -319,16 +319,6 @@ class IntakePipeline:
                 "projection_kind": projection_kind,
             })
 
-        operational_packet: dict[str, Any] | None = None
-        if anchor_fingerprint is not None or operational_bindings is not None:
-            operational_packet = self._build_operational_packet(
-                anchor_version=anchor_version,
-                anchor_fingerprint=anchor_fingerprint,
-                operational_bindings=operational_bindings,
-                accepted_records=accepted_records,
-                projected_requirement_ids={projection["requirement_uid"] for projection in normalized_projections},
-            )
-
         view_path = self._packet_view_path(run_id, anchor_version)
         if view_path.exists():
             raise IntakeError(
@@ -344,6 +334,16 @@ class IntakePipeline:
             "status": "materialized",
             "requirement_projections": normalized_projections,
         }
+        operational_packet: dict[str, Any] | None = None
+        if anchor_fingerprint is not None or operational_bindings is not None:
+            operational_packet = self._build_operational_packet(
+                packet_view_id=packet_view["packet_view_id"],
+                anchor_version=anchor_version,
+                anchor_fingerprint=anchor_fingerprint,
+                operational_bindings=operational_bindings,
+                accepted_records=accepted_records,
+                projected_requirement_ids={projection["requirement_uid"] for projection in normalized_projections},
+            )
         if operational_packet is not None:
             packet_view["operational_packet"] = operational_packet
         source_answer_fingerprint = _content_fingerprint(accepted_records)
@@ -377,6 +377,7 @@ class IntakePipeline:
     def _build_operational_packet(
         self,
         *,
+        packet_view_id: str,
         anchor_version: str,
         anchor_fingerprint: str | None,
         operational_bindings: dict[str, Any] | None,
@@ -403,6 +404,7 @@ class IntakePipeline:
         path_roles: dict[str, str] = {}
         requirement_ids: set[str] = set()
         normalized_requirements: list[dict[str, Any]] = []
+        path_authorizations: list[dict[str, Any]] = []
 
         def source_ids(value: Any, label: str) -> list[str]:
             if not isinstance(value, list) or not value or any(not isinstance(item, str) or item not in accepted_by_id for item in value):
@@ -459,12 +461,36 @@ class IntakePipeline:
                     raise IntakeError(f"proposed path `{path}` requires a new-file verdict")
                 if not existing and not str(binding.get("ownership_evidence", "")).strip():
                     raise IntakeError(f"proposed path `{path}` requires ownership or convention evidence")
-                normalized_paths.append({
+                if not any(
+                    accepted_by_id[answer_id]["value"] == path
+                    for answer_id in binding_sources
+                ):
+                    raise IntakeError(
+                        f"path binding `{path}` must cite an accepted answer whose value is that path"
+                    )
+                normalized_binding = {
                     "path_binding_id": _new_id("path-binding"), "path": path, "role": role,
                     "existing": existing, "new_file_verdict": verdict,
                     "ownership_evidence": str(binding.get("ownership_evidence", "")).strip() or None,
                     "source_answer_ids": binding_sources,
-                })
+                }
+                normalized_paths.append(normalized_binding)
+                path_state = "existing-verified" if existing else f"proposed-new-{verdict}"
+                authorization = {
+                    "schema_version": "1",
+                    "type": "tailtrail-answer-to-path-authorization",
+                    "requirement_uid": requirement_uid,
+                    "path_binding_id": normalized_binding["path_binding_id"],
+                    "path": path,
+                    "role": role,
+                    "path_state": path_state,
+                    "accepted_answer_ids": binding_sources,
+                    "packet_view_id": packet_view_id,
+                    "anchor_version": anchor_version,
+                    "anchor_fingerprint": anchor_fingerprint,
+                }
+                authorization["path_binding_fingerprint"] = _content_fingerprint(authorization)
+                path_authorizations.append(authorization)
 
             normalized_proofs: list[dict[str, Any]] = []
             proofs = requirement.get("proof_bindings")
@@ -527,6 +553,7 @@ class IntakePipeline:
         return {
             "anchor_fingerprint": anchor_fingerprint,
             "requirements": normalized_requirements,
+            "path_authorizations": path_authorizations,
             "projection_audit": audit,
         }
 

@@ -80,6 +80,17 @@ def validation_requirements_matrix(
                 lines.append(f"- {kind.upper()}: {cmd_display}...")
                 lines.append(f"  Tiers: {', '.join(check_tiers)}")
             lines.append("")
+        behaviour = req.get("behavior_contract", {}) if isinstance(req.get("behavior_contract"), dict) else {}
+        scenarios = [item for item in behaviour.get("scenarios", []) if isinstance(item, dict)]
+        if scenarios:
+            lines.append("**Behaviour scenarios:**")
+            for scenario in scenarios:
+                scenario_id = scenario.get("scenario_id", "scenario")
+                lines.append(
+                    f"- `{scenario_id}`: {scenario.get('action', 'action unavailable')} "
+                    f"→ {scenario.get('expected_outcome', 'expected outcome unavailable')}"
+                )
+            lines.append("")
     
     return "\n".join(lines)
 
@@ -360,46 +371,439 @@ def approval_checklist() -> str:
     return "\n".join(lines)
 
 
+def _plan_text(value: Any, fallback: str = "not recorded") -> str:
+    """Return one safe, compact Markdown cell or sentence fragment."""
+    if value in (None, ""):
+        return fallback
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, tuple, set)):
+        values = [_plan_text(item, "") for item in value]
+        return "; ".join(item for item in values if item) or fallback
+    if isinstance(value, dict):
+        return fallback
+    return " ".join(str(value).split()).replace("|", "\\|")
+
+
+def _plan_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [_plan_text(item, "") for item in value if _plan_text(item, "")]
+
+
+def _command_lookup(registry: dict[str, dict[str, Any]]) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for command_id, entry in registry.items():
+        if isinstance(entry, dict):
+            command = str(entry.get("command", "")).strip()
+            if command:
+                lookup.setdefault(command, command_id)
+    return lookup
+
+
+def _normalise_registry(
+    requirements: list[dict[str, Any]], registry: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Return the complete deterministic registry for a saved plan view.
+
+    Older anchors may have commands but no materialized registry.  Deriving an
+    ID at display time is safe because it is a pure SHA-256 projection of the
+    approved command, and it avoids showing a false "unregistered" status.
+    """
+    result = {str(key): dict(value) for key, value in registry.items() if isinstance(value, dict)}
+    for requirement in requirements:
+        contract = requirement.get("validation_contract", {})
+        if not isinstance(contract, dict):
+            continue
+        saved = contract.get("command_registry", {})
+        if isinstance(saved, dict):
+            result.update({str(key): dict(value) for key, value in saved.items() if isinstance(value, dict)})
+        commands = _plan_list(contract.get("commands", []))
+        for check in contract.get("checks", []):
+            if isinstance(check, dict) and str(check.get("command", "")).strip():
+                commands.append(str(check["command"]).strip())
+        for command in commands:
+            command_id = "cmd-" + hashlib.sha256(command.encode("utf-8")).hexdigest()[:6]
+            result.setdefault(command_id, {"command": command, "kind": "proof"})
+    return result
+
+
+def _requirement_id(requirement: dict[str, Any], index: int) -> str:
+    return _plan_text(
+        requirement.get("display_id") or requirement.get("requirement_uid"),
+        f"REQ-{index:02d}",
+    )
+
+
+def _requirement_scope(requirement: dict[str, Any]) -> tuple[list[str], list[str], list[str]]:
+    scope = requirement.get("scope_evidence", {})
+    scope = scope if isinstance(scope, dict) else {}
+    contract = requirement.get("validation_contract", {})
+    contract = contract if isinstance(contract, dict) else {}
+    owners = _plan_list(scope.get("implementation_owners") or requirement.get("likely_paths", []))
+    inspection = _plan_list(scope.get("inspection_paths", []))
+    proof = _plan_list(scope.get("proof_paths") or contract.get("candidate_paths", []))
+    return owners, inspection, proof
+
+
+def _requirement_proof_rows(
+    requirement: dict[str, Any], registry: dict[str, dict[str, Any]],
+) -> list[dict[str, str]]:
+    """Create the user-facing Tier / command / candidate / state matrix."""
+    contract = requirement.get("validation_contract", {})
+    contract = contract if isinstance(contract, dict) else {}
+    tiers = _plan_list(contract.get("tiers", []))
+    checks = [item for item in contract.get("checks", []) if isinstance(item, dict)]
+    command_by_value = _command_lookup(registry)
+    _, _, default_paths = _requirement_scope(requirement)
+    rows: list[dict[str, str]] = []
+    covered: set[str] = set()
+    for check in checks:
+        command_id = str(check.get("command_id", "")).strip()
+        command = str(check.get("command", "")).strip()
+        if not command and command_id in registry:
+            command = str(registry[command_id].get("command", "")).strip()
+        if not command_id and command:
+            command_id = command_by_value.get(command, "")
+        paths = _plan_list(check.get("candidate_paths", [])) or default_paths
+        for tier in _plan_list(check.get("tiers", [])):
+            rows.append({
+                "tier": tier,
+                "command_id": command_id or "unregistered",
+                "candidate": ", ".join(paths) if paths else "not recorded",
+                "state": "resolved" if command_id else "unresolved",
+            })
+            covered.add(tier)
+    commands = _plan_list(contract.get("commands", []))
+    for position, tier in enumerate(tiers):
+        if tier in covered:
+            continue
+        command = commands[position] if position < len(commands) else (commands[0] if len(commands) == 1 else "")
+        command_id = command_by_value.get(command, "") if command else ""
+        rows.append({
+            "tier": tier,
+            "command_id": command_id or "unresolved",
+            "candidate": ", ".join(default_paths) if default_paths else "not recorded",
+            "state": "resolved" if command_id else "unresolved",
+        })
+    if not rows:
+        rows.append({"tier": "unresolved", "command_id": "unresolved", "candidate": "not recorded", "state": "unresolved"})
+    return rows
+
+
+def _selected_features(report: dict[str, Any]) -> list[tuple[str, str, str]]:
+    navigator = report.get("navigator", {}) if isinstance(report.get("navigator"), dict) else {}
+    delivery = report.get("guided_delivery", {}) if isinstance(report.get("guided_delivery"), dict) else {}
+    raw = report.get("selected_features") or navigator.get("selected_features") or delivery.get("selected", [])
+    features = [("Navigator", "planning", "established the evidence-bound scope and approval boundary")]
+    seen = {"navigator"}
+    for item in raw if isinstance(raw, list) else []:
+        if isinstance(item, dict):
+            name = _plan_text(item.get("name"), "TailTrail control")
+            when = _plan_text(item.get("when"), "as required by the plan")
+            why = _plan_text(item.get("why"), "selected for this task")
+        else:
+            name, when, why = _plan_text(item), "as required by the plan", "selected for this task"
+        if name.casefold() not in seen:
+            features.append((name, when, why))
+            seen.add(name.casefold())
+    return features
+
+
+def _append_analysis(lines: list[str], heading: str, plan: dict[str, Any], kind: str, detailed: bool) -> None:
+    """Render architecture or behaviour analysis from saved planning evidence."""
+    selected = bool(plan.get("selected"))
+    lines.extend(["", f"## {heading}", ""])
+    if not selected:
+        state = _plan_text(plan.get("status") or plan.get("state"), "not selected")
+        lines.append(f"- **Status:** `{state}`. This control is not part of the approved proof boundary for this plan.")
+        return
+    lines.append(f"- **Status:** `{_plan_text(plan.get('state'), 'planned')}`.")
+    lines.append(f"- **Evidence boundary:** {_plan_text(plan.get('evidence_boundary'), 'saved plan evidence only').rstrip('.')}.")
+    items = plan.get("invariants" if kind == "architecture" else "scenarios", [])
+    if items:
+        if kind == "architecture":
+            lines.extend(["", "| Requirement | Invariant | Planned proof |", "|---|---|---|"])
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                lines.append(
+                    f"| {_plan_text(item.get('requirement_ids'), 'unassigned')} | "
+                    f"{_plan_text(item.get('invariant'))} | {_plan_text(item.get('planned_proof'))} |"
+                )
+        else:
+            lines.extend(["", "| Requirement | Scenario | Observable result | Required proof |", "|---|---|---|---|"])
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                proof = ", ".join(
+                    _plan_text(entry.get("tier"), "") for entry in item.get("evidence", [])
+                    if isinstance(entry, dict)
+                )
+                lines.append(
+                    f"| {_plan_text(item.get('requirement_ids'), 'unassigned')} | "
+                    f"{_plan_text(item.get('scenario'))} | {_plan_text(item.get('expected_outcome'))} | "
+                    f"{proof or 'not recorded'} |"
+                )
+    else:
+        lines.append("- No requirement-linked analysis items were saved; revise before approval if this control is required.")
+    if detailed:
+        roles = [item for item in plan.get("scope_roles", []) if isinstance(item, dict)]
+        checks = _plan_list(plan.get("post_change_checks", []))
+        if roles:
+            lines.extend(["", "### Scoped evidence", "", "| Path | Role | Planned use | Confidence |", "|---|---|---|---|"])
+            for item in roles:
+                lines.append(
+                    f"| `{_plan_text(item.get('path'))}` | {_plan_text(item.get('role'))} | "
+                    f"{_plan_text(item.get('planned_use'))} | {_plan_text(item.get('confidence'))} |"
+                )
+        if checks:
+            lines.extend(["", "### Post-change checks", ""])
+            lines.extend(f"{index}. {check}" for index, check in enumerate(checks, 1))
+
+
+def _append_review_cycles(lines: list[str], data: dict[str, Any]) -> None:
+    events = data.get("planning_events", []) if isinstance(data.get("planning_events"), list) else []
+    revisions = sorted({
+        event.get("payload", {}).get("revision") for event in events
+        if isinstance(event, dict) and event.get("event_type") == "planning_revision_proposed"
+        and isinstance(event.get("payload"), dict) and event.get("payload", {}).get("revision") is not None
+    })
+    audits = [event.get("payload", {}) for event in events if isinstance(event, dict) and event.get("event_type") == "planning_audit_completed"]
+    lines.extend(["", "## Review Cycles Summary", "", "| Cycle | Revision | Status | Action |", "|---|---|---|---|"])
+    lines.append("| 1 | v1 | initial review | Start Plan generated and mandatory audit required |")
+    for cycle, revision in enumerate(revisions, 2):
+        lines.append(f"| {cycle} | v{_plan_text(revision)} | revision recorded | Plan changed and must be audited again |")
+    lines.extend([
+        "",
+        f"- **Total review cycles:** {1 + len(revisions)}",
+        f"- **Revision cycles:** {len(revisions)}",
+    ])
+    if audits:
+        latest = audits[-1] if isinstance(audits[-1], dict) else {}
+        lines.append(f"- **Latest audit:** `{_plan_text(latest.get('status'))}`; {_plan_text(latest.get('finding_count'), '0')} finding(s).")
+    else:
+        lines.append("- **Latest audit:** not yet recorded. Run the mandatory planning audit before approval.")
+
+
+def _render_start_plan(
+    run_id: str,
+    requirements: list[dict[str, Any]],
+    registry: dict[str, dict[str, Any]],
+    goal: str,
+    *,
+    plan_data: dict[str, Any] | None,
+    verbose_artifact: str,
+    detailed: bool,
+) -> str:
+    """Build one coherent Start Plan at normal or full-detail density."""
+    registry = _normalise_registry(requirements, registry)
+    data = plan_data if isinstance(plan_data, dict) else {}
+    audit_events = data.get("planning_events", []) if isinstance(data.get("planning_events"), list) else []
+    audits = [
+        event.get("payload", {}) for event in audit_events
+        if isinstance(event, dict) and event.get("event_type") == "planning_audit_completed"
+    ]
+    report = data.get("report", {}) if isinstance(data.get("report"), dict) else {}
+    lock = data.get("planning_lock", {}) if isinstance(data.get("planning_lock"), dict) else {}
+    revision = data.get("revision_state", {}) if isinstance(data.get("revision_state"), dict) else {}
+    navigator = report.get("navigator", {}) if isinstance(report.get("navigator"), dict) else {}
+    delivery = report.get("guided_delivery", {}) if isinstance(report.get("guided_delivery"), dict) else {}
+    aidlc = data.get("aidlc", {}) if isinstance(data.get("aidlc"), dict) else {}
+    title = "# TailTrail Start Plan - Full Review Record" if detailed else "# TailTrail Start Plan"
+    lines = [title, "", "**Presentation version:** `4`", "", "## Planning Lock", ""]
+    lines.extend([
+        f"- **Run ID:** `{run_id}`",
+        f"- **Status:** `{_plan_text(lock.get('status') or data.get('state'), 'unavailable')}`",
+        f"- **Goal:** {_plan_text(goal or report.get('goal'))}",
+        f"- **Managed writes allowed:** `{_plan_text(lock.get('writes_allowed'), 'false')}`",
+        "- **Execution status:** planning only; no source change, proof command, scanner, or Git operation has run.",
+    ])
+    if revision:
+        lines.append(f"- **Plan revision:** active `{_plan_text(revision.get('active_revision'), 'v1')}`; pending `{_plan_text(revision.get('pending_revision'), 'none')}`.")
+    if verbose_artifact:
+        lines.append(f"- **Full review record:** [`{verbose_artifact}`]({verbose_artifact}).")
+
+    lines.extend(["", "## Command Reference Registry", ""])
+    if registry:
+        lines.extend(["| ID | Kind | Command |", "|---|---|---|"])
+        for command_id, entry in sorted(registry.items()):
+            entry = entry if isinstance(entry, dict) else {}
+            lines.append(f"| `{command_id}` | {_plan_text(entry.get('kind'), 'proof')} | `{_plan_text(entry.get('command'))}` |")
+    else:
+        lines.append("- No runnable proof command is registered. The plan is not ready for approval.")
+
+    lines.extend(["", "## Validation Requirements And Focused Validation Matrix", ""])
+    if not requirements:
+        lines.append("- No requirements were saved. Revise before approval.")
+    for index, requirement in enumerate(requirements, 1):
+        identifier = _requirement_id(requirement, index)
+        contract = requirement.get("validation_contract", {}) if isinstance(requirement.get("validation_contract"), dict) else {}
+        owners, inspection, proof_paths = _requirement_scope(requirement)
+        rows = _requirement_proof_rows(requirement, registry)
+        lines.extend([f"### {identifier}", "", f"**Description:** {_plan_text(requirement.get('statement'))}", ""])
+        lines.append(f"- **Requirement type:** `{_plan_text(requirement.get('kind'), 'outcome')}`")
+        lines.append(f"- **Validation state:** `{_plan_text(contract.get('state'), 'required')}`")
+        lines.append(f"- **Editable owner(s):** {', '.join(f'`{path}`' for path in owners) if owners else 'unresolved'}")
+        if inspection:
+            lines.append(f"- **Read-only input(s):** {', '.join(f'`{path}`' for path in inspection)}")
+        lines.append(f"- **Proof path(s):** {', '.join(f'`{path}`' for path in proof_paths) if proof_paths else 'unresolved'}")
+        if detailed:
+            acceptance = _plan_list(requirement.get("acceptance_criteria", []))
+            preserve = _plan_list(requirement.get("preserve_rules", []))
+            if acceptance:
+                lines.append("- **Success criteria:** " + "; ".join(acceptance))
+            if preserve:
+                lines.append("- **Preservation criteria:** " + "; ".join(preserve))
+            scenarios = [
+                item for item in (requirement.get("behavior_contract", {}) or {}).get("scenarios", [])
+                if isinstance(item, dict)
+            ] if isinstance(requirement.get("behavior_contract"), dict) else []
+            if scenarios:
+                lines.append("- **Requirement behaviour scenarios:**")
+                for scenario in scenarios:
+                    lines.append(
+                        f"  - `{_plan_text(scenario.get('scenario_id'))}`: "
+                        f"{_plan_text(scenario.get('action'))} → {_plan_text(scenario.get('expected_outcome'))}"
+                    )
+        lines.extend(["", "| Tier | Command ID | Candidate | State |", "|---|---|---|---|"])
+        for row in rows:
+            lines.append(f"| {row['tier']} | `{row['command_id']}` | `{row['candidate']}` | {row['state']} |")
+        lines.append("")
+
+    features = _selected_features(report)
+    lines.extend(["## Selected TailTrail Features", "", "| Feature | When used | Why it is selected |", "|---|---|---|"])
+    for name, when, why in features:
+        lines.append(f"| {name} | {when} | {why} |")
+    required_later = [item for item in delivery.get("required_later", []) if isinstance(item, dict)]
+    if required_later:
+        lines.extend(["", "### Required before closure", ""])
+        for item in required_later:
+            lines.append(f"- **{_plan_text(item.get('name'))}:** {_plan_text(item.get('why') or item.get('when'))}")
+
+    _append_analysis(lines, "Architecture Analysis", report.get("architecture_plan", {}) if isinstance(report.get("architecture_plan"), dict) else {}, "architecture", detailed)
+    _append_analysis(lines, "Behaviour Analysis", report.get("behaviour_plan", {}) if isinstance(report.get("behaviour_plan"), dict) else {}, "behaviour", detailed)
+
+    coverage: dict[str, set[str]] = {}
+    for index, requirement in enumerate(requirements, 1):
+        identifier = _requirement_id(requirement, index)
+        for row in _requirement_proof_rows(requirement, registry):
+            if row["state"] == "resolved":
+                coverage.setdefault(row["command_id"], set()).add(identifier)
+    lines.extend(["", "## Focused Validation Coverage Summary", ""])
+    lines.append(f"- **Requirements covered:** {sum(1 for requirement in requirements if any(row['state'] == 'resolved' for row in _requirement_proof_rows(requirement, registry)))}/{len(requirements)}.")
+    if coverage:
+        lines.append("- **Proof command reuse:**")
+        for command_id, identifiers in sorted(coverage.items()):
+            lines.append(f"  - `{command_id}` covers {len(identifiers)} requirement(s): {', '.join(sorted(identifiers))}.")
+    else:
+        lines.append("- No proof command currently covers a requirement.")
+
+    token = report.get("token_posture", {}) if isinstance(report.get("token_posture"), dict) else {}
+    lines.extend(["", "## Token Estimate", ""])
+    if token.get("estimate_available") is False:
+        lines.append(f"- Unavailable: scope is `{_plan_text(token.get('scope_state'), 'unresolved')}`, so a token estimate would not be reliable.")
+    elif token:
+        working = token.get("planned_working_set_tokens", token.get("used_tokens"))
+        ceiling = token.get("scoped_file_ceiling_tokens", token.get("baseline_tokens"))
+        lines.append(f"- **Planned working set:** approximately `{_plan_text(working, 'not calculable')}` tokens (confidence: `{_plan_text(token.get('forecast_confidence'), 'not recorded')}`).")
+        lines.append(f"- **Scoped-file ceiling:** approximately `{_plan_text(ceiling, 'not recorded')}` tokens; estimated reduction `{_plan_text(token.get('estimated_reduction_percent'), 'not recorded')}%`.")
+        if detailed and token.get("forecast_confidence_reason"):
+            lines.append(f"- **Confidence basis:** {_plan_text(token.get('forecast_confidence_reason'))}.")
+    else:
+        lines.append("- No token estimate was saved for this plan.")
+    lines.append("- This is an estimate from saved scope, not measured model/provider usage.")
+
+    lines.extend(["", "## Implementation Boundary", ""])
+    all_owners = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[0]})
+    all_inputs = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[1]})
+    all_proofs = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[2]})
+    lines.append(f"- **Editable scope:** {', '.join(f'`{path}`' for path in all_owners) if all_owners else 'unresolved'}.")
+    lines.append(f"- **Read-only / proof-only scope:** {', '.join(f'`{path}`' for path in all_inputs + all_proofs) if all_inputs or all_proofs else 'none recorded'}.")
+    lines.append("- **Excluded:** every path, command, external system, deployment, and data change not explicitly recorded above remains outside this approval.")
+    lines.append("- **Data impact:** no data impact is authorized unless a requirement above names it explicitly.")
+
+    questions = _plan_list(report.get("material_questions", []))
+    risks = _plan_list(report.get("risks", navigator.get("risks", navigator.get("risk_indicators", []))))
+    audit_ready = bool(audits and isinstance(audits[-1], dict) and audits[-1].get("status") == "clean")
+    lines.extend(["", "## Approval Checklist", ""])
+    lines.append(f"- [{'x' if requirements else ' '}] Requirements are present and reviewable.")
+    lines.append(f"- [{'x' if all_owners else ' '}] Every requirement has an editable implementation owner.")
+    lines.append(f"- [{'x' if coverage and len(coverage) else ' '}] Runnable proof commands are registered and mapped to requirements.")
+    lines.append(f"- [{'x' if not questions else ' '}] Material questions are resolved.")
+    lines.append(f"- [{'x' if audit_ready else ' '}] Mandatory planning audit is clean for this exact plan revision.")
+    lines.append("- [ ] The host has reviewed the scope, preservation criteria, proof commands, analyses, and excluded boundary.")
+    if risks:
+        lines.append("- **Risks to review:** " + "; ".join(risks))
+    if questions:
+        lines.append("- **Open questions:** " + "; ".join(questions))
+
+    if aidlc:
+        lines.extend(["", "## AIDLC Decisions", "", "- AIDLC authority artifacts are present: " + ", ".join(f"`{name}`" for name in sorted(aidlc)) + "."])
+        questions_from_aidlc = [
+            question for artifact in aidlc.values() if isinstance(artifact, dict)
+            for question in artifact.get("questions", []) if isinstance(question, dict)
+        ]
+        for question in questions_from_aidlc:
+            lines.append(f"- **{_plan_text(question.get('id') or question.get('question_id'))}:** {_plan_text(question.get('question'))}")
+
+    _append_review_cycles(lines, data)
+    lines.extend(["", "## Approval Decision", ""])
+    ready = bool(requirements and all_owners and coverage and not questions and audit_ready)
+    if ready:
+        lines.append("**READY FOR APPROVAL** — review this plan, then explicitly approve this exact run. Approval is separate from activation and permits no unlisted work.")
+    else:
+        blockers: list[str] = []
+        if not requirements:
+            blockers.append("requirements")
+        if not all_owners:
+            blockers.append("implementation ownership")
+        if not coverage:
+            blockers.append("runnable proof coverage")
+        if questions:
+            blockers.append("material questions")
+        if not audit_ready:
+            blockers.append("a clean mandatory planning audit")
+        lines.append("**NOT READY FOR APPROVAL** — resolve or revise: " + ", ".join(blockers) + ".")
+    canonical_artifact = str(data.get("canonical_artifact", "")).strip()
+    if detailed and canonical_artifact:
+        lines.extend(["", "## Canonical Machine Record", "", f"- Machine-readable state remains available at [`{canonical_artifact}`]({canonical_artifact}); it is not the approval view."])
+    lines.extend(["", "---", "", "*End of Start Plan.*"])
+    return "\n".join(lines)
+
+
 def generate_start_plan_verbose(
     run_id: str,
     requirements: list[dict[str, Any]],
     registry: dict[str, dict[str, Any]],
-    goal: str = ""
+    goal: str = "",
+    plan_data: dict[str, Any] | None = None,
 ) -> str:
-    """Generate comprehensive start plan verbose report.
-    
-    Args:
-        run_id: Planning session ID
-        requirements: List of requirement specifications
-        registry: Command registry with ID → command mappings
-        goal: Planning goal/objective
-    
-    Returns:
-        Complete markdown report as string
+    """Render the saved, detailed counterpart to the approval-facing plan.
+
+    The report intentionally uses the same information architecture as the
+    normal plan.  Verbose means more evidence and analysis, never raw state
+    dumps or a second, conflicting plan.
     """
-    sections = [
-        "# TailTrail Start Plan Verbose Report\n",
-        f"**Run ID:** `{run_id}`",
-        f"**Generated:** {datetime.now().isoformat()}\n",
-    ]
-    
-    if goal:
-        sections.append(f"**Goal:** {goal}\n")
-    
-    sections.extend([
-        command_registry_section(registry),
-        validation_requirements_matrix(requirements, registry),
-        architecture_validation_section(registry),
-        behaviour_validation_section(),
-        coverage_summary(registry, len(requirements) * 2),  # Rough estimate
-        token_estimate_section(registry, len(requirements)),
-        approval_checklist(),
-    ])
-    
-    sections.append("---\n")
-    sections.append("*End of Start Plan Verbose Report*\n")
-    
-    return "\n".join(sections)
+    return _render_start_plan(
+        run_id, requirements, registry, goal, plan_data=plan_data,
+        verbose_artifact="", detailed=True,
+    )
+
+
+def generate_start_plan_normal(
+    run_id: str,
+    requirements: list[dict[str, Any]],
+    registry: dict[str, dict[str, Any]],
+    goal: str = "",
+    plan_data: dict[str, Any] | None = None,
+    verbose_artifact: str = "",
+) -> str:
+    """Render the readable plan shown in chat and by ``planning show``."""
+    return _render_start_plan(
+        run_id, requirements, registry, goal, plan_data=plan_data,
+        verbose_artifact=verbose_artifact, detailed=False,
+    ) + "\n"
 
 
 def generate_closure_report_verbose(
@@ -407,197 +811,79 @@ def generate_closure_report_verbose(
     closure_data: dict[str, Any],
     registry: dict[str, dict[str, Any]]
 ) -> str:
-    """Generate comprehensive closure report verbose report.
-    
-    Args:
-        run_id: Planning session ID
-        closure_data: Closure finalization data with assessments and evidence
-        registry: Command registry for command resolution
-    
-    Returns:
-        Complete markdown report as string
-    """
-    sections = [
-        "# TailTrail Closure Report Verbose Report\n",
-        f"**Run ID:** `{run_id}`",
-        f"**Generated:** {datetime.now().isoformat()}",
-        f"**Report Type:** Comprehensive Closure Analysis\n",
+    """Render only recorded closure and execution facts."""
+    completion = closure_data.get("completion_report_payload", {}) if isinstance(closure_data.get("completion_report_payload"), dict) else {}
+    closure_record = closure_data.get("closure_record", {}) if isinstance(closure_data.get("closure_record"), dict) else {}
+    execution_events = closure_data.get("execution_events", []) if isinstance(closure_data.get("execution_events"), list) else []
+    changed_paths = closure_data.get("changed_paths") or closure_record.get("changed_paths") or completion.get("implementation", {}).get("changed_paths", [])
+    token_usage = completion.get("token_usage", {}) if isinstance(completion.get("token_usage"), dict) else {}
+
+    def cell(value: Any) -> str:
+        text = json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else str(value if value not in (None, "") else "unavailable")
+        return text.replace("|", "\\|").replace("\n", "<br>")
+
+    lines = [
+        "# TailTrail Closure Report - Full Execution Record",
+        "",
+        "| Field | Value |",
+        "|---|---|",
+        f"| Run ID | `{run_id}` |",
+        f"| Generated after finalization | `{datetime.now().isoformat()}` |",
+        f"| Overall status | `{cell(closure_data.get('overall_status') or completion.get('overall_status'))}` |",
+        f"| Closure record | `{cell(closure_data.get('closure_record_id'))}` |",
+        f"| Finalizer | `{cell(closure_data.get('finalizer_id'))}` |",
+        "",
+        "## Changes And Locations",
+        "",
+        "| Path / location | Recorded status |",
+        "|---|---|",
     ]
-    
-    # Proof Execution Summary
-    sections.append("## Proof Execution Summary\n")
-    sections.append("### Command Execution Results\n")
-    sections.append("| Command ID | Command | Kind | Status | Tiers | Evidence |")
-    sections.append("|---|---|---|---|---|---|")
-    
-    for cmd_id in sorted(registry.keys()):
-        entry = registry[cmd_id]
-        cmd = entry.get("command", "")[:50]
-        kind = entry.get("kind", "proof")
-        sections.append(f"| `{cmd_id}` | `{cmd}...` | {kind} | ✓ EXECUTED | multiple | ✓ PASS |")
-    
-    if not registry:
-        sections.append("| (no commands) | - | - | - | - | - |")
-    
-    sections.append("")
-    
-    # Requirement Coverage Analysis
-    sections.append("## Requirement Coverage Analysis\n")
-    sections.append("| Coverage Type | Target | Achieved | Status |")
-    sections.append("|---|---|---|---|")
-    cmd_count = len(registry)
-    sections.append(f"| Proof Commands | ≥1 | {cmd_count} | {'✓ PASS' if cmd_count > 0 else '✗ FAIL'} |")
-    sections.append(f"| Static Analysis | If required | Present | ✓ CONFIGURED |")
-    sections.append(f"| Unit Tests | Required | Included | ✓ PASS |")
-    sections.append(f"| Contract Tests | Required | Included | ✓ PASS |")
-    sections.append(f"| Behavior Tests | Required | Included | ✓ PASS |")
-    sections.append("")
-    
-    # Assessments Summary
-    sections.append("## Assessments Summary\n")
-    assessments = closure_data.get("assessments", {})
-    sections.append("| Assessment | Complete | Status | Findings |")
-    sections.append("|---|---|---|---|")
-    
-    if "Architecture Fitness Harness" in assessments:
-        sections.append("| Architecture Fitness | ✓ | PASS | Design principles verified |")
-    else:
-        sections.append("| Architecture Fitness | - | SKIPPED | Not selected |")
-    
-    if "Behaviour Harness" in assessments:
-        sections.append("| Behaviour Harness | ✓ | PASS | Functional correctness verified |")
-    else:
-        sections.append("| Behaviour Harness | - | SKIPPED | Not selected |")
-    
-    if "Maintainability Harness" in assessments:
-        sections.append("| Maintainability Harness | ✓ | PASS | Code quality verified |")
-    else:
-        sections.append("| Maintainability Harness | - | SKIPPED | Not selected |")
-    
-    sections.append("")
-    
-    # Unit Test Results with Tabular Format
-    sections.append("## Unit Test Results\n")
-    sections.append("| Tier | Tests | Passed | Failed | Coverage | Status |")
-    sections.append("|---|---|---|---|---|---|")
-    sections.append("| unit | 24 | 24 | 0 | 92% | ✓ PASS |")
-    sections.append("| contract | 18 | 18 | 0 | 88% | ✓ PASS |")
-    sections.append("| behaviour | 12 | 12 | 0 | 95% | ✓ PASS |")
-    sections.append("| integration | 8 | 8 | 0 | 85% | ✓ PASS |")
-    sections.append("| **TOTAL** | **62** | **62** | **0** | **90%** | **✓ PASS** |")
-    sections.append("")
-    
-    # Static Analysis Results
-    sections.append("## Static Analysis Results\n")
-    sections.append("### MyPy Type Checking (Strict Mode)\n")
-    sections.append("| File | Errors | Warnings | Status |")
-    sections.append("|---|---|---|---|")
-    sections.append("| task-start.py | 0 | 0 | ✓ PASS |")
-    sections.append("| execution-evidence.py | 0 | 0 | ✓ PASS |")
-    sections.append("| closure-finalizer.py | 0 | 0 | ✓ PASS |")
-    sections.append("| planning_lock.py | 0 | 0 | ✓ PASS |")
-    sections.append("| **TOTAL** | **0** | **0** | **✓ PASS** |")
-    sections.append("")
-    
-    # Architecture Validation
-    sections.append("## Architecture Validation\n")
-    sections.append("### Design Principles Verification\n")
-    sections.append("| Principle | Requirement | Result | Evidence |")
-    sections.append("|---|---|---|---|")
-    sections.append("| Determinism | IDs from SHA256 | ✓ PASS | All cmd-XXXXXX format |")
-    sections.append("| Immutability | Command+Kind immutable | ✓ PASS | No registry modifications |")
-    sections.append("| Single Source | One registry, no duplication | ✓ PASS | Centralized reference |")
-    sections.append("| Backward Compat | Old format still works | ✓ PASS | Graceful fallback verified |")
-    sections.append("| Audit Coverage | All layers validated | ✓ PASS | Complete traceability |")
-    sections.append("")
-    
-    # Behaviour Validation
-    sections.append("## Behaviour Validation\n")
-    sections.append("### Functional Correctness Checklist\n")
-    sections.append("| Function | Test | Result | Status |")
-    sections.append("|---|---|---|---|")
-    sections.append("| Command Resolution | cmd-XXXXXX → command string | Deterministic | ✓ PASS |")
-    sections.append("| Registry Loading | From validation_contract | Complete | ✓ PASS |")
-    sections.append("| Command Execution | Resolved before subprocess | Success | ✓ PASS |")
-    sections.append("| Error Handling | Missing ID → clear error | Graceful | ✓ PASS |")
-    sections.append("| Fallback Logic | String command → direct use | Works | ✓ PASS |")
-    sections.append("| Check Matching | By command_id | Accurate | ✓ PASS |")
-    sections.append("| Receipt Generation | Commands resolved | Complete | ✓ PASS |")
-    sections.append("")
-    
-    # Token Usage & Efficiency
-    sections.append("## Token Usage & Efficiency\n")
-    sections.append("### Phase-by-Phase Breakdown\n")
-    sections.append("| Phase | Planned | Actual | Variance | Status |")
-    sections.append("|---|---|---|---|---|")
-    sections.append("| Start Plan Gen | 180 | 170 | -5.6% | ✓ UNDER |")
-    sections.append("| Approval/Review | 250 | 235 | -6.0% | ✓ UNDER |")
-    sections.append("| Execution | 120 | 115 | -4.2% | ✓ UNDER |")
-    sections.append("| Closure Report | 150 | 142 | -5.3% | ✓ UNDER |")
-    sections.append("| **TOTAL** | **700** | **662** | **-5.4%** | **✓ PASS** |")
-    sections.append("")
-    
-    sections.append("### Data Efficiency Metrics\n")
-    sections.append("| Metric | Before Registry | After Registry | Reduction |")
-    sections.append("|---|---|---|---|")
-    sections.append("| Command Storage | ~2,500 bytes | ~1,800 bytes | 28% |")
-    sections.append("| Plan Display Size | ~4KB | ~2.8KB | 30% |")
-    sections.append("| Lookup Performance | O(n) search | O(1) hash | 10-50x faster |")
-    sections.append("| User Review Time | ~180s | ~60s | 67% faster |")
-    sections.append("")
-    
-    # Code Metrics
-    sections.append("## Code Metrics\n")
-    sections.append("### Implementation Summary\n")
-    sections.append("| Metric | Value | Status |")
-    sections.append("|---|---|---|")
-    sections.append("| Files Modified | 5 | ✓ COMPLETE |")
-    sections.append("| Functions Modified | 8 | ✓ COMPLETE |")
-    sections.append("| Lines Added | ~640 | ✓ COMPLETE |")
-    sections.append("| Lines Modified | ~150 | ✓ COMPLETE |")
-    sections.append("| New Module | verbose-reporting.py | ✓ ADDED |")
-    sections.append("| Command Deduplication | 28% | ✓ ACHIEVED |")
-    sections.append("| Backward Compat | 100% | ✓ VERIFIED |")
-    sections.append("")
-    
-    # Completion Checklist
-    sections.append("## Completion Checklist\n")
-    sections.append("- [x] All requirements approved")
-    sections.append("- [x] All tiers validated")
-    sections.append("- [x] Static analysis passed (0 errors)")
-    sections.append("- [x] Unit tests passed (62/62)")
-    sections.append("- [x] Architecture principles verified")
-    sections.append("- [x] Behaviour validation complete")
-    sections.append("- [x] Token usage within budget (-5.4%)")
-    sections.append("- [x] Command registry immutable")
-    sections.append("- [x] Backward compatibility verified")
-    sections.append("- [x] Audit trail complete")
-    sections.append("")
-    
-    # Deployment Readiness
-    sections.append("## Deployment Readiness\n")
-    sections.append("### Final Assessment\n")
-    sections.append("| Assessment | Status | Blockers | Ready |")
-    sections.append("|---|---|---|---|")
-    sections.append("| Code Quality | ✓ PASS | None | YES |")
-    sections.append("| Test Coverage | ✓ PASS | None | YES |")
-    sections.append("| Architecture | ✓ PASS | None | YES |")
-    sections.append("| Backward Compat | ✓ PASS | None | YES |")
-    sections.append("| Documentation | ✓ PASS | None | YES |")
-    sections.append("| **OVERALL** | **✓ READY** | **NONE** | **YES** |")
-    sections.append("")
-    
-    sections.append("### Sign-Off\n")
-    sections.append("✅ **Status:** Ready for Production Deployment")
-    sections.append("✅ **Risk Level:** Low (100% backward compatible)")
-    sections.append("✅ **Rollback Plan:** Graceful fallback to embedded commands")
-    sections.append("✅ **Performance:** Improved (30% faster plan processing)")
-    sections.append("")
-    
-    sections.append("---\n")
-    sections.append("*End of Closure Report Verbose Report*\n")
-    
-    return "\n".join(sections)
+    for path in changed_paths or []:
+        value = path.get("path") if isinstance(path, dict) else path
+        lines.append(f"| `{cell(value)}` | recorded changed path |")
+    if not changed_paths:
+        lines.append("| unavailable | No changed-path evidence was recorded |")
+
+    lines.extend(["", "## Requirement Verification", ""])
+    requirement_status = completion.get("requirement_status", {}) if isinstance(completion.get("requirement_status"), dict) else {}
+    lines.extend(["```json", json.dumps(requirement_status or {"status": "unavailable"}, indent=2, sort_keys=True), "```"])
+
+    lines.extend(["", "## Execution Timeline And Evidence", "", "| Kind | Command / action | Outcome | Exit code | Duration ms | Requirements | Tiers |", "|---|---|---|---|---|---|---|"])
+    for event in execution_events:
+        if not isinstance(event, dict):
+            continue
+        lines.append(
+            f"| {cell(event.get('kind'))} | `{cell(event.get('command') or event.get('action'))}` "
+            f"| {cell(event.get('outcome'))} | {cell(event.get('exit_code'))} | {cell(event.get('duration_ms'))} "
+            f"| {cell(event.get('requirement_uids'))} | {cell(event.get('tiers') or event.get('tier'))} |"
+        )
+    if not execution_events:
+        lines.append("| unavailable | unavailable | unavailable | unavailable | unavailable | unavailable | unavailable |")
+
+    lines.extend(["", "## Tests, Harnesses, Health, Drift, And Failures", ""])
+    health = {
+        "tests": completion.get("tests", {}),
+        "assessments": closure_data.get("assessments", {}),
+        "higher_tier_evidence": closure_data.get("higher_tier_evidence", {}),
+        "drift": completion.get("drift", {}),
+        "architecture": completion.get("architecture", {}),
+        "behaviour": completion.get("behaviour", {}),
+        "maintainability": completion.get("maintainability", {}),
+        "security": completion.get("security", {}),
+        "execution_failures": completion.get("execution_failures", {}),
+        "correction": closure_data.get("correction"),
+        "pipeline": closure_data.get("pipeline", {}),
+    }
+    lines.extend(["```json", json.dumps(health, indent=2, sort_keys=True), "```"])
+
+    lines.extend(["", "## Token Usage", ""])
+    lines.extend(["```json", json.dumps(token_usage or {"status": "unavailable"}, indent=2, sort_keys=True), "```"])
+    lines.append("Measured values are shown only when linked host/provider telemetry exists. Estimates retain their saved provenance; missing measurements remain unavailable.")
+
+    lines.extend(["", command_registry_section(registry), "", "## TailTrail Lifecycle And Audit Events", ""])
+    lines.extend(["```json", json.dumps(closure_data.get("ledger_events", []), indent=2, sort_keys=True), "```"])
+    lines.extend(["", "## Complete Saved Closure Payload", "", "```json", json.dumps(closure_data, indent=2, sort_keys=True), "```", "", "---", "", "*End of full Closure execution record.*", ""])
+    return "\n".join(lines)
 
 
 def save_verbose_reports(
@@ -616,8 +902,7 @@ def save_verbose_reports(
         report_content: Markdown content to save
         also_save_json: Whether to also save as JSON metadata
     
-    Returns:
-        Path to saved report file
+    Returns the canonical internal Markdown path and also writes a visible copy.
     """
     report_dir = (root / ".tailtrail" / "runs" / run_id / "verbose-reports").resolve()
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -626,6 +911,12 @@ def save_verbose_reports(
     filename = f"{stage}-verbose-v1.md"
     report_path = report_dir / filename
     report_path.write_text(report_content, encoding="utf-8")
+
+    visible_dir = (root / "session-reports" / run_id).resolve()
+    visible_dir.mkdir(parents=True, exist_ok=True)
+    visible_name = "start-plan.md" if stage == "start-plan" else "closure-report.md"
+    visible_path = visible_dir / visible_name
+    visible_path.write_text(report_content, encoding="utf-8")
     
     # Optionally save JSON metadata
     if also_save_json:
@@ -635,9 +926,16 @@ def save_verbose_reports(
             "stage": stage,
             "generated": datetime.now().isoformat(),
             "report_path": str(report_path.relative_to(root)),
+            "visible_report_path": str(visible_path.relative_to(root)),
+            "visible_report_absolute_path": str(visible_path),
             "schema_version": "1",
             "type": "tailtrail-verbose-report",
         }
         meta_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     
     return report_path
+
+
+def visible_report_path(root: Path, run_id: str, stage: str) -> Path:
+    name = "start-plan.md" if stage == "start-plan" else "closure-report.md"
+    return (root.resolve() / "session-reports" / run_id / name).resolve()

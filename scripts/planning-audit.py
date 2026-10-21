@@ -12,6 +12,7 @@ gaps can be closed with `planning revise` while that door is still open.
 from __future__ import annotations
 
 import argparse
+import copy
 import importlib.util
 import json
 import re
@@ -37,7 +38,15 @@ def _build_review_cycles_summary(root: Path, run_id: str) -> dict[str, Any]:
     run_dir = root / ".tailtrail" / "runs" / run_id
     events_file = run_dir / "events.jsonl"
     
-    cycles: list[dict[str, Any]] = []
+    # A review run starts with the initial v1 plan.  Revisions are additional
+    # cycles, not the only cycles.  Keeping both counts prevents a clean first
+    # audit from incorrectly rendering as "0 cycles".
+    cycles: list[dict[str, Any]] = [{
+        "cycle": 1,
+        "revision": 1,
+        "status": "initial-review",
+        "actions": ["Initial v1 plan reviewed"],
+    }]
     revision_events: list[dict[str, Any]] = []
     
     try:
@@ -52,8 +61,10 @@ def _build_review_cycles_summary(root: Path, run_id: str) -> dict[str, Any]:
     except Exception as e:
         # If we can't read events, just return empty summary
         return {
-            "total_cycles": 0,
-            "cycles": [],
+            "total_review_cycles": 1,
+            "revision_cycles": 0,
+            "total_cycles": 1,
+            "cycles": cycles,
             "approval_readiness": "unknown",
             "review_note": f"Could not load review history: {str(e)}"
         }
@@ -71,6 +82,7 @@ def _build_review_cycles_summary(root: Path, run_id: str) -> dict[str, Any]:
     for rev in sorted(revision_map.keys()):
         events_for_rev = revision_map[rev]["events"]
         cycle_info = {
+            "cycle": len(cycles) + 1,
             "revision": rev,
             "status": "pending",
             "actions": []
@@ -106,6 +118,9 @@ def _build_review_cycles_summary(root: Path, run_id: str) -> dict[str, Any]:
         approval_readiness = "revision-pending"
     
     return {
+        "total_review_cycles": len(cycles),
+        "revision_cycles": len(cycles) - 1,
+        # Retained for callers that have not moved to the explicit names.
         "total_cycles": len(cycles),
         "cycles": cycles,
         "approval_readiness": approval_readiness,
@@ -446,6 +461,7 @@ def _proof_binding_findings(
     row: dict[str, Any],
     checks: list[dict[str, Any]],
     *,
+    command_registry: dict[str, Any] | None = None,
     pending: bool = False,
 ) -> list[dict[str, Any]]:
     """Require requirement-scoped, executable proof before approval.
@@ -480,12 +496,14 @@ def _proof_binding_findings(
         return findings
     scope = row.get("scope_evidence", {})
     scope = scope if isinstance(scope, dict) else {}
+    command_registry = command_registry or {}
     scoped_proof_paths = {
         str(path) for path in (scope.get("proof_paths", []) or [])
         if str(path)
     }
     for check in proof_checks:
-        command = str(check.get("command", "")).strip()
+        command_ref = str(check.get("command", "")).strip() or str(check.get("command_id", "")).strip()
+        command = _resolve_command_from_registry(command_ref, command_registry) or ""
         paths = [str(path) for path in (check.get("candidate_paths", []) or []) if str(path).strip()]
         tiers = [str(tier) for tier in (check.get("tiers", []) or []) if str(tier)]
         if not command or not paths:
@@ -760,6 +778,28 @@ def audit_report(
     findings: list[dict[str, Any]] = []
     has_scope_evidence = isinstance(navigator.get("scope_evidence"), dict) if isinstance(navigator, dict) else False
 
+    aidlc_mode = report.get("aidlc_mode", {})
+    if isinstance(aidlc_mode, dict) and aidlc_mode.get("state") == "awaiting-mode-approval":
+        review_cycles = _build_review_cycles_summary(root, run_id)
+        return {
+            "schema_version": "1",
+            "type": "tailtrail-planning-audit",
+            "run_id": run_id,
+            "status": "clean",
+            "findings": [],
+            "review_cycles_summary": review_cycles,
+            "approval_assessment": {
+                "readiness": "ready-to-approve-mode-switch",
+                "gaps_closed": True,
+                "total_cycles": review_cycles.get("total_cycles", 0),
+                "approval_decision": "READY FOR AIDLC MODE-SWITCH APPROVAL",
+                "boundary": (
+                    "This audit approves only the Lite-to-Standard planning-mode transition. "
+                    "It grants no implementation authority and does not approve the rejected requirement boundary."
+                ),
+            },
+        }
+
     projection = LOCK.effective_plan_projection(report)
     findings.extend(_convergence_findings(run_id, report, projection, pending=pending))
 
@@ -793,36 +833,18 @@ def audit_report(
     internal_allowed_tiers = _internal_proof_boundary(navigator) if isinstance(navigator, dict) else None
     proof_boundary_conflict = navigator.get("host_proof_boundary_conflict") if isinstance(navigator, dict) else None
     
-    # FIX Issue 2: Check if boundary has been expanded via proof-boundary-expand revision
-    # If expanded, don't report as restart-required; boundary expansion is valid in-place fix
-    boundary_expansion = report.get("proof_boundary_expansion") if isinstance(report, dict) else None
     if isinstance(proof_boundary_conflict, dict) and internal_allowed_tiers is None:
-        # Only report restart-required if boundary hasn't been expanded
-        if not (isinstance(boundary_expansion, dict) and boundary_expansion.get("audit_required")):
-            findings.append({
-                "type": "inferred-tier-conflicts-host-proof-boundary",
-                "correction_kind": "restart-required",
-                "open_fields": ["host-approved proof boundary"],
-                "detail": (
-                    "Inferred validation tiers exceed the host-approved proof boundary; "
-                    "supply host-approved criteria and proof or narrow the plan before approval. "
-                    "Alternative: use `planning revise` with `proof-boundary-expand` to expand the allowed tier list in-place."
-                ),
-                "proof_boundary": proof_boundary_conflict,
-            })
-        else:
-            # Boundary expansion is in progress; provide status
-            findings.append({
-                "type": "inferred-tier-conflicts-host-proof-boundary-expanding",
-                "correction_kind": "in-progress-fix",
-                "detail": (
-                    f"Proof boundary expansion in progress. Previous tiers: {boundary_expansion.get('previous_allowed_tiers')}. "
-                    f"Expanded to: {boundary_expansion.get('new_allowed_tiers')}. "
-                    f"Re-run audit after approval to verify clean status."
-                ),
-                "proof_boundary": proof_boundary_conflict,
-                "boundary_expansion": boundary_expansion,
-            })
+        findings.append({
+            "type": "inferred-tier-conflicts-host-proof-boundary",
+            "correction_kind": "template",
+            "open_fields": ["host-approved proof boundary"],
+            "detail": (
+                "Inferred validation tiers exceed the host-approved proof boundary; "
+                "use `planning revise` with `proof-boundary-expand` to amend the saved boundary in-place, "
+                "then re-run this audit before approval."
+            ),
+            "proof_boundary": proof_boundary_conflict,
+        })
 
     for row in matrix if isinstance(matrix, list) else []:
         if not isinstance(row, dict):
@@ -841,7 +863,13 @@ def audit_report(
         )
         req_id = str(row.get("display_id") or row.get("requirement_uid") or "")
         checks = projection.get("checks_by_requirement", {}).get(req_id, [])
-        findings.extend(_proof_binding_findings(run_id, row, checks, pending=pending))
+        findings.extend(_proof_binding_findings(
+            run_id,
+            row,
+            checks,
+            command_registry=projection.get("command_registry", {}),
+            pending=pending,
+        ))
     
     # Build review cycles summary from run history
     review_cycles = _build_review_cycles_summary(root, run_id)
@@ -865,6 +893,76 @@ def audit_report(
     }
 
 
+def _validated_aidlc_revision_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[str, Any]:
+    root = root.resolve()
+    state_path = root / ".tailtrail" / "runs" / run_id / "planning" / "aidlc-correction-state.json"
+    if not state_path.is_file():
+        return report
+    state = LOCK.read(state_path)
+    if state.get("state") != "revision-ready":
+        return report
+    revision_value = str(state.get("active_revision", ""))
+    revision_path = Path(revision_value)
+    if not revision_value or revision_path.is_absolute() or ".." in revision_path.parts:
+        raise ValueError("validated AIDLC correction state has an unsafe active revision path")
+    resolved_revision = (root / revision_path).resolve()
+    run_root = (root / ".tailtrail" / "runs" / run_id).resolve()
+    try:
+        resolved_revision.relative_to(run_root)
+    except ValueError as error:
+        raise ValueError("validated AIDLC correction revision is outside its run directory") from error
+    revision = LOCK.read(resolved_revision)
+    requirements = revision.get("requirements", [])
+    if not isinstance(requirements, list) or not requirements:
+        raise ValueError("validated AIDLC correction revision has no requirement matrix")
+
+    projected = copy.deepcopy(report)
+    navigator = projected.setdefault("navigator", {})
+    if not isinstance(navigator, dict):
+        raise ValueError("saved Navigator report is invalid")
+    rows = copy.deepcopy([row for row in requirements if isinstance(row, dict)])
+    navigator["requirement_matrix"] = rows
+    projected["aidlc_answers"] = copy.deepcopy(revision.get("aidlc_answers", {}))
+    projected["aidlc_revision_artifact"] = resolved_revision.relative_to(root).as_posix()
+
+    scenarios: list[dict[str, Any]] = []
+    for row in rows:
+        requirement_id = str(row.get("display_id") or row.get("requirement_uid") or "")
+        behavior = row.get("behavior_contract", {}) if isinstance(row.get("behavior_contract"), dict) else {}
+        for scenario in behavior.get("scenarios", []) or []:
+            if not isinstance(scenario, dict):
+                continue
+            projected_scenario = copy.deepcopy(scenario)
+            projected_scenario["requirement_ids"] = list(dict.fromkeys([
+                *[str(value) for value in projected_scenario.get("requirement_ids", []) if str(value)],
+                requirement_id,
+            ]))
+            scenarios.append(projected_scenario)
+    if scenarios:
+        behaviour_plan = projected.get("behaviour_plan", {})
+        if not isinstance(behaviour_plan, dict):
+            behaviour_plan = {}
+        behaviour_plan["selected"] = True
+        behaviour_plan["scenarios"] = scenarios
+        projected["behaviour_plan"] = behaviour_plan
+
+    approved_tiers = sorted({
+        str(tier)
+        for row in rows
+        for tier in ((row.get("validation_contract", {}) or {}).get("tiers", []) or [])
+        if str(tier)
+    })
+    boundary = navigator.get("host_proof_boundary", {})
+    if isinstance(boundary, dict):
+        boundary["allowed_tiers"] = approved_tiers
+        boundary["source"] = "validated-aidlc-correction-projection"
+        navigator["host_proof_boundary"] = boundary
+        navigator.pop("host_proof_boundary_conflict", None)
+
+    REVISION._rebuild_proof_projections(projected, rows)
+    return projected
+
+
 def audit(root: Path, run_id: str) -> dict[str, Any]:
     """Load the plan for `run_id` and audit it.
 
@@ -886,10 +984,19 @@ def audit(root: Path, run_id: str) -> dict[str, Any]:
         report = proposed.get("proposed_report")
         if not isinstance(report, dict):
             raise ValueError(f"pending plan revision v{state['pending_revision']} has no proposed report")
-        return audit_report(root, run_id, report, pending=True)
-    report_path = root / state["active_report"]
-    payload = LOCK.read(report_path)
-    return audit_report(root, run_id, payload["report"])
+        result = audit_report(root, run_id, report, pending=True)
+    else:
+        report_path = root / state["active_report"]
+        payload = LOCK.read(report_path)
+        report = _validated_aidlc_revision_report(root, run_id, payload["report"])
+        result = audit_report(root, run_id, report)
+    LOCK.L.append_event(root, run_id, "planning_audit_completed", {
+        "status": result["status"],
+        "finding_count": len(result.get("findings", [])),
+        "total_review_cycles": result.get("review_cycles_summary", {}).get("total_review_cycles", 1),
+        "revision_cycles": result.get("review_cycles_summary", {}).get("revision_cycles", 0),
+    })
+    return result
 
 
 def main() -> int:

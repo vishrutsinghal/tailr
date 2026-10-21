@@ -1015,6 +1015,18 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "authority": "section-only",
         },
         "token_usage": token_usage_summary(root, run_id, directory),
+        "session_reports": {
+            "start": {
+                "workspace_path": f"session-reports/{run_id}/start-plan.md",
+                "absolute_path": (root / "session-reports" / run_id / "start-plan.md").resolve().as_posix(),
+                "exists": (root / "session-reports" / run_id / "start-plan.md").is_file(),
+            },
+            "closure": {
+                "workspace_path": f"session-reports/{run_id}/closure-report.md",
+                "absolute_path": (root / "session-reports" / run_id / "closure-report.md").resolve().as_posix(),
+                "exists": (root / "session-reports" / run_id / "closure-report.md").is_file(),
+            },
+        },
         "official_aidlc": {
             "perspectives": (official_design or {}).get("perspectives", []),
             "evidence_checkpoint": official_evidence_path,
@@ -1271,6 +1283,21 @@ def render(payload: dict[str, Any]) -> str:
         f"Verified delivery: **{requirements['complete']}/{requirements['total']} requirements complete**",
         f"Verification: **{tests['status']}**; passing tiers: **{tiers}**; drift: **{payload['drift']['status']}**",
     ]
+
+    session_reports = payload.get("session_reports", {}) if isinstance(payload.get("session_reports"), dict) else {}
+    start_report = session_reports.get("start", {}) if isinstance(session_reports.get("start"), dict) else {}
+    closure_report = session_reports.get("closure", {}) if isinstance(session_reports.get("closure"), dict) else {}
+    lines.extend(["", "## Visible Session Reports", ""])
+    if start_report.get("exists"):
+        lines.append(f"- **Start Plan:** `{start_report.get('workspace_path')}`")
+        lines.append(f"  - Absolute path: `{start_report.get('absolute_path')}`")
+    else:
+        lines.append("- **Start Plan:** unavailable - no visible Start file was recorded.")
+    if closure_report.get("exists"):
+        lines.append(f"- **Closure Report:** `{closure_report.get('workspace_path')}`")
+        lines.append(f"  - Absolute path: `{closure_report.get('absolute_path')}`")
+    else:
+        lines.append("- **Closure Report:** not generated; it is created only after successful closure finalization.")
 
     lines.extend(["", "## What needs attention", ""])
     attention: list[str] = []

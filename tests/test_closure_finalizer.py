@@ -78,6 +78,12 @@ class ClosureFinalizerTests(unittest.TestCase):
             self.setup_run(root)
             result = finalizer.finalize(root, "run")
             activity = ledger.projection(root, "run")["activity"]
+            verbose_dir = root / ".tailtrail" / "runs" / "run" / "verbose-reports"
+            closure_markdown_exists = (verbose_dir / "closure-verbose-v1.md").is_file()
+            closure_metadata_exists = (verbose_dir / "closure-verbose-v1.json").is_file()
+            visible_closure = root / "session-reports" / "run" / "closure-report.md"
+            visible_closure_exists = visible_closure.is_file()
+            visible_closure_body = visible_closure.read_text(encoding="utf-8")
         self.assertFalse(result["reused"])
         self.assertEqual(result["overall_status"], "complete")
         self.assertEqual(set(result["assessments"]), {"Architecture Fitness Harness", "Behaviour Harness", "Maintainability Harness"})
@@ -86,6 +92,12 @@ class ClosureFinalizerTests(unittest.TestCase):
         self.assertEqual(result["recovery"]["status"], "not-needed")
         self.assertEqual(result["context_continuity"]["status"], "none")
         self.assertEqual(activity["closure_finalized"], 1)
+        self.assertTrue(closure_markdown_exists)
+        self.assertTrue(closure_metadata_exists)
+        self.assertTrue(visible_closure_exists)
+        self.assertIn("## Complete Saved Closure Payload", visible_closure_body)
+        self.assertIn("src/service.py", visible_closure_body)
+        self.assertNotIn("**62**", visible_closure_body)
 
     def test_replay_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

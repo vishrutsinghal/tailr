@@ -125,6 +125,28 @@ def _converged_report(requirements: list[dict[str, object]]) -> dict[str, object
         "focused_validation": grouped,
     }
     projection = lock.effective_plan_projection(report)  # type: ignore[attr-defined]
+    registry = projection.get("command_registry", {})
+    checks_by_requirement = projection.get("checks_by_requirement", {})
+    for row in rows:
+        assert isinstance(row, dict)
+        requirement_id = str(row.get("display_id") or row.get("requirement_uid") or "")
+        contract = row.get("validation_contract", {})
+        assert isinstance(contract, dict)
+        contract["checks"] = checks_by_requirement.get(requirement_id, [])
+        contract["command_registry"] = registry
+    rebuilt_focused: list[dict[str, object]] = []
+    for item in projection.get("focused_validation", []):
+        requirement_id = str(item.get("requirement_id", ""))
+        row = next((value for value in rows if str(value.get("display_id") or value.get("requirement_uid")) == requirement_id), {})
+        contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
+        paths = contract.get("candidate_paths", []) if isinstance(contract, dict) else []
+        rebuilt_focused.append({
+            **item,
+            "candidate": paths[0] if paths else "not resolved from planning evidence",
+            "candidate_state": "existing" if paths else "unresolved",
+            "status": "planned after approval" if paths and item.get("command_id") else "required",
+        })
+    report["focused_validation"] = rebuilt_focused
     report["effective_plan_fingerprint"] = projection.get("fingerprint")
     return report
 
@@ -400,6 +422,84 @@ class PlanningAuditTests(unittest.TestCase):
         self.assertEqual(after["status"], "clean")
         self.assertEqual(status, "awaiting-approval")
 
+    def test_aidlc_mode_switch_audit_does_not_require_rejected_implementation_proof(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _plan(root, "audit-aidlc-mode-switch", [{
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Expose a workflow behavior requiring behaviour proof.",
+                "acceptance_criteria": ["workflow is visible"],
+                "likely_paths": ["src/service.py"],
+                "validation_contract": {"state": "required", "tiers": []},
+            }])
+            revision.propose_aidlc_standard(root, "audit-aidlc-mode-switch", True)
+            result = audit.audit(root, "audit-aidlc-mode-switch")
+
+        self.assertEqual(result["status"], "clean")
+        self.assertEqual(result["findings"], [])
+        self.assertEqual(
+            result["approval_assessment"]["approval_decision"],
+            "READY FOR AIDLC MODE-SWITCH APPROVAL",
+        )
+
+    def test_audit_projects_validated_aidlc_revision_over_stale_active_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _plan(root, "audit-aidlc-revision", [{
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Render the report.",
+                "acceptance_criteria": ["report is visible"],
+                "likely_paths": ["src/report.py"],
+                "validation_contract": {"state": "required", "tiers": []},
+            }])
+            run = root / ".tailtrail" / "runs" / "audit-aidlc-revision"
+            revision_path = run / "planning" / "aidlc-revised-requirements-v1.json"
+            revised_row = {
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Render the report.",
+                "acceptance_criteria": ["report is visible"],
+                "likely_paths": ["src/report.py"],
+                "scope_evidence": {
+                    "implementation_owners": ["src/report.py"],
+                    "inspection_paths": [],
+                    "proof_paths": ["tests/test_report.py"],
+                },
+                "validation_contract": {
+                    "state": "required", "tiers": ["unit", "behaviour"],
+                    "commands": ["python3 -m unittest tests.test_report -v"],
+                    "candidate_paths": ["tests/test_report.py"],
+                    "checks": [{
+                        "kind": "proof",
+                        "command": "python3 -m unittest tests.test_report -v",
+                        "tiers": ["unit", "behaviour"],
+                        "candidate_paths": ["tests/test_report.py"],
+                    }],
+                },
+                "behavior_contract": {"scenarios": [{
+                    "scenario_id": "BHV-REQ-01",
+                    "action": "Generate the report.",
+                    "expected_outcome": "The report is visible.",
+                }]},
+            }
+            revision_path.write_text(json.dumps({
+                "requirements": [revised_row],
+                "aidlc_answers": {"Q3": {"choice": "B", "detail": "focused proof"}},
+            }), encoding="utf-8")
+            (run / "planning" / "aidlc-correction-state.json").write_text(json.dumps({
+                "state": "revision-ready",
+                "active_revision": revision_path.relative_to(root).as_posix(),
+            }), encoding="utf-8")
+
+            result = audit.audit(root, "audit-aidlc-revision")
+
+        stale_types = {
+            "missing-requirement-proof-binding",
+            "unresolved-tier-proof",
+            "tier_mismatch",
+            "behaviour-scenario-generic",
+        }
+        self.assertFalse(stale_types.intersection(item["type"] for item in result["findings"]))
+
     def test_audit_refuses_once_plan_is_no_longer_awaiting_approval(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -472,8 +572,9 @@ class PlanningAuditTests(unittest.TestCase):
         }])
         projection = lock.effective_plan_projection(report)
         checks = projection["checks_by_requirement"]["REQ-01"]
+        registry = projection["command_registry"]
 
-        self.assertEqual([check["command"] for check in checks], [
+        self.assertEqual([registry[check["command_id"]]["command"] for check in checks], [
             "python3 -m unittest tests.test_question_orchestrator",
             "python3 -m unittest tests.test_phase1a",
         ])
@@ -527,6 +628,33 @@ class PlanningAuditTests(unittest.TestCase):
             "unresolved-tier-proof", "fingerprint-mismatch",
         }]
         self.assertEqual(convergence, [])
+
+    def test_registry_backed_revision_proof_passes_public_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _plan(root, "registry-proof-audit", [{
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Cancel an eligible order.",
+                "acceptance_criteria": ["eligible cancellation succeeds"],
+                "likely_paths": ["src/service.py"],
+                "validation_contract": {"state": "required", "tiers": ["unit"]},
+            }])
+            revision.propose(root, "registry-proof-audit", json.dumps([{
+                "kind": "proof-update", "requirement_uid": "REQ-01",
+                "reason": "Bind requirement-scoped proof.",
+                "evidence_plan": ["Run the planning audit regression."],
+                "commands": ["python3 -m unittest tests.test_planning_audit -v"],
+                "tiers": ["unit"],
+                "editable_paths": ["tests/test_planning_audit.py"],
+            }]), True)
+            result = audit.audit(root, "registry-proof-audit")
+
+        proof_findings = [item for item in result["findings"] if item["type"] in {
+            "missing-requirement-proof-binding",
+            "incomplete-requirement-proof-binding",
+            "focused-validation-stale",
+        }]
+        self.assertEqual(proof_findings, [])
 
 
 class CorrectionExecutabilityTests(unittest.TestCase):

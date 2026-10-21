@@ -6848,7 +6848,7 @@ def main() -> int:
     )
     parser.add_argument("--command-prefix", default="python3 scripts/tailtrail.py", help="Command prefix to show in suggested commands.")
     parser.add_argument("--verbose", action="store_true", help="Include full decision menu, posture details, and Navigator output.")
-    parser.add_argument("--require-host-validation", action="store_true", help="Mandatory host validation gate: plan is not displayed until host runs 'tailtrail planning show' to validate it first.")
+    parser.add_argument("--require-host-validation", action="store_true", help="Mandatory host validation gate: display the saved normal plan and require a host review before approval.")
     args = parser.parse_args()
 
     goal = " ".join(args.goal).strip()
@@ -7741,7 +7741,8 @@ def main() -> int:
             report["workflow_runtime"] = workflow_start_integration.draft(report, "not-persisted", disabled=True)
     except ValueError as error:
         parser.error(str(error))
-    # Mandatory host validation gate: if enabled, require host to run planning show first
+    # The host-validation gate must not hide the plan it asks a host to
+    # validate. Render the same saved projection that ``planning show`` uses.
     if args.require_host_validation and report.get("planning_lock"):
         lock = report["planning_lock"]
         run_id = lock.get("run_id", "<run-id>")
@@ -7757,16 +7758,27 @@ def main() -> int:
             }
             print(json.dumps(output, indent=2, sort_keys=True))
         else:
-            print(f"# TailTrail Start Plan (Awaiting Host Validation)\n")
-            print(f"**Run ID:** `{run_id}`\n")
-            print(f"**Status:** Plan generated and locked. Host validation required before review.\n")
-            print(f"**Next step (host-enforced):**\n\n")
-            print(f"```\n{validation_command}\n```\n")
-            print(f"After validation succeeds, the complete plan will be displayed for approval.\n")
+            print(planning_lock.render_start_plan(root, run_id), end="")
+            print("## Host Validation\n")
+            print("- Review the complete plan above against the saved evidence before presenting it for approval.\n")
+            print(f"- Refresh the same canonical plan when needed: `{validation_command}`\n")
     elif args.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
-        print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")
+        # A persisted Start must always show the same approval-facing saved
+        # projection that ``planning show`` returns.  The old renderer is
+        # retained for unpersisted boundaries only; otherwise CLI and host
+        # chat could display different plans for one Planning Lock.
+        if report.get("planning_lock"):
+            run_id = report["planning_lock"]["run_id"]
+            if args.verbose:
+                planning_lock.generate_start_plan_verbose_report(root, run_id)
+                visible = planning_lock.VR.visible_report_path(root, run_id, "start-plan")
+                print(visible.read_text(encoding="utf-8"), end="\n")
+            else:
+                print(planning_lock.render_start_plan(root, run_id), end="")
+        else:
+            print(render_markdown(report, verbose=args.verbose, presentation_mode=args.presentation), end="")
     return 0
 
 

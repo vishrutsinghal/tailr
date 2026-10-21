@@ -219,6 +219,7 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
     temp["requirements"] = rows
     projection = LOCK.effective_plan_projection(temp)
     expected_by_req = projection.get("checks_by_requirement", {})
+    command_registry = projection.get("command_registry", {})
 
     for row in rows:
         if not isinstance(row, dict):
@@ -228,6 +229,9 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
         if not isinstance(contract, dict):
             continue
         contract["checks"] = list(expected_by_req.get(req_id, []))
+        contract["command_registry"] = dict(command_registry)
+
+    report["command_registry"] = dict(command_registry)
 
     # Rebuild focused_validation preserving existing candidate metadata
     # where the tier+command still match; stale rows are replaced, new
@@ -251,8 +255,12 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
     for item in projection.get("focused_validation", []):
         tier = str(item.get("tier", ""))
         requirement_id = str(item.get("requirement_id", ""))
+        command_id = str(item.get("command_id", "") or "")
         command = item.get("command")
         command_text = str(command or "")
+        if not command_text and command_id:
+            registry_entry = command_registry.get(command_id, {}) if isinstance(command_registry, dict) else {}
+            command_text = str(registry_entry.get("command", "")) if isinstance(registry_entry, dict) else ""
         reused = old_by_key.get((requirement_id, tier, command_text))
         if reused is None and len(rows) == 1:
             reused = old_by_key.get(("", tier, command_text))
@@ -266,7 +274,7 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
             if str(row.get("display_id") or row.get("requirement_uid")) != str(item.get("requirement_id")):
                 continue
             contract = row.get("validation_contract", {}) if isinstance(row.get("validation_contract"), dict) else {}
-            for field in ("candidate_paths", "editable_paths", "proposed_paths"):
+            for field in ("editable_paths", "proposed_paths", "candidate_paths"):
                 for value in contract.get(field, []) or []:
                     text = str(value).strip()
                     if text and text not in contract_paths:
@@ -290,7 +298,7 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
             "tier": tier,
             "tiers": [tier],
             "candidate": candidate,
-            "command": command_text,
+            **({"command_id": command_id} if command_id else {"command": command_text}),
             "status": status,
             "candidate_state": candidate_state,
         })
@@ -871,8 +879,17 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
                             f"`{path}` classifies as an implementation-owner path and cannot join `{field}`; use scope-add instead"
                         )
                 contract[field] = list(dict.fromkeys(
-                    [str(value) for value in contract.get(field, []) if str(value).strip()] + recorded_paths
+                    recorded_paths + [str(value) for value in contract.get(field, []) if str(value).strip()]
                 ))
+                evidence = _v2_scope(report)
+                if evidence is not None:
+                    requirement_scope = _ensure_v2_requirement(evidence, row)
+                    requirement_scope["proof_paths"] = list(dict.fromkeys(
+                        recorded_paths + [
+                            str(value) for value in requirement_scope.get("proof_paths", [])
+                            if str(value).strip()
+                        ]
+                    ))
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "evidence_plan": row["evidence_plan"]})
         _rebuild_proof_projections(report, rows)
     elif kind == "proof-boundary-expand":
@@ -886,23 +903,50 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
         if not allowed_tiers_normalized:
             raise ValueError("proof-boundary-expand 'allowed_tiers' cannot be empty")
         
-        # Find the existing proof boundary in the approval data (stored at run level)
-        # Update it with new tiers (union, never shrink)
-        # This will be used by planning-audit to validate without restart
+        navigator = report.setdefault("navigator", {})
+        if not isinstance(navigator, dict):
+            raise ValueError("saved Navigator report is invalid")
+        boundary = navigator.get("host_proof_boundary", {})
+        if not isinstance(boundary, dict):
+            boundary = {}
+        previous_allowed = [str(value) for value in boundary.get("allowed_tiers", []) if str(value)]
+        merged_allowed = list(dict.fromkeys(previous_allowed + allowed_tiers_normalized))
+        boundary["allowed_tiers"] = merged_allowed
+        boundary["source"] = "validated-host-contract+planning-revision"
+        navigator["host_proof_boundary"] = boundary
+
+        conflict = navigator.get("host_proof_boundary_conflict")
+        if isinstance(conflict, dict):
+            remaining_conflicts = []
+            for item in conflict.get("conflicts", []) or []:
+                if not isinstance(item, dict):
+                    continue
+                rejected = [
+                    str(tier) for tier in item.get("inferred_tiers", []) or []
+                    if str(tier) not in set(merged_allowed)
+                ]
+                if rejected:
+                    remaining_conflicts.append({**item, "inferred_tiers": rejected})
+            if remaining_conflicts:
+                conflict["conflicts"] = remaining_conflicts
+                conflict["allowed_tiers"] = merged_allowed
+            else:
+                navigator.pop("host_proof_boundary_conflict", None)
+
         report.setdefault("proof_boundary_expansion", {})
         report["proof_boundary_expansion"] = {
             "expanded_at": utc_now(),
-            "previous_allowed_tiers": report.get("proof_boundary_expansion", {}).get("new_allowed_tiers", 
-                                                  report.get("proof_boundary", {}).get("allowed_tiers", [])),
-            "new_allowed_tiers": allowed_tiers_normalized,
+            "previous_allowed_tiers": previous_allowed,
+            "new_allowed_tiers": merged_allowed,
             "rationale": _safe_text(change.get("rationale"), "rationale", required=False),
-            "audit_required": True,  # Flag for audit to re-run and verify clear
+            "audit_required": True,
         }
         normalized.update({
             "kind": "proof-boundary-expand",
-            "allowed_tiers": allowed_tiers_normalized,
+            "allowed_tiers": merged_allowed,
             "rationale": report["proof_boundary_expansion"].get("rationale", ""),
         })
+    elif kind == "requirement-add":
         statement = _safe_statement(change.get("statement"), saved=False)
         display_id = _safe_text(change.get("display_id") or _new_display_id(rows), "display_id")
         if any(row["display_id"] == display_id for row in rows):
@@ -1041,8 +1085,13 @@ def propose_aidlc_standard(root: Path, run_id: str, approved_proposal: bool) -> 
     root = root.resolve()
     LOCK.assert_discussion_allowed(root, run_id)
     state = LOCK.revision_state(root, run_id)
-    if state.get("pending_revision") is not None:
-        raise ValueError(f"plan revision v{state['pending_revision']} is already awaiting approval; approve or supersede it first")
+    pending_revision = state.get("pending_revision")
+    rejection_count = sum(
+        event.get("event_type") == "proposal_rejected"
+        for event in LEDGER.read_events(LEDGER.state_dir(root, run_id) / "events.jsonl")
+    )
+    if pending_revision is not None and rejection_count < 2:
+        raise ValueError(f"plan revision v{pending_revision} is already awaiting approval; approve or supersede it first")
     saved = LOCK.active_start_report(root, run_id)
     report = copy.deepcopy(saved.get("report"))
     if not isinstance(report, dict):
@@ -1052,7 +1101,7 @@ def propose_aidlc_standard(root: Path, run_id: str, approved_proposal: bool) -> 
         raise ValueError(f"only an awaiting Lite run may switch to Standard AIDLC; this run is `{current}`")
     if isinstance(report.get("spec_kit_source"), dict):
         raise ValueError("Intent Bridge requirements are source-owned; use its amendment/authority route instead of a local Standard AIDLC switch")
-    number = int(state.get("active_revision", 1)) + 1
+    number = max(int(state.get("active_revision", 1)), int(pending_revision or 0)) + 1
     report["aidlc_mode"] = {
         "mode": "standard",
         "selection": "interactive-plan-proposal",
@@ -1069,10 +1118,31 @@ def propose_aidlc_standard(root: Path, run_id: str, approved_proposal: bool) -> 
         "boundary": "This proposal changes only TailTrail planning metadata. It does not start AIDLC questions, inspect project source, run tests, edit source, or permit implementation.",
         "created_at": utc_now(), "proposed_report": report,
     }
+    if pending_revision is not None:
+        proposal["supersedes_revision"] = int(pending_revision)
     destination = revision_path(root, run_id, number)
     with LEDGER.RunLock(LEDGER.state_dir(root, run_id) / ".lock"):
         LEDGER.atomic_json(destination, proposal)
-        LEDGER.atomic_json(LOCK.revision_state_path(root, run_id), {**state, "pending_revision": number, "pending_artifact": destination.relative_to(root).as_posix()})
+        superseded = list(state.get("superseded_revisions", []))
+        if pending_revision is not None:
+            superseded.append({
+                "revision": int(pending_revision),
+                "superseded_by": number,
+                "artifact": state.get("pending_artifact"),
+            })
+        LEDGER.atomic_json(LOCK.revision_state_path(root, run_id), {
+            **state,
+            "pending_revision": number,
+            "pending_artifact": destination.relative_to(root).as_posix(),
+            "superseded_revisions": superseded,
+        })
+    if pending_revision is not None:
+        LEDGER.append_event(root, run_id, "planning_revision_superseded", {
+            "revision": int(pending_revision),
+            "superseded_by": number,
+            "replacement_artifact": destination.relative_to(root).as_posix(),
+            "reason": "AIDLC Requirements mode required after repeated requirement rejection",
+        })
     LEDGER.append_event(root, run_id, "planning_aidlc_mode_switch_proposed", {"revision": number, "from_mode": "lite", "to_mode": "standard", "artifact": destination.relative_to(root).as_posix()})
     return {**proposal, "artifact": destination.relative_to(root).as_posix()}
 
@@ -1316,6 +1386,28 @@ def render_aidlc_standard(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_aidlc_standard_approval(payload: dict[str, Any]) -> str:
+    requirements = payload.get("aidlc_requirements")
+    if isinstance(requirements, dict):
+        return LOCK.render_aidlc_requirements(requirements)
+    mode = payload.get("aidlc_mode", {}) if isinstance(payload.get("aidlc_mode"), dict) else {}
+    return "\n".join([
+        "# TailTrail AIDLC Mode Switch Result",
+        "",
+        f"**Run ID:** `{payload.get('run_id')}`",
+        f"**Revision:** `v{payload.get('revision')}`",
+        f"**State:** `{payload.get('state')}`",
+        f"**Effective mode:** `{mode.get('mode', 'lite')}`",
+        "",
+        "## Boundary",
+        "",
+        f"- {payload.get('boundary', mode.get('boundary', 'Official AIDLC Standard is unavailable.'))}",
+        "- No official AIDLC questions or answers were generated.",
+        "- No implementation authority was granted.",
+        "",
+    ])
+
+
 def render_authority_route(payload: dict[str, Any]) -> str:
     state = str(payload.get("state", "authority-refinement-required")).replace("-", " ")
     lines = ["# TailTrail Authority Route", "", f"**Run ID:** `{payload['run_id']}`", f"**Authority:** `{payload['authority']}`", f"**Route:** `{payload['route']}`", f"**State:** {state} — no project source, tests, scanners, Git, or implementation commands were run.", "", "## Requested material change", ""]
@@ -1376,7 +1468,7 @@ def main() -> int:
             print(render_aidlc_standard(propose_aidlc_standard(args.root, args.run_id, args.approved_proposal)))
         elif args.command == "aidlc-standard-approve":
             result = approve_aidlc_standard(args.root, args.run_id, args.revision, args.approved)
-            print(LOCK.render_aidlc_requirements(result["aidlc_requirements"]))
+            print(render_aidlc_standard_approval(result))
         else:
             result = approve(args.root, args.run_id, args.revision, args.approved)
             handoff = result.get("execution_handoff")

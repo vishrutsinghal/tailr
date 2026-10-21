@@ -334,7 +334,20 @@ class IntakePipelineTests(unittest.TestCase):
                 "consumed": [answer_id], "unused": [], "contradicted": [], "inferred": [], "projected_without_source": [],
             })
             self.assertNotIn("tailtrail-host-answer", json.dumps(packet))
-            self.assertEqual(packet["requirements"][0]["path_bindings"][0]["source_answer_ids"], [answer_id])
+            binding = packet["requirements"][0]["path_bindings"][0]
+            self.assertEqual(binding["source_answer_ids"], [answer_id])
+            authorization = packet["path_authorizations"][0]
+            self.assertEqual(authorization["type"], "tailtrail-answer-to-path-authorization")
+            self.assertEqual(authorization["requirement_uid"], "req-phase3")
+            self.assertEqual(authorization["path_binding_id"], binding["path_binding_id"])
+            self.assertEqual(authorization["path"], "scripts/example.py")
+            self.assertEqual(authorization["role"], "implementation-owner")
+            self.assertEqual(authorization["path_state"], "existing-verified")
+            self.assertEqual(authorization["accepted_answer_ids"], [answer_id])
+            self.assertEqual(authorization["packet_view_id"], first["packet_view"]["packet_view_id"])
+            self.assertEqual(authorization["anchor_version"], "anchor-v1")
+            self.assertEqual(authorization["anchor_fingerprint"], "sha256:" + "a" * 64)
+            self.assertRegex(authorization["path_binding_fingerprint"], r"^sha256:[a-f0-9]{64}$")
 
             second_snapshot = pipeline.replay(run["run_id"])
             pipeline.finalize_packet_view(
@@ -394,6 +407,16 @@ class IntakePipelineTests(unittest.TestCase):
                     requirement_projections=[{"requirement_uid": "req-one", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
                     expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"], anchor_fingerprint="sha256:" + "c" * 64,
                     operational_bindings={"requirements": [requirement("req-one", "implementation-owner", premise="unverified")]},
+                )
+            mismatched_path = requirement("req-one", "implementation-owner")
+            mismatched_path["path_bindings"][0]["path"] = "scripts/two.py"
+            (Path(temp) / "scripts" / "two.py").write_text("# existing\n", encoding="utf-8")
+            with self.assertRaisesRegex(IntakeError, "must cite an accepted answer whose value is that path"):
+                pipeline.finalize_packet_view(
+                    run["run_id"], anchor_version="anchor-v1", accepted_answers=[{"answer_id": first_id}],
+                    requirement_projections=[{"requirement_uid": "req-one", "consumer_component_id": "planning-lock", "projection_kind": "requirement"}],
+                    expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"], anchor_fingerprint="sha256:" + "c" * 64,
+                    operational_bindings={"requirements": [mismatched_path]},
                 )
 
     def test_phase3_proposed_new_file_remains_bound_as_unverified_until_completion(self) -> None:
