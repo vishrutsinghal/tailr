@@ -61,6 +61,62 @@ def sample_report() -> dict[str, object]:
 
 
 class StartPlanPresentationTests(unittest.TestCase):
+    def test_multi_requirement_host_proof_is_retained_as_unbound_context(self) -> None:
+        scripts_path = str(ROOT / "scripts")
+        if scripts_path not in sys.path:
+            sys.path.insert(0, scripts_path)
+        start = load("start_plan_projection_task_start", "scripts/task-start.py")
+        requirements = [
+            {
+                "display_id": "REQ-01",
+                "statement": "Preserve host scope context.",
+                "validation_contract": {"state": "required", "tiers": ["unit"]},
+            },
+            {
+                "display_id": "REQ-02",
+                "statement": "Do not auto-credit global proof.",
+                "validation_contract": {"state": "required", "tiers": ["unit"]},
+            },
+        ]
+        plan = {
+            "host_declared_scope_roles": {
+                "implementation_owners": ["scripts/unverified-owner.py"],
+                "inspection_paths": ["scripts/read-only-input.py"],
+                "proof_paths": ["tests/test_host_context.py"],
+            },
+            "requirement_matrix": requirements,
+        }
+        validated = {
+            "contract_id": "ctr-global-proof",
+            "fingerprint": "sha256:proof-context",
+            "paths": [
+                {"path": "tests/test_host_context.py", "role": "existing-proof-path"},
+            ],
+            "proof": {
+                "command": "python3 -m unittest tests.test_host_context",
+                "tiers": ["unit"],
+            },
+        }
+
+        start.apply_host_contract_role_projection(plan)
+        focused = [{"requirement_id": "REQ-01", "tier": "unit", "command": "python3 -m unittest tests.test_local", "candidate_state": "existing"}]
+        projected = start.apply_host_contract_proof(Path("."), requirements, focused, validated)
+        lines: list[str] = []
+        start.append_proof_authorization_status(lines, {}, requirements, None)
+        rendered = "\n".join(lines)
+
+        self.assertEqual(projected, focused)
+        for requirement in requirements:
+            scope = requirement["scope_evidence"]
+            self.assertEqual(scope["implementation_owners"], [])
+            self.assertEqual(scope["inspection_paths"], ["scripts/read-only-input.py"])
+            self.assertEqual(scope["proof_paths"], ["tests/test_host_context.py"])
+            self.assertEqual(requirement["validation_contract"].get("commands", []), [])
+            self.assertEqual(requirement["host_contract_proof_context"]["state"], "unbound-global-proof")
+        self.assertIn("Global host proof context", rendered)
+        self.assertIn("unbound context; not executable requirement proof", rendered)
+        self.assertIn("python3 -m unittest tests.test_host_context", rendered)
+
     def test_verbose_without_aidlc_is_structured_markdown_not_json(self) -> None:
         report = sample_report()
         requirements = report["navigator"]["requirement_matrix"]  # type: ignore[index]

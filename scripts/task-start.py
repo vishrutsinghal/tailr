@@ -274,6 +274,26 @@ def append_proof_authorization_status(
         else:
             fields.append(("Status", "approved executable proof"))
         records.append((display_id, fields))
+    unbound_contexts: dict[tuple[str, str], dict[str, Any]] = {}
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            continue
+        context = requirement.get("host_contract_proof_context")
+        if not isinstance(context, dict) or context.get("state") != "unbound-global-proof":
+            continue
+        command = str(context.get("command", "")).strip()
+        contract_id = str(context.get("contract_id", "")).strip()
+        if command:
+            unbound_contexts[(contract_id, command)] = context
+    for context in unbound_contexts.values():
+        fields = [
+            ("State", "unbound context; not executable requirement proof"),
+            ("Host command", f"`{display_prose(context.get('command', ''))}`"),
+            ("Declared tiers", ", ".join(f"`{display_prose(tier)}`" for tier in context.get("tiers", []) if str(tier)) or "not recorded"),
+            ("Proof paths", ", ".join(f"`{display_prose(path)}`" for path in context.get("proof_paths", []) if str(path)) or "not recorded"),
+            ("Required before readiness", display_prose(context.get("reason", "Bind the command explicitly to each applicable requirement."))),
+        ]
+        records.append(("Global host proof context", fields))
     if records:
         lines.extend(["", "## Proof authorization status", ""])
         append_stacked_records(lines, records)
@@ -2231,6 +2251,59 @@ def apply_requirement_scope_evidence(
         }
 
 
+def apply_host_contract_role_projection(plan: dict[str, Any]) -> None:
+    """Retain accepted non-owner host paths even without a Navigator mapping.
+
+    Navigator remains the only authority that can create an implementation
+    owner.  A validated host contract can nevertheless contribute factual
+    read-only and proof-only context.  Keeping that context on every
+    requirement makes the saved Start Plan reviewable when no per-requirement
+    scope mapping exists (the normal validation-only case), without turning a
+    host declaration into edit authority.
+    """
+    declared = plan.get("host_declared_scope_roles")
+    matrix = plan.get("requirement_matrix")
+    if not isinstance(declared, dict) or not isinstance(matrix, list):
+        return
+    inspection = [str(value) for value in declared.get("inspection_paths", []) if str(value).strip()]
+    proof = [str(value) for value in declared.get("proof_paths", []) if str(value).strip()]
+    if not inspection and not proof:
+        return
+    for row in matrix:
+        if not isinstance(row, dict):
+            continue
+        existing = row.get("scope_evidence")
+        scope = dict(existing) if isinstance(existing, dict) else {}
+        # Deliberately do not consume host-declared implementation owners here:
+        # only the Navigator evidence mapping may supply them.
+        owners = [str(value) for value in scope.get("implementation_owners", []) if str(value).strip()]
+        merged_inspection = list(dict.fromkeys([
+            *[str(value) for value in scope.get("inspection_paths", []) if str(value).strip()],
+            *inspection,
+        ]))
+        merged_proof = list(dict.fromkeys([
+            *[str(value) for value in scope.get("proof_paths", []) if str(value).strip()],
+            *proof,
+        ]))
+        scope.update({
+            "state": str(scope.get("state") or "host-contract-context"),
+            "implementation_owners": owners,
+            "inspection_paths": merged_inspection,
+            "proof_paths": merged_proof,
+            "host_contract_roles": "accepted-non-owner-context",
+        })
+        row["scope_evidence"] = scope
+        contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
+        if isinstance(contract, dict) and merged_proof:
+            candidates = [str(value) for value in contract.get("candidate_paths", []) if str(value).strip()]
+            contract["candidate_paths"] = list(dict.fromkeys([*candidates, *merged_proof]))
+        evidence_plan = row.setdefault("evidence_plan", [])
+        if isinstance(evidence_plan, list) and merged_proof:
+            statement = "Host-declared proof context: " + ", ".join(merged_proof)
+            if statement not in evidence_plan:
+                evidence_plan.append(statement)
+
+
 def token_posture(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
     return start_posture.token_posture(root, plan, LARGE_CONTEXT_FILES, APPROX_CHARS_PER_TOKEN)
 
@@ -3306,6 +3379,7 @@ def build_report(
         canonical_requirements,
     )
     apply_requirement_scope_evidence(plan, scope_authority)
+    apply_host_contract_role_projection(plan)
     if host_proof_conflict is not None:
         plan["host_proof_boundary_conflict"] = host_proof_conflict
     focused_validation = focused_validation_plan(
@@ -3998,15 +4072,14 @@ def apply_host_contract_proof(
 ) -> list[dict[str, Any]]:
     """Project an accepted host-contract proof into the canonical plan.
 
-    Single-requirement plans only: the contract carries no per-requirement
-    linkage, so projecting one command across several rows would
-    over-claim. The validated command joins focused validation (which the
-    contract attach step then compiles into checks), proof-role paths join
-    candidate linkage, and criteria union into acceptance/preservation.
-    Owner-role paths are recorded but never promoted: ownership still
-    requires Navigator evidence. Multi-requirement plans keep the contract
-    recorded with routing only. Returns the (possibly extended) focused
-    list; requirement rows are updated in place.
+    A contract command can bind automatically only when there is exactly one
+    requirement.  With several requirements it is preserved as *unbound
+    context*: visible and traceable, but absent from executable checks and
+    focused-validation rows until an explicit requirement-level binding is
+    supplied.  This prevents a global command from proving every requirement.
+    Owner-role paths are recorded elsewhere but never promoted: ownership
+    still requires Navigator evidence. Returns the (possibly extended)
+    focused list; requirement rows are updated in place.
     """
     if not isinstance(validated, dict):
         return focused
@@ -4019,6 +4092,28 @@ def apply_host_contract_proof(
         return focused
     targets = [row for row in rows if isinstance(row, dict)]
     if len(targets) != 1:
+        proof_paths = [
+            str(item.get("path", ""))
+            for item in (validated.get("paths", []) or [])
+            if isinstance(item, dict)
+            and str(item.get("role", "")) in {"existing-proof-path", "proposed-proof-path"}
+            and str(item.get("path", "")).strip()
+        ]
+        context = {
+            "state": "unbound-global-proof",
+            "contract_id": validated.get("contract_id"),
+            "fingerprint": validated.get("fingerprint"),
+            "command": command,
+            "tiers": list(tiers),
+            "proof_paths": list(dict.fromkeys(proof_paths)),
+            "reason": (
+                "A host-level proof command is not requirement-level proof for "
+                "a multi-requirement plan. Bind it explicitly to each applicable "
+                "requirement before it can contribute to readiness."
+            ),
+        }
+        for row in targets:
+            row["host_contract_proof_context"] = dict(context)
         return focused
     row = targets[0]
     proof_paths = [
