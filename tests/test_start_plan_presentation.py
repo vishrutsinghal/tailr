@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import copy
 import importlib.util
 import io
 import json
@@ -338,6 +339,88 @@ class StartPlanPresentationTests(unittest.TestCase):
         self.assertIn("Mandatory planning audit is clean", rendered)
         self.assertIn("NOT READY FOR APPROVAL", rendered)
         self.assertIn("clean mandatory planning audit", rendered)
+
+
+class RequirementDraftingRegressionTests(unittest.TestCase):
+    def test_mode_marker_is_never_a_requirement_row(self) -> None:
+        import requirement_discovery
+
+        rows = requirement_discovery.statements("Add a focused parser check. Planning only.")
+        self.assertFalse(any(requirement_discovery.MODE_MARKER.match(row.strip()) for row in rows), rows)
+        self.assertTrue(any("parser" in row.lower() for row in rows), rows)
+
+    def test_generic_template_criteria_are_fallbacks_only(self) -> None:
+        import requirement_discovery
+
+        interpreted = {"requirements": [{
+            "display_id": "REQ-01",
+            "statement": "Reject empty parser input.",
+            "kind": "change",
+            "extracted_acceptance_criteria": ["The parser rejects empty input."],
+        }]}
+        rows = requirement_discovery.matrix("Reject empty parser input.", [], interpreted)
+        self.assertTrue(rows)
+        for row in rows:
+            self.assertNotIn(requirement_discovery.ACCEPTANCE_TEMPLATE, row["acceptance_criteria"])
+            self.assertIn("The parser rejects empty input.", row["acceptance_criteria"])
+
+
+def requirement_section(rendered: str, identifier: str) -> str:
+    start = rendered.index(f"### {identifier}")
+    end = rendered.find("\n### ", start + 1)
+    return rendered[start:end if end != -1 else len(rendered)]
+
+
+class StartPlanRequirementRenderingTests(unittest.TestCase):
+    def render(self, report: dict[str, object], events: list[dict[str, object]]) -> str:
+        requirements = report["navigator"]["requirement_matrix"]  # type: ignore[index]
+        return verbose.generate_start_plan_normal(
+            "run-req-render", requirements, {}, str(report["goal"]),
+            plan_data={"report": report, "planning_events": events,
+                       "planning_lock": {"status": "awaiting-approval"}},
+        )
+
+    def test_requirement_section_shows_its_declared_proof_command_text(self) -> None:
+        rendered = self.render(sample_report(), [])
+        section = requirement_section(rendered, "REQ-01")
+        self.assertIn("python3 -m unittest tests.test_presenter", section)
+
+    def test_requirement_without_command_reports_unresolved_proof_state(self) -> None:
+        report = sample_report()
+        requirement = report["navigator"]["requirement_matrix"][0]  # type: ignore[index]
+        requirement["validation_contract"]["commands"] = []
+        section = requirement_section(self.render(report, []), "REQ-01")
+        self.assertIn("| unit | `unresolved` |", section)
+        self.assertNotIn("| unit | `cmd-", section)
+
+    def test_checklist_follows_latest_audit_not_an_earlier_clean_one(self) -> None:
+        events = [
+            {"event_type": "planning_audit_completed", "payload": {"status": "clean"}},
+            {"event_type": "planning_audit_completed", "payload": {"status": "gaps-found"}},
+        ]
+        rendered = self.render(sample_report(), events)
+        self.assertIn("- [ ] Mandatory planning audit is clean", rendered)
+        self.assertNotIn("- [x] Mandatory planning audit is clean", rendered)
+
+    def test_refresh_after_revision_rewrites_visible_plan_from_pending_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "run-regenerate"
+            report = sample_report()
+            lock.create(root, str(report["goal"]), run_id)
+            ledger.atomic_json(lock.start_report_path(root, run_id), {"report": report})
+            lock.refresh_visible_start_plan(root, run_id)
+            visible = lock.VR.visible_report_path(root, run_id, "start-plan")
+            self.assertIn("**Description:** Render a reviewable Start Plan.", visible.read_text(encoding="utf-8"))
+
+            revised = copy.deepcopy(report)
+            revised["navigator"]["requirement_matrix"][0]["statement"] = "Render a revised Start Plan."  # type: ignore[index]
+            with mock.patch.object(lock, "_pending_report_override", return_value=revised):
+                lock.refresh_visible_start_plan(root, run_id)
+
+            text = visible.read_text(encoding="utf-8")
+        self.assertIn("**Description:** Render a revised Start Plan.", text)
+        self.assertNotIn("**Description:** Render a reviewable Start Plan.", text)
 
 
 if __name__ == "__main__":

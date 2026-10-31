@@ -10,6 +10,7 @@ implementation owner on its own.
 
 from __future__ import annotations
 
+import codecs
 import copy
 import hashlib
 import importlib.util
@@ -104,6 +105,10 @@ class InvestigationLimits:
     cache_validation_file_reads: int = 12
     relationship_file_reads: int = 8
     max_file_bytes: int = 262_144
+    # Integrity is intentionally a separate, bounded operation from body
+    # inspection. An approved owner may be too large to retain/analyse as
+    # source text while still being safe to stream-hash for proposal binding.
+    max_integrity_file_bytes: int = 8_388_608
     max_total_read_bytes: int = 3_145_728
     max_cache_validation_bytes: int = 1_048_576
     relationship_hops: int = 2
@@ -118,6 +123,7 @@ class InvestigationLimits:
             "cache_validation_file_reads": self.cache_validation_file_reads,
             "relationship_file_reads": self.relationship_file_reads,
             "max_file_bytes": self.max_file_bytes,
+            "max_integrity_file_bytes": self.max_integrity_file_bytes,
             "max_total_read_bytes": self.max_total_read_bytes,
             "max_cache_validation_bytes": self.max_cache_validation_bytes,
             "relationship_hops": self.relationship_hops,
@@ -559,6 +565,59 @@ def safe_text(
     return text, None, "sha256:" + hashlib.sha256(body).hexdigest()
 
 
+def safe_content_fingerprint(
+    root: Path,
+    relative: str,
+    *,
+    max_bytes: int | None = None,
+) -> tuple[str | None, str | None]:
+    """Return a bounded SHA-256 for safe UTF-8 text without retaining its body.
+
+    This is deliberately narrower than :func:`safe_text`: it preserves every
+    path, sensitive-data, binary, and UTF-8 safeguard, but streams a selected
+    file so ownership integrity does not depend on the smaller source-body
+    inspection budget.  It is only used to bind already-qualified scope, not
+    to expand discovery.
+    """
+    effective_max_bytes = (
+        LIMITS["max_integrity_file_bytes"] if max_bytes is None else max_bytes
+    )
+    normalized, rejection = normalize_repository_path(root, relative)
+    if rejection or normalized is None:
+        return None, rejection
+    sensitive = sensitive_path_reason(normalized)
+    if sensitive:
+        return None, sensitive
+    path = root.resolve().joinpath(*PurePosixPath(normalized).parts)
+    try:
+        if not path.is_file():
+            return None, "not-a-file"
+        if path.stat().st_size > effective_max_bytes:
+            return None, "integrity-file-too-large"
+    except OSError:
+        return None, "file-read-failed"
+
+    digest = hashlib.sha256()
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    bytes_read = 0
+    try:
+        with path.open("rb") as source:
+            while chunk := source.read(65_536):
+                bytes_read += len(chunk)
+                if bytes_read > effective_max_bytes:
+                    return None, "integrity-file-too-large"
+                if b"\x00" in chunk:
+                    return None, "binary-file-rejected"
+                decoder.decode(chunk)
+                digest.update(chunk)
+        decoder.decode(b"", final=True)
+    except UnicodeDecodeError:
+        return None, "non-utf8-file-rejected"
+    except OSError:
+        return None, "file-read-failed"
+    return "sha256:" + digest.hexdigest(), None
+
+
 # Compatibility shims re-export behavior implemented elsewhere; they match
 # nearly every query lexically and touch everything structurally, so they
 # qualify as owners everywhere and own nothing. They stay readable as
@@ -769,13 +828,12 @@ def candidates_from_seeds(
                 size = 0
                 file_rejection = "file-read-failed"
             if size > LIMITS["max_file_bytes"]:
-                # Deliberately exclusion, not flag-and-continue: an oversized
-                # file can never be proposal-eligible, which bounds host-driven
-                # edit sprawl. Explicit host answers still reach it through the
-                # unavailable-route path (per-requirement mapping validates the
-                # answer without minting evidence), so the cap blocks silent
-                # selection, never an explicit host decision.
-                file_rejection = "oversized-file-rejected"
+                # Source-body inspection stays bounded. This is not a safety
+                # rejection: an already-qualified owner can later receive a
+                # separate bounded streaming integrity hash without exposing
+                # or retaining its body. Discovery still receives no body
+                # facts from this path.
+                file_rejection = "body-inspection-size-capped"
             elif size and safety_bytes + size <= LIMITS["max_total_read_bytes"]:
                 text, file_rejection, inspected_fingerprint = safe_text(root, path)
                 safety_reads += 1
@@ -796,11 +854,21 @@ def candidates_from_seeds(
                 allow_git_inventory=allow_git_inventory,
                 workspace_context=workspace_context,
             )
-        unsafe = sensitive or (file_rejection if file_rejection not in {None, "not-a-file"} else None)
+        unsafe = sensitive or (
+            file_rejection
+            if file_rejection not in {None, "not-a-file", "body-inspection-size-capped"}
+            else None
+        )
         status, confidence, status_reason = _candidate_status(role, sources, task_set, bool(unsafe))
         if _is_legacy_shim(path) and status not in {"excluded", "rejected", "proof-only"}:
             status, status_reason = "inspection-only", "legacy-shim-inspection-only"
-        reasons = _stable_strings((*seed_reasons, *role_reasons, status_reason, *(tuple([unsafe]) if unsafe else ())))
+        reasons = _stable_strings((
+            *seed_reasons,
+            *role_reasons,
+            status_reason,
+            *(tuple([file_rejection]) if file_rejection == "body-inspection-size-capped" else ()),
+            *(tuple([unsafe]) if unsafe else ()),
+        ))
         candidate_key = {"path": path, "role": role, "sources": sources, "reasons": reasons}
         rows.append(
             ScopeCandidate(
@@ -1477,7 +1545,8 @@ def _cache_evidence(
         metadata = metadata_by_path.get(relative)
         if metadata is None:
             continue
-        text, rejection, observed = safe_text(root, relative, max_bytes=limits.max_file_bytes)
+        # Hash validation uses the integrity budget; body-size limits must not masquerade as drift.
+        text, rejection, observed = safe_text(root, relative, max_bytes=limits.max_integrity_file_bytes)
         if rejection or observed != "sha256:" + str(metadata["sha256"]):
             return [], {
                 "status": "stale",
@@ -2861,10 +2930,10 @@ def investigate(
     # compares a claimed fingerprint against this stored value and rejects any
     # mismatch. Thin-evidence candidates (e.g. --changed with only one weak
     # relationship edge) can reach "included" here without ever being read by
-    # the bounded discovery loops above, which would otherwise leave this
-    # field empty and make that integrity check fail even for a correct host
-    # answer. Compute it directly, bypassing the discovery read budgets,
-    # since by this point the path is already committed to scope.
+    # the bounded discovery loops above. Use a separately bounded streaming
+    # integrity read: source-body inspection remains capped and no body is
+    # retained. A path that cannot meet the integrity boundary is removed from
+    # ownership before it can appear in a host option or proposal.
     for path, row in by_path.items():
         if (
             row.get("role") == "implementation-owner"
@@ -2872,10 +2941,21 @@ def investigate(
             and not row.get("content_fingerprint")
         ):
             fingerprint_value = content_hashes.get(path)
+            integrity_rejection: str | None = None
             if not fingerprint_value:
-                _, _, fingerprint_value = safe_text(root, path)
+                fingerprint_value, integrity_rejection = safe_content_fingerprint(
+                    root, path, max_bytes=limits.max_integrity_file_bytes,
+                )
             if fingerprint_value:
                 row["content_fingerprint"] = fingerprint_value
+                continue
+            reasons = set(row.get("reason_codes", []))
+            reasons.update({"owner-content-integrity-unavailable", integrity_rejection or "integrity-fingerprint-unavailable"})
+            row["reason_codes"] = sorted(reasons)
+            row["status"] = "rejected"
+            row["confidence"] = "none"
+            owner_paths.discard(path)
+            owner_qualifications.pop(path, None)
 
     resolution_rejection_codes = {
         "module-alias-config-cycle",
@@ -3214,6 +3294,14 @@ def evidence_document(
     for frame in frame_list:
         frame_id = str(frame.get("requirement_id") or frame.get("display_id"))
         frame_owners = per_frame_owners.get(frame_id, implementation_owners)
+        # Shared proof-only candidates bind to a requirement only when its own statement names them.
+        statement_text = str(frame.get("statement", "")).lower()
+        frame_proof = [
+            path for path in proof
+            if len(frame_list) == 1
+            or path.lower() in statement_text
+            or PurePosixPath(path.replace("\\", "/")).name.lower() in statement_text
+        ]
         requirements.append(
             {
                 "requirement_id": frame_id,
@@ -3223,7 +3311,7 @@ def evidence_document(
                 "scope_state": "resolved" if frame_id in per_frame_owners else state,
                 "implementation_owners": frame_owners,
                 "inspection_paths": inspection,
-                "proof_paths": proof,
+                "proof_paths": frame_proof,
                 "excluded_candidates": excluded,
                 "confidence": "high" if included else "low" if candidate_rows else "none",
                 "reason_codes": resolved_reason_codes,
@@ -3834,9 +3922,14 @@ def _host_reasoning_eligible_candidates(document: dict[str, Any]) -> list[dict[s
                 )
                 # Explicit user scope (--changed naming, host answers) is a
                 # host assertion: offerable without strong edges, ranked below
-                # edge-backed options. Offering is not minting — mapping still
-                # records the host's pick, it never invents ownership.
-                or explicit
+                # edge-backed options. It still needs a verified integrity
+                # binding; offering an empty hash makes a valid host answer
+                # impossible to validate downstream.
+                or (
+                    explicit
+                    and isinstance(candidate.get("content_fingerprint"), str)
+                    and str(candidate["content_fingerprint"]).startswith("sha256:")
+                )
             )
         ):
             continue
@@ -4498,7 +4591,7 @@ def validate_host_proposal(root: Path, packet: dict[str, Any], proposal: dict[st
             if not isinstance(expected_hash, str) or claim.get("content_fingerprint") != expected_hash:
                 errors.append(f"{requirement_id}:content-fingerprint-mismatch:{path}")
             else:
-                _text, rejection, current_hash = safe_text(root, path)
+                current_hash, rejection = safe_content_fingerprint(root, path)
                 if rejection or current_hash != expected_hash:
                     errors.append(f"{requirement_id}:stale-path-content:{path}")
             if claim.get("claim_role") not in expected_roles:
@@ -4869,7 +4962,7 @@ def _new_proposal_lane(
         })
         if not incident and not (explicit & {str(v) for v in (row.get("reason_codes", []) or [])}):
             continue
-        _text, rejection, current_hash = safe_text(root, path)
+        current_hash, rejection = safe_content_fingerprint(root, path)
         if rejection or current_hash != fingerprint_value:
             continue
         anchors.append({"path": path, "candidate_id": candidate_id,
@@ -5123,6 +5216,13 @@ def proposal_from_scope_answers(
         if normalized not in eligible:
             errors.append(f"answer-not-host-eligible:{normalized}:ground-it-in-the-goal-or---changed")
             continue
+        candidate_fingerprint = candidate.get("content_fingerprint")
+        if (
+            not isinstance(candidate_fingerprint, str)
+            or not candidate_fingerprint.startswith("sha256:")
+        ):
+            errors.append(f"owner-content-integrity-unavailable:{normalized}")
+            continue
         touching = sorted({
             str(edge_id) for edge_id in candidate.get("evidence_edge_ids", [])
             if str(edge_id) in edges and str(candidate.get("candidate_id", "")) in {
@@ -5162,6 +5262,9 @@ def proposal_from_scope_answers(
             continue
         owner = mapped[requirement_id]
         candidate = candidates[owner]
+        owner_fingerprint = candidate.get("content_fingerprint")
+        if not isinstance(owner_fingerprint, str) or not owner_fingerprint.startswith("sha256:"):
+            return None, [f"owner-content-integrity-unavailable:{owner}"]
         claim_edges = sorted({
             str(edge_id) for edge_id in candidate.get("evidence_edge_ids", [])
             if str(edge_id) in edges and str(candidate.get("candidate_id", "")) in {
@@ -5183,7 +5286,7 @@ def proposal_from_scope_answers(
             "path_claims": [{
                 "path": owner,
                 "candidate_id": str(candidate.get("candidate_id", "")),
-                "content_fingerprint": str(candidate.get("content_fingerprint", "")),
+                "content_fingerprint": owner_fingerprint,
                 "claim_role": "implementation-owner",
                 "evidence_edge_ids": claim_edges,
             }],

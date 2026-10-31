@@ -124,11 +124,11 @@ def _safe_path(value: Any) -> str:
     return path.as_posix()
 
 
-def _list_of_text(value: Any, field: str) -> list[str]:
+def _list_of_text(value: Any, field: str, dedupe: bool = True) -> list[str]:
     if not isinstance(value, list) or not value:
         raise ValueError(f"revision change `{field}` must be a non-empty list")
     result = [_safe_text(item, field) for item in value]
-    return list(dict.fromkeys(result))
+    return list(dict.fromkeys(result)) if dedupe else result
 
 
 def _requirements(report: dict[str, Any], root: Path, run_id: str) -> list[dict[str, Any]]:
@@ -850,16 +850,26 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
                 ))
             
             # OLD: Support positional lists (deprecated, backward compat)
-            if "commands" in change:
+            # Aligned commands/tiers are unioned as (command, tier) pairs so tiers[i] stays
+            # proven by commands[i]; deduplicating each list separately would collapse a
+            # command repeated per tier and leave the later tiers unproven.
+            old_commands = [str(value) for value in contract.get("commands", []) if str(value).strip()]
+            old_tiers = [str(value) for value in contract.get("tiers", []) if str(value).strip()]
+            paired = False
+            if "commands" in change and "tiers" in change and change.get("commands"):
+                rec_commands = _list_of_text(change.get("commands"), "commands", dedupe=False)
+                rec_tiers = _list_of_text(change.get("tiers"), "tiers", dedupe=False)
+                if len(rec_commands) == len(rec_tiers) and len(old_commands) == len(old_tiers):
+                    pairs = list(dict.fromkeys(zip(old_commands + rec_commands, old_tiers + rec_tiers)))
+                    contract["commands"] = [command for command, _ in pairs]
+                    contract["tiers"] = [tier for _, tier in pairs]
+                    paired = True
+            if "commands" in change and not paired:
                 recorded = _list_of_text(change.get("commands"), "commands")
-                contract["commands"] = list(dict.fromkeys(
-                    [str(value) for value in contract.get("commands", []) if str(value).strip()] + recorded
-                ))
-            if "tiers" in change:
+                contract["commands"] = list(dict.fromkeys(old_commands + recorded))
+            if "tiers" in change and not paired:
                 recorded_tiers = _list_of_text(change.get("tiers"), "tiers")
-                contract["tiers"] = list(dict.fromkeys(
-                    [str(value) for value in contract.get("tiers", []) if str(value).strip()] + recorded_tiers
-                ))
+                contract["tiers"] = list(dict.fromkeys(old_tiers + recorded_tiers))
             # Issue 25: a proof-only path (a new test file created under the
             # TESTING badge, most commonly) has no other revision mechanism
             # to join `editable_paths`/`proposed_paths` — the two fields
@@ -1237,6 +1247,7 @@ def propose(
         "revision": number, "base_revision": proposed["base_revision"], "artifact": destination.relative_to(root).as_posix(),
         "requirement_uids": [item["requirement_uid"] for item in normalized_changes if item.get("requirement_uid")],
     })
+    LOCK.refresh_visible_start_plan(root, run_id)
     return {**proposed, "artifact": destination.relative_to(root).as_posix()}
 
 
@@ -1353,6 +1364,7 @@ def approve(root: Path, run_id: str, revision: int, approved: bool) -> dict[str,
         "anchor": (activated.get("anchor") or {}).get("artifact"),
         "audit": audit_receipt,
     })
+    LOCK.refresh_visible_start_plan(root, run_id)
     return {"run_id": run_id, "revision": revision, "state": "execution-ready", "revision_artifact": proposed["artifact"], "active_report": report_path.relative_to(root).as_posix(), "audit": audit_receipt, **activated}
 
 
@@ -1419,13 +1431,15 @@ def render(payload: dict[str, Any]) -> str:
         projection = SCOPE.role_projection(evidence)
         lines.extend(["", "## Revised scope roles", "", f"- Decision fingerprint: `{projection.get('decision_fingerprint')}`."])
         for title, key in (("Implementation owners", "implementation_owners"), ("Inspection paths", "inspection_paths"), ("Existing proof paths", "proof_paths")):
-            lines.extend(["", f"### {title}", "", "| Path | Requirements | Confidence |", "| --- | --- | --- |"])
+            lines.extend(["", f"### {title}"])
             rows = projection.get(key, [])
             if rows:
+                lines.extend(["", "| Path | Requirements | Confidence |", "| --- | --- | --- |"])
                 for row in rows:
                     lines.append(f"| `{row.get('path')}` | {', '.join(row.get('requirement_ids', []))} | `{row.get('confidence')}` |")
             else:
-                lines.append("| none | none | `none` |")
+                lines.append("")
+                lines.append("No path is recorded for this role; revise the scope before approval.")
     lines.extend(["", "## Approval", "", f"- Approve exactly v{payload['revision']} to freeze this revised plan into the immutable anchor and activate this same run.", "- A v1 approval cannot activate this v2-or-later proposal.", ""])
     return "\n".join(lines)
 

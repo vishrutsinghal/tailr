@@ -538,16 +538,70 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
         self.assertEqual(navigator_scope.safe_text(self.root, "src/huge.py")[1], "oversized-file-rejected")
         self.assertEqual(navigator_scope.safe_text(self.root, ".env")[1], "sensitive-path-rejected")
         self.assertEqual(navigator_scope.safe_text(self.root, "../../secret.py")[1], "path-traversal-rejected")
+        huge_hash, huge_rejection = navigator_scope.safe_content_fingerprint(
+            self.root, "src/huge.py"
+        )
+        self.assertIsNone(huge_rejection)
+        self.assertTrue(huge_hash and huge_hash.startswith("sha256:"))
+        self.assertEqual(
+            navigator_scope.safe_content_fingerprint(self.root, "src/huge.py", max_bytes=16)[1],
+            "integrity-file-too-large",
+        )
+        self.assertEqual(
+            navigator_scope.safe_content_fingerprint(self.root, "src/binary.py")[1],
+            "binary-file-rejected",
+        )
+        self.assertEqual(
+            navigator_scope.safe_content_fingerprint(self.root, "src/non_utf8.py")[1],
+            "non-utf8-file-rejected",
+        )
         unsafe_candidates = navigator_scope.candidates_from_seeds(
             self.root,
             [
                 navigator_scope.seed("src/binary.py", "explicit-path", "user-provided-path"),
-                navigator_scope.seed("src/huge.py", "explicit-path", "user-provided-path"),
                 navigator_scope.seed(".env", "explicit-path", "user-provided-path"),
             ],
             ["implementation"],
         )
         self.assertTrue(all(item["status"] == "rejected" for item in unsafe_candidates))
+        oversized_candidate = navigator_scope.candidates_from_seeds(
+            self.root,
+            [navigator_scope.seed("src/huge.py", "explicit-path", "user-provided-path")],
+            ["implementation"],
+        )[0]
+        self.assertEqual(oversized_candidate["status"], "inspection-only")
+        self.assertIn("body-inspection-size-capped", oversized_candidate["reason_codes"])
+
+        self.write(
+            "src/integrity_limited.py",
+            "def limited():\n    return True\n# " + "x" * (navigator_scope.LIMITS["max_file_bytes"] + 1),
+        )
+        original_reads = navigator_scope.LIMITS["initial_file_reads"]
+        navigator_scope.LIMITS["initial_file_reads"] = 0
+        try:
+            limited_candidates = navigator_scope.candidates_from_seeds(
+                self.root,
+                [navigator_scope.seed("src/integrity_limited.py", "explicit-path", "user-provided-path")],
+                ["implementation"],
+            )
+        finally:
+            navigator_scope.LIMITS["initial_file_reads"] = original_reads
+        rejected_rows, _, _ = navigator_scope.investigate(
+            self.root,
+            [{"requirement_id": "REQ-01", "display_id": "REQ-01", "statement": "Change limited behavior.", "query_terms": ["limited"]}],
+            limited_candidates,
+            ["implementation"],
+            limits=navigator_scope.InvestigationLimits(
+                initial_file_reads=0,
+                escalation_file_reads=0,
+                relationship_file_reads=0,
+                max_integrity_file_bytes=16,
+            ),
+        )
+        rejected = {row["path"]: row for row in rejected_rows}["src/integrity_limited.py"]
+        self.assertEqual(rejected["status"], "rejected")
+        self.assertIn("owner-content-integrity-unavailable", rejected["reason_codes"])
+        self.assertIn("integrity-file-too-large", rejected["reason_codes"])
 
     def test_lexical_discovery_returns_typed_seeds_not_selected_paths(self) -> None:
         self.write("src/address_validation.py", "def validate_address(value):\n    return bool(value)\n")
@@ -632,7 +686,7 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
             evidence["ownership_selection"]["selected_rule"],
         )
 
-    def test_thin_changed_only_candidate_gets_backfilled_fingerprint_for_host_proposal(self) -> None:
+    def test_large_changed_owner_gets_streamed_fingerprint_for_host_proposal(self) -> None:
         # Reproduces a combined multi-requirement `tailtrail start` goal where
         # one path is registered only via --changed: a single self-referential
         # "declares-edit-boundary" relationship edge and no deeper native
@@ -644,7 +698,10 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
         # with content-fingerprint-mismatch, because it compares the claimed
         # hash against this stored (empty) one.
         self.write("src/owner.py", "def serve():\n    return True\n")
-        self.write("src/thin_owner.py", "def thin():\n    return True\n")
+        self.write(
+            "src/thin_owner.py",
+            "def thin():\n    return True\n# " + "x" * (navigator_scope.LIMITS["max_file_bytes"] + 1),
+        )
 
         original_budget = navigator_scope.LIMITS["initial_file_reads"]
         navigator_scope.LIMITS["initial_file_reads"] = 0
@@ -748,6 +805,26 @@ class NavigatorScopeEvidenceV2Tests(unittest.TestCase):
         self.assertTrue(navigator_scope.verify_decision_fingerprint(first))
         self.assertEqual(contracts.validate_document(first, schema), [])
         self.assertNotIn("Add service validation.", json.dumps(first))
+
+    def test_shared_proof_binds_only_to_requirement_that_names_it(self) -> None:
+        self.write("src/service.py")
+        self.write("tests/test_service.py")
+        seeds = [
+            navigator_scope.seed("src/service.py", "explicit-path", "user-provided-path"),
+            navigator_scope.seed("tests/test_service.py", "explicit-path", "user-provided-path"),
+        ]
+        candidates = navigator_scope.candidates_from_seeds(self.root, seeds, ["implementation", "qa"])
+        frames = [
+            {"requirement_id": "req-a", "display_id": "REQ-01", "statement": "Update service validation in src/service.py and cover it in tests/test_service.py.", "query_terms": ["service", "validation"]},
+            {"requirement_id": "req-b", "display_id": "REQ-02", "statement": "Keep the report wording stable.", "query_terms": ["report", "wording"]},
+        ]
+        proof_only = [dict(row, status="proof-only", role="test") for row in candidates if row["path"] == "tests/test_service.py"]
+        other = [row for row in candidates if row["path"] != "tests/test_service.py"]
+        document = navigator_scope.evidence_document(self.root, "Update service validation. Keep the report wording stable.", frames, other + proof_only)
+        by_id = {row["display_id"]: row for row in document["requirements"]}
+
+        self.assertEqual(by_id["REQ-01"]["proof_paths"], ["tests/test_service.py"])
+        self.assertEqual(by_id["REQ-02"]["proof_paths"], [])
 
 
 class NavigatorScopeInvestigationTests(unittest.TestCase):
@@ -1530,6 +1607,9 @@ class NavigatorScopeInvestigationTests(unittest.TestCase):
         checks = {row["kind"]: row for row in contract["checks"]}
         self.assertEqual(["component", "behaviour"], checks["proof"]["tiers"])
         self.assertEqual(["static"], checks["static"]["tiers"])
+        proof_checks = [row for row in contract["checks"] if row["kind"] == "proof"]
+        self.assertEqual(1, len(proof_checks))
+        self.assertEqual(["component", "behaviour"], proof_checks[0]["tiers"])
         drift_rule = activated["execution_handoff"]["scope_drift_rule"]
         self.assertIn("src/pages/pushToDom/PushToDomPage.cy.tsx", drift_rule["approved_editable_paths"])
         self.assertIn("src/pages/pushToDom/PushToDomPage.cy.tsx", drift_rule["approved_validation_paths"])
@@ -2487,6 +2567,52 @@ class NavigatorScopeAtomicStartTests(unittest.TestCase):
         )
         self.assertEqual(started["planning_lock"]["status"], "awaiting-approval")
         self.assertTrue((self.root / ".tailtrail" / "runs" / "fsr5-host-start").is_dir())
+
+    def test_public_start_binds_an_oversized_explicit_owner_before_host_selection(self) -> None:
+        """A body-capped owner remains usable through the public Start route."""
+        self.write("src/primary_owner.py", "def primary():\n    return True\n")
+        self.write(
+            "src/large_owner.py",
+            "def large():\n    return True\n# " + "x" * (navigator_scope.LIMITS["max_file_bytes"] + 1),
+        )
+        goal = "Change the primary owner and large owner behavior."
+        interpretation = json.dumps(
+            build_requirement_interpretation(goal), separators=(",", ":"),
+        )
+        first = self.run_start(
+            goal,
+            "large-owner-host-start",
+            "--host", "codex",
+            "--requirement-interpretation", interpretation,
+            "--changed", "src/primary_owner.py",
+            "--changed", "src/large_owner.py",
+        )
+        self.assertEqual(first.returncode, 2, first.stderr + first.stdout)
+        blocked = json.loads(first.stdout)
+        packet = blocked["scope_host_packet"]
+        self.assertEqual(packet["route"]["state"], "requested")
+        large_candidate = next(
+            row for row in packet["candidates"] if row["path"] == "src/large_owner.py"
+        )
+        self.assertTrue(large_candidate["content_fingerprint"].startswith("sha256:"))
+
+        proposal, errors = navigator_scope.proposal_from_scope_answers(
+            self.root, packet, ["REQ-01=src/large_owner.py"], 1, "codex",
+        )
+        self.assertEqual(errors, [])
+        assert proposal is not None
+        second = self.run_start(
+            goal,
+            "large-owner-host-start",
+            "--host", "codex",
+            "--requirement-interpretation", interpretation,
+            "--changed", "src/primary_owner.py",
+            "--changed", "src/large_owner.py",
+            "--host-scope-proposal", json.dumps(proposal, separators=(",", ":")),
+        )
+        self.assertEqual(second.returncode, 0, second.stderr + second.stdout)
+        started = json.loads(second.stdout)
+        self.assertEqual(started["planning_lock"]["status"], "awaiting-approval")
 
     def test_explicit_and_implicit_test_only_false_matches_block_without_any_run(self) -> None:
         self.write("tests/test_requirement_discovery.py", "def test_requirement():\n    assert True\n")
@@ -3736,6 +3862,107 @@ class Phase4WorkspaceExclusionTests(unittest.TestCase):
                     self.GHOST,
                     {row["path"] for row in contract["contract"]["roles"][field]},
                 )
+
+
+class ValidationOnlyRoutingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def write(self, relative: str, body: str) -> None:
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+
+    def decide_qa(self, goal: str) -> dict[str, Any]:
+        return navigator.decide(
+            goal, self.root, [], "tailtrail", detect_git_changes=False, declared_task_type="qa"
+        )
+
+    def test_validation_only_goal_routes_named_test_to_proof_only(self) -> None:
+        self.write("scripts/presentation.py", "def render_plan(rows):\n    return rows\n")
+        self.write(
+            "tests/test_presentation.py",
+            "from scripts.presentation import render_plan\n\n\ndef test_render():\n    assert render_plan([1]) == [1]\n",
+        )
+        report = self.decide_qa("validate start plan presentation regression tests")
+        test_row = next(
+            row for row in report["scope_candidates"] if row["path"] == "tests/test_presentation.py"
+        )
+        self.assertEqual(test_row["role"], "test")
+        self.assertEqual(test_row["status"], "proof-only")
+        self.assertEqual(report["scope_quality"]["mode"], "test-only")
+
+    def test_generic_goal_words_do_not_qualify_owner_files(self) -> None:
+        self.write("src/service.py", "def handle():\n    return True\n")
+        self.write("src/billing.py", "def charge():\n    return True\n")
+        report = self.decide_qa("validate tests and service summary")
+        owners = report["scope_evidence"]["requirements"][0]["implementation_owners"]
+        self.assertEqual(owners, [])
+
+    def test_specific_literal_still_qualifies_backend_owner(self) -> None:
+        self.write("src/auth_session.py", "def expire_session():\n    return True\n")
+        self.write(
+            "tests/test_auth_session.py",
+            "from src.auth_session import expire_session\n\n\ndef test_expire():\n    assert expire_session()\n",
+        )
+        report = self.decide_qa("validate auth_session expiry")
+        owner_row = next(
+            row for row in report["scope_candidates"] if row["path"] == "src/auth_session.py"
+        )
+        self.assertEqual(owner_row["role"], "implementation-owner")
+
+    def test_adjacent_inspect_only_source_is_inspection_only(self) -> None:
+        self.write("src/auth_session.py", "def expire_session():\n    return True\n")
+        self.write("src/helper.py", "def helper():\n    return True\n")
+        self.write(
+            "tests/test_auth_session.py",
+            "from src.auth_session import expire_session\nfrom src.helper import helper\n\n\ndef test_expire():\n    assert expire_session()\n",
+        )
+        report = self.decide_qa("validate auth_session expiry")
+        helper_row = next(
+            (row for row in report["scope_candidates"] if row["path"] == "src/helper.py"),
+            None,
+        )
+        if helper_row is not None:
+            self.assertNotEqual(helper_row["status"], "included")
+        owners = report["scope_evidence"]["requirements"][0]["implementation_owners"]
+        self.assertNotIn("src/helper.py", owners)
+
+    def test_test_without_source_linkage_asks_a_question(self) -> None:
+        self.write("tests/test_widget.py", "def test_widget():\n    assert True\n")
+        report = self.decide_qa("validate widget rendering")
+        self.assertNotEqual(report["scope_quality"]["status"], "ready")
+        self.assertTrue(report["scope_quality"].get("open_questions") or report["scope_quality"]["status"] == "blocked")
+
+
+class GraphCacheOversizedFileTests(unittest.TestCase):
+    def test_unchanged_file_above_body_limit_keeps_cache_fresh(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            body = "x = 1\n" * 60_000  # about 360 KB: above the 256 KB body limit, below the integrity limit
+            (root / "src").mkdir()
+            (root / "src" / "large.py").write_text(body, encoding="utf-8")
+            cache = {
+                "schema_version": "1",
+                "root": str(root.resolve()),
+                "inventory": navigator_scope.inventory_snapshot(root),
+                "graph": {},
+                "source_files": {
+                    "src/large.py": {"sha256": hashlib.sha256(body.encode("utf-8")).hexdigest()},
+                },
+                "watch_files": {},
+            }
+            (root / "tailtrail-meta").mkdir()
+            (root / "tailtrail-meta" / "code-graph-cache.json").write_text(json.dumps(cache), encoding="utf-8")
+            _, status = navigator_scope._cache_evidence(
+                root, navigator_scope.DEFAULT_LIMITS, {"large"}, {"src/large.py"}
+            )
+            self.assertEqual(status["status"], "fresh", status)
+            self.assertNotIn("graph-cache-file-drift", status.get("reason_codes", []))
 
 
 if __name__ == "__main__":

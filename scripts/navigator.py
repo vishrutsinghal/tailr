@@ -1120,6 +1120,7 @@ def evaluation_harness_plan(
 
 
 IMPLEMENTATION_TASK_TYPES = frozenset({"implementation"})
+VALIDATION_ONLY_TASK_TYPES = frozenset({"qa"})
 
 
 def evaluation_only_requested(
@@ -1138,7 +1139,7 @@ def evaluation_only_requested(
     if not evaluation_plan.get("selected"):
         return False
     declared = str(declared_task_type or "").strip().lower()
-    if declared in IMPLEMENTATION_TASK_TYPES:
+    if declared in IMPLEMENTATION_TASK_TYPES | VALIDATION_ONLY_TASK_TYPES:
         return False
     lowered = goal.lower()
     code_action_terms = (

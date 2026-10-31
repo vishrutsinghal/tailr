@@ -538,9 +538,9 @@ def _proof_binding_findings(
         # this audit cannot honestly infer semantic relevance from a command
         # string alone. Once it has, require the command to target that exact
         # scoped proof rather than a same-tier neighbour.
-        for path in paths if scoped_proof_paths else []:
-            if _command_targets_path(command, path):
-                continue
+        # Shared proof lists (e.g. helper modules) must not make every path mandatory:
+        # one targeted declared proof path is enough to bind the command to this requirement.
+        if scoped_proof_paths and paths and not any(_command_targets_path(command, path) for path in paths):
             findings.append({
                 "type": "proof-command-does-not-target-path",
                 "correction_kind": "template",
@@ -548,10 +548,10 @@ def _proof_binding_findings(
                 "display_id": display_id,
                 "requirement_uid": uid,
                 "command": command,
-                "proof_path": path,
+                "proof_path": paths[0],
                 "detail": (
-                    f"requirement `{display_id}` command `{command}` does not target declared proof path `{path}`. "
-                    "Use a focused command for that path or change the proof binding."
+                    f"requirement `{display_id}` command `{command}` does not target any declared proof path "
+                    f"{paths}. Use a focused command for one of those paths or change the proof binding."
                 ),
             })
     return findings
@@ -996,6 +996,7 @@ def audit(root: Path, run_id: str) -> dict[str, Any]:
         "total_review_cycles": result.get("review_cycles_summary", {}).get("total_review_cycles", 1),
         "revision_cycles": result.get("review_cycles_summary", {}).get("revision_cycles", 0),
     })
+    LOCK.refresh_visible_start_plan(root, run_id)
     return result
 
 

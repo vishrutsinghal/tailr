@@ -730,9 +730,10 @@ def _render_start_plan(
                         f"  - `{_plan_text(scenario.get('scenario_id'))}`: "
                         f"{_plan_text(scenario.get('action'))} → {_plan_text(scenario.get('expected_outcome'))}"
                     )
-        lines.extend(["", "| Tier | Command ID | Candidate | State |", "|---|---|---|---|"])
+        lines.extend(["", "| Tier | Command ID | Command | Candidate | State |", "|---|---|---|---|---|"])
         for row in rows:
-            lines.append(f"| {row['tier']} | `{row['command_id']}` | `{row['candidate']}` | {row['state']} |")
+            command_text = _plan_text(registry.get(row["command_id"], {}).get("command"), "unresolved")
+            lines.append(f"| {row['tier']} | `{row['command_id']}` | `{command_text}` | `{row['candidate']}` | {row['state']} |")
         lines.append("")
 
     features = _selected_features(report)

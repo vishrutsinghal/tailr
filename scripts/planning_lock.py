@@ -3096,6 +3096,25 @@ def _start_plan_material(
     return report, requirements, command_registry, goal, plan_data
 
 
+def _pending_report_override(root: Path, run_id: str) -> dict[str, Any] | None:
+    """Return the pending proposal's report so review views show what the user must approve."""
+    state = revision_state(root, run_id)
+    if state.get("pending_revision") is None or not state.get("pending_artifact"):
+        return None
+    report = read(root / str(state["pending_artifact"])).get("proposed_report")
+    return report if isinstance(report, dict) else None
+
+
+def refresh_visible_start_plan(root: Path, run_id: str) -> dict[str, Any]:
+    """Rewrite the visible Start Plan from the current pending-or-active plan state.
+
+    The verbose document is a derived view.  It must be rebuilt after every
+    proposal, approval, and audit so it can never describe a superseded plan.
+    """
+    root = root.resolve()
+    return generate_start_plan_verbose_report(root, run_id, report_override=_pending_report_override(root, run_id))
+
+
 def render_start_plan(root: Path, run_id: str) -> str:
     """Render the normal human Start Plan from saved canonical state.
 
@@ -3104,17 +3123,8 @@ def render_start_plan(root: Path, run_id: str) -> str:
     """
     root = root.resolve()
     visible_path = VR.visible_report_path(root, run_id, "start-plan")
-    try:
-        existing_verbose = visible_path.read_text(encoding="utf-8") if visible_path.is_file() else ""
-        legacy_verbose = "```json" in existing_verbose or "**Presentation version:** `4`" not in existing_verbose
-    except OSError:
-        legacy_verbose = True
-    # A verbose report is a derived view, never approval or scope authority.
-    # Refresh only missing/legacy views so older runs receive the same
-    # structured artifact linked by newly generated plans.
-    if legacy_verbose:
-        generate_start_plan_verbose_report(root, run_id)
-    report, requirements, command_registry, goal, plan_data = _start_plan_material(root, run_id)
+    refresh_visible_start_plan(root, run_id)
+    report, requirements, command_registry, goal, plan_data = _start_plan_material(root, run_id, report_override=_pending_report_override(root, run_id))
     visible_artifact = visible_path.relative_to(root).as_posix() if visible_path.is_file() else ""
     return VR.generate_start_plan_normal(
         run_id,

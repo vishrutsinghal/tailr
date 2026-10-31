@@ -387,6 +387,11 @@ def _symptom_action_contract(value: str) -> dict[str, Any] | None:
     }
 
 
+# Trailing mode markers (for example "Planning only.") describe how the work is
+# run, not an outcome, so they must never become requirement rows.
+MODE_MARKER = re.compile(r"^(?:planning|read[- ]only|validation)\s+only\.?$", re.IGNORECASE)
+
+
 def statements(goal: str) -> list[str]:
     """Split only explicit clauses, bullets, sentences, and action predicates."""
     value = WORKFLOW_PREFIX.sub("", PREFIX.sub("", goal.strip()))
@@ -416,6 +421,7 @@ def statements(goal: str) -> list[str]:
         for item in _predicate_parts(chunk):
             rows.extend(_expand_maintainability_constraints(item))
     unique: list[str] = []; seen: set[str] = set()
+    rows = [row for row in rows if not MODE_MARKER.match(row.strip())]
     for row in rows:
         key = re.sub(r"\W+", " ", row.lower()).strip()
         if key and key not in seen:
@@ -1382,6 +1388,11 @@ def _tiers(statement: str, explicit_tiers: list[str] | None = None) -> list[str]
     return tiers or ["unit"]
 
 
+# Generic fallbacks, used only when no requirement-specific criterion exists.
+ACCEPTANCE_TEMPLATE = "The stated requirement is observably satisfied on its approved path."
+PRESERVE_TEMPLATE = "Do not change behavior outside this approved requirement boundary."
+
+
 def matrix(goal: str, paths: list[str], interpreted: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Create transient display IDs; durable UIDs remain anchor-owned."""
     deduplicated_paths = list(dict.fromkeys(path for path in paths if path))
@@ -1395,19 +1406,13 @@ def matrix(goal: str, paths: list[str], interpreted: dict[str, Any] | None = Non
         explicit_tiers = interpreted_row.get("validation_contract", {}).get("tiers") if isinstance(interpreted_row.get("validation_contract"), dict) else None
         tiers = _tiers(statement, explicit_tiers=explicit_tiers)
         
-        # Build acceptance criteria and preserve rules, preferring extracted ones
-        acceptance_criteria = [
-            "The stated requirement is observably satisfied on its approved path."
-        ]
-        preserve_rules = [
-            statement
-        ] if kind == "preserve" else ["Do not change behavior outside this approved requirement boundary."]
-        
-        # Use extracted criteria if available
-        if interpreted_row.get("extracted_acceptance_criteria"):
-            acceptance_criteria.extend(interpreted_row["extracted_acceptance_criteria"])
-        if interpreted_row.get("extracted_preserve_rules"):
-            preserve_rules.extend(interpreted_row["extracted_preserve_rules"])
+        # Requirement-specific criteria replace the generic fallbacks entirely.
+        extracted_acceptance = [str(item) for item in interpreted_row.get("extracted_acceptance_criteria") or [] if str(item).strip()]
+        extracted_preserve = [str(item) for item in interpreted_row.get("extracted_preserve_rules") or [] if str(item).strip()]
+        acceptance_criteria = extracted_acceptance or [ACCEPTANCE_TEMPLATE]
+        preserve_rules = ([statement] if kind == "preserve" else []) + extracted_preserve
+        if not preserve_rules:
+            preserve_rules = [PRESERVE_TEMPLATE]
         
         matrix_row = {
             "display_id": frame["display_id"], "requirement_id": frame["requirement_id"],

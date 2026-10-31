@@ -2229,9 +2229,12 @@ def apply_requirement_scope_evidence(
         inspection = list(dict.fromkeys(
             [str(value) for value in scope.get("inspection_paths", []) if str(value)] + declared_inspection
         ))
-        proof = list(dict.fromkeys(
-            [str(value) for value in scope.get("proof_paths", []) if str(value)] + declared_proof
-        ))
+        scope_proof = [str(value) for value in scope.get("proof_paths", []) if str(value)]
+        declared_for_row = _declared_proof_for_row(row, declared_proof, len(matrix) > 1)
+        proof = list(dict.fromkeys(scope_proof + declared_proof))
+        # Plan-wide host proof stays visible as context but is not executable for this row.
+        unbound_proof = [path for path in declared_proof if path not in declared_for_row and path not in scope_proof]
+        bound_proof = [path for path in proof if path not in unbound_proof]
         accepted = [str(value) for value in quality.get("accepted_paths", []) if str(value)]
         if quality.get("mode") == "supporting-assets-only":
             query_terms = {str(value).lower() for value in scope.get("query_terms", [])}
@@ -2251,6 +2254,7 @@ def apply_requirement_scope_evidence(
             "implementation_owners": owners,
             "inspection_paths": inspection,
             "proof_paths": proof,
+            "unbound_proof_paths": unbound_proof,
             "decision_fingerprint": evidence.get("decision_fingerprint"),
             "authority_requirement_id": scope.get("authority_requirement_id"),
             "local_scope_requirement_ids": list(scope.get("local_scope_requirement_ids", [])),
@@ -2260,19 +2264,19 @@ def apply_requirement_scope_evidence(
         }
         contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
         if isinstance(contract, dict):
-            contract["candidate_paths"] = proof
+            contract["candidate_paths"] = bound_proof
             # Issue 28: scope evidence already classified these as proof-role
             # paths (never implementation-owner, see the guard above); seed
             # editable_paths with them so closure does not require a manual
             # pre-activation proof-update revision just to assert proof on a
             # path Navigator already discovered and approved as proof-only.
-            if proof:
+            if bound_proof:
                 contract["editable_paths"] = list(dict.fromkeys(
-                    [str(value) for value in contract.get("editable_paths", []) if str(value).strip()] + proof
+                    [str(value) for value in contract.get("editable_paths", []) if str(value).strip()] + bound_proof
                 ))
         evidence_plan = row.setdefault("evidence_plan", [])
-        if isinstance(evidence_plan, list) and proof:
-            statement = "Run focused proof: " + ", ".join(proof)
+        if isinstance(evidence_plan, list) and bound_proof:
+            statement = "Run focused proof: " + ", ".join(bound_proof)
             if statement not in evidence_plan:
                 evidence_plan.append(statement)
     if authority is not None:
@@ -2292,6 +2296,17 @@ def apply_requirement_scope_evidence(
             "requirements": mappings,
             "boundary": "The external requirement authority remains unchanged. TailTrail maps only evidence-backed local path roles and blocks implementation handoff when that mapping is unresolved.",
         }
+
+
+def _declared_proof_for_row(row: dict[str, Any], declared: list[str], multi_requirement: bool) -> list[str]:
+    """Attach a plan-wide declared proof path to a requirement only when its own text names it."""
+    if not multi_requirement:
+        return list(declared)
+    text = json.dumps({key: row.get(key) for key in ("statement", "title", "acceptance_criteria", "goal")}, default=str).lower()
+    return [
+        path for path in declared
+        if path.lower() in text or Path(path.replace("\\", "/")).name.lower() in text
+    ]
 
 
 def apply_host_contract_role_projection(plan: dict[str, Any]) -> None:
@@ -2324,22 +2339,30 @@ def apply_host_contract_role_projection(plan: dict[str, Any]) -> None:
             *[str(value) for value in scope.get("inspection_paths", []) if str(value).strip()],
             *inspection,
         ]))
-        merged_proof = list(dict.fromkeys([
-            *[str(value) for value in scope.get("proof_paths", []) if str(value).strip()],
-            *proof,
-        ]))
+        # Paths already recorded as unbound were host-declared plan-wide context,
+        # not Navigator evidence; they must not re-enter as row-owned proof.
+        previously_unbound = {str(value) for value in scope.get("unbound_proof_paths", []) if str(value).strip()}
+        scope_proof_now = [
+            str(value) for value in scope.get("proof_paths", [])
+            if str(value).strip() and str(value) not in previously_unbound
+        ]
+        declared_for_row = _declared_proof_for_row(row, proof, len(matrix) > 1)
+        merged_proof = list(dict.fromkeys([*scope_proof_now, *proof]))
+        unbound_proof = [path for path in proof if path not in declared_for_row and path not in scope_proof_now]
+        bound_proof = [path for path in merged_proof if path not in unbound_proof]
         scope.update({
             "state": str(scope.get("state") or "host-contract-context"),
             "implementation_owners": owners,
             "inspection_paths": merged_inspection,
             "proof_paths": merged_proof,
+            "unbound_proof_paths": unbound_proof,
             "host_contract_roles": "accepted-non-owner-context",
         })
         row["scope_evidence"] = scope
         contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
-        if isinstance(contract, dict) and merged_proof:
+        if isinstance(contract, dict) and bound_proof:
             candidates = [str(value) for value in contract.get("candidate_paths", []) if str(value).strip()]
-            contract["candidate_paths"] = list(dict.fromkeys([*candidates, *merged_proof]))
+            contract["candidate_paths"] = list(dict.fromkeys([*candidates, *bound_proof]))
         evidence_plan = row.setdefault("evidence_plan", [])
         if isinstance(evidence_plan, list) and merged_proof:
             statement = "Host-declared proof context: " + ", ".join(merged_proof)
@@ -3972,7 +3995,12 @@ def coalesce_focused_validation_rows(rows: list[dict[str, Any]]) -> list[dict[st
             command_ref,
             str(row.get("candidate_state", "unresolved")),
         )
-        mergeable = bool(key[0] and key[1] and key[2] in {"existing", "proposed"})
+        # ``key`` is (requirement, candidate, command, candidate_state).
+        # Coalescing is safe only for an existing/proposed candidate, never
+        # because the command text happens to equal a state label.  Using the
+        # command slot here left adjacent component/behaviour rows unmerged;
+        # command-ID deduplication then retained only the last tier.
+        mergeable = bool(key[0] and key[1] and key[3] in {"existing", "proposed"})
         existing = by_proof.get(key) if mergeable else None
         if existing is None:
             grouped.append(row)
@@ -4073,9 +4101,10 @@ def focused_validation_plan(
         requested = [str(tier) for tier in (contract.get("tiers", []) or []) if str(tier)] or ["unit"]
         scope = requirement.get("scope_evidence", {})
         scope = scope if isinstance(scope, dict) else {}
+        unbound_proof = {str(path) for path in (scope.get("unbound_proof_paths", []) or [])}
         proof_paths = [
             str(path) for path in (scope.get("proof_paths", []) or [])
-            if str(path)
+            if str(path) and str(path) not in unbound_proof
         ]
         # A proof path belongs to the requirement whose scope evidence named
         # it.  Shared impacted/declared test discovery is safe only for a
@@ -4222,6 +4251,11 @@ def apply_host_contract_proof(
         text = str(negative).strip()
         if text and text not in list(row.get("preserve_rules", []) or []):
             row.setdefault("preserve_rules", []).append(text)
+    # Host-supplied criteria replace the generic template so reviewers see only real criteria.
+    if any(str(value).strip() for value in (criteria.get("positive", []) or [])):
+        row["acceptance_criteria"] = [item for item in row.get("acceptance_criteria", []) if item != requirement_discovery.ACCEPTANCE_TEMPLATE]
+    if any(str(value).strip() for value in (criteria.get("negative", []) or [])):
+        row["preserve_rules"] = [item for item in row.get("preserve_rules", []) if item != requirement_discovery.PRESERVE_TEMPLATE]
     if candidate not in existing_paths:
         existing_paths.append(candidate)
     out = list(focused) + [{

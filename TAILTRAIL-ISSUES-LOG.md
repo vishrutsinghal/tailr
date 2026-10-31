@@ -3996,3 +3996,75 @@ During closure evidence consolidation work following Issue 33, three related cus
 | Gap 3 | Loose scenario binding | Binding validation | Command-to-scenario dict + assertion fp ✅ |
 
 All three gaps are now closed with test coverage and no regressions (60/60 tests passing across all related modules).
+
+---
+
+## 39. Declared validation-only (`qa`) requests with validation words route to the Evaluation Harness (Fixed -- routing; scope gate still open)
+
+**Reproduction:** `navigator.decide("validate start plan presentation regression tests", root, [], "tailtrail", declared_task_type="qa")` returned the Evaluation Harness early-return report (`navigator_mode: evaluation_harness`) with no `scope_candidates`. `evaluation_only_requested` vetoed that early return only for a declared `implementation` type, so a declared `qa` request never reached scope routing.
+
+**Fix:** `scripts/navigator.py` treats a declared `qa` type like `implementation` for this veto (`VALIDATION_ONLY_TASK_TYPES`). Regression tests: `tests/test_navigator_scope.py::ValidationOnlyRoutingTests` (5 tests). Four of the five passed before the fix, so they guard against regressions but only `test_validation_only_goal_routes_named_test_to_proof_only` proves this fix.
+
+**Verification:** `tests/test_navigator_scope.py` 138 OK; `tests/test_start_plan_presentation.py` 12 OK; `tests/test_planning_revision.py` 25 OK.
+
+**Still open:** The fresh validation-only Start for the Start Plan presentation goal stops at the scope gate (`blocked-by-limits`, no implementation owner proven). Its candidates are advisory. A host-named owner or an answer to the scope question is needed before a Planning Lock.
+
+**Update (run `start-fresh-validation-4`):** Rerun with the same goal and `--scope-owner tests/test_start_plan_presentation.py --host claude` stays blocked at the scope gate. Observed: `blocked-by-limits`; graph cache `stale` after `bootstrap-snapshot.py refresh`; request mode `test-only`; no Planning Lock created.
+
+---
+
+## 40. Fresh Start blocked at scope gate; Start Plan presentation gaps tested and fixed (Open -- TailTrail defect)
+
+**Blocker classification:** TailTrail defect (scope stage) and environment/graph issue (stale cache). Not a plan gap: the requirement interpretation is exact-goal-bound and the scope owner was named.
+
+**Observed:**
+- The bounded investigation exhausts its read budget before it proves an implementation owner, even with a host-named owner.
+- The graph cache stays `stale` after an explicit refresh.
+- The "To unblock" text suggests `tailtrail bootstrap --root .`, which is the wrong command; the graph is refreshed with `python3 scripts/bootstrap-snapshot.py refresh --root .`.
+- The request is reported as `test-only`, although the Start was run with `--task-type qa`. Verify the mapping.
+
+**Start Plan findings (reproduction tests in `tests/test_start_plan_presentation.py`):**
+- Fixed: the per-requirement proof table showed only a hashed command ID. It now has a Command column with the command text ([scripts/verbose-reporting.py](scripts/verbose-reporting.py)).
+- Already passing: the approval checklist follows the latest audit; an unresolved proof state renders for a requirement with no command; regeneration after a pending revision rewrites the visible plan.
+
+**Verification:** `tests/test_start_plan_presentation.py` 16 OK; `tests/test_planning_revision.py` 25 OK.
+
+**Root cause (stale cache, proven):** `_cache_evidence` in [scripts/navigator_scope.py](scripts/navigator_scope.py) hashed cached files with the 256 KB body limit. Files above it (`navigator_scope.py`, `task-start.py`) were rejected as `oversized-file-rejected` and reported as `graph-cache-file-drift` (stale), although their hashes matched. Hash validation now uses the integrity budget (8 MB). Regression test: `GraphCacheOversizedFileTests` in [tests/test_navigator_scope.py](tests/test_navigator_scope.py). Suite 139 OK.
+
+**Rerun status:** `start-fresh-validation-6` cleared the cache check. `start-fresh-validation-7` with `--scope-owner REQ-0x=tests/test_start_plan_presentation.py` was rejected with `answer-not-evidence-backed`: the test has no graph relationship to the goal, so the owner needs a host decision (implementation owner vs. proof-only).
+
+**Open:** The read-budget block (`blocked-by-limits`) was not reproduced after the cache fix. Confirm after the owner decision. No approval has been given and no Planning Lock exists.
+
+## 41. Planning audit cannot clear a tier listed with a command (Open -- TailTrail defect)
+
+**Blocker classification:** TailTrail defect (planning audit and revision).
+
+**Observed:** Run `start-fresh-validation-9`, revision v3 proposed with REQ-03 tiers `unit`, `behaviour`, `integration` and command `python3 tests/test_start_plan_presentation.py`. The audit still reports `unresolved-tier-proof` for the `integration` tier with "no positional proof command". The tier listed in the revision is not attached to a command.
+
+**Root cause:** `_list_of_text` deduplicated `commands` and `tiers` before the aligned pair union ran, so a command repeated per tier collapsed and later tiers lost their proof.
+
+**Fix (uncommitted, tests pass):** `planning-revision.py` parses aligned lists without dedupe and unions `(command, tier)` pairs. Regression tests in `tests/test_planning_tier_binding.py`. The fail-closed rule for a tier with no positional command is unchanged.
+
+**Status:** Stays open until a fresh Start passes `planning audit` with `status: clean`.
+
+## 42. Planner binds unrelated shared proof paths to every requirement (Fixed -- TailTrail defect)
+
+**Blocker classification:** TailTrail defect (scope inference and proof binding).
+
+**Observed:** Every REQ in `start-fresh-validation-9` lists `_run_r2_tests.py` and the other shared test files as proof paths, with `high` or `medium` confidence. The audit reports `proof-command-does-not-target-path` for each REQ because the focused command `python3 tests/test_start_plan_presentation.py` does not target `_run_r2_tests.py`. A proof-update cannot remove the path.
+
+**Root cause:** the audit required every shared proof path to be targeted by the command, so one shared list flagged every REQ.
+
+**Fix (uncommitted, tests pass):** `planning-audit.py` `_proof_binding_findings` accepts a command that targets any declared proof path and flags only when none is targeted. Regression tests in `tests/test_planning_tier_binding.py`.
+
+**Planner side (fixed in code, pending fresh Start proof):** `scripts/task-start.py` now attaches a plan-wide declared proof path to a multi-requirement REQ only when that REQ's own text names it. Unattributed paths stay visible as unbound context (`unbound_proof_paths`) and are excluded from `candidate_paths`, editable paths, and focused-command input. Status stays Open until a fresh Start shows no shared proof on unrelated REQs and `planning audit` reports `status: clean`.
+
+**Fresh Start result (run `start-20261031110652-49a745`, planning only, not approved):** `planning audit` reported `gaps-found` (REQ-01 had no requirement-linked proof). Revision v2 bound REQ-01 to `tests/test_start_plan_presentation.py`; audit is now `clean`. Residual gap, still Open: REQ-02 (text names only `scripts/task-start.py`) still shows `tests/test_start_plan_presentation.py` as its proof path with a generated unit command (`cmd-dcb44d`, `unittest discover -p test_start_plan_presentation.py`), so the shared proof is still bound to an unrelated requirement. Baseline note: `tests/test_navigator_core.py::test_start_compact_report_lists_selected_tailtrail_features` and `tests/test_debug_start_planning.py::test_debug_start_labels_user_paths_and_supplied_reproduction_without_claiming_validation` pass on clean HEAD and fail on the working tree; forcing the declared-proof attribution back to the old behaviour does not clear them, so they come from other uncommitted work, not this change.
+
+**Residual fix (planner second pass):** `apply_host_contract_role_projection` in `scripts/task-start.py` re-read previously unbound declared proof as Navigator evidence and re-bound it to REQ-02. Paths already recorded as unbound now stay unbound. Regression: `tests/test_navigator_scope.py` and `tests/test_planning_tier_binding.py` pass.
+
+**Fresh Start result (run `start-20261031113151-49a745`):** REQ-02 has no shared-proof candidate or focused-validation row; the shared test appears only as unbound context. `planning audit` is `clean` after revision v3. REQ-01 is bound to `tests/test_start_plan_presentation.py` by a proof-update the user has not separately confirmed. Revision v3 was approved and activated with `planning-revision.py approve --revision 3 --approved`.
+
+**Status:** Fixed. The pre-existing working-tree failures noted above are unrelated to this entry.
+
+**Related:** Entry 40 (scope gate) and the unit proof in this run pointing at `tests/test_aidlc_official_bridge.py`, which was not corrected by the initial Start.
