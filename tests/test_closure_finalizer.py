@@ -75,7 +75,11 @@ class ClosureFinalizerTests(unittest.TestCase):
     def test_finalizes_selected_local_harnesses_and_completion_report(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            self.setup_run(root)
+            uid, _ = self.setup_run(root)
+            evidence.append(root, "run", {
+                "kind": "source-edit", "requirement_uids": [uid],
+                "changed_paths": ["src/service.py", "tests/test_service.py"],
+            }, True)
             result = finalizer.finalize(root, "run")
             activity = ledger.projection(root, "run")["activity"]
             verbose_dir = root / ".tailtrail" / "runs" / "run" / "verbose-reports"
@@ -95,7 +99,24 @@ class ClosureFinalizerTests(unittest.TestCase):
         self.assertTrue(closure_markdown_exists)
         self.assertTrue(closure_metadata_exists)
         self.assertTrue(visible_closure_exists)
-        self.assertIn("## Complete Saved Closure Payload", visible_closure_body)
+        for heading in (
+            "## Run Summary",
+            "## Outcome",
+            "## Requirements and Verification",
+            "## Testing Performed",
+            "## Code and Artifact Changes",
+            "## Token and Context Usage",
+            "## Scope and Safeguards",
+            "## Out-of-Scope Findings Requiring Follow-Up",
+            "## Final Decision",
+            "## Technical Evidence",
+        ):
+            self.assertIn(heading, visible_closure_body)
+        self.assertNotIn("## Complete Saved Closure Payload", visible_closure_body)
+        self.assertNotIn("```json", visible_closure_body)
+        self.assertIn("canonical JSON", visible_closure_body)
+        self.assertNotIn("| `unavailable` | unavailable", visible_closure_body)
+        self.assertEqual(visible_closure_body.count("completion-reports/report-1.json"), 1)
         self.assertIn("src/service.py", visible_closure_body)
         self.assertNotIn("**62**", visible_closure_body)
 

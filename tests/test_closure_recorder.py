@@ -97,6 +97,23 @@ class ClosureRecorderTests(unittest.TestCase):
         self.assertEqual(first["record_id"], second["record_id"])
         self.assertEqual(activity["closure_recorded"], 1)
 
+    def test_replay_refreshes_stored_policy_when_the_active_report_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root)
+            input_path = root / "closure-input.json"
+            input_path.write_text(json.dumps(self.input(uids)), encoding="utf-8")
+            first = recorder.record(root, input_path)
+            report_path = lock.start_report_path(root, "run")
+            report_path.write_text(json.dumps({"run_id": "run", "report": {"host_input_contract": {"request_mode": "read-only", "authority_source": "host-contract", "contract_id": "ctr-test", "fingerprint": "sha256:test"}}}), encoding="utf-8")
+            second = recorder.record(root, input_path)
+            stored = json.loads(Path(root / ".tailtrail/runs/run/closure-records" / f"{first['record_id']}.json").read_text(encoding="utf-8"))
+        self.assertEqual(first["completion_policy"]["request_mode"], None)
+        self.assertTrue(second["reused"])
+        self.assertTrue(second.get("policy_refreshed", False))
+        self.assertEqual(second["completion_policy"]["request_mode"], "read-only")
+        self.assertEqual(stored["completion_policy"], second["completion_policy"])
+
     def test_records_from_saved_execution_evidence_without_manual_input_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

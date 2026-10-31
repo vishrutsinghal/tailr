@@ -74,6 +74,8 @@ def main() -> int:
             print(f"# TailTrail Session Status\n\n- State: `{result['state']}`\n- Run ID: `{result.get('run_id') or 'none'}`")
         else:
             print(result["report"], end="")
+        if args.command == "stop" and result.get("state") != "detached":
+            return 2
         return 0 if result.get("state") not in {"resume-stale", "resume-conflict", "resume-invalid"} else 2
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         print(f"TailTrail session control error: {error}")

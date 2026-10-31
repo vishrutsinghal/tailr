@@ -36,7 +36,12 @@ the entries there.
 | 26 | `architecture-fitness.py` kept its own separate approved-scope notion (`likely_paths` only), unaware of the Issue 25 fix's `validation_contract.editable_paths`/`proposed_paths` | **Fixed** (same union pattern applied to this harness too) |
 | 27 | A `proof-update` revision that adds tiers to a requirement's top-level `validation_contract.tiers` does not update the per-command `validation_contract.checks[]` entry created at Start time; `execution-evidence run` matches `checks[]` first and silently ignores the broader top-level tier list, rejecting the new tiers | **Fixed** (revision-added tiers now union with -- never replace -- a matching `checks[]` entry's own narrower tier list) |
 | 28 | Anchor generation at Start time does not auto-populate `likely_paths`/`validation_contract.editable_paths` for a new proof-only test file implied by the goal text, so a run approved without a manual pre-activation `proof-update` step permanently closes `evidence-incomplete` (Issue 25's fix exists but is opt-in, not automatic, and is unusable once the run is activated) | Open |
-| 33 | Requirement interpretation parser converts acceptance and preservation criteria into separate standalone requirement rows, causing them to independently infer tiers from lexical matching; result: spurious behaviour/integration tiers with no concrete proof, unsalvageable audit findings, and no way to encode a unit-only change with named acceptance criteria | Open |
+| 33 | Requirement interpretation parser converts acceptance and preservation criteria into separate standalone requirement rows, causing them to independently infer tiers from lexical matching; result: spurious behaviour/integration tiers with no concrete proof, unsalvageable audit findings, and no way to encode a unit-only change with named acceptance criteria | **Fixed** |
+| 34 | Invalid host-contract input reaches the Start renderer as a missing Navigator report and crashes with `KeyError` instead of returning the intended typed, fail-closed boundary response | **Fixed locally** (focused regression suite: 13 passed) |
+| 35 | Planning audit can mark a typed-contract change clean while excluding its schema and assertion-level test dependencies from editable scope | Open -- transitive contract/proof closure is not audited |
+| 36 | Public `tailtrail stop` can emit no report and leave a session attachment at `stop-pending`; direct session control completes the same stop | Open -- dispatcher/transition root cause needs isolated reproduction |
+| 37 | Validation-only closure can report `complete` without the required validation-delivery artifact | Open -- completion policy is inconsistent before and after closure recording |
+| 38 | Approved Phase 0 Start facts are lost or contradicted by later canonical projections | Open -- validation-only scope/proof facts do not have one shared source of truth |
 
 See **Section 11** below for a separately-tracked, audited list of standing
 TailTrail change recommendations (some overlap with the issues above; most
@@ -2768,6 +2773,39 @@ reproduce the exact failure read-only
 
 This sequence prevents TailTrail from faithfully freezing a complete but
 technically incorrect host diagnosis.
+
+### 21.7 Repeated evidence: ordinary feature slices also lack a semantic-delta gate
+
+**Context:** Run `start-20261022055243-ef4e5a` proposed a change to make the
+Phase 2 Host Question Flow profile-field registry explicit. Before any source
+edit, inspection showed that the required behavior already existed:
+`scripts/question-orchestrator.py` defines all six profiles in
+`PROFILE_FIELDS`, `profile_fields()` exposes the registry, and
+`plan_questions()` consumes those entries. The focused registry suite passed
+(`python3 -m unittest tests.test_question_orchestrator`: 9 tests).
+
+- **Symptom:** A normal feature-slice plan, not only a correction plan, could
+  become approvable and activated for behavior already present at the real
+  call site.
+- **Root cause:** Planning and audit checked the declared scope and runnable
+  proof shape, but did not require an assertion-level semantic delta between
+  the requested outcome and the existing source behavior.
+- **Impact:** The plan had to be stopped after activation as a no-op. Any
+  implementation would have been artificial changed-path churn rather than a
+  legitimate delivery.
+- **Recommended fix:** Generalize the 21.1 failing-premise gate into a
+  pre-approval semantic-delta gate for every non-documentation change. The
+  gate must record: the requested assertion, the existing behavior at the
+  relevant public/call-site boundary, and either a currently failing/new
+  assertion or the precise observable output that will change. If the request
+  is already satisfied, classify it as `already-satisfied`, prohibit
+  activation, and route the host to the next genuinely missing layer.
+- **Required regression:** Start a feature plan whose named registry and call
+  site already satisfy the goal; assert that the result is
+  `already-satisfied` rather than an approvable Planning Lock.
+- **Status:** Open. This reinforces Issues 21.1 and 21.2, but establishes that
+  the missing gate is generic rather than correction-specific.
+
 ## 22. No real-time write-guard integration point exists for GitHub Copilot Chat (Open)
 
 **Context:** After `scripts/write_guardian.py` was made host-agnostic (accepting
@@ -3345,6 +3383,31 @@ proof contract.
   commands once supplied there, but the earlier general Start-input carry is a
   separate defect and is not claimed fixed by Issue 29.
 
+**2026-10-26 partial correction — validation-only presentation mismatch:** A
+valid validation-only plan can deliberately have no implementation owner. When
+a later proof update stored a proof-only path in the requirement validation
+contract, the public Start Plan renderer ignored that path and still required
+an implementation owner. The planning audit could therefore say `clean` while
+the rendered plan said `NOT READY FOR APPROVAL` and showed `none recorded` for
+the proof-only boundary.
+
+- **Fix applied:** The host-contract validator now rejects implementation-owner
+  claims for both read-only and validation-only requests. The Start Plan reads
+  its saved request mode, renders zero implementation owners as correct for
+  those modes, requires a recorded read-only/proof-only boundary instead, and
+  retains proof-only paths saved in the validation contract. An explicitly
+  empty scoped owner list also takes precedence over heuristic `likely_paths`,
+  so discovery hints cannot silently restore write authority.
+- **Regression coverage:** Contract and JSON-schema tests reject a
+  validation-only owner claim. Public Start Plan rendering proves that a
+  validation-only plan with inspection and proof-only paths is approval-ready,
+  while an implementation plan without an owner remains blocked.
+- **Remaining scope:** This does not solve the broader multi-requirement intake
+  mapping problem described above. A raw host proof declaration still needs a
+  first-class, per-requirement proof binding before initial Start generation;
+  no automatic fan-out was added because that could attach proof to the wrong
+  requirement.
+
 ## 32. Plan explanation ignored rejection state and still invited approval (Fixed)
 
 **Context:** After the bad plan was rejected, `planning explain` still said the
@@ -3403,6 +3466,447 @@ ignored the newer `proposal_rejected`/`revision-required` decision.
   - `test_multi_clause_goal_produces_single_main_requirement_issue_33`: Validates single-row output for complex goals
 
 - **Status:** Fixed. All Issue 33 regression tests passing (4/4). Acceptance criteria and preservation rules are now properly extracted as requirement attributes instead of becoming spurious separate rows with independent tier inference. Plans with explicit positive/negative criteria now produce clean, unit-only requirement rows without spurious behaviour/integration tiers.
+
+---
+
+## 34. Invalid host-contract input crashes the Start renderer instead of returning a typed boundary report (Fixed locally)
+
+**Context:** A pre-Planning-Lock host contract declared an unsupported
+`change_intent` value, `bug-fix`. The valid contract vocabulary uses
+`correction`, `new-capability`, `refactor`, `validation`, or `prose-only`.
+TailTrail correctly rejected the contract before Navigator planning, but the
+public Start renderer then crashed with `KeyError: 'navigator'`.
+
+- **Symptom:** The expected fail-closed response was replaced by an internal
+  exception. The host could not see the precise invalid field or the accepted
+  values and therefore had no actionable route to correct the request.
+- **Root cause:** `scripts/task-start.py` raised the intended
+  `_HostContractBlocked` condition from `resolve_host_contract()`, then its
+  exception path called `render_markdown()` on the boundary report. That
+  renderer assumed every report contains a `navigator` section, which is not
+  true for a deliberately pre-Navigator contract rejection.
+- **Impact:** Invalid input is still blocked, but the public fail-forward
+  contract is broken: a controlled validation failure appears as a TailTrail
+  crash.
+- **Fix applied:** The Start renderer now recognizes and renders a pre-plan
+  host-contract boundary report without indexing a missing Navigator result.
+  Tests cover both a contradicted contract rendered as Markdown and an
+  unrecognized pre-plan payload failing closed without `KeyError`.
+- **Verification:**
+  `python3 -m unittest tests.test_public_route_gate tests.test_start_plan_presentation tests.test_host_contract.ContractTaskTypeConsistencyTests`
+  completed with 13 passing tests. A broad unrelated suite still has an
+  existing `ContractProofProjectionTests.test_attach_compiles_contract_command_into_checks`
+  failure and is not claimed as validation for this fix.
+- **Status:** Fixed locally; the source change is present in the worktree but
+  has not been separately committed by this record.
+
+## 35. Planning audit does not close typed-contract and assertion-level proof dependencies (Open)
+
+**Context:** Candidate-answer durability was planned in run
+`start-20261022060841-76c529`. The plan audit reported `clean` and the
+focused proof command was runnable. Its approved editable scope, however,
+contained only `scripts/intake_pipeline.py`; the event schema was excluded and
+the relevant test files were proof-only.
+
+Read-only inspection before implementation established the actual dependency
+chain:
+
+- `scripts/intake_pipeline.py::record_answer()` emits an `answer-recorded`
+  payload but does not persist candidate state, state history, authority, or
+  finalization status.
+- `schemas/host-question-flow-event.schema.json` validates that payload and
+  sets `additionalProperties: false`, so any durable state fields require a
+  coordinated schema change.
+- `tests/test_intake_pipeline.py` and
+  `tests/test_host_question_flow_event_schema.py` need new assertion-level
+  coverage; existing proof collection alone cannot prove durable candidate
+  state or that host-supplied answers remain non-authoritative.
+
+- **Symptom:** The audit can call a plan proof-complete and scope-complete even
+  when the requested serialized contract cannot legally change under that
+  anchor and no test assertion describes the new behavior.
+- **Root cause:** Scope/audit validates named paths and runnable proof tiers;
+  it does not compute transitive closure from a changed serialized contract to
+  its schema/validator, nor determine whether the existing tests contain a
+  requirement-linked assertion that must change.
+- **Impact:** The host can approve and activate a plan which must later either
+  violate scope or stop. Because this was discovered after activation, the
+  ordinary revision route was unavailable and the run had to be paused.
+- **Recommended fix:** For each implementation owner that changes an event or
+  typed payload, discover the validators and schemas that constrain it,
+  especially contracts using `additionalProperties: false`. Construct a
+  requirement semantic diff (old/new payload fields and invariants), require
+  affected schema artifacts in editable scope or an explicit unchanged
+  justification, and require a named pre/post assertion scenario rather than
+  only a runnable command. Planning audit must return `gaps-found` with a
+  bounded pre-approval scope/proof revision when any dependency is absent.
+- **Required regression:** Plan an `answer-recorded` state extension. The
+  start plan must include the pipeline and schema as editable surfaces and
+  name tests that prove persisted candidate state, state transition history,
+  and no host-granted acceptance. If any is absent, audit must fail before
+  approval.
+- **Status:** Open. Related to Issue 28's missing proof-file path, but broader:
+  it covers transitive typed-contract scope and semantic proof closure.
+
+## 36. Public `tailtrail stop` suppresses the stop report and can leave a run `stop-pending` (Open)
+
+**Context:** After the Issue 35 dependency gap was discovered, the public
+command
+`python3 scripts/tailtrail.py stop --root . --run-id start-20261022060841-76c529`
+returned successfully with blank stdout. The corresponding session attachment
+remained `stop-pending`, with reason `user-stop-requested`, while the canonical
+run still showed `approved`. Calling the underlying route directly,
+`python3 scripts/session-control.py stop --root . --run-id start-20261022060841-76c529`,
+completed the pause/detach and emitted the expected `# TailTrail Stopped`
+report. The public dispatcher also produced blank output for a separate
+field-registry stop, although that attachment eventually appeared detached.
+
+- **Symptom:** The public stop interface can return no result after an explicit
+  stop request and may not complete its detach transition.
+- **Impact:** The host cannot tell whether execution authority is detached,
+  should retry, or may safely start other work. This violates the mandatory
+  fail-forward rule and risks activity against a supposedly stopped run.
+- **Root cause:** Not yet confirmed. Evidence is consistent with either public
+  dispatcher output suppression, a non-atomic stop-pending/workflow-pause
+  transition, or their interaction. No single implementation cause is claimed
+  without focused reproduction.
+- **Recommended fix:** The public dispatcher must propagate the canonical stop
+  result to stdout and return success only after the attachment is detached.
+  If pause/detach cannot finish, it must return a nonzero typed report with the
+  current attachment state and exact retry/recovery action; it must not leave a
+  silent successful `stop-pending` state.
+- **Required regression:** Invoke the public `tailtrail.py stop` for an
+  activated run and assert nonempty `# TailTrail Stopped` output, detached
+  attachment, paused workflow, and expired temporary approvals. Inject a
+  pause/detach failure and assert a typed nonzero failure rather than blank
+  output or silent `stop-pending`.
+- **Status:** Open; needs a focused dispatcher/transition reproduction before
+  a source fix is scoped.
+
+## 37. Validation-only closure can report `complete` without its required validation-delivery artifact (Open)
+
+**Context:** This was found during the approved Phase 0 Inventory and
+Ownership run, `start-20261027063557-4d74b2`, for
+`TAILTRAIL-HOST-TAILTRAIL-EVIDENCE-VALIDATION-DESIGN.md`. Its persisted host
+contract explicitly declared `request_mode: validation-only`, assigned no
+`implementation-owner` path, and prohibited source, scope-authority,
+receipt, and Meta-Harness behavior changes. The intended delivery was an
+evidence-backed inventory/mapping of existing behavior, not an application
+edit.
+
+The final approved plan bound these three requirements to this exact focused
+proof command:
+
+```text
+python3 -m unittest tests.test_host_question_flow_phase0_artifacts tests.test_host_input_contract_schema tests.test_host_question_flow_event_schema
+```
+
+All three managed executions passed, one per approved requirement UID:
+
+| Requirement | Approved UID | Managed result |
+|---|---|---|
+| REQ-01 — trace the current paths | `req-a93add63f6f1` | Passed |
+| REQ-02 — map each design requirement | `req-e86745a621c9` | Passed |
+| REQ-03 — preserve behavior | `req-b848ba6757a6` | Passed |
+
+No changed source path, inventory-map artifact, or other validation-delivery
+receipt was recorded.
+
+### Observed contradiction
+
+1. Before closure recording, the canonical Completion Report correctly said
+   `Overall: evidence-incomplete`, with `Implementation: not-evidenced`,
+   `Implementation coverage: 0/3`, and an explicit missing source-edit
+   receipt/closure-record recovery path.
+2. The suggested source-edit recovery is impossible and misleading for this
+   validated no-edit run: it has no editable implementation owner by design.
+3. `tailtrail closure record` then accepted `changed_paths: []` and recorded
+   `completion_gate.complete: true` solely from the managed command evidence.
+4. `tailtrail closure finalize` successfully completed the workflow and wrote
+   `session-reports/start-20261027063557-4d74b2/closure-report.md`.
+5. After finalization, the canonical Completion Report changed to
+   `Overall: complete` and `Verified delivery: 3/3 requirements complete`,
+   while still also stating `Implementation: not-evidenced`,
+   `Implementation coverage: 0/3`, and `changed paths: no changed path receipt
+   was recorded`.
+
+**Symptom:** A no-edit validation run can be immutably closed as successful
+without its actual required product: the Phase 0 inventory/mapping artifact.
+Conversely, immediately before recording closure, the same workflow asks for
+an inapplicable source-edit receipt.
+
+**Impact:** This is a false-completion evidence boundary failure. A user can
+receive a successful workflow and Completion Report even though the requested
+analysis artifact was never supplied. The contradictory `complete` plus
+`not-evidenced` result also makes the audit trail misleading for any consumer
+that relies on overall status rather than reading every subsection.
+
+**Root-cause boundary (not yet source-confirmed):** The pre-closure Completion
+Report, closure recorder/completion gate, and closure finalizer appear to use
+different definitions of required evidence. The pre-closure projection treats
+a source-edit receipt as universally required; the later gate accepts passing
+managed proof without propagating a mode-specific delivery obligation; the
+finalizer then derives success from that permissive gate. This entry does not
+claim an implementation line-level root cause until a focused reproduction
+examines those paths.
+
+**Generic fix:** Bind a versioned `completion_policy` to every approved anchor
+and require every producer and projection to consume the same policy.
+
+- **Implementation mode:** require the approved changed-path/source-edit
+  evidence and the requirement-bound proof specified by the anchor. Passing
+  tests alone never make it complete.
+- **Validation-only or read-only mode:** require a hash-bound
+  `validation-delivery` receipt of the declared artifact type (here, the
+  Phase 0 inventory/mapping), plus the requirement-bound proof. A source-edit
+  receipt is not required.
+- Enforce the invariant `overall_status == complete` only when every artifact
+  required by that policy is present, current, and accepted. A closure record
+  must not weaken that invariant.
+- Render the exact missing policy artifact in Start/closure/Completion
+  guidance. A valid no-edit delivery must display `Implementation:
+  not-applicable`, never `not-evidenced` beside `complete`.
+
+**Required regression coverage:**
+
+1. A validation-only run with passing managed commands but no
+   `validation-delivery` receipt remains `evidence-incomplete` before and
+   after `closure record`/`closure finalize`; it cannot emit a completed
+   workflow receipt.
+2. The same run with a current, hash-bound inventory-map receipt and passing
+   requirement evidence completes, displays `Implementation: not-applicable`,
+   and permits zero changed paths.
+3. An implementation run with passing proof but no approved source-edit
+   receipt remains incomplete through all closure steps.
+4. The pre-closure and post-closure Completion Reports expose the same
+   completion policy, state, and exact recovery artifact.
+
+### Related planning and usability findings from the same run
+
+- **Initial proof projection gap:** v1 discarded the host contract's three
+  proof-only paths and exact command. Mandatory planning audit found the gap;
+  v2 still did not create executable proof bindings; v3 explicitly bound the
+  command and proof paths, after which audit became clean. This is related to
+  Issue 28: host-supplied proof must become a requirement-level executable
+  binding before approval, not merely a narrative evidence plan.
+- **Requirement UID usability gap:** managed evidence rejected visible
+  `REQ-01` and required internal UID `req-a93add63f6f1`; `planning show` did
+  not present a copyable UID. The host had to inspect TailTrail state to run
+  the sanctioned command. Either accept visible requirement IDs consistently
+  or project the immutable UIDs in the Start/Planning report. This does not
+  change the false-completion finding, but it made safe operation needlessly
+  difficult.
+- **Phase 0 contract-scope gap:** the approved inspection list omitted the
+  public dispatcher and schemas that the Phase 0 exit condition says to map.
+  The plan could therefore prove its focused tests but could not honestly
+  deliver a complete CLI/schema inventory. The host owns the immediate
+  contract omission; TailTrail's audit should additionally enforce a
+  profile-specific inventory coverage matrix (schema, writer, reader, public
+  route, focused test, and reuse/gap) before treating such a plan as ready.
+
+**Status:** Open. The Phase 0 run is recorded as a TailTrail closure-policy
+defect, not evidence that Phase 0 was semantically delivered. Do not use its
+successful closure badge as authorization to advance a dependent phase; first
+repair and verify the policy or run a new, correctly scoped validation plan.
+
+### 37.1 Confirmed defect: completion policy drops the host contract after an approved plan revision (Fixed in workspace; verification recorded below)
+
+**Context:** A later Phase 0 validation-only run,
+`start-20261027101501-5f1c2b`, supplied a valid host contract and approved a
+v2 proof revision. The active report was correctly switched to
+`.tailtrail/runs/start-20261027101501-5f1c2b/planning/revisions/start-report-v2.json`.
+That file has the canonical wrapper shape: its material plan facts live under
+the top-level `report` object. In particular,
+`report.host_input_contract.request_mode` is `validation-only`.
+
+The Phase 0 inventory artifact was recorded with a current, hash-bound
+`validation-delivery` receipt, and all four approved managed proof commands
+passed. Despite that, `tailtrail closure record` and the Completion Report
+evaluated the request mode as absent, rendered the policy as
+`not-applicable`, and produced the contradictory result:
+
+```text
+Overall: complete
+Implementation: not-evidenced
+Completion policy: not-applicable; required: none
+```
+
+No `closure finalize` was run after this contradiction was detected.
+
+**Confirmed root cause:** `scripts/planning_lock.py:372` returns the complete
+saved Start artifact, whose public shape is `{ "goal": ..., "report": {...} }`.
+However, `scripts/completion-policy.py:60-70` reads
+`active_start_report(...).get("host_input_contract")` directly. The contract
+therefore cannot be found for either an initial report or a revised active
+report; it is nested at
+`active_start_report(...)["report"]["host_input_contract"]`. The policy
+falls back to `request_mode: null` and `not-applicable` instead of enforcing
+the validation-only delivery rule.
+
+**Impact:** A required delivery artifact can be ignored during closure. The
+saved report can say `Overall: complete` even though the run's declared
+no-edit delivery policy was never evaluated. This is a false-completion
+boundary defect, not an implementation or proof failure.
+
+**Generic fix:** Establish one typed accessor for the canonical active plan
+payload (or a separately persisted, approval-bound completion-policy record)
+that unwraps the active report exactly once. `completion-policy`, closure
+recording, closure finalization, and Completion Report rendering must all
+consume that same immutable, approved request mode and artifact obligation.
+They must fail closed when the active report has an invalid shape or lacks a
+valid host contract; `not-applicable` is allowed only for legacy runs that
+have no host contract by design, never as a fallback for a malformed current
+one.
+
+**Fix status (verified):**
+- `scripts/completion-policy.py`: `request_mode()` unwraps `report`, returns None only when no contract is saved, and fails closed on a malformed contract.
+- `scripts/closure-recorder.py`: a reused closure record now re-evaluates the completion policy. If it changed, the stored record is refreshed in place (same record ID), a `closure_policy_refreshed` event is appended, and the result carries `policy_refreshed: true`. `scripts/run-ledger.py` registers the event.
+- Unit: `tests/test_closure_recorder.py::test_replay_refreshes_stored_policy_when_the_active_report_changes` plus the existing idempotency test. Suites `test_closure_recorder`, `test_completion_policy`, `test_completion_report`, `test_closure_finalizer`, and `test_closure_close` ran with 68 tests. The only failure is `test_anchor_versioning::test_no_new_raw_v1_reads` (raw `approved-v1.json` reads in `scripts/planning_lock.py` and `scripts/workflow-dashboard.py`). Those files are unchanged by this fix, so that failure predates it.
+- Real run `start-20261027101501-5f1c2b`: closure-recorder returned `policy_refreshed: true`, `completion_policy` `validation-only` / `pass` / `missing: []`. Completion Report returned `complete`. Closure finalizer returned `workflow_closure.completion_status: complete`. The three outputs now agree.
+- Red-to-green: the new test fails against the pre-fix recorder (reuse block reverted in a temp copy; `AssertionError: policy_refreshed`) and passes on the current tree. `tests.test_closure_recorder` runs 12 tests OK.
+
+**Required regression coverage:**
+
+1. An initial validation-only Start report resolves `request_mode` and requires
+   `validation-delivery`.
+2. The same contract after an approved v2 revision resolves identically from
+   the active report.
+3. Before a valid delivery receipt, `closure record`, `closure finalize`, and
+   Completion Report all remain `evidence-incomplete` and name the missing
+   receipt.
+4. With a current delivery receipt and passing managed proof, all three paths
+   agree on completion and render `Implementation: not-applicable`.
+5. A malformed current report fails closed with a typed recovery action; it
+   never silently becomes `not-applicable`.
+
+**Status:** Open. This confirms the line-level cause for the revised-plan
+variant of Issue 37 and supersedes the earlier unconfirmed root-cause boundary
+for that path.
+
+## 38. Approved Phase 0 Start facts are lost or contradicted by later canonical projections (Open)
+
+**Context:** A fresh validation-only Phase 0 run,
+`start-20261027082737-4d74b2`, supplied a complete host contract before
+Planning Lock creation. It named the Phase 0 design, Start/AIDLC/scope/proof/
+receipt/audit/report/Closure sources, public dispatcher, two schemas, and five
+proof modules. It also supplied one exact focused command:
+
+```text
+python3 -m unittest tests.test_host_question_flow_phase0_artifacts tests.test_host_input_contract_schema tests.test_host_question_flow_event_schema tests.test_public_route_gate tests.test_start_plan_presentation
+```
+
+The contract was validation-only: no implementation owner and no source edits
+were authorized.
+
+### Reproduction
+
+1. Start the run using the validated contract, the artifact-bound Phase 0
+   interpretation, and `--require-host-validation`.
+2. Inspect v1. It drops every inspection path, proof path, and the exact
+   command; all three requirements are unresolved.
+3. Run mandatory `planning audit`. It correctly returns `gaps-found` for
+   missing commands and proof bindings.
+4. Apply a pre-approval v2 `proof-update` that registers the exact command
+   and all five proof paths for REQ-01 through REQ-03. Re-audit returns
+   `clean`.
+5. Approve v2. The canonical Start Plan displays command `cmd-b70622`, maps
+   it to all three requirements, and lists all five proof-only paths.
+6. Without any execution, run `tailtrail completion-report` for the same
+   activated run. It instead says: `No runnable approved validation command
+   is saved`, `Verification: not-evidenced`, and `0/3 requirements complete`.
+
+**Symptom:** The same approved run has incompatible views of its facts. The
+Start Plan and clean planning audit say the proof contract exists; the
+Completion Report says it does not. Both reports also omit the source/schema/
+CLI inspection inputs that Phase 0 needs to create its required ownership map.
+
+**Impact:** The host has no safe path forward. Running the command risks using
+proof that the completion system will not recognize, while inspecting the
+actual Phase 0 source surfaces would exceed the rendered approved boundary.
+The plan can therefore be approved without the scope required to produce its
+own delivery, and closure instructions become misleading.
+
+**Root-cause boundary (not yet source-confirmed):** The evidence shows that
+Start rendering, planning audit/revision, approved-anchor projection, and
+Completion Report are reading different subsets or representations of the
+host contract and `validation_contract`. The v1 loss proves the Start builder
+does not project all validated contract facts. The v2/Completion disagreement
+proves the closure projection does not consume the same approved proof
+registration consumed by the Start renderer. No line-level cause is claimed
+until the respective readers are traced against the same anchor.
+
+**Generic fix:** Establish one versioned, approved `validation_plan` model in
+the anchor with separate immutable sections for:
+
+- request mode and no-edit authority;
+- inspection inputs (including source, schema, writer, reader, CLI, and
+  dependency roles);
+- proof-only paths and requirement-level exact command bindings; and
+- validation-delivery artifact type and acceptance rule.
+
+Start, revision/audit, execution evidence, Completion Report, and closure must
+all project that same model. A projection may summarize it, but may not
+silently drop a material field. Add a reconciliation invariant before approval
+and before completion: every accepted host-contract path and proof binding
+must be either present in the canonical projection or marked with a concrete,
+validated exclusion reason. For validation-only work, inspection inputs remain
+read-only and must never be converted into editable implementation scope.
+
+**Required regression coverage:**
+
+1. A Phase 0 validation-only contract with inspection inputs, proof-only
+   paths, and one command renders those same facts in Start, pending revision,
+   approved anchor, and Completion Report.
+2. If any projection drops a declared inspection path, command, proof path,
+   or delivery artifact, planning audit fails before approval with the exact
+   missing field.
+3. A v2 `proof-update` visible in Start is executable through managed evidence
+   and is visible to Completion Report without a second manual registration.
+4. The public Start route, not merely `task-start.py`, accepts option-style
+   Start arguments and forwards the identical contract; otherwise it returns a
+   typed fail-forward error instead of the façade's `unrecognized arguments`
+   failure.
+
+**Status:** Open. This run must remain evidence-incomplete; its approved plan
+is not sufficient authority to inspect or claim Phase 0 delivery until the
+projection contract is fixed and a fresh plan proves it.
+
+---
+
+## Host Question Flow: Outstanding Seven-Point Delivery Sequence
+
+This is not a separate defect. It is the ordered delivery contract needed to
+close the Host Question Flow gaps documented above. Each later point relies on
+the authoritative artifacts produced by the earlier points; it must not be
+implemented as a collection of independent UI or host-side conveniences.
+
+| Order | Delivery point | Required outcome | Dependency / status |
+|---|---|---|---|
+| 1 | **Point 3 — TailTrail field registry** | Define the mandatory fields for each task profile. | The registry is TailTrail-owned. It determines what a complete intake means; the host cannot reduce it by declaring `material_questions: []`. The six-profile registry behavior already exists in `scripts/question-orchestrator.py`; any remaining work must first prove a semantic delta (Issue 21.7). |
+| 2 | **Point 2 — Candidate-answer storage** | Persist host findings as candidates with lineage, while preventing a host from marking an answer accepted. | Candidates are non-authoritative observations. Durable records need state/history and authority/finalization information, plus the source observation/question identity. The stopped run `start-20261022060841-76c529` exposed the missing typed-schema and test scope needed to deliver this safely (Issue 35). |
+| 3 | **Point 5 — Structured proof-binding model** | Store a binding of requirement, proof path, exact command, tier, asserted behavior, and source answer ID. | The binding turns an executable command into requirement-specific proof. It must preserve the source answer and behavior assertion so a green unrelated suite cannot be credited as evidence. |
+| 4 | **Point 4 — TailTrail completion calculation** | TailTrail, not the host, validates all mandatory fields and proof bindings, then mints the intake-completion receipt. | Completion is derived from the profile registry plus durable candidate/accepted-answer and proof-binding records. A raw contract or host assertion cannot mint this receipt. |
+| 5 | **Point 1 — Start gate** | For Host Question Flow work, `tailtrail start` accepts only a validated intake-completion receipt; a raw host contract fails closed. | Requires Point 4's versioned receipt and its bound facts. The failure must tell the host which required field, answer, or proof binding is incomplete. |
+| 6 | **Point 6 — Canonical-plan reconciliation** | Before v1, compare every accepted receipt fact against canonical requirements, scope, proof registry, and plan projection. | Requires accepted facts and bindings from Points 2–4. If a fact is missing from any canonical surface, planning must stop for correction instead of producing an incomplete v1. |
+| 7 | **Point 7 — Normal and verbose presentation** | Render the complete questionnaire, candidate and accepted answers, proof bindings, reconciliation result, and audit history. | Normal mode must expose core outcomes in agent chat; verbose mode must preserve the full traceable questionnaire and evidence. Presentation is a projection of persisted facts, never a substitute for them. |
+
+### First delivery slice: `scripts/requirement_intake.py`
+
+The planned first slice is intentionally the shared intake foundation. It
+covers Points **2–5** together:
+
+1. durable candidate-answer storage with no host acceptance authority;
+2. structured proof bindings with answer lineage;
+3. TailTrail-computed completeness and an intake-completion receipt; and
+4. the Start gate that requires that receipt for Host Question Flow work.
+
+This grouping is required because a Start gate cannot safely consume an
+unverified raw contract, and completion cannot be computed without the
+candidate and proof-binding records it validates. Point 3 (the profile-field
+registry) remains an upstream TailTrail-owned contract; its existing behavior
+must be reused or shown to need a real delta before it is modified. Points 6
+and 7 remain later consumers of the accepted receipt and must not be advanced
+until the first slice has executable, schema-aware proof.
 
 ---
 
@@ -3492,5 +3996,3 @@ During closure evidence consolidation work following Issue 33, three related cus
 | Gap 3 | Loose scenario binding | Binding validation | Command-to-scenario dict + assertion fp ✅ |
 
 All three gaps are now closed with test coverage and no regressions (60/60 tests passing across all related modules).
-
-

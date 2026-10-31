@@ -440,10 +440,39 @@ def _requirement_scope(requirement: dict[str, Any]) -> tuple[list[str], list[str
     scope = scope if isinstance(scope, dict) else {}
     contract = requirement.get("validation_contract", {})
     contract = contract if isinstance(contract, dict) else {}
-    owners = _plan_list(scope.get("implementation_owners") or requirement.get("likely_paths", []))
+    # An explicit empty owner list is authoritative.  Falling back to heuristic
+    # likely paths in that case would turn a deliberately validation-only plan
+    # back into an apparent implementation plan.
+    owners = _plan_list(
+        scope.get("implementation_owners")
+        if "implementation_owners" in scope
+        else requirement.get("likely_paths", [])
+    )
     inspection = _plan_list(scope.get("inspection_paths", []))
-    proof = _plan_list(scope.get("proof_paths") or contract.get("candidate_paths", []))
+    # A proof-update stores its proof-only authority on the validation contract
+    # rather than in implementation scope.  Presentation must retain that
+    # role: otherwise a valid proof-only path is rendered as "unresolved".
+    proof = _plan_list(
+        scope.get("proof_paths")
+        or contract.get("candidate_paths", [])
+        or contract.get("editable_paths", [])
+        or contract.get("proposed_paths", [])
+    )
     return owners, inspection, proof
+
+
+def _request_mode(report: dict[str, Any]) -> str:
+    """Return the validated host request mode when one is saved.
+
+    A missing or unknown value intentionally falls back to implementation
+    semantics.  Only an explicit persisted read-only/validation-only contract
+    may relax the implementation-owner presentation gate.
+    """
+    contract = report.get("host_input_contract", {})
+    if not isinstance(contract, dict):
+        return "implementation"
+    mode = str(contract.get("request_mode", "")).strip()
+    return mode if mode in {"implementation", "read-only", "validation-only"} else "implementation"
 
 
 def _requirement_proof_rows(
@@ -562,6 +591,31 @@ def _append_analysis(lines: list[str], heading: str, plan: dict[str, Any], kind:
             lines.extend(f"{index}. {check}" for index, check in enumerate(checks, 1))
 
 
+def _append_bound_planning_inputs(lines: list[str], report: dict[str, Any]) -> None:
+    """Render saved non-target inputs without granting them scope authority."""
+    input_roles = report.get("input_roles", {}) if isinstance(report.get("input_roles"), dict) else {}
+    inputs = [
+        item for item in input_roles.get("inputs", [])
+        if isinstance(item, dict) and item.get("role") != "target"
+    ]
+    lines.extend(["", "## Bound Planning Inputs", ""])
+    if not inputs:
+        lines.append("- No read-only planning inputs were bound to this plan.")
+        return
+    lines.extend([
+        "| ID | Role | Path or reference | Access | Status | Integrity |",
+        "|---|---|---|---|---|---|",
+    ])
+    for item in sorted(inputs, key=lambda row: _plan_text(row.get("input_id"), "")):
+        sha256 = _plan_text(item.get("sha256"), "not hash-bound")
+        lines.append(
+            f"| `{_plan_text(item.get('input_id'))}` | {_plan_text(item.get('role'))} | "
+            f"`{_plan_text(item.get('locator'))}` | {_plan_text(item.get('access'))} | "
+            f"{_plan_text(item.get('status'))} | `{sha256}` |"
+        )
+    lines.append("- These inputs remain read-only context and never grant editable implementation scope.")
+
+
 def _append_review_cycles(lines: list[str], data: dict[str, Any]) -> None:
     events = data.get("planning_events", []) if isinstance(data.get("planning_events"), list) else []
     revisions = sorted({
@@ -610,12 +664,15 @@ def _render_start_plan(
     navigator = report.get("navigator", {}) if isinstance(report.get("navigator"), dict) else {}
     delivery = report.get("guided_delivery", {}) if isinstance(report.get("guided_delivery"), dict) else {}
     aidlc = data.get("aidlc", {}) if isinstance(data.get("aidlc"), dict) else {}
+    request_mode = _request_mode(report)
+    non_implementation_plan = request_mode in {"read-only", "validation-only"}
     title = "# TailTrail Start Plan - Full Review Record" if detailed else "# TailTrail Start Plan"
     lines = [title, "", "**Presentation version:** `4`", "", "## Planning Lock", ""]
     lines.extend([
         f"- **Run ID:** `{run_id}`",
         f"- **Status:** `{_plan_text(lock.get('status') or data.get('state'), 'unavailable')}`",
         f"- **Goal:** {_plan_text(goal or report.get('goal'))}",
+        f"- **Request mode:** `{request_mode}`",
         f"- **Managed writes allowed:** `{_plan_text(lock.get('writes_allowed'), 'false')}`",
         "- **Execution status:** planning only; no source change, proof command, scanner, or Git operation has run.",
     ])
@@ -623,6 +680,8 @@ def _render_start_plan(
         lines.append(f"- **Plan revision:** active `{_plan_text(revision.get('active_revision'), 'v1')}`; pending `{_plan_text(revision.get('pending_revision'), 'none')}`.")
     if verbose_artifact:
         lines.append(f"- **Full review record:** [`{verbose_artifact}`]({verbose_artifact}).")
+
+    _append_bound_planning_inputs(lines, report)
 
     lines.extend(["", "## Command Reference Registry", ""])
     if registry:
@@ -644,7 +703,12 @@ def _render_start_plan(
         lines.extend([f"### {identifier}", "", f"**Description:** {_plan_text(requirement.get('statement'))}", ""])
         lines.append(f"- **Requirement type:** `{_plan_text(requirement.get('kind'), 'outcome')}`")
         lines.append(f"- **Validation state:** `{_plan_text(contract.get('state'), 'required')}`")
-        lines.append(f"- **Editable owner(s):** {', '.join(f'`{path}`' for path in owners) if owners else 'unresolved'}")
+        if non_implementation_plan and not owners:
+            lines.append(f"- **Editable owner(s):** not applicable (`{request_mode}`; no implementation authority).")
+        elif non_implementation_plan:
+            lines.append(f"- **Editable owner(s):** unexpected for `{request_mode}`: {', '.join(f'`{path}`' for path in owners)}")
+        else:
+            lines.append(f"- **Editable owner(s):** {', '.join(f'`{path}`' for path in owners) if owners else 'unresolved'}")
         if inspection:
             lines.append(f"- **Read-only input(s):** {', '.join(f'`{path}`' for path in inspection)}")
         lines.append(f"- **Proof path(s):** {', '.join(f'`{path}`' for path in proof_paths) if proof_paths else 'unresolved'}")
@@ -718,7 +782,12 @@ def _render_start_plan(
     all_owners = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[0]})
     all_inputs = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[1]})
     all_proofs = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[2]})
-    lines.append(f"- **Editable scope:** {', '.join(f'`{path}`' for path in all_owners) if all_owners else 'unresolved'}.")
+    if non_implementation_plan and not all_owners:
+        lines.append(f"- **Editable scope:** not applicable (`{request_mode}`; no implementation authority).")
+    elif non_implementation_plan:
+        lines.append(f"- **Editable scope:** unexpected for `{request_mode}`: {', '.join(f'`{path}`' for path in all_owners)}.")
+    else:
+        lines.append(f"- **Editable scope:** {', '.join(f'`{path}`' for path in all_owners) if all_owners else 'unresolved'}.")
     lines.append(f"- **Read-only / proof-only scope:** {', '.join(f'`{path}`' for path in all_inputs + all_proofs) if all_inputs or all_proofs else 'none recorded'}.")
     lines.append("- **Excluded:** every path, command, external system, deployment, and data change not explicitly recorded above remains outside this approval.")
     lines.append("- **Data impact:** no data impact is authorized unless a requirement above names it explicitly.")
@@ -728,7 +797,13 @@ def _render_start_plan(
     audit_ready = bool(audits and isinstance(audits[-1], dict) and audits[-1].get("status") == "clean")
     lines.extend(["", "## Approval Checklist", ""])
     lines.append(f"- [{'x' if requirements else ' '}] Requirements are present and reviewable.")
-    lines.append(f"- [{'x' if all_owners else ' '}] Every requirement has an editable implementation owner.")
+    owner_ready = not all_owners if non_implementation_plan else bool(all_owners)
+    proof_scope_ready = bool(all_inputs or all_proofs)
+    if non_implementation_plan:
+        lines.append(f"- [{'x' if owner_ready else ' '}] No implementation owner is declared for this `{request_mode}` plan.")
+        lines.append(f"- [{'x' if proof_scope_ready else ' '}] Read-only or proof-only scope is recorded.")
+    else:
+        lines.append(f"- [{'x' if owner_ready else ' '}] Every requirement has an editable implementation owner.")
     lines.append(f"- [{'x' if coverage and len(coverage) else ' '}] Runnable proof commands are registered and mapped to requirements.")
     lines.append(f"- [{'x' if not questions else ' '}] Material questions are resolved.")
     lines.append(f"- [{'x' if audit_ready else ' '}] Mandatory planning audit is clean for this exact plan revision.")
@@ -749,15 +824,17 @@ def _render_start_plan(
 
     _append_review_cycles(lines, data)
     lines.extend(["", "## Approval Decision", ""])
-    ready = bool(requirements and all_owners and coverage and not questions and audit_ready)
+    ready = bool(requirements and owner_ready and coverage and not questions and audit_ready and (proof_scope_ready if non_implementation_plan else True))
     if ready:
         lines.append("**READY FOR APPROVAL** — review this plan, then explicitly approve this exact run. Approval is separate from activation and permits no unlisted work.")
     else:
         blockers: list[str] = []
         if not requirements:
             blockers.append("requirements")
-        if not all_owners:
-            blockers.append("implementation ownership")
+        if not owner_ready:
+            blockers.append("implementation ownership must be absent" if non_implementation_plan else "implementation ownership")
+        if non_implementation_plan and not proof_scope_ready:
+            blockers.append("read-only or proof-only scope")
         if not coverage:
             blockers.append("runnable proof coverage")
         if questions:
@@ -811,78 +888,140 @@ def generate_closure_report_verbose(
     closure_data: dict[str, Any],
     registry: dict[str, dict[str, Any]]
 ) -> str:
-    """Render only recorded closure and execution facts."""
+    """Render a readable closure projection from saved canonical facts only."""
     completion = closure_data.get("completion_report_payload", {}) if isinstance(closure_data.get("completion_report_payload"), dict) else {}
     closure_record = closure_data.get("closure_record", {}) if isinstance(closure_data.get("closure_record"), dict) else {}
     execution_events = closure_data.get("execution_events", []) if isinstance(closure_data.get("execution_events"), list) else []
     changed_paths = closure_data.get("changed_paths") or closure_record.get("changed_paths") or completion.get("implementation", {}).get("changed_paths", [])
     token_usage = completion.get("token_usage", {}) if isinstance(completion.get("token_usage"), dict) else {}
+    requirement_status = completion.get("requirement_status", {}) if isinstance(completion.get("requirement_status"), dict) else {}
+    requirements = requirement_status.get("requirements", [])
+    requirements = requirements if isinstance(requirements, list) else []
 
-    def cell(value: Any) -> str:
-        text = json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else str(value if value not in (None, "") else "unavailable")
-        return text.replace("|", "\\|").replace("\n", "<br>")
+    def text(value: Any, default: str = "unavailable") -> str:
+        if value in (None, ""):
+            return default
+        if isinstance(value, (list, tuple, set)):
+            return ", ".join(text(item) for item in value) or default
+        return str(value).replace("|", "\\|").replace("\n", " ")
+
+    def path_text(value: Any) -> str:
+        return text(value.get("path") if isinstance(value, dict) else value)
+
+    def evidence_for(requirement: dict[str, Any]) -> dict[str, Any]:
+        evidence = requirement.get("evidence", [])
+        return next((item for item in evidence if isinstance(item, dict)), {}) if isinstance(evidence, list) else {}
+
+    overall_status = text(closure_data.get("overall_status") or completion.get("overall_status"))
+    completion_policy = completion.get("completion_policy", {}) if isinstance(completion.get("completion_policy"), dict) else {}
+    changed_scope = completion.get("changed_scope", {}) if isinstance(completion.get("changed_scope"), dict) else {}
+    execution_authority = completion.get("execution_authority", {}) if isinstance(completion.get("execution_authority"), dict) else {}
+    canonical_state = completion.get("canonical_state", {}) if isinstance(completion.get("canonical_state"), dict) else {}
+    drift = completion.get("drift", {}) if isinstance(completion.get("drift"), dict) else {}
+    session_reports = completion.get("session_reports", {}) if isinstance(completion.get("session_reports"), dict) else {}
 
     lines = [
-        "# TailTrail Closure Report - Full Execution Record",
+        "# TailTrail Closure Report",
         "",
-        "| Field | Value |",
-        "|---|---|",
-        f"| Run ID | `{run_id}` |",
-        f"| Generated after finalization | `{datetime.now().isoformat()}` |",
-        f"| Overall status | `{cell(closure_data.get('overall_status') or completion.get('overall_status'))}` |",
-        f"| Closure record | `{cell(closure_data.get('closure_record_id'))}` |",
-        f"| Finalizer | `{cell(closure_data.get('finalizer_id'))}` |",
+        "## Run Summary",
         "",
-        "## Changes And Locations",
+        f"- **Run ID:** `{run_id}`",
+        f"- **Final status:** `{overall_status}`",
+        f"- **Request mode:** `{text(completion_policy.get('request_mode'))}`",
+        f"- **Closure record:** `{text(closure_data.get('closure_record_id'))}`",
+        f"- **Finalizer:** `{text(closure_data.get('finalizer_id'))}`",
+        f"- **Source changes expected:** `{text(completion_policy.get('source_edit_required'), 'not recorded')}`",
         "",
-        "| Path / location | Recorded status |",
-        "|---|---|",
+        "## Outcome",
+        "",
+        f"TailTrail recorded this run as **{overall_status}**. {len(requirements)} approved requirement(s) were evaluated from saved implementation and evidence records.",
     ]
-    for path in changed_paths or []:
-        value = path.get("path") if isinstance(path, dict) else path
-        lines.append(f"| `{cell(value)}` | recorded changed path |")
-    if not changed_paths:
-        lines.append("| unavailable | No changed-path evidence was recorded |")
+    for requirement in requirements:
+        if isinstance(requirement, dict):
+            lines.append(f"- **{text(requirement.get('display_id'), 'Requirement')}** — {text(requirement.get('status'))}: {text(requirement.get('statement'))}")
 
-    lines.extend(["", "## Requirement Verification", ""])
-    requirement_status = completion.get("requirement_status", {}) if isinstance(completion.get("requirement_status"), dict) else {}
-    lines.extend(["```json", json.dumps(requirement_status or {"status": "unavailable"}, indent=2, sort_keys=True), "```"])
-
-    lines.extend(["", "## Execution Timeline And Evidence", "", "| Kind | Command / action | Outcome | Exit code | Duration ms | Requirements | Tiers |", "|---|---|---|---|---|---|---|"])
-    for event in execution_events:
-        if not isinstance(event, dict):
+    lines.extend(["", "## Requirements and Verification", "", "| Requirement | Result | Asserted behavior | Evidence |", "|---|---|---|---|"])
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
             continue
+        evidence = evidence_for(requirement)
         lines.append(
-            f"| {cell(event.get('kind'))} | `{cell(event.get('command') or event.get('action'))}` "
-            f"| {cell(event.get('outcome'))} | {cell(event.get('exit_code'))} | {cell(event.get('duration_ms'))} "
-            f"| {cell(event.get('requirement_uids'))} | {cell(event.get('tiers') or event.get('tier'))} |"
+            f"| `{text(requirement.get('display_id'))}` | {text(requirement.get('verification_status') or requirement.get('status'))} | "
+            f"{text(evidence.get('asserted_behavior'), 'No asserted behavior was recorded.')} | `{text(evidence.get('artifact'), 'No proof artifact was recorded.')}` |"
         )
-    if not execution_events:
-        lines.append("| unavailable | unavailable | unavailable | unavailable | unavailable | unavailable | unavailable |")
+    if not requirements:
+        lines.append("| unavailable | No requirement verification was recorded. | unavailable | unavailable |")
 
-    lines.extend(["", "## Tests, Harnesses, Health, Drift, And Failures", ""])
-    health = {
-        "tests": completion.get("tests", {}),
-        "assessments": closure_data.get("assessments", {}),
-        "higher_tier_evidence": closure_data.get("higher_tier_evidence", {}),
-        "drift": completion.get("drift", {}),
-        "architecture": completion.get("architecture", {}),
-        "behaviour": completion.get("behaviour", {}),
-        "maintainability": completion.get("maintainability", {}),
-        "security": completion.get("security", {}),
-        "execution_failures": completion.get("execution_failures", {}),
-        "correction": closure_data.get("correction"),
-        "pipeline": closure_data.get("pipeline", {}),
-    }
-    lines.extend(["```json", json.dumps(health, indent=2, sort_keys=True), "```"])
+    lines.extend(["", "## Testing Performed", "", "| Command or action | Result | Tiers | Evidence quality | Receipt |", "|---|---|---|---|---|"])
+    proof_events = 0
+    for event in execution_events:
+        if not isinstance(event, dict) or event.get("kind") not in {"command-result", "ci-receipt"}:
+            continue
+        proof_events += 1
+        lines.append(
+            f"| `{text(event.get('command') or event.get('action'))}` | {text(event.get('outcome'))} | "
+            f"{text(event.get('tiers') or event.get('tier'))} | {text(event.get('evidence_quality'))} | `{text(event.get('artifact'))}` |"
+        )
+    if not proof_events:
+        lines.append("| No executable proof result was recorded. | unavailable | unavailable | unavailable | unavailable |")
 
-    lines.extend(["", "## Token Usage", ""])
-    lines.extend(["```json", json.dumps(token_usage or {"status": "unavailable"}, indent=2, sort_keys=True), "```"])
-    lines.append("Measured values are shown only when linked host/provider telemetry exists. Estimates retain their saved provenance; missing measurements remain unavailable.")
+    lines.extend(["", "## Code and Artifact Changes", "", "| Path or artifact | Recorded status |", "|---|---|"])
+    for path in changed_paths or []:
+        lines.append(f"| `{path_text(path)}` | recorded changed path |")
+    if not changed_paths:
+        lines.append("| No source edit | This run recorded no changed source path. |")
+    delivery_record = closure_data.get("delivery_record")
+    if delivery_record:
+        lines.append(f"| `{text(delivery_record)}` | generated delivery artifact |")
+    closure_report = session_reports.get("closure", {}) if isinstance(session_reports.get("closure"), dict) else {}
+    if closure_report.get("workspace_path"):
+        lines.append(f"| `{text(closure_report.get('workspace_path'))}` | human-readable closure report |")
 
-    lines.extend(["", command_registry_section(registry), "", "## TailTrail Lifecycle And Audit Events", ""])
-    lines.extend(["```json", json.dumps(closure_data.get("ledger_events", []), indent=2, sort_keys=True), "```"])
-    lines.extend(["", "## Complete Saved Closure Payload", "", "```json", json.dumps(closure_data, indent=2, sort_keys=True), "```", "", "---", "", "*End of full Closure execution record.*", ""])
+    measured = token_usage.get("status") == "measured"
+    lines.extend(["", "## Token and Context Usage", ""])
+    lines.append(f"- **Planned token estimate:** {text(token_usage.get('planning_estimate_tokens'), 'unavailable')} tokens.")
+    lines.append(
+        f"- **Measured host/provider usage:** {text(token_usage.get('actual_tailtrail_tokens'))} tokens."
+        if measured else "- **Measured host/provider usage:** unavailable; no linked host/provider telemetry was recorded."
+    )
+    context_estimate = token_usage.get("context_estimate", {}) if isinstance(token_usage.get("context_estimate"), dict) else {}
+    lines.append(f"- **Context estimate:** {text(context_estimate.get('estimated_tokens'), 'unavailable')} tokens (estimate, not consumed usage).")
+
+    lines.extend(["", "## Scope and Safeguards", ""])
+    lines.append(f"- **Approved changed scope:** `{text(changed_scope.get('status'))}`.")
+    lines.append(f"- **Canonical state:** `{text(canonical_state.get('status'))}`; **drift:** `{text(drift.get('status'))}`.")
+    lines.append(f"- **Execution authority:** `{text(execution_authority.get('status'))}` via `{text(execution_authority.get('route'))}`.")
+    start_report = session_reports.get("start", {}) if isinstance(session_reports.get("start"), dict) else {}
+    if start_report.get("workspace_path"):
+        lines.append(f"- Approved implementation-owner, inspection, proof-only, and excluded boundaries remain preserved in `{text(start_report.get('workspace_path'))}`.")
+
+    lines.extend(["", "## Out-of-Scope Findings Requiring Follow-Up", "", "No confirmed critical out-of-scope findings were recorded."])
+
+    guidance = completion.get("closure_guidance", {}) if isinstance(completion.get("closure_guidance"), dict) else {}
+    missing = guidance.get("missing", []) if isinstance(guidance.get("missing"), list) else []
+    lines.extend(["", "## Final Decision", ""])
+    if overall_status == "complete":
+        lines.append("The run is complete according to the saved canonical Completion Report.")
+    else:
+        lines.append(f"The run is **{overall_status}**. Complete the following recorded closure actions before treating it as delivered:")
+        for item in missing:
+            if isinstance(item, dict):
+                lines.append(f"- {text(item.get('artifact'))}: `{text(item.get('action'))}`")
+        if not missing:
+            lines.append("- No further action was recorded; inspect the linked technical evidence before retrying closure.")
+
+    lines.extend(["", "## Technical Evidence", ""])
+    technical_artifacts: set[str] = set()
+    for artifact in (completion.get("run_artifact"), closure_data.get("completion_report"), closure_record.get("checkpoint")):
+        if artifact and str(artifact) not in technical_artifacts:
+            technical_artifacts.add(str(artifact))
+            lines.append(f"- `{text(artifact)}`")
+    for artifact in closure_record.get("receipt_artifacts", []) if isinstance(closure_record.get("receipt_artifacts"), list) else []:
+        if artifact and str(artifact) not in technical_artifacts:
+            technical_artifacts.add(str(artifact))
+            lines.append(f"- `{text(artifact)}`")
+    lines.append("- The technical audit artifacts above retain canonical JSON; the main Closure Report intentionally does not inline that payload.")
+    lines.extend(["", "---", "", "*End of Closure Report.*", ""])
     return "\n".join(lines)
 
 

@@ -70,6 +70,13 @@ class ContractValidationTests(unittest.TestCase):
         self.assertEqual(result["state"], "contradicted")
         self.assertTrue(result["conflicts"])
 
+    def test_validation_only_with_owner_is_contradicted(self) -> None:
+        contract = _contract(request_mode="validation-only")
+        with tempfile.TemporaryDirectory() as temp:
+            result = HC.validate(contract, root=Path(temp), goal="g")
+        self.assertEqual(result["state"], "contradicted")
+        self.assertIn("validation-only contract carries implementation-owner paths", result["conflicts"])
+
     def test_same_path_both_authorities_is_contradicted(self) -> None:
         contract = _contract(paths=[
             {"path": "src/work.py", "role": "existing-implementation-owner"},
@@ -133,6 +140,13 @@ class ContractTaskTypeConsistencyTests(unittest.TestCase):
                                    host_contract_file=None, host_contract_base64=None)
             validated = start.resolve_host_contract(args, Path(temp), "goal")
         self.assertEqual(validated["request_mode"], "implementation")
+
+    def test_unrecognised_preplan_payload_fails_closed_without_a_key_error(self) -> None:
+        start = self._load_start()
+        rendered = start.render_markdown({"goal": "g", "type": "future-preplan-boundary"})
+        self.assertIn("# TailTrail Start Contract Violation", rendered)
+        self.assertIn("Planning Lock: not created", rendered)
+        self.assertIn("future-preplan-boundary", rendered)
 
 
 class ContractProofProjectionTests(unittest.TestCase):
@@ -208,7 +222,8 @@ class ContractProofProjectionTests(unittest.TestCase):
         contract = rows[0]["validation_contract"]
         self.assertIn("pytest tests/test_work.py", contract["commands"])
         self.assertTrue(any(
-            check["command"] == "pytest tests/test_work.py" and check["tiers"] == ["unit"]
+            contract["command_registry"][check["command_id"]]["command"] == "pytest tests/test_work.py"
+            and check["tiers"] == ["unit"]
             for check in contract["checks"]
         ))
 

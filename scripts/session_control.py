@@ -280,7 +280,10 @@ def stop(root: Path, run_id: str | None = None, context_key: str | None = None) 
     workflow_id = _workflow_id(root, selected)
     workflow = None; approvals_status = "none"; reservation_status = "not-held"
     if workflow_id:
-        workflow, approvals_status, reservation_status = _pause_workflow(root, workflow_id)
+        try:
+            workflow, approvals_status, reservation_status = _pause_workflow(root, workflow_id)
+        except Exception as error:  # keep stop-pending so a retry can finish the detach
+            return _stop_incomplete(pending, error)
     detached = _base_record(
         root, selected, "detached", "user-stop-complete", pending, context_key,
         workflow=workflow, approvals_status=approvals_status, reservation_status=reservation_status,
@@ -292,6 +295,20 @@ def stop(root: Path, run_id: str | None = None, context_key: str | None = None) 
         "temporary_approvals": approvals_status, "reservation_release": reservation_status,
     })
     return _stop_result(detached, idempotent=False)
+
+
+def _stop_incomplete(pending: dict[str, Any], error: Exception) -> dict[str, Any]:
+    run_id = str(pending.get("run_id"))
+    failure = f"{type(error).__name__}: {error}"
+    report = (
+        "# TailTrail Stop Incomplete\n\n"
+        f"- Run ID: `{run_id}`\n"
+        "- Attachment state: `stop-pending` (not detached)\n"
+        f"- Failure: `{failure}`\n"
+        "- TailTrail routing: not detached; retry before starting other work\n"
+        f"- Retry: `tailtrail stop --run-id {run_id}`\n"
+    )
+    return {"type": "tailtrail-stop-result", "state": "stop-pending", "run_id": run_id, "idempotent": False, "attachment": pending, "error": failure, "report": report, "boundary": BOUNDARY}
 
 
 def _render_no_run_stop() -> str:

@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import uuid
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,17 @@ _NEW_FILE_VERDICTS = frozenset({
     "new-confirmed", "extend-recommended", "collision-blocked", "unverified", "not-applicable",
 })
 _CORRECTION_PREMISES = frozenset({"accepted", "not-applicable"})
+_ANSWER_STATES = frozenset({"candidate", "accepted", "stale", "conflicting", "rejected"})
+_MAX_PERSISTED_EVENT_BYTES = 64 * 1024
+_STATE_SCHEMA_VERSION = "1"
+_RETENTION_POLICY = {
+    "schema_version": "1",
+    "type": "tailtrail-intake-retention-policy",
+    "raw_input": "never-persisted-after-redaction",
+    "state_records": "retained-with-the-intake-run-until-explicit-deletion",
+    "access": "local-run-bound",
+    "deletion": "delete_run removes the complete intake run and derived projections",
+}
 
 
 def _redact(value: Any, key: str | None = None) -> Any:
@@ -53,6 +65,23 @@ def _redact(value: Any, key: str | None = None) -> Any:
     if isinstance(value, str):
         return _SENSITIVE_VALUE.sub("[REDACTED]", value)
     return value
+
+
+def _serialized_size(value: Any) -> int:
+    try:
+        return len(_canonical(value).encode("utf-8"))
+    except (TypeError, ValueError) as error:
+        raise IntakeError("intake input must be JSON-serializable") from error
+
+
+def _contains_redaction(value: Any) -> bool:
+    if value == "[REDACTED]":
+        return True
+    if isinstance(value, dict):
+        return any(_contains_redaction(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_redaction(item) for item in value)
+    return False
 
 
 class IntakePipeline:
@@ -103,6 +132,10 @@ class IntakePipeline:
     def _projection_path(self, run_id: str) -> Path:
         return self._run_root(run_id) / "projection.json"
 
+    def _answer_state_path(self, run_id: str) -> Path:
+        """Keep a versioned, derived state projection beside the event stream."""
+        return self._run_root(run_id) / "answer-state-v1.json"
+
     def _packet_view_path(self, run_id: str, anchor_version: str) -> Path:
         """Return the immutable view location for one authoritative anchor."""
         return self._run_root(run_id) / "packet-views" / f"{anchor_version}.json"
@@ -152,6 +185,87 @@ class IntakePipeline:
         if status in {"expired", "abandoned", "paused"}:
             raise IntakeError(f"run {run_id} is {status}; explicit resume is required before execution")
 
+    def retention_policy(self) -> dict[str, Any]:
+        """Return the explicit local retention and access boundary for intake data."""
+        return dict(_RETENTION_POLICY)
+
+    def delete_run(self, run_id: str) -> None:
+        """Delete one complete local intake run, including derived state projections."""
+        run_root = self._run_root(run_id).resolve()
+        try:
+            run_root.relative_to(self.runs_root.resolve())
+        except ValueError as error:
+            raise IntakeError("intake deletion target escapes the intake root") from error
+        if not run_root.is_dir():
+            raise IntakeError(f"unknown intake run: {run_id}")
+        shutil.rmtree(run_root)
+
+    @staticmethod
+    def _answer_state_records(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Derive durable answer lifecycle records from the append-only stream.
+
+        This is a projection, not a second authority: every state transition is
+        traceable to one sanitized event in ``events.jsonl``.
+        """
+        questions = {
+            str(event.get("payload", {}).get("question_id", "")): event.get("payload", {})
+            for event in events if event.get("event_type") == "question-issued"
+        }
+        observations = {
+            str(event.get("payload", {}).get("observation_id", "")): event.get("payload", {})
+            for event in events if event.get("event_type") == "host-observation-recorded"
+        }
+        states: dict[str, dict[str, Any]] = {}
+        for event in events:
+            payload = event.get("payload", {})
+            if not isinstance(payload, dict):
+                continue
+            event_type = event.get("event_type")
+            if event_type == "answer-recorded":
+                answer_id = str(payload.get("answer_id", ""))
+                if not answer_id:
+                    continue
+                question_id = payload.get("question_id")
+                observation_id = payload.get("observation_id")
+                source_evidence = {
+                    "source": payload.get("source"),
+                    "question": questions.get(str(question_id or "")),
+                    "observation": observations.get(str(observation_id or "")),
+                }
+                states[answer_id] = {
+                    "schema_version": _STATE_SCHEMA_VERSION,
+                    "type": "tailtrail-intake-answer-state",
+                    "answer_id": answer_id,
+                    "field_id": payload.get("field_id"),
+                    "state": "candidate",
+                    "source": payload.get("source"),
+                    "question_id": question_id,
+                    "observation_id": observation_id,
+                    "source_evidence_fingerprint": _content_fingerprint(source_evidence),
+                    "state_history": [{"state": "candidate", "event_id": event.get("event_id")}],
+                    "authority_granted": False,
+                    "finalization_allowed": False,
+                }
+                continue
+            if event_type not in {"answer-accepted", "answer-rejected"}:
+                continue
+            answer_id = str(payload.get("answer_id", ""))
+            record = states.get(answer_id)
+            if record is None:
+                continue
+            state = "accepted" if event_type == "answer-accepted" else str(payload.get("state", "rejected"))
+            if state not in _ANSWER_STATES:
+                raise IntakeError(f"invalid persisted answer state `{state}`")
+            record["state"] = state
+            record["state_history"].append({"state": state, "event_id": event.get("event_id")})
+            record["authority_granted"] = False
+            record["finalization_allowed"] = False
+            if state == "accepted":
+                record["acceptance_evidence_fingerprint"] = str(payload.get("evidence_fingerprint", ""))
+            elif payload.get("reason"):
+                record["reason"] = str(payload["reason"])
+        return [states[key] for key in sorted(states)]
+
     def replay(self, run_id: str) -> dict[str, Any]:
         """Replay events into a deterministic, redacted packet projection."""
         contract = self.load_contract(run_id)
@@ -181,6 +295,14 @@ class IntakePipeline:
             elif event_type == "answer-recorded":
                 projection["answers"].append(_redact(event["payload"]))
 
+        answer_states = self._answer_state_records(events)
+        _write_json(self._answer_state_path(run_id), {
+            "schema_version": _STATE_SCHEMA_VERSION,
+            "type": "tailtrail-intake-answer-state-projection",
+            "run_id": run_id,
+            "retention": self.retention_policy(),
+            "answers": answer_states,
+        })
         packet_view = _redact({
             "contract": {key: value for key, value in contract.items() if key != "fingerprint"},
             "events": projection,
@@ -194,6 +316,7 @@ class IntakePipeline:
             "packet_view_fingerprint": _content_fingerprint(packet_view),
             "event_count": len(events),
             "lifecycle": self._lifecycle(run_id),
+            "answer_states": answer_states,
         }
         _write_json(self._projection_path(run_id), result)
         return result
@@ -259,7 +382,13 @@ class IntakePipeline:
             str(event.get("payload", {}).get("answer_id"))
             for event in events
             if event.get("event_type") == "answer-accepted"
-            and event.get("payload", {}).get("evidence") == {"outcome": "accepted", "verified_by": "navigator"}
+            and event.get("payload", {}).get("evidence", {}).get("outcome") == "accepted"
+            and event.get("payload", {}).get("evidence", {}).get("verified_by") == "navigator"
+        }
+        answer_states = {
+            str(record.get("answer_id")): record
+            for record in replay.get("answer_states", [])
+            if isinstance(record, dict)
         }
 
         accepted_ids: list[str] = []
@@ -273,6 +402,8 @@ class IntakePipeline:
                 raise IntakeError("accepted answers must contain unique recorded answer IDs")
             if answer_id not in accepted_by_navigator:
                 raise IntakeError(f"accepted answer `{answer_id}` has no Navigator-validated acceptance event")
+            if answer_states.get(answer_id, {}).get("state") != "accepted":
+                raise IntakeError(f"accepted answer `{answer_id}` is stale, conflicting, or rejected")
             answer = answers.get(answer_id)
             if not isinstance(answer, dict):
                 raise IntakeError(f"accepted answer `{answer_id}` is missing from the integrity-checked intake stream")
@@ -721,7 +852,7 @@ class IntakePipeline:
             raise IntakeError("answer acceptance requires Navigator-validated evidence")
         contract = self.load_contract(run_id)
         self._check_packet_version(contract, packet_version)
-        self.replay(run_id)
+        replay = self.replay(run_id)
         events_path = self._run_root(run_id) / "events.jsonl"
         answer_exists = any(
             event.get("event_type") == "answer-recorded"
@@ -734,11 +865,66 @@ class IntakePipeline:
         )
         if not answer_exists:
             raise IntakeError(f"answer `{answer_id}` is missing from the integrity-checked intake stream")
+        state_by_id = {str(record["answer_id"]): record for record in replay["answer_states"]}
+        state = state_by_id.get(answer_id)
+        if state is None or state.get("state") != "candidate":
+            raise IntakeError(f"answer `{answer_id}` is not an eligible candidate for acceptance")
+        events = [
+            json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines() if line.strip()
+        ]
+        answer = next(
+            event["payload"] for event in events
+            if event.get("event_type") == "answer-recorded" and event.get("payload", {}).get("answer_id") == answer_id
+        )
+        if _contains_redaction(answer.get("value")) or _redact(evidence) != evidence:
+            raise IntakeError("secret-bearing or redacted input cannot become an accepted answer")
+        if _serialized_size(evidence) > _MAX_PERSISTED_EVENT_BYTES:
+            raise IntakeError("acceptance evidence exceeds the intake size limit")
         return self._append_event(
             contract,
             "answer-accepted",
-            {"answer_id": answer_id, "evidence": {"outcome": "accepted", "verified_by": "navigator"}},
+            {
+                "answer_id": answer_id,
+                "evidence": {"outcome": "accepted", "verified_by": "navigator"},
+                "evidence_fingerprint": _content_fingerprint(_redact(evidence)),
+            },
             idempotency_key=idempotency_key,
+        )
+
+    def mark_answer_stale(self, run_id: str, answer_id: str, source_evidence_fingerprint: str) -> dict[str, Any]:
+        """Invalidate one answer when its bound source evidence changes."""
+        return self._record_answer_state(
+            run_id, answer_id, "stale", "source-evidence-fingerprint-changed",
+            source_evidence_fingerprint=source_evidence_fingerprint,
+        )
+
+    def mark_answer_conflicting(self, run_id: str, answer_id: str, reason: str) -> dict[str, Any]:
+        """Record a Navigator-detected conflict without treating host prose as authority."""
+        return self._record_answer_state(run_id, answer_id, "conflicting", reason)
+
+    def _record_answer_state(
+        self,
+        run_id: str,
+        answer_id: str,
+        state: str,
+        reason: str,
+        *,
+        source_evidence_fingerprint: str | None = None,
+    ) -> dict[str, Any]:
+        if state not in {"stale", "conflicting", "rejected"}:
+            raise IntakeError("only non-authoritative terminal answer states may be recorded")
+        contract = self.load_contract(run_id)
+        replay = self.replay(run_id)
+        states = {str(record["answer_id"]): record for record in replay["answer_states"]}
+        record = states.get(answer_id)
+        if record is None:
+            raise IntakeError(f"answer `{answer_id}` is missing from the integrity-checked intake stream")
+        if source_evidence_fingerprint is not None and record.get("source_evidence_fingerprint") != source_evidence_fingerprint:
+            raise IntakeError("source evidence fingerprint does not match the answer lineage")
+        return self._append_event(
+            contract,
+            "answer-rejected",
+            {"answer_id": answer_id, "state": state, "reason": reason},
         )
 
     def _idempotency_index_path(self, run_id: str) -> Path:
@@ -765,9 +951,14 @@ class IntakePipeline:
         run_id = str(contract["run_id"])
         run_root = self.runs_root / run_id
         events_path = run_root / "events.jsonl"
-        stable_payload = payload
+        if _serialized_size(payload) > _MAX_PERSISTED_EVENT_BYTES:
+            raise IntakeError("intake event exceeds the configured size limit")
+        safe_payload = _redact(payload)
+        if _serialized_size(safe_payload) > _MAX_PERSISTED_EVENT_BYTES:
+            raise IntakeError("redacted intake event exceeds the configured size limit")
+        stable_payload = safe_payload
         if primary_id_key is not None:
-            stable_payload = {key: value for key, value in payload.items() if key != primary_id_key}
+            stable_payload = {key: value for key, value in safe_payload.items() if key != primary_id_key}
         content_fingerprint = _content_fingerprint({"event_type": event_type, "payload": stable_payload})
 
         if idempotency_key:
@@ -794,7 +985,7 @@ class IntakePipeline:
             "packet_version": contract["packet_version"],
             "sequence": sequence,
             "event_type": event_type,
-            "payload": payload,
+            "payload": safe_payload,
         }
         events_path.parent.mkdir(parents=True, exist_ok=True)
         with events_path.open("a", encoding="utf-8") as handle:

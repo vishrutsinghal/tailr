@@ -35,6 +35,7 @@ REVIEW = load("closure_recorder_review", "completion-review.py")
 GATE = load("closure_recorder_gate", "requirement-completion.py")
 EVIDENCE = load("closure_recorder_evidence", "execution-evidence.py")
 ANCHOR = load("closure_recorder_anchor", "change-intent-anchor.py")
+POLICY = load("closure_recorder_policy", "completion-policy.py")
 
 
 def canonical(payload: dict[str, Any]) -> str:
@@ -274,7 +275,13 @@ def record(root: Path, input_path: Path | None = None, run_id: str | None = None
     record_path = records / f"{record_id}.json"
     if record_path.is_file():
         saved = json.loads(record_path.read_text(encoding="utf-8"))
-        return {**saved, "reused": True}
+        current_policy = POLICY.evaluate(root, run_id, validated["changed_paths"])
+        if saved.get("completion_policy") == current_policy:
+            return {**saved, "reused": True}
+        refreshed = {**saved, "completion_policy": current_policy}
+        L.atomic_json(record_path, refreshed)
+        L.append_event(root, run_id, "closure_policy_refreshed", {"record_id": record_id, "artifact": record_path.relative_to(root).as_posix(), "policy_status": current_policy.get("status")})
+        return {**refreshed, "reused": True, "policy_refreshed": True}
 
     normalized_receipts = receipt_rows(validated, record_id)
     amendment_path = L.state_dir(root, run_id) / "execution" / "proof-amendments.jsonl"
@@ -302,6 +309,7 @@ def record(root: Path, input_path: Path | None = None, run_id: str | None = None
     checkpoint = CHECKPOINT.checkpoint(root, run_id, validated["changed_paths"], results_path)
     review = REVIEW.review(root, run_id)
     gate = GATE.gate(root, run_id, receipts_path)
+    completion_policy = POLICY.evaluate(root, run_id, validated["changed_paths"])
     selected = selected_harnesses(root, run_id)
     outstanding = [name for name in selected if name in {"Architecture Fitness Harness", "Behaviour Harness", "Maintainability Harness"}]
     next_action = ("Run the selected harness assessments: " + ", ".join(outstanding) + "; then run tailtrail completion-report." if outstanding else "Run tailtrail completion-report for this run.")
@@ -310,6 +318,7 @@ def record(root: Path, input_path: Path | None = None, run_id: str | None = None
         "validated_input": artifact_pointer(root, input_path) if input_path else "execution/evidence-stream.jsonl", "changed_paths": validated["changed_paths"],
         "receipt_artifacts": receipt_artifacts, "checkpoint": checkpoint["path"], "completion_review": review,
         "completion_gate": gate, "selected_harnesses": selected, "next_action": next_action,
+        "completion_policy": completion_policy,
         "proof_amendment_artifact": amendment_artifact,
         "boundary": "Recorded validated evidence. Managed-command receipts were executed and captured by TailTrail; declared host receipts remain explicitly unverified.",
     }

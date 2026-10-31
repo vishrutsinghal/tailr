@@ -89,6 +89,25 @@ class TailTrailStopResumeTests(unittest.TestCase):
         self.assertEqual(resumed["result"]["state"], "resumed-awaiting-approval")
         self.assertFalse(resumed["execution"]["execution_advanced"])
 
+    def test_pause_failure_returns_typed_stop_pending_report_and_nonzero_exit(self) -> None:
+        from unittest import mock
+        cli = load("tailtrail_stop_cli_main_test", "session-control.py")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp); LOCK.create(root, "keep the plan", "pause-fail-run"); SESSION.attach(root, "pause-fail-run")
+            with mock.patch.object(SESSION, "_workflow_id", return_value="wf-pause-fail"), \
+                 mock.patch.object(SESSION, "_pause_workflow", side_effect=RuntimeError("injected pause failure")):
+                result = SESSION.stop(root, "pause-fail-run")
+                attachment = SESSION.read(root, None)
+                with mock.patch.object(cli.session_control, "_workflow_id", return_value="wf-pause-fail"), \
+                     mock.patch.object(cli.session_control, "_pause_workflow", side_effect=RuntimeError("injected pause failure")), \
+                     mock.patch.object(sys, "argv", ["session-control.py", "stop", "--root", str(root), "--run-id", "pause-fail-run"]):
+                    exit_code = cli.main()
+        self.assertEqual(result["state"], "stop-pending")
+        self.assertIn("# TailTrail Stop Incomplete", result["report"])
+        self.assertIn("RuntimeError: injected pause failure", result["report"])
+        self.assertEqual(attachment["state"], "stop-pending")
+        self.assertEqual(exit_code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

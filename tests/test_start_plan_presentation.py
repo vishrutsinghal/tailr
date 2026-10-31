@@ -12,6 +12,9 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if SCRIPTS.as_posix() not in sys.path:
+    sys.path.insert(0, SCRIPTS.as_posix())
 
 
 def load(name: str, relative: str):
@@ -27,6 +30,7 @@ verbose = load("start_plan_presentation_verbose", "scripts/verbose-reporting.py"
 lock = load("start_plan_presentation_lock", "scripts/planning_lock.py")
 ledger = load("start_plan_presentation_ledger", "scripts/run-ledger.py")
 audit = load("start_plan_presentation_audit", "scripts/planning-audit.py")
+task_start = load("start_plan_presentation_task_start", "scripts/task-start.py")
 
 
 def sample_report() -> dict[str, object]:
@@ -61,6 +65,101 @@ def sample_report() -> dict[str, object]:
 
 
 class StartPlanPresentationTests(unittest.TestCase):
+    def test_public_plan_renders_validation_only_scope_without_implementation_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "run-validation-only"
+            report = sample_report()
+            requirement = report["navigator"]["requirement_matrix"][0]  # type: ignore[index]
+            # A heuristic path may remain for discovery, but explicit scope
+            # authority says this validation-only plan has no editable owner.
+            requirement["likely_paths"] = ["scripts/heuristic-candidate.py"]
+            requirement["scope_evidence"] = {
+                "implementation_owners": [],
+                "inspection_paths": ["scripts/source.py"],
+                "proof_paths": [],
+            }
+            requirement["validation_contract"] = {
+                "state": "required",
+                "tiers": ["unit"],
+                "commands": ["python3 -m unittest tests.test_presenter"],
+                # A planning revision records proof-only authority here.
+                "editable_paths": ["tests/test_presenter.py"],
+            }
+            report["host_input_contract"] = {"request_mode": "validation-only"}
+            lock.create(root, str(report["goal"]), run_id)
+            ledger.atomic_json(lock.start_report_path(root, run_id), {"report": report})
+            ledger.append_event(
+                root, run_id, "planning_audit_completed",
+                {"status": "clean", "finding_count": 0},
+            )
+
+            rendered = lock.render_start_plan(root, run_id)
+
+        self.assertIn("**Request mode:** `validation-only`", rendered)
+        self.assertIn("**Editable owner(s):** not applicable (`validation-only`; no implementation authority).", rendered)
+        self.assertIn("**Proof path(s):** `tests/test_presenter.py`", rendered)
+        self.assertIn("**Read-only / proof-only scope:** `scripts/source.py`, `tests/test_presenter.py`", rendered)
+        self.assertIn("No implementation owner is declared for this `validation-only` plan", rendered)
+        self.assertIn("**READY FOR APPROVAL**", rendered)
+
+    def test_implementation_plan_still_blocks_without_an_owner(self) -> None:
+        report = sample_report()
+        requirement = report["navigator"]["requirement_matrix"][0]  # type: ignore[index]
+        requirement["likely_paths"] = []
+        requirement["scope_evidence"]["implementation_owners"] = []
+        rendered = verbose.generate_start_plan_normal(
+            "run-implementation-owner-gate",
+            report["navigator"]["requirement_matrix"],  # type: ignore[index]
+            {},
+            str(report["goal"]),
+            plan_data={
+                "report": report,
+                "planning_lock": {"status": "awaiting-approval"},
+                "planning_events": [{"event_type": "planning_audit_completed", "payload": {"status": "clean"}}],
+            },
+        )
+
+        self.assertIn("**NOT READY FOR APPROVAL**", rendered)
+        self.assertIn("implementation ownership", rendered)
+
+    def test_normal_plan_renders_bound_inputs_without_granting_scope_authority(self) -> None:
+        report = sample_report()
+        report["input_roles"] = {
+            "inputs": [
+                {"input_id": "IN-01", "role": "target", "locator": "/repo", "access": "read-write", "status": "verified"},
+                {
+                    "input_id": "IN-02", "role": "design-reference",
+                    "locator": "/repo/design.md", "access": "read-only",
+                    "status": "verified-unread",
+                },
+                {
+                    "input_id": "IN-03", "role": "requirement-artifact",
+                    "locator": "/repo/requirements.md", "access": "read-only",
+                    "status": "inspected", "sha256": "abc123",
+                },
+            ],
+        }
+        rendered = verbose.generate_start_plan_normal(
+            "run-bound-inputs",
+            report["navigator"]["requirement_matrix"],  # type: ignore[index]
+            {},
+            str(report["goal"]),
+            plan_data={
+                "report": report,
+                "planning_lock": {"status": "awaiting-approval"},
+                "planning_events": [{"event_type": "planning_audit_completed", "payload": {"status": "clean"}}],
+            },
+        )
+
+        self.assertIn("## Bound Planning Inputs", rendered)
+        self.assertIn("`/repo/design.md`", rendered)
+        self.assertIn("`/repo/requirements.md`", rendered)
+        self.assertIn("`abc123`", rendered)
+        self.assertIn("`not hash-bound`", rendered)
+        self.assertIn("never grant editable implementation scope", rendered)
+        self.assertIn("**Editable scope:** `scripts/presenter.py`.", rendered)
+
     def test_multi_requirement_host_proof_is_retained_as_unbound_context(self) -> None:
         scripts_path = str(ROOT / "scripts")
         if scripts_path not in sys.path:
@@ -80,6 +179,8 @@ class StartPlanPresentationTests(unittest.TestCase):
         ]
         plan = {
             "host_declared_scope_roles": {
+                # This proposed owner must never become editable scope merely
+                # because it appeared in a validated host contract.
                 "implementation_owners": ["scripts/unverified-owner.py"],
                 "inspection_paths": ["scripts/read-only-input.py"],
                 "proof_paths": ["tests/test_host_context.py"],
@@ -116,6 +217,41 @@ class StartPlanPresentationTests(unittest.TestCase):
         self.assertIn("Global host proof context", rendered)
         self.assertIn("unbound context; not executable requirement proof", rendered)
         self.assertIn("python3 -m unittest tests.test_host_context", rendered)
+
+    def test_verbose_start_plan_resolves_command_id_through_report_registry(self) -> None:
+        goal = "Fix Start Plan command rendering."
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "task-start.py").write_text(
+                "def render_start_plan():\n    return None\n",
+                encoding="utf-8",
+            )
+            report = task_start.build_report(
+                goal,
+                root,
+                ["scripts/task-start.py"],
+                "tailtrail",
+                aidlc_mode="lite",
+                requirement_interpretation=task_start.requirement_discovery.interpretation(goal),
+            )
+
+        command = "python3 -m unittest tests.test_start_plan_presentation"
+        report["focused_validation"] = [{
+            "requirement_id": "REQ-01",
+            "tier": "unit",
+            "candidate": "tests/test_start_plan_presentation.py",
+            "candidate_state": "existing",
+            "command_id": "cmd-projected",
+            "status": "planned after approval",
+        }]
+        report["command_registry"] = {
+            "cmd-projected": {"command": command, "kind": "proof"}
+        }
+
+        rendered = task_start.render_markdown(report, verbose=True)
+
+        self.assertIn(command, rendered)
 
     def test_verbose_without_aidlc_is_structured_markdown_not_json(self) -> None:
         report = sample_report()

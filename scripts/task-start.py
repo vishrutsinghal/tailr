@@ -2039,56 +2039,99 @@ def likely_used_files(plan: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(files))
 
 
-def behavior_preflight(root: Path, goal: str, owner_paths: list[str], proof_paths: list[str]) -> dict[str, Any]:
-    """Read-only call-site preflight to prevent plans for already-satisfied work."""
-    lowered_goal = goal.lower()
-    change_claim = any(token in lowered_goal for token in ("wire", "integrat", "complete", "remaining", "connect"))
-    named_paths = [
-        token.strip(".,;:()'\"")
-        for token in re.findall(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+", goal)
-    ]
-    dependencies = [path for path in named_paths if path not in owner_paths and path not in proof_paths]
-    owner_evidence: list[str] = []
-    proof_evidence: list[str] = []
-    owner_text = ""
-    for path in owner_paths:
+def _semantic_delta_evidence(root: Path, paths: list[str]) -> list[dict[str, str]]:
+    """Return fresh, source-free evidence references for a semantic-delta row."""
+    evidence: list[dict[str, str]] = []
+    for path in sorted(set(paths)):
         target = root / path
         if not target.is_file():
             continue
         try:
-            owner_text += "\n" + target.read_text(encoding="utf-8")
-            owner_evidence.append(path)
+            content = target.read_bytes()
         except OSError:
             continue
-    for path in proof_paths:
-        target = root / path
-        if not target.is_file():
-            continue
-        try:
-            proof_text = target.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        if any(token in proof_text for token in ("issue_question", "record_answer", "NavigatorIntake", "record_narration")):
-            proof_evidence.append(path)
-    dependency_matches = [
-        path for path in dependencies
-        if Path(path).stem.lower() in owner_text.lower()
-        or Path(path).stem.lower().replace("_", "") in owner_text.lower().replace("_", "")
-    ]
-    if change_claim and owner_evidence and dependency_matches and proof_evidence:
-        state = "already-satisfied"
-    elif owner_evidence and dependencies and not dependency_matches:
-        state = "missing"
-    else:
-        state = "ambiguous"
+        evidence.append({
+            "path": path,
+            "content_fingerprint": "sha256:" + hashlib.sha256(content).hexdigest(),
+        })
+    return evidence
+
+
+def semantic_delta_preflight(
+    root: Path,
+    requirements: list[dict[str, Any]],
+    owner_paths: list[str],
+    proof_paths: list[str],
+    *,
+    trusted_observations: dict[str, dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    """Build a typed, evidence-bounded semantic delta without inferring runtime behavior.
+
+    Static source and proof inspection can establish fresh paths and missing
+    files, but cannot establish that a runtime behavior is present.  A
+    ``satisfied`` result therefore requires a caller-supplied trusted
+    observation bound to the exact requirement and expected assertion.
+    """
+    owner_evidence = _semantic_delta_evidence(root, owner_paths)
+    proof_evidence = _semantic_delta_evidence(root, proof_paths)
+    observations = trusted_observations or {}
+    rows: list[dict[str, Any]] = []
+    for index, requirement in enumerate(requirements, start=1):
+        requirement_id = str(requirement.get("display_id") or requirement.get("requirement_uid") or f"REQ-{index:02d}")
+        requested = str(requirement.get("statement") or "").strip()
+        observation = observations.get(requirement_id, {})
+        observed = str(observation.get("observed_assertion") or "").strip()
+        trusted = (
+            observation.get("evidence_kind") == "trusted-behavior"
+            and observation.get("expected_assertion") == requested
+            and bool(observed)
+        )
+        if not owner_evidence:
+            state, reason = "missing", "no-readable-owner-evidence"
+        elif trusted and observed == requested:
+            state, reason = "satisfied", "trusted-observation-matches-requested-assertion"
+        elif trusted:
+            state, reason = "partial", "trusted-observation-shows-a-different-current-assertion"
+        else:
+            state, reason = "unknown", "static-evidence-cannot-prove-runtime-behavior"
+        rows.append({
+            "requirement_id": requirement_id,
+            "requested_assertion": requested,
+            "current_observed_assertion": observed or None,
+            "expected_assertion": requested,
+            "pre_change_scenario": (
+                "Run a behavior-specific proof at the named boundary before "
+                "accepting a runtime semantic conclusion."
+            ),
+            "state": state,
+            "reason": reason,
+            "evidence": [*owner_evidence, *proof_evidence],
+            "boundary": "Static path, fingerprint, and proof-file inspection is not runtime behavior evidence.",
+        })
     return {
-        "state": state,
-        "method": "bounded-static-call-site-and-proof-symbol-check",
-        "owner_paths": owner_evidence,
-        "dependency_paths": dependencies,
-        "dependency_matches": dependency_matches,
-        "proof_paths": proof_evidence,
-        "boundary": "Read-only local source and proof-path inspection; no project execution or authority granted.",
+        "schema_version": "1",
+        "type": "tailtrail-semantic-delta",
+        "requirements": rows,
+        "boundary": "Only trusted behavior observations may produce satisfied or partial runtime conclusions.",
+    }
+
+
+def behavior_preflight(root: Path, goal: str, owner_paths: list[str], proof_paths: list[str]) -> dict[str, Any]:
+    """Compatibility projection of the semantic-delta preflight for older audits."""
+    delta = semantic_delta_preflight(
+        root,
+        [{"display_id": "REQ-01", "statement": goal}],
+        owner_paths,
+        proof_paths,
+    )
+    row = delta["requirements"][0]
+    return {
+        "state": "already-satisfied" if row["state"] == "satisfied" else "missing" if row["state"] == "missing" else "ambiguous",
+        "method": "typed-semantic-delta-preflight",
+        "owner_paths": [item["path"] for item in _semantic_delta_evidence(root, owner_paths)],
+        "proof_paths": [item["path"] for item in _semantic_delta_evidence(root, proof_paths)],
+        "semantic_delta": row,
+        "boundary": "Read-only local source inspection cannot infer runtime behavior or authority.",
     }
 
 
@@ -3226,7 +3269,6 @@ def build_report(
         str(item.get("path")) for item in plan.get("likely_impacted_files", [])
         if isinstance(item, dict) and str(item.get("path", "")).startswith("tests/")
     ]
-    plan["behavior_check"] = behavior_preflight(root, goal, changed or initial_paths[:1], proof_candidates)
     plan.setdefault("requirement_interpretation", resolved_requirement_interpretation)
     if not plan.get("revision_requirement_matrix"):
         plan["requirement_matrix"] = requirement_discovery.matrix(
@@ -3245,6 +3287,16 @@ def build_report(
         plan.get("requirement_matrix", []),
         canonical_requirements,
     )
+    semantic_delta = semantic_delta_preflight(
+        root,
+        [row for row in plan.get("requirement_matrix", []) if isinstance(row, dict)],
+        changed or initial_paths[:1],
+        proof_candidates,
+    )
+    plan["semantic_delta"] = semantic_delta
+    plan["behavior_check"] = behavior_preflight(root, goal, changed or initial_paths[:1], proof_candidates)
+    if len(semantic_delta["requirements"]) == 1:
+        plan["behavior_check"]["semantic_delta"] = semantic_delta["requirements"][0]
     delivery = guided_delivery(plan, goal, changed, root, run_id)
     proof_boundary = host_proof_boundary(host_contract)
     
@@ -3938,6 +3990,24 @@ def coalesce_focused_validation_rows(rows: list[dict[str, Any]]) -> list[dict[st
         else:
             existing["status"] = "one existing proof covers " + " and ".join(existing["tiers"])
     return grouped
+
+
+def focused_validation_display_command(
+    row: dict[str, Any], command_registry: dict[str, Any] | None,
+) -> str:
+    """Resolve a focused-validation command for every saved report shape.
+
+    Start-time rows can carry a command directly. Revision projections instead
+    retain the compact ``command_id`` reference, whose executable text lives
+    in the report-level registry. Presentation must support both shapes: a
+    pending revision is still the authoritative plan under review.
+    """
+    command = str(row.get("command", "")).strip()
+    if command:
+        return command
+    command_id = str(row.get("command_id", "")).strip()
+    entry = command_registry.get(command_id, {}) if command_id and isinstance(command_registry, dict) else {}
+    return str(entry.get("command", "")).strip() if isinstance(entry, dict) else ""
 
 
 def _declared_test_items(root: Path, changed: Iterable[str]) -> list[dict[str, Any]]:
@@ -5147,7 +5217,8 @@ def compact_start_report(report: dict[str, Any]) -> str:
     lines.extend(["", "## Validation", "", "### Focused validation", ""])
     validation_records = []
     for item in validation_rows:
-        detail = f"`{item['command']}`" if item["command"] else item["status"]
+        command = focused_validation_display_command(item, report.get("command_registry"))
+        detail = f"`{command}`" if command else item["status"]
         validation_records.append((display_prose(item["tier"]), [("Candidate", f"`{item['candidate']}` ({item.get('candidate_state', 'unknown')})"), ("Status / command", detail)]))
     append_stacked_records(lines, validation_records)
     token = report["token_posture"]
@@ -5226,7 +5297,8 @@ def quick_start_report(report: dict[str, Any]) -> str:
     lines.extend(["", "## Focused validation", ""])
     validation_rows = report.get("focused_validation") or focused_validation_plan(root, impacted, requirements, str(report["command_prefix"]))
     for row in validation_rows:
-        proof = f"`{row['command']}`" if row["command"] else row["status"]
+        command = focused_validation_display_command(row, report.get("command_registry"))
+        proof = f"`{command}`" if command else row["status"]
         lines.append(f"- **{row['tier']}:** {proof}")
     lines.extend([
         "- No validation has run during Planning Lock.",
@@ -5397,6 +5469,67 @@ def host_contract_boundary_report(
             "or implementation authority was created."
         ),
     }
+
+
+def render_host_contract_boundary_report(report: dict[str, Any]) -> str:
+    """Render a rejected host contract without assuming a Navigator plan.
+
+    Host-contract validation is deliberately earlier than Navigator scope
+    discovery. Its boundary payload therefore has no ``navigator`` section
+    and must never fall through to the normal Start-plan renderer.
+    """
+    lines = [
+        "# TailTrail Host Input Contract Required",
+        "",
+        f"**Goal:** {display_prose(report.get('goal', ''))}",
+        "",
+        "## State",
+        "",
+        f"- Status: `{display_prose(report.get('contract_state', 'insufficient'))}`.",
+        "- Planning Lock: not created.",
+        "",
+        "## Required host action",
+        "",
+    ]
+    open_fields = [str(item) for item in report.get("open_fields", []) if str(item)]
+    conflicts = [str(item) for item in report.get("conflicts", []) if str(item)]
+    if open_fields:
+        lines.append("- Complete: " + ", ".join(f"`{item}`" for item in open_fields) + ".")
+    if conflicts:
+        lines.append("- Resolve: " + "; ".join(conflicts) + ".")
+    if not open_fields and not conflicts:
+        lines.append("- Resubmit a complete, internally consistent host contract.")
+    lines.extend([
+        "- Resubmit the same Start request only after those contract fields are corrected.",
+        "",
+        "## Boundary",
+        "",
+        f"- {display_prose(report.get('boundary', 'No Planning Lock or implementation authority was created.'))}",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def render_preplan_contract_violation_report(report: dict[str, Any]) -> str:
+    """Fail closed if an unrecognised pre-plan payload reaches presentation."""
+    payload_type = display_prose(report.get("type", "unrecognised"))
+    return "\n".join([
+        "# TailTrail Start Contract Violation",
+        "",
+        "## State",
+        "",
+        "- Status: `pre-plan-payload-invalid`.",
+        "- Planning Lock: not created.",
+        f"- Received payload type: `{payload_type}`.",
+        "",
+        "## Required action",
+        "",
+        "- Correct the earlier Start-stage contract or add its explicit boundary renderer, then resubmit the same Start request.",
+        "",
+        "## Boundary",
+        "",
+        "- TailTrail did not create scope, a Planning Lock, workflow state, or implementation authority from an incomplete pre-plan payload.",
+        "",
+    ])
 
 
 def resolve_host_contract(args: Any, root: Path, goal: str) -> dict[str, Any] | None:
@@ -6201,7 +6334,8 @@ def verbose_start_report(
     )
     validation_records = []
     for item in validation_rows:
-        detail = f"`{item['command']}`" if item["command"] else item["status"]
+        command = focused_validation_display_command(item, report.get("command_registry"))
+        detail = f"`{command}`" if command else item["status"]
         validation_records.append((
             display_prose(item["tier"]),
             [
@@ -6320,6 +6454,8 @@ def render_markdown(report: dict[str, Any], verbose: bool = False, presentation_
         return annotate_presentation(render_requirement_artifact_boundary_report(report), policy)
     if report.get("host_requirement_interpretation_boundary"):
         return annotate_presentation(render_host_requirement_interpretation_boundary_report(report), policy)
+    if report.get("host_contract_boundary"):
+        return annotate_presentation(render_host_contract_boundary_report(report), policy)
     if report.get("debug_diagnosis_boundary"):
         return annotate_presentation(render_debug_diagnosis_boundary_report(report), policy)
     if report.get("scope_investigation_boundary"):
@@ -6345,7 +6481,9 @@ def render_markdown(report: dict[str, Any], verbose: bool = False, presentation_
             else debug_start_report(report, verbose=level in {"expert", "full"})
         )
         return annotate_presentation(rendered, policy)
-    plan = report["navigator"]
+    plan = report.get("navigator") if isinstance(report.get("navigator"), dict) else None
+    if plan is None:
+        return annotate_presentation(render_preplan_contract_violation_report(report), policy)
     lock = report.get("planning_lock")
     lock_lines = []
     if lock:

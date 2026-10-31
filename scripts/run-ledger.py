@@ -31,6 +31,8 @@ EVENT_TYPES.update({"debug_plan_approved", "debug_intake_recorded", "debug_repro
 EVENT_TYPES.add("workflow_stage_result_recorded")
 EVENT_TYPES.add("navigator_graph_lifecycle_recorded")
 EVENT_TYPES.add("host_decision_recorded")
+EVENT_TYPES.add("validation_delivery_recorded")
+EVENT_TYPES.add("closure_policy_refreshed")
 
 EVENT_TYPES.update({"learning_use_decision_recorded", "learning_use_attribution_recorded"})
 EVENT_TYPES.add("workflow_compiler_plan_rebased")

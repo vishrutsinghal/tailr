@@ -44,6 +44,7 @@ SCOPE_DRIFT = "new-drift"
 UNIMPLEMENTED = "requirement-unimplemented"
 CONCRETENESS = "anchor-not-concrete"
 FULFILLMENT = "fulfillment-unverified"
+STALE_EVIDENCE = "stale-evidence"
 _NONPASSING_OUTCOMES = {"fail", "blocked", "timed-out", "unavailable"}
 _AUTHORITATIVE_QUALITIES = {"trusted", "attested"}
 _LINE_RANGE = re.compile(r"^L\d+(?:-L?\d+)?$")
@@ -91,6 +92,95 @@ def _load_anchor_module() -> Any:
 
 
 anchor_mod = _load_anchor_module()
+
+
+def _load_execution_evidence() -> Any:
+    """Load the managed evidence reader without making it execution authority."""
+    try:
+        import execution_evidence  # type: ignore  # noqa: PLC0415
+
+        return execution_evidence
+    except ImportError:
+        pass
+    spec = importlib.util.spec_from_file_location(
+        "drift_analysis_execution_evidence", ROOT / "scripts" / "execution-evidence.py"
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load scripts/execution-evidence.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _current_plan_fingerprint(
+    root: Path, run_id: str, requirements: list[dict[str, Any]], execution: Any,
+) -> str:
+    """Use the same effective-plan custody fingerprint as managed execution."""
+    requirement_map = {
+        str(row.get("requirement_uid")): row
+        for row in requirements
+        if str(row.get("requirement_uid", "")).strip()
+    }
+    overlay = execution._approved_revision_overlay(root, run_id)
+    amendments = execution.approved_proof_amendments(root, run_id, requirement_map)
+    merged_overlay = {
+        uid: {
+            "commands": sorted(
+                set(overlay.get(uid, {}).get("commands", []))
+                | set(amendments.get(uid, {}).get("commands", set()))
+            ),
+            "tiers": sorted(
+                set(overlay.get(uid, {}).get("tiers", []))
+                | set(amendments.get(uid, {}).get("tiers", set()))
+            ),
+        }
+        for uid in set(overlay) | set(amendments)
+    }
+    return anchor_mod.approved_plan_fingerprint(
+        anchor_mod.effective_plan_contracts(requirement_map, merged_overlay),
+        requirements_data=requirement_map,
+    )
+
+
+def _managed_evidence(
+    root: Path, run_id: str, requirements: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return current managed receipts and requirement-linked stale receipts.
+
+    The sequential gate owns no separate evidence store. It reads the same
+    append-only managed stream as closure, accepts only command/CI receipts
+    for this run and the current effective plan, and reports stale receipts
+    rather than allowing an earlier plan's proof to silently pass a new one.
+    """
+    try:
+        execution = _load_execution_evidence()
+        current_fingerprint = _current_plan_fingerprint(root, run_id, requirements, execution)
+        events = execution.show(root, run_id).get("events", [])
+    except (OSError, ValueError, json.JSONDecodeError, RuntimeError):
+        return [], []
+
+    current: list[dict[str, Any]] = []
+    stale: list[dict[str, Any]] = []
+    approved_uids = {
+        str(row.get("requirement_uid"))
+        for row in requirements
+        if str(row.get("requirement_uid", "")).strip()
+    }
+    for event in events if isinstance(events, list) else []:
+        if not isinstance(event, dict):
+            continue
+        if event.get("run_id") != run_id or event.get("kind") not in {"command-result", "ci-receipt"}:
+            continue
+        linked = {str(uid) for uid in event.get("requirement_uids", [])}
+        if not linked or not linked & approved_uids:
+            continue
+        stamped = event.get("plan_fingerprint")
+        if stamped and stamped != current_fingerprint:
+            stale.append(event)
+        elif stamped == current_fingerprint:
+            current.append(event)
+    return current, stale
 
 
 def _latest_anchor(root: Path, run_id: str) -> tuple[dict[str, Any], str]:
@@ -428,11 +518,17 @@ def analyze(
 
     changed_set = {_normalize_path(item) for item in changed}
     approved_editable = _approved_editable(requirements)
-    evidence_items = (
+    inline_evidence = (
         evidence.get("evidence")
         if isinstance(evidence, dict) and isinstance(evidence.get("evidence"), list)
         else []
     )
+    managed_evidence, stale_managed_evidence = _managed_evidence(root, run_id, requirements)
+    # A caller may attach fresh handoff facts, but it must not need to copy
+    # TailTrail's own managed receipt stream into every handoff.  Merge both
+    # sources before evaluating tiers; a linked non-pass from either source
+    # still wins through `_requirement_validated`.
+    evidence_items = [*managed_evidence, *inline_evidence]
 
     findings: list[dict[str, Any]] = []
 
@@ -481,9 +577,28 @@ def analyze(
         # new work).
         fulfillment = None
         if kind == "change":
+            stale = [
+                item for item in stale_managed_evidence
+                if str(row.get("requirement_uid")) in {
+                    str(uid) for uid in item.get("requirement_uids", [])
+                }
+            ]
+            if stale:
+                findings.append(
+                    {
+                        "classification": STALE_EVIDENCE,
+                        "category": "fulfillment",
+                        "requirement_uid": row.get("requirement_uid"),
+                        "display_id": display_id,
+                        "message": (
+                            f"{display_id} has saved evidence for a different approved plan; "
+                            "rerun the approved proof for the current plan"
+                        ),
+                    }
+                )
             fulfillment = (
                 "validated"
-                if _requirement_validated(row, evidence_items)
+                if not stale and _requirement_validated(row, evidence_items)
                 else "unverified"
             )
             if fulfillment == "unverified":
@@ -527,9 +642,11 @@ def analyze(
         },
         "requirements": requirement_rows,
         "evidence": {
-            "source": source,
+            "source": f"{source}+managed-execution" if managed_evidence or stale_managed_evidence else source,
             "changed_paths": sorted(changed_set),
             "anchor": anchor_label,
+            "managed_receipts": len(managed_evidence),
+            "stale_managed_receipts": len(stale_managed_evidence),
         },
     }
 

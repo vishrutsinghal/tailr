@@ -77,6 +77,36 @@ class PublicRouteGateTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    def test_contradicted_contract_renders_a_markdown_boundary_without_navigator(self) -> None:
+        temporary, root = self._repo({"src/work.py": "x = 1\n"})
+        try:
+            contract = {
+                "schema_version": "1", "type": "tailtrail-host-input-contract",
+                "run_id": "", "contract_id": "ctr-gate-markdown", "profile": "review/read-only",
+                "change_intent": "validation", "request_mode": "read-only",
+                "behavior_surface": "cli-contract",
+                "paths": [{"path": "src/work.py", "role": "existing-implementation-owner"}],
+                "criteria": {"positive": ["report ships"], "negative": ["nothing else breaks"]},
+                "proof": {"command": "pytest", "tiers": ["unit"]},
+                "private_reasoning_excluded": True,
+            }
+            contract_path = root / "contract.json"
+            contract_path.write_text(json.dumps(contract), encoding="utf-8")
+            result = _run([
+                *TASK_START, "Create the widget and prove it", "--root", root.as_posix(),
+                "--format", "markdown", "--planning-run-id", "gate-contract-markdown",
+                "--aidlc", "off", "--task-type", "implementation",
+                "--host-contract-file", contract_path.as_posix(),
+            ], root)
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn("# TailTrail Host Input Contract Required", result.stdout)
+            self.assertIn("Planning Lock: not created", result.stdout)
+            self.assertNotIn("internal error", result.stderr)
+            runs = root / ".tailtrail" / "runs"
+            self.assertFalse(runs.is_dir() and any(runs.iterdir()))
+        finally:
+            temporary.cleanup()
+
     def test_accepted_contract_routes_and_records(self) -> None:
         temporary, root = self._repo({
             "src/work.py": "def run():\n    return 1\n",

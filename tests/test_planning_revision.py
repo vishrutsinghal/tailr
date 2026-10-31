@@ -254,7 +254,8 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertTrue(start_markdown_exists)
         self.assertTrue(start_metadata_exists)
         self.assertTrue(visible_start_exists)
-        self.assertIn("## Complete Saved Planning Payload", visible_start_body)
+        self.assertIn("## Canonical Machine Record", visible_start_body)
+        self.assertNotIn("## Complete Saved Planning Payload", visible_start_body)
         self.assertNotIn("Unit tests passed (62/62)", visible_start_body)
         self.assertIn("### Implementation owners", rendered)
         self.assertIn("### Existing proof paths", rendered)
@@ -501,6 +502,101 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertIn("# TailTrail Plan Revision", proposed.stdout)
         self.assertEqual(approved.returncode, 0, approved.stderr + approved.stdout)
         self.assertIn("# TailTrail Execution Handoff", approved.stdout)
+
+    def test_revision_show_renders_pending_start_plans(self) -> None:
+        """The public route is human-readable by default for every revision.
+
+        The first pending version exercises registry-backed ``command_id``
+        rendering.  A superseding version proves the route is not hard-coded
+        to v2.  JSON remains an opt-in machine route.
+        """
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.v2_plan(root, "revision-show")
+            report_path = lock.start_report_path(root, "revision-show")
+            saved = json.loads(report_path.read_text(encoding="utf-8"))
+            saved["report"]["input_roles"] = {
+                "inputs": [
+                    {"input_id": "IN-01", "role": "target", "locator": root.as_posix(), "access": "read-write", "status": "verified"},
+                    {
+                        "input_id": "IN-02", "role": "requirement-artifact",
+                        "locator": "/tmp/requirements.md", "access": "read-only",
+                        "status": "inspected", "sha256": "bound-hash",
+                    },
+                ],
+            }
+            report_path.write_text(json.dumps(saved), encoding="utf-8")
+            command = "python3 -m unittest discover -s tests -p test_owner.py -v"
+            v2 = revision.propose(root, "revision-show", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Bind the registry-backed public-route proof.",
+                "evidence_plan": ["Run the owner proof."],
+                "commands": [command],
+                "tiers": ["unit"],
+                "editable_paths": ["tests/test_owner.py"],
+            }]), True)
+            v3 = revision.propose(root, "revision-show", json.dumps([{
+                "kind": "requirement-update",
+                "requirement_uid": "REQ-01",
+                "statement": "Fix owner behavior while preserving the public revision view.",
+                "reason": "Create a later pending revision for public rendering coverage.",
+                "retain_scope_confirmed": True,
+            }]), True, supersede_pending=True)
+
+            def revision_show(number: int, *extra: str) -> subprocess.CompletedProcess[str]:
+                return subprocess.run([
+                    sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                    "planning", "revision-show", "--root", root.as_posix(),
+                    "--run-id", "revision-show", "--revision", str(number), *extra,
+                ], cwd=ROOT, text=True, capture_output=True, check=False)
+
+            shown_v2 = revision_show(int(v2["revision"]))
+            shown_v3 = revision_show(int(v3["revision"]))
+            raw_v3 = revision_show(int(v3["revision"]), "--format", "json")
+            visible_v3 = (root / "session-reports" / "revision-show" / "start-plan.md").read_text(encoding="utf-8")
+
+        for shown in (shown_v2, shown_v3):
+            self.assertEqual(shown.returncode, 0, shown.stderr + shown.stdout)
+            self.assertIn("# TailTrail Start Plan", shown.stdout)
+            self.assertIn("## Command Reference Registry", shown.stdout)
+            self.assertIn("## Bound Planning Inputs", shown.stdout)
+            self.assertIn("`/tmp/requirements.md`", shown.stdout)
+            self.assertIn("`bound-hash`", shown.stdout)
+            self.assertIn("never grant editable implementation scope", shown.stdout)
+            self.assertNotIn('"proposed_report"', shown.stdout)
+        self.assertIn(command, shown_v2.stdout)
+        self.assertIn("Fix owner behavior while preserving the public revision view.", visible_v3)
+        self.assertIn("Plan revision:** active `1`; pending `3`.", visible_v3)
+        self.assertEqual(raw_v3.returncode, 0, raw_v3.stderr + raw_v3.stdout)
+        self.assertIn('"proposed_report"', raw_v3.stdout)
+
+    def test_revision_show_fails_closed_for_a_malformed_pending_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.v2_plan(root, "revision-show-malformed")
+            proposed = revision.propose(root, "revision-show-malformed", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Bind the public-route proof.",
+                "evidence_plan": ["Run the owner proof."],
+                "commands": ["python3 -m unittest discover -s tests -p test_owner.py -v"],
+                "tiers": ["unit"],
+                "editable_paths": ["tests/test_owner.py"],
+            }]), True)
+            artifact = revision.revision_path(root, "revision-show-malformed", int(proposed["revision"]))
+            saved = json.loads(artifact.read_text(encoding="utf-8"))
+            saved["proposed_report"] = None
+            artifact.write_text(json.dumps(saved), encoding="utf-8")
+            shown = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                "planning", "revision-show", "--root", root.as_posix(),
+                "--run-id", "revision-show-malformed",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+
+        self.assertEqual(shown.returncode, 2)
+        self.assertIn("has no renderable proposed Start Plan", shown.stdout)
+        self.assertNotIn('"proposed_report"', shown.stdout)
 
     def test_requirement_update_remaps_scope_packet_references(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

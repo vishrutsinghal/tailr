@@ -112,6 +112,32 @@
         }
       },
       "then": { "required": ["owner_hypothesis"] }
+    },
+    {
+      "description": "Read-only and validation-only contracts may inspect or prove behavior, but they cannot declare implementation write authority.",
+      "if": {
+        "properties": {
+          "request_mode": { "enum": ["read-only", "validation-only"] }
+        },
+        "required": ["request_mode"]
+      },
+      "then": {
+        "properties": {
+          "paths": {
+            "not": {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "enum": ["existing-implementation-owner", "proposed-implementation-owner"]
+                  }
+                },
+                "required": ["role"]
+              }
+            }
+          }
+        }
+      }
     }
   ],
 

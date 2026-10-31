@@ -186,7 +186,83 @@ class PlanningAuditTests(unittest.TestCase):
                 ["tests/test_owner.py"],
             )
 
-        self.assertEqual(result["state"], "missing")
+        self.assertEqual(result["state"], "ambiguous")
+
+    def test_semantic_delta_preserves_unknown_without_trusted_behavior_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            owner = root / "scripts" / "owner.py"
+            proof = root / "tests" / "test_owner.py"
+            owner.parent.mkdir(parents=True); proof.parent.mkdir(parents=True)
+            owner.write_text("def owner():\n    return 'existing source'\n", encoding="utf-8")
+            proof.write_text("def test_owner():\n    assert True\n", encoding="utf-8")
+            result = task_start.semantic_delta_preflight(
+                root,
+                [{"display_id": "REQ-01", "statement": "Expose the requested behavior."}],
+                ["scripts/owner.py"],
+                ["tests/test_owner.py"],
+            )
+
+        row = result["requirements"][0]
+        self.assertEqual(result["type"], "tailtrail-semantic-delta")
+        self.assertEqual(row["state"], "unknown")
+        self.assertEqual(row["reason"], "static-evidence-cannot-prove-runtime-behavior")
+        self.assertEqual(row["requested_assertion"], "Expose the requested behavior.")
+        self.assertEqual(row["expected_assertion"], "Expose the requested behavior.")
+        self.assertTrue(row["pre_change_scenario"])
+        self.assertEqual({item["path"] for item in row["evidence"]}, {"scripts/owner.py", "tests/test_owner.py"})
+        self.assertTrue(all(item["content_fingerprint"].startswith("sha256:") for item in row["evidence"]))
+
+    def test_semantic_delta_routes_only_trusted_satisfied_requirement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            owner = root / "scripts" / "owner.py"
+            owner.parent.mkdir(parents=True)
+            owner.write_text("def owner():\n    return True\n", encoding="utf-8")
+            result = task_start.semantic_delta_preflight(
+                root,
+                [
+                    {"display_id": "REQ-01", "statement": "Keep the public behavior."},
+                    {"display_id": "REQ-02", "statement": "Preserve the adjacent behavior."},
+                ],
+                ["scripts/owner.py"],
+                [],
+                trusted_observations={
+                    "REQ-01": {
+                        "evidence_kind": "trusted-behavior",
+                        "expected_assertion": "Keep the public behavior.",
+                        "observed_assertion": "Keep the public behavior.",
+                    },
+                },
+            )
+
+        states = {row["requirement_id"]: row["state"] for row in result["requirements"]}
+        self.assertEqual(states, {"REQ-01": "satisfied", "REQ-02": "unknown"})
+
+    def test_public_start_report_projects_semantic_delta(self) -> None:
+        """The public Start builder, not only its helper, publishes the delta."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            owner = root / "scripts" / "owner.py"
+            proof = root / "tests" / "test_owner.py"
+            owner.parent.mkdir(parents=True); proof.parent.mkdir(parents=True)
+            owner.write_text("def owner():\n    return 'existing source'\n", encoding="utf-8")
+            proof.write_text("def test_owner():\n    assert True\n", encoding="utf-8")
+            report = task_start.build_report(
+                "Implement the requested owner behavior.",
+                root,
+                ["scripts/owner.py", "tests/test_owner.py"],
+                "tailtrail",
+            )
+
+        delta = report["navigator"]["semantic_delta"]
+        self.assertEqual(delta["type"], "tailtrail-semantic-delta")
+        self.assertTrue(delta["requirements"])
+        self.assertTrue(all(row["state"] == "unknown" for row in delta["requirements"]))
+        self.assertTrue(all(
+            any(item["path"] == "scripts/owner.py" for item in row["evidence"])
+            for row in delta["requirements"]
+        ))
 
     def test_host_proof_boundary_rejects_inferred_higher_tiers(self) -> None:
         requirements = [{

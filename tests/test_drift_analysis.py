@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 import json
 
+from scripts import drift_analysis
 from scripts.drift_analysis import analyze
 
 
@@ -51,6 +52,12 @@ def _passing_evidence(uids: list[str], tier: str = "unit") -> dict:
         "outcome": "pass",
         "tiers": [tier],
     }
+
+
+def _write_managed_evidence(root: Path, run_id: str, event: dict) -> None:
+    path = root / ".tailtrail" / "runs" / run_id / "execution" / "evidence-stream.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(event) + "\n", encoding="utf-8")
 
 
 class TestDriftAnalysis(unittest.TestCase):
@@ -213,6 +220,75 @@ class TestDriftAnalysis(unittest.TestCase):
         self.assertTrue(result["drift_detected"])
         classifications = {finding["classification"] for finding in result["findings"]}
         self.assertIn("fulfillment-unverified", classifications)
+
+    def test_saved_managed_evidence_satisfies_handoff_without_inline_copy(self):
+        """The stage gate consumes current, requirement-linked managed proof."""
+        requirements = [_requirement("req-1", "REQ-01", ["src/auth.py"])]
+        _write_anchor(self.root, self.run_id, requirements)
+        execution = drift_analysis._load_execution_evidence()
+        fingerprint = drift_analysis._current_plan_fingerprint(
+            self.root, self.run_id, requirements, execution,
+        )
+        _write_managed_evidence(self.root, self.run_id, {
+            **_passing_evidence(["req-1"]),
+            "run_id": self.run_id,
+            "kind": "command-result",
+            "plan_fingerprint": fingerprint,
+        })
+
+        result = analyze(self.root, self.run_id, {"change_manifest": ["src/auth.py"], "evidence": []})
+
+        self.assertFalse(result["drift_detected"], result["findings"])
+        self.assertEqual(result["evidence"]["managed_receipts"], 1)
+        self.assertIn("managed-execution", result["evidence"]["source"])
+
+    def test_stale_managed_evidence_blocks_even_with_inline_pass(self):
+        """An earlier plan's receipt never proves the current plan."""
+        requirements = [_requirement("req-1", "REQ-01", ["src/auth.py"])]
+        _write_anchor(self.root, self.run_id, requirements)
+        _write_managed_evidence(self.root, self.run_id, {
+            **_passing_evidence(["req-1"]),
+            "run_id": self.run_id,
+            "kind": "command-result",
+            "plan_fingerprint": "sha256:stale-plan",
+        })
+
+        result = analyze(self.root, self.run_id, {
+            "change_manifest": ["src/auth.py"],
+            "evidence": [_passing_evidence(["req-1"])],
+        })
+
+        self.assertTrue(result["drift_detected"])
+        self.assertEqual(result["evidence"]["stale_managed_receipts"], 1)
+        self.assertIn("stale-evidence", {
+            finding["classification"] for finding in result["findings"]
+        })
+
+    def test_saved_managed_failure_blocks_the_handoff(self):
+        """A saved trusted failure cannot be overridden by an inline pass."""
+        requirements = [_requirement("req-1", "REQ-01", ["src/auth.py"])]
+        _write_anchor(self.root, self.run_id, requirements)
+        execution = drift_analysis._load_execution_evidence()
+        fingerprint = drift_analysis._current_plan_fingerprint(
+            self.root, self.run_id, requirements, execution,
+        )
+        _write_managed_evidence(self.root, self.run_id, {
+            **_passing_evidence(["req-1"]),
+            "run_id": self.run_id,
+            "kind": "command-result",
+            "outcome": "fail",
+            "plan_fingerprint": fingerprint,
+        })
+
+        result = analyze(self.root, self.run_id, {
+            "change_manifest": ["src/auth.py"],
+            "evidence": [_passing_evidence(["req-1"])],
+        })
+
+        self.assertTrue(result["drift_detected"])
+        self.assertIn("fulfillment-unverified", {
+            finding["classification"] for finding in result["findings"]
+        })
 
     def test_anchor_not_concrete_fails_closed(self):
         """A vague anchor cannot be drift-checked; it fails closed (§10.3)."""

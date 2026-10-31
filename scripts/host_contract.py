@@ -236,8 +236,8 @@ def validate(contract: dict[str, Any], *, root: Path, goal: str) -> dict[str, An
     both = sorted(set(owner_paths) & set(proof_paths))
     if both:
         conflicts.append(f"path claims both implementation and proof authority: {', '.join(both)}")
-    if request_mode == "read-only" and owner_paths:
-        conflicts.append("read-only contract carries implementation-owner paths")
+    if request_mode in {"read-only", "validation-only"} and owner_paths:
+        conflicts.append(f"{request_mode} contract carries implementation-owner paths")
     if change_intent == "prose-only" and owner_paths:
         conflicts.append("prose-only contract carries implementation-owner paths")
     if request_mode == "implementation" and not owner_paths:

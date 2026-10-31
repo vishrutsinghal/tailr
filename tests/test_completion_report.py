@@ -45,6 +45,26 @@ class CompletionReportTests(unittest.TestCase):
         self.assertEqual(["static"], by_command["npm run lint"]["tiers"])
         self.assertEqual(["src/Page.cy.tsx"], by_command["npm run component"]["candidate_paths"])
 
+    def test_required_checks_include_active_reviewed_proof_update_without_mutating_anchor(self) -> None:
+        approved_anchor = {"requirements": [{
+            "requirement_uid": "req-1",
+            "validation_contract": {"state": "required", "tiers": [], "commands": [], "checks": []},
+        }]}
+        active_report = {"report": {"navigator": {"requirement_matrix": [{
+            "requirement_uid": "req-1",
+            "validation_contract": {"state": "required", "tiers": ["unit"], "commands": [], "checks": [
+                {"kind": "proof", "command": "python3 -m unittest tests.test_x", "tiers": ["unit"], "candidate_paths": ["tests/test_x.py"]},
+            ]},
+        }]}}}
+
+        checks = report.required_validation_checks(approved_anchor, active_report)
+
+        self.assertEqual(1, len(checks))
+        self.assertEqual("python3 -m unittest tests.test_x", checks[0]["command"])
+        self.assertEqual(["unit"], checks[0]["tiers"])
+        self.assertEqual(["req-1"], checks[0]["requirement_uids"])
+        self.assertEqual([], approved_anchor["requirements"][0]["validation_contract"]["checks"])
+
     def test_plan_projection_separates_base_revision_and_proof_amendments(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

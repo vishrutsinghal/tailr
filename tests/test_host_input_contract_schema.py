@@ -77,6 +77,17 @@ class HostInputContractSchemaTests(unittest.TestCase):
         contract["paths"][0]["role"] = "implementation-owned"  # not a contract role (no existing-/proposed- prefix)
         self.assertFalse(self.validator.is_valid(contract))
 
+    def test_validation_only_contract_rejects_implementation_owner(self) -> None:
+        contract = _base_contract()
+        contract["request_mode"] = "validation-only"
+        self.assertFalse(self.validator.is_valid(contract))
+
+        contract["paths"] = [
+            {"path": "scripts/example.py", "role": "inspection-input"},
+            {"path": "tests/test_example.py", "role": "existing-proof-path"},
+        ]
+        self.assertTrue(self.validator.is_valid(contract))
+
     def test_non_correction_intent_rejects_correction_premise(self) -> None:
         contract = _base_contract()
         contract["correction_premise"] = {

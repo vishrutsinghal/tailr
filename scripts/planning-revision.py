@@ -1258,6 +1258,59 @@ def show(root: Path, run_id: str, revision: int | None = None) -> dict[str, Any]
     return payload
 
 
+def render_pending_start_plan(root: Path, payload: dict[str, Any]) -> str:
+    """Render a saved pending revision through the canonical Start Plan view.
+
+    Revision records retain their JSON artifact for auditability and machine
+    consumers, but a person using ``planning revision-show`` needs the same
+    review surface as a normal Start Plan.  Do not fall back to serializing a
+    malformed report: that hides the failed projection behind an unreadable
+    payload and can make an incomplete plan appear reviewable.
+    """
+    report = payload.get("proposed_report")
+    revision = payload.get("revision", "unknown")
+    if not isinstance(report, dict):
+        raise ValueError(
+            f"pending revision v{revision} has no renderable proposed Start Plan; "
+            "repair the saved revision artifact before review"
+        )
+    try:
+        rendered_report, requirements, registry, goal, plan_data = LOCK._start_plan_material(
+            root.resolve(),
+            str(payload["run_id"]),
+            report_override=report,
+        )
+        # ``_start_plan_material`` uses the supplied report for all human
+        # facts while retaining the saved lock/revision state that identifies
+        # this as an unapproved proposal.  The verbose-reporting module is
+        # the same canonical projection used by ``planning show``.  Refresh
+        # the reviewer-visible full record from that exact proposal as well:
+        # rendering a pending revision must never leave the link pointing at
+        # a stale active revision.
+        plan_data["report"] = rendered_report
+        verbose = LOCK.generate_start_plan_verbose_report(
+            root.resolve(), str(payload["run_id"]), report_override=rendered_report,
+        )
+        rendered = LOCK.VR.generate_start_plan_normal(
+            str(payload["run_id"]),
+            requirements,
+            registry,
+            goal,
+            plan_data=plan_data,
+            verbose_artifact=str(verbose["visible_artifact"]),
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(
+            f"pending revision v{revision} cannot render a Start Plan: {error}"
+        ) from error
+    if not isinstance(rendered, str) or "# TailTrail Start Plan" not in rendered:
+        raise ValueError(
+            f"pending revision v{revision} cannot render a canonical Start Plan; "
+            "repair the saved revision artifact before review"
+        )
+    return rendered
+
+
 def authority_show(root: Path, run_id: str, sequence: int | None = None) -> dict[str, Any]:
     root = root.resolve()
     available = sorted(route_dir(root, run_id).glob("route-*.json"))
@@ -1433,6 +1486,12 @@ def main() -> int:
     show_parser.add_argument("--root", type=Path, default=Path.cwd())
     show_parser.add_argument("--run-id", required=True)
     show_parser.add_argument("--revision", type=int)
+    show_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Render the canonical pending Start Plan, or request the raw machine-readable revision artifact.",
+    )
     authority_parser = sub.add_parser("authority-show", help="Show the latest AIDLC or Intent Bridge authority route.")
     authority_parser.add_argument("--root", type=Path, default=Path.cwd())
     authority_parser.add_argument("--run-id", required=True)
@@ -1461,7 +1520,12 @@ def main() -> int:
             result = propose(args.root, args.run_id, str(changes), args.approved_proposal, args.supersede_pending)
             print(render_authority_route(result) if result.get("type") == "tailtrail-planning-authority-route" else render(result))
         elif args.command == "show":
-            print(json.dumps(show(args.root, args.run_id, args.revision), indent=2, sort_keys=True))
+            result = show(args.root, args.run_id, args.revision)
+            print(
+                json.dumps(result, indent=2, sort_keys=True)
+                if args.format == "json"
+                else render_pending_start_plan(args.root, result)
+            )
         elif args.command == "authority-show":
             print(json.dumps(authority_show(args.root, args.run_id, args.sequence), indent=2, sort_keys=True))
         elif args.command == "aidlc-standard":

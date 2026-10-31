@@ -162,6 +162,70 @@ class IntakePipelineTests(unittest.TestCase):
         self.assertNotIn("bearer-secret", rendered)
         self.assertIn("[REDACTED]", rendered)
 
+    def test_persistence_redacts_secret_input_and_secret_candidates_cannot_be_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            pipeline = IntakePipeline(root)
+            run = pipeline.create_run("collect host context", "new-feature")
+            question = pipeline.issue_question(run["run_id"], "credentials", "Provide access details")
+            observation = pipeline.record_observation(
+                run["run_id"],
+                {"api_token": "super-secret-token"},
+                question_id=question["payload"]["question_id"],
+            )
+            answer = pipeline.record_answer(
+                run["run_id"], "credentials", "Bearer bearer-secret", source="host-observation",
+                observation_id=observation["payload"]["observation_id"],
+            )
+            events_path = root / ".tailtrail" / "intake" / run["run_id"] / "events.jsonl"
+            persisted = events_path.read_text(encoding="utf-8")
+            projection = pipeline.replay(run["run_id"])
+
+            self.assertNotIn("super-secret-token", persisted)
+            self.assertNotIn("bearer-secret", persisted)
+            self.assertEqual(projection["answer_states"][0]["state"], "candidate")
+            self.assertFalse(projection["answer_states"][0]["authority_granted"])
+            with self.assertRaisesRegex(IntakeError, "secret-bearing or redacted"):
+                pipeline.accept_answer(
+                    run["run_id"], answer["payload"]["answer_id"],
+                    {"outcome": "accepted", "verified_by": "navigator"},
+                )
+
+    def test_state_records_track_acceptance_freshness_and_conflict_without_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            pipeline = IntakePipeline(root)
+            run = pipeline.create_run("collect host context", "existing-code-change")
+            question = pipeline.issue_question(run["run_id"], "existing-owner", "Which path participates?")
+            answer = pipeline.record_answer(
+                run["run_id"], "existing-owner", "scripts/intake_pipeline.py", source="direct-question",
+                question_id=question["payload"]["question_id"],
+            )
+            answer_id = answer["payload"]["answer_id"]
+            pipeline.accept_answer(run["run_id"], answer_id, {"outcome": "accepted", "verified_by": "navigator"})
+            accepted = pipeline.replay(run["run_id"])["answer_states"][0]
+            self.assertEqual(accepted["state"], "accepted")
+            self.assertFalse(accepted["authority_granted"])
+            pipeline.mark_answer_stale(run["run_id"], answer_id, accepted["source_evidence_fingerprint"])
+            stale = pipeline.replay(run["run_id"])["answer_states"][0]
+            self.assertEqual(stale["state"], "stale")
+            with self.assertRaisesRegex(IntakeError, "not an eligible candidate"):
+                pipeline.accept_answer(run["run_id"], answer_id, {"outcome": "accepted", "verified_by": "navigator"})
+            pipeline.mark_answer_conflicting(run["run_id"], answer_id, "independent evidence disagrees")
+            self.assertEqual(pipeline.replay(run["run_id"])["answer_states"][0]["state"], "conflicting")
+
+    def test_oversized_input_is_rejected_and_retention_deletion_is_explicit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            pipeline = IntakePipeline(root)
+            run = pipeline.create_run("collect host context", "new-feature")
+            with self.assertRaisesRegex(IntakeError, "size limit"):
+                pipeline.record_observation(run["run_id"], {"note": "x" * (64 * 1024)})
+            self.assertEqual(pipeline.retention_policy()["access"], "local-run-bound")
+            run_root = root / ".tailtrail" / "intake" / run["run_id"]
+            pipeline.delete_run(run["run_id"])
+            self.assertFalse(run_root.exists())
+
     def test_finalizes_an_immutable_anchor_bound_packet_view_from_navigator_accepted_answers(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -34,6 +34,18 @@ def anchor_module() -> Any:
 ANCHOR = anchor_module()
 
 
+def policy_module() -> Any:
+    spec = importlib.util.spec_from_file_location("completion_report_policy", ROOT / "scripts" / "completion-policy.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+POLICY = policy_module()
+
+
 def _anchor_path(value: Any) -> str | None:
     """Extract a path from a plain-string or {path, role} anchor entry."""
     if isinstance(value, str):
@@ -264,8 +276,18 @@ def consolidated_receipts(receipts: list[dict[str, Any]]) -> list[dict[str, Any]
     return grouped
 
 
-def required_validation_checks(anchor: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return one approved validation check with all covered requirements."""
+def required_validation_checks(anchor: dict[str, Any], active_report: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Return one approved validation check with all covered requirements.
+
+    The active reviewed Start report is merged in so revision-approved proof-update
+    checks reach completion; the anchor is immutable and never receives them.
+    """
+    report = active_report.get("report", active_report) if isinstance(active_report, dict) else {}
+    report_rows = {
+        str(row.get("requirement_uid", "")): row
+        for row in ((report.get("navigator", {}) or {}).get("requirement_matrix", []) if isinstance(report, dict) else [])
+        if isinstance(row, dict)
+    }
     grouped: list[dict[str, Any]] = []
     by_command: dict[str, dict[str, Any]] = {}
     for requirement in anchor.get("requirements", []):
@@ -274,7 +296,14 @@ def required_validation_checks(anchor: dict[str, Any]) -> list[dict[str, Any]]:
         contract = requirement.get("validation_contract")
         if not isinstance(contract, dict) or contract.get("state") == "not-required":
             continue
-        saved_checks = [row for row in contract.get("checks", []) if isinstance(row, dict)]
+        uid = str(requirement.get("requirement_uid", ""))
+        report_contract = (report_rows.get(uid, {}) or {}).get("validation_contract")
+        if not isinstance(report_contract, dict):
+            report_contract = {}
+        saved_checks = [
+            row for row in [*contract.get("checks", []), *report_contract.get("checks", [])]
+            if isinstance(row, dict)
+        ]
         if saved_checks:
             checks = [{
                 "command": str(row.get("command", "")),
@@ -284,10 +313,9 @@ def required_validation_checks(anchor: dict[str, Any]) -> list[dict[str, Any]]:
         else:
             checks = [{
                 "command": str(command),
-                "tiers": [str(value) for value in contract.get("tiers", []) if value],
-                "candidate_paths": [str(value) for value in contract.get("candidate_paths", []) if value],
-            } for command in contract.get("commands", []) if command]
-        uid = str(requirement.get("requirement_uid", ""))
+                "tiers": [str(value) for value in [*contract.get("tiers", []), *report_contract.get("tiers", [])] if value],
+                "candidate_paths": [str(value) for value in [*contract.get("candidate_paths", []), *report_contract.get("candidate_paths", [])] if value],
+            } for command in [*contract.get("commands", []), *report_contract.get("commands", [])] if command]
         for check in checks:
             command = check["command"]
             current = by_command.get(command)
@@ -908,7 +936,11 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     )
     behavior_required = "Behaviour Harness" in selected_names or behavior is not None
     maintainability_required = "Maintainability Harness" in selected_names
-    required_checks = required_validation_checks(anchor)
+    try:
+        active_report = LOCK.active_start_report(root, run_id)
+    except (OSError, ValueError):
+        active_report = None
+    required_checks = required_validation_checks(anchor, active_report)
     closure_guidance = closure_recovery_guidance(
         root, run_id, directory, required_checks, current_plan,
     )
@@ -1066,8 +1098,12 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         },
         "boundary": "The report aggregates saved local artifacts. Missing or failed evidence is not reported as a pass.",
     }
+    changed_path_names = [str(item.get("path")) for item in payload["changed_scope"]["changed_paths"] if isinstance(item, dict) and item.get("path")]
+    completion_policy = POLICY.evaluate(root, run_id, changed_path_names)
+    payload["completion_policy"] = completion_policy
     ready = (
-        payload["requirement_status"]["complete"] == payload["requirement_status"]["total"]
+        POLICY.passes(completion_policy)
+        and payload["requirement_status"]["complete"] == payload["requirement_status"]["total"]
         and payload["changed_scope"]["status"] == "approved"
         and payload["tests"]["status"] == "pass"
         and payload["drift"]["status"] == "none-unresolved"
@@ -1112,7 +1148,10 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         if identity not in seen_blockers:
             seen_blockers.add(identity); execution_blockers.append(blocker)
     changed_paths = payload["changed_scope"]["changed_paths"]
-    implementation_status = "implemented" if changed_paths and payload["changed_scope"]["status"] == "approved" else ("scope-drift" if changed_paths else "not-evidenced")
+    if not changed_paths and not completion_policy["implementation_applicable"]:
+        implementation_status = "not-applicable"
+    else:
+        implementation_status = "implemented" if changed_paths and payload["changed_scope"]["status"] == "approved" else ("scope-drift" if changed_paths else "not-evidenced")
     payload["implementation"] = {
         "status": implementation_status,
         "changed_paths": payload["changed_scope"]["changed_paths"],
@@ -1277,6 +1316,7 @@ def render(payload: dict[str, Any]) -> str:
         f"Run: `{payload['run_id']}`",
         f"Overall: **{payload['overall_status']}**",
         f"Implementation: **{payload['implementation']['status']}**",
+        f"Completion policy: **{payload['completion_policy']['status']}**; required: **{', '.join(payload['completion_policy']['required_artifacts']) or 'none'}**",
         "Detail: **comprehensive** (closure is never reduced by the Start-plan detail level)",
         "",
         f"Implementation coverage: **{implemented}/{requirements['total']} requirements have approved changed-path evidence**",
