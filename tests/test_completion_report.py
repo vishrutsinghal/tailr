@@ -112,6 +112,87 @@ class CompletionReportTests(unittest.TestCase):
             result["source_artifacts"]["proof_amendments"],
         )
 
+    def setup_stale_snapshot_run(self, root: Path) -> tuple[str, str]:
+        """Create an approved run with a failed closure snapshot and later retry."""
+        command = f'{sys.executable} -c "print(\'projection pass\')"'
+        (root / "scripts").mkdir()
+        (root / "scripts" / "completion-report.py").write_text(
+            "# Completion Report fixture\n", encoding="utf-8",
+        )
+        report.RECORDER.LOCK.create(root, "refresh report evidence", "run")
+        proposal = root / "projection-proposal.json"
+        proposal.write_text(json.dumps({"requirements": [{
+            "statement": "Render the current managed retry.",
+            "acceptance_criteria": ["newer pass wins"],
+            "preserve_rules": ["invalid evidence remains excluded"],
+            "likely_paths": ["scripts/completion-report.py"],
+            "evidence_plan": ["managed unit proof"],
+            "validation_contract": {
+                "state": "required", "tiers": ["unit"], "commands": [command],
+            },
+        }]}), encoding="utf-8")
+        report.ANCHOR.draft(root, "run", proposal)
+        uid = report.ANCHOR.approve(root, "run")["requirements"][0]["requirement_uid"]
+        report.RECORDER.LOCK.approve(root, "run", True)
+        failed = {
+            "kind": "command-result", "requirement_uids": [uid],
+            "changed_paths": ["scripts/completion-report.py"], "tiers": ["unit"],
+            "command": command, "command_label": "completion report proof",
+            "outcome": "fail", "environment": "local",
+            "asserted_behavior": "the earlier attempt failed",
+        }
+        report.RECORDER.EVIDENCE.append(root, "run", failed, True)
+        report.RECORDER.record(root, run_id="run")
+        report.RECORDER.EVIDENCE.run_command(
+            root, "run", [uid], ["unit"], command, "completion report proof",
+            ["scripts/completion-report.py"], True, 30,
+        )
+        return uid, command
+
+    def test_build_refreshes_a_stale_closure_snapshot_from_current_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid, command = self.setup_stale_snapshot_run(root)
+
+            result = report.build(root, "run")
+            rendered = report.render(result)
+            records = [
+                path for path in (ledger.state_dir(root, "run") / "closure-records").glob("closure-*.json")
+                if json.loads(path.read_text(encoding="utf-8")).get("type") == "tailtrail-closure-record"
+            ]
+
+        self.assertEqual("current", result["tests"]["closure_snapshot_status"])
+        self.assertTrue(result["tests"]["closure_snapshot_refreshed"])
+        self.assertEqual("pass", result["tests"]["receipts"][0]["outcome"])
+        self.assertEqual("approved", result["changed_scope"]["status"])
+        self.assertEqual(1, result["requirement_status"]["complete"])
+        self.assertEqual(2, len(records))
+        self.assertIn("Current evidence selection: **current**", rendered)
+        self.assertIn("### Evidence selection history", rendered)
+        self.assertIn("superseded", rendered)
+        self.assertIn("current; result: **pass**", rendered)
+        self.assertIn(command, rendered)
+        self.assertIn(uid, result["tests"]["evidence_projection"]["bindings"][0]["requirement_uid"])
+
+    def test_read_only_build_marks_a_stale_snapshot_without_refreshing_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.setup_stale_snapshot_run(root)
+
+            result = report.build(root, "run", record=False)
+            rendered = report.render(result)
+            records = [
+                path for path in (ledger.state_dir(root, "run") / "closure-records").glob("closure-*.json")
+                if json.loads(path.read_text(encoding="utf-8")).get("type") == "tailtrail-closure-record"
+            ]
+
+        self.assertEqual("stale", result["tests"]["closure_snapshot_status"])
+        self.assertFalse(result["tests"]["closure_snapshot_refreshed"])
+        self.assertEqual("pass", result["tests"]["receipts"][0]["outcome"])
+        self.assertEqual(1, len(records))
+        self.assertIn("Current evidence selection: **stale**", rendered)
+        self.assertIn("requires closure recording to refresh custody", rendered)
+
     def setup_run(self, root: Path) -> str:
         ledger.init_run(root, "run", "claim validation")
         proposal = root / "proposal.json"

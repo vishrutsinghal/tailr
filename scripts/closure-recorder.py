@@ -170,94 +170,216 @@ def approved_proof_amendments(root: Path, run_id: str, requirements: dict[str, d
     return accepted, path.relative_to(root).as_posix()
 
 
-def collected_input(root: Path, run_id: str) -> dict[str, Any]:
-    """Build one current closure snapshot from saved factual evidence.
+RECEIPT_FIELDS = (
+    "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
+    "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
+    "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
+    "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
+    "plan_fingerprint", "revision_overlay_uids",
+)
 
-    Receipts are reduced per (requirement_uids, command, tier). A later
-    execution of the same approved requirement/command/tier replaces its
-    earlier attempt for completion judgment, but a later run that records
-    only some tiers never discards a different tier recorded by an earlier
-    run of the same command. The append-only stream still retains every
-    attempt for audit and diagnosis.
+
+def receipt_tiers(item: dict[str, Any]) -> list[str]:
+    """Return the explicit tier set without inventing a missing binding."""
+    values = item.get("tiers", [item.get("tier")])
+    return sorted({str(value) for value in values if str(value)}) if isinstance(values, list) else []
+
+
+def evidence_stream_version(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Fingerprint the append-only evidence stream for downstream freshness checks."""
+    identities = [
+        {
+            "sequence": int(item.get("sequence", index)),
+            "fingerprint": str(item.get("fingerprint", "")),
+            "kind": str(item.get("kind", "")),
+        }
+        for index, item in enumerate(events, start=1)
+        if isinstance(item, dict)
+    ]
+    payload = canonical(identities).encode("utf-8")
+    head = identities[-1] if identities else {}
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-evidence-stream-version",
+        "event_count": len(identities),
+        "head_sequence": head.get("sequence"),
+        "head_fingerprint": head.get("fingerprint") or None,
+        "fingerprint": "sha256:" + hashlib.sha256(payload).hexdigest(),
+    }
+
+
+def event_identity(item: dict[str, Any], fallback_sequence: int) -> dict[str, Any]:
+    sequence = item.get("sequence", fallback_sequence)
+    try:
+        sequence = int(sequence)
+    except (TypeError, ValueError):
+        sequence = fallback_sequence
+    fingerprint = str(item.get("fingerprint", ""))
+    return {
+        "sequence": sequence,
+        "fingerprint": fingerprint,
+        "event_id": f"evidence-{sequence}-{fingerprint or 'unfingerprinted'}",
+    }
+
+
+def valid_managed_pair(
+    item: dict[str, Any], requirements: dict[str, dict[str, Any]],
+    amendments: dict[str, list[dict[str, Any]]],
+    revision_overlay: dict[str, dict[str, list[str]]],
+) -> bool:
+    """Accept only approved command/tier pairs for managed command receipts."""
+    if item.get("kind") != "command-result":
+        return True
+    command = str(item.get("command", ""))
+    tiers = set(receipt_tiers(item))
+    uids = [str(value) for value in item.get("requirement_uids", []) if str(value)]
+    if not command or not tiers or not uids:
+        return False
+    for uid in uids:
+        row = requirements.get(uid)
+        contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
+        approved_commands = {str(value) for value in contract.get("commands", []) if str(value)}
+        approved_commands.update(revision_overlay.get(uid, {}).get("commands", []))
+        checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
+        matching = [value for value in checks if str(value.get("command", "")) == command]
+        approved_tiers = {
+            str(value) for check in matching for value in check.get("tiers", []) if str(value)
+        } or {str(value) for value in contract.get("tiers", []) if str(value)}
+        approved_tiers.update(revision_overlay.get(uid, {}).get("tiers", []))
+        additive = [row for row in amendments.get(uid, []) if row.get("command") == command]
+        amended_tiers = {
+            str(value) for row in additive for value in row.get("tiers", []) if str(value)
+        }
+        allowed_commands = approved_commands | ({command} if additive else set())
+        allowed_tiers = approved_tiers | amended_tiers
+        if allowed_commands and (command not in allowed_commands or not tiers <= allowed_tiers):
+            return False
+    return True
+
+
+def source_stale(item: dict[str, Any], events: list[dict[str, Any]], fallback_sequence: int) -> bool:
+    """Reject a proof when a later linked source edit changed its declared paths."""
+    identity = event_identity(item, fallback_sequence)
+    paths = {str(path) for path in item.get("changed_paths", []) if str(path)}
+    uids = {str(uid) for uid in item.get("requirement_uids", []) if str(uid)}
+    if not paths or not uids:
+        return False
+    for index, candidate in enumerate(events, start=1):
+        if not isinstance(candidate, dict) or candidate.get("kind") != "source-edit":
+            continue
+        if event_identity(candidate, index)["sequence"] <= identity["sequence"]:
+            continue
+        changed = {str(path) for path in candidate.get("changed_paths", []) if str(path)}
+        changed_uids = {str(uid) for uid in candidate.get("requirement_uids", []) if str(uid)}
+        if paths & changed and uids & changed_uids:
+            return True
+    return False
+
+
+def validation_evidence_projection(root: Path, run_id: str) -> dict[str, Any]:
+    """Project current proof decisions without deleting append-only attempt history.
+
+    Selection is per requirement, command, and tier. A valid later retry wins
+    only for that exact binding; a plan-stale, source-stale, or unapproved
+    event remains visible as rejected history and cannot replace current proof.
     """
-    saved = EVIDENCE.show(root, run_id)["events"]
+    events = EVIDENCE.show(root, run_id)["events"]
     _, anchor = ANCHOR.latest_approved(root, run_id)
     requirements = {
-        str(row.get("requirement_uid")): row
-        for row in anchor.get("requirements", [])
+        str(row.get("requirement_uid")): row for row in anchor.get("requirements", [])
         if isinstance(row, dict) and row.get("requirement_uid")
     }
-    amendments, amendment_artifact = approved_proof_amendments(root, run_id, requirements)
-    receipt_fields = (
-        "requirement_uids", "tier", "tiers", "scenario_ids", "command_label", "command",
-        "outcome", "environment", "asserted_behavior", "artifact", "evidence_label",
-        "collector", "evidence_quality", "exit_code", "started_at", "finished_at",
-        "duration_ms", "stdout_artifact", "stderr_artifact", "stdout_sha256", "stderr_sha256",
-        "plan_fingerprint", "revision_overlay_uids",
-    )
-    # Latest-wins and failure-dominance decided independently per exact tier;
-    # tiers whose surviving decision still points at the same source event
-    # are then aggregated back into one receipt row (see Issue 23.1/23.3).
-    winners: dict[tuple[tuple[str, ...], str, str], dict[str, Any]] = {}
-    for item in saved:
-        if item.get("kind") not in {"command-result", "ci-receipt"}:
+    amendments, _ = approved_proof_amendments(root, run_id, requirements)
+    revision_overlay = EVIDENCE._approved_revision_overlay(root, run_id)
+    current_plan = current_plan_fingerprint(root, run_id)
+    attempts: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    rejected: list[dict[str, Any]] = []
+
+    for index, item in enumerate(events, start=1):
+        if not isinstance(item, dict) or item.get("kind") not in {"command-result", "ci-receipt"}:
+            continue
+        identity = event_identity(item, index)
+        if not valid_managed_pair(item, requirements, amendments, revision_overlay):
+            rejected.append({**identity, "reason": "unapproved-command-tier-binding"})
+            continue
+        stamped_plan = str(item.get("plan_fingerprint", ""))
+        if stamped_plan and stamped_plan != current_plan:
+            rejected.append({**identity, "reason": "superseded-plan-fingerprint"})
+            continue
+        if source_stale(item, events, index):
+            rejected.append({**identity, "reason": "source-changed-after-proof"})
             continue
         command = str(item.get("command", ""))
-        item_tiers = {
-            str(value)
-            for value in item.get("tiers", [item.get("tier")])
-            if str(value)
-        }
-        if item.get("kind") == "command-result":
-            valid_pair = True
-            for uid in item.get("requirement_uids", []):
-                row = requirements.get(str(uid))
-                contract = row.get("validation_contract", {}) if isinstance(row, dict) else {}
-                approved_commands = {str(value) for value in contract.get("commands", []) if str(value)}
-                checks = [value for value in contract.get("checks", []) if isinstance(value, dict)]
-                matching = [value for value in checks if str(value.get("command", "")) == command]
-                approved_tiers = {
-                    str(value)
-                    for check in matching
-                    for value in check.get("tiers", [])
-                    if str(value)
-                } or {str(value) for value in contract.get("tiers", []) if str(value)}
-                additive = [row for row in amendments.get(str(uid), []) if row.get("command") == command]
-                amended_tiers = {
-                    str(value)
-                    for row in additive
-                    for value in row.get("tiers", [])
-                    if str(value)
-                }
-                allowed_commands = approved_commands | ({command} if additive else set())
-                allowed_tiers = approved_tiers | amended_tiers
-                if allowed_commands and (
-                    command not in allowed_commands or not item_tiers or item_tiers - allowed_tiers
-                ):
-                    valid_pair = False
-                    break
-            if not valid_pair:
-                continue
-        uids = tuple(sorted(str(value) for value in item.get("requirement_uids", [])))
-        for tier in sorted(item_tiers) if item_tiers else [""]:
-            winners[(uids, command, tier)] = item
+        tiers = receipt_tiers(item)
+        for uid in sorted({str(value) for value in item.get("requirement_uids", []) if str(value)}):
+            for tier in tiers:
+                attempts.setdefault((uid, command, tier), []).append({"item": item, "identity": identity})
 
-    grouped: dict[int, dict[str, Any]] = {}
-    order: list[int] = []
-    for (_uids, _command, tier), item in winners.items():
-        group_key = id(item)
-        if group_key not in grouped:
-            grouped[group_key] = {**item, "tiers": []}
-            order.append(group_key)
-        if tier and tier not in grouped[group_key]["tiers"]:
-            grouped[group_key]["tiers"].append(tier)
-    for group_key in order:
-        tiers_list = sorted(grouped[group_key]["tiers"])
-        grouped[group_key]["tiers"] = tiers_list
-        if tiers_list:
-            grouped[group_key]["tier"] = tiers_list[0]
-    current = [grouped[group_key] for group_key in order]
-    receipts = [{key: item[key] for key in receipt_fields if key in item} for item in current]
+    selected: dict[tuple[str, str, str], dict[str, Any]] = {}
+    bindings: list[dict[str, Any]] = []
+    for key in sorted(attempts):
+        history = sorted(attempts[key], key=lambda row: (row["identity"]["sequence"], row["identity"]["fingerprint"]))
+        winner = history[-1]
+        selected[key] = winner
+        winner_identity = winner["identity"]
+        history_rows = [{
+            **row["identity"],
+            "outcome": row["item"].get("outcome"),
+            "evidence_quality": row["item"].get("evidence_quality", "declared"),
+            "status": "current" if row is winner else "superseded",
+            **({
+                "superseded_by_event_id": winner_identity["event_id"],
+                "superseded_by_sequence": winner_identity["sequence"],
+            } if row is not winner else {}),
+        } for row in history]
+        uid, command, tier = key
+        binding_id = hashlib.sha256(canonical({"requirement_uid": uid, "command": command, "tier": tier, "plan_fingerprint": current_plan}).encode("utf-8")).hexdigest()[:16]
+        bindings.append({
+            "binding_id": f"proof-{binding_id}",
+            "requirement_uid": uid,
+            "command": command,
+            "command_fingerprint": "sha256:" + hashlib.sha256(command.encode("utf-8")).hexdigest(),
+            "tier": tier,
+            "plan_fingerprint": current_plan,
+            "selected_attempt": history_rows[-1],
+            "attempts": history_rows,
+        })
+
+    grouped: dict[tuple[int, str], dict[str, Any]] = {}
+    for (uid, _command, tier), winner in selected.items():
+        item = winner["item"]
+        identity = winner["identity"]
+        group = grouped.setdefault((identity["sequence"], identity["fingerprint"]), {
+            "item": item, "requirement_uids": set(), "tiers": set(),
+        })
+        group["requirement_uids"].add(uid)
+        group["tiers"].add(tier)
+    receipts: list[dict[str, Any]] = []
+    for group_key in sorted(grouped):
+        group = grouped[group_key]
+        receipt = {**group["item"], "requirement_uids": sorted(group["requirement_uids"]), "tiers": sorted(group["tiers"])}
+        if receipt["tiers"]:
+            receipt["tier"] = receipt["tiers"][0]
+        receipts.append(receipt)
+
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-current-validation-evidence-projection",
+        "run_id": run_id,
+        "plan_fingerprint": current_plan,
+        "stream_version": evidence_stream_version(events),
+        "bindings": bindings,
+        "selected_receipts": receipts,
+        "rejected_attempts": rejected,
+        "boundary": "Selection is computed from append-only saved evidence; superseded and rejected attempts remain available for audit and diagnosis.",
+    }
+
+
+def collected_input(root: Path, run_id: str) -> dict[str, Any]:
+    """Build closure-contract input from the current validation projection."""
+    projection = validation_evidence_projection(root, run_id)
+    receipts = [{key: item[key] for key in RECEIPT_FIELDS if key in item} for item in projection["selected_receipts"]]
+    saved = EVIDENCE.show(root, run_id)["events"]
     paths = sorted({path for item in saved for path in item.get("changed_paths", [])})
     return {"schema_version": "1", "type": "tailtrail-execution-closure-input", "run_id": run_id, "changed_paths": paths, "receipts": receipts}
 

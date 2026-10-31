@@ -171,6 +171,50 @@ class ClosureRecorderTests(unittest.TestCase):
         self.assertEqual(len(result["receipt_artifacts"]), 1)
         self.assertTrue(result["completion_gate"]["complete"])
 
+    def test_projection_retains_a_superseded_retry_history(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root)
+            evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": uids,
+                "changed_paths": ["src/service.py"], "tier": "unit",
+                "command_label": "cancellation tests", "command": self.proof_command(),
+                "outcome": "fail", "environment": "local",
+                "asserted_behavior": "earlier failed attempt",
+            }, True)
+            evidence.run_command(root, "run", uids, ["unit"], self.proof_command(), "cancellation tests", ["src/service.py"], True, 30)
+            projection = recorder.validation_evidence_projection(root, "run")
+
+        self.assertEqual(2, projection["stream_version"]["event_count"])
+        self.assertEqual([], projection["rejected_attempts"])
+        self.assertEqual(2, len(projection["bindings"]))
+        for binding in projection["bindings"]:
+            self.assertEqual("pass", binding["selected_attempt"]["outcome"])
+            self.assertEqual(["superseded", "current"], [row["status"] for row in binding["attempts"]])
+            self.assertEqual(binding["selected_attempt"]["event_id"], binding["attempts"][0]["superseded_by_event_id"])
+
+    def test_projection_rejects_proof_stale_after_a_linked_source_edit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uids = self.setup_run(root)
+            evidence.append(root, "run", {
+                "kind": "command-result", "requirement_uids": uids,
+                "changed_paths": ["src/service.py"], "tier": "unit",
+                "command_label": "cancellation tests", "command": self.proof_command(),
+                "outcome": "pass", "environment": "local",
+                "asserted_behavior": "proof before a source edit",
+            }, True)
+            evidence.append(root, "run", {
+                "kind": "source-edit", "requirement_uids": uids,
+                "changed_paths": ["src/service.py"],
+            }, True)
+            projection = recorder.validation_evidence_projection(root, "run")
+            collected = recorder.collected_input(root, "run")
+
+        self.assertEqual([], projection["selected_receipts"])
+        self.assertEqual(["source-changed-after-proof"], [row["reason"] for row in projection["rejected_attempts"]])
+        self.assertEqual([], collected["receipts"])
+
     def test_ignores_managed_command_event_with_unapproved_command_tier_pair(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

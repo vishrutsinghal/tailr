@@ -228,6 +228,82 @@ def latest_closure_receipts(root: Path, directory: Path) -> tuple[list[dict[str,
     return receipts, refs
 
 
+def receipt_selection_signature(receipt: dict[str, Any]) -> tuple[Any, ...]:
+    """Return the stable fields that identify one selected proof observation.
+
+    Closure records intentionally copy receipts into an audit archive, while
+    the evidence stream remains append-only.  File paths therefore differ
+    between the two sources and cannot tell us whether the same proof was
+    selected.  Compare the proof identity and captured execution metadata
+    instead.
+    """
+    return (
+        tuple(sorted(receipt_requirement_uids(receipt))),
+        str(receipt.get("command", "")),
+        tuple(sorted(receipt_tiers(receipt))),
+        str(receipt.get("outcome", "")),
+        str(receipt.get("evidence_quality", "")),
+        str(receipt.get("plan_fingerprint", "")),
+        receipt.get("exit_code"),
+        receipt.get("started_at"),
+        receipt.get("finished_at"),
+        receipt.get("stdout_sha256"),
+        receipt.get("stderr_sha256"),
+    )
+
+
+def current_validation_receipts(
+    root: Path, run_id: str, directory: Path, *, record: bool,
+) -> dict[str, Any]:
+    """Use the current validated projection and refresh stale closure custody.
+
+    A closure record is a checkpointed audit snapshot, not the source of
+    truth for a later managed retry.  Normal report generation may safely
+    regenerate that deterministic snapshot from saved evidence.  Read-only
+    rendering never writes; it reports the stale state while still showing the
+    projection that would become current after closure recording.
+    """
+    snapshot_receipts, snapshot_refs = latest_closure_receipts(root, directory)
+    try:
+        projection = RECORDER.validation_evidence_projection(root, run_id)
+    except (OSError, ValueError, KeyError, TypeError):
+        projection = None
+    if not isinstance(projection, dict):
+        return {
+            "receipts": snapshot_receipts,
+            "receipt_refs": snapshot_refs,
+            "projection": None,
+            "snapshot_status": "unavailable",
+            "snapshot_refreshed": False,
+        }
+
+    selected = [item for item in projection.get("selected_receipts", []) if isinstance(item, dict)]
+    snapshot_signatures = sorted(receipt_selection_signature(item) for item in snapshot_receipts)
+    selected_signatures = sorted(receipt_selection_signature(item) for item in selected)
+    if not selected and not snapshot_receipts:
+        snapshot_status = "not-recorded"
+    elif selected_signatures == snapshot_signatures:
+        snapshot_status = "current"
+    else:
+        snapshot_status = "stale"
+
+    refreshed = False
+    if record and snapshot_status == "stale" and selected:
+        RECORDER.record(root, run_id=run_id)
+        snapshot_receipts, snapshot_refs = latest_closure_receipts(root, directory)
+        snapshot_signatures = sorted(receipt_selection_signature(item) for item in snapshot_receipts)
+        snapshot_status = "current" if snapshot_signatures == selected_signatures else "stale"
+        refreshed = snapshot_status == "current"
+
+    return {
+        "receipts": selected or snapshot_receipts,
+        "receipt_refs": snapshot_refs,
+        "projection": projection,
+        "snapshot_status": snapshot_status,
+        "snapshot_refreshed": refreshed,
+    }
+
+
 def receipt_tiers(receipt: dict[str, Any]) -> list[str]:
     values = receipt.get("tiers")
     if isinstance(values, list):
@@ -839,6 +915,10 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     directory = L.state_dir(root, run_id)
     canonical_state = STATE.project(root, run_id)
     anchor_file, anchor = ANCHOR.latest_approved(root, run_id)
+    # Refresh closure custody before loading artifacts derived from it.  The
+    # recorder writes the checkpoint, review, and completion gate that this
+    # report must project in the same invocation.
+    validation_selection = current_validation_receipts(root, run_id, directory, record=record)
     checkpoint, checkpoint_path = latest(directory / "checkpoints", "checkpoint-*.json")
     review, review_path = latest(directory / "reviews", "review-*.json")
     gate, gate_path = latest(directory / "completion-gates", "gate-*.json")
@@ -847,7 +927,8 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     maintainability, maintainability_path = latest(directory / "maintainability", "assessment-*.json")
     boundary_path = directory / "recovery" / "boundary.json"
     boundary = read(boundary_path) if boundary_path.is_file() else None
-    receipts, receipt_refs = latest_closure_receipts(root, directory)
+    receipts = validation_selection["receipts"]
+    receipt_refs = validation_selection["receipt_refs"]
     try:
         current_plan = RECORDER.current_plan_fingerprint(root, run_id)
     except (OSError, ValueError):
@@ -1016,6 +1097,9 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
             "required_checks": required_checks,
             "receipts": receipts,
             "receipt_refs": receipt_refs,
+            "evidence_projection": validation_selection["projection"],
+            "closure_snapshot_status": validation_selection["snapshot_status"],
+            "closure_snapshot_refreshed": validation_selection["snapshot_refreshed"],
             "failed_or_unavailable_receipts": failed_receipts,
             "unverified_receipts": unverified_receipts,
             "findings": (gate or {}).get("findings", []),
@@ -1457,6 +1541,21 @@ def render(payload: dict[str, Any]) -> str:
         f"Verification status: **{report_text(tests['status'])}**. Passing tiers: **{report_text(tiers)}**.",
         "",
     ])
+    projection = tests.get("evidence_projection")
+    snapshot_status = str(tests.get("closure_snapshot_status", "unavailable"))
+    if isinstance(projection, dict):
+        if snapshot_status == "current":
+            selection_note = "The closure snapshot matches the current validated evidence projection."
+        elif snapshot_status == "stale":
+            selection_note = "The saved closure snapshot is stale; this read-only report shows the current validated projection and requires closure recording to refresh custody."
+        elif snapshot_status == "not-recorded":
+            selection_note = "No closure snapshot is recorded yet; the current validated projection is shown without treating it as completed closure custody."
+        else:
+            selection_note = "The closure snapshot could not be compared with the current validated evidence projection."
+        lines.append(f"Current evidence selection: **{report_text(snapshot_status)}**. {selection_note}")
+        if tests.get("closure_snapshot_refreshed"):
+            lines.append("The Completion Report refreshed the deterministic closure snapshot from saved managed evidence.")
+        lines.append("")
     command_records = []
     required_commands = {str(check.get("command")) for check in required_checks}
     displayed_receipts = [
@@ -1498,6 +1597,39 @@ def render(payload: dict[str, Any]) -> str:
         label = receipt.get("command_label") or (f"{receipt_tier_text} validation" if receipt_tier_text != "-" else "Validation evidence")
         command_records.append((report_text(label), fields))
     append_records(lines, command_records, empty="No required proof or authoritative failure needs detailed display.")
+    if isinstance(projection, dict) and projection.get("bindings"):
+        lines.extend(["", "### Evidence selection history", ""])
+        for binding in projection["bindings"]:
+            if not isinstance(binding, dict):
+                continue
+            uid = str(binding.get("requirement_uid", ""))
+            requirement = requirement_ids.get(uid, uid or "not linked")
+            command = report_text(binding.get("command", ""))
+            tier = report_text(binding.get("tier", "-"))
+            lines.append(f"- **{report_text(requirement)} · {tier}** — `{command}`")
+            attempts = binding.get("attempts", [])
+            if not isinstance(attempts, list) or not attempts:
+                lines.append("  - No attempt identity was retained.")
+                continue
+            for attempt in attempts:
+                if not isinstance(attempt, dict):
+                    continue
+                state = report_text(attempt.get("status", "recorded"))
+                event_id = report_text(attempt.get("event_id", "unidentified"))
+                outcome = report_text(attempt.get("outcome", "not-evidenced"))
+                detail = f"`{event_id}` — {state}; result: **{outcome}**"
+                if attempt.get("superseded_by_event_id"):
+                    detail += f"; superseded by `{report_text(attempt['superseded_by_event_id'])}`"
+                lines.append(f"  - {detail}")
+        rejected = projection.get("rejected_attempts", [])
+        if isinstance(rejected, list) and rejected:
+            lines.append("- **Rejected from current selection**")
+            for attempt in rejected:
+                if isinstance(attempt, dict):
+                    lines.append(
+                        f"  - `{report_text(attempt.get('event_id', 'unidentified'))}` — "
+                        f"{report_text(attempt.get('reason', 'rejected'))}"
+                    )
     if supporting_receipts:
         authoritative_failures = sum(
             item.get("evidence_quality") in {"trusted", "attested"} and item.get("outcome") != "pass"
