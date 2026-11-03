@@ -7,6 +7,7 @@
 - **Implementation valuation:** high-complexity, release-sensitive product work spanning supply-chain identity, packaging, source-checkout behavior, schema migration, runtime resolution, filesystem transactions, three host adapters, and public CLI/MCP routes. It is not a packaging-only change.
 - **Decision:** Full AIDLC must be a normal TailTrail capability backed by a pinned, integrity-verified bundle shipped with TailTrail. Customers must not separately install the official rules before using Full mode.
 - **Primary user outcome:** `tailtrail start ... --aidlc full` works without network access when the installed TailTrail package is intact, remains in Full mode, and fails closed with a precise recovery action when either the bundle or the destination is unsafe.
+- **Recommended Fixes audit:** added 2026-11-03 from an independent repository verification pass. All current-state findings in this document were re-verified against the code, and ten additional fixes were derived from that audit; see the `Recommended Fixes` section at the end.
 
 ## Executive summary
 
@@ -1188,3 +1189,288 @@ The source currently references `v1.0.1` and commit `e49341d` in the network ins
 The feature is complete only when a user with a normal identity-verified TailTrail installation can enter a new repository, disconnect network access, run an explicit Full AIDLC Start through CLI or MCP on Codex, Copilot, or Claude, and reach the official Requirements stage using the bundled pinned rules. The report must show the artifact-identity receipt, truthful trust posture, verified license, provenance, hashes, frozen project projection, host projection, and `effective_mode: full`.
 
 The same release must reject every missing, altered, stale, incompatible, incomplete, unsafe, or interrupted state before creating planning or implementation authority. Wheel, source distribution, source checkout, host projections, and public negative routes must all have executable proof.
+
+## Recommended Fixes
+
+This section records ten additions and corrections raised during the 2026-11-03 repository verification pass that re-confirmed the findings in `Verified current state`. They are additions to the design above; none of them changes the core decisions (bundled pack, content-addressed projection, frozen run binding, explicit-Full-never-Lite). Each fix names the verified evidence, the proposed change, acceptance criteria, and the phases it lands in. Fixes RF-01 through RF-05 should be resolved before their dependent phase begins; RF-06 through RF-10 are plan-quality improvements that prevent discovered-late rework.
+
+### Fix summary and sequencing
+
+| Fix | Priority | Classification | Lands in phases | Suggested owner |
+| --- | --- | --- | --- | --- |
+| RF-01 `runtime_required` wiring | Critical — certain failure if omitted | Packaging wiring defect in the design's file-impact map | 1, 2, 3 | Packaging/resources |
+| RF-02 Managed-payload provider | High — unclassified trust posture | Product-model gap | 2, 4 | Packaging/resources |
+| RF-03 Windows-safe atomic projection | High — platform failure class | Implementation/proof gap | 2, 5 | Resolver owner |
+| RF-04 Lifecycle lock reuse | High — reuse-first requirement | Implementation gap | 2 | Resolver owner |
+| RF-05 Checked-in provenance artifact | High — governance gap | Process gap | 0, 1 | Release engineering |
+| RF-06 Requirements-resolver compatibility shim | Medium — cross-phase coupling | Plan gap | 2, 3 | Requirements-stage owner |
+| RF-07 Schema consolidation decision | Medium — product-surface churn | Schema-ownership gap | 1, 2 | Schema owner |
+| RF-08 Retention-rule authoritative source | Medium — unverifiable rule | Decision gap | 2 | Lifecycle owner |
+| RF-09 Parameterized negative-integrity matrix | Medium — proof scalability | Proof gap | 5 | Proof owner |
+| RF-10 Byte identity and path normalization | Medium — silent cross-platform corruption | Environment/dependency issue | 1, 5 | Packaging owner |
+
+### RF-01 — Wire official-pack runtime modules into `package-manifest.json` `runtime_required`
+
+**Priority:** Critical. Omitting this produces a certain failure on installed packages even after every other design goal is implemented.
+
+**Problem.** The file-impact map above adds the resolver module and moved scripts but never updates `runtime_required`. Verified against the repository: `package-manifest.json` contains no `aidlc-official-*` or `official-aidlc-*` entry in any list (`required_files`, `required_directories`, `runtime_required`). The only coverage is the `scripts` directory entry in `required_directories`, which selects checkout and wheel-build copying but does not guarantee individual runtime files through the enforcement consumers.
+
+**Evidence.** Four independent consumers give `runtime_required` real enforcement power:
+
+- `tailtrail/resources.py:35-38` — `verify_package()` reports a missing runtime resource as a package issue.
+- `scripts/tailtrail.py:684-697` — the installed-package `doctor` fails with an explicit missing-entry list when any `runtime_required` path is absent.
+- `scripts/package-release-proof.py:61` — release proof iterates `runtime_required` for artifact inspection.
+- `scripts/navigator-scope-release.py:334-390` — installed-release proof intersects `runtime_required` with the package inventory.
+
+**Consequence if unfixed.** The new resolver module (`tailtrail/aidlc_bundle.py`) and the reworked bridge/detector/scripts would be unprotected: a transactional or managed install enumerating the manifest may omit them; an installed wheel with them missing still passes `doctor` and `verify_package()`; and Full preflight would then fail with an obscure `bundled-pack-missing` or a Python import error instead of the precise packaging-defect diagnosis the design promises.
+
+**Proposed change.** Add to `runtime_required` in Phase 1 (as files land) and keep current through Phase 2/3:
+
+```text
+tailtrail/aidlc_bundle.py
+scripts/aidlc-official-detect.py
+scripts/aidlc-official-bridge.py
+scripts/aidlc-official-host.py
+scripts/official-aidlc-requirements.py
+scripts/official-aidlc-state.py          (if the resolver/state path consumes it)
+scripts/official-aidlc-runtime.py        (only if the Full runtime consumes it)
+```
+
+Also update the file-impact map row for `package-manifest.json` to state that both `required_directories` selection and `runtime_required` enforcement need changes.
+
+**Acceptance criteria.**
+
+- [ ] `tailtrail doctor` passes on an installed wheel with every official-pack runtime module present.
+- [ ] Deleting any one listed module from an installed wheel makes `doctor`, `verify_package()`, or release proof fail with that exact path named.
+- [ ] `package-release-proof.py` output names all official-pack runtime modules on a built artifact.
+- [ ] The wheel inventory and the `runtime_required` list agree (no orphan entries that are never packaged).
+
+### RF-02 — Classify the managed-payload install as an explicit third resource provider
+
+**Priority:** High. The resolver has providers for installed packages and source checkouts, but the transactional managed host install is a third distribution shape that currently has no provider, no trust posture, and no receipt value.
+
+**Problem.** The target architecture covers wheel, sdist, and source checkout, and `Managed TailTrail host installation` says only that the bundle travels "through the extended common payload". It does not specify:
+
+1. where the bundle lives inside the managed payload;
+2. which provider class discovers and validates it;
+3. what trust posture a payload-installed bundle may claim;
+4. what `resource_provider` the resolution receipt records for it.
+
+**Proposed change.**
+
+- Add a third provider, `ManagedPayloadProvider`, sharing the closed-inventory validator with the installed-package provider:
+  - Bundle location: `<payload-root>/tailtrail/aidlc-rules/`, mirroring the wheel layout so the same nested validation applies.
+  - Required payload sentinels: the payload's own integrity manifest, `package-manifest.json`, `aidlc-rules/manifest.json`, and `BUNDLE_VERSION`. Validation requires the same equality of inventories as the wheel provider (expected == declared == actual regular files).
+- Trust posture: a managed payload resolves as `corruption-detection-only` by default; it may report `authenticated-release` only if the administering host also installed and verified the artifact-identity receipt (enterprise policy may enable this). Default blocking behavior follows the `corruption-detection-only` policy decision already in the decision table.
+- Receipt value: `"resource_provider": "installed-package" | "source-checkout" | "managed-payload"`.
+- Failure codes: reuse `bundled-pack-missing` and `bundled-pack-altered` for the payload route so the failure taxonomy does not grow a parallel set.
+- Status output gains one line: `Resource provider: managed-payload`.
+- Resolver inputs are provider-agnostic, but the provider selection precedence must be documented: installed package > managed payload > source checkout, with the ambiguity rule that finding more than one complete bundle root in one resolution context fails closed.
+
+**Acceptance criteria.**
+
+- [ ] An offline explicit Full Start succeeds on a managed payload install from an unrelated current working directory.
+- [ ] Removing one rule file from the payload reports `bundled-pack-missing`; altering one byte reports `bundled-pack-altered`.
+- [ ] The payload route never reports `authenticated-release` unless a verified artifact receipt is present in the payload.
+- [ ] Wheel, payload, and checkout resolutions of the same bundle produce identical `official_source`, `official_revision`, `official_commit`, `bundle_manifest_fingerprint`, differing only in `resource_provider` and `trust_posture`.
+
+### RF-03 — Specify Windows-safe atomic projection semantics
+
+**Priority:** High. The host platform in active use is Windows, and the provisioning algorithm (steps 6–12) is written in POSIX idioms that are not directly portable.
+
+**Problem and evidence.**
+
+- `os.replace`/`os.rename` on Windows cannot rename a directory onto an existing destination (even an empty one), and renaming directories held open by scavenger processes (antivirus, indexers) fails transiently. The design's phrase "flush written files where platform support permits" is too vague to implement or test.
+- There is no directory-fsync equivalent on Windows; POSIX-style durability guidance does not transfer.
+- Windows path-length and reserved-name behavior (`CON`, `NUL`, `AUX`, trailing dots/spaces) is a distinct safe-path class the manifest validator list does not name.
+- The concurrency proof ("race two provisioning processes") must run under Windows locking semantics, not only `flock`.
+
+**Proposed change.** Amend the `Atomic offline provisioning` algorithm with a `Windows and cross-platform semantics` subsection:
+
+1. **Rename invariant:** never rename onto an occupied path. The content-addressed destination either already exists and returns `reused` (step 4), exists invalidly and returns a typed failure (step 5), or does not exist and receives the rename. Add a regression that fails if any rename is attempted onto an occupied destination on Windows.
+2. **Flush discipline:** after writing each staged file, `flush()` and `fsync()` the file object before move; after the final rename, sync the parent directory where the platform supports it and record `flush_extent: "full" | "per-file" | "best-effort"` in the project projection receipt so a later recovery pass can distinguish what it can trust.
+3. **Transient contention:** a `PermissionError`/`OSError` during staging rename is retried a bounded number of times with short backoff before being classified as `provisioning-interrupted`. It must never be misreported as `destination-altered` or `destination-unsafe`.
+4. **Path safety:** extend the existing backslash-ambiguity rejection with reserved Windows device names, drive-absolute forms, and trailing dot/space entries; restrict the bundle inventory to ASCII-only relative paths (simplest closed-world validator, and the 31 real files already satisfy it).
+5. **Long-path:** document the generated depth (`repo/.tailtrail/official-aidlc/packs/<64-hex>/...`) and add one integration test from an unusually deep repository root; rely on Python long-path opt-in rather than registry changes.
+6. **Windows concurrency proof:** the two-process race test must run under the msvcrt locking path (see RF-04) and assert the `created` + `reused` pair with no partial pack observable.
+
+`current.json` updates stay single-file `os.replace` writes, which already match established repo precedent (`scripts/navigator_scope.py:4261-4263`, `scripts/run-ledger.py:128`).
+
+**Acceptance criteria.**
+
+- [ ] Full explicit provisioning succeeds on Windows from a wheel install and from a source checkout.
+- [ ] A bounded-retry test injects a transient rename contention and observes a clean success, not a typed failure.
+- [ ] A rename-onto-occupied-destination injection fails with a regression assert, never a successful projection.
+- [ ] The deep-root integration test provisions the full bundle offline.
+- [ ] Reserved-name/path-safety manifest entries are rejected with the typed unsafe code on both platforms.
+
+### RF-04 — Reuse the existing cross-platform lock instead of specifying a new one
+
+**Priority:** High. Ground rules require reuse-first; the design says "acquire a bounded lifecycle lock" without naming the existing implementation, inviting a parallel lock abstraction.
+
+**Evidence.** The repository already contains a portable file-lock implementation:
+
+- `scripts/run-ledger.py:18-23` — imports `fcntl` when available, `msvcrt` otherwise.
+- `scripts/run-ledger.py:94-95` — POSIX `flock` with `LOCK_EX`.
+- `scripts/run-ledger.py:95-101` — Windows `msvcrt.locking` with `LK_LOCK` (bounded retry loop).
+- `scripts/run-ledger.py:115-118` — matched unlock paths.
+- `scripts/token-harness-ledger.py:205-213` — a second convergent precedent for the same pattern.
+
+**Proposed change.**
+
+- The resolver's provisioning acquires its lifecycle lock through the `run-ledger.py` lock helper (imported, not re-implemented; or extracted into a shared helper module if the Ground-Rules command-wiring checklist requires it in the package).
+- Lock file: `.tailtrail/official-aidlc/locks/provision.lock`. The lock file lives under TailTrail-managed state, never inside the pack directory, so it cannot enter any inventory equality check.
+- Bounded wait with an explicit timeout; on timeout, fail with `provisioning-interrupted` and a "retry" next action, not a hang.
+- Document single-lock discipline: provisioning takes exactly one lock and does not nest others, keeping the design deadlock-free.
+- The lock TTL semantics must match the single-use ticket conventions already used elsewhere in the repo (bounded, explicit, never silently renewed).
+
+**Acceptance criteria.**
+
+- [ ] Two concurrent Windows processes serialize through the msvcrt path; exactly one reports `created`.
+- [ ] A lock-holder crash releases no keys that block a retry (stale lock recovery is bounded and safe).
+- [ ] No new lock abstraction appears in the diff; review confirms the shared helper is reused.
+
+### RF-05 — Persist Phase 0 provenance as a checked-in, CI-re-verifiable artifact
+
+**Priority:** High. Phase 0 currently produces decisions in prose only. "Every bundled byte has verified provenance" is the hardest requirement in the design and, as written, cannot be re-proven after the session that performed it ends.
+
+**Problem.** The design says release engineering must verify or replace the existing 31 files and record the pinned tag, full commit, and archive digest. Without a durable artifact:
+
+- the verification is unreproducible (no CI step can re-check it);
+- the bundle manifest's `official` block has no independent source the release proof can compare against;
+- a later release could silently re-check unverified bytes.
+
+**Proposed change.**
+
+- Check in `aidlc-rules/PROVENANCE.json` as part of Phase 0, with fields:
+
+```json
+{
+  "schema_version": "1",
+  "upstream_source": "https://github.com/awslabs/aidlc-workflows",
+  "pinned_tag": "<tag>",
+  "full_commit_sha256": "<full commit sha>",
+  "source_archive_sha256": "<sha256>",
+  "acquired_by": "<release process identity>",
+  "acquired_on": "<date>",
+  "acquisition_method": "verified upstream archive fetch at release time",
+  "license": {"spdx": "MIT-0", "file": "LICENSE", "sha256": "<sha256>"},
+  "verification_commands": ["<exact commands run>"],
+  "bundle_version": "1"
+}
+```
+
+- The bundle manifest's `official` block must match `PROVENANCE.json` field-for-field; any drift is a schema failure. This gives the manifest an independent authority source that runtime never has to trust alone.
+- `scripts/package-release-proof.py` (Phase 1) gains one release-time-only step: re-fetch the pinned archive, rehash it against `PROVENANCE.json`, and fail closed on drift. This is the only place network use is permitted for the bundle, and it is release CI, never Full Start.
+- Runtime stays fully offline: `PROVENANCE.json` is read by release proof and explicit audits only. The resolver never fetches, never re-derives, and never upgrades trust from it.
+- Phase 0 exit criteria gain one line: "`PROVENANCE.json` is the single authoritative definition of the pinned release, and whichever verify-or-replace path was chosen has left it consistent with the checked-in bytes."
+
+**Acceptance criteria.**
+
+- [ ] Release CI re-verifies the pinned archive against `PROVENANCE.json` and fails on any drift.
+- [ ] Editing `PROVENANCE.json`'s tag or archive digest without changing the manifest fails schema validation, and vice versa.
+- [ ] No runtime code path reads `PROVENANCE.json` during Full Start (provable by a test asserting no network and no provenance-driven posture upgrade).
+
+### RF-06 — Move the requirements-adapter compatibility shim into Phase 2
+
+**Priority:** Medium. This is a cross-phase coupling the phasing currently discovers late.
+
+**Problem.** `scripts/official-aidlc-requirements.py` resolves the governing rules relative to the project-local compatibility manifest at `.tailtrail/official-aidlc/manifest.json`. Content-addressed projections change that layout to `.tailtrail/official-aidlc/packs/<pack-fingerprint>/manifest.json` plus a separate run receipt. The design names this script as a Phase 3 owner, but the path contract change originates in the Phase 2 projection. Left as-is, Phase 2 can land and leave the requirements stage resolving against a path that no longer exists in the new model, which only surfaces in Phase 3.
+
+**Proposed change.**
+
+- Add to Phase 2 deliverables a bounded item: "requirements-adapter compatibility shim — `official-aidlc-requirements.py` resolves its rule set relative to the run resolution receipt's frozen project pack path, never from `current.json` and never from relative discovery".
+- The shim keeps the existing safe-path boundary: rules are read only from within the frozen pack root; traversal outside it fails closed exactly as today.
+- Dual-path regression in Phase 2 test scope: legacy schema-v1 project pack (existing `.tailtrail/official-aidlc/manifest.json`, bounded legacy-run behavior per the compatibility matrix) and new content-addressed pack both resolve requirements correctly.
+
+**Acceptance criteria.**
+
+- [ ] After Phase 2 alone, requirements lookup works from a fresh provisioned projection with no `current.json` write having occurred.
+- [ ] Frozen-run resolution ignores a retargeted `current.json` (documented test, also listed under Behaviour proof).
+- [ ] The legacy v1 path still resolves for the bounded compatibility cases only; a v1 manifest cannot authorize a new bundled Full run.
+
+### RF-07 — Make the schema-family decision explicit before Phase 1
+
+**Priority:** Medium. The design mandates five artifact contracts but the repository already has seven `official-aidlc-*` schemas. Without an explicit mapping, implementers may create a parallel schema family that overlaps the existing ones.
+
+**Evidence.** Existing schemas: `official-aidlc-pack.schema.json`, `official-aidlc-bridge.schema.json`, `official-aidlc-run-state.schema.json`, `official-aidlc-session.schema.json`, `official-aidlc-transition-receipt.schema.json`, `official-aidlc-sanitized-reference.schema.json`, `planning-aidlc-mode-switch.schema.json`.
+
+**Proposed change.** Add a decision table to the `Artifact and schema separation` section:
+
+| New contract | Vehicle | Rationale |
+| --- | --- | --- |
+| Bundle manifest schema v2 | Evolve `official-aidlc-pack.schema.json` in place, restrictive `schema_version: "1"` compatibility mode retained | Keeps one pack-manifest contract; v1 remains bounded per the compatibility matrix |
+| Project projection receipt | New schema | Distinct mutability (append-only) |
+| Run resolution receipt | Decide: extends `official-aidlc-run-state.schema.json` or replaces it | Must be owned by the runtime-compatibility owner before Phase 2 |
+| `current.json` selector | New schema | Atomically replaceable, future-runs-only |
+| Host projection receipt | New schema | Per-host, append-only |
+
+**Acceptance criteria.**
+
+- [ ] Exactly four new schemas plus one in-place evolution (or a documented alternative decision) — no overlapping parallel families.
+- [ ] Every new or evolved schema has a golden example exercised by tests and is registered per the Ground-Rules command-wiring checklist.
+- [ ] `tailtrail-registry.json` claims each schema under the resolver feature.
+
+### RF-08 — Name the authoritative source for the retention rule
+
+**Priority:** Medium. "Delete an old pack only after proving that no active, resumable, auditable, or closure-pending run references it" is currently unverifiable: no module is named as the reference authority, and no API is defined for the proof.
+
+**Proposed change.**
+
+- Make `official-aidlc-state.py` the authoritative append-only index of `run-id -> project-pack-fingerprint` bindings; the resolver appends one event at resolution time (and the bridge appends on run adoption), so the index is complete without scanning arbitrary run directories.
+- Add a typed resolver/adapter function, e.g. `retention_active_references(pack_fingerprint) -> list[run-id]`, owned by the resolver module. It must fail closed: if the index is unreadable or missing, it returns an explicit error state, never an empty list that reads as "safe to delete".
+- Retention executes only through an explicit operator-approved retire path (the repair flow already requires preservation of old bytes); it is never triggered by Full Start, upgrade, or provisioning, and it records the retired fingerprint plus the proof in the audit events list.
+- A pack that fails the reference check keeps the `active-run-reference` classification with its own user guidance row rather than silently becoming deletable.
+
+**Acceptance criteria.**
+
+- [ ] A pack referenced by an active run cannot be retired; the command fails with the referencing run IDs listed.
+- [ ] An unreadable or missing reference index blocks retirement with a fail-closed message.
+- [ ] Every retirement appears in the append-only audit event stream with the proof shown.
+
+### RF-09 — Consolidate the negative-integrity matrix into a parameterized harness
+
+**Priority:** Medium. The repository has 244 test modules today, and the design's proof strategy enumerates roughly 14 failure-injection scenarios times wheel/sdist/checkout times 3 hosts plus interruption and concurrency cases. Hand-written expansion would add well over a hundred test cases and slow the suite permanently.
+
+**Proposed change.**
+
+- Build one parameterized negative-integrity harness, e.g. `tests/test_aidlc_bundle_negative_matrix.py`, driven by an explicit scenario table. Each row declares: artifact family (source checkout / wheel / sdist builder fixture), mutation function (remove file, alter byte, add unlisted file, rewrite both manifests, alter license, change revision metadata, incomplete destination, stale destination, symlink destination, escaping manifest path, pre-rename failure, post-verify pre-receipt failure), expected failure code, and the preservation invariant asserted after the failure.
+- Fixture builders construct synthetic minimal bundles (schema-valid manifest + two files) for speed; one canonical integration test still uses the real 31-file bundle end to end.
+- Interruption and concurrency scenarios remain bespoke modules because they need process injection, not mutation tables.
+- The red-to-green requirement keeps working: the public-symptom row (explicit Full request against the current un-bundled build) must fail against current code with the exact live symptom.
+
+**Acceptance criteria.**
+
+- [ ] `--collect-only` counts the full matrix (no scenario silently dropped).
+- [ ] A mutation added to the table appears in collection automatically; removing one row is code review-visible.
+- [ ] Suite stays within the repository's runtime budget; the real-bundle integration proof runs in the release workflow, not the default developer loop.
+
+### RF-10 — Prove byte identity across git checkout, sdist, and wheel on Windows
+
+**Priority:** Medium. Hash-equality proofs silently assume the bundle's Markdown bytes are identical across acquisition routes. On Windows, `core.autocrlf` and Unicode filename handling can break that assumption in ways the manifest validator will then report as "altered" even though nothing was altered.
+
+**Proposed change.**
+
+- Add `.gitattributes` pinning the bundle as byte-stable in the source checkout, e.g. `aidlc-rules/** -text` (no eol conversion), so a Windows clone produces the same bytes the release archive had. Verify with a CI job that rehashes the checkout against the bundle manifest on both Windows and Linux.
+- Manifest generation and validators hash raw file bytes; document that hashes are byte-identity, not content-identity, and that CRLF-normalizing consumers must never rewrite bundle files.
+- The sdist-to-wheel equivalence check (already required) runs on both platforms; its output must include the per-file comparison table, so a mismatch names the file, both hashes, and both build routes.
+- Filename normalization: prefer the ASCII-only inventory constraint from RF-03; if Unicode names are ever accepted, define NFC canonicalization explicitly in the schema and validator rather than leaving it to platform defaults.
+
+**Acceptance criteria.**
+
+- [ ] A Windows clone of the repository hashes the bundle identical to the release manifest (CI-verified).
+- [ ] Deliberate autocrlf-style byte change in one bundle file fails checkout validation with `bundled-pack-altered`, naming the file.
+- [ ] Wheel and sdist-to-wheel builds agree per-file on Windows and POSIX runners.
+
+### Relationship to the existing decision table
+
+The `Decisions required before implementation` table should gain four rows (or absorb these as amendments), since this audit adds decisions that must be owned:
+
+| Decision | Recommended direction | Accountable owner | Required before |
+| --- | --- | --- | --- |
+| Managed-payload trust posture (RF-02) | Default `corruption-detection-only`; authenticated claim requires a verified artifact receipt in the payload | Packaging/resources owner | Phase 2 resolver |
+| Run-receipt schema vehicle (RF-07) | Extend or replace `official-aidlc-run-state.schema.json`; name one | Runtime compatibility owner | Phase 2 |
+| Retention reference authority (RF-08) | `official-aidlc-state.py` append-only index; explicit retire path only | Lifecycle owner | Phase 2 |
+| Checkout byte-stability on Windows (RF-10) | `.gitattributes` pinning plus CI rehash on both platforms | Packaging owner | Phase 1 bundle creation |
+
+Nothing in this section weakens the design's own safety rules: every fix preserves fail-closed behavior, closed inventories, no network at runtime, truthful trust postures, frozen run bindings, and the explicit-full-never-Lite contract.
