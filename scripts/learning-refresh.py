@@ -662,6 +662,106 @@ def exact_duplicate_v3_groups(records: list[dict[str, Any]]) -> dict[str, list[s
     return {key: sorted(ids) for key, ids in groups.items() if len([item for item in ids if item]) > 1}
 
 
+def equivalent_advice_v3_groups(records: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Group exact normalized advice even when observation context differs.
+
+    Tags and paths describe where an observation occurred; they do not make
+    identical advice a different learning.  Learning class remains part of
+    identity so positive guidance can never collapse into avoid-history or a
+    different governance class.
+    """
+    groups: dict[str, list[str]] = {}
+    for record in records:
+        if not isinstance(record, dict) or str(record.get("freshness", {}).get("status", "")) != "current":
+            continue
+        content = record.get("content", {}) if isinstance(record.get("content"), dict) else {}
+        advice = re.sub(r"\s+", " ", str(content.get("advice", "")).strip().lower())
+        learning_class = str(record.get("learning_class", "")).strip()
+        learning_id = str(record.get("learning_id", "")).strip()
+        if advice and learning_class and learning_id:
+            groups.setdefault(f"{learning_class}|{advice}", []).append(learning_id)
+    return {key: sorted(ids) for key, ids in groups.items() if len(ids) > 1}
+
+
+def _union_record_values(records: list[dict[str, Any]], section: str, field: str) -> list[str]:
+    return sorted({
+        str(value)
+        for record in records
+        for value in (record.get(section, {}).get(field, []) if isinstance(record.get(section), dict) else [])
+        if str(value).strip()
+    })
+
+
+def _legacy_observation(root: Path, reference: str) -> tuple[str | None, str | None]:
+    """Return the exact event reference and its sanitized source-run ID."""
+    if "#line=" not in reference:
+        return None, None
+    relative, raw_line = reference.rsplit("#line=", 1)
+    try:
+        line_number = int(raw_line)
+        path = root / relative
+        event = json.loads(path.read_text(encoding="utf-8").splitlines()[line_number - 1])
+    except (OSError, ValueError, IndexError, json.JSONDecodeError):
+        return None, None
+    run_id = str(event.get("source_run_id", "")).strip()
+    return reference, run_id or None
+
+
+def _consolidated_record(
+    root: Path,
+    V3: Any,
+    canonical: dict[str, Any],
+    records: list[dict[str, Any]],
+    reason: str,
+) -> tuple[dict[str, Any], list[str]]:
+    evidence_refs = set(_union_record_values(records, "provenance", "evidence_refs"))
+    source_run_ids: set[str] = set()
+    for record in records:
+        references = [str(record.get("provenance", {}).get("source_ref", "")), *list(evidence_refs)]
+        for reference in references:
+            event_ref, run_id = _legacy_observation(root, reference)
+            if event_ref:
+                evidence_refs.add(event_ref)
+            if run_id:
+                source_run_ids.add(run_id)
+
+    observation_count = sum(max(0, int(record.get("utility", {}).get("observation_count", 0) or 0)) for record in records)
+    use_count = sum(max(0, int(record.get("utility", {}).get("use_count", 0) or 0)) for record in records)
+    summary = (
+        f"Consolidated {canonical['learning_class']} with {observation_count} observations "
+        f"across {len(source_run_ids)} source runs."
+    )
+    sensitivity = "internal" if any(record.get("privacy", {}).get("sensitivity") == "internal" for record in records) else "normal"
+    record = V3.build_record(
+        root,
+        learning_id=str(canonical["learning_id"]),
+        learning_class=str(canonical["learning_class"]),
+        summary=summary,
+        advice=str(canonical["content"]["advice"]),
+        source_kind="learning-v3-consolidation",
+        source_ref=f"learning-v3:{canonical['record_id']}",
+        source_fingerprint="sha256:" + str(canonical["chain"]["digest"]),
+        captured_by="Learning Refresh",
+        task_types=_union_record_values(records, "applicability", "task_types"),
+        tags=_union_record_values(records, "applicability", "tags"),
+        path_patterns=_union_record_values(records, "applicability", "path_patterns"),
+        requirement_ids=_union_record_values(records, "applicability", "requirement_ids"),
+        evidence_refs=sorted(evidence_refs),
+        exclusions=_union_record_values(records, "applicability", "exclusions"),
+        invalidators=_union_record_values(records, "freshness", "invalidators"),
+        stale_when=str(canonical.get("freshness", {}).get("stale_when", "related evidence changes")),
+        confidence_score=min(int(item.get("utility", {}).get("confidence_score", 0) or 0) for item in records),
+        sensitivity=sensitivity,
+        operation="amend",
+        previous=canonical,
+        reason=reason,
+        curated=all(bool(item.get("utility", {}).get("curated")) for item in records),
+    )
+    record["utility"]["observation_count"] = observation_count
+    record["utility"]["use_count"] = use_count
+    return V3.append_record(root, record), sorted(source_run_ids)
+
+
 def near_duplicate_proposals(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Propose merges for related-but-not-identical current records.
 
@@ -734,14 +834,36 @@ def execute_merge_group(
         raise ValueError("duplicate merge execution requires a reason")
     V3 = load_sweep_v3()
     root = root.resolve()
+    latest = V3.latest_records(V3.read_records(root))
+    ordered_ids = list(dict.fromkeys([str(canonical_id), *(str(item) for item in merged_ids)]))
+    records: list[dict[str, Any]] = []
+    for learning_id in ordered_ids:
+        record = latest.get(learning_id)
+        if record is None:
+            raise ValueError(f"learning `{learning_id}` is missing")
+        if record.get("freshness", {}).get("status") != "current":
+            raise ValueError(f"learning `{learning_id}` is not current")
+        records.append(record)
+    keys = {
+        f"{record.get('learning_class')}|{re.sub(r'\s+', ' ', str(record.get('content', {}).get('advice', '')).strip().lower())}"
+        for record in records
+    }
+    if len(keys) != 1:
+        raise ValueError("duplicate merge requires equivalent advice within one learning class")
+
+    canonical_record, source_run_ids = _consolidated_record(root, V3, records[0], records, str(reason))
     superseded: list[str] = []
-    for learning_id in merged_ids:
+    for learning_id in ordered_ids[1:]:
         if str(learning_id) == str(canonical_id):
             continue
         V3.terminal_transition(root, str(learning_id), "supersede", str(reason), replacement=str(canonical_id))
         superseded.append(str(learning_id))
     return {
         "canonical_learning_id": str(canonical_id),
+        "canonical_record_id": str(canonical_record["record_id"]),
+        "observation_count": int(canonical_record["utility"]["observation_count"]),
+        "source_run_count": len(source_run_ids),
+        "source_run_ids": source_run_ids,
         "superseded": sorted(superseded),
         "reason": str(reason),
     }
@@ -756,7 +878,7 @@ def command_merge_duplicates(args: argparse.Namespace) -> int:
         latest = V3.latest_records(V3.read_records(root))
     except (OSError, ValueError) as error:
         raise SystemExit(f"Learning V3 store is unreadable: {error}")
-    groups = exact_duplicate_v3_groups(list(latest.values()))
+    groups = equivalent_advice_v3_groups(list(latest.values()))
     if not groups:
         print("No exact-duplicate learning groups found.")
         return 0
@@ -769,13 +891,16 @@ def command_merge_duplicates(args: argparse.Namespace) -> int:
         ids = sorted(groups[key], key=lambda item: (by_sequence.get(item, 0), item))
         executed.append(execute_merge_group(
             root, ids[0], ids[1:],
-            args.reason or "approved exact-duplicate collapse", True,
+            args.reason or "approved equivalent-advice consolidation", True,
         ))
     if args.format == "json":
         print(json.dumps({"merged_groups": executed}, indent=2, sort_keys=True))
     else:
         for row in executed:
-            print(f"Merged {', '.join(row['superseded'])} into `{row['canonical_learning_id']}`.")
+            print(
+                f"Merged {', '.join(row['superseded'])} into `{row['canonical_learning_id']}` "
+                f"with {row['observation_count']} observations across {row['source_run_count']} source runs."
+            )
     return 0
 
 
@@ -1013,7 +1138,10 @@ def build_parser() -> argparse.ArgumentParser:
     sweep.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
 
-    merge_duplicates = subparsers.add_parser("merge-duplicates", help="Supersede exact-duplicate learnings into their earliest record.")
+    merge_duplicates = subparsers.add_parser(
+        "merge-duplicates",
+        help="Consolidate equivalent advice and supersede its duplicate observations into the earliest record.",
+    )
     merge_duplicates.add_argument("--root", type=Path, default=Path.cwd())
     merge_duplicates.add_argument("--reason", default=None)
     merge_duplicates.add_argument("--approved", action="store_true")

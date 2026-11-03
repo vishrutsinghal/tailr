@@ -24,6 +24,7 @@ def load(name: str, relative: str):
 
 lock = load("workflow_start_lock_test", "scripts/planning_lock.py")
 from workflow_runtime import approvals, start_integration
+from tests.planning_proof_fixture import register_proof, write_proof_file
 
 
 class WorkflowStartIntegrationTests(unittest.TestCase):
@@ -31,6 +32,7 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
         owner = root / "src" / "validation.py"
         owner.parent.mkdir(parents=True, exist_ok=True)
         owner.write_text("def validate(value):\n    return value > 0\n", encoding="utf-8")
+        write_proof_file(root)
         command = [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "fix a bounded validation rule", "--root", root.as_posix(), "--changed", "src/validation.py", "--planning-run-id", run_id, "--format", "json"]
         if no_workflow: command.append("--no-workflow")
         result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
@@ -58,6 +60,7 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
     def test_activation_creates_the_canonical_runtime_and_compiler_without_execution(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); report = self._start(root, "dwr2-activate")
+            register_proof(root, "dwr2-activate")
             activated = lock.activate(root, "dwr2-activate", True)
             runtime = activated["workflow_runtime"]
             compiler_artifact = root / runtime["compiler"]["artifact"]
@@ -69,7 +72,7 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
 
         self.assertEqual(runtime["state"], "compiled")
         self.assertTrue(compiler_exists)
-        self.assertEqual(json.loads(state_view.stdout)["current_stage"], "not-executing")
+        self.assertEqual(json.loads(state_view.stdout)["current_stage"], "bootstrap")
         self.assertEqual(activated["execution_handoff"]["workflow_runtime"]["compiler"]["template_id"], runtime["compiler"]["template_id"])
         self.assertEqual(runtime["execution_authority"]["route"], "approved-plan-auto-grant")
         self.assertIn("write_project", runtime["execution_authority"]["auto_granted_action_classes"])
@@ -77,8 +80,8 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
         self.assertEqual(authorized["source"], "plan-derived")
         self.assertNotIn("scan_local", authorized["action_classes"])
         start_binding = report["workflow_runtime"]["scope_binding"]
-        self.assertEqual(runtime["scope_binding"], start_binding)
-        self.assertEqual(activated["execution_handoff"]["scope_binding"], start_binding)
+        self.assertEqual(runtime["scope_binding"], activated["execution_handoff"]["scope_binding"])
+        self.assertIn("src/validation.py", runtime["scope_binding"]["editable_paths"])
         self.assertEqual(start_binding["editable_paths"], ["src/validation.py"])
         self.assertEqual(
             start_binding["decision_fingerprint"],
@@ -86,7 +89,7 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(
             activated["execution_handoff"]["scope_drift_rule"]["approved_editable_paths"],
-            ["src/validation.py"],
+            ["src/validation.py", "tests/fixture_proof_check.py"],
         )
 
     def test_official_and_intent_runs_retain_material_gates(self) -> None:
@@ -113,6 +116,7 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
     def test_no_workflow_is_a_compatibility_escape_hatch(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); report = self._start(root, "dwr2-no-workflow", no_workflow=True)
+            register_proof(root, "dwr2-no-workflow")
             activated = lock.activate(root, "dwr2-no-workflow", True)
 
         self.assertFalse(report["workflow_runtime"]["enabled"])
@@ -124,6 +128,7 @@ class WorkflowStartIntegrationTests(unittest.TestCase):
             root = Path(temp); report = self._start(root, "dwr2-approvals")
             policy = {"schema_version": "1", "type": "tailtrail-workflow-compiler-policy", "required_capabilities": [], "forbidden_capabilities": [], "stage_prerequisites": {}, "pre_approved_stages": ["bootstrap"]}
             policy_path = root / ".tailtrail" / "workflow-compiler-policy-v1.json"; policy_path.write_text(json.dumps(policy), encoding="utf-8")
+            register_proof(root, "dwr2-approvals")
             activated = lock.activate(root, "dwr2-approvals", True); workflow_id = activated["workflow_runtime"]["workflow_id"]
             session = start_integration.grant_session(root, workflow_id, ["read-only"], True)
             validated = start_integration.validate_approvals(root, workflow_id)

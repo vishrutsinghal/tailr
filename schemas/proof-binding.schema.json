@@ -24,6 +24,11 @@
       "description": "reproduction: demonstrates the original failing symptom at the public route. post-change: demonstrates the corrected positive behavior plus its preservation boundary."
     },
     "command": { "type": "string", "minLength": 1 },
+    "proof_path": {
+      "description": "Repository-relative test or scenario artifact exercised by command. Phase 3 planning-readiness bindings require this field; legacy correction bindings may omit it.",
+      "type": "string",
+      "minLength": 1
+    },
     "tiers": {
       "type": "array",
       "minItems": 1,
@@ -38,6 +43,16 @@
       "type": "array",
       "uniqueItems": true,
       "items": { "type": "string", "minLength": 1 }
+    },
+    "source_answer_id": {
+      "description": "Navigator-accepted intake answer that supplied the requirement-level proof candidate.",
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_fingerprint": {
+      "description": "SHA-256 fingerprint of the accepted evidence that justifies this proof binding.",
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
     },
     "preservation_boundaries": {
       "description": "Only meaningful for kind=post-change: the preserved behaviors the correction must not regress.",

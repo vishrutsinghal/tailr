@@ -47,4 +47,4 @@ Use TailTrail for generated code, review, plans, dependency choices, and larger 
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `4e573011bbe3` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `2a89b6ac91f5` — quote this line if asked whether instructions are current._

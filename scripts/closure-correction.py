@@ -78,6 +78,21 @@ def correction_signals(report: dict[str, Any]) -> list[dict[str, Any]]:
     fallback = next(iter(report.get("requirement_status", {}).get("requirements", [])), None)
     if not isinstance(fallback, dict):
         return signals
+    policy = report.get("completion_policy", {})
+    if isinstance(policy, dict) and policy.get("status") != "pass":
+        missing = [item for item in policy.get("missing", []) if isinstance(item, dict)]
+        if missing:
+            item = missing[0]
+            signals.append({
+                "requirement_uid": fallback["requirement_uid"],
+                "statement": fallback.get("statement", ""),
+                "classification": "needs-decision",
+                "category": "evidence",
+                "reason": str(item.get("message", "Required closure evidence is missing.")),
+                "recovery": str(policy.get("recovery", "record the required closure evidence")),
+                "evidence_only": True,
+            })
+            return signals
     for key, category in (("architecture", "architecture"), ("behaviour", "behaviour")):
         control = report.get(key, {})
         if isinstance(control, dict) and control.get("status") not in {"pass", "not-assessed"}:
@@ -138,21 +153,25 @@ def handoff(root: Path, run_id: str, max_cycles: int = 2) -> dict[str, Any]:
     if not requirement:
         raise ValueError("correction signal is not part of the approved anchor")
     paths = [found for path in requirement.get("likely_paths", []) for found in [_anchor_path(path)] if found]
-    inside_scope = bool(paths) and active["category"] != "scope"
+    evidence_only = bool(active.get("evidence_only"))
+    inside_scope = evidence_only or (bool(paths) and active["category"] != "scope")
     state = active["classification"] if active["classification"] in {"resolved", "improved", "unchanged", "regressed", "new-drift", "needs-decision"} else "unchanged"
     convergence = CONVERGENCE.assess(root, run_id, active["requirement_uid"], "needs-decision" if not inside_scope else state, max_cycles)
     continuity = CONTINUITY.render(root, run_id, active["requirement_uid"], "unexpected-scope" if not inside_scope else "correction-cycle", 180)
-    action = convergence["action"]
+    action = "record-evidence" if evidence_only else convergence["action"]
+    convergence_projection = {key: value for key, value in convergence.items() if key != "path"}
+    if evidence_only:
+        convergence_projection["action"] = action
     payload = {
         "schema_version": "1", "type": "tailtrail-closure-correction", "run_id": run_id,
-        "status": "replan-required" if action == "replan" else "correction-ready",
+        "status": "evidence-required" if evidence_only else ("replan-required" if action == "replan" else "correction-ready"),
         "failure_fingerprint": signature, "source_report": report_path.relative_to(root).as_posix(),
         "active_requirement": active, "deferred_signals": signals[1:],
         "scope": {"inside_approved_boundary": inside_scope, "allowed_paths": paths, "evidence_kind": evidence_kind(active["category"])},
-        "convergence": {key: value for key, value in convergence.items() if key != "path"},
+        "convergence": convergence_projection,
         "continuity": {"state": Path(continuity["state_path"]).relative_to(root).as_posix(), "packet": Path(continuity["packet_path"]).relative_to(root).as_posix()},
-        "next_action": "Use the continuity packet for one scoped correction, then record new evidence and finalize the same run." if action == "bounded-correction" else "Create an approved amendment or replan; retain this run's anchor, checkpoints, and evidence.",
-        "boundary": "One requirement-scoped correction route only. No source edit, command retry, Git recovery, or anchor mutation was performed.",
+        "next_action": active.get("recovery") if evidence_only else ("Use the continuity packet for one scoped correction, then record new evidence and finalize the same run." if action == "bounded-correction" else "Create an approved amendment or replan; retain this run's anchor, checkpoints, and evidence."),
+        "boundary": "One requirement-scoped evidence recovery route only. No source edit, command retry, Git recovery, or anchor mutation was performed." if evidence_only else "One requirement-scoped correction route only. No source edit, command retry, Git recovery, or anchor mutation was performed.",
     }
     directory = L.state_dir(root, run_id) / "closure-corrections"
     artifact = directory / f"correction-{len(list(directory.glob('correction-*.json'))) + 1}.json"

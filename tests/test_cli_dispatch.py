@@ -50,7 +50,7 @@ class CliDispatchTests(unittest.TestCase):
             check=False,
         )
 
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue(result.stdout.startswith("```text\n+"))
         self.assertIn("\n```\n\nHello from TailTrail.", result.stdout)
         output_lines = result.stdout.splitlines()
@@ -356,6 +356,59 @@ class CliDispatchTests(unittest.TestCase):
             )
         self.assertEqual(verbose.returncode, 0, verbose.stderr)
         self.assertIn("**Plan detail:** `Full` (requested by `--verbose`)", verbose.stdout)
+
+    def test_start_accepts_option_style_arguments_before_goal(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary)
+            changed = target / "src" / "order_service" / "validation.py"
+            changed.parent.mkdir(parents=True)
+            changed.write_text("def validate_quantity(value): return value > 0\n", encoding="utf-8")
+            proof_path = target / "tests" / "test_validation.py"
+            proof_path.parent.mkdir(parents=True)
+            proof_path.write_text("import unittest\n", encoding="utf-8")
+            goal = "fix validation"
+            host_contract = json.dumps({
+                "schema_version": "1",
+                "type": "tailtrail-host-input-contract",
+                "run_id": "unbound",
+                "contract_id": "option-style-start-contract",
+                "profile": "existing-code change",
+                "change_intent": "new-capability",
+                "request_mode": "implementation",
+                "behavior_surface": "cli-contract",
+                "paths": [
+                    {"path": "src/order_service/validation.py", "role": "existing-implementation-owner"},
+                    {"path": "tests/test_validation.py", "role": "existing-proof-path"},
+                ],
+                "criteria": {
+                    "positive": ["validation plan is rendered"],
+                    "negative": ["unrelated behavior is not changed"],
+                },
+                "proof": {"command": "python3 -m unittest tests.test_validation", "tiers": ["unit"]},
+                "private_reasoning_excluded": True,
+            })
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                    "start",
+                    "--root", temporary,
+                    "--task-type", "implementation",
+                    "--changed", "src/order_service/validation.py",
+                    "--host-contract", host_contract,
+                    "--aidlc", "off",
+                    "--no-planning-lock",
+                    goal,
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("# TailTrail Start Plan", result.stdout)
+        self.assertIn(goal, result.stdout)
 
     def test_known_review_command_still_dispatches_directly(self) -> None:
         result = subprocess.run(

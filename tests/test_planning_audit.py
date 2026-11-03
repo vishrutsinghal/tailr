@@ -157,6 +157,49 @@ def _plan(root: Path, run_id: str, requirements: list[dict[str, object]]) -> Non
 
 
 class PlanningAuditTests(unittest.TestCase):
+    def test_nonimplementation_route_with_owner_projection_fails_closed(self) -> None:
+        report = _converged_report([{
+            "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+            "statement": "Inspect the public route.",
+            "acceptance_criteria": ["inspection is recorded"],
+            "likely_paths": ["scripts/owner.py"],
+            "scope_evidence": {"implementation_owners": ["scripts/owner.py"]},
+            "validation_contract": {"state": "required", "tiers": ["unit"], "commands": ["pytest tests/test_owner.py"]},
+        }])
+        report["host_input_contract"] = {"request_mode": "validation-only"}
+        report["navigator"]["host_scope_routing"] = {"request_mode": "validation-only"}
+
+        result = audit.audit_report(Path("."), "nonimplementation-owner", report)
+
+        finding = next(item for item in result["findings"] if item["type"] == "nonimplementation-owner-projection")
+        self.assertEqual(finding["owner_paths"], ["scripts/owner.py"])
+        self.assertEqual(finding["correction_kind"], "restart-required")
+
+    def test_contract_tier_suggestion_uses_explicit_check_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            command = "python3 -m unittest tests.test_service -q"
+            _plan(root, "explicit-contract-tier", [{
+                "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",
+                "statement": "Expose a public contract endpoint.",
+                "acceptance_criteria": ["endpoint responds"],
+                "likely_paths": ["src/service.py"],
+                "validation_contract": {
+                    "state": "required", "tiers": ["unit", "contract"],
+                    "commands": [command], "candidate_paths": ["tests/test_service.py"],
+                },
+            }])
+            before = audit.audit(root, "explicit-contract-tier")
+            unresolved = next(item for item in before["findings"] if item["type"] == "unresolved-tier-proof")
+            suggested = _parse_correction(unresolved["suggested_fix"])
+            change = json.loads(suggested["changes"])[0]
+            self.assertEqual(change["checks"], [{"command": command, "tiers": ["contract"]}])
+
+            revision.propose(root, "explicit-contract-tier", suggested["changes"], True)
+            after = audit.audit(root, "explicit-contract-tier")
+
+        self.assertFalse(any(item["type"] == "unresolved-tier-proof" for item in after["findings"]))
+
     def test_already_satisfied_behavior_blocks_implementation_plan(self) -> None:
         report = _converged_report([{
             "display_id": "REQ-01", "requirement_uid": "REQ-01", "kind": "change",

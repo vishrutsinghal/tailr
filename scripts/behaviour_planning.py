@@ -524,7 +524,7 @@ def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = Fals
             proof = ", ".join(str(item.get("tier")) for item in scenario.get("evidence", []))
             lines.extend([
                 f"- **{', '.join(scenario.get('requirement_ids', [])) or 'Unassigned requirement'}**",
-                f"  - **Scenario:** {scenario.get('scenario', '')}",
+                f"  - **Scenario:** {scenario.get('scenario') or scenario.get('action') or scenario.get('scenario_id', '')}",
                 f"  - **Provenance:** {scenario.get('provenance', 'template-hypothesis')}",
                 f"  - **Observable result:** {scenario.get('expected_outcome', '')}",
                 f"  - **Preservation rule:** {'; '.join(scenario.get('preservation', []))}",
@@ -537,7 +537,7 @@ def markdown_lines(plan: dict[str, Any], detailed: bool, responsive: bool = Fals
         ])
         for scenario in plan.get("scenarios", []):
             proof = ", ".join(str(item.get("tier")) for item in scenario.get("evidence", []))
-            values = [", ".join(scenario.get("requirement_ids", [])), scenario.get("scenario", ""), scenario.get("expected_outcome", ""), "; ".join(scenario.get("preservation", [])), proof]
+            values = [", ".join(scenario.get("requirement_ids", [])), scenario.get("scenario") or scenario.get("action") or scenario.get("scenario_id", ""), scenario.get("expected_outcome", ""), "; ".join(scenario.get("preservation", [])), proof]
             lines.append("| " + " | ".join(str(value).replace("|", "\\|").replace("\n", " ") for value in values) + " |")
     if not plan.get("scenarios"):
         if responsive:

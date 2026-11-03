@@ -343,7 +343,7 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "enum": ["explicit-path", "fresh-graph", "git-change", "lexical-body", "lexical-path", "module-name", "repository-structure", "saved-graph", "symbol-name"] }
+          "items": { "enum": ["explicit-path", "fresh-graph", "git-change", "host-contract", "lexical-body", "lexical-path", "module-name", "repository-structure", "saved-graph", "symbol-name"] }
         },
         "evidence_edge_ids": {
           "type": "array",

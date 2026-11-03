@@ -359,12 +359,75 @@ def _internal_proof_boundary(navigator: dict[str, Any]) -> set[str] | None:
     return {str(tier) for tier in boundary.get("allowed_tiers", []) if str(tier)}
 
 
-def _normalize_check(entry: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
-    """Normalize a check entry for comparison, handling both command strings and command_id refs."""
-    # Support both old (embedded command) and new (command_id) formats
+def _nonimplementation_route_findings(
+    report: dict[str, Any],
+    matrix: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Fail closed if a non-editing host contract gains write authority.
+
+    The request mode is an authority boundary, not a presentation preference.
+    Check both the per-requirement projection and the v2 Navigator evidence so
+    a revision cannot hide an implementation owner in one representation while
+    rendering another as safe.
+    """
+    contract = report.get("host_input_contract")
+    navigator = report.get("navigator") if isinstance(report.get("navigator"), dict) else {}
+    if not isinstance(contract, dict) and isinstance(navigator, dict):
+        contract = navigator.get("host_input_contract")
+    request_mode = str(contract.get("request_mode", "")) if isinstance(contract, dict) else ""
+    if request_mode not in {"read-only", "validation-only"}:
+        return []
+
+    owner_paths: set[str] = set()
+    for row in matrix:
+        scope = row.get("scope_evidence") if isinstance(row.get("scope_evidence"), dict) else {}
+        owner_paths.update(str(path) for path in scope.get("implementation_owners", []) if str(path))
+        owner_paths.update(str(path) for path in row.get("likely_paths", []) if str(path))
+
+    if isinstance(navigator, dict):
+        evidence = navigator.get("scope_evidence")
+        if isinstance(evidence, dict):
+            owner_paths.update(str(path) for path in evidence.get("implementation_owners", []) if str(path))
+            for item in evidence.get("requirements", []) or []:
+                if isinstance(item, dict):
+                    owner_paths.update(str(path) for path in item.get("implementation_owners", []) if str(path))
+
+    routing = navigator.get("host_scope_routing") if isinstance(navigator, dict) else None
+    route_mode = str(routing.get("request_mode", "")) if isinstance(routing, dict) else ""
+    findings: list[dict[str, Any]] = []
+    if route_mode != request_mode:
+        findings.append({
+            "type": "nonimplementation-route-context-lost",
+            "correction_kind": "restart-required",
+            "open_fields": ["validated host scope context"],
+            "request_mode": request_mode,
+            "detail": (
+                f"the `{request_mode}` host contract is missing or mismatched in Navigator routing; "
+                "a revision must restore the validated non-write context before it can be reviewed."
+            ),
+        })
+    if owner_paths:
+        findings.append({
+            "type": "nonimplementation-owner-projection",
+            "correction_kind": "restart-required",
+            "open_fields": ["implementation owner projection"],
+            "request_mode": request_mode,
+            "owner_paths": sorted(owner_paths),
+            "detail": (
+                f"a `{request_mode}` plan contains implementation-owner scope: "
+                + ", ".join(sorted(owner_paths))
+                + ". Non-editing routes cannot be approved with source-write authority."
+            ),
+        })
+    return findings
+
+
+def _normalize_check(entry: dict[str, Any], command_registry: dict[str, Any]) -> tuple[str, tuple[str, ...]]:
+    """Normalize a check to its executable command identity for comparison."""
     command = str(entry.get("command", "")).strip()
     if not command:
-        command = str(entry.get("command_id", "")).strip()
+        command_id = str(entry.get("command_id", "")).strip()
+        command = _resolve_command_from_registry(command_id, command_registry) or command_id
     tiers = tuple(sorted(str(value).strip() for value in (entry.get("tiers", []) or []) if str(value).strip()))
     return (command, tiers)
 
@@ -615,7 +678,9 @@ def _convergence_findings(
         saved_checks = [item for item in (contract.get("checks", []) or []) if isinstance(item, dict)]
         expected_checks = expected_by_req.get(uid, [])
 
-        if sorted(_normalize_check(item) for item in saved_checks) != sorted(_normalize_check(item) for item in expected_checks):
+        if sorted(_normalize_check(item, command_registry) for item in saved_checks) != sorted(
+            _normalize_check(item, command_registry) for item in expected_checks
+        ):
             fix = _rebuild_fix(run_id, uid, "rebuild proof projection", pending=pending)
             findings.append({
                 "type": "check-projection-mismatch",
@@ -640,6 +705,15 @@ def _convergence_findings(
             if not command_id_or_str:
                 command_text = None
             if command_text is None and not command_id_or_str:
+                contract_commands = [
+                    str(value).strip()
+                    for value in (contract.get("commands", []) or [])
+                    if str(value).strip()
+                ]
+                explicit_binding = (
+                    [{"command": contract_commands[0], "tiers": [tier]}]
+                    if len(contract_commands) == 1 else None
+                )
                 findings.append({
                     "type": "unresolved-tier-proof",
                     "correction_kind": "template",
@@ -651,14 +725,14 @@ def _convergence_findings(
                         f"requirement `{uid}` tier `{tier}` has no positional proof command; "
                         f"adding a tier label alone must not turn the plan green."
                     ),
-                    "suggested_fix": (
-                        correction_command(run_id, [{
-                            "kind": "proof-update", "requirement_uid": uid,
-                            "reason": f"attach proof for {tier}",
-                            "evidence_plan": [f"Run the {tier} proof"],
+                    "suggested_fix": correction_command(run_id, [{
+                        "kind": "proof-update", "requirement_uid": uid,
+                        "reason": f"attach proof for {tier}",
+                        "evidence_plan": [f"Run the {tier} proof"],
+                        **({"checks": explicit_binding} if explicit_binding is not None else {
                             "commands": ["<runnable proof command>"], "tiers": [tier],
-                        }], pending=pending)["command"]
-                    ),
+                        }),
+                    }], pending=pending)["command"],
                 })
                 continue
             covering = _focused_covers(focused, uid, tier, command_text, registry=command_registry)
@@ -802,6 +876,10 @@ def audit_report(
 
     projection = LOCK.effective_plan_projection(report)
     findings.extend(_convergence_findings(run_id, report, projection, pending=pending))
+    findings.extend(_nonimplementation_route_findings(
+        report,
+        [row for row in matrix if isinstance(row, dict)],
+    ))
 
     global_scope_paths: set[str] = set()
     scope_evidence = navigator.get("scope_evidence", {}) if isinstance(navigator, dict) else {}
@@ -986,9 +1064,7 @@ def audit(root: Path, run_id: str) -> dict[str, Any]:
             raise ValueError(f"pending plan revision v{state['pending_revision']} has no proposed report")
         result = audit_report(root, run_id, report, pending=True)
     else:
-        report_path = root / state["active_report"]
-        payload = LOCK.read(report_path)
-        report = _validated_aidlc_revision_report(root, run_id, payload["report"])
+        report, _projection = LOCK.canonical_plan_report(root, run_id)
         result = audit_report(root, run_id, report)
     LOCK.L.append_event(root, run_id, "planning_audit_completed", {
         "status": result["status"],

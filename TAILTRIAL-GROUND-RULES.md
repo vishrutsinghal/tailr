@@ -119,6 +119,29 @@ instead of rediscovering it.
    reported symptom and preservation criteria. If approved behavior already
    exists, stop instead of manufacturing a source change; report the run
    incomplete and plan the actual failing layer separately.
+22. **Choose approval topology before persistence.** One cohesive user outcome
+   that requires one approval must be represented as one fingerprinted
+   multi-requirement plan only when every requirement retains its own owner and
+   proof. Independently approvable or unrelated owners remain separate runs.
+   Host batching must never disguise several approval surfaces as one atomic
+   decision.
+23. **Proof projection is requirement-specific.** A global command, artifact
+   clause, or host-contract proof field does not satisfy a requirement until
+   the canonical row contains its proof path, exact command, tiers, and
+   asserted behavior. Missing attribution blocks v1 approval and must be
+   reconciled or asked as a bounded question before presentation.
+24. **Canonical plan presentation is verbatim.** Show only the latest audited
+   Start Plan or pending-revision rendering. Hosts must not shorten, normalize,
+   mark checklist items, rename states, or synthesize a cleaner approval plan.
+   Presentation defects are fixed in TailTrail's renderer, not in host prose.
+25. **Public-route proof tiers are explicit.** Before persistence, review
+   behavior that crosses CLI, MCP, API, process, or persistence boundaries for
+   contract/integration proof. A later inferred tier mismatch is a mixed
+   preflight and reconciliation failure, not permission to omit the tier.
+26. **Stop is not supersession.** `tailtrail stop` detaches routing and
+   preserves canonical status and history. Never report a stopped plan as
+   rejected, deleted, or superseded without an explicit append-only lifecycle
+   record that establishes that relationship.
 
 ## 3. Command wiring checklist
 

@@ -494,6 +494,7 @@ scripts/code_graph_cache.py
 scripts/code_graph_inventory.py
 scripts/code_relationships.py
 scripts/commit_prompt.py
+scripts/completion-policy.py
 scripts/completion-report.py
 scripts/completion-review.py
 scripts/context-continuity.py
@@ -554,6 +555,7 @@ scripts/host-interpretation-builder.py
 scripts/host-reply-validate.py
 scripts/host-runtime-conformance.py
 scripts/host-workspace-adapter.py
+scripts/host_contract.py
 scripts/install-copilot.py
 scripts/install-launcher.py
 scripts/install-local.py
@@ -652,6 +654,7 @@ scripts/run-closeout.py
 scripts/run-ledger.py
 scripts/run-tests.py
 scripts/scanner-graph-overlay.py
+scripts/semantic_validation.py
 scripts/session-control.py
 scripts/session_control.py
 scripts/setup-scan.py
@@ -707,6 +710,7 @@ scripts/update-tailtrail.py
 scripts/upgrade-tailtrail.py
 scripts/validation-receipt.py
 scripts/validation-summary.py
+scripts/verbose-reporting.py
 scripts/visual_requirement.py
 scripts/vulnerability-run.py
 scripts/vulnerability-scan.py

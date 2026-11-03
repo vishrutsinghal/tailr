@@ -308,20 +308,33 @@ def _rebuild_proof_projections(report: dict[str, Any], rows: list[dict[str, Any]
     grouped: list[dict[str, Any]] = []
     by_proof: dict[tuple[str, str, str, str], dict[str, Any]] = {}
     for source in fresh:
+        command_text = str(source.get("command", "")).strip()
+        if not command_text:
+            command_id = str(source.get("command_id", "")).strip()
+            registry_entry = command_registry.get(command_id, {}) if isinstance(command_registry, dict) else {}
+            if isinstance(registry_entry, dict):
+                command_text = str(registry_entry.get("command", "")).strip()
         key = (
             str(source.get("requirement_id", "")),
             str(source.get("candidate", "")),
-            str(source.get("command", "")),
+            command_text,
             str(source.get("candidate_state", "")),
         )
-        mergeable = bool(key[0] and key[1] and key[2] in {"existing", "proposed"} and key[0] != "not resolved from planning evidence")
+        mergeable = bool(
+            key[0]
+            and key[1]
+            and key[2]
+            and key[3] in {"existing", "proposed"}
+            and key[1] != "not resolved from planning evidence"
+        )
         existing = by_proof.get(key) if mergeable else None
         if existing is None:
             grouped.append(source)
             if mergeable:
                 by_proof[key] = source
             continue
-        existing["tiers"].append(source["tier"])
+        if source["tier"] not in existing["tiers"]:
+            existing["tiers"].append(source["tier"])
         existing["tier"] = " + ".join(existing["tiers"])
     report["focused_validation"] = grouped
     report["effective_plan_fingerprint"] = projection.get("fingerprint")
@@ -516,6 +529,30 @@ def _ensure_v2_requirement(evidence: dict[str, Any], row: dict[str, Any]) -> dic
         return created
 
 
+def _nonimplementation_scope_context(report: dict[str, Any]) -> dict[str, Any] | None:
+    """Restore the validated non-write route before rebuilding revision scope.
+
+    A revision may recompute Navigator evidence, but it may never reinterpret a
+    persisted read-only or validation-only host contract as implementation
+    authority.  Prefer the saved route context; reconstruct it only from the
+    already-validated contract when an older projection omitted that derived
+    field.
+    """
+    navigator = report.setdefault("navigator", {})
+    if not isinstance(navigator, dict):
+        raise ValueError("saved Navigator report is invalid")
+    current = navigator.get("host_scope_routing")
+    if isinstance(current, dict) and str(current.get("request_mode", "")) in {"read-only", "validation-only"}:
+        return current
+    validated = navigator.get("host_input_contract_validated")
+    if not isinstance(validated, dict):
+        validated = report.get("host_input_contract_validated")
+    context = SCOPE.host_contract_scope_context(validated if isinstance(validated, dict) else None)
+    if context is not None:
+        navigator["host_scope_routing"] = context
+    return context
+
+
 def _change_v2_owner(
     root: Path,
     report: dict[str, Any],
@@ -591,7 +628,14 @@ def _finalize_v2_scope(root: Path, run_id: str, report: dict[str, Any], rows: li
     ]
     candidates = [item for item in evidence.get("candidates", []) if isinstance(item, dict)]
     by_path = {str(item.get("path")): item for item in candidates}
+    host_scope_context = _nonimplementation_scope_context(report)
+    nonimplementation_route = isinstance(host_scope_context, dict) and str(
+        host_scope_context.get("request_mode", "")
+    ) in {"read-only", "validation-only"}
     for row in rows:
+        previous_scope = row.get("scope_evidence") if isinstance(row.get("scope_evidence"), dict) else {}
+        preserved_inspection = {str(path) for path in previous_scope.get("inspection_paths", []) if str(path)}
+        preserved_proofs = {str(path) for path in previous_scope.get("proof_paths", []) if str(path)}
         requirement = _ensure_v2_requirement(evidence, row)
         if not requirement.get("inspection_paths"):
             requirement["inspection_paths"] = sorted(
@@ -605,11 +649,24 @@ def _finalize_v2_scope(root: Path, run_id: str, report: dict[str, Any], rows: li
                 for item in candidates
                 if item.get("status") == "proof-only" and item.get("path")
             )
+        # Host-declared inspection/proof context is non-authoritative for
+        # ownership, but it is still part of the reviewed plan. Retain it
+        # while Navigator recomputes implementation owners from evidence.
+        requirement["inspection_paths"] = sorted({
+            *[str(path) for path in requirement.get("inspection_paths", []) if str(path)],
+            *preserved_inspection,
+        })
+        requirement["proof_paths"] = sorted({
+            *[str(path) for path in requirement.get("proof_paths", []) if str(path)],
+            *preserved_proofs,
+        })
         requirement["statement_fingerprint"] = SCOPE.fingerprint(str(row.get("statement", "")))
         requirement["query_terms"] = REQUIREMENTS.query_terms(str(row.get("statement", "")))
-        owners = sorted(set(str(value) for value in requirement.get("implementation_owners", []) if str(value)))
+        owners = [] if nonimplementation_route else sorted(
+            set(str(value) for value in requirement.get("implementation_owners", []) if str(value))
+        )
         requirement["implementation_owners"] = owners
-        requirement["scope_state"] = "resolved" if owners else "unresolved"
+        requirement["scope_state"] = "resolved" if nonimplementation_route or owners else "unresolved"
         confidences = [str(by_path.get(path, {}).get("confidence", "none")) for path in owners]
         requirement["confidence"] = "high" if "high" in confidences else "medium" if "medium" in confidences else "low" if owners else "none"
         requirement["reason_codes"] = ["planning-revision-owner-confirmed"] if owners else ["ownership-evidence-required"]
@@ -662,13 +719,14 @@ def _finalize_v2_scope(root: Path, run_id: str, report: dict[str, Any], rows: li
         str(report.get("goal", "")),
         navigator.get("task_types", []),
         evidence,
+        host_scope_context=host_scope_context,
     )
     if navigator["scope_quality"].get("blocking") is not False:
         raise ValueError("revised v2 scope does not pass the scope-quality gate: " + ", ".join(navigator["scope_quality"].get("reason_codes", [])))
     navigator["likely_impacted_files"] = SCOPE.project_likely_impacted(candidates)
     lock = LOCK.show(root, run_id)
     binding = SCOPE.decision_binding(root, evidence, lock.get("target_identity", {}))
-    original = lock.get("scope_decision", {})
+    original = lock.get("scope_decision") or {}
     report["scope_decision_revision"] = {
         "schema_version": "1",
         "type": "tailtrail-scope-decision-revision",
@@ -705,6 +763,19 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
             _remove_impact_if_unreferenced(report, rows, path)
             normalized.update(_change_v2_owner(root, report, row, path, change, remove=True))
         normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "path": path})
+        if kind == "scope-remove":
+            source_answer_ids = change.get("source_answer_ids", [])
+            if source_answer_ids and not isinstance(source_answer_ids, list):
+                raise ValueError("scope-remove source_answer_ids must be an array")
+            normalized["removal"] = {
+                "field": "likely_paths",
+                "before": paths,
+                "after": list(row.get("likely_paths", [])),
+                "reason": reason,
+                "source_answer_ids": [
+                    _safe_text(value, "source_answer_id") for value in source_answer_ids
+                ],
+            }
     elif kind == "requirement-update":
         row = _requirement(rows, change.get("requirement_uid"))
         if _v2_scope(report) is not None and change.get("retain_scope_confirmed") is not True:
@@ -830,12 +901,42 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
                         "Use either explicit checks: [{command, tiers}] OR old-style commands/tiers, not both."
                     )
                 
-                # Union with existing checks (never drop)
+                # Union with existing checks (never drop).  Existing
+                # projections use command_id while a revision supplies
+                # command text; resolve the former before comparing so both
+                # representations refer to one proof binding.
                 existing_checks = contract.get("checks", [])
-                contract["checks"] = list({
-                    (c.get("command"), tuple(sorted(c.get("tiers", [])))): c
-                    for c in existing_checks + checks_to_add
-                }.values())
+                registry = contract.get("command_registry", {})
+                registry = registry if isinstance(registry, dict) else {}
+
+                def check_command(check: dict[str, Any]) -> str:
+                    direct = str(check.get("command", "")).strip()
+                    if direct:
+                        return direct
+                    entry = registry.get(str(check.get("command_id", "")).strip(), {})
+                    return str(entry.get("command", "")).strip() if isinstance(entry, dict) else ""
+
+                def check_paths(check: dict[str, Any]) -> tuple[str, ...]:
+                    values = check.get("candidate_paths", []) or []
+                    if not values:
+                        values = [
+                            value
+                            for field in ("candidate_paths", "editable_paths", "proposed_paths")
+                            for value in (contract.get(field, []) or [])
+                        ]
+                    return tuple(sorted({str(value).strip() for value in values if str(value).strip()}))
+
+                merged_checks: dict[tuple[str, tuple[str, ...], tuple[str, ...]], dict[str, Any]] = {}
+                for check in [*existing_checks, *checks_to_add]:
+                    if not isinstance(check, dict):
+                        continue
+                    command = check_command(check)
+                    tiers_key = tuple(sorted({
+                        str(tier).strip() for tier in (check.get("tiers", []) or []) if str(tier).strip()
+                    }))
+                    if command and tiers_key:
+                        merged_checks.setdefault((command, tiers_key, check_paths(check)), dict(check))
+                contract["checks"] = list(merged_checks.values())
                 
                 # Union tiers from checks with existing tiers
                 recorded_tiers = list(all_tiers_from_checks)
@@ -982,6 +1083,7 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
         row = _requirement(rows, change.get("requirement_uid"))
         if len(rows) == 1:
             raise ValueError("a plan revision must retain at least one requirement")
+        before = copy.deepcopy(row)
         rows.remove(row)
         evidence = _v2_scope(report)
         if evidence is not None:
@@ -991,7 +1093,22 @@ def _apply_change(root: Path, report: dict[str, Any], rows: list[dict[str, Any]]
             ]
         for path in row.get("likely_paths", []):
             _remove_impact_if_unreferenced(report, rows, str(path))
-        normalized.update({"requirement_uid": row["requirement_uid"], "display_id": row["display_id"]})
+        source_answer_ids = change.get("source_answer_ids", [])
+        if source_answer_ids and not isinstance(source_answer_ids, list):
+            raise ValueError("requirement-remove source_answer_ids must be an array")
+        normalized.update({
+            "requirement_uid": row["requirement_uid"],
+            "display_id": row["display_id"],
+            "removal": {
+                "field": "requirement",
+                "before": before,
+                "after": None,
+                "reason": reason,
+                "source_answer_ids": [
+                    _safe_text(value, "source_answer_id") for value in source_answer_ids
+                ],
+            },
+        })
     return normalized
 
 
@@ -1174,10 +1291,12 @@ def propose(
         raise ValueError(f"plan revision v{state['pending_revision']} is already awaiting approval; approve or supersede it first")
     if supersede_pending and pending_revision is None:
         raise ValueError("no pending plan revision exists to supersede")
-    payload = LOCK.active_start_report(root, run_id)
-    report = copy.deepcopy(payload.get("report"))
+    report, base_projection = LOCK.canonical_plan_report(
+        root, run_id, include_pending=bool(supersede_pending),
+    )
     if not isinstance(report, dict):
         raise ValueError("active Start report is invalid")
+    base_report = copy.deepcopy(report)
     try:
         changes = json.loads(changes_json)
     except json.JSONDecodeError as error:
@@ -1207,11 +1326,17 @@ def propose(
     # A reviewed IP-3 delta is the explicit replacement boundary for this run.
     navigator["revision_requirement_matrix"] = True
     _finalize_v2_scope(root, run_id, report, rows, number)
+    LOCK.validate_canonical_plan_projection(
+        report,
+        base_report=base_report,
+        removed_display_ids=removed_display_ids,
+    )
     proposed = {
         "schema_version": "1", "type": "tailtrail-plan-revision", "run_id": run_id,
         "revision": number, "base_revision": int(state.get("active_revision", 1)), "state": "awaiting-approval",
         "changes": normalized_changes, "delta_summary": _delta(base_rows, rows), "approval_required": True,
-        "base_report_fingerprint": fingerprint(payload.get("report", {})), "revised_report_fingerprint": fingerprint(report),
+        "base_report_fingerprint": fingerprint(base_report), "revised_report_fingerprint": fingerprint(report),
+        "base_projection": base_projection,
         "requirement_continuity": [{"requirement_uid": row["requirement_uid"], "display_id": row["display_id"], "statement": row["statement"]} for row in rows],
         "rationale": [{"kind": item["kind"], "requirement_uid": item.get("requirement_uid"), "reason": item["reason"]} for item in normalized_changes],
         "boundary": BOUNDARY, "created_at": utc_now(), "proposed_report": report,
@@ -1422,6 +1547,13 @@ def render(payload: dict[str, Any]) -> str:
             lines.append(f"  - Scenario: `{scenario.get('scenario_id', '')}`")
             lines.append(f"  - Action: {scenario.get('action', '')}")
             lines.append(f"  - Expected outcome: {scenario.get('expected_outcome', '')}")
+        removal = item.get("removal")
+        if isinstance(removal, dict):
+            lines.append(f"  - Removed field: `{removal.get('field', '')}`")
+            lines.append(f"  - Before: `{canonical(removal.get('before'))}`")
+            lines.append(f"  - After: `{canonical(removal.get('after'))}`")
+            source_ids = [str(value) for value in removal.get("source_answer_ids", []) if str(value)]
+            lines.append(f"  - Source-answer lineage: {', '.join(f'`{value}`' for value in source_ids) or 'not applicable'}")
     delta = payload["delta_summary"]
     lines.extend(["", "## Delta", "", f"- Requirement rows changed: {len(delta['requirements_changed'])}", f"- Scope added: {', '.join(f'`{item}`' for item in delta['scope_added']) or 'none'}", f"- Scope removed: {', '.join(f'`{item}`' for item in delta['scope_removed']) or 'none'}", f"- Proof rows changed: {', '.join(f'`{item}`' for item in delta['proof_changed']) or 'none'}"])
     report = payload.get("proposed_report", {})

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -80,6 +81,11 @@ class ClosureFinalizerTests(unittest.TestCase):
                 "kind": "source-edit", "requirement_uids": [uid],
                 "changed_paths": ["src/service.py", "tests/test_service.py"],
             }, True)
+            command = json.loads((ledger.state_dir(root, "run") / "anchors" / "approved-v1.json").read_text(encoding="utf-8"))["requirements"][0]["validation_contract"]["commands"][0]
+            evidence.run_command(
+                root, "run", [uid], ["unit"], command, "cancellation unit proof",
+                ["src/service.py", "tests/test_service.py"], True, 30,
+            )
             result = finalizer.finalize(root, "run")
             activity = ledger.projection(root, "run")["activity"]
             verbose_dir = root / ".tailtrail" / "runs" / "run" / "verbose-reports"
@@ -119,6 +125,31 @@ class ClosureFinalizerTests(unittest.TestCase):
         self.assertEqual(visible_closure_body.count("completion-reports/report-1.json"), 1)
         self.assertIn("src/service.py", visible_closure_body)
         self.assertNotIn("**62**", visible_closure_body)
+
+    def test_public_finalize_explains_stale_managed_evidence_recovery(self) -> None:
+        """A stale managed proof must produce actionable public recovery guidance."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid, _ = self.setup_run(root)
+            evidence.append(root, "run", {
+                "kind": "source-edit", "requirement_uids": [uid],
+                "changed_paths": ["src/service.py", "tests/test_service.py"],
+            }, True)
+            records = ledger.state_dir(root, "run") / "closure-records"
+            for path in records.glob("*"):
+                path.unlink()
+            completed = subprocess.run([
+                sys.executable, (ROOT / "scripts" / "tailtrail.py").as_posix(),
+                "closure", "finalize", "--root", root.as_posix(), "--run-id", "run",
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+
+        output = completed.stdout + completed.stderr
+        self.assertNotEqual(0, completed.returncode)
+        self.assertIn("stale managed evidence", output)
+        self.assertIn("source-changed-after-proof", output)
+        self.assertIn("Rerun the approved managed command", output)
+        self.assertIn("tailtrail closure record --root . --run-id run", output)
+        self.assertIn("tailtrail closure finalize --root . --run-id run", output)
 
     def test_replay_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

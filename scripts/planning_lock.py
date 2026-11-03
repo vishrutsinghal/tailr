@@ -43,6 +43,10 @@ def load_module(name: str, filename: str) -> Any:
     spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / filename)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
+    # Dataclass annotations resolve through sys.modules while the module body
+    # is executing.  Register dynamic helper modules before execution so a
+    # valid Navigator scope verifier can be loaded through this public path.
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -373,6 +377,296 @@ def active_start_report(root: Path, run_id: str) -> dict[str, Any]:
     return read(active_start_report_path(root, run_id))
 
 
+def _persist_canonical_plan_projection(
+    root: Path,
+    run_id: str,
+    report: dict[str, Any],
+    source: dict[str, str],
+) -> dict[str, str]:
+    """Persist the selected plan as an idempotent, versioned projection.
+
+    The active Start report, a validated AIDLC correction, and a pending
+    revision are immutable inputs.  Every planning consumer nevertheless
+    needs one common artifact identity.  Reuse the latest artifact when its
+    report and upstream source are unchanged; otherwise append a new version.
+    """
+    planning = L.state_dir(root.resolve(), run_id) / "planning"
+    fingerprint = _canonical_fingerprint(report)
+    source_fingerprint = _canonical_fingerprint(source)
+    candidates = sorted(
+        planning.glob("canonical-plan-projection-v*.json"),
+        key=lambda path: int(path.stem.rsplit("v", 1)[-1]),
+    )
+    if candidates:
+        latest = read(candidates[-1])
+        if (
+            latest.get("report_fingerprint") == fingerprint
+            and latest.get("source_fingerprint") == source_fingerprint
+            and latest.get("run_id") == run_id
+        ):
+            return {
+                **source,
+                "canonical_artifact": candidates[-1].relative_to(root).as_posix(),
+                "canonical_fingerprint": fingerprint,
+            }
+    version = int(candidates[-1].stem.rsplit("v", 1)[-1]) + 1 if candidates else 1
+    path = planning / f"canonical-plan-projection-v{version}.json"
+    payload = {
+        "schema_version": "1",
+        "type": "tailtrail-canonical-plan-projection",
+        "run_id": run_id,
+        "projection_version": version,
+        "source": copy.deepcopy(source),
+        "source_fingerprint": source_fingerprint,
+        "report_fingerprint": fingerprint,
+        "report": copy.deepcopy(report),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    L.atomic_json(path, payload)
+    L.append_event(root, run_id, "canonical_plan_projection_recorded", {
+        "artifact": path.relative_to(root).as_posix(),
+        "projection_version": version,
+        "report_fingerprint": fingerprint,
+        "source": source,
+    })
+    return {
+        **source,
+        "canonical_artifact": path.relative_to(root).as_posix(),
+        "canonical_fingerprint": fingerprint,
+    }
+
+
+def _run_artifact_path(root: Path, run_id: str, value: Any, *, label: str) -> Path:
+    """Resolve a run-local artifact without permitting path traversal."""
+    relative = Path(str(value or ""))
+    if not str(relative) or relative.is_absolute() or ".." in relative.parts:
+        raise ValueError(f"{label} has an unsafe artifact path")
+    resolved = (root.resolve() / relative).resolve()
+    run_root = L.state_dir(root.resolve(), run_id).resolve()
+    try:
+        resolved.relative_to(run_root)
+    except ValueError as error:
+        raise ValueError(f"{label} is outside its TailTrail run directory") from error
+    if not resolved.is_file():
+        raise ValueError(f"{label} does not exist")
+    return resolved
+
+
+def canonical_plan_report(
+    root: Path,
+    run_id: str,
+    *,
+    include_pending: bool = False,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Return the one report projection used by planning and presentation.
+
+    A validated AIDLC correction is an input to the next planning revision,
+    not a second display-only version of the plan. Pending revisions take
+    precedence only when a caller is explicitly reviewing or superseding one.
+    Raw AIDLC answers are deliberately never read here.
+    """
+    root = root.resolve()
+    state = revision_state(root, run_id)
+    if include_pending and state.get("pending_revision") is not None:
+        pending_path = _run_artifact_path(
+            root, run_id, state.get("pending_artifact"), label="pending plan revision",
+        )
+        pending = read(pending_path).get("proposed_report")
+        if not isinstance(pending, dict):
+            raise ValueError("pending plan revision has no proposed report")
+        report = copy.deepcopy(pending)
+        source = {
+            "kind": "pending-revision",
+            "artifact": pending_path.relative_to(root).as_posix(),
+        }
+        validate_canonical_plan_projection(report)
+        return report, _persist_canonical_plan_projection(root, run_id, report, source)
+
+    active_path = active_start_report_path(root, run_id)
+    active = read(active_path).get("report")
+    if not isinstance(active, dict):
+        raise ValueError(f"active Start report for run `{run_id}` is invalid")
+    report = copy.deepcopy(active)
+    source = {"kind": "active-approved-report", "artifact": active_path.relative_to(root).as_posix()}
+
+    correction_state_path = L.state_dir(root, run_id) / "planning" / "aidlc-correction-state.json"
+    if not correction_state_path.is_file():
+        validate_canonical_plan_projection(report)
+        return report, _persist_canonical_plan_projection(root, run_id, report, source)
+    correction_state = read(correction_state_path)
+    if correction_state.get("state") != "revision-ready":
+        validate_canonical_plan_projection(report)
+        return report, _persist_canonical_plan_projection(root, run_id, report, source)
+    revision_path = _run_artifact_path(
+        root, run_id, correction_state.get("active_revision"), label="validated AIDLC correction",
+    )
+    correction = read(revision_path)
+    requirements = correction.get("requirements")
+    if not isinstance(requirements, list) or not requirements or not all(isinstance(row, dict) for row in requirements):
+        raise ValueError("validated AIDLC correction has no requirement matrix")
+    navigator = report.setdefault("navigator", {})
+    if not isinstance(navigator, dict):
+        raise ValueError("active Start report has an invalid Navigator section")
+    navigator["requirement_matrix"] = copy.deepcopy(requirements)
+    report["aidlc_answers"] = copy.deepcopy(correction.get("aidlc_answers", {}))
+    report["aidlc_revision_artifact"] = revision_path.relative_to(root).as_posix()
+    scenarios: list[dict[str, Any]] = []
+    for row in navigator["requirement_matrix"]:
+        identifier = str(row.get("display_id") or row.get("requirement_uid") or "")
+        behavior = row.get("behavior_contract") if isinstance(row.get("behavior_contract"), dict) else {}
+        for scenario in behavior.get("scenarios", []) if isinstance(behavior, dict) else []:
+            if not isinstance(scenario, dict):
+                continue
+            projected = copy.deepcopy(scenario)
+            projected["requirement_ids"] = list(dict.fromkeys([
+                *[str(value) for value in projected.get("requirement_ids", []) if str(value)],
+                identifier,
+            ]))
+            scenarios.append(projected)
+    if scenarios:
+        behaviour_plan = report.get("behaviour_plan")
+        behaviour_plan = behaviour_plan if isinstance(behaviour_plan, dict) else {}
+        behaviour_plan["selected"] = True
+        behaviour_plan["scenarios"] = scenarios
+        report["behaviour_plan"] = behaviour_plan
+    boundary = navigator.get("host_proof_boundary")
+    if isinstance(boundary, dict):
+        boundary["allowed_tiers"] = sorted({
+            str(tier)
+            for row in navigator["requirement_matrix"]
+            for tier in ((row.get("validation_contract", {}) or {}).get("tiers", []) or [])
+            if str(tier)
+        })
+        boundary["source"] = "validated-aidlc-correction-projection"
+        navigator.pop("host_proof_boundary_conflict", None)
+    correction_source = {"kind": "validated-aidlc-correction", "artifact": revision_path.relative_to(root).as_posix()}
+    validate_canonical_plan_projection(report, base_report=active)
+    return report, _persist_canonical_plan_projection(root, run_id, report, correction_source)
+
+
+def validate_canonical_plan_projection(
+    report: dict[str, Any],
+    *,
+    base_report: dict[str, Any] | None = None,
+    removed_display_ids: set[str] | None = None,
+) -> None:
+    """Fail closed when a revision silently discards non-owner plan context.
+
+    Host-declared inspection and proof paths are context, not implementation
+    authority. A revision may remove a requirement explicitly, but it must
+    not lose those roles merely because Navigator rebuilt ownership evidence.
+    """
+    navigator = report.get("navigator")
+    if navigator is None:
+        # Legacy thin reports predate the canonical requirement matrix. They
+        # remain renderable, but cannot gain maintained projection authority.
+        return
+    if not isinstance(navigator, dict):
+        raise ValueError("canonical plan projection has an invalid Navigator section")
+    if "requirement_matrix" not in navigator:
+        return
+    rows = navigator.get("requirement_matrix")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ValueError("canonical plan projection has an invalid requirement matrix")
+    ids = [str(row.get("display_id") or row.get("requirement_uid") or "") for row in rows]
+    if not all(ids) or len(set(ids)) != len(ids):
+        raise ValueError("canonical plan projection requires unique requirement IDs")
+    if base_report is None:
+        return
+    base_navigator = base_report.get("navigator") if isinstance(base_report.get("navigator"), dict) else {}
+    base_rows = base_navigator.get("requirement_matrix", []) if isinstance(base_navigator, dict) else []
+    replacement = {str(value) for value in (removed_display_ids or set())}
+    by_id = {str(row.get("display_id") or row.get("requirement_uid")): row for row in rows}
+    for prior in base_rows if isinstance(base_rows, list) else []:
+        if not isinstance(prior, dict):
+            continue
+        identifier = str(prior.get("display_id") or prior.get("requirement_uid") or "")
+        if not identifier or identifier in replacement or identifier not in by_id:
+            continue
+        old_scope = prior.get("scope_evidence") if isinstance(prior.get("scope_evidence"), dict) else {}
+        new_scope = by_id[identifier].get("scope_evidence") if isinstance(by_id[identifier].get("scope_evidence"), dict) else {}
+        for role in ("inspection_paths", "proof_paths"):
+            missing = set(str(path) for path in old_scope.get(role, []) if str(path)) - set(
+                str(path) for path in new_scope.get(role, []) if str(path)
+            )
+            if missing:
+                raise ValueError(
+                    f"canonical plan projection would discard {role} for `{identifier}`: "
+                    + ", ".join(sorted(missing))
+                )
+        current = by_id[identifier]
+        for field in ("acceptance_criteria", "preserve_rules"):
+            missing_values = {
+                _canonical_fingerprint(value): value
+                for value in prior.get(field, []) if str(value).strip()
+            }
+            current_values = {
+                _canonical_fingerprint(value)
+                for value in current.get(field, []) if str(value).strip()
+            }
+            lost = [value for key, value in missing_values.items() if key not in current_values]
+            if lost:
+                raise ValueError(
+                    f"canonical plan projection would discard {field} for `{identifier}`: "
+                    + ", ".join(str(value) for value in lost)
+                )
+        old_contract = prior.get("validation_contract") if isinstance(prior.get("validation_contract"), dict) else {}
+        new_contract = current.get("validation_contract") if isinstance(current.get("validation_contract"), dict) else {}
+        for field in ("tiers", "commands", "candidate_paths"):
+            old_values = {
+                _canonical_fingerprint(value): value
+                for value in old_contract.get(field, []) if value not in (None, "")
+            }
+            new_values = {
+                _canonical_fingerprint(value)
+                for value in new_contract.get(field, []) if value not in (None, "")
+            }
+            lost = [value for key, value in old_values.items() if key not in new_values]
+            if lost:
+                raise ValueError(
+                    f"canonical plan projection would discard validation {field} for `{identifier}`"
+                )
+        def proof_bindings(contract: dict[str, Any]) -> set[tuple[str, str, tuple[str, ...]]]:
+            registry = contract.get("command_registry", {})
+            registry = registry if isinstance(registry, dict) else {}
+            values: set[tuple[str, str, tuple[str, ...]]] = set()
+            for check in contract.get("checks", []) if isinstance(contract.get("checks"), list) else []:
+                if not isinstance(check, dict):
+                    continue
+                command = str(check.get("command", "")).strip()
+                if not command and str(check.get("command_id", "")):
+                    entry = registry.get(str(check.get("command_id")), {})
+                    command = str(entry.get("command", "")).strip() if isinstance(entry, dict) else ""
+                paths = tuple(sorted(str(value) for value in check.get("candidate_paths", []) if str(value)))
+                for tier in [str(value) for value in check.get("tiers", []) if str(value)]:
+                    if command:
+                        values.add((command, tier, paths))
+            return values
+        missing_bindings = sorted(proof_bindings(old_contract) - proof_bindings(new_contract))
+        if missing_bindings:
+            raise ValueError(
+                f"canonical plan projection would discard validation checks for `{identifier}`"
+            )
+        old_behavior = prior.get("behavior_contract") if isinstance(prior.get("behavior_contract"), dict) else {}
+        new_behavior = current.get("behavior_contract") if isinstance(current.get("behavior_contract"), dict) else {}
+        old_scenarios = {
+            str(value.get("scenario_id")): value
+            for value in old_behavior.get("scenarios", [])
+            if isinstance(value, dict) and str(value.get("scenario_id", ""))
+        }
+        new_scenarios = {
+            str(value.get("scenario_id"))
+            for value in new_behavior.get("scenarios", [])
+            if isinstance(value, dict) and str(value.get("scenario_id", ""))
+        }
+        missing_scenarios = sorted(set(old_scenarios) - new_scenarios)
+        if missing_scenarios:
+            raise ValueError(
+                f"canonical plan projection would discard behavior scenarios for `{identifier}`: "
+                + ", ".join(missing_scenarios)
+            )
+
+
 def assert_no_pending_revision(root: Path, run_id: str) -> None:
     state = revision_state(root.resolve(), run_id)
     if state.get("pending_revision") is not None:
@@ -514,7 +808,7 @@ def validate_saved_scope_decision(
     if not isinstance(binding, dict):
         return {"status": "legacy", "blocking": False, "reason": "Planning Lock has no v2 scope-decision binding"}
     if report is None:
-        report = active_start_report(root.resolve(), run_id).get("report", {})
+        report, _ = canonical_plan_report(root.resolve(), run_id)
     revision_binding = report.get("scope_decision_revision") if isinstance(report, dict) else None
     revision_number: int | None = None
     if isinstance(revision_binding, dict):
@@ -569,6 +863,43 @@ def show(root: Path, run_id: str) -> dict[str, Any]:
     return {**read(path), "artifact": path.relative_to(root.resolve()).as_posix()}
 
 
+def _require_fresh_planning_readiness(
+    root: Path,
+    report: dict[str, Any],
+    *,
+    phase: str,
+) -> dict[str, Any]:
+    """Recheck receipt freshness and canonical coverage before authority writes."""
+    planning = report.get("planning_readiness") if isinstance(report, dict) else None
+    if not isinstance(planning, dict):
+        return report
+    intake_run_id = str(planning.get("run_id", ""))
+    receipt_id = str(planning.get("receipt_id", ""))
+    if not intake_run_id or not receipt_id:
+        raise ValueError("planning-readiness authority is missing its saved receipt identity")
+    module = load_module("planning_lock_intake_pipeline", "intake_pipeline.py")
+    pipeline = module.IntakePipeline(root)
+    receipt = pipeline.load_planning_readiness_receipt(intake_run_id, receipt_id)
+    contract = report.get("host_input_contract") if isinstance(report.get("host_input_contract"), dict) else {}
+    contract_fingerprint = contract.get("fingerprint")
+    if not isinstance(contract_fingerprint, str) or not contract_fingerprint:
+        contract_fingerprint = None
+    try:
+        return pipeline.reconcile_planning_readiness_receipt(
+            receipt,
+            report,
+            goal=str(report.get("goal", "")),
+            host_contract_fingerprint=contract_fingerprint,
+            project=False,
+            phase=phase,
+        )
+    except module.IntakeError as error:
+        raise ValueError(
+            f"planning-readiness {phase} check failed: {error}. "
+            "Refresh the Navigator intake and create a new reconciled Start Plan before approval."
+        ) from error
+
+
 def save_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[str, Any]:
     """Persist the exact Start proposal before the user can approve it.
 
@@ -577,6 +908,7 @@ def save_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[s
     """
     root = root.resolve()
     show(root, run_id)
+    report = _require_fresh_planning_readiness(root, report, phase="start-persistence")
     validate_saved_scope_decision(
         root,
         run_id,
@@ -606,7 +938,9 @@ def save_start_report(root: Path, run_id: str, report: dict[str, Any]) -> dict[s
             "pending_artifact": None,
         })
     L.append_event(root, run_id, "start_report_saved", {"artifact": path.relative_to(root).as_posix()})
-    verbose = generate_start_plan_verbose_report(root, run_id, report_override=report)
+    # The snapshot and revision-state pointer now exist, so presentation must
+    # enter through the same canonical selector used by every later consumer.
+    verbose = generate_start_plan_verbose_report(root, run_id)
     print(
         f"\nVisible full Start Plan: {verbose['visible_artifact']}\n"
         f"Absolute path: {verbose['visible_absolute_path']}",
@@ -805,10 +1139,85 @@ def require_clean_audit(root: Path, run_id: str, report: dict[str, Any]) -> dict
     }
 
 
+def _promote_canonical_projection_for_approval(
+    root: Path,
+    run_id: str,
+    report: dict[str, Any],
+    projection_source: dict[str, str],
+) -> str:
+    """Freeze a validated correction as the active approved-plan snapshot.
+
+    AIDLC correction state is planning input, not approval authority.  This
+    promotion runs only inside the explicit approval path, after readiness and
+    planning audit have passed.  It prevents anchors and handoffs from falling
+    back to the older active Start report after the user approves the corrected
+    projection.
+    """
+    artifact_value = str(projection_source.get("canonical_artifact", ""))
+    if not artifact_value:
+        raise ValueError("canonical correction projection has no persisted artifact")
+    canonical_path = _run_artifact_path(
+        root, run_id, artifact_value, label="canonical correction projection",
+    )
+    canonical = read(canonical_path)
+    if canonical.get("report_fingerprint") != _canonical_fingerprint(report):
+        raise ValueError("canonical correction projection fingerprint changed before approval")
+    version = int(canonical.get("projection_version", 0))
+    if version < 1:
+        raise ValueError("canonical correction projection has no valid version")
+    snapshot_path = L.state_dir(root, run_id) / "planning" / f"approved-canonical-report-v{version}.json"
+    snapshot = {
+        "schema_version": "1",
+        "type": "tailtrail-start-report",
+        "run_id": run_id,
+        "revision": revision_state(root, run_id).get("active_revision", 1),
+        "goal": report.get("goal", show(root, run_id).get("goal", "")),
+        "canonical_projection": canonical_path.relative_to(root).as_posix(),
+        "report_fingerprint": canonical["report_fingerprint"],
+        "report": copy.deepcopy(report),
+    }
+    state = revision_state(root, run_id)
+    correction_path = _aidlc_correction_state_path(root, run_id)
+    correction = read(correction_path) if correction_path.is_file() else {}
+    with L.RunLock(L.state_dir(root, run_id) / ".lock"):
+        L.atomic_json(snapshot_path, snapshot)
+        L.atomic_json(revision_state_path(root, run_id), {
+            **state,
+            "active_report": snapshot_path.relative_to(root).as_posix(),
+        })
+        if correction:
+            L.atomic_json(correction_path, {
+                **correction,
+                "state": "approved-projection",
+                "approved_canonical_projection": canonical_path.relative_to(root).as_posix(),
+                "approved_report": snapshot_path.relative_to(root).as_posix(),
+            })
+    L.append_event(root, run_id, "canonical_plan_projection_approved", {
+        "canonical_projection": canonical_path.relative_to(root).as_posix(),
+        "active_report": snapshot_path.relative_to(root).as_posix(),
+        "report_fingerprint": canonical["report_fingerprint"],
+    })
+    return snapshot_path.relative_to(root).as_posix()
+
+
+def _assert_no_parent_only_correction(root: Path, run_id: str) -> None:
+    path = _aidlc_correction_state_path(root, run_id)
+    if not path.is_file():
+        return
+    state = read(path)
+    if state.get("state") == "decomposed":
+        manifest = state.get("parent_manifest", "unknown")
+        raise ValueError(
+            "the validated correction spans multiple implementation owners and the parent run grants no write authority; "
+            f"review and approve the single-owner child runs listed in `{manifest}`"
+        )
+
+
 def approve(root: Path, run_id: str, approved: bool, rationale: str | None = None, record_decision: bool = True) -> dict[str, Any]:
     if approved is not True:
         raise ValueError(f"planning approval requires --approved; run `tailtrail planning approve --root . --run-id {run_id} --approved`")
     root = root.resolve()
+    _assert_no_parent_only_correction(root, run_id)
     assert_no_pending_revision(root, run_id)
     path = lock_path(root, run_id)
     payload = show(root, run_id)
@@ -817,10 +1226,14 @@ def approve(root: Path, run_id: str, approved: bool, rationale: str | None = Non
     if payload["status"] != "awaiting-approval":
         raise ValueError(f"planning lock is not approvable from status `{payload['status']}`; approve only while the run is awaiting-approval (check `tailtrail planning show --root . --run-id {run_id}`)")
     try:
-        saved_report = active_start_report(root, run_id).get("report", {})
+        saved_report, projection_source = canonical_plan_report(root, run_id)
     except (OSError, ValueError):
         saved_report = {}
+        projection_source = {"kind": "unavailable", "artifact": ""}
+    saved_report = _require_fresh_planning_readiness(root, saved_report, phase="approval")
     audit_receipt = require_clean_audit(root, run_id, saved_report)
+    if projection_source.get("kind") == "validated-aidlc-correction":
+        _promote_canonical_projection_for_approval(root, run_id, saved_report, projection_source)
     payload["status"] = "approved"
     payload["writes_allowed"] = True
     payload["approval"] = {"kind": "explicit-command", "run_id": run_id, "audit": audit_receipt}
@@ -892,8 +1305,7 @@ def approve_debug_investigation(root: Path, run_id: str, reproduction_revision: 
 
 def _proposal_from_start_report(root: Path, run_id: str) -> dict[str, Any] | None:
     """Turn the saved Navigator proposal into the smallest durable anchor."""
-    saved = active_start_report(root, run_id)
-    report = saved.get("report", {})
+    report, _ = canonical_plan_report(root, run_id)
     delivery = report.get("guided_delivery", {}) if isinstance(report, dict) else {}
     if delivery.get("mode") == "lean":
         return None
@@ -905,8 +1317,8 @@ def _proposal_from_start_report(root: Path, run_id: str) -> dict[str, Any] | Non
         matrix = _hands_free_requirement_matrix(program["feature_requirements"], paths)
     if not isinstance(matrix, list) or not matrix:
         paths = [item.get("path") for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
-        matrix = _goal_requirements(str(saved.get("goal", "")).strip(), paths)
-    proposal = {"goal": str(saved.get("goal", "")).strip(), "requirements": matrix}
+        matrix = _goal_requirements(str(report.get("goal", show(root, run_id).get("goal", ""))).strip(), paths)
+    proposal = {"goal": str(report.get("goal", show(root, run_id).get("goal", ""))).strip(), "requirements": matrix}
     scope_decision = plan.get("scope_evidence", {}) if isinstance(plan, dict) else {}
     if isinstance(scope_decision, dict) and scope_decision.get("decision_fingerprint"):
         proposal["scope_decision"] = {
@@ -1123,6 +1535,50 @@ def _command_id(command: str) -> str:
     return f"cmd-{hash_val[:6]}"
 
 
+def _canonical_proof_checks(checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return one deterministic binding per command and proof-path set.
+
+    A saved plan may refer to a command directly or through the command
+    registry.  ``effective_plan_projection`` resolves either representation
+    before it reaches this helper.  Consequently a revision that repeats an
+    already-registered command cannot create a second, visually identical
+    proof row merely because one source used ``command_id`` and the other used
+    command text.
+
+    Tiers are deliberately unioned only for the same command and the same
+    candidate-path set.  Distinct paths remain distinct proof bindings.
+    """
+    grouped: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = {}
+    for check in checks:
+        command = str(check.get("command", "")).strip()
+        if not command:
+            continue
+        paths = tuple(sorted({
+            str(path).strip()
+            for path in (check.get("candidate_paths", []) or [])
+            if str(path).strip()
+        }))
+        tiers = {
+            str(tier).strip()
+            for tier in (check.get("tiers", []) or [])
+            if str(tier).strip()
+        }
+        if not tiers:
+            continue
+        key = (command, paths)
+        existing = grouped.get(key)
+        if existing is None:
+            grouped[key] = {
+                "kind": str(check.get("kind", "proof")),
+                "command": command,
+                "tiers": sorted(tiers),
+                "candidate_paths": list(paths),
+            }
+            continue
+        existing["tiers"] = sorted(set(existing["tiers"]) | tiers)
+    return list(grouped.values())
+
+
 def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
     """Derive one converged effective plan from canonical contracts.
 
@@ -1217,6 +1673,11 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
                     "tiers": [tier],
                     "candidate_paths": proof_paths[:1],
                 })
+
+        # Normalise direct-command and registry-backed representations before
+        # deriving IDs, fingerprints, or rendered validation rows.  This is
+        # the single projection boundary shared by revisions and reports.
+        expected_checks = _canonical_proof_checks(expected_checks)
 
         for check in expected_checks:
             command_str = str(check.get("command", "")).strip()
@@ -1335,6 +1796,51 @@ def _normalized_grounding(value: Any) -> str:
     return " ".join(str(value or "").split()).casefold()
 
 
+def _navigator_scope_module() -> Any:
+    return load_module("planning_lock_navigator_scope", "navigator_scope.py")
+
+
+def _fresh_scope_evidence(
+    root: Path,
+    supplied: dict[str, Any],
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Accept only a current, signed Navigator inspection result.
+
+    AIDLC answers may ask for wider scope, but they cannot create it.  The
+    caller must attach the ``scope_evidence`` value from a fresh, read-only
+    ``navigator scope inspect`` result.  This helper validates the decision
+    fingerprint and target binding before the projection can consume any path
+    from it. An ambiguous result may contribute its exact proof or inspection
+    role, but it can never promote an implementation owner.
+    """
+    raw = supplied.get("fresh_scope_evidence")
+    if raw is None:
+        return None, None
+    evidence = raw.get("scope_evidence") if isinstance(raw, dict) and isinstance(raw.get("scope_evidence"), dict) else raw
+    if not isinstance(evidence, dict):
+        return None, "fresh_scope_evidence must be a Navigator scope-evidence object or inspection result"
+    scope = _navigator_scope_module()
+    if str(evidence.get("schema_version")) != "2" or not scope.verify_decision_fingerprint(evidence):
+        return None, "fresh_scope_evidence must contain a valid schema-v2 Navigator decision fingerprint"
+    expected_target = scope.fingerprint({"root": root.resolve().as_posix()})
+    if evidence.get("target_identity_fingerprint") != expected_target:
+        return None, "fresh_scope_evidence belongs to a different target root"
+    return evidence, None
+
+
+def _fresh_scope_requirement(
+    evidence: dict[str, Any], identifier: str, path: str, role_key: str,
+) -> bool:
+    """Return true only when the fresh decision maps the path to this requirement."""
+    if role_key == "implementation_owners" and str(evidence.get("state")) not in {"resolved", "partially-resolved"}:
+        return False
+    for row in evidence.get("requirements", []):
+        if not isinstance(row, dict) or str(row.get("display_id")) != identifier:
+            continue
+        return path in [str(value) for value in row.get(role_key, [])]
+    return False
+
+
 def _correction_projection(
     root: Path,
     run_id: str,
@@ -1406,7 +1912,16 @@ def _correction_projection(
             "material_question_ids": material_ids,
             "open_questions": ["requirements, scope, and proof must each be arrays."],
         }
+    fresh_evidence, fresh_evidence_error = _fresh_scope_evidence(root, supplied)
+    if fresh_evidence_error:
+        return {
+            "status": "blocked", "reason_code": "invalid-fresh-scope-evidence",
+            "source_answers_fingerprint": answer_fingerprint,
+            "material_question_ids": material_ids,
+            "open_questions": [fresh_evidence_error],
+        }
     problems: list[str] = []
+    scope_requests: list[dict[str, Any]] = []
     covered: set[str] = set()
 
     def source_ids(item: dict[str, Any], label: str) -> list[str]:
@@ -1456,13 +1971,49 @@ def _correction_projection(
         ids = source_ids(item, f"scope delta {index}")
         if row is None or requested_role not in allowed_roles or not path:
             problems.append(f"scope delta {index} has an unknown requirement, path, or requested role"); continue
-        if not grounded(path, ids, " ".join(str(v) for v in row.get("likely_paths", []))):
-            problems.append(f"scope delta {index} path is not grounded in its source answer"); continue
         scope = row.get("scope_evidence", {}) if isinstance(row.get("scope_evidence"), dict) else {}
+        prior_scope_paths = [
+            *row.get("likely_paths", []),
+            *scope.get("implementation_owners", []),
+            *scope.get("inspection_paths", []),
+            *scope.get("proof_paths", []),
+        ]
+        if not grounded(path, ids, " ".join(str(v) for v in prior_scope_paths)):
+            problems.append(f"scope delta {index} path is not grounded in its source answer"); continue
         role_key = {"proposed-owner-candidate": "implementation_owners", "inspection-input": "inspection_paths", "proof-only": "proof_paths"}[requested_role]
         if path not in [str(value) for value in scope.get(role_key, [])]:
-            problems.append(f"scope delta {index} leaves `{path}` unresolved as `{requested_role}`; Navigator evidence must resolve it")
-            continue
+            if fresh_evidence is None:
+                scope_requests.append({
+                    "request_id": f"SCOPE-{index}",
+                    "requirement_id": identifier,
+                    "path": path,
+                    "requested_role": requested_role,
+                    "source_question_ids": ids,
+                    "command": (
+                        "tailtrail navigator scope inspect --root . --goal <same-goal> "
+                        f"--changed {path}"
+                    ),
+                    "boundary": "This is a request for read-only Navigator evidence, not a scope grant."
+                })
+                continue
+            if not _fresh_scope_requirement(fresh_evidence, identifier, path, role_key):
+                problems.append(
+                    f"scope delta {index} is not resolved as `{requested_role}` for `{identifier}` "
+                    "by the supplied fresh Navigator evidence"
+                )
+                continue
+            scope[role_key] = list(dict.fromkeys([*scope.get(role_key, []), path]))
+            lineages = scope.setdefault("correction_scope_lineage", [])
+            lineage = {
+                "decision_fingerprint": fresh_evidence["decision_fingerprint"],
+                "requirement_id": identifier,
+                "path": path,
+                "role": role_key,
+            }
+            if lineage not in lineages:
+                lineages.append(lineage)
+            if requested_role == "proposed-owner-candidate":
+                row["likely_paths"] = list(dict.fromkeys([*row.get("likely_paths", []), path]))
         validated_scope.append({"requirement_id": identifier, "path": path, "requested_role": requested_role, "resolved_role": "implementation-owner" if requested_role == "proposed-owner-candidate" else requested_role, "source_question_ids": ids})
     validated_proof: list[dict[str, Any]] = []
     for index, item in enumerate(proof_deltas, start=1):
@@ -1477,7 +2028,13 @@ def _correction_projection(
         scope = row.get("scope_evidence", {}) if isinstance(row.get("scope_evidence"), dict) else {}
         if path not in [str(value) for value in scope.get("proof_paths", [])]:
             problems.append(f"proof delta {index} leaves `{path}` unresolved as proof-only; Navigator evidence must resolve it"); continue
-        if not grounded(path, ids, " ".join(str(v) for v in scope.get("proof_paths", []))) or not grounded(command, ids):
+        contract_context = row.get("validation_contract", {}) if isinstance(row.get("validation_contract"), dict) else {}
+        host_proof = row.get("host_contract_proof_context", {}) if isinstance(row.get("host_contract_proof_context"), dict) else {}
+        prior_commands = [
+            *contract_context.get("commands", []),
+            host_proof.get("command", ""),
+        ]
+        if not grounded(path, ids, " ".join(str(v) for v in scope.get("proof_paths", []))) or not grounded(command, ids, " ".join(str(v) for v in prior_commands)):
             problems.append(f"proof delta {index} path or command is not grounded in its source answer"); continue
         contract = row.setdefault("validation_contract", {"state": "required", "tiers": []})
         contract["state"] = "required"
@@ -1537,6 +2094,17 @@ def _correction_projection(
             problems.append(f"{question_id} requires a Navigator-resolvable scope delta")
         if impacts & impact_proof and not any(question_id in item.get("source_question_ids", []) for item in proof_deltas if isinstance(item, dict)):
             problems.append(f"{question_id} requires an exact proof delta")
+    if scope_requests:
+        return {
+            "status": "blocked", "reason_code": "fresh-scope-evidence-required",
+            "source_answers_fingerprint": answer_fingerprint,
+            "material_question_ids": material_ids,
+            "scope_requests": scope_requests,
+            "open_questions": [
+                "Run the bounded read-only Navigator scope inspection for each requested path, then resubmit this same correction projection with its fresh_scope_evidence.",
+                "The new evidence must map each requested path to the named requirement and requested role; host answers alone cannot promote scope.",
+            ],
+        }
     if problems:
         return {
             "status": "blocked", "reason_code": "invalid-correction-projection",
@@ -1549,6 +2117,7 @@ def _correction_projection(
         "source_answers_fingerprint": answer_fingerprint,
         "material_question_ids": material_ids, "requirements": projected,
         "scope": validated_scope, "proof": validated_proof, "open_questions": [],
+        "fresh_scope_evidence": fresh_evidence,
     }
 
 
@@ -1654,7 +2223,35 @@ def _validate_aidlc_scope_mapping(root: Path, run_id: str, revision: dict[str, A
     evidence = navigator.get("scope_evidence") if isinstance(navigator, dict) else None
     if not isinstance(evidence, dict) or str(evidence.get("schema_version")) != "2":
         return {"status": "legacy", "blocking": False}
+    scope_module = _navigator_scope_module()
     decision = str(evidence.get("decision_fingerprint", ""))
+    expected_target = scope_module.fingerprint({"root": root.resolve().as_posix()})
+    correction_documents = revision.get("correction_scope_evidence", [])
+    if correction_documents is None:
+        correction_documents = []
+    if not isinstance(correction_documents, list):
+        raise ValueError("AIDLC correction scope evidence must be an array")
+    corrections: dict[str, dict[str, Any]] = {}
+    for document in correction_documents:
+        if not isinstance(document, dict) or str(document.get("schema_version")) != "2":
+            raise ValueError("AIDLC correction scope evidence must be a schema-v2 Navigator decision")
+        if not scope_module.verify_decision_fingerprint(document):
+            raise ValueError("AIDLC correction scope evidence decision fingerprint is invalid")
+        if document.get("target_identity_fingerprint") != expected_target:
+            raise ValueError("AIDLC correction scope evidence belongs to a different target root")
+        fingerprint = str(document.get("decision_fingerprint", ""))
+        if not fingerprint or fingerprint == decision or fingerprint in corrections:
+            raise ValueError("AIDLC correction scope evidence must be a distinct fresh Navigator decision")
+        corrections[fingerprint] = document
+
+    def evidence_paths(document: dict[str, Any], identifier: str, role_key: str) -> set[str]:
+        for candidate in document.get("requirements", []):
+            if not isinstance(candidate, dict):
+                continue
+            if str(candidate.get("display_id")) == identifier:
+                return {str(value) for value in candidate.get(role_key, []) if str(value)}
+        return set()
+
     original_rows = [row for row in navigator.get("requirement_matrix", []) if isinstance(row, dict)]
     revised_rows = [row for row in revision.get("requirements", []) if isinstance(row, dict)]
     original_ids = [str(row.get("display_id")) for row in original_rows]
@@ -1665,6 +2262,33 @@ def _validate_aidlc_scope_mapping(root: Path, run_id: str, revision: dict[str, A
         scope = row.get("scope_evidence")
         if not isinstance(scope, dict) or scope.get("decision_fingerprint") != decision:
             raise ValueError(f"AIDLC requirement `{row.get('display_id')}` is missing its saved v2 scope mapping; run `tailtrail start \"<goal>\"` for a new run")
+        identifier = str(row.get("display_id"))
+        if not corrections:
+            owners = sorted(str(value) for value in scope.get("implementation_owners", []) if str(value))
+            likely = sorted(str(value) for value in row.get("likely_paths", []) if str(value))
+            if likely != owners:
+                raise ValueError(f"AIDLC requirement `{row.get('display_id')}` changed editable scope outside the saved v2 decision; change scope through `tailtrail planning revise --root . --run-id {run_id} --approved-proposal` and approve that revision instead")
+            continue
+        original = {
+            field: evidence_paths(evidence, identifier, field)
+            for field in ("implementation_owners", "inspection_paths", "proof_paths")
+        }
+        lineage: dict[tuple[str, str], str] = {}
+        for claim in scope.get("correction_scope_lineage", []):
+            if not isinstance(claim, dict):
+                raise ValueError(f"AIDLC requirement `{identifier}` has malformed correction scope lineage")
+            fingerprint = str(claim.get("decision_fingerprint", ""))
+            path = str(claim.get("path", ""))
+            role = str(claim.get("role", ""))
+            if fingerprint not in corrections or role not in original or not path:
+                raise ValueError(f"AIDLC requirement `{identifier}` has untrusted correction scope lineage")
+            if path not in evidence_paths(corrections[fingerprint], identifier, role):
+                raise ValueError(f"AIDLC requirement `{identifier}` correction scope lineage is not resolved by its fresh Navigator decision")
+            lineage[(role, path)] = fingerprint
+        for role in ("implementation_owners", "inspection_paths", "proof_paths"):
+            for path in [str(value) for value in scope.get(role, []) if str(value)]:
+                if path not in original[role] and (role, path) not in lineage:
+                    raise ValueError(f"AIDLC requirement `{identifier}` added `{path}` outside saved or fresh Navigator scope evidence")
         owners = sorted(str(value) for value in scope.get("implementation_owners", []) if str(value))
         likely = sorted(str(value) for value in row.get("likely_paths", []) if str(value))
         if likely != owners:
@@ -1673,13 +2297,15 @@ def _validate_aidlc_scope_mapping(root: Path, run_id: str, revision: dict[str, A
         "status": "matched",
         "blocking": False,
         "decision_fingerprint": decision,
+        "correction_scope_decision_fingerprints": sorted(corrections),
         "requirement_ids": revised_ids,
-        "boundary": "AIDLC wording and decisions remain authority-owned; local editable paths remain bound to the saved Navigator decision.",
+        "boundary": "AIDLC wording and decisions remain authority-owned; local editable paths remain bound to the saved Navigator decision or a validated, target-bound correction decision.",
     }
 
 
 def _saved_start_report(root: Path, run_id: str) -> dict[str, Any]:
-    return active_start_report(root, run_id).get("report", {})
+    report, _ = canonical_plan_report(root, run_id)
+    return report
 
 
 def _is_full_official_run(root: Path, run_id: str) -> bool:
@@ -1911,7 +2537,7 @@ def record_feedback(root: Path, run_id: str, feedback_json: str) -> dict[str, An
         **result,
         "next": "Ask targeted questions or offer AIDLC Requirements mode before revising rejected requirements." if result["next_requirement_mode"] == "ask-targeted-questions-or-offer-aidlc" else ("Use AIDLC Requirements mode before another material proposal." if result["next_requirement_mode"] == "aidlc-requirements-required" else "The complete proposal may be approved with the existing run ID."),
     }
-    saved = active_start_report(root, run_id).get("report", {})
+    saved, _ = canonical_plan_report(root, run_id)
     hands_free = bool((saved.get("guided_delivery", {}) if isinstance(saved, dict) else {}).get("hands_free_program"))
     if _is_official_aidlc_run(root, run_id) and result["rejected_requirement_uids"]:
         comments = " ".join(str(row.get("comment", "")) for row in result.get("feedback", [])).lower()
@@ -2177,6 +2803,129 @@ def _aidlc_artifact(root: Path, run_id: str, name: str) -> Path:
     return path
 
 
+def _decompose_multi_owner_correction(
+    root: Path,
+    run_id: str,
+    revision: dict[str, Any],
+    projection_artifact: dict[str, Any],
+    projection_path: Path,
+    projection_version: int,
+) -> dict[str, Any] | None:
+    """Create single-owner child Planning Locks for a multi-owner correction.
+
+    The parent manifest is coordination evidence only.  Each child is a real,
+    ordinary awaiting-approval run with one editable owner.  Approving one
+    child cannot grant authority over another child's path, and the parent run
+    remains non-authoritative.
+    """
+    requirements = [
+        copy.deepcopy(row) for row in revision.get("requirements", [])
+        if isinstance(row, dict)
+    ]
+    owner_requirements: dict[str, list[dict[str, Any]]] = {}
+    for row in requirements:
+        scope = row.get("scope_evidence") if isinstance(row.get("scope_evidence"), dict) else {}
+        for owner in [str(value) for value in scope.get("implementation_owners", []) if str(value)]:
+            owner_requirements.setdefault(owner, []).append(row)
+    if len(owner_requirements) < 2:
+        return None
+
+    parent_report = active_start_report(root, run_id).get("report", {})
+    if not isinstance(parent_report, dict):
+        raise ValueError("multi-owner correction has no valid parent Start report")
+    planning = L.state_dir(root, run_id) / "planning"
+    manifest_path = planning / f"correction-parent-manifest-v{projection_version}.json"
+    children: list[dict[str, Any]] = []
+    for index, (owner, owner_rows) in enumerate(sorted(owner_requirements.items()), start=1):
+        child_run_id = f"{run_id}-correction-{projection_version:02d}-{index:02d}"
+        child_rows: list[dict[str, Any]] = []
+        for source_row in owner_rows:
+            row = copy.deepcopy(source_row)
+            scope = row.get("scope_evidence") if isinstance(row.get("scope_evidence"), dict) else {}
+            scope["implementation_owners"] = [owner]
+            row["scope_evidence"] = scope
+            row["likely_paths"] = [owner]
+            child_rows.append(row)
+        child_report = copy.deepcopy(parent_report)
+        child_report["goal"] = str(parent_report.get("goal") or show(root, run_id).get("goal", ""))
+        child_report["parent_correction"] = {
+            "parent_run_id": run_id,
+            "manifest": manifest_path.relative_to(root).as_posix(),
+            "projection": projection_path.relative_to(root).as_posix(),
+            "projection_fingerprint": _canonical_fingerprint(projection_artifact),
+            "owner": owner,
+            "boundary": "This child may authorize only its one implementation owner; sibling owners remain outside scope.",
+        }
+        child_report.pop("host_input_contract", None)
+        navigator = child_report.setdefault("navigator", {})
+        if not isinstance(navigator, dict):
+            raise ValueError("multi-owner correction has an invalid Navigator plan")
+        navigator["requirement_matrix"] = child_rows
+        navigator["revision_requirement_matrix"] = True
+        navigator.pop("scope_evidence", None)
+        navigator.pop("scope_host_packet", None)
+        navigator.pop("scope_quality", None)
+        navigator.pop("host_input_contract_validated", None)
+        allowed_paths = {owner}
+        for row in child_rows:
+            scope = row.get("scope_evidence") if isinstance(row.get("scope_evidence"), dict) else {}
+            allowed_paths.update(str(value) for value in scope.get("inspection_paths", []) if str(value))
+            allowed_paths.update(str(value) for value in scope.get("proof_paths", []) if str(value))
+        navigator["likely_impacted_files"] = [
+            copy.deepcopy(item)
+            for item in navigator.get("likely_impacted_files", [])
+            if isinstance(item, dict) and str(item.get("path", "")) in allowed_paths
+        ]
+        effective = effective_plan_projection(child_report)
+        child_report["focused_validation"] = effective["focused_validation"]
+        child_report["effective_plan_fingerprint"] = effective["fingerprint"]
+        child_fingerprint = _canonical_fingerprint(child_report)
+        if lock_path(root, child_run_id).exists():
+            existing_report, _ = canonical_plan_report(root, child_run_id)
+            if _canonical_fingerprint(existing_report) != child_fingerprint:
+                raise ValueError(f"multi-owner child run `{child_run_id}` already exists with different plan content")
+        else:
+            create(root, child_report["goal"], child_run_id)
+            save_start_report(root, child_run_id, child_report)
+        children.append({
+            "child_id": f"child-{index:02d}",
+            "run_id": child_run_id,
+            "owner": owner,
+            "requirement_ids": [
+                str(row.get("display_id") or row.get("requirement_uid")) for row in child_rows
+            ],
+            "plan_fingerprint": child_fingerprint,
+            "state": "awaiting-approval",
+            "approval_command": f"tailtrail planning approve --root . --run-id {child_run_id} --approved",
+        })
+    manifest = {
+        "schema_version": "1",
+        "type": "tailtrail-correction-parent-manifest",
+        "run_id": run_id,
+        "state": "child-approval-required",
+        "projection": projection_path.relative_to(root).as_posix(),
+        "projection_fingerprint": _canonical_fingerprint(projection_artifact),
+        "shared_requirement_ids": sorted({
+            str(row.get("display_id") or row.get("requirement_uid")) for row in requirements
+        }),
+        "cross_plan_invariants": [
+            "Each child has exactly one implementation owner.",
+            "A child approval grants no authority over a sibling owner path.",
+            "The parent manifest is coordination evidence and grants no write authority.",
+            "Shared acceptance, preservation, proof, and AIDLC lineage remain bound to the validated projection.",
+        ],
+        "children": children,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    L.atomic_json(manifest_path, manifest)
+    L.append_event(root, run_id, "aidlc_correction_decomposed", {
+        "manifest": manifest_path.relative_to(root).as_posix(),
+        "child_run_ids": [child["run_id"] for child in children],
+        "owner_paths": [child["owner"] for child in children],
+    })
+    return {**manifest, "artifact": manifest_path.relative_to(root).as_posix()}
+
+
 def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str, Any]:
     """Validate AIDLC answers and persist a revised, still-unapproved boundary."""
     root = root.resolve()
@@ -2213,6 +2962,7 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
             "material_question_ids": projection["material_question_ids"],
             "answers": revision.get("aidlc_answers", {}),
             "open_questions": projection["open_questions"],
+            "scope_requests": projection.get("scope_requests", []),
             "authority_boundary": "Free-form answers are observations only. They cannot revise canonical requirements, scope, proof, or an approved anchor until a validated correction-projection artifact exists.",
         }
         L.atomic_json(observation_path, observation)
@@ -2287,6 +3037,7 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
         "requirement_deltas": supplied_projection.get("requirements", []) if isinstance(supplied_projection, dict) else [],
         "scope_deltas": projection["scope"],
         "proof_deltas": projection["proof"],
+        "fresh_scope_evidence": projection.get("fresh_scope_evidence"),
         "base_canonical_fingerprints": base_fingerprints,
         "projected_canonical_fingerprints": canonical_fingerprints,
         "changed_surfaces": changed_surfaces,
@@ -2303,10 +3054,37 @@ def submit_aidlc_answers(root: Path, run_id: str, answers_json: str) -> dict[str
         "correction_projection": projection_path.relative_to(root).as_posix(),
         "canonical_fingerprints": canonical_fingerprints,
         "changed_surfaces": changed_surfaces,
+        "correction_scope_evidence": [projection["fresh_scope_evidence"]] if isinstance(projection.get("fresh_scope_evidence"), dict) else [],
         "resolved_plan": resolved_plan,
         **revision,
     }
     L.atomic_json(revision_path, payload)
+    decomposition = _decompose_multi_owner_correction(
+        root,
+        run_id,
+        payload,
+        projection_artifact,
+        projection_path,
+        projection_version,
+    )
+    if decomposition is not None:
+        state_path = _record_aidlc_correction_state(root, run_id, {
+            "state": "decomposed",
+            "reason_code": "multi-owner-correction-decomposed",
+            "latest_observation": None,
+            "active_revision": revision_path.relative_to(root).as_posix(),
+            "active_projection": projection_path.relative_to(root).as_posix(),
+            "parent_manifest": decomposition["artifact"],
+        })
+        return {
+            "state": "multi-owner-decomposition-ready",
+            "artifact": revision_path.relative_to(root).as_posix(),
+            "correction_projection": projection_path.relative_to(root).as_posix(),
+            "parent_manifest": decomposition,
+            "state_artifact": state_path.relative_to(root).as_posix(),
+            "next": "Review and approve each single-owner child run independently. The parent run grants no write authority.",
+            **payload,
+        }
     state_path = _record_aidlc_correction_state(root, run_id, {
         "state": "revision-ready",
         "reason_code": None,
@@ -2452,7 +3230,7 @@ def approve_aidlc_requirements(root: Path, run_id: str, approved: bool) -> dict[
         created = anchor.approve(root, run_id)
         approved_path = Path(created["path"])
     lock = approve(root, run_id, True)
-    saved = active_start_report(root, run_id).get("report", {})
+    saved, _ = canonical_plan_report(root, run_id)
     anchor_artifact = approved_path.relative_to(root).as_posix()
     workflow_runtime = workflow_start_integration().activate(root, run_id, saved, anchor_artifact)
     handoff = execution_handoff(root, run_id, saved, anchor_artifact)
@@ -2540,6 +3318,16 @@ def render_aidlc_revision(payload: dict[str, Any]) -> str:
         ]
         question_ids = payload.get("material_question_ids", [])
         lines.append("- " + (", ".join(f"`{value}`" for value in question_ids) or "None recorded."))
+        scope_requests = [row for row in payload.get("scope_requests", []) if isinstance(row, dict)]
+        if scope_requests:
+            lines.extend(["", "## Fresh Navigator scope evidence required", ""])
+            lines.append("AIDLC has requested bounded evidence; it has not granted any new editable path.")
+            for request in scope_requests:
+                lines.extend([
+                    f"- **{request.get('request_id', 'scope request')}**: `{request.get('path')}` as `{request.get('requested_role')}` for `{request.get('requirement_id')}`.",
+                    f"  Run: `{request.get('command')}`.",
+                ])
+            lines.append("Resubmit the same correction projection with the returned `scope_evidence` as `fresh_scope_evidence`; a stale, unrelated, or unsigned result remains blocked.")
         lines.extend(["", "## Open questions", ""])
         lines.extend(f"- {_display_prose(value)}" for value in payload.get("open_questions", []))
         lines.extend([
@@ -2776,12 +3564,14 @@ def activate(root: Path, run_id: str, approved: bool, rationale: str | None = No
     if approved is not True:
         raise ValueError(f"planning activation requires --approved; run `tailtrail planning activate --root . --run-id {run_id} --approved`")
     root = root.resolve()
+    _assert_no_parent_only_correction(root, run_id)
     assert_no_pending_revision(root, run_id)
     current = show(root, run_id)
     identity_check = target_workspace().verify_identity(current.get("target_identity", {}), root)
     if identity_check["blocking"]:
         raise ValueError(f"Target identity mismatch for run `{run_id}`: {identity_check['reason']}. Run `tailtrail start \"<goal>\"` for a new Planning Lock before implementation.")
-    saved_report = active_start_report(root, run_id).get("report", {})
+    saved_report, _ = canonical_plan_report(root, run_id)
+    saved_report = _require_fresh_planning_readiness(root, saved_report, phase="activation")
     debug_orientation = isinstance(saved_report, dict) and isinstance(saved_report.get("debug_plan"), dict)
     scope_decision_check = validate_saved_scope_decision(
         root,
@@ -3000,10 +3790,19 @@ def _start_plan_material(
     root: Path,
     run_id: str,
     report_override: dict[str, Any] | None = None,
+    *,
+    include_pending: bool = False,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, dict[str, Any]], str, dict[str, Any]]:
     """Load the one canonical saved-plan dataset for every presentation view."""
     root = root.resolve()
-    report = copy.deepcopy(report_override) if isinstance(report_override, dict) else active_start_report(root, run_id).get("report", {})
+    if isinstance(report_override, dict):
+        report = copy.deepcopy(report_override)
+        validate_canonical_plan_projection(report)
+        projection_source = _persist_canonical_plan_projection(
+            root, run_id, report, {"kind": "explicit-render-override", "artifact": ""},
+        )
+    else:
+        report, projection_source = canonical_plan_report(root, run_id, include_pending=include_pending)
     if not isinstance(report, dict):
         raise ValueError(f"Cannot generate start plan verbose report: saved report is invalid for run {run_id}")
 
@@ -3029,19 +3828,7 @@ def _start_plan_material(
         _, anchor = _anchor_module().latest_approved(root, run_id)
     except (OSError, ValueError):
         anchor = None
-    latest_revision = next(
-        (
-            value for key, value in aidlc.items()
-            if key.startswith("aidlc-revised-requirements-v") and isinstance(value, dict)
-        ),
-        None,
-    )
-    requirements = (
-        latest_revision.get("requirements", [])
-        if isinstance(latest_revision, dict)
-        else anchor.get("requirements", []) if isinstance(anchor, dict)
-        else (report.get("navigator", {}) or {}).get("requirement_matrix", [])
-    )
+    requirements = (report.get("navigator", {}) or {}).get("requirement_matrix", [])
     requirements = [copy.deepcopy(row) for row in requirements if isinstance(row, dict)]
 
     # The canonical contracts may store commands as plain strings.  The
@@ -3091,7 +3878,8 @@ def _start_plan_material(
         "aidlc": aidlc,
         "planning_audits": planning_audits,
         "planning_events": events,
-        "canonical_artifact": active_start_report_path(root, run_id).relative_to(root).as_posix(),
+        "canonical_artifact": projection_source.get("canonical_artifact") or projection_source.get("artifact"),
+        "canonical_projection_source": projection_source,
     }
     return report, requirements, command_registry, goal, plan_data
 
@@ -3112,7 +3900,7 @@ def refresh_visible_start_plan(root: Path, run_id: str) -> dict[str, Any]:
     proposal, approval, and audit so it can never describe a superseded plan.
     """
     root = root.resolve()
-    return generate_start_plan_verbose_report(root, run_id, report_override=_pending_report_override(root, run_id))
+    return generate_start_plan_verbose_report(root, run_id, include_pending=True)
 
 
 def render_start_plan(root: Path, run_id: str) -> str:
@@ -3124,7 +3912,9 @@ def render_start_plan(root: Path, run_id: str) -> str:
     root = root.resolve()
     visible_path = VR.visible_report_path(root, run_id, "start-plan")
     refresh_visible_start_plan(root, run_id)
-    report, requirements, command_registry, goal, plan_data = _start_plan_material(root, run_id, report_override=_pending_report_override(root, run_id))
+    report, requirements, command_registry, goal, plan_data = _start_plan_material(
+        root, run_id, include_pending=True,
+    )
     visible_artifact = visible_path.relative_to(root).as_posix() if visible_path.is_file() else ""
     return VR.generate_start_plan_normal(
         run_id,
@@ -3140,11 +3930,13 @@ def generate_start_plan_verbose_report(
     root: Path,
     run_id: str,
     report_override: dict[str, Any] | None = None,
+    *,
+    include_pending: bool = False,
 ) -> dict[str, Any]:
     """Generate or refresh the lifecycle-authentic full Start Plan."""
     root = root.resolve()
     report, requirements, command_registry, goal, plan_data = _start_plan_material(
-        root, run_id, report_override=report_override,
+        root, run_id, report_override=report_override, include_pending=include_pending,
     )
     report_markdown = VR.generate_start_plan_verbose(
         run_id,

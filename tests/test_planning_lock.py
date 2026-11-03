@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.intake_pipeline import IntakePipeline
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,6 +28,154 @@ revision = load("planning_lock_revision_test", "scripts/planning-revision.py")
 
 
 class PlanningLockTests(unittest.TestCase):
+    def _planning_readiness_case(self, root: Path, run_id: str) -> tuple[dict, Path]:
+        (root / "src").mkdir(exist_ok=True)
+        (root / "tests").mkdir(exist_ok=True)
+        owner = root / "src" / "work.py"
+        owner.write_text("def run():\n    return 1\n", encoding="utf-8")
+        (root / "tests" / "test_work.py").write_text("# proof\n", encoding="utf-8")
+        goal = "Change the widget behavior."
+        pipeline = IntakePipeline(root)
+        intake = pipeline.create_run(goal, "existing-code-change")
+        values = {
+            "expected-behavior": "The widget returns the revised result.",
+            "existing-owner": "src/work.py",
+            "proof-command": "python3 -m unittest tests.test_work",
+        }
+        answers: dict[str, str] = {}
+        for field_id, value in values.items():
+            question = pipeline.issue_question(intake["run_id"], field_id, f"Provide {field_id}")
+            answer = pipeline.record_answer(
+                intake["run_id"], field_id, value, source="direct-question",
+                question_id=question["payload"]["question_id"],
+            )
+            answer_id = answer["payload"]["answer_id"]
+            pipeline.accept_answer(
+                intake["run_id"], answer_id,
+                {"outcome": "accepted", "verified_by": "navigator"},
+            )
+            answers[field_id] = answer_id
+        snapshot = pipeline.replay(intake["run_id"])
+        states = {row["answer_id"]: row for row in snapshot["answer_states"]}
+        receipt = pipeline.mint_planning_readiness(
+            intake["run_id"],
+            accepted_answer_ids=list(answers.values()),
+            requirement_projections=[{
+                "requirement_uid": "req-ready", "consumer_component_id": "planning-lock",
+                "projection_kind": "requirement",
+            }],
+            operational_bindings={"requirements": [{
+                "requirement_uid": "req-ready", "statement": goal,
+                "source_answer_ids": list(answers.values()), "profile_fields": list(values),
+                "semantic_delta": "validated", "dependencies_checked": True,
+                "path_bindings": [{
+                    "path": "src/work.py", "role": "implementation-owner", "existing": True,
+                    "new_file_verdict": "not-applicable",
+                    "source_answer_ids": [answers["existing-owner"]],
+                }],
+                "proof_bindings": [{
+                    "path": "tests/test_work.py", "command": values["proof-command"],
+                    "tier": "unit", "asserted_behavior": "The revised behavior is proven.",
+                    "source_answer_id": answers["proof-command"],
+                    "source_answer_ids": [answers["proof-command"]],
+                    "evidence_fingerprint": states[answers["proof-command"]]["source_evidence_fingerprint"],
+                }],
+                "criteria": {
+                    "positive": ["The revised result is returned."],
+                    "negative": ["Unrelated behavior is unchanged."],
+                    "source_answer_ids": [answers["expected-behavior"]],
+                },
+                "correction_premise": {
+                    "status": "not-applicable", "source_answer_ids": [answers["expected-behavior"]],
+                },
+            }]},
+            expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"],
+            target_identity={"root": root.as_posix()},
+        )
+        proof = receipt["operational_packet"]["requirements"][0]["proof_bindings"][0]
+        report = {
+            "goal": goal,
+            "planning_readiness": {
+                "run_id": intake["run_id"], "receipt_id": receipt["receipt_id"],
+                "fingerprint": receipt["fingerprint"],
+            },
+            "navigator": {"requirement_matrix": [{
+                "requirement_uid": "req-ready", "display_id": "REQ-01", "statement": goal,
+                "acceptance_criteria": ["The revised result is returned."],
+                "preserve_rules": ["Unrelated behavior is unchanged."],
+                "semantic_delta": "validated", "dependencies_checked": True,
+                "scope_evidence": {
+                    "implementation_owners": ["src/work.py"],
+                    "proof_paths": ["tests/test_work.py"],
+                },
+                "validation_contract": {"state": "required", "checks": [{
+                    "command": proof["command"], "candidate_paths": [proof["path"]],
+                    "tiers": [proof["tier"]], "asserted_behavior": proof["asserted_behavior"],
+                    "source_answer_id": proof["source_answer_id"],
+                    "evidence_fingerprint": proof["evidence_fingerprint"],
+                }]},
+            }]},
+        }
+        lock.create(root, goal, run_id)
+        return report, owner
+
+    def test_planning_readiness_freshness_is_rechecked_before_each_authority_write(self) -> None:
+        for phase in ("start-persistence", "approval", "activation"):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                run_id = f"readiness-{phase}"
+                report, owner = self._planning_readiness_case(root, run_id)
+                if phase != "start-persistence":
+                    lock.save_start_report(root, run_id, report)
+                if phase == "activation":
+                    lock_path = lock.lock_path(root, run_id)
+                    payload = json.loads(lock_path.read_text(encoding="utf-8"))
+                    payload["status"] = "approved"
+                    payload["writes_allowed"] = True
+                    lock_path.write_text(json.dumps(payload), encoding="utf-8")
+                owner.write_text("def run():\n    return 2\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, f"planning-readiness {phase} check failed"):
+                    if phase == "start-persistence":
+                        lock.save_start_report(root, run_id, report)
+                    elif phase == "approval":
+                        lock.approve(root, run_id, True)
+                    else:
+                        lock.activate(root, run_id, True)
+
+    def test_effective_projection_merges_registry_and_literal_duplicate_proof(self) -> None:
+        """A command ID and its literal command describe one proof binding."""
+        command = "python3 -m unittest tests.test_owner -q"
+        report = {
+            "navigator": {"requirement_matrix": [{
+                "display_id": "REQ-01",
+                "validation_contract": {
+                    "tiers": ["unit", "contract", "behaviour"],
+                    "commands": [command],
+                    "candidate_paths": ["tests/test_owner.py"],
+                    "command_registry": {"cmd-owner": {"command": command, "kind": "proof"}},
+                    "checks": [
+                        {
+                            "kind": "proof", "command_id": "cmd-owner",
+                            "tiers": ["contract", "unit", "behaviour"],
+                            "candidate_paths": ["tests/test_owner.py"],
+                        },
+                        {
+                            "kind": "proof", "command": command,
+                            "tiers": ["unit", "contract", "behaviour"],
+                            "candidate_paths": ["tests/test_owner.py"],
+                        },
+                    ],
+                },
+            }]},
+        }
+
+        projection = lock.effective_plan_projection(report)
+
+        checks = projection["checks_by_requirement"]["REQ-01"]
+        self.assertEqual(len(checks), 1)
+        self.assertEqual(checks[0]["tiers"], ["behaviour", "contract", "unit"])
+        self.assertEqual(len(projection["focused_validation"]), 3)
+
     def test_proof_runner_uses_bare_interpreter_not_launcher_path(self) -> None:
         self.assertEqual(lock._proof_runner("python3 D:/proj/.tailtrail/install/payload/codex/scripts/tailtrail.py"), "python3")
         self.assertEqual(lock._proof_runner("python D:/proj/scripts/tailtrail.py"), "python")
@@ -474,6 +624,13 @@ class PlanningLockTests(unittest.TestCase):
             revision = lock.submit_aidlc_answers(root, "plan-aidlc-handoff", answers)
             rendered_revision = lock.render_aidlc_revision(revision)
             handoff = lock.approve_aidlc_requirements(root, "plan-aidlc-handoff", True)
+            state = lock.revision_state(root, "plan-aidlc-handoff")
+            active = json.loads((root / state["active_report"]).read_text(encoding="utf-8"))
+            canonical_artifacts = list(
+                (root / ".tailtrail" / "runs" / "plan-aidlc-handoff" / "planning").glob(
+                    "canonical-plan-projection-v*.json"
+                )
+            )
             activity = ledger.projection(root, "plan-aidlc-handoff")["activity"]
         self.assertEqual(revision["state"], "aidlc-revision-ready")
         self.assertEqual(revision["evidence_capability"]["status"], "compatible")
@@ -489,6 +646,90 @@ class PlanningLockTests(unittest.TestCase):
         self.assertIn("tailtrail completion-report --root . --run-id plan-aidlc-handoff", lock.render_execution_handoff(handoff))
         self.assertEqual(activity["aidlc_requirements_answered"], 1)
         self.assertEqual(activity["aidlc_requirements_approved"], 1)
+        self.assertIn("approved-canonical-report-v", state["active_report"])
+        self.assertIn("canonical_projection", active)
+        self.assertTrue(canonical_artifacts)
+
+    def test_projection_invariant_rejects_implicit_proof_or_scenario_loss(self) -> None:
+        base = {
+            "navigator": {"requirement_matrix": [{
+                "display_id": "REQ-01",
+                "statement": "Preserve the reviewed proof contract.",
+                "acceptance_criteria": ["The outcome is visible."],
+                "preserve_rules": ["Keep the prior route."],
+                "scope_evidence": {"inspection_paths": [], "proof_paths": ["tests/test_route.py"]},
+                "validation_contract": {
+                    "tiers": ["unit"],
+                    "commands": ["python3 -m unittest tests.test_route"],
+                },
+                "behavior_contract": {"scenarios": [{"scenario_id": "BHV-01"}]},
+            }]},
+        }
+        revised = json.loads(json.dumps(base))
+        revised["navigator"]["requirement_matrix"][0]["validation_contract"]["commands"] = []
+        with self.assertRaisesRegex(ValueError, "discard validation commands"):
+            lock.validate_canonical_plan_projection(revised, base_report=base)
+
+    def test_multi_owner_correction_creates_single_owner_child_runs_and_blocks_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "multi-owner-parent"
+            rows = []
+            for index, owner in enumerate(("src/one.py", "src/two.py"), start=1):
+                rows.append({
+                    "requirement_uid": f"req-{index}",
+                    "display_id": f"REQ-0{index}",
+                    "statement": f"Change owner {index}.",
+                    "acceptance_criteria": [f"Owner {index} behavior is visible."],
+                    "preserve_rules": ["Preserve sibling behavior."],
+                    "likely_paths": [owner],
+                    "scope_evidence": {
+                        "implementation_owners": [owner],
+                        "inspection_paths": [],
+                        "proof_paths": [f"tests/test_{index}.py"],
+                    },
+                    "validation_contract": {
+                        "state": "required",
+                        "tiers": ["unit"],
+                        "commands": [f"python3 -m unittest tests.test_{index}"],
+                        "candidate_paths": [f"tests/test_{index}.py"],
+                    },
+                })
+            report = {
+                "goal": "Apply a bounded multi-owner correction.",
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {
+                    "requirement_matrix": rows,
+                    "likely_impacted_files": [
+                        {"path": path}
+                        for path in ("src/one.py", "src/two.py", "tests/test_1.py", "tests/test_2.py")
+                    ],
+                },
+            }
+            lock.create(root, report["goal"], run_id)
+            lock.save_start_report(root, run_id, report)
+            planning = root / ".tailtrail" / "runs" / run_id / "planning"
+            projection_path = planning / "aidlc-correction-projection-v1.json"
+            projection = {"type": "tailtrail-validated-correction-projection", "requirements": rows}
+            ledger.atomic_json(projection_path, projection)
+            manifest = lock._decompose_multi_owner_correction(
+                root, run_id, {"requirements": rows}, projection, projection_path, 1,
+            )
+            assert manifest is not None
+            ledger.atomic_json(lock._aidlc_correction_state_path(root, run_id), {
+                "state": "decomposed", "parent_manifest": manifest["artifact"],
+            })
+            child_owners = []
+            for child in manifest["children"]:
+                child_report, _ = lock.canonical_plan_report(root, child["run_id"])
+                child_rows = child_report["navigator"]["requirement_matrix"]
+                child_owners.append(child_rows[0]["scope_evidence"]["implementation_owners"])
+            with self.assertRaisesRegex(ValueError, "parent run grants no write authority"):
+                lock.approve(root, run_id, True)
+
+        self.assertEqual(child_owners, [["src/one.py"], ["src/two.py"]])
+        self.assertEqual(len(manifest["children"]), 2)
+        self.assertTrue(all(child["state"] == "awaiting-approval" for child in manifest["children"]))
 
     def test_material_free_form_answer_stays_observation_until_projection_is_validated(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -529,6 +770,86 @@ class PlanningLockTests(unittest.TestCase):
             self.assertFalse((planning / "aidlc-revised-requirements-v1.json").exists())
             self.assertIn("Correction Projection Required", rendered)
             self.assertNotIn("## Navigator Decision", rendered)
+
+    def test_correction_scope_delta_requests_fresh_navigator_evidence_before_promotion(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stage = {"questions": [{"id": "Q1", "decision_impact": ["scope"]}], "requirements": []}
+            revision_payload = {
+                "aidlc_answers": {"Q1": {"choice": "Other", "detail": "Add src/other.py."}},
+                "requirements": [{
+                    "display_id": "REQ-01", "likely_paths": ["src/current.py"],
+                    "scope_evidence": {
+                        "decision_fingerprint": "sha256:base",
+                        "implementation_owners": ["src/current.py"],
+                        "inspection_paths": [], "proof_paths": [],
+                    },
+                }],
+            }
+            projection = lock._correction_projection(root, "plan-rescope", stage, [], revision_payload, {
+                "schema_version": "1", "requirements": [],
+                "scope": [{
+                    "requirement_id": "REQ-01", "path": "src/other.py",
+                    "requested_role": "proposed-owner-candidate", "source_question_ids": ["Q1"],
+                }], "proof": [],
+            })
+
+        self.assertEqual(projection["status"], "blocked")
+        self.assertEqual(projection["reason_code"], "fresh-scope-evidence-required")
+        self.assertEqual(projection["scope_requests"][0]["path"], "src/other.py")
+        self.assertIn("navigator scope inspect", projection["scope_requests"][0]["command"])
+
+    def test_fresh_navigator_evidence_can_resolve_a_bounded_correction_scope_delta(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            scope_module = lock._navigator_scope_module()
+
+            def decision(path: str) -> dict:
+                value = {
+                    "schema_version": "2", "state": "resolved",
+                    "target_identity_fingerprint": scope_module.fingerprint({"root": root.resolve().as_posix()}),
+                    "requirements": [{
+                        "display_id": "REQ-01", "requirement_id": "req-1",
+                        "implementation_owners": [path], "inspection_paths": [], "proof_paths": [],
+                    }],
+                }
+                value["decision_fingerprint"] = scope_module.fingerprint(scope_module._fingerprintable_document(value))
+                return value
+
+            original, fresh = decision("src/current.py"), decision("src/other.py")
+            stage = {"questions": [{"id": "Q1", "decision_impact": ["scope"]}], "requirements": []}
+            revision_payload = {
+                "aidlc_answers": {"Q1": {"choice": "Other", "detail": "Add src/other.py."}},
+                "requirements": [{
+                    "display_id": "REQ-01", "likely_paths": ["src/current.py"],
+                    "scope_evidence": {
+                        "decision_fingerprint": original["decision_fingerprint"],
+                        "implementation_owners": ["src/current.py"],
+                        "inspection_paths": [], "proof_paths": [],
+                    },
+                }],
+            }
+            projection = lock._correction_projection(root, "plan-rescope", stage, [], revision_payload, {
+                "schema_version": "1", "requirements": [],
+                "scope": [{
+                    "requirement_id": "REQ-01", "path": "src/other.py",
+                    "requested_role": "proposed-owner-candidate", "source_question_ids": ["Q1"],
+                }], "proof": [], "fresh_scope_evidence": fresh,
+            })
+            lock.create(root, "rescope a rejected AIDLC plan", "plan-rescope")
+            ledger.atomic_json(lock.start_report_path(root, "plan-rescope"), {"report": {
+                "navigator": {"scope_evidence": original, "requirement_matrix": projection["requirements"]},
+            }})
+            validation = lock._validate_aidlc_scope_mapping(root, "plan-rescope", {
+                "requirements": projection["requirements"], "correction_scope_evidence": [fresh],
+            })
+
+        row = projection["requirements"][0]
+        self.assertEqual(projection["status"], "passed")
+        self.assertEqual(row["scope_evidence"]["implementation_owners"], ["src/current.py", "src/other.py"])
+        self.assertEqual(row["likely_paths"], ["src/current.py", "src/other.py"])
+        self.assertEqual(validation["status"], "matched")
+        self.assertEqual(validation["correction_scope_decision_fingerprints"], [fresh["decision_fingerprint"]])
 
     def test_validated_correction_projection_updates_canonical_requirement_and_exact_proof(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

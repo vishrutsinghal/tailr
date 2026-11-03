@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import tempfile
 import unittest
@@ -79,6 +80,109 @@ class ExactDuplicateCollapseTests(unittest.TestCase):
             # latest_records returns the superseded version of lrn-bbb, whose
             # status is terminal, so no group reforms around it.
             self.assertNotIn("lrn-bbb", [item for ids in groups.values() for item in ids])
+
+    def test_equivalent_advice_groups_allow_contextual_tags_but_not_different_classes(self):
+        records = [
+            {
+                "learning_id": "lrn-aaa",
+                "learning_class": "positive-pattern",
+                "freshness": {"status": "current"},
+                "content": {"advice": "Keep completion evidence current."},
+                "applicability": {"tags": ["closure"]},
+            },
+            {
+                "learning_id": "lrn-bbb",
+                "learning_class": "positive-pattern",
+                "freshness": {"status": "current"},
+                "content": {"advice": "  keep completion evidence CURRENT.  "},
+                "applicability": {"tags": ["proof"]},
+            },
+            {
+                "learning_id": "lrn-ccc",
+                "learning_class": "avoid-history",
+                "freshness": {"status": "current"},
+                "content": {"advice": "Keep completion evidence current."},
+                "applicability": {"tags": ["closure"]},
+            },
+        ]
+        groups = refresh.equivalent_advice_v3_groups(records)
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(next(iter(groups.values())), ["lrn-aaa", "lrn-bbb"])
+
+    def test_execute_merge_aggregates_observations_context_and_source_runs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            legacy = root / ".tailtrail" / "learning-events.jsonl"
+            legacy.parent.mkdir(parents=True)
+            events = [
+                {"id": "event-1", "source_run_id": "run-a"},
+                {"id": "event-2", "source_run_id": "run-a"},
+                {"id": "event-3", "source_run_id": "run-b"},
+            ]
+            legacy.write_text("".join(json.dumps(event) + "\n" for event in events), encoding="utf-8")
+
+            for index, (learning_id, tags, paths) in enumerate((
+                ("lrn-aaa", ["closure"], ["scripts/a.py"]),
+                ("lrn-bbb", ["proof"], ["scripts/b.py"]),
+                ("lrn-ccc", ["closure", "proof"], ["tests/test_c.py"]),
+            ), start=1):
+                event = events[index - 1]
+                record = v3.build_record(
+                    root,
+                    learning_id=learning_id,
+                    learning_class="positive-pattern",
+                    summary=f"Observation {index}",
+                    advice="Keep completion evidence current.",
+                    source_kind="legacy-candidate-reference",
+                    source_ref=f".tailtrail/learning-events.jsonl#line={index}",
+                    source_fingerprint="sha256:" + v3.sha256(event),
+                    captured_by="test",
+                    task_types=["completion-feedback"],
+                    tags=tags,
+                    path_patterns=paths,
+                    confidence_score=26,
+                )
+                v3.append_record(root, record)
+
+            result = refresh.execute_merge_group(
+                root,
+                "lrn-aaa",
+                ["lrn-bbb", "lrn-ccc"],
+                "approved equivalent-advice consolidation",
+                True,
+            )
+            self.assertEqual(result["observation_count"], 3)
+            self.assertEqual(result["source_run_count"], 2)
+            self.assertEqual(result["source_run_ids"], ["run-a", "run-b"])
+
+            latest = v3.latest_records(v3.read_records(root))
+            canonical = latest["lrn-aaa"]
+            self.assertEqual(canonical["freshness"]["status"], "current")
+            self.assertEqual(canonical["utility"]["observation_count"], 3)
+            self.assertEqual(canonical["applicability"]["tags"], ["closure", "proof"])
+            self.assertEqual(
+                canonical["applicability"]["path_patterns"],
+                ["scripts/a.py", "scripts/b.py", "tests/test_c.py"],
+            )
+            self.assertEqual(
+                canonical["provenance"]["evidence_refs"],
+                [
+                    ".tailtrail/learning-events.jsonl#line=1",
+                    ".tailtrail/learning-events.jsonl#line=2",
+                    ".tailtrail/learning-events.jsonl#line=3",
+                ],
+            )
+            self.assertIn("3 observations across 2 source runs", canonical["content"]["summary"])
+            self.assertEqual(latest["lrn-bbb"]["freshness"]["status"], "superseded")
+            self.assertEqual(latest["lrn-ccc"]["freshness"]["status"], "superseded")
+
+    def test_execute_merge_rejects_different_advice(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            _capture(root, "lrn-aaa", "Keep completion evidence current.", ["closure"])
+            _capture(root, "lrn-bbb", "Prefer a different implementation pattern.", ["closure"])
+            with self.assertRaisesRegex(ValueError, "equivalent advice"):
+                refresh.execute_merge_group(root, "lrn-aaa", ["lrn-bbb"], "merge", True)
 
 
 class NearDuplicateProposalTests(unittest.TestCase):

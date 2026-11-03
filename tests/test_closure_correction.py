@@ -126,6 +126,40 @@ class ClosureCorrectionTests(unittest.TestCase):
         self.assertIn("tests/test_extra.py", packet["scope"]["allowed_paths"])
         self.assertNotIn("{'path'", json.dumps(packet["scope"]))
 
+    def test_policy_only_missing_validation_delivery_routes_requirement_scoped_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.incomplete_run(root)
+            _, approved = anchor.latest_approved(root, "run")
+            uid = approved["requirements"][0]["requirement_uid"]
+            reports = ledger.state_dir(root, "run") / "completion-reports"
+            reports.mkdir(parents=True)
+            (reports / "report-1.json").write_text(json.dumps({
+                "overall_status": "evidence-incomplete",
+                "requirement_status": {"requirements": [{
+                    "requirement_uid": uid,
+                    "statement": "Cancel an eligible order.",
+                    "status": "complete",
+                    "findings": [],
+                    "drift": [],
+                }]},
+                "completion_policy": {
+                    "status": "evidence-incomplete",
+                    "missing": [{
+                        "artifact": "validation-delivery",
+                        "message": "no validation-delivery receipt is recorded for this run",
+                    }],
+                    "recovery": "record the declared validation-delivery artifact",
+                },
+            }), encoding="utf-8")
+
+            packet = correction.handoff(root, "run")
+
+        self.assertEqual("evidence-required", packet["status"])
+        self.assertEqual("evidence", packet["active_requirement"]["category"])
+        self.assertEqual("record-evidence", packet["convergence"]["action"])
+        self.assertEqual("record the declared validation-delivery artifact", packet["next_action"])
+
 
 if __name__ == "__main__":
     unittest.main()

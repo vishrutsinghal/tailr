@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.planning_proof_fixture import register_proof
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -476,6 +477,8 @@ breaking valid addresses.
 - Add focused unit proof"""
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src/address_validation.py").write_text("def validate_address(value):\n    return bool(value)\n", encoding="utf-8")
             report = task_start.build_report(goal, root, ["src/address_validation.py"], "tailtrail")
             report["planning_lock"] = planning_lock.create(root, goal, "ns1-surface-run")
             rendered = {
@@ -487,6 +490,7 @@ breaking valid addresses.
             }
             planning_lock.save_start_report(root, "ns1-surface-run", report)
             saved = planning_lock.active_start_report(root, "ns1-surface-run")
+            register_proof(root, "ns1-surface-run")
             activated = planning_lock.activate(root, "ns1-surface-run", True)
             approved = json.loads((root / activated["execution_handoff"]["anchor"]).read_text(encoding="utf-8"))
 
@@ -583,9 +587,12 @@ breaking valid addresses.
         goal = "Add cancellation eligibility; release inventory; preserve shipped orders."
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
+            (root / "src").mkdir()
+            (root / "src/service.py").write_text("def cancel_order(order):\n    return order\n", encoding="utf-8")
             report = task_start.build_report(goal, root, ["src/service.py"], "tailtrail")
             report["planning_lock"] = planning_lock.create(root, goal, "segregated-run")
             planning_lock.save_start_report(root, "segregated-run", report)
+            register_proof(root, "segregated-run")
             activated = planning_lock.activate(root, "segregated-run", True)
             approved = json.loads((root / activated["execution_handoff"]["anchor"]).read_text(encoding="utf-8"))
         displayed = [row["statement"] for row in report["navigator"]["requirement_matrix"]]

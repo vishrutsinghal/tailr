@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.planning_proof_fixture import register_proof, write_proof_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,7 +35,11 @@ GOAL = (
 
 def project(root: Path) -> None:
     files = {
-        "src/order_service/service.py": "def submit():\n    return payment()\n",
+        "src/order_service/service.py": (
+            "def submit():\n    return payment()\n\n"
+            "def payment_orchestration(value):\n    result = normalize(value)\n    return publish(result)\n\n"
+            "def notification_orchestration(value):\n    result = normalize(value)\n    return publish(result)\n"
+        ),
         "src/order_service/payments.py": "def payment_effect(value):\n    result = normalize(value)\n    return publish(result)\n",
         "src/order_service/notifications.py": "def notification_effect(value):\n    result = normalize(value)\n    return publish(result)\n",
         "tests/integration/test_order_service.py": "def test_submit():\n    pass\n",
@@ -70,18 +75,22 @@ class MaintainabilityPlanningTests(unittest.TestCase):
     def test_approval_captures_baseline_and_post_change_assessment_uses_it(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); project(root)
-            report = task_start.build_report(GOAL, root, [], "tailtrail")
+            # The orchestration owner must be host-declared: the goal alone cannot pick one owner from duplicated bodies.
+            report = task_start.build_report(GOAL, root, ["src/order_service/service.py"], "tailtrail")
+            write_proof_file(root)
             report["planning_lock"] = task_start.planning_lock.create(root, GOAL, "maintainability-plan")
             task_start.planning_lock.save_start_report(root, "maintainability-plan", report)
+            register_proof(root, "maintainability-plan")
             activated = task_start.planning_lock.activate(root, "maintainability-plan", True)
             baseline_path = root / activated["execution_handoff"]["maintainability_baseline"]["artifact"]
             baseline_exists = baseline_path.is_file()
             approved = json.loads((root / activated["execution_handoff"]["anchor"]).read_text(encoding="utf-8"))
-            (root / "src/order_service/notifications.py").write_text(
-                "from .payments import payment_effect\n\ndef notification_effect(value):\n    return payment_effect(value)\n",
+            (root / "src/order_service/service.py").write_text(
+                "def submit():\n    return payment()\n\n"
+                "def orchestrate(value):\n    result = normalize(value)\n    return publish(result)\n",
                 encoding="utf-8",
             )
-            result = harness.assess(root, "maintainability-plan", ["src/order_service/notifications.py"])
+            result = harness.assess(root, "maintainability-plan", ["src/order_service/service.py"])
         self.assertTrue(baseline_exists)
         self.assertTrue(any(row["maintainability_contract"].get("rules") for row in approved["requirements"]))
         self.assertTrue(any(row["rule_id"] == "MNT-01" and row["state"] == "improved" for row in result["rule_results"]))

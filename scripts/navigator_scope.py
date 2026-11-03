@@ -179,6 +179,7 @@ SEED_SOURCES = {
     "fresh-graph",
     "git-change",
     "host-diagnosis",
+    "host-contract",
     "lexical-body",
     "lexical-path",
     "module-name",
@@ -883,7 +884,7 @@ def candidates_from_seeds(
                 evidence_provenance=tuple(
                     {
                         "source": source,
-                        "strength": "strong" if source == "explicit-path" else "medium" if source in {"fresh-graph", "git-change", "saved-graph", "host-diagnosis"} else "weak",
+                        "strength": "strong" if source == "explicit-path" else "medium" if source in {"fresh-graph", "git-change", "saved-graph", "host-diagnosis", "host-contract"} else "weak",
                         "kind": "discovery-seed",
                     }
                     for source in sources
@@ -3545,6 +3546,170 @@ def requested_scope_mode(goal: str, task_types: Iterable[str]) -> str:
     return "code-change"
 
 
+def host_contract_scope_context(contract: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Project an already-validated host contract into a non-write route.
+
+    A host contract can restrict Navigator's route, but it never creates an
+    implementation owner.  This deliberately accepts only the two modes that
+    prohibit source edits.  The caller still validates the full contract with
+    :mod:`host_contract` before invoking this helper.
+    """
+    if not isinstance(contract, dict):
+        return None
+    request_mode = str(contract.get("request_mode", ""))
+    if request_mode not in {"read-only", "validation-only"}:
+        return None
+    inspection: list[dict[str, str]] = []
+    proof: list[dict[str, str]] = []
+    invalid_owner_claim = False
+    for raw in contract.get("paths", []):
+        if not isinstance(raw, dict):
+            continue
+        path = str(raw.get("path", "")).strip()
+        role = str(raw.get("role", ""))
+        if not path:
+            continue
+        if role in {"existing-implementation-owner", "proposed-implementation-owner"}:
+            invalid_owner_claim = True
+        elif role == "inspection-input":
+            inspection.append({"path": path, "role": role})
+        elif role in {"existing-proof-path", "proposed-proof-path"}:
+            proof.append({"path": path, "role": role})
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-host-contract-scope-context",
+        "request_mode": request_mode,
+        "contract_id": str(contract.get("contract_id", "")),
+        "contract_fingerprint": str(contract.get("fingerprint", "")),
+        "inspection_paths": inspection,
+        "proof_paths": proof,
+        "invalid_owner_claim": invalid_owner_claim,
+        "boundary": (
+            "A validated non-implementation host contract may restrict planning "
+            "to inspection and proof paths. It cannot create implementation-owner "
+            "scope or source-write authority."
+        ),
+    }
+
+
+def host_contract_scope_seeds(context: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Return non-owner discovery seeds for a validated non-write route.
+
+    Inspection inputs are deliberately classified as ``reference`` and proof
+    inputs as ``test``.  That prevents a path supplied by the host from being
+    reclassified as an implementation owner merely because its filename or
+    contents look like production code.
+    """
+    if not isinstance(context, dict) or context.get("type") != "tailtrail-host-contract-scope-context":
+        return []
+    seeds: list[dict[str, Any]] = []
+    for item in context.get("inspection_paths", []):
+        if isinstance(item, dict) and str(item.get("path", "")).strip():
+            seeds.append(seed(
+                str(item["path"]), "host-contract", "host-contract-inspection-input",
+                declared_role="reference",
+            ))
+    for item in context.get("proof_paths", []):
+        if isinstance(item, dict) and str(item.get("path", "")).strip():
+            seeds.append(seed(
+                str(item["path"]), "host-contract", "host-contract-proof-path",
+                declared_role="test",
+            ))
+    return seeds
+
+
+def _nonimplementation_contract_scope_quality(
+    root: Path,
+    document: dict[str, Any],
+    context: dict[str, Any],
+    errors: list[str],
+    *,
+    compute_complexity: bool,
+) -> dict[str, Any]:
+    """Assess a read-only/validation-only route without inventing owners."""
+    mode = str(context.get("request_mode", ""))
+    candidate_by_path = {
+        str(row.get("path", "")): row
+        for row in document.get("candidates", [])
+        if isinstance(row, dict) and str(row.get("path", ""))
+    }
+    inspection = [
+        str(item.get("path", "")) for item in context.get("inspection_paths", [])
+        if isinstance(item, dict) and str(item.get("path", ""))
+    ]
+    proof = [
+        str(item.get("path", "")) for item in context.get("proof_paths", [])
+        if isinstance(item, dict) and str(item.get("path", ""))
+    ]
+    if context.get("invalid_owner_claim"):
+        errors.append("host-contract-nonimplementation-owner-claim")
+    required = proof if mode == "validation-only" else inspection
+    if not required:
+        errors.append("host-contract-nonimplementation-path-required")
+    for path in sorted(set([*inspection, *proof])):
+        normalized, rejection = normalize_repository_path(root, path)
+        if normalized is None or rejection:
+            errors.append(f"host-contract-path-invalid:{path}")
+            continue
+        if not (root / normalized).is_file():
+            errors.append(f"host-contract-existing-path-required:{normalized}")
+            continue
+        candidate = candidate_by_path.get(normalized)
+        if not isinstance(candidate, dict):
+            errors.append(f"host-contract-path-not-projected:{normalized}")
+            continue
+        expected_status = "proof-only" if path in proof else "inspection-only"
+        if candidate.get("status") != expected_status:
+            errors.append(f"host-contract-path-role-mismatch:{normalized}")
+    if mode == "validation-only":
+        if any(str(item.get("role", "")) == "proposed-proof-path" for item in context.get("proof_paths", []) if isinstance(item, dict)):
+            errors.append("host-contract-proposed-proof-path-not-valid-for-validation-only")
+    if mode == "read-only":
+        if any(str(item.get("role", "")) == "proposed-proof-path" for item in context.get("proof_paths", []) if isinstance(item, dict)):
+            errors.append("host-contract-proposed-proof-path-not-valid-for-read-only")
+
+    errors = list(dict.fromkeys(errors))
+    status = "passed" if not errors else "blocked"
+    complexity_metrics = _complexity_metrics(root, document) if compute_complexity else {}
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-scope-quality-assessment",
+        "status": status,
+        "blocking": bool(errors),
+        "mode": mode,
+        "evidence_state": str(document.get("state", "unresolved")),
+        "decision_fingerprint": document.get("decision_fingerprint"),
+        "target_identity_fingerprint": document.get("target_identity_fingerprint"),
+        # These are verified non-write route paths, not editable owners.
+        "accepted_paths": sorted(dict.fromkeys(required)),
+        "inspection_paths": sorted(dict.fromkeys(inspection)),
+        "proof_paths": sorted(dict.fromkeys(proof)),
+        "missing_requirement_ids": [],
+        "reason_codes": errors or ["host-contract-nonimplementation-scope-supported"],
+        "primary_reason": errors[0] if errors else "host-contract-nonimplementation-scope-supported",
+        "question": None,
+        "question_validation": {
+            "state": "not-required",
+            "eligible_options": 0,
+            "offered_options": 0,
+            "rejected_candidates": 0,
+            "truncated": False,
+            "reason_codes": ["host-contract-route-prevalidated"],
+        },
+        "complexity_metrics": complexity_metrics,
+        "host_contract_scope_context": {
+            "contract_id": context.get("contract_id"),
+            "contract_fingerprint": context.get("contract_fingerprint"),
+            "request_mode": mode,
+        },
+        "boundary": (
+            "This route validates only the accepted inspection/proof boundary. "
+            "It grants no implementation-owner scope, source-write authority, "
+            "or proof result."
+        ),
+    }
+
+
 def _expand_finalist_slices(root: Path, paths: list[str]) -> dict[str, dict[str, Any]]:
     """Expand bounded evidence slices via the code-graph mapper (lazy import).
 
@@ -3704,6 +3869,7 @@ def assess_scope_quality(
     document: dict[str, Any],
     *,
     compute_complexity: bool = False,
+    host_scope_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Fail closed unless the evidence supports this request's repository role.
 
@@ -3725,6 +3891,18 @@ def assess_scope_quality(
     expected_target = fingerprint({"root": root.resolve().as_posix()})
     if document.get("target_identity_fingerprint") != expected_target:
         errors.append("scope-target-identity-mismatch")
+    if (
+        isinstance(host_scope_context, dict)
+        and host_scope_context.get("type") == "tailtrail-host-contract-scope-context"
+        and host_scope_context.get("request_mode") in {"read-only", "validation-only"}
+    ):
+        return _nonimplementation_contract_scope_quality(
+            root,
+            document,
+            host_scope_context,
+            errors,
+            compute_complexity=compute_complexity,
+        )
     candidates = [row for row in document.get("candidates", []) if isinstance(row, dict)]
     requirements = [row for row in document.get("requirements", []) if isinstance(row, dict)]
     evidence_state = str(document.get("state", "unresolved"))

@@ -19,9 +19,11 @@ import target_workspace
 import visual_requirement
 import start_posture
 import host_contract
+import intake_pipeline
 import requirement_discovery
 import requirement_evidence
 import requirement_intake
+import semantic_validation
 import architecture_planning
 import behaviour_planning
 import maintainability_planning
@@ -518,6 +520,8 @@ def append_v2_scope_projection(
     if not isinstance(evidence, dict) or str(evidence.get("schema_version")) != "2":
         return False
     projection = navigator_scope.role_projection(evidence, include_excluded=verbose)
+    host_scope_routing = plan.get("host_scope_routing", {}) if isinstance(plan.get("host_scope_routing"), dict) else {}
+    nonimplementation_contract_route = host_scope_routing.get("request_mode") in {"read-only", "validation-only"}
     investigation = projection.get("investigation", {})
     cache = investigation.get("cache", {}) if isinstance(investigation, dict) else {}
     cache_reasons = set(cache.get("reason_codes", [])) if isinstance(cache, dict) else set()
@@ -530,11 +534,19 @@ def append_v2_scope_projection(
         graph_note = "fresh persistent graph cache; freshness verified against repository identity and inventory."
     else:
         graph_note = f"no usable relationship graph; persistent cache `{cache_status}`."
-    lines.extend([
-        scope_state_summary(projection, evidence),
-        f"- Decision fingerprint: `{projection.get('decision_fingerprint')}`.",
-        f"- Scope evidence source: {graph_note}",
-    ])
+    if nonimplementation_contract_route:
+        request_mode = str(host_scope_routing.get("request_mode"))
+        lines.extend([
+            f"- Scope state: `{request_mode}` - the validated host contract restricts this plan to inspection/proof paths; no implementation owner is required or authorized.",
+            f"- Decision fingerprint: `{projection.get('decision_fingerprint')}`.",
+            f"- Scope evidence source: validated host contract plus {graph_note}",
+        ])
+    else:
+        lines.extend([
+            scope_state_summary(projection, evidence),
+            f"- Decision fingerprint: `{projection.get('decision_fingerprint')}`.",
+            f"- Scope evidence source: {graph_note}",
+        ])
     lifecycle = plan.get("graph_lifecycle") if isinstance(plan.get("graph_lifecycle"), dict) else None
     if lifecycle:
         lines.append(
@@ -2108,10 +2120,14 @@ def semantic_delta_preflight(
             "evidence": [*owner_evidence, *proof_evidence],
             "boundary": "Static path, fingerprint, and proof-file inspection is not runtime behavior evidence.",
         })
+    owner_scope = [item["path"] for item in owner_evidence]
+    findings = semantic_validation.validate_plan_gate(rows, owner_scope)
+    findings.extend(semantic_validation.dependency_closure(root, owner_scope))
     return {
         "schema_version": "1",
         "type": "tailtrail-semantic-delta",
         "requirements": rows,
+        "findings": findings,
         "boundary": "Only trusted behavior observations may produce satisfied or partial runtime conclusions.",
     }
 
@@ -2218,6 +2234,8 @@ def apply_requirement_scope_evidence(
     declared_roles = plan.get("host_declared_scope_roles", {}) if isinstance(plan.get("host_declared_scope_roles"), dict) else {}
     declared_inspection = [str(value) for value in declared_roles.get("inspection_paths", []) if str(value)]
     declared_proof = [str(value) for value in declared_roles.get("proof_paths", []) if str(value)]
+    host_scope_routing = plan.get("host_scope_routing", {}) if isinstance(plan.get("host_scope_routing"), dict) else {}
+    nonimplementation_contract_route = host_scope_routing.get("request_mode") in {"read-only", "validation-only"}
     for index, row in enumerate(matrix, start=1):
         if not isinstance(row, dict):
             continue
@@ -2225,7 +2243,9 @@ def apply_requirement_scope_evidence(
         scope = by_authority_id.get(authority_id)
         if not isinstance(scope, dict):
             continue
-        owners = [str(value) for value in scope.get("implementation_owners", []) if str(value)]
+        owners = [] if nonimplementation_contract_route else [
+            str(value) for value in scope.get("implementation_owners", []) if str(value)
+        ]
         inspection = list(dict.fromkeys(
             [str(value) for value in scope.get("inspection_paths", []) if str(value)] + declared_inspection
         ))
@@ -2236,7 +2256,11 @@ def apply_requirement_scope_evidence(
         unbound_proof = [path for path in declared_proof if path not in declared_for_row and path not in scope_proof]
         bound_proof = [path for path in proof if path not in unbound_proof]
         accepted = [str(value) for value in quality.get("accepted_paths", []) if str(value)]
-        if quality.get("mode") == "supporting-assets-only":
+        if nonimplementation_contract_route:
+            # A valid read-only or validation-only contract restricts the
+            # route; it never makes an inspection or proof path editable.
+            editable = []
+        elif quality.get("mode") == "supporting-assets-only":
             query_terms = {str(value).lower() for value in scope.get("query_terms", [])}
             wanted_role = "test" if query_terms & {"test", "tests", "regression", "coverage"} else "documentation" if query_terms & {"readme", "documentation", "docs", "changelog", "markdown"} else None
             candidate_roles = {
@@ -2250,7 +2274,11 @@ def apply_requirement_scope_evidence(
             editable = owners
         row["likely_paths"] = list(dict.fromkeys(editable))
         row["scope_evidence"] = {
-            "state": "resolved" if scope.get("mapping_state") == "mapped" and editable else "unresolved",
+            "state": (
+                "host-contract-context" if nonimplementation_contract_route
+                else "resolved" if scope.get("mapping_state") == "mapped" and editable
+                else "unresolved"
+            ),
             "implementation_owners": owners,
             "inspection_paths": inspection,
             "proof_paths": proof,
@@ -2901,6 +2929,7 @@ def build_report(
     resolved_requirement_interpretation = (
         requirement_interpretation or requirement_discovery.interpretation(goal)
     )
+    host_scope_context = navigator_scope.host_contract_scope_context(host_contract)
     
     # To fix TT-CUR-03, we must ensure that if navigator.decide selects a route, 
     # any subsequent calls to route resolution preserve it.
@@ -2917,6 +2946,7 @@ def build_report(
         debug_diagnosis=debug_diagnosis,
         persist_host_packet=True,
         declared_task_type=declared_task_type,
+        host_scope_context=host_scope_context,
     )
     if host_contract is not None and isinstance(plan, dict):
         role_paths = {"implementation_owners": [], "inspection_paths": [], "proof_paths": []}
@@ -2943,6 +2973,8 @@ def build_report(
             "authority_source": "host-contract",
         }
         plan["host_input_contract_validated"] = host_contract
+        if host_scope_context is not None:
+            plan["host_scope_routing"] = host_scope_context
         routing = plan.get("routing_evidence")
         if isinstance(routing, dict):
             routing["authority_source"] = "host-contract"
@@ -3285,7 +3317,11 @@ def build_report(
             plan.get("scope_candidates", [])
         )
         plan["scope_quality"] = navigator_scope.assess_scope_quality(
-            root, goal, plan.get("task_types", []), plan["scope_evidence"]
+            root,
+            goal,
+            plan.get("task_types", []),
+            plan["scope_evidence"],
+            host_scope_context=plan.get("host_scope_routing"),
         )
     initial_paths = [str(item.get("path")) for item in plan.get("likely_impacted_files", []) if isinstance(item, dict) and item.get("path")]
     proof_candidates = [
@@ -5605,6 +5641,64 @@ def resolve_host_contract(args: Any, root: Path, goal: str) -> dict[str, Any] | 
     return validated
 
 
+def resolve_planning_readiness_receipt(args: Any) -> dict[str, Any] | None:
+    inline = getattr(args, "planning_readiness_receipt", None)
+    path = getattr(args, "planning_readiness_receipt_file", None)
+    encoded = getattr(args, "planning_readiness_receipt_base64", None)
+    if not (inline or path or encoded):
+        return None
+    if path:
+        try:
+            raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise ValueError(f"--planning-readiness-receipt-file must contain valid JSON: {error}") from error
+    else:
+        raw = _parse_json_flag(
+            "--planning-readiness-receipt", inline, encoded
+        )
+    if not isinstance(raw, dict):
+        raise ValueError("planning-readiness receipt must be a JSON object")
+    return raw
+
+
+def planning_readiness_boundary_report(goal: str, root: Path, reason: str) -> dict[str, Any]:
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-planning-readiness-boundary",
+        "planning_readiness_boundary": True,
+        "goal": goal,
+        "root": root.as_posix(),
+        "status": "planning-readiness-required",
+        "reason": reason,
+        "planning_lock_created": False,
+        "next_action": (
+            "Complete the Navigator questionnaire, accept fresh evidence-backed answers, bind each "
+            "requirement to its exact path and proof command, mint a planning-readiness receipt, "
+            "then retry this same Start request with --planning-readiness-receipt-file <receipt>."
+        ),
+    }
+
+
+def render_planning_readiness_boundary_report(report: dict[str, Any]) -> str:
+    return "\n".join([
+        "# TailTrail Planning Readiness Required",
+        "",
+        "## State",
+        "",
+        "- Status: `planning-readiness-required`.",
+        "- Planning Lock: not created.",
+        "",
+        "## Why Start stopped",
+        "",
+        f"- {display_prose(report.get('reason', 'A valid planning-readiness receipt is required.'))}",
+        "",
+        "## Exact next action",
+        "",
+        f"- {display_prose(report.get('next_action', 'Mint and supply a planning-readiness receipt.'))}",
+        "",
+    ])
+
+
 class _HostContractBlocked(Exception):
     def __init__(self, result: dict[str, Any]) -> None:
         super().__init__("host contract blocked")
@@ -6490,6 +6584,8 @@ def render_markdown(report: dict[str, Any], verbose: bool = False, presentation_
         return annotate_presentation(render_host_requirement_interpretation_boundary_report(report), policy)
     if report.get("host_contract_boundary"):
         return annotate_presentation(render_host_contract_boundary_report(report), policy)
+    if report.get("planning_readiness_boundary"):
+        return annotate_presentation(render_planning_readiness_boundary_report(report), policy)
     if report.get("debug_diagnosis_boundary"):
         return annotate_presentation(render_debug_diagnosis_boundary_report(report), policy)
     if report.get("scope_investigation_boundary"):
@@ -7071,6 +7167,19 @@ def main() -> int:
         "--host-contract-base64",
         help="Base64 UTF-8 host-input-contract JSON for native-shell safety.",
     )
+    planning_readiness_group = parser.add_mutually_exclusive_group()
+    planning_readiness_group.add_argument(
+        "--planning-readiness-receipt",
+        help="Immutable TailTrail planning-readiness receipt JSON for Host Question Flow Build Start.",
+    )
+    planning_readiness_group.add_argument(
+        "--planning-readiness-receipt-file",
+        help="Local JSON file containing an immutable TailTrail planning-readiness receipt.",
+    )
+    planning_readiness_group.add_argument(
+        "--planning-readiness-receipt-base64",
+        help="Base64 UTF-8 planning-readiness receipt JSON for native-shell safety.",
+    )
     debug_diagnosis_group = parser.add_mutually_exclusive_group()
     debug_diagnosis_group.add_argument(
         "--debug-diagnosis",
@@ -7333,6 +7442,9 @@ def main() -> int:
             and explicit_aidlc_intent not in {"requested", "standard", "full"}
             and not hands_free
         )
+        host_contract_transport_supplied = bool(
+            args.host_contract or args.host_contract_file or args.host_contract_base64
+        )
         artifact_interpretation_required = (
             workflow_preview.workflow_type == "build"
             and bool(requirement_artifact_inputs)
@@ -7349,7 +7461,7 @@ def main() -> int:
         )
         if (
             (
-                ordinary_agent_build
+                (ordinary_agent_build and not host_contract_transport_supplied)
                 or artifact_interpretation_required
                 or official_interpretation_required
             )
@@ -7401,6 +7513,16 @@ def main() -> int:
                 parser.error("a host scope proposal requires --host codex, copilot, or claude")
             if host_scope_proposal.get("host") != args.host:
                 parser.error("host scope proposal host does not match the active --host")
+        raw_planning_readiness: dict[str, Any] | None = None
+        try:
+            raw_planning_readiness = resolve_planning_readiness_receipt(args)
+        except ValueError as error:
+            boundary = planning_readiness_boundary_report(goal, root, str(error))
+            if args.format == "json":
+                print(json.dumps(boundary, indent=2, sort_keys=True))
+            else:
+                print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
+            return 2
         validated_host_contract: dict[str, Any] | None = None
         try:
             validated_host_contract = resolve_host_contract(args, root, goal)
@@ -7415,6 +7537,39 @@ def main() -> int:
             else:
                 print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
             return 2
+        if (
+            validated_host_contract is not None
+            and validated_host_contract.get("request_mode") == "implementation"
+            and raw_planning_readiness is None
+        ):
+            boundary = planning_readiness_boundary_report(
+                goal,
+                root,
+                "A raw implementation host contract is intake context, not Start authority.",
+            )
+            if args.format == "json":
+                print(json.dumps(boundary, indent=2, sort_keys=True))
+            else:
+                print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
+            return 2
+        validated_planning_readiness: dict[str, Any] | None = None
+        if raw_planning_readiness is not None:
+            try:
+                validated_planning_readiness = intake_pipeline.IntakePipeline(root).validate_planning_readiness_receipt(
+                    raw_planning_readiness,
+                    goal=goal,
+                    host_contract_fingerprint=(
+                        str(validated_host_contract.get("fingerprint"))
+                        if validated_host_contract is not None else None
+                    ),
+                )
+            except intake_pipeline.IntakeError as error:
+                boundary = planning_readiness_boundary_report(goal, root, str(error))
+                if args.format == "json":
+                    print(json.dumps(boundary, indent=2, sort_keys=True))
+                else:
+                    print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
+                return 2
         if saved_requirement_intake is not None:
             saved_visual = saved_requirement_intake.get("visual_requirements", [])
             if isinstance(saved_visual, list) and saved_visual:
@@ -7600,8 +7755,14 @@ def main() -> int:
         )
         effective_declared_task_type = args.task_type
         if effective_declared_task_type is None and validated_host_contract is not None:
-            if str(validated_host_contract.get("request_mode", "")) == "implementation":
+            contract_mode = str(validated_host_contract.get("request_mode", ""))
+            if contract_mode == "implementation":
                 effective_declared_task_type = "implementation"
+            elif contract_mode == "validation-only":
+                # This is a route restriction, not host-granted edit scope.
+                # It keeps evaluation-keyword heuristics from bypassing the
+                # accepted validation boundary before Navigator sees it.
+                effective_declared_task_type = "qa"
         report = build_report(
             goal,
             root,
@@ -7627,6 +7788,14 @@ def main() -> int:
                 "fingerprint": validated_host_contract.get("fingerprint"),
                 "request_mode": validated_host_contract.get("request_mode"),
                 "authority_source": "host-contract",
+            }
+        if validated_planning_readiness is not None:
+            report["planning_readiness"] = {
+                "receipt_id": validated_planning_readiness.get("receipt_id"),
+                "fingerprint": validated_planning_readiness.get("fingerprint"),
+                "run_id": validated_planning_readiness.get("run_id"),
+                "target_fingerprint": validated_planning_readiness.get("target_fingerprint"),
+                "authority_source": "planning-readiness-receipt",
             }
         report["graph_lifecycle"] = graph_lifecycle
         if graph_mode_override is not None:
@@ -7773,7 +7942,7 @@ def main() -> int:
                 list(args.changed or []),
                 [str(value) for value in task_evidence.get("implementation_owners", []) if str(value)],
                 [str(value) for value in task_evidence.get("proof_paths", []) if str(value)],
-                args.task_type,
+                effective_declared_task_type,
             )
             report["task_type_resolution"] = task_decision
             if task_decision["status"] == "question" and not args.host:
@@ -7815,7 +7984,13 @@ def main() -> int:
                 )
                 if resolved_tasks != classifier_tasks and qa_doc_involved and isinstance(task_evidence, dict) and task_evidence:
                     navigator_plan["task_types"] = resolved_tasks
-                    recomputed = navigator_scope.assess_scope_quality(root, goal, resolved_tasks, task_evidence)
+                    recomputed = navigator_scope.assess_scope_quality(
+                        root,
+                        goal,
+                        resolved_tasks,
+                        task_evidence,
+                        host_scope_context=navigator_plan.get("host_scope_routing"),
+                    )
                     if isinstance(recomputed, dict):
                         previous = navigator_plan.get("scope_quality", {})
                         if isinstance(previous, dict) and isinstance(previous.get("complexity_metrics"), dict):
@@ -7920,6 +8095,27 @@ def main() -> int:
         if _deescalated_mode is not None:
             effective_aidlc_mode = _deescalated_mode
 
+        if validated_planning_readiness is not None:
+            try:
+                report = intake_pipeline.IntakePipeline(root).reconcile_planning_readiness_receipt(
+                    validated_planning_readiness,
+                    report,
+                    goal=goal,
+                    host_contract_fingerprint=(
+                        str(validated_host_contract.get("fingerprint"))
+                        if validated_host_contract is not None else None
+                    ),
+                    project=True,
+                    phase="pre-v1",
+                )
+            except intake_pipeline.IntakeError as error:
+                boundary = planning_readiness_boundary_report(goal, root, str(error))
+                if args.format == "json":
+                    print(json.dumps(boundary, indent=2, sort_keys=True))
+                else:
+                    print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
+                return 2
+
         _lock_blockers = implementation_lock_blockers(report, getattr(args, "task_type", None))
         if _lock_blockers:
             boundary = implementation_scope_missing_report(
@@ -7933,6 +8129,18 @@ def main() -> int:
         if not args.no_planning_lock:
             created_run_id: str | None = None
             try:
+                if validated_planning_readiness is not None:
+                    report = intake_pipeline.IntakePipeline(root).reconcile_planning_readiness_receipt(
+                        validated_planning_readiness,
+                        report,
+                        goal=goal,
+                        host_contract_fingerprint=(
+                            str(validated_host_contract.get("fingerprint"))
+                            if validated_host_contract is not None else None
+                        ),
+                        project=False,
+                        phase="start-persistence",
+                    )
                 target_identity = target_workspace.identity(root)
                 scope_decision = None
                 if isinstance(report.get("navigator", {}).get("scope_evidence"), dict):

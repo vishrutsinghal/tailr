@@ -507,7 +507,13 @@ def _requirement_proof_rows(
     for position, tier in enumerate(tiers):
         if tier in covered:
             continue
-        command = commands[position] if position < len(commands) else (commands[0] if len(commands) == 1 else "")
+        # `checks` is the canonical command-to-tier projection.  Once it is
+        # present, a missing tier must remain visibly unresolved; falling back
+        # to a reusable command string would make this renderer disagree with
+        # planning audit about approval readiness.
+        command = "" if checks else (
+            commands[position] if position < len(commands) else (commands[0] if len(commands) == 1 else "")
+        )
         command_id = command_by_value.get(command, "") if command else ""
         rows.append({
             "tier": tier,
@@ -571,7 +577,8 @@ def _append_analysis(lines: list[str], heading: str, plan: dict[str, Any], kind:
                 )
                 lines.append(
                     f"| {_plan_text(item.get('requirement_ids'), 'unassigned')} | "
-                    f"{_plan_text(item.get('scenario'))} | {_plan_text(item.get('expected_outcome'))} | "
+                    f"{_plan_text(item.get('scenario') or item.get('action') or item.get('scenario_id'))} | "
+                    f"{_plan_text(item.get('expected_outcome'))} | "
                     f"{proof or 'not recorded'} |"
                 )
     else:
@@ -640,6 +647,25 @@ def _append_review_cycles(lines: list[str], data: dict[str, Any]) -> None:
         lines.append("- **Latest audit:** not yet recorded. Run the mandatory planning audit before approval.")
 
 
+_REQUIRED_START_PLAN_HEADINGS = (
+    "## Planning Lock",
+    "## Command Reference Registry",
+    "## Validation Requirements And Focused Validation Matrix",
+    "## Plan",
+    "## Selected TailTrail Features",
+    "## Approval Checklist",
+    "## Approval Decision",
+)
+
+
+def validate_start_plan_markdown(markdown: str) -> None:
+    """Keep the approval view structurally reviewable, not merely printable."""
+    headings = {line.strip() for line in markdown.splitlines() if line.startswith("#")}
+    missing = [heading for heading in _REQUIRED_START_PLAN_HEADINGS if heading not in headings]
+    if missing:
+        raise ValueError("Start Plan presentation is incomplete; missing " + ", ".join(missing))
+
+
 def _render_start_plan(
     run_id: str,
     requirements: list[dict[str, Any]],
@@ -667,7 +693,7 @@ def _render_start_plan(
     request_mode = _request_mode(report)
     non_implementation_plan = request_mode in {"read-only", "validation-only"}
     title = "# TailTrail Start Plan - Full Review Record" if detailed else "# TailTrail Start Plan"
-    lines = [title, "", "**Presentation version:** `4`", "", "## Planning Lock", ""]
+    lines = [title, "", "**Presentation version:** `5`", "", "## Planning Lock", ""]
     lines.extend([
         f"- **Run ID:** `{run_id}`",
         f"- **Status:** `{_plan_text(lock.get('status') or data.get('state'), 'unavailable')}`",
@@ -736,6 +762,24 @@ def _render_start_plan(
             lines.append(f"| {row['tier']} | `{row['command_id']}` | `{command_text}` | `{row['candidate']}` | {row['state']} |")
         lines.append("")
 
+    lines.extend(["## Plan", ""])
+    if not requirements:
+        lines.append("- No implementation or validation steps can be planned until requirements are recorded.")
+    for index, requirement in enumerate(requirements, 1):
+        identifier = _requirement_id(requirement, index)
+        owners, inspection, proof_paths = _requirement_scope(requirement)
+        rows = _requirement_proof_rows(requirement, registry)
+        action = "Validate" if non_implementation_plan else "Implement"
+        owner_text = ", ".join(f"`{path}`" for path in owners) if owners else "no editable owner"
+        proof_text = ", ".join(f"`{row['command_id']}`" for row in rows if row["state"] == "resolved") or "unresolved proof"
+        context: list[str] = []
+        if inspection:
+            context.append("inspect " + ", ".join(f"`{path}`" for path in inspection))
+        if proof_paths:
+            context.append("prove against " + ", ".join(f"`{path}`" for path in proof_paths))
+        suffix = "; " + "; ".join(context) if context else ""
+        lines.append(f"{index}. **{identifier}:** {action} {_plan_text(requirement.get('statement'))} in {owner_text}; verify with {proof_text}{suffix}.")
+
     features = _selected_features(report)
     lines.extend(["## Selected TailTrail Features", "", "| Feature | When used | Why it is selected |", "|---|---|---|"])
     for name, when, why in features:
@@ -767,7 +811,13 @@ def _render_start_plan(
     token = report.get("token_posture", {}) if isinstance(report.get("token_posture"), dict) else {}
     lines.extend(["", "## Token Estimate", ""])
     if token.get("estimate_available") is False:
-        lines.append(f"- Unavailable: scope is `{_plan_text(token.get('scope_state'), 'unresolved')}`, so a token estimate would not be reliable.")
+        if non_implementation_plan:
+            lines.append(
+                f"- Not applicable: this is a `{request_mode}` plan with no editable implementation scope; "
+                "a source-edit working-set estimate would be misleading."
+            )
+        else:
+            lines.append(f"- Unavailable: scope is `{_plan_text(token.get('scope_state'), 'unresolved')}`, so a token estimate would not be reliable.")
     elif token:
         working = token.get("planned_working_set_tokens", token.get("used_tokens"))
         ceiling = token.get("scoped_file_ceiling_tokens", token.get("baseline_tokens"))
@@ -847,7 +897,9 @@ def _render_start_plan(
     if detailed and canonical_artifact:
         lines.extend(["", "## Canonical Machine Record", "", f"- Machine-readable state remains available at [`{canonical_artifact}`]({canonical_artifact}); it is not the approval view."])
     lines.extend(["", "---", "", "*End of Start Plan.*"])
-    return "\n".join(lines)
+    rendered = "\n".join(lines)
+    validate_start_plan_markdown(rendered)
+    return rendered
 
 
 def generate_start_plan_verbose(

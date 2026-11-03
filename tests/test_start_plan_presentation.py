@@ -124,6 +124,24 @@ class StartPlanPresentationTests(unittest.TestCase):
         self.assertIn("**NOT READY FOR APPROVAL**", rendered)
         self.assertIn("implementation ownership", rendered)
 
+    def test_renderer_does_not_resolve_a_tier_missing_from_canonical_checks(self) -> None:
+        command = "python3 -m unittest tests.test_presenter"
+        requirement = {
+            "validation_contract": {
+                "tiers": ["unit", "contract"],
+                "commands": [command],
+                "checks": [{"command_id": "cmd-proof", "tiers": ["unit"]}],
+                "candidate_paths": ["tests/test_presenter.py"],
+            },
+            "scope_evidence": {"proof_paths": ["tests/test_presenter.py"]},
+        }
+
+        rows = verbose._requirement_proof_rows(requirement, {"cmd-proof": {"command": command, "kind": "proof"}})
+
+        self.assertEqual(rows[0]["state"], "resolved")
+        contract = next(row for row in rows if row["tier"] == "contract")
+        self.assertEqual(contract["state"], "unresolved")
+
     def test_normal_plan_renders_bound_inputs_without_granting_scope_authority(self) -> None:
         report = sample_report()
         report["input_roles"] = {
@@ -265,12 +283,22 @@ class StartPlanPresentationTests(unittest.TestCase):
         self.assertIn("## Planning Lock", rendered)
         self.assertIn("## Command Reference Registry", rendered)
         self.assertIn("## Validation Requirements And Focused Validation Matrix", rendered)
+        self.assertIn("## Plan", rendered)
+        self.assertIn("**REQ-01:** Implement Render a reviewable Start Plan.", rendered)
         self.assertIn("## Architecture Analysis", rendered)
         self.assertIn("## Behaviour Analysis", rendered)
         self.assertIn("## Token Estimate", rendered)
         self.assertNotIn("## AIDLC Decisions", rendered)
         self.assertNotIn("```json", rendered)
         self.assertNotIn("## Complete Saved Planning Payload", rendered)
+
+    def test_start_plan_presentation_contract_rejects_a_missing_plan_section(self) -> None:
+        with self.assertRaisesRegex(ValueError, "missing ## Plan"):
+            verbose.validate_start_plan_markdown(
+                "# TailTrail Start Plan\n\n## Planning Lock\n\n## Command Reference Registry\n"
+                "\n## Validation Requirements And Focused Validation Matrix\n"
+                "\n## Selected TailTrail Features\n\n## Approval Checklist\n\n## Approval Decision\n"
+            )
 
     def test_verbose_includes_aidlc_only_when_saved_artifacts_exist(self) -> None:
         report = sample_report()
@@ -415,8 +443,18 @@ class StartPlanRequirementRenderingTests(unittest.TestCase):
 
             revised = copy.deepcopy(report)
             revised["navigator"]["requirement_matrix"][0]["statement"] = "Render a revised Start Plan."  # type: ignore[index]
-            with mock.patch.object(lock, "_pending_report_override", return_value=revised):
-                lock.refresh_visible_start_plan(root, run_id)
+            revision_path = root / ".tailtrail" / "runs" / run_id / "planning" / "revisions" / "revision-v2.json"
+            ledger.atomic_json(revision_path, {"proposed_report": revised})
+            ledger.atomic_json(lock.revision_state_path(root, run_id), {
+                "schema_version": "1",
+                "type": "tailtrail-plan-revision-state",
+                "run_id": run_id,
+                "active_revision": 1,
+                "active_report": lock.start_report_path(root, run_id).relative_to(root).as_posix(),
+                "pending_revision": 2,
+                "pending_artifact": revision_path.relative_to(root).as_posix(),
+            })
+            lock.refresh_visible_start_plan(root, run_id)
 
             text = visible.read_text(encoding="utf-8")
         self.assertIn("**Description:** Render a revised Start Plan.", text)

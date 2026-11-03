@@ -41,6 +41,11 @@ EVENT_TYPES.add("tailtrail_run_archived")
 EVENT_TYPES.add("tailtrail_run_unarchived")
 EVENT_TYPES.add("aidlc_correction_projection_blocked")
 EVENT_TYPES.update({
+    "canonical_plan_projection_recorded",
+    "canonical_plan_projection_approved",
+    "aidlc_correction_decomposed",
+})
+EVENT_TYPES.update({
     "start_plan_verbose_generated",
     "planning_audit_completed",
     "verbose_report_generation_failed",

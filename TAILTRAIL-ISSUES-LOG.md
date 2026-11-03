@@ -4068,3 +4068,730 @@ All three gaps are now closed with test coverage and no regressions (60/60 tests
 **Status:** Fixed. The pre-existing working-tree failures noted above are unrelated to this entry.
 
 **Related:** Entry 40 (scope gate) and the unit proof in this run pointing at `tests/test_aidlc_official_bridge.py`, which was not corrected by the initial Start.
+
+---
+
+## 43. A validated host proof contract can remain unbound in a multi-requirement Start Plan (Open -- TailTrail planning-projection gap)
+
+**Observed in:** Phase 3A.2 run `start-20261102072040-ccee99`.
+
+**Symptom:** The host contract supplied an exact proof path
+(`tests/test_intake_pipeline.py`), runnable command
+(`python3 -m unittest tests.test_intake_pipeline -v`), and `unit` tier.
+The initial Start Plan nevertheless rendered that command as global context,
+not executable requirement proof. Its validation matrix therefore contained
+unresolved command/proof rows. The planning audit correctly prevented approval,
+but the complete host contract should either have been bound to the applicable
+requirements or rejected before v1 with a requirement-specific explanation.
+
+**Impact:** A host can provide a valid, executable proof contract and still
+need multiple planning-revision cycles merely to make it visible in the
+canonical proof registry. This makes the first Start Plan incomplete and
+increases the risk that an operator overlooks an unresolved proof row.
+
+**Root cause:** `apply_host_contract_proof()` in
+[`scripts/task-start.py`](scripts/task-start.py#L4171) auto-binds a host proof
+only when there is exactly one requirement. For any multi-requirement plan it
+unconditionally writes `host_contract_proof_context` with state
+`unbound-global-proof` ([lines 4190-4221](scripts/task-start.py#L4190)), even
+when the validated host contract has enough per-requirement lineage to support
+a safe binding. This safety rule prevents a command from being silently
+credited to every requirement, but there is no adjacent safe route to bind the
+contract to its declared applicable requirements during Start construction.
+
+**Reproduction:** Create a multi-requirement Start with a validated host
+contract containing one exact test path, command, and tier. Inspect the Start
+Plan: it shows the command under global host proof context while the
+requirement validation contracts remain unresolved; `tailtrail planning audit`
+reports missing/unresolved requirement proof.
+
+**Required fix:** Extend the validated host-contract schema to carry explicit
+applicable requirement IDs (and, where needed, path/tier bindings). During
+canonical-plan construction, bind only those declared requirements. If the
+contract cannot name its applicable requirements, fail before v1 with a typed
+open question such as `proof-binding-required: REQ-01`; never infer that a
+global command proves every row. Add public Start-route regressions for:
+
+1. one command bound to explicitly named requirements;
+2. an unbound global command that fails closed before approval; and
+3. a command not attributed to an unrelated requirement.
+
+**Status:** Open. The Phase 3A.2 plan was repaired pre-approval by an audited
+`proof-update` revision, so this gap did not weaken the approved execution or
+its managed evidence.
+
+---
+
+## 44. `--supersede-pending` replaces prior pending revision content without a discard warning (Open -- TailTrail revision UX/semantics gap)
+
+**Observed in:** Phase 3A.2 run `start-20261102072040-ccee99`.
+
+**Symptom:** Revision v2 added required proof updates. A later v3 command used
+`--supersede-pending` only to add a required behaviour scenario. The saved v3
+plan no longer contained v2's proof updates, so the planning audit reopened
+the same proof gaps. The corrective v4 had to restate the complete desired
+change set: scope/proof updates plus the behaviour scenario.
+
+**Impact:** An operator reasonably reads “supersede pending” as “replace the
+pending proposal with an improved version.” In practice the command builds its
+proposal from the active Start Report, so omitted earlier pending deltas vanish.
+This is particularly unsafe when an audit suggests a small additional repair:
+following that suggestion can silently erase an already-correct pending repair.
+
+**Root cause:** `propose()` in
+[`scripts/planning-revision.py`](scripts/planning-revision.py#L1162) permits
+supersession but obtains its base report with
+`LOCK.active_start_report(...)` ([lines 1173-1179](scripts/planning-revision.py#L1173)).
+It does not load and merge the existing pending proposal before applying the
+new `changes` payload. The CLI help says “Preserve and replace the current
+unapproved pending revision,” which does not disclose that each replacement
+must repeat all earlier pending changes.
+
+**Reproduction:** Propose v2 containing a `proof-update`; while v2 is pending,
+propose v3 with `--supersede-pending` containing only a
+`behavior-scenario-add`; render v3 and run planning audit. The proof binding
+from v2 is absent and the audit reports it as unresolved.
+
+**Required fix:** Prefer deterministic merge semantics for non-conflicting,
+additive revision changes. If replacement remains necessary for conflicting
+changes, rename it to `--replace-pending` or require an explicit
+`--discard-pending`, render a before/after delta, and refuse to discard any
+proof binding unless the caller explicitly acknowledges it. Add a regression
+where a v2 proof update followed by a v3 scenario addition retains both
+changes.
+
+**Temporary operator rule:** Until fixed, treat `--supersede-pending` as a
+full replacement and submit one complete combined change list.
+
+**Status:** Open. Planning audit caught the loss before approval; v4 restored
+all required updates before the run was activated.
+
+---
+
+## 45. Closure recovery hides stale managed evidence and omits its recorder prerequisite (Open -- TailTrail closure UX gap)
+
+**Observed in:** Phase 3A.2 run `start-20261102072040-ccee99`.
+
+**Symptom:** Managed proof was run successfully, then a source-edit receipt
+was recorded. TailTrail correctly rejected the earlier proof as stale, but the
+initial closure path failed with the generic message
+`receipts must contain at least one requirement-linked receipt`. Its Completion
+Report described the state as if no runnable command were saved, rather than
+stating that managed receipts existed, were rejected as stale, and needed to
+be rerun. The handoff/next actions also omitted the required
+`closure-recorder` step before `closure finalize`.
+
+**Impact:** The safety rule worked, but the recovery path was opaque. An
+operator can waste time changing a valid proof contract or rerunning unrelated
+tests when the real recovery is deterministic: rerun the approved managed
+command after the source receipt, record closure, then finalize.
+
+**Root cause:** The current projection intentionally rejects a proof receipt
+when a later source event exists:
+[`scripts/closure-recorder.py`](scripts/closure-recorder.py#L307-L310) adds
+`source-changed-after-proof` to rejected history. `collected_input()` then
+contains no selected receipt, and
+[`scripts/closure-contract.py`](scripts/closure-contract.py#L190-L194)
+reduces that state to the generic “at least one requirement-linked receipt”
+validation error. The public closure dispatcher maps `finalize` straight to
+`closure-finalizer.py` ([`scripts/tailtrail.py`](scripts/tailtrail.py#L1176-L1181));
+it does not create or clearly demand the current closure-record projection.
+
+**Reproduction:** For an approved run, execute an approved managed command,
+record a later source-edit event, then call the normal closure/finalize path.
+The stale receipt is visible only in low-level rejected-attempt data; the
+human-facing recovery instructions do not identify it or name the missing
+recorder step.
+
+**Required fix:** Preserve the existing fail-closed staleness rule, but expose
+a shared current-evidence projection to Closure Recorder, Finalizer,
+Completion Report, and Delivery Record. When every candidate receipt is stale,
+render the receipt/event IDs, rejection reason, exact approved rerun command,
+and required order:
+
+1. record source-edit evidence;
+2. run the approved command through managed evidence;
+3. record closure; and
+4. finalize/report.
+
+Either make `tailtrail closure finalize` materialize the current closure
+record automatically, or fail with the exact public `tailtrail closure record`
+command. Add regressions for source-edit-after-proof, fail-to-pass retries,
+and a report that distinguishes “no approved command” from “approved command
+has stale receipts.”
+
+**Status:** Open. The Phase 3A.2 run was closed correctly after the approved
+managed proof was rerun following the source-edit receipt and the missing
+recorder step was supplied.
+
+---
+
+## 46. Public `tailtrail start` rejected option-style arguments before the goal (Fixed -- TailTrail command-routing defect)
+
+**Observed while starting:** the Issue 43 generic proof-binding plan on
+2026-11-02.
+
+**Symptom:** A normal public command beginning
+`python3 scripts/tailtrail.py start --root . ...` failed before creating a
+Planning Lock:
+
+```text
+usage: orchestration_facade.py [-h] {start,discuss,approve,continue,status,close} ...
+orchestration_facade.py: error: unrecognized arguments: --root
+```
+
+**Impact:** The documented public Start route cannot accept valid
+`task-start.py` options. A host cannot create an auditable plan through the
+required CLI path and may be tempted to invoke an internal script directly,
+which weakens public-route coverage and hides an installation/dispatch defect.
+
+**Root cause:** `scripts/tailtrail.py` correctly delegates with the façade
+subcommand (`run_script("orchestration_facade.py", ["start", *forwarded,
+...])` at [line 674](scripts/tailtrail.py#L674)). The failure is inside the
+façade parser: its `start` subparser uses
+`start_p.add_argument("args", nargs=argparse.REMAINDER)` at
+[line 182](scripts/orchestration_facade.py#L182). Python's `argparse` still
+tries to parse leading `--root`/other option-style arguments before handing
+them to `REMAINDER`, rejects them as unknown, and never reaches
+`start(args.args)` at [line 193](scripts/orchestration_facade.py#L193). No
+Planning Lock was created, so this is a routing failure rather than a rejected
+requirement or scope plan.
+
+**Reproduction:** Run `python3 scripts/tailtrail.py start --root . --host
+codex --task-type implementation --format markdown "<goal>"` from the
+repository root. The façade prints the above argument error instead of
+delegating to `task-start.py` and returning a Start Plan.
+
+**Fix:** The façade now dispatches any `start` invocation directly to
+`task-start.py` before its own parser runs. This preserves the public command
+surface while allowing task-start to parse options before or after the goal.
+
+**Regression proof:**
+`python3 -m unittest tests.test_cli_dispatch.CliDispatchTests.test_start_accepts_option_style_arguments_before_goal -v`
+passes. The test invokes the public `scripts/tailtrail.py start` route with
+`--root`, `--task-type`, `--changed`, `--host-contract`, `--aidlc off`, and
+`--no-planning-lock` before the goal, then verifies a Start Plan is rendered.
+The direct `task-start.py` route is not used as the proof.
+
+**Status:** Fixed. This blocked the original Issue 43 planning attempt before
+persistence; no Issue 43 source implementation or proof command ran then.
+
+---
+
+## 47. Rejected AIDLC correction could identify missing scope evidence but could not request or consume it (Fixed -- TailTrail revision-flow defect)
+
+**Observed in:** the rejected generic verification-binding run
+`start-20261102081602-469040` on 2026-11-02.
+
+**Symptom:** AIDLC correctly kept the host's material answers as observations
+and required a validated correction projection. However, that projection could
+only reference paths already present in the original v2 Navigator decision.
+When a rejected plan genuinely needed a newly bounded path, it returned
+“Navigator evidence must resolve it,” while the rejected-plan flow provided no
+way to request fresh evidence or bind a fresh decision back into the same
+revision. The operator was forced into an impossible choice: weaken scope
+validation or abandon the same-run correction.
+
+**Impact:** A rejected plan that discovers a legitimate, evidence-backed
+scope expansion could not converge. This is particularly harmful after AIDLC
+has elicited the exact missing boundary: the answers were durable, but the
+revision system could not act on them safely.
+
+**Root cause:** `_correction_projection()` in
+[`scripts/planning_lock.py`](scripts/planning_lock.py) treated every path
+absent from the original row's `scope_evidence` as a terminal error. Its
+validation had no representation for a bounded evidence request, and
+`_validate_aidlc_scope_mapping()` accepted only the original decision
+fingerprint. Therefore a valid newer Navigator decision could not be linked
+to a correction revision.
+
+**Fix:** A correction projection now produces a typed
+`fresh-scope-evidence-required` observation with one bounded request per
+missing path. Each request records its requirement, requested role,
+source-question IDs, and a read-only `tailtrail navigator scope inspect`
+route. The correction may then include only a valid, target-bound, schema-v2
+`fresh_scope_evidence` result. TailTrail verifies its decision fingerprint,
+root binding, exact requirement/path/role mapping, and immutable lineage
+before adding it to the revised scope. Raw answers still cannot promote an
+owner; unrelated, stale, malformed, or unsigned evidence fails closed.
+
+**Regression proof:**
+
+```bash
+python3 -m unittest tests.test_planning_lock.PlanningLockTests.test_correction_scope_delta_requests_fresh_navigator_evidence_before_promotion tests.test_planning_lock.PlanningLockTests.test_fresh_navigator_evidence_can_resolve_a_bounded_correction_scope_delta -v
+python3 -m unittest tests.test_planning_lock -v
+```
+
+Both pass. The first proves no fresh evidence means no promotion; the second
+proves a valid target-bound decision permits only its declared path and role.
+
+**Status:** Fixed. The repair is deliberately narrow: it adds a safe
+same-run re-scoping handoff but does not approve the revised plan or grant
+implementation authority.
+
+---
+
+## 48. `planning revise` drops a validated AIDLC revision and rebuilds from stale v1 (Open -- TailTrail revision-composition defect)
+
+**Observed in:** generic verification-binding run
+`start-20261102081602-469040` on 2026-11-02.
+
+**Symptom:** The validated AIDLC correction projection produced a coherent
+revised plan: explicit requirement-level proof bindings, a public-route proof
+command, inspection roles, and compatible unit/contract tiers. The mandatory
+planning audit then identified only two missing behaviour tiers. Applying the
+audit's bounded `planning revise` correction created v2, but v2 was composed
+from the original Start report instead of the active validated AIDLC revision.
+It silently lost the AIDLC proof bindings and inspection scope, and the next
+audit reported a much larger, previously solved gap set.
+
+**Impact:** A normal audit correction can regress an otherwise valid AIDLC
+revision. Operators are pushed into repeated revisions and may mistakenly
+assume their supplied scope/proof facts were rejected, when they were simply
+discarded by the revision composer. This violates the mandatory plan-review
+promise: an audit fix must be additive to the exact plan it reviewed.
+
+**Root cause:** The standard revision path bases its proposal on
+`LOCK.active_start_report(...)` in
+[`scripts/planning-revision.py`](scripts/planning-revision.py), while the
+validated AIDLC requirement/scope/proof projection is stored separately under
+`aidlc-revised-requirements-vN.json`. The planner does not select that active
+canonical AIDLC projection as its base or merge it before applying the audit
+delta.
+
+**Reproduction:**
+
+1. Submit a validated AIDLC correction projection that adds exact proof and
+   inspection bindings.
+2. Run `tailtrail planning audit`; leave one bounded tier gap.
+3. Apply the suggested `planning revise --approved-proposal` proof update.
+4. Run the audit again. The v2 report no longer contains the previously
+   validated AIDLC bindings.
+
+**Required fix:** Introduce one canonical pending-plan base selector used by
+every revision entry point. Its precedence must be: approved/pending revision
+when present, otherwise the active validated AIDLC revision, otherwise the
+original Start report. Before persisting a revision, reconcile all requirement
+rows, scope roles, proof bindings, behavior scenarios, and fingerprints; fail
+closed if an audit delta would remove a previously validated element without
+an explicit, disclosed removal. Add a public-path regression: AIDLC proof and
+inspection bindings survive a later audit-suggested tier update.
+
+**Status:** Open. The corrupted v2 has unresolved audit findings and must not
+be approved. No implementation authority, source edit, or test execution was
+granted by this run.
+
+---
+
+## 49. Canonical pending-plan projections are incomplete, inconsistently rendered, and cannot be safely refined from material AIDLC answers (Resolved in working tree -- TailTrail planning-contract defect)
+
+**Observed in:** correction run `start-20261102110113-15a708` on 2026-11-02,
+using only saved planning evidence. No project-source, test, scanner, Git, or
+implementation command was run during this observation.
+
+**What happened:** The host supplied a complete implementation contract for a
+generic repair: one existing implementation owner
+(`scripts/planning-revision.py`), one inspection input
+(`scripts/planning_lock.py`), one proof path
+(`tests/test_planning_revision.py`), exact unit/behaviour proof command, and
+positive and preservation criteria. The sequence then exposed several linked
+failures:
+
+1. The initial Start Plan omitted the supplied proof command and rendered the
+   requirement with an unresolved proof row. A manual `proof-update` was
+   required before the first plan could be audited clean. This is a new live
+   instance of Issue 31 (and has the same host-contract-to-canonical-plan loss
+   described by Issue 38).
+2. The revised Start Plan rendered the proof update, but dropped the supplied
+   inspection input from the visible implementation boundary. The prior v1
+   requirement row named `scripts/planning_lock.py` as read-only context; the
+   pending v3 report did not. This is an additional live manifestation of
+   Issue 48's stale-base/rebuild behavior and Issue 38's projection loss.
+3. Both `planning revision-show` and `planning show` produced a Start Plan
+   without the mandatory `## Plan` section. The report still declared itself
+   `READY FOR APPROVAL`, and the mandatory planning audit returned `clean`.
+   Therefore the audit validates only selected data gaps; it does not validate
+   the complete presentation contract.
+4. After rejection, AIDLC correctly saved material answers as observations and
+   returned `validated-correction-projection-required`. However, the public
+   AIDLC commands available to the host (`aidlc-answer`, `aidlc-cycle`, and
+   `aidlc-approve`) expose no route that can construct, validate, display, or
+   submit the required correction-projection artifact. Repeating the same
+   answers through `aidlc-cycle` returns the same block. The safety gate is
+   correct; the host-facing refinement route is incomplete.
+5. The generic repair spans distinct owners: the revision composer,
+   canonical-plan/presentation renderer, and focused public-route tests. The
+   AIDLC answer flow asks for a broader correction but does not produce a
+   bounded multi-owner decomposition or a clear next action to create the
+   required single-owner plans. This leaves the host at a correct safety stop
+   without an executable route forward.
+
+**Simple explanation:** TailTrail stores the same plan facts in several
+places. A correction can update one place while another screen rebuilds an
+older or smaller version of the plan. That means a supplied test command,
+read-only file, or required section can vanish from the visible plan even
+though it existed earlier. AIDLC then notices that a bigger correction is
+needed, but currently cannot convert its saved answers into the safe,
+typed plan change required to continue.
+
+**Impact:** A plan can be labelled `READY FOR APPROVAL` while it is missing a
+mandatory section or a material host-contract input. A host must manually
+repeat changes in revisions, cannot reliably tell which projection is
+authoritative, and may be stranded after AIDLC identifies a legitimate
+multi-owner correction. This weakens review quality even though the current
+fail-closed AIDLC gate prevents unauthorized implementation.
+
+**Relationship to existing issues:**
+
+- Issue 31: exact host proof is lost before Start-time proof projection.
+- Issue 38: accepted host facts are lost or contradicted by later projections.
+- Issue 43: a complete host proof needs explicit requirement binding.
+- Issue 44: pending proposal replacement can discard earlier deltas.
+- Issue 48: revision composition starts from stale v1 instead of the active
+  validated AIDLC projection.
+
+Issue 49 is the integration contract that joins these symptoms. It does not
+replace or close the listed issues.
+
+**Required generic fix — one canonical projection pipeline:**
+
+1. Define a versioned `canonical-plan-projection` artifact as the only source
+   for pending-plan content. It must contain requirement rows, request mode,
+   host-contract lineage, owner/inspection/proof roles, proof bindings,
+   behaviour scenarios, criteria, AIDLC lineage, command registry, and plan
+   fingerprints.
+2. Add one shared base selector for every mutation and render path. Its
+   deterministic precedence is: valid pending revision, active validated AIDLC
+   correction projection, active approved revision, then original Start
+   report. A renderer must never independently select v1 or reconstruct a
+   smaller substitute.
+3. Represent revisions as typed, additive/removal-aware deltas against that
+   projection. Every removed field requires an explicit removal operation,
+   reason, source-answer lineage when applicable, and before/after display.
+   Omitted fields are preserved by default.
+4. Compile accepted host-contract facts into requirement-scoped bindings before
+   focused-validation inference. A command may be bound only to its declared
+   requirement IDs; it must neither disappear nor be fanned out to unrelated
+   requirements. Missing requirement linkage remains an explicit question,
+   not an unresolved generic replacement.
+5. Make all outputs pure projections of the same artifact: Start Plan file,
+   `planning show`, `planning revision-show`, planning audit, approval anchor,
+   execution handoff, Completion Report, and delivery record. They may format
+   differently, but their canonical facts must match.
+6. Add a schema-level projection invariant and run it before persistence,
+   audit-ready status, approval, and rendering. It must require all mandatory
+   headings (including `## Plan`), required report sections, role/path
+   conservation, proof-binding conservation, scenario conservation, and
+   fingerprint/AIDLC-lineage compatibility. Any unexplained disappearance
+   returns `projection-incomplete` and blocks approval.
+7. Add a public AIDLC correction-projection command or wizard. It must consume
+   saved material answers, classify each as requirement/scope/proof/presentation
+   delta, preserve source-question IDs, request fresh Navigator evidence for
+   unproven paths, and emit a reviewable typed artifact. It must not grant
+   owner authority from raw answers.
+8. When a validated correction needs more than one implementation owner, emit
+   a versioned parent correction manifest plus independently approvable,
+   single-owner child plans. The parent records shared requirements and
+   cross-plan invariants; it does not permit cross-owner writes.
+
+**Required proof matrix:**
+
+1. A host contract with owner, inspection, proof path, exact command, tiers,
+   and criteria appears unchanged in v1, pending revision, approved anchor,
+   `planning show`, and `revision-show`.
+2. Start → validated AIDLC correction → audit-suggested revision preserves all
+   untouched fields, including inspection paths and proof bindings.
+3. A renderer missing `## Plan` or another mandatory heading fails closed;
+   neither audit nor approval can report ready.
+4. An explicit removal is visible with reason and lineage; an implicit removal
+   is rejected.
+5. AIDLC material answers can produce a valid correction projection through
+   the public route; incomplete classification returns exact open questions.
+6. A multi-owner correction produces bounded child plans and cannot give one
+   child authority over another child's owner path.
+7. Public-route tests verify the CLI/MCP rendering and lifecycle paths, not
+   only internal helper functions.
+
+**Recommended delivery order:**
+
+1. Canonical projection schema, base selector, and preservation invariant.
+2. Revision composer migration and explicit-delta semantics.
+3. Start/host-contract proof-binding compilation.
+4. Shared renderer and required-section conformance checks.
+5. AIDLC correction-projection public route.
+6. Multi-owner parent/child decomposition and end-to-end public-route tests.
+
+**Resolution (2026-11-03):** Implemented a permanent, fail-closed projection
+pipeline outside TailTrail under explicit bootstrap authority:
+
+1. Every selected active, pending, or validated-correction plan is now saved as
+   an idempotent, versioned `canonical-plan-projection-vN.json` with upstream
+   source and content fingerprints.
+2. Revision composition, audit, normal/full rendering, approval, activation,
+   anchor creation, and handoff preparation now select the same canonical
+   report. An explicitly approved AIDLC correction is promoted to a durable
+   active report before downstream consumers run.
+3. The projection invariant preserves inspection/proof roles, criteria,
+   preservation rules, commands, tiers, proof bindings, and behavior scenarios.
+   An unexplained disappearance fails closed.
+4. Explicit scope and requirement removals now record reason, before/after
+   values, and optional source-answer lineage in the revision artifact and
+   human revision view.
+5. The public AIDLC answer/cycle route continues to accept only validated typed
+   correction projections; raw answers remain non-authoritative.
+6. A validated correction spanning more than one implementation owner now
+   creates a versioned parent manifest and real single-owner child Planning
+   Locks. Each child is independently reviewable/approvable, while the parent
+   is explicitly blocked from granting write authority.
+
+Focused regression proof covers projection idempotence, approval-time AIDLC
+promotion, explicit removal disclosure, implicit proof/scenario-loss rejection,
+pending-plan presentation, audit/revision compatibility, and multi-owner child
+isolation. The complete focused planning suite passed 102 tests; the planning
+audit and public-route suite is also included in post-change validation.
+
+**Status:** Resolved in the working tree, pending normal review and commit. The
+AIDLC safety gate remains intact: no raw answer, incomplete projection, parent
+coordination manifest, or renderer missing mandatory sections grants write
+authority.
+
+---
+
+## 50. Validation-only Start applies the host contract too late for scope routing (Open -- TailTrail routing defect)
+
+**Observed on:** 2026-11-02 while validating the canonical Start Plan
+projection repair through the public `tailtrail start` route. The worktree was
+explicitly authorized as a shared baseline. The attempt created no Planning
+Lock, approval, activation, implementation authority, or source edit.
+
+**Reproduction:**
+
+1. Start a validation-only task with an accepted `tailtrail-host-input-contract`:
+   - profile: `QA/validation-only`;
+   - `request_mode`: `validation-only`;
+   - inspection inputs: planning lock, revision, audit, and Start Plan renderer;
+   - proof-only paths: the focused planning presentation/revision/audit tests;
+   - an exact runnable unit command and positive/negative criteria;
+   - no implementation-owner path.
+2. Submit the exact-goal-bound host requirement interpretation and declare
+   `--task-type qa`.
+3. Observe that Start reports `request mode: test-only`, performs ordinary
+   implementation-owner discovery, finds several AIDLC implementation scripts,
+   and blocks with `multiple-evidence-backed-owners`.
+
+**Simple explanation:** TailTrail receives a complete no-edit validation
+contract, but Navigator asks “which production file will be edited?” before
+the validation contract is allowed to control routing. The task is therefore
+rejected for lacking an implementation owner even though the contract
+explicitly forbids one.
+
+**Impact:** The public Start path cannot plan or exercise validation-only work
+against multiple inspection inputs. This prevents validation of a repaired
+planning route without falsely declaring an editable production owner or
+misusing `--changed` for a proof fixture. The safety stop is correct, but the
+routing order makes the supported validation-only contract unusable.
+
+**Root cause:** `scripts/task-start.py` calls `navigator.decide(...)` before
+it projects the accepted host contract into `host_declared_scope_roles` and
+`host_input_contract`. The scope-quality gate therefore sees only inferred
+implementation candidates. Its host-contract projection happens after the
+gate has already selected the `requested` implementation-owner route.
+
+**Required generic fix:**
+
+1. Validate the host contract before route and scope selection, as today.
+2. Pass its request mode, profile, path roles, proof binding, and no-owner
+   constraint into Navigator's routing input before scope-quality evaluation.
+3. Add an explicit validation-only/read-only route that accepts inspection and
+   proof roles without requiring an implementation owner. It must still reject
+   any owner role, source-write step, or proof command not bound in the
+   contract.
+4. Preserve the normal implementation route unchanged: an implementation
+   request still requires Navigator-resolved ownership and cannot obtain it
+   from host assertion.
+5. Render the selected route and the reason implementation ownership was
+   intentionally inapplicable in the Start Plan and audit record.
+
+**Required regression proof:**
+
+- a public CLI Start with the above validation-only contract creates an
+  awaiting-approval validation plan with no implementation owner;
+- the same contract with an owner role fails as contradictory;
+- an implementation-mode contract without a Navigator-resolved owner remains
+  blocked;
+- `planning show`, audit, and `revision-show` retain inspection/proof paths
+  and the exact proof command without granting edit authority.
+
+**Resolution (2026-11-02):** Implemented directly in four small phases.
+
+1. `scripts/navigator_scope.py` now derives a typed non-write routing context
+   only from an already validated host contract. It admits `read-only` and
+   `validation-only` routes, projects only inspection/proof paths, verifies
+   that their existing files are safe and present, and rejects owner claims or
+   proposed proof paths in a no-edit route.
+2. `scripts/navigator.py` consumes that context before discovery and replaces
+   ordinary goal-based owner discovery with non-owner contract seeds. Inspection
+   inputs are permanently classified as references and proof inputs as tests,
+   so a host path cannot become an implementation owner by filename or content.
+3. Start composition, task-type reassessment, and planning revision
+   recomputation preserve the same context. Requirement projection explicitly
+   keeps the editable-owner set empty for these routes.
+4. The full Start Plan says that editable ownership and source-edit token
+   estimation are not applicable for a non-write route; it no longer calls a
+   correctly bounded validation plan "unresolved."
+
+**Regression proof:** `tests.test_public_route_gate` now exercises a public
+validation-only Start, clean audit, proof-binding revision, Markdown
+presentation, and read-only Start. The test asserts a passing route, zero
+implementation owners, preserved exact proof path, and a non-blocking revision.
+Existing contract tests still prove that a non-write contract carrying an owner
+role is contradictory.
+
+**Status:** Resolved in the working tree; pending normal review and commit.
+
+---
+
+## 51. Full Start artifact is not a complete, fingerprint-idempotent projection of pre-approval state (Open -- Phase 5 presentation/persistence gap)
+
+**Observed on:** 2026-11-03 during the pre-plan validation of Phase 5, “Full
+Start Artifact,” from
+`TAILTRAIL-HOST-TAILTRAIL-EVIDENCE-VALIDATION-DESIGN.md`. The inspection was
+read-only and created no Planning Lock, approval, activation, implementation
+authority, or source edit. The worktree already contained earlier uncommitted
+changes, so no Phase 5 Start was persisted without an explicitly accepted
+shared baseline.
+
+**Current baseline:** `python3 -m unittest tests.test_start_plan_presentation`
+passes 18 tests. Those tests prove the existing normal/verbose renderer,
+mandatory headings, initial review-cycle display, relative visible link, and
+pending-revision refresh. They do not prove the complete Phase 5 contract.
+
+**Symptoms:**
+
+1. `scripts/planning_lock.py::_start_plan_material` loads the local
+   `aidlc-requirements-v1.json`, correction state, and the latest local revised
+   requirement/projection/observation artifacts. It does not collect the
+   official AIDLC questionnaire and decision artifacts stored under the
+   official requirements route.
+2. `scripts/verbose-reporting.py::_render_start_plan` renders AIDLC question
+   text but does not render the corresponding saved answers/decisions, answer
+   states, or source-question lineage. Generic intake observations and
+   candidate/accepted/rejected answer history are also absent from the full
+   Start artifact.
+3. The visible report is not explicitly bound to the exact canonical proposal
+   fingerprint it represents. A reviewer cannot verify from the artifact and
+   its metadata that the requirements, scope, proof, questions, and answers
+   came from the same saved pre-approval projection.
+4. `scripts/verbose-reporting.py::save_verbose_reports` directly rewrites the
+   internal `start-plan-verbose-v1.md`, visible `start-plan.md`, and timestamped
+   metadata on every generation. It records no source fingerprint, does not
+   reuse an unchanged projection, and does not atomically replace the visible
+   Markdown. `generate_start_plan_verbose_report` also appends another
+   generation event even when canonical inputs are unchanged.
+5. Initial Start creation prints both workspace-relative and absolute paths,
+   and some AIDLC views include them, but the normal pending-revision rendering
+   carries only the relative visible-artifact link. Public pre-approval routes
+   therefore do not publish both paths consistently after the proposal changes.
+
+**Simple explanation:** TailTrail already creates a readable Start Plan, but
+the file is not yet a complete sealed view of everything the user is being
+asked to approve. Some questionnaire answers and intake history are missing,
+the file does not declare which exact proposal fingerprint produced it, and
+asking TailTrail to show the same unchanged plan rewrites the report and records
+another generation event. After a revision, different public routes also show
+the report path differently.
+
+**Impact:** A user can review a polished Start artifact without seeing all
+material saved answers or being able to prove that its sections came from one
+canonical proposal snapshot. Repeated reads create avoidable artifact/event
+churn, and direct writes can expose a partially rewritten visible document if
+generation is interrupted. The current renderer still grants no implementation
+authority, but the Phase 5 exit gate is not satisfied.
+
+**Root cause:** Phase 5 responsibilities are split across three boundaries
+without one fingerprinted artifact contract:
+
+- `scripts/planning_lock.py` selects canonical planning and AIDLC inputs;
+- `scripts/verbose-reporting.py` renders and persists normal/verbose views; and
+- Start, AIDLC, and pending-revision public routes decide independently how to
+  publish the visible artifact path.
+
+The current tests cover each existing behavior separately but do not require a
+complete canonical input envelope, fingerprint-idempotent persistence, or
+path-publication parity.
+
+**Relationship to existing issues:** Issue 49 covers incomplete or divergent
+canonical pending-plan composition. Issue 51 begins after a canonical proposal
+has been selected: it requires the human-readable Full Start artifact to retain
+all required intake/AIDLC facts, bind itself to that proposal, persist safely,
+and render consistently. Fixing either issue alone does not close the other.
+
+**Required generic fix:**
+
+1. Define one versioned `full-start-artifact-input` envelope assembled from the
+   canonical plan selector. Bind the run ID, request mode, proposal/revision
+   artifact and fingerprint, requirement/scope/proof fingerprints, planning
+   audit high-water mark, intake-readiness receipt, and all applicable local or
+   official AIDLC question/answer artifacts.
+2. Render the full questionnaire state when present: issued questions,
+   candidate/accepted/rejected/stale/conflicting answers, selected decisions,
+   source-answer/question lineage, observations in their permitted sanitized
+   form, open questions, and explicit unavailable markers. Raw narration and
+   private reasoning remain excluded.
+3. Keep scope roles, requirements and criteria, selected controls, proof
+   bindings and assertions, risks, assumptions, revisions/audits, token source
+   and confidence, approval state, and pending/unavailable values in the same
+   fingerprinted projection. Normal mode remains concise; verbose mode retains
+   the complete review evidence without becoming a second plan.
+4. Compute a deterministic source fingerprint over the canonical input
+   envelope. An unchanged fingerprint reuses the existing artifact and records
+   no duplicate generation event. A changed fingerprint creates a versioned
+   internal artifact or atomically refreshes the visible projection while
+   retaining canonical history and a link to the superseded fingerprint.
+5. Use atomic replacement for internal metadata and visible Markdown. A failed
+   render or write creates no success marker and leaves the last valid visible
+   artifact readable.
+6. Return the same workspace-relative and absolute visible paths from initial
+   Start, local/official AIDLC gathering and answers, `planning show`, and
+   pending `planning revision-show`. Path publication must use the artifact
+   selected by the same canonical fingerprint.
+7. Validate the complete Phase 5 presentation contract before marking the
+   artifact generated. Missing mandatory evidence sections, mismatched
+   fingerprints, or stale AIDLC/intake artifacts fail closed with a typed
+   recovery action and no approval-ready claim.
+
+**Required regression proof:**
+
+1. A normal public Start creates a Full Start artifact whose metadata matches
+   the exact saved proposal fingerprint and whose normal/verbose projections
+   agree on canonical facts.
+2. Local AIDLC and official AIDLC routes each render their saved questions,
+   answers/decisions, states, and lineage; a run with no AIDLC artifacts says so
+   without fabricating a questionnaire.
+3. Host Question Flow intake renders sanitized observation and answer-state
+   history from the planning-readiness boundary; rejected, stale, and
+   conflicting facts never become requirements or authority.
+4. Generating the same unchanged plan twice reuses the artifact and does not
+   append another generation event. Changing an answer, scope decision, proof
+   binding, audit result, or pending revision changes the source fingerprint and
+   refreshes/version-controls the visible artifact.
+5. An interrupted write leaves the previous valid Start artifact intact and
+   records no successful generation event.
+6. Initial Start, `planning show`, local/official AIDLC views, and pending
+   `planning revision-show` expose the same relative and absolute visible paths.
+7. Public-route tests prove the Full Start artifact remains `awaiting-approval`
+   and grants no source-write, command-execution, scanner, Git, approval, or
+   activation authority.
+
+**Recommended implementation ownership:** Use separate requirement-scoped
+owners within one cohesive Phase 5 approval: `scripts/planning_lock.py` owns
+canonical artifact input and public-route refresh; `scripts/verbose-reporting.py`
+owns complete rendering, fingerprint metadata, idempotence, and atomic
+persistence. Proof belongs in `tests/test_start_plan_presentation.py`,
+`tests/test_planning_lock.py`, and `tests/test_planning_revision.py` through the
+real public argument shapes.
+
+**Status:** Open. Phase 5 planning remains blocked until the current dirty
+worktree is explicitly accepted as the shared baseline or replaced by a clean,
+reviewed baseline. No implementation should begin from this issue record alone;
+a complete audited Start Plan and explicit approval are still required.

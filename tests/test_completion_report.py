@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -309,6 +310,41 @@ class CompletionReportTests(unittest.TestCase):
         self.assertIn("tailtrail execution-evidence record --root . --run-id run", rendered)
         self.assertIn("tailtrail closure record --root . --run-id run", rendered)
         self.assertNotIn("approved validation command(s) still need authoritative passing evidence", rendered)
+
+    def test_no_edit_run_names_validation_delivery_not_source_edit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uid = self.setup_run(root)
+            run = ledger.state_dir(root, "run")
+            approved = run / "anchors" / "approved-v1.json"
+            saved_anchor = json.loads(approved.read_text(encoding="utf-8"))
+            command = "python3 -m unittest tests.test_target -v"
+            saved_anchor["requirements"][0]["validation_contract"] = {
+                "state": "required", "commands": [command], "tiers": ["unit"],
+            }
+            approved.write_text(json.dumps(saved_anchor), encoding="utf-8")
+            (run / "execution").mkdir(parents=True)
+            (run / "execution" / "evidence-stream.jsonl").write_text(json.dumps({
+                "kind": "command-result", "requirement_uids": [uid],
+                "changed_paths": [], "command": command, "tiers": ["unit"],
+                "outcome": "pass", "evidence_quality": "trusted",
+            }) + "\n", encoding="utf-8")
+            active_path = run / "planning" / "start-report-v1.json"
+            active_path.parent.mkdir(exist_ok=True)
+            active_path.write_text("{}", encoding="utf-8")
+            active = {"goal": "g", "report": {"host_input_contract": {"request_mode": "validation-only"}}}
+            state = {"active_report": active_path.relative_to(root).as_posix()}
+            with mock.patch.object(report.POLICY.LOCK, "revision_state", return_value=state), mock.patch.object(report.POLICY.LOCK, "active_start_report", return_value=active):
+                result = report.build(root, "run", record=False)
+                rendered = report.render(result)
+
+        self.assertTrue(result["closure_guidance"]["managed_proof_passing"])
+        self.assertEqual(
+            ["validation-delivery receipt", "closure record"],
+            [item["artifact"] for item in result["closure_guidance"]["missing"]],
+        )
+        self.assertIn("record-delivery", rendered)
+        self.assertNotIn("source-edit receipt", rendered)
 
     def test_unavailable_execution_is_blocked_not_reported_as_failed_tests(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

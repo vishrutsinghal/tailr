@@ -42,6 +42,15 @@ evidence," the fix is almost never a cleverer `--scope-owner` answer -- split
 the goal into one `tailtrail start` per file and run them sequentially. This
 resolves cleanly far more often than fighting a combined goal.
 
+**Decide the approval topology before persistence.** The split rule above is
+for independently approvable or unrelated work. When the user explicitly
+requires one approval for one cohesive outcome, use one multi-requirement plan
+only when each requirement can retain its own evidence-backed owner and proof
+binding (`--scope-owner "REQ-ID=path"`). Do not create several approval
+surfaces and later describe them as one. If TailTrail cannot represent the
+combined plan without weakening ownership, proof, or atomicity, report that as
+a product limitation instead of hiding it behind host batching.
+
 **Two different routes exist for a brand-new file, and they are not
 interchangeable:**
 - If Navigator finds *no* plausible owner at all (route reaches
@@ -109,6 +118,13 @@ bite repeatedly:
   next submission.
 - Multi-requirement answers use `--scope-owner "REQ-ID=path"` (repeatable),
   never a bare path when more than one requirement is unresolved.
+- In a hand-built interpretation, artifact-grounded clauses use
+  `source_input_id`, while the corresponding `artifact_evidence` row uses
+  `input_id`. Quoted literals should not be duplicated as semantic
+  `intent_terms`, and every outcome/constraint clause must be referenced by at
+  least one requirement. These distinctions were verified live while building
+  the Phase 3 combined plan; use the builder rather than correcting them one
+  rejection at a time.
 
 **Use the tool instead of hand-iterating.** `scripts/host-interpretation-builder.py
 --spec <spec.json> --host claude` checks all of the above locally (clause
@@ -139,6 +155,14 @@ how to resume) instead of guessing.
 - Always paste the complete Start Report verbatim in the reply body, not
   just inside a collapsible tool-result panel -- hosts and users both need
   to see the full requirements/scope/approval text directly.
+- When a revision is pending, show only the canonical
+  `planning revision-show` rendering for the latest audited revision. Never
+  shorten, normalize, check boxes, rename lifecycle states, or replace noisy
+  sections in host prose. Fix the product renderer separately.
+- `tailtrail stop` detaches conversation routing but preserves the canonical
+  run and its status. Do not call an awaiting-approval run rejected, deleted,
+  or superseded merely because it was stopped. Resume the exact replacement
+  run when one exists and disclose that older canonical history remains.
 
 ## 4. Evidence tiers: declared vs. trusted
 
@@ -363,6 +387,15 @@ calling a planning or closure result a product defect:
   evidence clause, or quoted literal is traceability only. Register executable
   proof before activation with `planning revise` and a `proof-update` containing
   the requirement ID, exact command, and tier, then approve that revision.
+- **A global host proof command is not a requirement binding.** Before showing
+  v1, verify that every requirement row retained its intended proof path, exact
+  command, tiers, and asserted behavior. If Start drops a valid supplied
+  command or leaves a row unresolved, treat that as a TailTrail projection gap
+  and revise only as a disclosed workaround; do not blame missing host context.
+- **Review tiers at public boundaries.** Behavior spanning CLI-to-MCP, API,
+  process, persistence, or another public route normally needs integration or
+  contract proof in addition to unit/behaviour evidence. Declare it before
+  Start when known, and still run the mandatory audit as defense in depth.
 - **Split multi-owner work.** A complete requirement artifact can still produce
   an ambiguous full plan when proof, closure, and learning belong to different
   owners. Split the work into focused runs; do not force a single owner over an

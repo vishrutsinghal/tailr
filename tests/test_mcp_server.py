@@ -1152,6 +1152,36 @@ class McpServerTests(unittest.TestCase):
             "intake-0123456789abcdef",
         )
 
+    def test_atomic_tailtrail_start_forwards_planning_readiness_receipt_unchanged(self):
+        calls = []
+        original = mcp.command_result
+        receipt = {
+            "schema_version": "1",
+            "type": "tailtrail-planning-readiness-receipt",
+            "receipt_id": "readiness-0123456789abcdef",
+            "fingerprint": "sha256:" + "a" * 64,
+        }
+
+        def fake_command_result(command, cwd):
+            calls.append(command)
+            return {"command": command, "cwd": cwd.as_posix(), "exit_code": 0, "stdout": "{}", "stderr": ""}
+
+        try:
+            mcp.command_result = fake_command_result
+            mcp.tailtrail_start({
+                "goal": "Create the credential resource.",
+                "root": ROOT.as_posix(),
+                "planning_readiness_receipt": receipt,
+                "format": "json",
+                "approved": True,
+            })
+        finally:
+            mcp.command_result = original
+
+        self.assertIn("--planning-readiness-receipt", calls[0])
+        forwarded = json.loads(calls[0][calls[0].index("--planning-readiness-receipt") + 1])
+        self.assertEqual(forwarded, receipt)
+
     def test_atomic_tailtrail_start_uses_the_shared_multiline_requirement_frame(self):
         goal = "Add delivery-address validation without breaking valid\r\naddresses."
         with tempfile.TemporaryDirectory() as temp:

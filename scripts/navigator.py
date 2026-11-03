@@ -1311,6 +1311,7 @@ def decide(
     allow_passive_capture: bool = True,
     persist_host_packet: bool = False,
     declared_task_type: str | None = None,
+    host_scope_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     workflow_classification = core.classify_workflow_intent(
         goal,
@@ -1444,6 +1445,18 @@ def decide(
                 for path in git_changed(root)
             ]
             target_origin = "git-changes" if scope_seeds else "none"
+    nonimplementation_contract_route = (
+        isinstance(host_scope_context, dict)
+        and host_scope_context.get("type") == "tailtrail-host-contract-scope-context"
+        and host_scope_context.get("request_mode") in {"read-only", "validation-only"}
+    )
+    if nonimplementation_contract_route:
+        # The validated contract narrows a non-write Start to its declared
+        # inspection/proof boundary.  Do not blend goal-discovered production
+        # candidates into this route: they would be misleading and could later
+        # be mistaken for owner authority.
+        scope_seeds = navigator_scope.host_contract_scope_seeds(host_scope_context)
+        target_origin = "host-contract-nonimplementation"
     scope_candidates = navigator_scope.candidates_from_seeds(root, scope_seeds, tasks, allow_git_inventory=not debug_planning)
     changed = [
         str(candidate["path"])
@@ -2056,7 +2069,13 @@ def decide(
     # persist_host_packet (task-start passes True; inspect keeps the default).
     if persist_host_packet and not debug_planning:
         navigator_scope.save_host_packet(root, scope_host_packet)
-    scope_quality = navigator_scope.assess_scope_quality(root, goal, tasks, scope_evidence)
+    scope_quality = navigator_scope.assess_scope_quality(
+        root,
+        goal,
+        tasks,
+        scope_evidence,
+        host_scope_context=host_scope_context,
+    )
 
     cache_reasons = set(scope_investigation.get("cache", {}).get("reason_codes", []))
     scope_cache_status = str(scope_investigation.get("cache", {}).get("status", "not-checked"))
@@ -2131,6 +2150,7 @@ def decide(
         "scope_evidence": scope_evidence,
         "scope_host_packet": scope_host_packet,
         "scope_quality": scope_quality,
+        "host_scope_routing": host_scope_context if nonimplementation_contract_route else None,
         "scope_candidates": scope_candidates,
         "task_types": display_tasks,
         "risk_indicators": risks,

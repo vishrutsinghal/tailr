@@ -205,6 +205,27 @@ class ProofBindingSchemaTests(unittest.TestCase):
         }
         self.assertFalse(self.validator.is_valid(binding))
 
+    def test_phase3_evidence_fields_are_validated_without_breaking_legacy_bindings(self) -> None:
+        binding = {
+            "schema_version": "1",
+            "type": "tailtrail-proof-binding",
+            "proof_binding_id": "proof-binding-readiness-9",
+            "requirement_uid": "req-1",
+            "kind": "post-change",
+            "command": "python3 -m unittest tests.test_example -v",
+            "proof_path": "tests/test_example.py",
+            "tiers": ["unit"],
+            "asserted_behaviors": ["The readiness binding preserves accepted evidence lineage."],
+            "scenario_ids": ["test_readiness_binding"],
+            "source_answer_id": "answer-42",
+            "evidence_fingerprint": "sha256:" + "a" * 64,
+            "preservation_boundaries": ["Existing correction bindings remain valid."],
+        }
+        self.assertTrue(self.validator.is_valid(binding))
+
+        binding["evidence_fingerprint"] = "not-a-sha256-fingerprint"
+        self.assertFalse(self.validator.is_valid(binding))
+
 
 class RedactionPolicySchemaTests(unittest.TestCase):
     def setUp(self) -> None:

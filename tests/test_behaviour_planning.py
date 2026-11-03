@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.planning_proof_fixture import register_proof, write_proof_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -134,11 +135,11 @@ class BehaviourPlanningTests(unittest.TestCase):
         self.assertIn("BHV-01", {row["scenario_id"] for row in report["behaviour_plan"]["scenarios"]})
         self.assertIn("BHV-03", {row["scenario_id"] for row in report["behaviour_plan"]["scenarios"]})
         self.assertIn("- **behaviour**", rendered)
-        self.assertIn("- **Candidate:** `tests/behaviour/test_customer_journey.py`", rendered)
         self.assertIn("- **integration**", rendered)
-        self.assertIn("- **Candidate:** `tests/integration/test_order_service.py`", rendered)
         self.assertIn("- **contract**", rendered)
-        self.assertIn("- **Candidate:** `tests/contract/test_api_contract.py`", rendered)
+        self.assertIn("not resolved from planning evidence", rendered)
+        self.assertNotIn("- **Candidate:** `tests/integration/test_order_service.py`", rendered)
+        self.assertNotIn("- **Candidate:** `tests/contract/test_api_contract.py`", rendered)
         self.assertNotIn("- **unit**", rendered)
         self.assertNotIn("retry boundary", rendered.lower())
         self.assertNotIn("payment/service path", rendered.lower())
@@ -147,8 +148,10 @@ class BehaviourPlanningTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); project(root)
             report = task_start.build_report(GOAL, root, ["src/order_service/api.py"], "tailtrail")
+            write_proof_file(root)
             report["planning_lock"] = task_start.planning_lock.create(root, GOAL, "behaviour-handoff")
             task_start.planning_lock.save_start_report(root, "behaviour-handoff", report)
+            register_proof(root, "behaviour-handoff")
             activated = task_start.planning_lock.activate(root, "behaviour-handoff", True)
             handoff = activated["execution_handoff"]
             approved = json.loads((root / handoff["anchor"]).read_text(encoding="utf-8"))
@@ -164,8 +167,10 @@ class BehaviourPlanningTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); project(root)
             report = task_start.build_report(GOAL, root, ["src/order_service/api.py"], "tailtrail")
+            write_proof_file(root)
             report["planning_lock"] = task_start.planning_lock.create(root, GOAL, "behaviour-e2e")
             task_start.planning_lock.save_start_report(root, "behaviour-e2e", report)
+            register_proof(root, "behaviour-e2e")
             activated = task_start.planning_lock.activate(root, "behaviour-e2e", True)
             approved = json.loads((root / activated["execution_handoff"]["anchor"]).read_text(encoding="utf-8"))
             scenarios = []

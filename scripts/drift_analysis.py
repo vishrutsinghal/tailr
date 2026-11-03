@@ -303,6 +303,63 @@ def _linked_evidence(
     return rows
 
 
+def _evidence_tiers(item: dict[str, Any]) -> list[str]:
+    """Return the explicitly asserted tiers for one evidence event."""
+    tiers = item.get("tiers")
+    if not isinstance(tiers, list) or not tiers:
+        tiers = [item.get("tier")] if item.get("tier") else []
+    return sorted({str(tier).strip() for tier in tiers if str(tier).strip()})
+
+
+def _current_evidence_by_binding(
+    requirement_uid: str, evidence_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Select the latest event for each compatible proof binding.
+
+    Evidence is append-only.  A retry may replace an earlier result only when
+    it addresses the same requirement, executable command, tier, and scenario
+    assertion.  Different commands, tiers, or scenarios deliberately remain
+    independent so a passing command cannot hide a failure for another
+    required binding.  Legacy evidence without a command retains a separate
+    legacy binding for backwards-compatible handoff evidence.
+    """
+    selected: dict[tuple[str, str, str, tuple[str, ...], str], tuple[int, dict[str, Any]]] = {}
+    for position, item in enumerate(evidence_items):
+        if not isinstance(item, dict):
+            continue
+        uids = item.get("requirement_uids")
+        if uids and requirement_uid not in uids:
+            continue
+        command = str(item.get("command", "")).strip()
+        if not command:
+            # Inline handoff evidence has no append-only receipt ordering and
+            # therefore must not silently replace a saved managed result.
+            # It remains supported as a separate legacy binding.
+            command = (
+                "<legacy-managed-command>"
+                if item.get("kind") in {"command-result", "ci-receipt"}
+                else "<legacy-inline-command>"
+            )
+        scenarios = tuple(sorted({
+            str(value).strip()
+            for value in (item.get("scenario_ids", []) or [])
+            if str(value).strip()
+        }))
+        assertion = str(item.get("scenario_assertion_fingerprint", "")).strip()
+        for tier in _evidence_tiers(item):
+            # The list preserves the append-only stream order; a later item
+            # with this exact identity is the current retry result.
+            selected[(requirement_uid, command, tier, scenarios, assertion)] = (position, item)
+    current: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for _, item in selected.values():
+        marker = id(item)
+        if marker not in seen:
+            seen.add(marker)
+            current.append(item)
+    return current
+
+
 def _requirement_validated(
     row: dict[str, Any], evidence_items: list[dict[str, Any]]
 ) -> bool:
@@ -312,7 +369,8 @@ def _requirement_validated(
     passing evidence at every required tier, linked to that requirement.
     Passing-but-unlinked tests are not proof (design §10.2).
     """
-    linked = _linked_evidence(str(row.get("requirement_uid")), evidence_items)
+    requirement_uid = str(row.get("requirement_uid"))
+    linked = _current_evidence_by_binding(requirement_uid, evidence_items)
     authoritative = [
         item
         for item in linked
@@ -327,10 +385,7 @@ def _requirement_validated(
     for item in authoritative:
         if item.get("outcome") != "pass":
             continue
-        tiers = item.get("tiers")
-        if not isinstance(tiers, list) or not tiers:
-            tiers = [item.get("tier")] if item.get("tier") else []
-        passed.update(str(tier) for tier in tiers if str(tier))
+        passed.update(_evidence_tiers(item))
     nonpassing = any(
         item.get("outcome") in _NONPASSING_OUTCOMES for item in linked
     )

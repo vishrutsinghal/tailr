@@ -150,6 +150,58 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(check["candidate_paths"], ["tests/test_planning_revision.py"])
         self.assertEqual(report["focused_validation"][0]["command_id"], command_id)
 
+    def test_superseding_revision_deduplicates_command_id_and_literal_proof(self) -> None:
+        """Repeating an existing proof must not render it twice in v3."""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "dedupe-proof-binding")
+            proof = root / "tests" / "test_planning_revision.py"
+            proof.parent.mkdir(parents=True, exist_ok=True)
+            proof.write_text("# proof fixture\n", encoding="utf-8")
+            command = "python3 -m unittest tests.test_planning_revision -q"
+            first = revision.propose(root, "dedupe-proof-binding", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Register the approved proof binding.",
+                "evidence_plan": ["Run the focused proof."],
+                "checks": [{"command": command, "tiers": ["unit", "contract", "behaviour"]}],
+                "editable_paths": ["tests/test_planning_revision.py"],
+            }]), True)
+            second = revision.propose(root, "dedupe-proof-binding", json.dumps([
+                {
+                    "kind": "proof-update",
+                    "requirement_uid": "REQ-01",
+                    "reason": "Retain the same proof while revising the scenario.",
+                    "evidence_plan": ["Run the focused proof."],
+                    "checks": [{"command": command, "tiers": ["behaviour", "contract", "unit"]}],
+                },
+                {
+                    "kind": "behaviour-scenario-add",
+                    "requirement_uid": "REQ-01",
+                    "reason": "Make the observable cancellation outcome explicit.",
+                    "scenario": {
+                        "scenario_id": "BHV-REQ-01",
+                        "action": "Cancel an eligible order",
+                        "expected_outcome": "The cancellation is observable through the public route",
+                    },
+                },
+            ]), True, supersede_pending=True)
+
+        self.assertEqual(first["revision"], 2)
+        self.assertEqual(second["revision"], 3)
+        row = second["proposed_report"]["navigator"]["requirement_matrix"][0]
+        self.assertEqual(len(row["validation_contract"]["checks"]), 1)
+        self.assertEqual(
+            row["validation_contract"]["checks"][0]["tiers"],
+            ["behaviour", "contract", "unit"],
+        )
+        focused = [
+            item for item in second["proposed_report"]["focused_validation"]
+            if item["requirement_id"] == "REQ-01"
+        ]
+        self.assertEqual(len(focused), 1)
+        self.assertEqual(focused[0]["tiers"], ["behaviour", "contract", "unit"])
+
     def test_behaviour_scenario_revision_adds_concrete_source_bound_scenario(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -260,6 +312,112 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertIn("### Implementation owners", rendered)
         self.assertIn("### Existing proof paths", rendered)
 
+    def test_v2_revision_preserves_host_inspection_and_proof_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.v2_plan(root, "v2-preserve-host-context")
+            report_path = lock.start_report_path(root, "v2-preserve-host-context")
+            saved = json.loads(report_path.read_text(encoding="utf-8"))
+            row = saved["report"]["navigator"]["requirement_matrix"][0]
+            row["scope_evidence"]["inspection_paths"].append("scripts/read_only_context.py")
+            row["scope_evidence"]["proof_paths"].append("tests/test_host_context.py")
+            report_path.write_text(json.dumps(saved), encoding="utf-8")
+
+            proposed = revision.propose(root, "v2-preserve-host-context", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Register the focused owner proof without dropping host context.",
+                "evidence_plan": ["Run the owner test module."],
+                "commands": ["python3 -m unittest discover -s tests -p test_owner.py -v"],
+                "tiers": ["unit"],
+                "editable_paths": ["tests/test_owner.py"],
+            }]), True)
+
+        revised = proposed["proposed_report"]["navigator"]["requirement_matrix"][0]
+        self.assertIn("scripts/read_only_context.py", revised["scope_evidence"]["inspection_paths"])
+        self.assertIn("tests/test_host_context.py", revised["scope_evidence"]["proof_paths"])
+
+    def test_v2_revision_restores_nonimplementation_context_before_rebuilding_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.v2_plan(root, "v2-restore-nonimplementation")
+            report_path = lock.start_report_path(root, "v2-restore-nonimplementation")
+            saved = json.loads(report_path.read_text(encoding="utf-8"))
+            navigator = saved["report"]["navigator"]
+            navigator.pop("host_scope_routing", None)
+            navigator["host_input_contract_validated"] = {
+                "contract_id": "validation-contract",
+                "fingerprint": "sha256:validation-contract",
+                "request_mode": "validation-only",
+                "paths": [
+                    {"path": "tests/test_owner.py", "role": "existing-proof-path"},
+                ],
+            }
+            saved["report"]["host_input_contract"] = {"request_mode": "validation-only"}
+            report_path.write_text(json.dumps(saved), encoding="utf-8")
+
+            proposed = revision.propose(root, "v2-restore-nonimplementation", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Keep the non-editing proof route while revising its command binding.",
+                "evidence_plan": ["Run the owner proof."],
+                "commands": ["python3 -m unittest tests.test_owner -q"],
+                "tiers": ["unit"],
+                "editable_paths": ["tests/test_owner.py"],
+            }]), True)
+
+        navigator = proposed["proposed_report"]["navigator"]
+        row = navigator["requirement_matrix"][0]
+        self.assertEqual(navigator["host_scope_routing"]["request_mode"], "validation-only")
+        self.assertEqual(row["scope_evidence"]["implementation_owners"], [])
+        self.assertEqual(row["likely_paths"], [])
+        self.assertFalse(navigator["scope_quality"]["blocking"])
+
+    def test_validated_aidlc_correction_is_used_as_the_next_revision_base(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "aidlc-canonical-base")
+            active = lock.active_start_report(root, "aidlc-canonical-base")["report"]
+            requirements = json.loads(json.dumps(active["navigator"]["requirement_matrix"]))
+            requirements[0]["statement"] = "Cancel an eligible order and record the validated AIDLC correction."
+            planning = root / ".tailtrail" / "runs" / "aidlc-canonical-base" / "planning"
+            correction = planning / "aidlc-revised-requirements-v1.json"
+            correction.write_text(json.dumps({"requirements": requirements, "aidlc_answers": {"Q-01": "accepted"}}), encoding="utf-8")
+            (planning / "aidlc-correction-state.json").write_text(json.dumps({
+                "state": "revision-ready",
+                "active_revision": correction.relative_to(root).as_posix(),
+            }), encoding="utf-8")
+
+            proposed = revision.propose(root, "aidlc-canonical-base", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Bind proof after the validated correction.",
+                "evidence_plan": ["Run the focused cancellation proof."],
+                "commands": ["python3 -m unittest tests.test_planning_revision -v"],
+                "tiers": ["unit"],
+                "editable_paths": ["tests/test_planning_revision.py"],
+            }]), True)
+
+        self.assertEqual(proposed["base_projection"]["kind"], "validated-aidlc-correction")
+        self.assertEqual(
+            proposed["proposed_report"]["navigator"]["requirement_matrix"][0]["statement"],
+            "Cancel an eligible order and record the validated AIDLC correction.",
+        )
+
+    def test_canonical_projection_is_versioned_and_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "canonical-idempotence")
+            first_report, first_source = lock.canonical_plan_report(root, "canonical-idempotence")
+            second_report, second_source = lock.canonical_plan_report(root, "canonical-idempotence")
+            planning = root / ".tailtrail" / "runs" / "canonical-idempotence" / "planning"
+            artifacts = list(planning.glob("canonical-plan-projection-v*.json"))
+
+        self.assertEqual(first_report, second_report)
+        self.assertEqual(first_source["canonical_artifact"], second_source["canonical_artifact"])
+        self.assertEqual(len(artifacts), 1)
+        self.assertEqual(first_source["kind"], "active-approved-report")
+
     def test_proposal_preserves_v1_and_requires_exact_revision_approval(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); self.plan(root)
@@ -278,6 +436,11 @@ class PlanningRevisionTests(unittest.TestCase):
 
         self.assertEqual(proposed["revision"], 2)
         self.assertEqual(shown["delta_summary"]["scope_removed"], ["src/api.py"])
+        removal = proposed["changes"][0]["removal"]
+        self.assertEqual(removal["field"], "likely_paths")
+        self.assertEqual(removal["before"], ["src/service.py", "src/api.py"])
+        self.assertEqual(removal["after"], ["src/service.py"])
+        self.assertEqual(removal["reason"], "User clarified this is internal-only service support.")
         self.assertEqual(original, original_after)
         self.assertEqual(state["active_revision"], 2)
         self.assertIsNone(state["pending_revision"])

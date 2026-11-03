@@ -7,6 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts import host_contract
+from scripts.intake_pipeline import IntakePipeline
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TASK_START = [sys.executable, str(ROOT / "scripts" / "task-start.py")]
@@ -17,6 +20,68 @@ TIMEOUT = 300
 
 def _run(args: list[str], root: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, cwd=root, text=True, capture_output=True, check=False, timeout=TIMEOUT)
+
+
+def _planning_readiness_receipt(
+    root: Path, goal: str, *, host_contract_fingerprint: str | None = None,
+) -> dict:
+    pipeline = IntakePipeline(root)
+    run = pipeline.create_run(goal, "existing-code-change")
+    values = {
+        "expected-behavior": "The widget returns the revised result.",
+        "existing-owner": "src/work.py",
+        "proof-command": "python3 -m unittest tests.test_work",
+    }
+    answers = {}
+    for field_id, value in values.items():
+        question = pipeline.issue_question(run["run_id"], field_id, f"Provide {field_id}")
+        answer = pipeline.record_answer(
+            run["run_id"], field_id, value, source="direct-question",
+            question_id=question["payload"]["question_id"],
+        )
+        answer_id = answer["payload"]["answer_id"]
+        pipeline.accept_answer(
+            run["run_id"], answer_id,
+            {"outcome": "accepted", "verified_by": "navigator"},
+        )
+        answers[field_id] = answer_id
+    snapshot = pipeline.replay(run["run_id"])
+    states = {row["answer_id"]: row for row in snapshot["answer_states"]}
+    target_identity = {"root": root.as_posix()}
+    if host_contract_fingerprint:
+        target_identity["host_contract_fingerprint"] = host_contract_fingerprint
+    return pipeline.mint_planning_readiness(
+        run["run_id"], accepted_answer_ids=list(answers.values()),
+        requirement_projections=[{
+            "requirement_uid": "req-ready", "consumer_component_id": "planning-lock",
+            "projection_kind": "requirement",
+        }],
+        operational_bindings={"requirements": [{
+            "requirement_uid": "req-ready", "statement": "Create the widget.",
+            "source_answer_ids": list(answers.values()), "profile_fields": list(values),
+            "semantic_delta": "validated", "dependencies_checked": True,
+            "path_bindings": [{
+                "path": "src/work.py", "role": "implementation-owner", "existing": True,
+                "new_file_verdict": "not-applicable", "source_answer_ids": [answers["existing-owner"]],
+            }],
+            "proof_bindings": [{
+                "path": "tests/test_work.py", "command": values["proof-command"], "tier": "unit",
+                "asserted_behavior": "The widget behavior is proven.",
+                "source_answer_id": answers["proof-command"],
+                "source_answer_ids": [answers["proof-command"]],
+                "evidence_fingerprint": states[answers["proof-command"]]["source_evidence_fingerprint"],
+            }],
+            "criteria": {
+                "positive": ["The widget works."], "negative": ["Nothing else changes."],
+                "source_answer_ids": [answers["expected-behavior"]],
+            },
+            "correction_premise": {
+                "status": "not-applicable", "source_answer_ids": [answers["expected-behavior"]],
+            },
+        }]},
+        expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"],
+        target_identity=target_identity,
+    )
 
 
 class PublicRouteGateTests(unittest.TestCase):
@@ -107,7 +172,7 @@ class PublicRouteGateTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
-    def test_accepted_contract_routes_and_records(self) -> None:
+    def test_implementation_contract_requires_and_accepts_matching_planning_readiness(self) -> None:
         temporary, root = self._repo({
             "src/work.py": "def run():\n    return 1\n",
             "tests/test_work.py": "def test_run():\n    assert True\n",
@@ -128,19 +193,185 @@ class PublicRouteGateTests(unittest.TestCase):
             }
             contract_path = root / "contract.json"
             contract_path.write_text(json.dumps(contract), encoding="utf-8")
+            goal = "Create the widget in src/work.py and prove it"
             result = self._start(
-                root, "Create the widget in src/work.py and prove it",
-                "gate-contract-ok", "--aidlc", "off",
+                root, goal, "gate-contract-raw", "--aidlc", "off",
                 "--changed", "src/work.py",
                 "--host-contract-file", contract_path.as_posix(),
+            )
+            self.assertEqual(result.returncode, 2, result.stderr)
+            raw_boundary = json.loads(result.stdout)
+            self.assertEqual(raw_boundary.get("status"), "planning-readiness-required")
+            self.assertFalse((root / ".tailtrail" / "runs" / "gate-contract-raw").exists())
+
+            validated_contract = host_contract.validate(contract, root=root, goal=goal)["validated"]
+            receipt = _planning_readiness_receipt(
+                root, goal, host_contract_fingerprint=validated_contract["fingerprint"],
+            )
+            receipt_path = root / "readiness.json"
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            result = self._start(
+                root, goal, "gate-contract-ok", "--aidlc", "off",
+                "--changed", "src/work.py",
+                "--host-contract-file", contract_path.as_posix(),
+                "--planning-readiness-receipt-file", receipt_path.as_posix(),
             )
             self.assertIn(result.returncode, (0, 2), result.stderr)
             payload = json.loads(result.stdout)
             recorded = payload.get("host_input_contract", {})
-            self.assertEqual(recorded.get("request_mode"), "implementation")
+            self.assertEqual(recorded.get("request_mode"), "implementation", payload)
             self.assertEqual(recorded.get("authority_source"), "host-contract")
+            self.assertEqual(
+                payload.get("planning_readiness", {}).get("receipt_id"), receipt["receipt_id"]
+            )
             navigator = payload.get("navigator", {})
             self.assertNotEqual(navigator.get("navigator_mode"), "evaluation_harness")
+            row = navigator.get("requirement_matrix", [])[0]
+            self.assertEqual(row.get("requirement_uid"), "req-ready")
+            self.assertIn("The widget works.", row.get("acceptance_criteria", []))
+            self.assertIn("Nothing else changes.", row.get("preserve_rules", []))
+            self.assertEqual(
+                row.get("validation_contract", {}).get("commands"),
+                ["python3 -m unittest tests.test_work"],
+            )
+            self.assertEqual(
+                row.get("scope_evidence", {}).get("proof_paths"), ["tests/test_work.py"]
+            )
+            self.assertEqual(
+                payload.get("planning_readiness", {}).get("reconciliation", {}).get("phase"),
+                "start-persistence",
+            )
+        finally:
+            temporary.cleanup()
+
+    def test_validation_only_contract_routes_before_owner_scope_selection(self) -> None:
+        """A non-write contract must not be blocked for lacking a source owner."""
+        temporary, root = self._repo({
+            "src/work.py": "def run():\n    return 1\n",
+            "tests/test_work.py": "import unittest\n\nclass T(unittest.TestCase):\n    def test_run(self):\n        self.assertTrue(True)\n",
+        })
+        try:
+            contract = {
+                "schema_version": "1", "type": "tailtrail-host-input-contract",
+                "run_id": "", "contract_id": "ctr-validation-only", "profile": "QA/validation-only",
+                "change_intent": "validation", "request_mode": "validation-only",
+                "behavior_surface": "cli-contract",
+                "paths": [
+                    {"path": "src/work.py", "role": "inspection-input"},
+                    {"path": "tests/test_work.py", "role": "existing-proof-path"},
+                ],
+                "criteria": {"positive": ["the route is represented"], "negative": ["source is not editable"]},
+                "proof": {"command": "python3 -m unittest tests.test_work", "tiers": ["unit"]},
+                "private_reasoning_excluded": True,
+            }
+            contract_path = root / "contract.json"
+            contract_path.write_text(json.dumps(contract), encoding="utf-8")
+            result = self._start(
+                root,
+                "Validate the Start Plan route without editing source.",
+                "gate-contract-validation-only",
+                "--aidlc", "off", "--host-contract-file", contract_path.as_posix(),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            navigator = payload.get("navigator", {})
+            quality = navigator.get("scope_quality", {})
+            self.assertEqual("passed", quality.get("status"))
+            self.assertEqual("validation-only", quality.get("mode"))
+            self.assertEqual([], navigator.get("scope_evidence", {}).get("implementation_owners", []))
+            self.assertEqual(["tests/test_work.py"], quality.get("proof_paths"))
+            self.assertEqual(
+                "validation-only",
+                navigator.get("host_scope_routing", {}).get("request_mode"),
+            )
+            audit = _run([
+                *AUDIT, "--root", root.as_posix(), "--run-id", "gate-contract-validation-only",
+            ], root)
+            self.assertEqual(audit.returncode, 0, audit.stdout + audit.stderr)
+            self.assertEqual("clean", json.loads(audit.stdout).get("status"))
+            revised = _run([
+                *REVISE, "propose", "--root", root.as_posix(),
+                "--run-id", "gate-contract-validation-only", "--approved-proposal",
+                "--changes", json.dumps([{
+                    "kind": "proof-update", "requirement_uid": "REQ-01",
+                    "reason": "Retain the accepted validation-only proof binding.",
+                    "evidence_plan": ["Run the accepted validation-only unit proof."],
+                    "commands": ["python3 -m unittest tests.test_work"], "tiers": ["unit"],
+                }]),
+            ], root)
+            self.assertEqual(revised.returncode, 0, revised.stdout + revised.stderr)
+            revision_artifact = root / ".tailtrail" / "runs" / "gate-contract-validation-only" / "planning" / "revisions" / "revision-v2.json"
+            revision_payload = json.loads(revision_artifact.read_text(encoding="utf-8"))
+            revised_navigator = revision_payload["proposed_report"]["navigator"]
+            self.assertEqual("validation-only", revised_navigator["scope_quality"]["mode"])
+            self.assertFalse(revised_navigator["scope_quality"]["blocking"])
+            self.assertEqual([], revised_navigator["requirement_matrix"][0]["scope_evidence"]["implementation_owners"])
+            markdown = _run([
+                *TASK_START,
+                "Validate the Start Plan route without editing source.",
+                "--root", root.as_posix(), "--format", "markdown",
+                "--planning-run-id", "gate-contract-validation-only-markdown",
+                "--aidlc", "off", "--host-contract-file", contract_path.as_posix(),
+            ], root)
+            self.assertEqual(markdown.returncode, 0, markdown.stdout + markdown.stderr)
+            self.assertIn("no implementation authority", markdown.stdout)
+            self.assertIn("Not applicable: this is a `validation-only` plan", markdown.stdout)
+        finally:
+            temporary.cleanup()
+
+    def test_stale_planning_readiness_fails_before_planning_lock_with_actionable_guidance(self) -> None:
+        temporary, root = self._repo({
+            "src/work.py": "def run():\n    return 1\n",
+            "tests/test_work.py": "# proof\n",
+        })
+        try:
+            goal = "Create the widget in src/work.py and prove it"
+            receipt = _planning_readiness_receipt(root, goal)
+            receipt_path = root / "readiness.json"
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            (root / "src" / "work.py").write_text("def run():\n    return 2\n", encoding="utf-8")
+            result = self._start(
+                root, goal, "gate-readiness-stale", "--aidlc", "off",
+                "--planning-readiness-receipt-file", receipt_path.as_posix(),
+            )
+            self.assertEqual(result.returncode, 2, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual(payload.get("status"), "planning-readiness-required")
+            self.assertIn("target changed", payload.get("reason", ""))
+            self.assertIn("mint a planning-readiness receipt", payload.get("next_action", ""))
+            self.assertFalse((root / ".tailtrail" / "runs" / "gate-readiness-stale").exists())
+        finally:
+            temporary.cleanup()
+
+    def test_read_only_contract_uses_inspection_route_without_owner_scope(self) -> None:
+        temporary, root = self._repo({"src/work.py": "def run():\n    return 1\n"})
+        try:
+            contract = {
+                "schema_version": "1", "type": "tailtrail-host-input-contract",
+                "run_id": "", "contract_id": "ctr-read-only", "profile": "review/read-only",
+                "change_intent": "validation", "request_mode": "read-only",
+                "behavior_surface": "cli-contract",
+                "paths": [{"path": "src/work.py", "role": "inspection-input"}],
+                "criteria": {"positive": ["the route is inspected"], "negative": ["source is not editable"]},
+                "proof": {"command": "python3 -m unittest", "tiers": ["unit"]},
+                "private_reasoning_excluded": True,
+            }
+            contract_path = root / "contract.json"
+            contract_path.write_text(json.dumps(contract), encoding="utf-8")
+            result = self._start(
+                root,
+                "Inspect the Start Plan route without editing source.",
+                "gate-contract-read-only",
+                "--aidlc", "off", "--host-contract-file", contract_path.as_posix(),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(result.stdout)
+            navigator = payload.get("navigator", {})
+            quality = navigator.get("scope_quality", {})
+            self.assertEqual("passed", quality.get("status"))
+            self.assertEqual("read-only", quality.get("mode"))
+            self.assertEqual(["src/work.py"], quality.get("inspection_paths"))
+            self.assertEqual([], navigator.get("scope_evidence", {}).get("implementation_owners", []))
         finally:
             temporary.cleanup()
 

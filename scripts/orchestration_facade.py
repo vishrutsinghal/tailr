@@ -174,9 +174,10 @@ def render(value: dict[str, Any], *, mode: str | None = None, verbose: bool = Fa
 
 
 def main() -> int:
-    # argparse.REMAINDER on start_p below cannot forward -h/--help through to
-    # task-start.py's real parser, so hand off before the outer parser sees it.
-    if len(sys.argv) > 1 and sys.argv[1] == "start" and any(flag in sys.argv[2:] for flag in ("-h", "--help")):
+    # Start owns a rich option-style CLI.  Let task-start parse every Start
+    # invocation before this façade's subparser sees it: argparse.REMAINDER
+    # does not preserve a leading --root/--host option as a positional tail.
+    if len(sys.argv) > 1 and sys.argv[1] == "start":
         return start(sys.argv[2:])
     parser = argparse.ArgumentParser(description=__doc__); sub = parser.add_subparsers(dest="verb", required=True)
     start_p = sub.add_parser("start"); start_p.add_argument("args", nargs=argparse.REMAINDER)

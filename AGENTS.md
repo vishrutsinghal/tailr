@@ -51,4 +51,4 @@ TailTrail keeps coding work small, clear, and reuse-first.
 <!-- tailtrail-governance:end -->
 
 ---
-_TailTrail instructions revision: `e04dc83de9b2` — quote this line if asked whether instructions are current._
+_TailTrail instructions revision: `9c6b32a7820d` — quote this line if asked whether instructions are current._

@@ -24,6 +24,7 @@ def load(name: str, relative: str):
 
 LOCK = load("dwr3_lock_test", "scripts/planning_lock.py")
 from workflow_runtime import evidence
+from tests.planning_proof_fixture import register_proof
 
 
 class WorkflowEvidenceTests(unittest.TestCase):
@@ -34,6 +35,7 @@ class WorkflowEvidenceTests(unittest.TestCase):
         command = [sys.executable, (ROOT / "scripts" / "task-start.py").as_posix(), "fix a bounded validation rule", "--root", root.as_posix(), "--changed", "src/validation.py", "--planning-run-id", run_id, "--format", "json"]
         started = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
         self.assertEqual(started.returncode, 0, started.stdout + started.stderr)
+        register_proof(root, run_id)
         activated = LOCK.activate(root, run_id, True)
         return activated["workflow_runtime"]["workflow_id"], activated["workflow_runtime"]["state"]
 

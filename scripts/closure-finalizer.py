@@ -102,6 +102,38 @@ def latest_record(root: Path, run_id: str) -> dict[str, Any]:
     return max(candidates, key=lambda row: row[:3])[3]
 
 
+def stale_managed_evidence_recovery_error(root: Path, run_id: str) -> ValueError | None:
+    """Return public recovery guidance when every managed receipt is stale.
+
+    Evidence remains append-only: this projects its rejection history without
+    selecting a stale receipt or converting the condition into a success.
+    """
+    projection = RECORDER.validation_evidence_projection(root, run_id)
+    rejected = projection.get("rejected_attempts", [])
+    if not isinstance(rejected, list) or not rejected:
+        return None
+    if any(not isinstance(item, dict) or item.get("reason") != "source-changed-after-proof" for item in rejected):
+        return None
+    event_ids = {str(item.get("event_id", "")) for item in rejected if str(item.get("event_id", ""))}
+    commands = sorted({
+        str(event.get("command", "")).strip()
+        for index, event in enumerate(RECORDER.EVIDENCE.show(root, run_id).get("events", []), start=1)
+        if isinstance(event, dict)
+        and RECORDER.event_identity(event, index).get("event_id") in event_ids
+        and str(event.get("command", "")).strip()
+    })
+    evidence_ids = ", ".join(sorted(event_ids)) or "saved managed receipt(s)"
+    command_text = "; ".join(f"`{command}`" for command in commands) or "the approved managed command"
+    return ValueError(
+        "stale managed evidence blocks closure finalization: "
+        f"{evidence_ids} were rejected as source-changed-after-proof. "
+        "Recovery order: 1. record source-edit evidence; "
+        f"2. Rerun the approved managed command: {command_text}; "
+        f"3. `tailtrail closure record --root . --run-id {run_id}`; "
+        f"4. `tailtrail closure finalize --root . --run-id {run_id}`."
+    )
+
+
 def ensure_delivery_record(root: Path, run_id: str) -> str:
     """Generate and verify the canonical human-readable closure projection."""
     resolved_root = root.resolve()
@@ -246,6 +278,9 @@ def finalize(root: Path, run_id: str, input_path: Path | None = None, scenarios_
         if collected.get("receipts"):
             closure = RECORDER.record(root, run_id=run_id)
         else:
+            stale_error = stale_managed_evidence_recovery_error(root, run_id)
+            if stale_error is not None:
+                raise stale_error
             try:
                 closure = latest_record(root, run_id)
             except ValueError:

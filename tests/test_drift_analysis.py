@@ -60,6 +60,12 @@ def _write_managed_evidence(root: Path, run_id: str, event: dict) -> None:
     path.write_text(json.dumps(event) + "\n", encoding="utf-8")
 
 
+def _append_managed_evidence(root: Path, run_id: str, event: dict) -> None:
+    path = root / ".tailtrail" / "runs" / run_id / "execution" / "evidence-stream.jsonl"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event) + "\n")
+
+
 class TestDriftAnalysis(unittest.TestCase):
     def setUp(self):
         self.root = Path("temp_drift_test_root").absolute()
@@ -289,6 +295,83 @@ class TestDriftAnalysis(unittest.TestCase):
         self.assertIn("fulfillment-unverified", {
             finding["classification"] for finding in result["findings"]
         })
+
+    def test_later_managed_pass_supersedes_same_binding_failure(self):
+        """A retry changes the current result only for its own binding."""
+        requirements = [_requirement("req-1", "REQ-01", ["src/auth.py"])]
+        _write_anchor(self.root, self.run_id, requirements)
+        execution = drift_analysis._load_execution_evidence()
+        fingerprint = drift_analysis._current_plan_fingerprint(
+            self.root, self.run_id, requirements, execution,
+        )
+        failed = {
+            **_passing_evidence(["req-1"]),
+            "run_id": self.run_id,
+            "kind": "command-result",
+            "command": "python3 -m unittest tests.test_auth -q",
+            "outcome": "fail",
+            "plan_fingerprint": fingerprint,
+        }
+        passed = {**failed, "outcome": "pass"}
+        _write_managed_evidence(self.root, self.run_id, failed)
+        _append_managed_evidence(self.root, self.run_id, passed)
+
+        result = analyze(self.root, self.run_id, {"change_manifest": ["src/auth.py"]})
+
+        self.assertFalse(result["drift_detected"], result["findings"])
+
+    def test_later_managed_failure_supersedes_same_binding_pass(self):
+        """A later failing retry invalidates an earlier pass for that binding."""
+        requirements = [_requirement("req-1", "REQ-01", ["src/auth.py"])]
+        _write_anchor(self.root, self.run_id, requirements)
+        execution = drift_analysis._load_execution_evidence()
+        fingerprint = drift_analysis._current_plan_fingerprint(
+            self.root, self.run_id, requirements, execution,
+        )
+        passed = {
+            **_passing_evidence(["req-1"]),
+            "run_id": self.run_id,
+            "kind": "command-result",
+            "command": "python3 -m unittest tests.test_auth -q",
+            "plan_fingerprint": fingerprint,
+        }
+        failed = {**passed, "outcome": "fail"}
+        _write_managed_evidence(self.root, self.run_id, passed)
+        _append_managed_evidence(self.root, self.run_id, failed)
+
+        result = analyze(self.root, self.run_id, {"change_manifest": ["src/auth.py"]})
+
+        self.assertTrue(result["drift_detected"])
+        self.assertIn("fulfillment-unverified", {
+            finding["classification"] for finding in result["findings"]
+        })
+
+    def test_different_command_does_not_replace_another_binding(self):
+        """A passing command cannot conceal a failure from a different command."""
+        requirements = [_requirement("req-1", "REQ-01", ["src/auth.py"])]
+        _write_anchor(self.root, self.run_id, requirements)
+        execution = drift_analysis._load_execution_evidence()
+        fingerprint = drift_analysis._current_plan_fingerprint(
+            self.root, self.run_id, requirements, execution,
+        )
+        passed = {
+            **_passing_evidence(["req-1"]),
+            "run_id": self.run_id,
+            "kind": "command-result",
+            "command": "python3 -m unittest tests.test_auth -q",
+            "plan_fingerprint": fingerprint,
+        }
+        failed = {
+            **passed,
+            "command": "python3 -m unittest tests.test_auth_contract -q",
+            "outcome": "fail",
+        }
+        _write_managed_evidence(self.root, self.run_id, passed)
+        _append_managed_evidence(self.root, self.run_id, failed)
+
+        result = analyze(self.root, self.run_id, {"change_manifest": ["src/auth.py"]})
+
+        self.assertTrue(result["drift_detected"])
 
     def test_anchor_not_concrete_fails_closed(self):
         """A vague anchor cannot be drift-checked; it fails closed (§10.3)."""

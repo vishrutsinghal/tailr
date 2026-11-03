@@ -458,6 +458,11 @@ def closure_recovery_guidance(
     if not managed_proof_passing:
         return {"managed_proof_passing": False, "missing": []}
 
+    try:
+        request_mode = POLICY.request_mode(root, run_id)
+    except (OSError, ValueError):
+        request_mode = None
+    no_edit_mode = request_mode in POLICY.NO_EDIT_MODES
     source_edits = [item for item in events if item.get("kind") == "source-edit"]
     direct_identities = {
         (
@@ -483,7 +488,15 @@ def closure_recovery_guidance(
         if read(path).get("type") == "tailtrail-closure-record"
     ]
     missing: list[dict[str, str]] = []
-    if not source_edits:
+    if no_edit_mode:
+        policy = POLICY.evaluate(root, run_id, [])
+        for item in policy.get("missing", []):
+            artifact = str(item.get("artifact", "validation-delivery"))
+            missing.append({
+                "artifact": f"{artifact} receipt",
+                "action": str(policy.get("recovery", "record the required validation-delivery receipt")),
+            })
+    elif not source_edits:
         requirement_uids = sorted({
             str(uid) for item in proof_events for uid in item.get("requirement_uids", []) if str(uid)
         })

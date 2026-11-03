@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from tests.planning_proof_fixture import register_proof, write_proof_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -109,8 +110,10 @@ class ArchitecturePlanningTests(unittest.TestCase):
             for relative in ("src/payments.py", "src/service.py"):
                 path = root / relative; path.parent.mkdir(parents=True, exist_ok=True); path.write_text("", encoding="utf-8")
             report = task_start.build_report(GOAL, root, ["src/payments.py", "src/service.py"], "tailtrail")
+            write_proof_file(root)
             report["planning_lock"] = task_start.planning_lock.create(root, GOAL, "architecture-handoff")
             task_start.planning_lock.save_start_report(root, "architecture-handoff", report)
+            register_proof(root, "architecture-handoff")
             activated = task_start.planning_lock.activate(root, "architecture-handoff", True)
             handoff = activated["execution_handoff"]
             approved = json.loads((root / handoff["anchor"]).read_text(encoding="utf-8"))
