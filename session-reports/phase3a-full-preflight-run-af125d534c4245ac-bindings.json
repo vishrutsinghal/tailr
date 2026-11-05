@@ -1,0 +1,138 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE3A-FULL-PREFLIGHT",
+        "statement": "Add a Phase 3A bridge API that resolves and atomically projects the bundled official pack for explicit Full mode, returns one consistent ready identity or typed Full-unavailable guidance, and never produces Lite.",
+        "requirement_kind": "change",
+        "requirement_kind_source_answer_ids": ["answer-abe4311160294950"],
+        "source_answer_ids": [
+          "answer-abe4311160294950",
+          "answer-e1c13fb8910d4cd2",
+          "answer-aa4fc882e66948b2",
+          "answer-268ad411fcb8421b",
+          "answer-639217c19b98488f",
+          "answer-a13fabe4d2ce448c",
+          "answer-2155044359094cf0",
+          "answer-2ee6e46d833744d1",
+          "answer-da4553c61b9d4d00",
+          "answer-a07a9e1dc3314bc5"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "proof-adequacy-008"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/aidlc-official-bridge.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "host_declared": true,
+            "new_file_verdict": "not-applicable",
+            "ownership_evidence": "This bridge owns official-mode preflight classification and is the correct boundary for composing the existing resolver and atomic projector before later public-route wiring.",
+            "source_answer_ids": ["answer-e1c13fb8910d4cd2"]
+          },
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-268ad411fcb8421b"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-639217c19b98488f"]
+          },
+          {
+            "path": "scripts/task-start.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-a13fabe4d2ce448c"]
+          },
+          {
+            "path": "scripts/planning_lock.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-2155044359094cf0"]
+          },
+          {
+            "path": "scripts/official-aidlc-requirements.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-2ee6e46d833744d1"]
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-da4553c61b9d4d00"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_without_a_compatible_pack -k bundled_full_preflight -v",
+            "tier": "unit",
+            "asserted_behavior": "Bridge-side classification of ready and blocked resolver/projector results is deterministic, preserves Full mode, and retains typed issue categories.",
+            "source_answer_id": "answer-aa4fc882e66948b2"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_without_a_compatible_pack -k bundled_full_preflight -v",
+            "tier": "contract",
+            "asserted_behavior": "The bridge passes one sealed Full resolution receipt into the existing atomic projector and returns matching source-resolution and project-projection identities without granting Planning Lock authority.",
+            "source_answer_id": "answer-aa4fc882e66948b2"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_without_a_compatible_pack -k bundled_full_preflight -v",
+            "tier": "behaviour",
+            "asserted_behavior": "Explicit bundled Full preflight becomes Full-ready offline or stops as Full-unavailable with actionable issues, never Lite, while the existing legacy preflight path remains unchanged for the later public migration.",
+            "source_answer_id": "answer-a07a9e1dc3314bc5"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "The bridge composes the existing explicit-Full bundle resolver and atomic projector without adding another source of pack discovery or projection logic.",
+            "Ready output retains requested_mode full, effective_mode full, network_used false, and an exact resolution-to-projection fingerprint chain.",
+            "Resolver or projection blockers return effective_mode unavailable, categorical issues, and actionable recovery guidance without a Lite result.",
+            "Only managed content-addressed project-pack state may be written by the existing projector; no Planning Lock or project source is created by this API.",
+            "The targeted command covers the existing legacy preservation case and all new bundled_full_preflight cases without selecting unrelated Full lifecycle tests."
+          ],
+          "negative": [
+            "No public task-start, Planning Lock, Requirements-stage, MCP, host-projection, packaging, schema, registry, CLI, or documentation wiring is changed in Phase 3A.",
+            "The bridge does not download or execute pack content, rewrite receipts, accept unsupported hosts, convert blocked Full state to Lite, or claim readiness after blocked projection.",
+            "Existing Standard and legacy explicit-manifest preflight behavior remain unchanged until separately approved public-route migration.",
+            "No path other than scripts/aidlc-official-bridge.py and the approved editable proof file may be modified."
+          ],
+          "source_answer_ids": [
+            "answer-abe4311160294950",
+            "answer-639217c19b98488f",
+            "answer-a07a9e1dc3314bc5"
+          ]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-abe4311160294950"]
+        }
+      }
+    ]
+  }
+}

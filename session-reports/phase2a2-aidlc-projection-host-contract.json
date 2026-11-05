@@ -1,0 +1,68 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase2a2-projection-20261104",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {
+      "path": "tailtrail/aidlc_bundle.py",
+      "role": "existing-implementation-owner"
+    },
+    {
+      "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tailtrail/install/files.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tailtrail/install/engine.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/run-ledger.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "package-manifest.json",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_bundle_resolver.py",
+      "role": "existing-proof-path"
+    }
+  ],
+  "criteria": {
+    "positive": [
+      "A ready Phase 2A.1 resolution receipt can be projected into a content-addressed immutable pack under .tailtrail/official-aidlc/packs without changing the verified source bundle.",
+      "Provisioning uses one bounded cross-platform OS lock at .tailtrail/official-aidlc/locks/provision.lock, rechecks destination state after acquisition, stages on the destination filesystem, validates every copied byte, and atomically renames only into an absent destination.",
+      "A closed versioned projection receipt separately binds the source resolution fingerprint, source and project inventories, immutable pack identity, trust posture, creation result, and project projection fingerprint.",
+      "A closed versioned current.json selector is atomically created for future runs only and binds the exact immutable pack and projection receipt fingerprints.",
+      "Repeated provisioning of the same valid bundle returns reused without rewriting pack files, changing their modification times, appending duplicate projection events, or replacing an identical selector.",
+      "Concurrent provisioning produces one created result and one reused result without exposing a partial pack.",
+      "An explicit bounded recovery operation can remove only a named stale staging directory created under the managed packs root; ordinary provisioning reports pre-existing staging state and does not silently clean it.",
+      "Focused proof covers successful creation, idempotent reuse, selector stability, lock timeout and release, concurrent calls, interrupted staging recovery, deep target roots, and negative destination states."
+    ],
+    "negative": [
+      "Provisioning never contacts the network, executes bundle content, mutates the source bundle, follows symlinks, writes outside the target .tailtrail directory, or weakens the Phase 2A.1 trust posture.",
+      "A missing, altered, incomplete, incompatible, unsafe, or occupied content-addressed destination blocks without overwrite, deletion, selector replacement, or automatic repair.",
+      "An existing selector for a different pack blocks until a separately approved migration; Phase 2A.2 never retargets an active run or treats current.json as an active-run binding.",
+      "Unknown filesystem errors fail immediately; retries are bounded and limited to explicitly recognized transient rename contention.",
+      "This slice does not edit generic installer helpers, public detector or installer scripts, Requirements lookup, Full Start routing, Planning Lock attachment, MCP routing, host adapters, schemas, package registration, or documentation."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+    "tiers": [
+      "unit",
+      "contract",
+      "behaviour"
+    ]
+  },
+  "private_reasoning_excluded": true
+}

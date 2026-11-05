@@ -76,17 +76,18 @@ def start_command(root: Path, *args: str) -> list[str]:
 
 
 class HandsFreeAutoFullTests(unittest.TestCase):
-    def test_hands_free_without_pack_falls_back_transparent(self):
+    def test_hands_free_without_project_pack_uses_bundled_full(self):
         with tempfile.TemporaryDirectory() as temp:
             selected = task_start.aidlc_mode_selection(
                 "hands-free: add an API", None, Path(temp),
                 {"risk_indicators": [], "requirement_sufficiency": {}},
                 None,
             )
-        self.assertEqual(selected["mode"], "lite")
-        self.assertEqual(selected["selection"], "hands-free-default")
+        self.assertEqual(selected["mode"], "full")
+        self.assertEqual(selected["effective_mode"], "full")
+        self.assertEqual(selected["selection"], "hands-free-full")
         self.assertEqual(
-            selected["full_escalation"]["state"], "eligible-awaiting-compatible-pack")
+            selected["full_escalation"]["state"], "selected")
 
     def test_hands_free_with_interpretation_proceeds(self):
         goal = "End-to-end hands-free delivery of the notification feature"

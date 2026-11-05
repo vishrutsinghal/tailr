@@ -44,6 +44,25 @@ def _requirement(
     return row
 
 
+def _writable_output(
+    path: str,
+    *,
+    role: str = "generated-output",
+    write_eligible: bool = True,
+    requests_write_authority: bool = True,
+) -> dict:
+    return {
+        "path": path,
+        "role": role,
+        "role_class": "writable-output",
+        "requests_write_authority": requests_write_authority,
+        "new_file_due_diligence": {
+            "verdict": "new-confirmed",
+            "write_eligible": write_eligible,
+        },
+    }
+
+
 def _passing_evidence(uids: list[str], tier: str = "unit") -> dict:
     """Authoritative, passing, tier-complete evidence linked to requirements."""
     return {
@@ -116,6 +135,114 @@ class TestDriftAnalysis(unittest.TestCase):
         self.assertEqual(
             result["scope_assessment"]["unexpected_paths"],
             ["infra/terraform/main.tf"],
+        )
+
+    def test_approved_generated_output_is_editable_scope(self):
+        """An evidence-backed generated output is a legitimate approved edit."""
+        requirement = _requirement("req-1", "REQ-01", ["scripts/generate.py"])
+        requirement["writable_outputs"] = [
+            _writable_output("generated/provenance.json")
+        ]
+        _write_anchor(self.root, self.run_id, [requirement])
+        evidence = {
+            "change_manifest": ["scripts/generate.py", "generated/provenance.json"],
+            "evidence": [_passing_evidence(["req-1"])],
+        }
+
+        result = analyze(self.root, self.run_id, evidence)
+
+        self.assertFalse(result["drift_detected"], result["findings"])
+        self.assertIn(
+            "generated/provenance.json",
+            result["scope_assessment"]["approved_editable_paths"],
+        )
+
+    def test_scope_evidence_writable_output_repairs_legacy_anchor_projection(self):
+        """Existing anchors retain approved output authority inside scope evidence."""
+        requirement = _requirement("req-1", "REQ-01", ["schemas/receipt.schema.json"])
+        requirement["writable_outputs"] = []
+        requirement["scope_evidence"] = {
+            "writable_outputs": [
+                _writable_output("tailtrail-registry.json", role="configuration-output")
+            ]
+        }
+        _write_anchor(self.root, self.run_id, [requirement])
+        evidence = {
+            "change_manifest": ["schemas/receipt.schema.json", "tailtrail-registry.json"],
+            "evidence": [_passing_evidence(["req-1"])],
+        }
+
+        result = analyze(self.root, self.run_id, evidence)
+
+        self.assertFalse(result["drift_detected"], result["findings"])
+        self.assertIn(
+            "tailtrail-registry.json",
+            result["scope_assessment"]["approved_editable_paths"],
+        )
+
+    def test_approved_configuration_directory_covers_descendants_only(self):
+        """A writable directory covers children but not same-prefix siblings."""
+        requirement = _requirement("req-1", "REQ-01", ["scripts/generate.py"])
+        requirement["writable_outputs"] = [
+            _writable_output("config/generated", role="configuration-output")
+        ]
+        _write_anchor(self.root, self.run_id, [requirement])
+
+        accepted = analyze(
+            self.root,
+            self.run_id,
+            {
+                "change_manifest": ["scripts/generate.py", "config/generated/nested/value.json"],
+                "evidence": [_passing_evidence(["req-1"])],
+            },
+        )
+        rejected = analyze(
+            self.root,
+            self.run_id,
+            {
+                "change_manifest": ["scripts/generate.py", "config/generated-sibling/value.json"],
+                "evidence": [_passing_evidence(["req-1"])],
+            },
+        )
+
+        self.assertFalse(accepted["drift_detected"], accepted["findings"])
+        self.assertEqual(
+            rejected["scope_assessment"]["unexpected_paths"],
+            ["config/generated-sibling/value.json"],
+        )
+
+    def test_unapproved_or_ineligible_output_role_remains_read_only(self):
+        """Role labels alone cannot manufacture output-write authority."""
+        requirement = _requirement("req-1", "REQ-01", ["scripts/generate.py"])
+        requirement["writable_outputs"] = [
+            _writable_output("generated/ineligible.json", write_eligible=False),
+            _writable_output("proof/result.json", role="proof-only"),
+            _writable_output("generated/no-authority.json", requests_write_authority=False),
+        ]
+        _write_anchor(self.root, self.run_id, [requirement])
+
+        result = analyze(
+            self.root,
+            self.run_id,
+            {
+                "change_manifest": [
+                    "scripts/generate.py",
+                    "generated/ineligible.json",
+                    "proof/result.json",
+                    "generated/no-authority.json",
+                ],
+                "evidence": [_passing_evidence(["req-1"])],
+            },
+        )
+
+        self.assertTrue(result["drift_detected"])
+        self.assertEqual(
+            result["scope_assessment"]["unexpected_paths"],
+            [
+                "generated/ineligible.json",
+                "generated/no-authority.json",
+                "proof/result.json",
+            ],
         )
 
     def test_requirement_unimplemented_when_untouched(self):

@@ -1,0 +1,78 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase2b-binding-20261105",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {
+      "path": "tailtrail/aidlc_bundle.py",
+      "role": "existing-implementation-owner"
+    },
+    {
+      "path": "scripts/official-aidlc-requirements.py",
+      "role": "existing-implementation-owner"
+    },
+    {
+      "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/aidlc-official-bridge.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/aidlc-official-detect.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/planning_lock.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/official-aidlc-state.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "schemas/official-aidlc-pack.schema.json",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_bundle_resolver.py",
+      "role": "existing-proof-path"
+    },
+    {
+      "path": "tests/test_aidlc_official_bridge.py",
+      "role": "inspection-input"
+    }
+  ],
+  "criteria": {
+    "positive": [
+      "A verified Phase 2A.2 project projection can mint one sealed active-run binding that records the exact immutable pack path, pack fingerprint, projection fingerprint, source-resolution fingerprint, run identity, trust posture, and compatibility mode.",
+      "Resolving an active run validates the frozen binding and the complete bound pack inventory without consulting or being retargeted by current.json.",
+      "Changing current.json affects future selection only; an already-bound run continues to resolve the original valid content-addressed pack.",
+      "The official Requirements adapter resolves every governing rule from the validated frozen active-run pack and rejects relative rediscovery, current-working-directory lookup, and current.json lookup.",
+      "Bounded legacy schema-v1 continuation is read-only and explicitly classified; it cannot mint a new Full run binding or be silently promoted to schema v2.",
+      "Read-only status reports package, projection, selector, frozen-run, trust, compatibility, and provisioning-needed state without changing files, while explicit provision service behavior reuses the Phase 2A.2 transaction.",
+      "Focused proof covers immutable binding, selector changes after binding, altered or missing bound packs, incompatible fingerprints, safe legacy continuation, Requirements lookup through the frozen pack, read-only status, and explicit offline provision behavior."
+    ],
+    "negative": [
+      "Phase 2B never contacts the network, executes pack content, mutates bundle bytes, rewrites an active-run binding, follows symlinks, trusts current.json for an active run, or silently upgrades legacy state.",
+      "Missing, altered, stale, incompatible, conflicting, or unsafe bound state fails closed with a categorical issue and leaves source, projection, selector, and run state unchanged.",
+      "A legacy schema-v1 pack can support only an already-authorized bounded continuation and can never authorize a new Full run.",
+      "This slice does not implement Full Start or Planning Lock wiring, MCP routing, host projection, new schemas, package registration, CLI dispatcher commands, or documentation."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+    "tiers": [
+      "unit",
+      "contract",
+      "behaviour"
+    ]
+  },
+  "private_reasoning_excluded": true
+}

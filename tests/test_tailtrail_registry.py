@@ -42,6 +42,67 @@ class TailTrailRegistryTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_official_aidlc_host_projection_receipt_contract_is_registered(self) -> None:
+        registry = self.load_registry()
+        feature = next(
+            item for item in registry["features"]
+            if item["id"] == "official-aidlc-compatibility"
+        )
+        schema_path = "schemas/official-aidlc-host-projection-receipt.schema.json"
+        schema = json.loads((ROOT / schema_path).read_text(encoding="utf-8"))
+
+        self.assertIn(schema_path, feature["docs"])
+        self.assertEqual(schema["$schema"], "https://json-schema.org/draft/2020-12/schema")
+        self.assertEqual(
+            schema["properties"]["type"]["const"],
+            "tailtrail-official-aidlc-host-projection-receipt",
+        )
+        self.assertEqual(
+            set(schema["required"]),
+            {
+                "schema_version",
+                "type",
+                "receipt_id",
+                "created_at",
+                "run_id",
+                "host",
+                "projection_mode",
+                "origin",
+                "official_identity",
+                "trust_posture",
+                "projection_root",
+                "mappings",
+                "instruction_block",
+                "reload_posture",
+                "qualification",
+                "receipt_fingerprint",
+                "boundary",
+            },
+        )
+        self.assertEqual(
+            set(schema["properties"]["host"]["properties"]["identity"]["enum"]),
+            {"codex", "copilot", "claude"},
+        )
+        self.assertEqual(
+            set(schema["properties"]["projection_mode"]["enum"]),
+            {"copy", "reference"},
+        )
+        self.assertEqual(
+            set(schema["properties"]["origin"]["required"]),
+            {
+                "run_resolution_fingerprint",
+                "project_projection_fingerprint",
+                "project_pack_fingerprint",
+                "bundle_manifest_fingerprint",
+            },
+        )
+        self.assertEqual(
+            set(schema["properties"]["mappings"]["items"]["required"]),
+            {"source_path", "destination_path", "source_sha256", "destination_sha256"},
+        )
+        self.assertTrue(schema["properties"]["mappings"]["uniqueItems"])
+        self.assertFalse(schema["additionalProperties"])
+
     def test_navigator_registers_canonical_scope_ownership(self) -> None:
         registry = self.load_registry()
         feature = next(item for item in registry["features"] if item["id"] == "navigator")

@@ -1,0 +1,33 @@
+{
+  "plan_id": "phase4-host-projections-20261105",
+  "outcome": "Complete Phase 4 Host Projections as one coordinated product outcome: define the immutable host-projection receipt contract first, then implement one safe three-host projection engine so Codex, Copilot, and Claude consume the same frozen bundled-v2 identity through fixed copy or reference modes with atomic projection, complete read-only conformance, idempotence, and no network or mutable rediscovery.",
+  "children": [
+    {
+      "run_id": "start-20261105133305-08d3b7",
+      "owner": "schemas/official-aidlc-host-projection-receipt.schema.json",
+      "requirements": ["REQ-PHASE4-RECEIPT-CONTRACT"],
+      "depends_on": []
+    },
+    {
+      "run_id": "start-20261105133433-a80947",
+      "owner": "scripts/aidlc-official-host.py",
+      "requirements": ["REQ-PHASE4-HOST-ENGINE"],
+      "depends_on": ["start-20261105133305-08d3b7"]
+    }
+  ],
+  "shared_proof": [
+    {
+      "command": "python3 -m unittest tests.test_aidlc_official_host tests.test_tailtrail_registry -v",
+      "tiers": ["unit", "contract", "behaviour"],
+      "asserted_behavior": "The registered receipt contract and the three-host engine jointly prove one frozen official identity, fixed Codex copy and Copilot and Claude reference modes, atomic and idempotent projection, complete read-only conformance, fail-closed negative states, and no network, substitution, mutable rediscovery, or Full-to-Lite fallback."
+    }
+  ],
+  "success_criteria": [
+    "The host-projection receipt schema is registered and available before the engine emits or validates a receipt.",
+    "Codex, Copilot, and Claude conformance results agree on the exact official, project-pack, and run-resolution identity.",
+    "Codex copy mode validates a closed destination inventory and Copilot and Claude reference modes validate bounded managed instruction blocks and immutable receipts.",
+    "Read-only status detects every missing, additional, altered, symlinked, non-regular, unsafe, stale, incompatible, legacy, and conflicting state without mutation.",
+    "Identical retries are idempotent and no host downloads, substitutes, rediscovers mutable selector state, or silently changes Full mode.",
+    "Phase 5 distribution, public Start and MCP qualification, packaging matrix, and release documentation remain outside this approval."
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase3b-bridge-identity-20261105",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {"path": "scripts/aidlc-official-bridge.py", "role": "existing-implementation-owner"},
+    {"path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "role": "inspection-input"},
+    {"path": "tailtrail/aidlc_bundle.py", "role": "inspection-input"},
+    {"path": "scripts/task-start.py", "role": "inspection-input"},
+    {"path": "scripts/planning_lock.py", "role": "inspection-input"},
+    {"path": "scripts/official-aidlc-requirements.py", "role": "inspection-input"},
+    {"path": "tests/test_aidlc_bundle_resolver.py", "role": "inspection-input"},
+    {"path": "tests/test_aidlc_official_bridge.py", "role": "existing-proof-path"}
+  ],
+  "criteria": {
+    "positive": [
+      "The bridge exposes a Phase 3B persistence API that accepts only a ready Phase 3A bundled Full preflight result and records one immutable run-local bridge identity without re-resolving or re-projecting the pack.",
+      "The saved bridge identity retains requested and effective Full mode, network_used false, the sealed resolution receipt fingerprint, source-resolution fingerprint, project projection fingerprint, pack fingerprint, pack path, trust posture, and official source/revision/commit identity supplied by the ready preflight chain.",
+      "Unavailable, malformed, unsealed, network-using, Lite, or resolution/projection-mismatched preflight input is rejected before any bridge artifact or authority is created.",
+      "Repeated persistence of the same identity is idempotent; a different identity for the same run fails closed instead of overwriting append-only history.",
+      "Existing Standard and legacy explicit-manifest create behavior remains unchanged and the exact targeted proof selects its existing preservation test plus the new bundled_full_bridge_identity tests."
+    ],
+    "negative": [
+      "Phase 3B does not wire task-start, Planning Lock, Requirements-stage lookup, MCP, host projection, packaging, schemas, registry, CLI dispatch, or documentation; those remain later Phase 3 slices.",
+      "The persistence API never invokes network access, resolver discovery, project provisioning, pack code, or Planning Lock activation and never converts blocked Full input to Lite.",
+      "The bundle resolver/projector, task-start, Planning Lock, Requirements adapter, MCP server, host adapters, schemas, manifests, registry, commands, and documentation are inspection-only or excluded from edits.",
+      "No existing bridge identity is mutated or silently replaced, and no state outside the run-local managed bridge artifact and ledger event is written.",
+      "No proof command broader than the two named unittest filters is authorized in this slice."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_bridge_maps_official_identity -k bundled_full_bridge_identity -v",
+    "tiers": ["unit", "contract", "behaviour"]
+  },
+  "private_reasoning_excluded": true
+}

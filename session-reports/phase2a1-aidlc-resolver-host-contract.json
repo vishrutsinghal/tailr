@@ -1,0 +1,88 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase2a1-resolver-20261104",
+  "profile": "new feature",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {
+      "path": "tailtrail/aidlc_bundle.py",
+      "role": "proposed-implementation-owner",
+      "new_file_evidence": {
+        "collision_claim": "No package module named tailtrail/aidlc_bundle.py or equivalent shared official-bundle resolver exists.",
+        "convention_cited": "The tailtrail package uses one module per package-owned runtime concern; resources.py owns generic package integrity while this module will own official AIDLC bundle resolution.",
+        "no_owner_claim": "Existing official AIDLC logic is split across scripts and no package-owned module provides the typed multi-provider resolver contract required by Phase 2."
+      }
+    },
+    {
+      "path": "tailtrail/resources.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/aidlc-official-detect.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/aidlc-official-install.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/installation-qualification.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "role": "inspection-input"
+    },
+    {
+      "path": "aidlc-rules/manifest.json",
+      "role": "inspection-input"
+    },
+    {
+      "path": "aidlc-rules/PROVENANCE.json",
+      "role": "inspection-input"
+    },
+    {
+      "path": "package-manifest.json",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_bundle_resolver.py",
+      "role": "proposed-proof-path",
+      "new_file_evidence": {
+        "collision_claim": "No focused test module for the package-owned AIDLC bundle resolver exists.",
+        "convention_cited": "The tests directory uses one test_*.py module per runtime concern, including focused official-AIDLC modules.",
+        "no_owner_claim": "Existing installer and detector tests do not cover provider precedence, current-working-directory independence, or typed resolver receipts across all package resource providers."
+      }
+    }
+  ],
+  "criteria": {
+    "positive": [
+      "A package-owned resolver returns a typed, fingerprinted receipt containing provider identity, official source/revision/commit, bundle fingerprint, trust posture, artifact-identity status, verified pack root, network_used false, and categorical issues.",
+      "Installed-package, managed-payload, and source-checkout providers resolve independently of the process current working directory and use deterministic documented precedence.",
+      "The source-checkout provider derives its root from module location plus repository sentinels and reports development-local unless stronger authenticated identity evidence is supplied.",
+      "The managed-payload provider resolves only the versioned shared install root and reports corruption-detection-only unless an exact qualifying ownership or installation receipt is verified.",
+      "Package outer integrity and bundle inner integrity are both checked before a provider can be selected, using exact expected/declared/actual inventory equality and safe regular-file paths.",
+      "Focused proof covers each provider, precedence, current-working-directory independence, truthful trust posture, exact receipt fingerprinting, altered/missing/incompatible assets, unsafe paths, and zero network access."
+    ],
+    "negative": [
+      "No provider may infer authenticated-release from local hashes, a self-authored manifest, or an unbound installation receipt.",
+      "No provider may use the current working directory, contact the network, execute bundled content, follow unsafe symlinks, or silently fall back after an explicitly selected source fails.",
+      "Legacy schema-v1 project packs cannot authorize a new Full run and must not be silently promoted to schema v2.",
+      "This Phase 2A.1 slice must not edit generic resources, detector, installer, qualification, project projection, current.json, frozen run binding, Full Start routing, or host adapters.",
+      "Missing, altered, incompatible, incomplete, unsafe, or conflicting bundle state must remain untouched and produce a typed fail-closed result."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+    "tiers": [
+      "unit",
+      "contract",
+      "behaviour"
+    ]
+  },
+  "private_reasoning_excluded": true
+}

@@ -190,6 +190,11 @@ class CliDispatchTests(unittest.TestCase):
         self.assertIn('"feature-controls-show", "feature-controls-propose", "feature-controls-approve"', body)
         self.assertIn('return run_script("planning-revision.py", revision_args)', body)
 
+    def test_navigator_intake_has_a_public_cli_dispatch(self) -> None:
+        body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
+        self.assertIn('if args[0] == "intake":', body)
+        self.assertIn('return run_script("question-orchestrator.py", args[1:])', body)
+
     def test_official_aidlc_status_has_a_public_dispatch(self) -> None:
         body = (ROOT / "scripts" / "tailtrail.py").read_text(encoding="utf-8")
         self.assertIn('if action == "official":', body)
@@ -338,11 +343,10 @@ class CliDispatchTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn(f"**Plan detail:** `{expected_detail}`", result.stdout)
                 self.assertIn("## Planning Lock", result.stdout)
-                self.assertRegex(result.stdout, r"Run ID: `start-[^`]+`")
-                self.assertIn("- **Navigator**", result.stdout)
-                if aidlc_mode == "lite":
-                    self.assertIn("- **When:** Planning now", result.stdout)
-                self.assertNotIn("| Feature |", result.stdout)
+                self.assertRegex(result.stdout, r"\*\*Run ID:\*\* `start-[^`]+`")
+                self.assertIn("## Selected TailTrail Features", result.stdout)
+                self.assertIn("| Feature | When used | Why it is selected |", result.stdout)
+                self.assertIn("| Navigator | planning |", result.stdout)
                 self.assertNotIn("&#x20;", result.stdout)
 
         with tempfile.TemporaryDirectory() as temporary:
@@ -406,9 +410,11 @@ class CliDispatchTests(unittest.TestCase):
                 check=False,
             )
 
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("# TailTrail Start Plan", result.stdout)
-        self.assertIn(goal, result.stdout)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("# TailTrail Planning Readiness Required", result.stdout)
+        self.assertIn("Status: `planning-readiness-required`", result.stdout)
+        self.assertIn("--planning-readiness-receipt-file <receipt>", result.stdout)
+        self.assertNotIn("usage:", result.stderr.lower())
 
     def test_known_review_command_still_dispatches_directly(self) -> None:
         result = subprocess.run(

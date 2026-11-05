@@ -165,7 +165,73 @@ def _known_scope_paths(row: dict[str, Any]) -> set[str]:
     if isinstance(evidence, dict):
         for field in ("implementation_owners", "inspection_paths", "proof_paths"):
             known.update(str(item) for item in evidence.get(field, []) or [])
+    known.update(
+        str(item.get("path")) for item in row.get("writable_outputs", [])
+        if isinstance(item, dict) and item.get("path")
+    )
     return known
+
+
+def _output_role_findings(
+    run_id: str,
+    report: dict[str, Any],
+    rows: list[dict[str, Any]],
+    *,
+    pending: bool,
+) -> list[dict[str, Any]]:
+    """Fail closed when accepted writable outputs vanish or become owners."""
+    planning = report.get("planning_readiness", {}) if isinstance(report.get("planning_readiness"), dict) else {}
+    reconciliation = planning.get("reconciliation", {}) if isinstance(planning.get("reconciliation"), dict) else {}
+    expected_by_uid = {
+        str(item.get("requirement_uid", "")): item.get("writable_outputs", [])
+        for item in reconciliation.get("requirements", [])
+        if isinstance(item, dict)
+    }
+    findings: list[dict[str, Any]] = []
+    for row in rows:
+        uid = str(row.get("requirement_uid") or row.get("display_id", ""))
+        expected = expected_by_uid.get(uid, [])
+        actual = {
+            (str(item.get("path", "")), str(item.get("role", "")))
+            for item in row.get("writable_outputs", []) if isinstance(item, dict)
+        }
+        owners = set(str(path) for path in row.get("likely_paths", []) if str(path))
+        for item in expected if isinstance(expected, list) else []:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path", ""))
+            role = str(item.get("role", ""))
+            if (path, role) in actual and path not in owners:
+                continue
+            change = {
+                "kind": "output-add",
+                "requirement_uid": uid,
+                "path": path,
+                "role": role,
+                "existing": item.get("existing") is True,
+                "new_file_verdict": str(item.get("new_file_verdict", "not-applicable")),
+                "source_answer_ids": list(item.get("source_answer_ids", [])),
+                "evidence_fingerprint": str(item.get("evidence_fingerprint", "")),
+                "reason": "restore accepted writable-output role without granting implementation ownership",
+            }
+            complete = bool(change["source_answer_ids"] and change["evidence_fingerprint"])
+            finding = {
+                "type": "writable-output-role-lost" if path not in owners else "writable-output-promoted-to-owner",
+                "correction_kind": "executable" if complete else "template",
+                "requirement_uid": uid,
+                "path": path,
+                "expected_role": role,
+                "detail": (
+                    f"Accepted writable output `{path}` must remain `{role}` and must never be projected "
+                    "as an implementation owner."
+                ),
+            }
+            if complete:
+                finding["fix"] = correction_command(run_id, [change], pending=pending)
+            else:
+                finding["open_fields"] = ["accepted output source-answer lineage"]
+            findings.append(finding)
+    return findings
 
 
 def _requirement_identifier(row: dict[str, Any]) -> str:
@@ -534,10 +600,11 @@ def _proof_binding_findings(
     scope evidence. This prevents a unit command for REQ-02 being presented as
     REQ-01 proof merely because both rows use the `unit` tier.
     """
-    if str(row.get("kind", "")).strip() == "constraint":
-        return []
     contract = row.get("validation_contract", {})
     contract = contract if isinstance(contract, dict) else {}
+    adequacy_required = contract.get("proof_adequacy_required") is True
+    if str(row.get("kind", "")).strip() == "constraint" and not adequacy_required:
+        return []
     if str(contract.get("state", "required")) != "required":
         return []
     display_id = str(row.get("display_id", "?"))
@@ -617,6 +684,63 @@ def _proof_binding_findings(
                     f"{paths}. Use a focused command for one of those paths or change the proof binding."
                 ),
             })
+        if adequacy_required:
+            bindings = check.get("exact_bindings")
+            exact_bindings = bindings if isinstance(bindings, list) and bindings else [check]
+            for binding in exact_bindings:
+                adequacy = binding.get("proof_adequacy") if isinstance(binding, dict) else None
+                role = str(adequacy.get("role", "")) if isinstance(adequacy, dict) else ""
+                baseline = adequacy.get("baseline") if isinstance(adequacy, dict) else None
+                adequate_lists = all(
+                    isinstance(adequacy.get(key), list)
+                    and bool(adequacy.get(key))
+                    and all(isinstance(value, str) and value.strip() for value in adequacy.get(key))
+                    for key in ("test_cases", "fixtures", "assertions")
+                ) if isinstance(adequacy, dict) else False
+                adequate_baseline = (
+                    isinstance(baseline, dict)
+                    and str(baseline.get("command", "")) == command
+                    and str(baseline.get("outcome", "")) in {"pass", "fail", "not-run"}
+                    and bool(str(baseline.get("observed", "")).strip())
+                )
+                if (
+                    role not in {"unchanged-proof", "editable-proof", "new-proof"}
+                    or str(adequacy.get("path", "")) not in paths
+                    or not adequate_lists
+                    or not adequate_baseline
+                    or (role == "unchanged-proof" and baseline.get("outcome") != "pass")
+                    or (role == "new-proof" and baseline.get("outcome") != "not-run")
+                ):
+                    findings.append({
+                        "type": "proof-adequacy-unresolved",
+                        "correction_kind": "template",
+                        "open_fields": ["proof-adequacy"],
+                        "display_id": display_id,
+                        "requirement_uid": uid,
+                        "proof_paths": paths,
+                        "detail": (
+                            f"requirement `{display_id}` cannot treat {paths or ['its proof path']} as run-only proof "
+                            "until Navigator validates its test cases, fixtures, assertions, and baseline result."
+                        ),
+                    })
+                    continue
+                editable_paths = {str(path) for path in contract.get("editable_paths", []) if str(path)}
+                adequacy_path = str(adequacy.get("path", ""))
+                should_be_editable = role in {"editable-proof", "new-proof"}
+                if should_be_editable != (adequacy_path in editable_paths):
+                    findings.append({
+                        "type": "proof-role-scope-mismatch",
+                        "correction_kind": "template",
+                        "open_fields": ["proof-adequacy", "editable_paths"],
+                        "display_id": display_id,
+                        "requirement_uid": uid,
+                        "proof_path": adequacy_path,
+                        "proof_role": role,
+                        "detail": (
+                            f"proof `{adequacy_path}` is classified `{role}` but its editable proof scope does not match. "
+                            "Regenerate the plan from the validated intake receipt before approval."
+                        ),
+                    })
     return findings
 
 
@@ -894,6 +1018,10 @@ def audit_report(
     if isinstance(declared_roles, dict):
         for field in ("implementation_owners", "inspection_paths", "proof_paths"):
             global_scope_paths.update(str(item) for item in declared_roles.get(field, []) or [])
+        global_scope_paths.update(
+            str(item.get("path")) for item in declared_roles.get("writable_outputs", [])
+            if isinstance(item, dict) and item.get("path")
+        )
 
     behavior_check = navigator.get("behavior_check", {}) if isinstance(navigator, dict) else {}
     if isinstance(behavior_check, dict) and behavior_check.get("state") == "already-satisfied":
@@ -948,6 +1076,12 @@ def audit_report(
             command_registry=projection.get("command_registry", {}),
             pending=pending,
         ))
+    findings.extend(_output_role_findings(
+        run_id,
+        report,
+        [row for row in matrix if isinstance(row, dict)],
+        pending=pending,
+    ))
     
     # Build review cycles summary from run history
     review_cycles = _build_review_cycles_summary(root, run_id)

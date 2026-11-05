@@ -695,6 +695,8 @@ class IntakePipelineTests(unittest.TestCase):
             state = {row["answer_id"]: row for row in snapshot["answer_states"]}
             requirement = {
                 "requirement_uid": "req-ready", "statement": "Change the widget behavior.",
+                "requirement_kind": "change",
+                "requirement_kind_source_answer_ids": [answers["expected-behavior"]],
                 "source_answer_ids": list(answers.values()),
                 "profile_fields": list(values),
                 "semantic_delta": "validated", "dependencies_checked": True,
@@ -733,6 +735,10 @@ class IntakePipelineTests(unittest.TestCase):
             self.assertTrue(receipt["authorizes_start"])
             self.assertEqual(receipt["required_profile_fields"], list(values))
             self.assertEqual(
+                receipt["operational_packet"]["requirements"][0]["requirement_kind"],
+                "change",
+            )
+            self.assertEqual(
                 pipeline.mint_planning_readiness(
                     run["run_id"], accepted_answer_ids=list(answers.values()),
                     requirement_projections=receipt["requirement_projections"],
@@ -742,6 +748,16 @@ class IntakePipelineTests(unittest.TestCase):
                 )["receipt_id"],
                 receipt["receipt_id"],
             )
+            contradictory = json.loads(json.dumps(requirement))
+            contradictory["requirement_kind"] = "preserve"
+            with self.assertRaisesRegex(IntakeError, "primary `change` outcome"):
+                pipeline.mint_planning_readiness(
+                    run["run_id"], accepted_answer_ids=list(answers.values()),
+                    requirement_projections=receipt["requirement_projections"],
+                    operational_bindings={"requirements": [contradictory]},
+                    expected_packet_view_fingerprint=snapshot["packet_view_fingerprint"],
+                    target_identity={"root": root.as_posix()},
+                )
             validated = pipeline.validate_planning_readiness_receipt(receipt, goal=goal)
             self.assertEqual(validated["receipt_id"], receipt["receipt_id"])
             report = {
@@ -764,6 +780,8 @@ class IntakePipelineTests(unittest.TestCase):
             )
             row = reconciled["navigator"]["requirement_matrix"][0]
             self.assertEqual(row["requirement_uid"], "req-ready")
+            self.assertEqual(row["kind"], "change")
+            self.assertEqual(row["requirement_kind_authority"], "validated-operational-binding")
             self.assertEqual(row["acceptance_criteria"], ["The revised result is returned."])
             self.assertEqual(row["preserve_rules"], ["Unrelated behavior is unchanged."])
             self.assertEqual(row["scope_evidence"]["proof_paths"], ["tests/test_work.py"])
@@ -772,8 +790,38 @@ class IntakePipelineTests(unittest.TestCase):
                 ["python3 -m unittest tests.test_work"],
             )
             self.assertEqual(
+                row["validation_contract"]["editable_paths"],
+                ["tests/test_work.py"],
+            )
+            self.assertFalse(row["validation_contract"]["proof_adequacy_required"])
+            self.assertEqual(
                 reconciled["planning_readiness"]["reconciliation"]["status"], "clean"
             )
+
+            nested = json.loads(json.dumps(reconciled))
+            nested_row = nested["navigator"]["requirement_matrix"][0]
+            exact = nested_row["validation_contract"]["checks"][0]
+            nested_row["validation_contract"]["checks"] = [{
+                "command_id": "cmd-proof",
+                "candidate_paths": list(exact["candidate_paths"]),
+                "tiers": list(exact["tiers"]),
+                "exact_bindings": [exact],
+            }]
+            nested_row["validation_contract"]["command_registry"] = {
+                "cmd-proof": {"kind": "proof", "command": exact["command"]},
+            }
+            accepted_nested = pipeline.reconcile_planning_readiness_receipt(
+                receipt, nested, goal=goal, project=False, phase="approval",
+            )
+            self.assertEqual(
+                accepted_nested["planning_readiness"]["reconciliation"]["status"], "clean"
+            )
+            altered = json.loads(json.dumps(nested))
+            altered["navigator"]["requirement_matrix"][0]["validation_contract"]["checks"][0]["exact_bindings"][0]["evidence_fingerprint"] = "sha256:" + "f" * 64
+            with self.assertRaisesRegex(IntakeError, "missing its exact proof binding"):
+                pipeline.reconcile_planning_readiness_receipt(
+                    receipt, altered, goal=goal, project=False, phase="approval",
+                )
 
             omitted = json.loads(json.dumps(reconciled))
             omitted["navigator"]["requirement_matrix"][0]["validation_contract"]["checks"] = []

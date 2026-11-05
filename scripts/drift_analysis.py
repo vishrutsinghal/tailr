@@ -233,22 +233,71 @@ def _approved_requirements(anchor: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _approved_editable(requirements: list[dict[str, Any]]) -> set[str]:
-    """Approved editable union, matching scripts/harness-checkpoint.py scope logic."""
-    editable: set[str] = set()
-    for row in requirements:
+_WRITABLE_OUTPUT_ROLES = {"configuration-output", "generated-output"}
+
+
+def _approved_writable_outputs(requirement: dict[str, Any]) -> set[str]:
+    """Return only evidence-backed outputs that the approved anchor made writable.
+
+    Writable outputs do not grant behavioral ownership, but they are still
+    legitimate edits.  Inspection inputs and proof-only paths are deliberately
+    excluded, and new/existing output bindings must both carry an affirmative
+    due-diligence write decision.
+    """
+    approved: set[str] = set()
+    bindings: list[Any] = []
+    top_level = requirement.get("writable_outputs", [])
+    if isinstance(top_level, list):
+        bindings.extend(top_level)
+    scope_evidence = requirement.get("scope_evidence")
+    scoped = scope_evidence.get("writable_outputs", []) if isinstance(scope_evidence, dict) else []
+    if isinstance(scoped, list):
+        bindings.extend(scoped)
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            continue
+        if binding.get("role_class") != "writable-output":
+            continue
+        if binding.get("role") not in _WRITABLE_OUTPUT_ROLES:
+            continue
+        if binding.get("requests_write_authority") is not True:
+            continue
+        due_diligence = binding.get("new_file_due_diligence")
+        if not isinstance(due_diligence, dict) or due_diligence.get("write_eligible") is not True:
+            continue
+        path = _anchor_path(binding)
+        if path:
+            approved.add(_normalize_path(path))
+    return approved
+
+
+def _requirement_editable(requirement: dict[str, Any]) -> set[str]:
+    editable = {
+        _normalize_path(path)
+        for path in requirement.get("likely_paths", [])
+        if str(path).strip()
+    }
+    contract = requirement.get("validation_contract") or {}
+    for key in ("editable_paths", "proposed_paths"):
         editable.update(
             _normalize_path(path)
-            for path in row.get("likely_paths", [])
+            for path in contract.get(key, [])
             if str(path).strip()
         )
-        contract = row.get("validation_contract") or {}
-        for key in ("editable_paths", "proposed_paths"):
-            editable.update(
-                _normalize_path(path)
-                for path in contract.get(key, [])
-                if str(path).strip()
-            )
+    editable.update(_approved_writable_outputs(requirement))
+    return editable
+
+
+def _path_is_approved(path: str, approved: set[str]) -> bool:
+    """Match an exact approved file or a descendant of an approved directory."""
+    return any(path == candidate or path.startswith(candidate.rstrip("/") + "/") for candidate in approved)
+
+
+def _approved_editable(requirements: list[dict[str, Any]]) -> set[str]:
+    """Approved owner, proof-edit, proposed, and writable-output union."""
+    editable: set[str] = set()
+    for row in requirements:
+        editable.update(_requirement_editable(row))
     return editable
 
 
@@ -588,7 +637,7 @@ def analyze(
     findings: list[dict[str, Any]] = []
 
     # Check A: scope drift — changed paths outside the approved editable union.
-    unexpected = sorted(changed_set - approved_editable)
+    unexpected = sorted(path for path in changed_set if not _path_is_approved(path, approved_editable))
     for path in unexpected:
         findings.append(
             {
@@ -604,12 +653,8 @@ def analyze(
     # test"); `preserve` requirements are exempt from that check.
     requirement_rows: list[dict[str, Any]] = []
     for row in requirements:
-        likely = {
-            _normalize_path(path)
-            for path in row.get("likely_paths", [])
-            if str(path).strip()
-        }
-        relevant = sorted(changed_set & likely)
+        likely = _requirement_editable(row)
+        relevant = sorted(path for path in changed_set if _path_is_approved(path, likely))
         kind = str(row.get("kind") or "change")
         unimplemented = kind == "change" and not relevant
         display_id = str(row.get("display_id") or row.get("requirement_uid") or "REQ")

@@ -56,6 +56,37 @@ def install_artifact(python: Path, artifact: Path, cwd: Path) -> Path:
     return executable
 
 
+def full_preflight(executable: Path, sandbox: Path, route: str, host: str, checks: dict[str, str]) -> None:
+    """Exercise the installed public Full route from a deep Unicode/space root."""
+    project = sandbox / f"{route} Full root ünicode" / "deep" / "qualification" / host
+    project.mkdir(parents=True)
+    command = [
+        str(executable), "start", "qualify bundled offline Full AIDLC release",
+        "--root", str(project), "--host", host, "--aidlc", "full",
+        "--no-planning-lock", "--format", "json",
+    ]
+    first = json.loads(run(command, cwd=sandbox, expected=2).stdout)
+    second = json.loads(run(command, cwd=sandbox, expected=2).stdout)
+    first_authority = first.get("official_requirement_authority") or {}
+    second_authority = second.get("official_requirement_authority") or {}
+    required = (
+        "resolution_receipt_fingerprint", "project_projection_fingerprint", "pack_fingerprint"
+    )
+    if (
+        first.get("status") != "awaiting-host-interpretation"
+        or first_authority.get("mode") != "full"
+        or any(not first_authority.get(key) for key in required)
+        or any(first_authority.get(key) != second_authority.get(key) for key in required)
+    ):
+        raise RuntimeError(f"{route}/{host} bundled Full public preflight was not stable: {first}")
+    selector = project / ".tailtrail" / "official-aidlc" / "current.json"
+    if not selector.is_file():
+        raise RuntimeError(f"{route}/{host} bundled Full preflight did not create its managed selector")
+    checks[f"{route}:{host}:full-offline"] = "pass"
+    checks[f"{route}:{host}:full-idempotent"] = "pass"
+    checks[f"{route}:{host}:full-deep-unicode-root"] = "pass"
+
+
 def lifecycle(executable: Path, sandbox: Path, route: str, checks: dict[str, str]) -> None:
     package_info = json.loads(run([str(executable), "package-info", "--format", "json"], cwd=sandbox).stdout)
     if not package_info.get("valid"):
@@ -90,6 +121,7 @@ def lifecycle(executable: Path, sandbox: Path, route: str, checks: dict[str, str
         if not uninstall.get("ok"):
             raise RuntimeError(f"{route}/{host} uninstall failed: {uninstall}")
         checks[f"{route}:{host}:uninstall"] = "pass"
+        full_preflight(executable, sandbox, route, host, checks)
 
 
 def boundary_checks(executable: Path, sandbox: Path, checks: dict[str, str]) -> None:
@@ -187,6 +219,9 @@ def report(receipt_dir: Path, contract_path: Path, commit: str, wheel: Path, sdi
             for host_profile in contract["host_profiles"]:
                 host = host_profile.split(":", 1)[0]
                 for operation in ("install", "verify", "update", "rollback", "uninstall"):
+                    if item.get("checks", {}).get(f"{route.replace('_', '-')}:{host}:{operation}") != "pass":
+                        issues.append(f"{label} missing {route}/{host}/{operation} pass")
+                for operation in ("full-offline", "full-idempotent", "full-deep-unicode-root"):
                     if item.get("checks", {}).get(f"{route.replace('_', '-')}:{host}:{operation}") != "pass":
                         issues.append(f"{label} missing {route}/{host}/{operation} pass")
         for check in ("permission-model", "symlink-boundary"):

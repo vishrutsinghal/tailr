@@ -1,0 +1,74 @@
+[
+  {
+    "answer_id": "answer-0e7b9fa019514a90",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "session-reports/phase0-corrected-current-inventory.md",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-7b9d24676382462b",
+    "evidence_paths": ["scripts/aidlc-official-install.py", "tests/test_aidlc_official_install.py"]
+  },
+  {
+    "answer_id": "answer-dcccc0a3ca5d4f66",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "tests/test_aidlc_official_install.py"]
+  },
+  {
+    "answer_id": "answer-ab2fc498f7b640d3",
+    "evidence_paths": ["session-reports/phase0-corrected-current-inventory.md", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-32c103a4e9014ad5",
+    "evidence_paths": ["session-reports/phase0-corrected-current-inventory.md", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-3c38263ab9a340d7",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "scripts/aidlc-official-install.py"]
+  },
+  {
+    "answer_id": "answer-c67bf671242e4a8c",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "scripts/aidlc-official-install.py"]
+  },
+  {
+    "answer_id": "answer-12a5997b6d884edb",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "aidlc-rules/VERSION"]
+  },
+  {
+    "answer_id": "answer-109e02aae0c44bec",
+    "evidence_paths": ["aidlc-rules/VERSION", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-64a1d143c6ef4445",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-5fc9cb4c13734a17",
+    "evidence_paths": ["session-reports/phase0-corrected-current-inventory.md"]
+  },
+  {
+    "answer_id": "answer-c4ccf6cb4b994afe",
+    "evidence_paths": ["package-manifest.json", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-c10a6b445f1140db",
+    "evidence_paths": ["MANIFEST.in", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-c5539f3fa2a04c80",
+    "evidence_paths": ["release-manifest.json", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-37ef95c5ce34459d",
+    "evidence_paths": ["scripts/aidlc-official-bridge.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-d8bd71bdfb7a4444",
+    "evidence_paths": ["scripts/task-start.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  },
+  {
+    "answer_id": "answer-3341334fffe14c6a",
+    "evidence_paths": ["scripts/aidlc-official-host.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]
+  }
+]

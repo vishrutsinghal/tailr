@@ -30,6 +30,38 @@ def _anchor_path(value: Any) -> str | None:
         return str(path).strip() or None if isinstance(path, str) else None
     return None
 
+
+_WRITABLE_OUTPUT_ROLES = {"configuration-output", "generated-output"}
+
+
+def _approved_writable_outputs(requirement: dict[str, Any]) -> set[str]:
+    """Resolve approved output authority from current and legacy anchors."""
+    bindings: list[Any] = []
+    top_level = requirement.get("writable_outputs", [])
+    if isinstance(top_level, list):
+        bindings.extend(top_level)
+    scope_evidence = requirement.get("scope_evidence")
+    scoped = scope_evidence.get("writable_outputs", []) if isinstance(scope_evidence, dict) else []
+    if isinstance(scoped, list):
+        bindings.extend(scoped)
+    approved: set[str] = set()
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            continue
+        if binding.get("role_class") != "writable-output":
+            continue
+        if binding.get("role") not in _WRITABLE_OUTPUT_ROLES:
+            continue
+        if binding.get("requests_write_authority") is not True:
+            continue
+        due_diligence = binding.get("new_file_due_diligence")
+        if not isinstance(due_diligence, dict) or due_diligence.get("write_eligible") is not True:
+            continue
+        path = _anchor_path(binding)
+        if path:
+            approved.add(path.replace("\\", "/"))
+    return approved
+
 def read(path:Path)->dict[str,Any]: return json.loads(path.read_text(encoding="utf-8"))
 def rel(value:str)->str:
  path=Path(value)
@@ -70,7 +102,7 @@ def assess(root:Path,run_id:str,changed:list[str],profile_path:Path|None=None)->
  paths=sorted(set(rel(item) for item in changed)); profile=read(profile_path) if profile_path else {}
  findings=[]; checks=[]; rules=profile.get("rules",[]) if isinstance(profile,dict) else []
  graph_events=[event for event in L.read_events(directory/"events.jsonl") if event.get("event_type")=="graph_receipt"]
- all_allowed=sorted({found for row in anchor["requirements"] for item in row.get("likely_paths",[]) for found in [_anchor_path(item)] if found}|{found for row in anchor["requirements"] for item in ((row.get("validation_contract",{}) or {}).get("editable_paths",[])) for found in [_anchor_path(item)] if found}|{found for row in anchor["requirements"] for item in ((row.get("validation_contract",{}) or {}).get("proposed_paths",[])) for found in [_anchor_path(item)] if found})
+ all_allowed=sorted({found for row in anchor["requirements"] for item in row.get("likely_paths",[]) for found in [_anchor_path(item)] if found}|{found for row in anchor["requirements"] for item in ((row.get("validation_contract",{}) or {}).get("editable_paths",[])) for found in [_anchor_path(item)] if found}|{found for row in anchor["requirements"] for item in ((row.get("validation_contract",{}) or {}).get("proposed_paths",[])) for found in [_anchor_path(item)] if found}|{found for row in anchor["requirements"] for found in _approved_writable_outputs(row)})
  for path in paths:
   if all_allowed and not any(matches(path,item) for item in all_allowed):findings.append({"category":"scope","classification":"new-drift","path":path,"message":"changed path is outside approved likely paths","evidence":"approved-anchor"})
  for row in anchor["requirements"]:

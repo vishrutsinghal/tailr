@@ -1,0 +1,9 @@
+[
+  {"answer_id": "answer-66001e016c394279", "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "schemas/official-aidlc-run-state.schema.json"]},
+  {"answer_id": "answer-dd6f2ed32c2941c6", "evidence_paths": ["tailtrail-registry.json", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-8499ae9b9f6e4841", "evidence_paths": ["tests/test_tailtrail_registry.py", "tailtrail-registry.json"]},
+  {"answer_id": "answer-71e814a409fd4a82", "evidence_paths": ["tailtrail-registry.json", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-b3701f719af14e2b", "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-3306d2d7fb684948", "evidence_paths": ["schemas/official-aidlc-run-state.schema.json", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-d50ffb76dd194e87", "evidence_paths": ["tests/test_tailtrail_registry.py"]}
+]

@@ -58,6 +58,19 @@ PATH_ROLES = frozenset({
 })
 OWNER_ROLES = frozenset({"existing-implementation-owner", "proposed-implementation-owner"})
 PROOF_ROLES = frozenset({"existing-proof-path", "proposed-proof-path"})
+OUTPUT_ROLES = frozenset({"configuration", "generated"})
+
+_OPERATIONAL_ROLE_BY_HOST_ROLE = {
+    "existing-implementation-owner": "implementation-owner",
+    "proposed-implementation-owner": "implementation-owner",
+    "inspection-input": "inspection-input",
+    "existing-proof-path": "proof-only",
+    "proposed-proof-path": "proof-only",
+    "configuration": "configuration-output",
+    "generated": "generated-output",
+    "excluded": "excluded",
+    "external": "external",
+}
 
 _CONTRACT_VERSION = "1"
 _CONTRACT_TYPE = "tailtrail-host-input-contract"
@@ -126,6 +139,65 @@ def _normalize_path(value: Any) -> tuple[str | None, str | None]:
     if pure.is_absolute() or ".." in pure.parts or text in {"", "."}:
         return None, "traversal-or-absolute-path"
     return pure.as_posix(), None
+
+
+def operational_path_projection(contract: dict[str, Any], *, root: Path | None = None) -> dict[str, Any]:
+    """Project every validated host path without granting new authority.
+
+    This is the single translation boundary between the host-contract
+    vocabulary and downstream planning vocabulary.  Configuration and
+    generated artifacts are writable outputs, never implementation owners.
+    Excluded and external paths remain visible so no consumer can silently
+    drop a host-declared boundary.
+    """
+    rows: list[dict[str, Any]] = []
+    seen: dict[str, str] = {}
+    for entry in contract.get("paths", []):
+        if not isinstance(entry, dict):
+            raise ValueError("host contract paths must be normalized objects")
+        path = str(entry.get("path", "")).strip()
+        host_role = str(entry.get("role", "")).strip()
+        operational_role = _OPERATIONAL_ROLE_BY_HOST_ROLE.get(host_role)
+        if not path or operational_role is None:
+            raise ValueError(f"unsupported host path role `{host_role}` for `{path or '<missing>'}`")
+        previous = seen.get(path)
+        if previous is not None and previous != operational_role:
+            raise ValueError(f"host path `{path}` has contradictory operational roles")
+        seen[path] = operational_role
+        declared_existing = host_role.startswith("existing-") or host_role in {
+            "inspection-input", "excluded", "external",
+        }
+        existing = (root / path).exists() if root is not None else declared_existing
+        row: dict[str, Any] = {
+            "path": path,
+            "host_role": host_role,
+            "operational_role": operational_role,
+            "existing": existing,
+            "requests_write_authority": operational_role in {
+                "implementation-owner", "configuration-output", "generated-output",
+            },
+            "grants_behavioral_ownership": operational_role == "implementation-owner",
+        }
+        for key in ("source_answer_id", "new_file_evidence"):
+            if key in entry:
+                row[key] = json.loads(json.dumps(entry[key], sort_keys=True))
+        rows.append(row)
+
+    def selected(*roles: str) -> list[dict[str, Any]]:
+        allowed = set(roles)
+        return [dict(row) for row in rows if row["operational_role"] in allowed]
+
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-host-path-role-projection",
+        "paths": rows,
+        "implementation_owners": selected("implementation-owner"),
+        "writable_outputs": selected("configuration-output", "generated-output"),
+        "inspection_paths": selected("inspection-input"),
+        "proof_paths": selected("proof-only"),
+        "excluded_paths": selected("excluded"),
+        "external_paths": selected("external"),
+    }
 
 
 def validate(contract: dict[str, Any], *, root: Path, goal: str) -> dict[str, Any]:
@@ -224,10 +296,11 @@ def validate(contract: dict[str, Any], *, root: Path, goal: str) -> dict[str, An
     if change_intent != "correction" and "correction_premise" in contract:
         conflicts.append("correction premise present for non-correction change intent")
     premise = contract.get("correction_premise")
+    owner_hypothesis = contract.get("owner_hypothesis")
     if (
         isinstance(premise, dict)
         and str(premise.get("state", "")) != "not-applicable"
-        and "owner_hypothesis" not in contract
+        and not isinstance(owner_hypothesis, dict)
     ):
         _need("owner_hypothesis")
 
@@ -270,11 +343,19 @@ def validate(contract: dict[str, Any], *, root: Path, goal: str) -> dict[str, An
         "run_id_binding": str(contract.get("run_id", "") or "").strip() or "unbound",
         "private_reasoning_excluded": True,
     }
+    if change_intent == "correction":
+        # An accepted host contract is persisted and supplied to Start again.
+        # Preserve correction-only authority fields so the normalized artifact
+        # remains idempotently valid instead of failing its second validation.
+        artifact["correction_premise"] = json.loads(json.dumps(premise, sort_keys=True))
+        if isinstance(owner_hypothesis, dict):
+            artifact["owner_hypothesis"] = json.loads(json.dumps(owner_hypothesis, sort_keys=True))
+    fingerprint_fields = (
+        "schema_version", "type", "contract_id", "request_mode", "change_intent",
+        "profile", "behavior_surface", "paths", "criteria", "proof",
+        "goal_fingerprint", "target", "correction_premise", "owner_hypothesis",
+    )
     artifact["fingerprint"] = _fingerprint({
-        k: artifact[k] for k in (
-            "schema_version", "type", "contract_id", "request_mode", "change_intent",
-            "profile", "behavior_surface", "paths", "criteria", "proof",
-            "goal_fingerprint", "target",
-        )
+        key: artifact[key] for key in fingerprint_fields if key in artifact
     })
     return {"state": "accepted", "open_fields": [], "conflicts": [], "validated": artifact}

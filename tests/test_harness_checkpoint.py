@@ -28,6 +28,22 @@ class HarnessCheckpointTests(unittest.TestCase):
    actual=checkpoint.checkpoint(root,"run",["src/Page.tsx","src/Page.cy.tsx"],results)
   self.assertEqual(actual["scope_assessment"]["status"],"within-approved-scope")
   self.assertEqual(actual["scope_assessment"]["unexpected_paths"],[])
+ def test_scope_evidence_writable_output_is_approved_without_owner_promotion(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);ledger.init_run(root,"run","schema registration");proposal=root/"proposal.json"
+   output={"path":"tailtrail-registry.json","role":"configuration-output","role_class":"writable-output","existing":True,"new_file_verdict":"not-applicable","new_file_due_diligence":{"verdict":"not-applicable","write_eligible":True},"grants_behavioral_ownership":False,"requests_write_authority":True}
+   proposal.write_text(json.dumps({"requirements":[{"statement":"Register the receipt schema","acceptance_criteria":["schema is registered"],"preserve_rules":["registry remains valid"],"likely_paths":["schemas/receipt.schema.json"],"scope_evidence":{"writable_outputs":[output]},"evidence_plan":["contract"]}]}),encoding="utf-8")
+   anchor.draft(root,"run",proposal);approved=anchor.approve(root,"run")
+   # Recreate an approved anchor persisted before writable outputs were
+   # materialized at top level; closure must still honor its scope evidence.
+   approved_path=Path(approved["path"]);payload=json.loads(approved_path.read_text(encoding="utf-8"));row=payload["requirements"][0];row["scope_evidence"]={"writable_outputs":row.pop("writable_outputs")};approved_path.write_text(json.dumps(payload),encoding="utf-8")
+   (root/"schemas").mkdir();(root/"schemas/receipt.schema.json").write_text("{}",encoding="utf-8");(root/"tailtrail-registry.json").write_text("{}",encoding="utf-8")
+   results=root/"results.json";results.write_text(json.dumps({"results":[{"control_id":"contract","outcome":"pass","tier":"contract","tiers":["contract"],"evidence_quality":"trusted"}]}),encoding="utf-8")
+   actual=checkpoint.checkpoint(root,"run",["schemas/receipt.schema.json","tailtrail-registry.json"],results)
+  self.assertEqual(actual["scope_assessment"]["status"],"within-approved-scope")
+  self.assertIn("tailtrail-registry.json",actual["scope_assessment"]["approved_editable_paths"])
+  self.assertEqual(actual["scope_assessment"]["unexpected_paths"],[])
+  self.assertEqual(actual["requirements"][0]["implementation_state"],"implemented")
  def test_mid_run_correction_is_visible_to_checkpoint(self):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);self.setup_run(root)

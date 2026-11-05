@@ -39,6 +39,30 @@ def _contract(**overrides):
 
 
 class ContractValidationTests(unittest.TestCase):
+    def test_operational_projection_preserves_every_role_without_promoting_outputs(self) -> None:
+        contract = _contract(paths=[
+            {"path": "src/work.py", "role": "existing-implementation-owner"},
+            {"path": "config/version.txt", "role": "configuration"},
+            {"path": "generated/provenance.json", "role": "generated"},
+            {"path": "DESIGN.md", "role": "inspection-input"},
+            {"path": "tests/test_work.py", "role": "existing-proof-path"},
+            {"path": "later.py", "role": "excluded"},
+            {"path": "vendor/pack", "role": "external"},
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "config").mkdir()
+            (root / "config" / "version.txt").write_text("1\n", encoding="utf-8")
+            projection = HC.operational_path_projection(contract, root=root)
+
+        self.assertEqual(
+            {(row["path"], row["operational_role"]) for row in projection["writable_outputs"]},
+            {("config/version.txt", "configuration-output"), ("generated/provenance.json", "generated-output")},
+        )
+        self.assertTrue(all(row["grants_behavioral_ownership"] is False for row in projection["writable_outputs"]))
+        self.assertEqual([row["path"] for row in projection["excluded_paths"]], ["later.py"])
+        self.assertEqual([row["path"] for row in projection["external_paths"]], ["vendor/pack"])
+
     def test_accepted_contract_binds_goal_and_target(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -92,6 +116,43 @@ class ContractValidationTests(unittest.TestCase):
             result = HC.validate(contract, root=Path(temp), goal="g")
         self.assertEqual(result["state"], "insufficient")
         self.assertIn("correction_premise", result["open_fields"])
+
+    def test_validated_correction_contract_is_idempotent_and_fingerprint_bound(self) -> None:
+        premise = {
+            "state": "accepted",
+            "expected_behavior": "The public route preserves the accepted correction.",
+            "actual_behavior": "The normalized artifact dropped correction authority.",
+            "evidence_paths": ["scripts/host_contract.py"],
+        }
+        hypothesis = {
+            "path": "scripts/host_contract.py",
+            "reason": "The validator owns the normalized contract projection.",
+        }
+        contract = _contract(
+            change_intent="correction",
+            correction_premise=premise,
+            owner_hypothesis=hypothesis,
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            first = HC.validate(contract, root=root, goal="fix projection")
+            replay = HC.validate(first["validated"], root=root, goal="fix projection")
+            changed = HC.validate(
+                _contract(
+                    change_intent="correction",
+                    correction_premise={**premise, "actual_behavior": "A different observed failure."},
+                    owner_hypothesis=hypothesis,
+                ),
+                root=root,
+                goal="fix projection",
+            )
+
+        self.assertEqual(first["state"], "accepted")
+        self.assertEqual(replay["state"], "accepted")
+        self.assertEqual(first["validated"]["correction_premise"], premise)
+        self.assertEqual(first["validated"]["owner_hypothesis"], hypothesis)
+        self.assertEqual(replay["validated"]["fingerprint"], first["validated"]["fingerprint"])
+        self.assertNotEqual(changed["validated"]["fingerprint"], first["validated"]["fingerprint"])
 
 
 class ContractTransportTests(unittest.TestCase):

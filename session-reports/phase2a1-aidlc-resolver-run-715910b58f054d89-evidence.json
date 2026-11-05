@@ -1,0 +1,26 @@
+[
+  {
+    "answer_id": "answer-7ebdbdb4953b4e17",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "tailtrail/resources.py", "scripts/aidlc-official-detect.py", "scripts/aidlc-official-install.py"]
+  },
+  {
+    "answer_id": "answer-33967e9eb84c4b59",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "tailtrail/resources.py"]
+  },
+  {
+    "answer_id": "answer-02b98bae82d747e8",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "tests/test_aidlc_official_detect.py", "tests/test_aidlc_official_install.py"]
+  },
+  {"answer_id": "answer-6a7a80b591954a3b", "evidence_paths": ["tailtrail/resources.py", "package-manifest.json"]},
+  {"answer_id": "answer-8c790d1e067d404b", "evidence_paths": ["scripts/aidlc-official-detect.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-842336e2e28a4e49", "evidence_paths": ["scripts/aidlc-official-install.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-baccb3341b004edc", "evidence_paths": ["scripts/installation-qualification.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-659dbb5a130c4065", "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-b746ebd7623e43b0", "evidence_paths": ["aidlc-rules/manifest.json", "scripts/aidlc-official-detect.py"]},
+  {"answer_id": "answer-ede1a0083e4142ae", "evidence_paths": ["aidlc-rules/PROVENANCE.json", "scripts/aidlc-official-install.py"]},
+  {"answer_id": "answer-9e5727a1a1324f40", "evidence_paths": ["package-manifest.json", "tailtrail/resources.py"]},
+  {
+    "answer_id": "answer-7e9e24d4d3384b19",
+    "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "tests/test_aidlc_official_detect.py", "tests/test_aidlc_official_install.py"]
+  }
+]

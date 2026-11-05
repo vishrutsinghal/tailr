@@ -21,7 +21,9 @@ instead of rediscovering it.
 1. **Approval before implementation.** `tailtrail start` is planning-only.
    Never edit, run scanners, or push without a separate explicit `approve`
    (`looks good` / `go ahead` never approve). Split multi-owner goals into
-   single-owner runs instead of fighting ambiguity.
+   single-owner runs instead of fighting ambiguity; when those runs form one
+   cohesive outcome requiring one approval, bind them through one coordinated
+   parent rather than approving or grouping them informally.
 2. **Scope is evidence, not assertion.** Explicit `--changed` naming is
    strong evidence; lexical proximity alone never owns. Config/data files
    resolve as owners only when explicitly named (single-target focus);
@@ -122,9 +124,11 @@ instead of rediscovering it.
 22. **Choose approval topology before persistence.** One cohesive user outcome
    that requires one approval must be represented as one fingerprinted
    multi-requirement plan only when every requirement retains its own owner and
-   proof. Independently approvable or unrelated owners remain separate runs.
-   Host batching must never disguise several approval surfaces as one atomic
-   decision.
+   proof. If single-owner policy requires separate child runs, create one
+   fingerprinted coordinated parent over the exact audit-clean child set,
+   dependencies, shared proof, and success criteria. Independently approvable
+   or unrelated owners remain separate runs. Host batching without a durable
+   batch-approval receipt must never be described as one atomic decision.
 23. **Proof projection is requirement-specific.** A global command, artifact
    clause, or host-contract proof field does not satisfy a requirement until
    the canonical row contains its proof path, exact command, tiers, and
@@ -142,6 +146,19 @@ instead of rediscovering it.
    preserves canonical status and history. Never report a stopped plan as
    rejected, deleted, or superseded without an explicit append-only lifecycle
    record that establishes that relationship.
+27. **A pending-plan replacement is self-contained.**
+   `planning revise --supersede-pending` rebuilds from the last approved plan,
+   not from the unapproved draft it replaces. Restate every desired pending
+   requirement, scope, proof, tier, and behavior-scenario change in one
+   replacement payload. The older draft remains append-only history but grants
+   no authority to the replacement.
+28. **Coordinated children retain independent evidence boundaries.** Parent
+   approval does not merge child ownership, anchors, proof, or closure. No
+   child writes before the atomic batch receipt exists and its dependencies are
+   complete. Record a child `active` before editing and `completed` only with
+   its exact successful closure-finalizer JSON; then run the shared parent
+   proof. Any changed child plan fingerprint invalidates the parent approval
+   and requires a new coordinated proposal and approval.
 
 ## 3. Command wiring checklist
 

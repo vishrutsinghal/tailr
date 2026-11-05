@@ -20,6 +20,35 @@ def _anchor_path(value):
  if isinstance(value,dict):
   path=value.get("path"); return str(path).strip() or None if isinstance(path,str) else None
  return None
+_WRITABLE_OUTPUT_ROLES={"configuration-output","generated-output"}
+def _approved_writable_outputs(requirement:dict[str,Any])->set[str]:
+ """Return evidence-backed outputs granted write authority by the anchor.
+
+ Read both the current top-level projection and the legacy scope-evidence
+ location so checkpoint closure applies the same role boundary as planning
+ and drift analysis without promoting outputs to behavioral owners.
+ """
+ bindings=[]
+ top_level=requirement.get("writable_outputs",[])
+ if isinstance(top_level,list): bindings.extend(top_level)
+ scope_evidence=requirement.get("scope_evidence")
+ scoped=scope_evidence.get("writable_outputs",[]) if isinstance(scope_evidence,dict) else []
+ if isinstance(scoped,list): bindings.extend(scoped)
+ approved=set()
+ for binding in bindings:
+  if not isinstance(binding,dict): continue
+  if binding.get("role_class")!="writable-output": continue
+  if binding.get("role") not in _WRITABLE_OUTPUT_ROLES: continue
+  if binding.get("requests_write_authority") is not True: continue
+  due_diligence=binding.get("new_file_due_diligence")
+  if not isinstance(due_diligence,dict) or due_diligence.get("write_eligible") is not True: continue
+  path=_anchor_path(binding)
+  if path: approved.add(path.replace("\\","/"))
+ return approved
+def _path_is_approved(path:str,approved:set[str])->bool:
+ """Match an exact approved file or a descendant of an approved directory."""
+ normalized=path.replace("\\","/")
+ return any(normalized==candidate or normalized.startswith(candidate.rstrip("/")+"/") for candidate in approved)
 def read(path:Path)->dict[str,Any]: return json.loads(path.read_text(encoding="utf-8"))
 def fingerprint(path:Path)->str: return "sha256:"+hashlib.sha256(path.read_bytes()).hexdigest()
 def vcs_state(root:Path)->dict[str,Any]:
@@ -86,14 +115,15 @@ def checkpoint(root:Path,run_id:str,changed:list[str],results_path:Path)->dict[s
   drift.append({"requirement_uid":uid,"category":"evidence","classification":kind})
  approved_implementation={_anchor_path(path) for row in anchor["requirements"] for path in row.get("likely_paths",[])}; approved_implementation.discard(None)
  approved_proof={_anchor_path(path) for row in anchor["requirements"] for path in ((row.get("validation_contract",{}) or {}).get("editable_paths",[]))}|{_anchor_path(path) for row in anchor["requirements"] for path in ((row.get("validation_contract",{}) or {}).get("proposed_paths",[]))}; approved_proof.discard(None)
- approved_editable=sorted(approved_implementation|approved_proof)
- unexpected=sorted(set(changed)-set(approved_editable))
+ approved_outputs={path for row in anchor["requirements"] for path in _approved_writable_outputs(row)}
+ approved_editable=sorted(approved_implementation|approved_proof|approved_outputs)
+ unexpected=sorted(path for path in set(changed) if not _path_is_approved(path,set(approved_editable)))
  drift.extend({"requirement_uid":anchor["requirements"][0]["requirement_uid"],"category":"scope","classification":"new-drift","path":path,"message":f"actual edit `{path}` is outside approved editable scope"} for path in unexpected)
  vcs=vcs_state(root)
  verified_paths=[{"path":p,"fingerprint":fingerprint(root/p) if (root/p).is_file() else "missing",**verify_changed_path(root,p,vcs)} for p in changed]
  unverified=sorted(item["path"] for item in verified_paths if not item["verified"] and item["vcs_status"] not in {"unavailable","missing"})
  drift.extend({"requirement_uid":anchor["requirements"][0]["requirement_uid"],"category":"scope","classification":"unverified-change","path":path,"message":f"claimed edit `{path}` shows no VCS modification"} for path in unverified)
- scope_assessment={"status":"unresolved" if unexpected else "within-approved-scope","approved_editable_paths":approved_editable,"actual_changed_paths":sorted(set(changed)),"unexpected_paths":unexpected,"unverified_paths":unverified,"vcs_available":bool(vcs.get("available")),"boundary":"Implementation owners are editable for approved source work. Requirement-linked validation paths named by the approved validation contract are editable only for proof assertions; inspection-only paths remain read-only."}
+ scope_assessment={"status":"unresolved" if unexpected else "within-approved-scope","approved_editable_paths":approved_editable,"actual_changed_paths":sorted(set(changed)),"unexpected_paths":unexpected,"unverified_paths":unverified,"vcs_available":bool(vcs.get("available")),"boundary":"Implementation owners are editable for approved source work. Evidence-backed configuration/generated outputs are writable without becoming behavioral owners. Requirement-linked validation paths named by the approved validation contract are editable only for proof assertions; inspection-only paths remain read-only."}
  payload={"schema_version":"1","type":"tailtrail-harness-checkpoint","run_id":run_id,"checkpoint":number,"anchor_fingerprint":anchor["approved_fingerprint"],"changed_paths":verified_paths,"requirements":req,"control_results":results,"scope_assessment":scope_assessment,"drift":drift}
  out=directory/"checkpoints"/f"checkpoint-{number}.json"; L.atomic_json(out,payload); L.append_event(root,run_id,"harness_checkpoint",{"artifact":out.relative_to(root).as_posix(),"checkpoint":number,"requirement_states":current_states,"drift":drift}); refresh=refresh_verified_slices(root,[item for item in verified_paths if item.get("verified")]); return {"path":out.as_posix(),"graph_refresh":refresh,**payload}
 def refresh_verified_slices(root:Path,verified_paths:list[dict[str,Any]])->dict[str,Any]:

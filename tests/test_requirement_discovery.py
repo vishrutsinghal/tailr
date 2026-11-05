@@ -746,6 +746,14 @@ class InterpretationErrorDetailTests(unittest.TestCase):
     def test_kind_vocabulary_and_confidence(self):
         self.assertEqual(discovery._kind("preserve existing behavior"), "preserve")
         self.assertEqual(discovery._kind("add a new endpoint"), "change")
+        self.assertEqual(
+            discovery._kind("Add atomic projection while preserving idempotence"),
+            "change",
+        )
+        self.assertEqual(
+            discovery._kind_with_confidence("Extend the resolver and preserve compatibility"),
+            ("change", "high"),
+        )
         self.assertEqual(discovery._kind_with_confidence("preserve existing behavior"), ("preserve", "high"))
         self.assertEqual(discovery._kind_with_confidence("do not mutate state"), ("constraint", "high"))
         self.assertEqual(discovery._kind_with_confidence("add a new endpoint"), ("change", "high"))
@@ -753,6 +761,18 @@ class InterpretationErrorDetailTests(unittest.TestCase):
             discovery._kind_with_confidence("keeping all rejection semantics unchanged"),
             ("change", "low"),
         )
+
+    def test_explicit_kind_rejects_primary_outcome_contradictions(self):
+        self.assertEqual(
+            discovery.validate_requirement_kind(
+                "Add atomic projection while preserving idempotence", "change"
+            ),
+            "change",
+        )
+        with self.assertRaisesRegex(ValueError, "primary `change` outcome"):
+            discovery.validate_requirement_kind(
+                "Add atomic projection while preserving idempotence", "preserve"
+            )
 
     def test_low_confidence_kind_asks_host_instead_of_guessing(self):
         result = discovery.interpretation("keeping all rejection semantics unchanged")

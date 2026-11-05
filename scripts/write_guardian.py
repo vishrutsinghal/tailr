@@ -48,6 +48,19 @@ def _load(name: str, filename: str) -> Any:
 ANCHOR = _load("write_guardian_anchor", "change-intent-anchor.py")
 
 
+def _coordinated_write_check(root: Path, run_id: str) -> tuple[bool, str | None]:
+    """Apply the coordinated-plan batch/dependency gate when membership exists."""
+    membership = root / ".tailtrail" / "runs" / run_id / "planning" / "coordinated-membership-v1.json"
+    if not membership.is_file():
+        return True, None
+    try:
+        planning = _load("write_guardian_planning_lock", "planning_lock.py")
+        planning._assert_coordinated_execution_allowed(root, run_id)
+        return True, None
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+        return False, f"Write access denied: {error}"
+
+
 class SecurityBoundaryError(Exception):
     """Raised when a write attempt violates the active pipeline stage boundaries."""
     def __init__(self, message: str):
@@ -111,6 +124,10 @@ class WriteGuardian:
         except ValueError:
             # If path is outside root, it's prohibited unless it's a known external target
             raise SecurityBoundaryError(f"Write access denied: Path `{path}` is outside the project root.")
+
+        coordinated_allowed, coordinated_error = _coordinated_write_check(self.root, str(self.run_id))
+        if not coordinated_allowed:
+            raise SecurityBoundaryError(coordinated_error or "Write access denied by coordinated plan.")
 
         allowed, error = self.judge.validate_write_access(relative_path)
         if not allowed:
@@ -285,7 +302,21 @@ def _anchor_role_map(anchor: dict[str, Any]) -> dict[str, str | None]:
                     roles[str(path)] = str(item.get("role", "unknown"))
             elif isinstance(item, str) and item:
                 roles.setdefault(item, None)
+        for item in row.get("writable_outputs", []) or []:
+            if isinstance(item, dict) and isinstance(item.get("path"), str):
+                roles[str(item["path"])] = str(item.get("role", "unknown"))
     return roles
+
+
+def _anchor_output_map(anchor: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    outputs: dict[str, dict[str, Any]] = {}
+    for row in anchor.get("requirements", []) or []:
+        if not isinstance(row, dict):
+            continue
+        for item in row.get("writable_outputs", []) or []:
+            if isinstance(item, dict) and isinstance(item.get("path"), str):
+                outputs[str(item["path"])] = dict(item)
+    return outputs
 
 
 def _correction_path_set(anchor: dict[str, Any]) -> set[str]:
@@ -372,6 +403,9 @@ def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, 
     approval) skips straight to the plain fallback -- there is nothing yet
     to compare the path against.
     """
+    coordinated_allowed, coordinated_error = _coordinated_write_check(root, run_id)
+    if not coordinated_allowed:
+        return False, coordinated_error
     try:
         _, anchor = ANCHOR.latest_approved(root, run_id)
     except ValueError:
@@ -383,6 +417,28 @@ def anchor_aware_write_check(root: Path, run_id: str, path: str) -> tuple[bool, 
         role_map = _anchor_role_map(anchor)
         approved_paths = set(role_map.keys())
         anchor_role = role_map.get(path)
+        output = _anchor_output_map(anchor).get(path)
+        if output is not None:
+            role = str(output.get("role", ""))
+            if role not in {"configuration-output", "generated-output"}:
+                return False, f"Write access denied: `{path}` has unsupported approved output role `{role}`."
+            due_diligence = output.get("new_file_due_diligence", {})
+            eligible = output.get("existing") is True or (
+                isinstance(due_diligence, dict) and due_diligence.get("write_eligible") is True
+            )
+            if not eligible:
+                return False, (
+                    f"Write access denied: approved output `{path}` is blocked by new-file due diligence. "
+                    "Revise the plan with verified `new-confirmed` evidence before writing it."
+                )
+            required_stage = "INFRA" if role == "configuration-output" else "IMPLEMENTATION"
+            active_stage = judge.manager.get_current_stage()
+            if active_stage != required_stage:
+                return False, (
+                    f"Write access denied: `{path}` is an approved `{role}` and is writable only in "
+                    f"stage `{required_stage}`, not `{active_stage}`."
+                )
+            return True, None
         classifier_role, _ = navigator_scope.classify_repository_role(root, path)
         effective_role = anchor_role if anchor_role and anchor_role != "unknown" else classifier_role
         if judge.manager.get_current_stage() == "IMPLEMENTATION":

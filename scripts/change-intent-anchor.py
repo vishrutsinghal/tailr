@@ -27,6 +27,7 @@ KINDS = {"change", "preserve", "constraint", "safety", "decision", "debug-invest
 STATUSES = {"proposed", "approved", "revoked", "blocked", "validated"}
 MATERIAL_INVALIDATIONS = {"scope", "public-contract", "dependency", "data-model", "security", "acceptance-criteria", "preserve-rule"}
 PATH_ROLES = {"implementation-owner", "proof-only", "inspection-only", "unknown"}
+OUTPUT_ROLES = {"configuration-output", "generated-output"}
 
 
 def canonical(value: Any) -> str:
@@ -129,6 +130,17 @@ def approved_plan_fingerprint(effective: dict[str, dict[str, Any]], requirements
                                 scope_data[key] = sorted(set(str(p) for p in paths if p))
                     if scope_data:
                         entry["scope"] = scope_data
+                if isinstance(req.get("writable_outputs"), list):
+                    entry["writable_outputs"] = sorted(
+                        (
+                            str(item.get("path", "")),
+                            str(item.get("role", "")),
+                            bool(item.get("existing")),
+                            str(item.get("new_file_verdict", "")),
+                        )
+                        for item in req["writable_outputs"]
+                        if isinstance(item, dict) and item.get("path")
+                    )
                 
                 # Include behavior scenarios with action/outcome specificity
                 if "behavior_contract" in req and isinstance(req["behavior_contract"], dict):
@@ -200,6 +212,40 @@ def validate_requirement(row: dict[str, Any]) -> list[str]:
         or len(set(row["query_terms"])) != len(row["query_terms"])
     ):
         issues.append("query_terms must be unique strings of at least three characters")
+    outputs = row.get("writable_outputs", [])
+    if not isinstance(outputs, list):
+        issues.append("writable_outputs must be a list")
+        outputs = []
+    seen_outputs: set[str] = set()
+    owner_paths = {
+        item if isinstance(item, str) else str(item.get("path", ""))
+        for item in row.get("likely_paths", []) if isinstance(item, (str, dict))
+    }
+    for output in outputs:
+        if not isinstance(output, dict):
+            issues.append("writable_outputs entries must be objects")
+            continue
+        if not isinstance(output.get("path"), str) or not output.get("path"):
+            issues.append("writable output needs a path")
+        if output.get("role") not in OUTPUT_ROLES:
+            issues.append("writable output role is not allowed")
+        if output.get("grants_behavioral_ownership") is not False:
+            issues.append("writable output must not grant behavioral ownership")
+        if output.get("requests_write_authority") is not True:
+            issues.append("writable output must explicitly request write authority")
+        path = str(output.get("path", ""))
+        if path in seen_outputs:
+            issues.append("writable output paths must be unique")
+        seen_outputs.add(path)
+        if path in owner_paths:
+            issues.append("writable output must not also be an implementation owner")
+        if not isinstance(output.get("existing"), bool):
+            issues.append("writable output must declare existing state")
+        due = output.get("new_file_due_diligence")
+        if output.get("existing") is False and (
+            not isinstance(due, dict) or due.get("write_eligible") is not True
+        ):
+            issues.append("proposed writable output requires write-eligible new-file due diligence")
     return issues
 
 
@@ -216,7 +262,15 @@ def normalize_draft(run_id: str, source: dict[str, Any], version: int) -> dict[s
             likely_paths = normalize_likely_paths(raw.get("likely_paths", []))
         except ValueError as error:
             raise ValueError(f"requirement {index}: {error}") from error
-        row = {"requirement_uid": raw.get("requirement_uid") or uid(run_id, statement), "display_id": raw.get("display_id") or f"REQ-{index:02d}", "kind": raw.get("kind", "change"), "statement": statement, "acceptance_criteria": raw.get("acceptance_criteria", []), "preserve_rules": raw.get("preserve_rules", []), "likely_paths": likely_paths, "evidence_plan": raw.get("evidence_plan", []), "validation_contract": raw.get("validation_contract", {"state": "required", "tiers": ["unit"]}), "architecture_contract": raw.get("architecture_contract", {"required_paths": [], "protected_paths": [], "forbidden_imports": []}), "behavior_contract": raw.get("behavior_contract", {"scenarios": []}), "maintainability_contract": raw.get("maintainability_contract", {"rules": []}), "ui_contract": raw.get("ui_contract", {}), "status": "proposed"}
+        writable_outputs = raw.get("writable_outputs")
+        if writable_outputs is None:
+            scope_evidence = raw.get("scope_evidence")
+            writable_outputs = (
+                scope_evidence.get("writable_outputs", [])
+                if isinstance(scope_evidence, dict)
+                else []
+            )
+        row = {"requirement_uid": raw.get("requirement_uid") or uid(run_id, statement), "display_id": raw.get("display_id") or f"REQ-{index:02d}", "kind": raw.get("kind", "change"), "statement": statement, "acceptance_criteria": raw.get("acceptance_criteria", []), "preserve_rules": raw.get("preserve_rules", []), "likely_paths": likely_paths, "writable_outputs": copy.deepcopy(writable_outputs), "evidence_plan": raw.get("evidence_plan", []), "validation_contract": raw.get("validation_contract", {"state": "required", "tiers": ["unit"]}), "architecture_contract": raw.get("architecture_contract", {"required_paths": [], "protected_paths": [], "forbidden_imports": []}), "behavior_contract": raw.get("behavior_contract", {"scenarios": []}), "maintainability_contract": raw.get("maintainability_contract", {"rules": []}), "ui_contract": raw.get("ui_contract", {}), "status": "proposed"}
         if raw.get("requirement_id"):
             row["requirement_id"] = str(raw["requirement_id"])
         if raw.get("query_terms"):

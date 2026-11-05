@@ -1,0 +1,68 @@
+[
+  {
+    "answer_id": "answer-ca28e2bbcfab4d14",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "scripts/official-aidlc-requirements.py",
+      "tailtrail/aidlc_bundle.py"
+    ]
+  },
+  {
+    "answer_id": "answer-96f5be663a7b4956",
+    "evidence_paths": [
+      "scripts/official-aidlc-requirements.py"
+    ]
+  },
+  {
+    "answer_id": "answer-e49b47e0147c4d4b",
+    "evidence_paths": [
+      "tests/test_aidlc_official_bridge.py",
+      "scripts/official-aidlc-requirements.py"
+    ]
+  },
+  {
+    "answer_id": "answer-735e10ce2a7e46a8",
+    "evidence_paths": [
+      "tailtrail/aidlc_bundle.py"
+    ]
+  },
+  {
+    "answer_id": "answer-952698a118234ffd",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-761d52f2327e4e8a",
+    "evidence_paths": [
+      "scripts/aidlc-official-bridge.py"
+    ]
+  },
+  {
+    "answer_id": "answer-1c5bdc3f63754420",
+    "evidence_paths": [
+      "scripts/planning_lock.py"
+    ]
+  },
+  {
+    "answer_id": "answer-93ba04180cd44473",
+    "evidence_paths": [
+      "scripts/task-start.py"
+    ]
+  },
+  {
+    "answer_id": "answer-cf60c46f919348ce",
+    "evidence_paths": [
+      "tests/test_aidlc_bundle_resolver.py",
+      "tailtrail/aidlc_bundle.py"
+    ]
+  },
+  {
+    "answer_id": "answer-f6e2f43372dc4092",
+    "evidence_paths": [
+      "tests/test_aidlc_official_bridge.py",
+      "scripts/official-aidlc-requirements.py",
+      "tailtrail/aidlc_bundle.py"
+    ]
+  }
+]

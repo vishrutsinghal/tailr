@@ -30,6 +30,16 @@ class ArchitectureFitnessTests(unittest.TestCase):
    anchor_path.write_text(json.dumps(data),encoding="utf-8")
    result=fitness.assess(root,"run",["tests/test_service.py"])
   self.assertFalse([f for f in result["findings"] if f.get("category")=="scope"],result["findings"])
+ def test_legacy_scope_evidence_writable_output_is_approved_scope(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);self.setup(root)
+   anchor_path=root/".tailtrail"/"runs"/"run"/"anchors"/"approved-v1.json"
+   data=json.loads(anchor_path.read_text(encoding="utf-8"))
+   data["requirements"][0]["writable_outputs"]=[]
+   data["requirements"][0]["scope_evidence"]={"writable_outputs":[{"path":"tailtrail-registry.json","role":"configuration-output","role_class":"writable-output","existing":True,"new_file_due_diligence":{"verdict":"not-applicable","write_eligible":True},"grants_behavioral_ownership":False,"requests_write_authority":True}]}
+   anchor_path.write_text(json.dumps(data),encoding="utf-8")
+   result=fitness.assess(root,"run",["tailtrail-registry.json"])
+  self.assertFalse([f for f in result["findings"] if f.get("category")=="scope"],result["findings"])
  def test_corrected_scope_is_not_drift(self):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);self.setup(root)

@@ -394,6 +394,11 @@ python3 scripts/tailtrail.py planning feature-controls-show --root . --run-id <r
 python3 scripts/tailtrail.py planning feature-controls-propose --root . --run-id <run-id> --changes '[{"feature":"Behaviour Harness","value":"selected","reason":"Customer journey proof is needed."}]' --approved-proposal
 python3 scripts/tailtrail.py planning feature-controls-approve --root . --run-id <run-id> --revision 2 --approved
 python3 scripts/tailtrail.py planning authority-show --root . --run-id <run-id>
+python3 scripts/tailtrail.py planning coordinate create --root . --plan coordinated-plan.json
+python3 scripts/tailtrail.py planning coordinate show --root . --plan-id <plan-id>
+python3 scripts/tailtrail.py planning coordinate approve --root . --plan-id <plan-id> --approved
+python3 scripts/tailtrail.py planning coordinate checkpoint --root . --plan-id <plan-id> --run-id <child-run-id> --state active
+python3 scripts/tailtrail.py planning coordinate checkpoint --root . --plan-id <plan-id> --run-id <child-run-id> --state completed --evidence .tailtrail/runs/<child-run-id>/finalizers/<finalizer>.json
 python3 scripts/tailtrail.py planning aidlc-question show --root . --run-id <run-id> --question-id Q5
 python3 scripts/tailtrail.py planning aidlc-question clarify --root . --run-id <run-id> --question-id Q5
 python3 scripts/tailtrail.py planning aidlc-question challenge --root . --run-id <run-id> --question-id Q5 --reason-code unclear-reasoning
@@ -496,6 +501,32 @@ superseded in revision state, creates the next version from the last active
 reviewed report, and keeps implementation blocked until that exact replacement
 is approved. Requirement removal also converges the query frame, scope roles,
 feature slices, and workflow binding so deleted IDs cannot remain in the plan.
+
+## Coordinated owner plans and atomic approval
+
+Use `planning coordinate` only after TailTrail has produced separate,
+audit-clean, single-owner child Start plans. The proposal names the overall
+outcome, exact child run IDs and owners, typed dependencies, shared final proof,
+and overall success criteria. `create` fingerprints every canonical child plan
+and refuses unknown dependencies, cycles, owner mismatches, missing proof, or
+multi-owner children. An audit-clean pending child revision is fingerprinted
+as the selected child plan and approved inside the batch; it needs no separate
+user approval.
+
+`approve --approved` is one atomic authorization for the exact coordinated
+plan fingerprint and every child fingerprint. Child Planning Locks may be
+prepared sequentially, but managed writes remain blocked until the batch
+approval receipt is committed. If any child activation fails, no batch receipt
+is minted and every member remains write-blocked; retrying the same approval
+continues from safely prepared members.
+
+After approval, dependency-free children become `ready`. Record `active` before
+implementation and `completed` only with the exact child's successful canonical
+closure-finalizer JSON. Completing a child unlocks its dependents. Independent
+children may execute in parallel when their own dependencies are complete.
+Changing any child plan fingerprint invalidates the batch and blocks execution;
+create and approve a new coordinated plan rather than silently carrying forward
+old authority.
 
 ## Mandatory Plan Gap Review (before presenting a Start Report)
 
@@ -2375,40 +2406,44 @@ python3 scripts/tailtrail.py aidlc check --root . --strict-answers
 
 Use AIDLC for broad, risky, ambiguous, regulated, multi-team, or long-running work. Do not use it for tiny clear edits unless the user asks.
 
-### Official AWS AI-DLC pack installation and compatibility
+### Bundled offline Full AIDLC and advanced external packs
 
-Install the pinned official AWS AI-DLC release into the current project before
-using `--aidlc full`. This is separate from TailTrail's local Lite and Standard
-modes. The installer downloads the published AWS release, preserves its MIT-0
-license, records SHA-256 hashes for every installed rule, and does not execute
-any pack script.
+A normal TailTrail installation already contains the pinned official AWS
+AI-DLC rules, license, bundle version, provenance, and complete SHA-256
+inventory. Users do **not** install the official pack separately before using
+`--aidlc full`. The public Full route resolves the package-owned bundle,
+verifies both package and bundle integrity, projects a content-addressed copy
+under `.tailtrail/official-aidlc/`, and remains offline. A Full request never
+silently downgrades to Lite: missing, altered, incompatible, or unsafe state
+stops with a typed recovery action.
+
+Use the network installer only as an advanced explicit external-pack
+acquisition route. Supplying `--official-aidlc-manifest` selects exactly that
+external pack; an invalid override fails closed and never falls back to the
+bundled pack.
 
 ```powershell
-py -3 scripts\tailtrail.py aidlc official install --root "D:\path\to\your-project" --host copilot
+py -3 scripts\tailtrail.py start "regulated delivery" --root "D:\path\to\your-project" --host copilot --aidlc full
 py -3 scripts\tailtrail.py aidlc official status --root "D:\path\to\your-project"
 
-# Codex only: project the verified pack into the official rule locations and
-# add a conditional Full-mode bridge to the existing AGENTS.md.
-py -3 scripts\tailtrail.py aidlc official host install --root "D:\path\to\your-project" --host codex
-py -3 scripts\tailtrail.py aidlc official host status --root "D:\path\to\your-project" --host codex
+# After a Full run is created, project its frozen identity for any supported host.
+py -3 scripts\tailtrail.py aidlc official host install --root "D:\path\to\your-project" --host codex --run-id <run-id>
+py -3 scripts\tailtrail.py aidlc official host status --root "D:\path\to\your-project" --host codex --run-id <run-id>
 ```
 
 On macOS/Linux, use `python3 scripts/tailtrail.py` in the same commands. The
-pack is saved locally at `.tailtrail/official-aidlc/`; it is project-local and
-should not be manually edited after installation.
+verified project projection is saved below
+`.tailtrail/official-aidlc/packs/<fingerprint>/`; its immutable contents and
+receipts must not be manually edited.
 
 ```bash
 python3 scripts/tailtrail.py aidlc official status --root .
 python3 scripts/tailtrail.py aidlc official status --root . --format json
 ```
 
-This validates a locally supplied, pinned official-pack manifest at
-`.tailtrail/official-aidlc/manifest.json`. It checks official source, a pinned
-version/commit, MIT-0 license record, host adapter, and SHA-256 file hashes.
-It reports `not-installed`, `compatible`, `altered`, or `incompatible` and
-does not download, execute, attach, or edit an official pack. Start from
-`templates/official-aidlc-pack.manifest.example.json`; placeholders must be
-replaced with real local file hashes.
+Status is read-only. It reports bundled, project-projection, compatibility,
+identity, and integrity posture without downloading, executing, attaching, or
+repairing rule content.
 
 ### AIDLC mode selection and official bridge identity
 
@@ -2422,8 +2457,8 @@ python3 scripts/tailtrail.py start "using AIDLC: add a feature" --aidlc standard
 # Disable AIDLC lifecycle routing for this one planning run
 python3 scripts/tailtrail.py start "small local fix" --aidlc off
 
-# Explicit Full mode: requires Phase A compatibility first
-python3 scripts/tailtrail.py start "regulated delivery" --aidlc full \
+# Explicit Full mode: verifies and provisions the bundled pack offline
+python3 scripts/tailtrail.py start "regulated delivery" --host codex --aidlc full \
   --official-intent-id intent-42 --official-session-id session-7 \
   --official-stage requirements
 
@@ -2637,6 +2672,47 @@ managed/generated/vendor state, records the exact read limits, and reports
 conflict, no-evidence, unsupported, and limit-reached states without guessing.
 The evidence packet is goal/root-bound and fingerprint-checked whenever the
 intake is shown or answered.
+
+### Public Navigator planning-readiness intake
+
+An implementation host contract is intake context, not Start authority. Use
+the public Navigator intake when Start requests a planning-readiness receipt:
+
+```bash
+tailtrail navigator intake open --root . --goal "<exact goal>" \
+  --host-contract-file host-contract.json --host codex --aidlc full
+tailtrail navigator intake record --root . --run-id <intake-run-id> \
+  --answers-file candidate-answers.json
+tailtrail navigator intake validate --root . --run-id <intake-run-id> \
+  --evidence-file candidate-evidence.json
+tailtrail navigator intake status --root . --run-id <intake-run-id>
+tailtrail navigator intake finalize --root . --run-id <intake-run-id> \
+  --bindings-file requirement-bindings.json
+```
+
+`open` publishes the profile-owned mandatory questions. `record` saves host
+findings only as candidates. `validate` computes repository file fingerprints
+and records Navigator acceptance only after field and evidence checks. `status`
+reports missing, duplicate, stale, candidate, and accepted fields. `finalize`
+requires complete requirement-specific owner and proof bindings, reuses the
+core receipt validator, writes an immutable planning-readiness receipt, and
+prints the exact copyable `tailtrail start` retry command. None of these
+operations creates a Planning Lock or approves implementation. Standard and
+Full AIDLC question authority remains with the verified official pack; this
+operational intake does not replace its questionnaire.
+
+For every declared proof path, `open` also asks for a proof-adequacy answer.
+The answer is a JSON object with the exact proof `path`, a `role` of
+`unchanged-proof`, `editable-proof`, or `new-proof`, non-empty `test_cases`,
+`fixtures`, and `assertions` arrays, plus the exact declared proof command and
+its observed baseline result. Existing proof may remain unchanged only when
+that baseline passed; proposed proof must be `new-proof` with a `not-run`
+baseline. Navigator validates this answer against repository evidence before
+acceptance. The planning-readiness projection then places only
+`editable-proof` and `new-proof` paths in validation `editable_paths`; an audit
+fails closed when that role and editable scope disagree. This prevents a test
+whose fixtures or assertions must change from being silently treated as
+run-only proof.
 
 The `hello` alias handles `hello tailtrail`, `hello TailTrail`, and the common typo `hello taitrail`, then delegates to `tailtrail hello`. If the launcher was installed before the alias existed, rerun `python3 scripts/tailtrail.py install launcher --force`.
 

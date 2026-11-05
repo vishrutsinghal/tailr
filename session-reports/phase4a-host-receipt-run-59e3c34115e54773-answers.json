@@ -1,0 +1,30 @@
+[
+  {
+    "question_id": "question-f8b8b08062ca43ff",
+    "value": "schemas/official-aidlc-host-projection-receipt.schema.json"
+  },
+  {
+    "question_id": "question-70e332a7d4bb4b8a",
+    "value": "tailtrail-registry.json"
+  },
+  {
+    "question_id": "question-53241535bf874f39",
+    "value": "python3 -m unittest tests.test_tailtrail_registry -v"
+  },
+  {
+    "question_id": "question-0bd2ff9149714c6a",
+    "value": "tailtrail-registry.json"
+  },
+  {
+    "question_id": "question-64508704e6ba4353",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-82ac9eb977984182",
+    "value": "schemas/official-aidlc-run-state.schema.json"
+  },
+  {
+    "question_id": "question-9e99d32299b642f7",
+    "value": "{\"path\":\"tests/test_tailtrail_registry.py\",\"role\":\"editable-proof\",\"test_cases\":[\"host-projection receipt schema ownership and strict registry validation\",\"required receipt fields and closed contract shape\",\"registered file and feature discoverability\"],\"fixtures\":[\"current tailtrail-registry.json\",\"official AIDLC schema inventory\"],\"assertions\":[\"the separate host-projection receipt contract is registered and schema-valid\",\"the registry exposes the contract without changing the read-only host-status boundary\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_tailtrail_registry -v\",\"outcome\":\"pass\",\"observed\":\"20 tests passed before Phase 4A changes\"}}"
+  }
+]

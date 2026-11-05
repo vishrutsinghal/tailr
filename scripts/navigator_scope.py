@@ -3480,6 +3480,20 @@ def verify_decision_fingerprint(document: dict[str, Any]) -> bool:
     return isinstance(observed, str) and observed == fingerprint(_fingerprintable_document(candidate))
 
 
+def seal_decision_fingerprint(document: dict[str, Any]) -> dict[str, Any]:
+    """Return one copy with a canonical v2 scope-decision fingerprint.
+
+    Trusted upstream projections, such as a fresh planning-readiness receipt,
+    may replace heuristic scope evidence before Planning Lock persistence.
+    They must use the same fingerprint boundary as ordinary Navigator scope
+    rather than inventing a parallel receipt-specific hash contract.
+    """
+    sealed = copy.deepcopy(document)
+    sealed.pop("decision_fingerprint", None)
+    sealed["decision_fingerprint"] = fingerprint(_fingerprintable_document(sealed))
+    return sealed
+
+
 def verify_decision_fingerprint_legacy(document: dict[str, Any]) -> bool:
     """Verify the pre-split fingerprint scheme (transcript included).
 

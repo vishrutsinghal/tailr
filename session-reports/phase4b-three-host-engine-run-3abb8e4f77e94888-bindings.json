@@ -1,0 +1,143 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE4-HOST-ENGINE",
+        "statement": "Implement one three-host projection engine that consumes the exact frozen bundled-v2 run binding, applies fixed Codex copy and Copilot and Claude reference modes, publishes safe atomic projections and immutable receipts, performs complete read-only conformance, preserves idempotence, fails closed on conflicting or unsafe state, and proves all hosts agree on one official and project-pack identity without network or mutable rediscovery; the engine depends on REQ-PHASE4-RECEIPT-CONTRACT being available first.",
+        "requirement_kind": "change",
+        "requirement_kind_source_answer_ids": ["answer-b710235c1cec45ac", "answer-43128ad86ed54622"],
+        "source_answer_ids": [
+          "answer-b710235c1cec45ac",
+          "answer-43128ad86ed54622",
+          "answer-52495e29023f45ec",
+          "answer-7a02bcc35b5143d0",
+          "answer-89d1b0eaba7a4692",
+          "answer-ae5a6d2b59a64f9a",
+          "answer-5d72642ad0cb4fe1",
+          "answer-2a084ad2386946ef",
+          "answer-04ec91adb8804495",
+          "answer-8df868d501764c5d",
+          "answer-e08df9cbbac14614",
+          "answer-6a01ee92479a47ce",
+          "answer-573b061138c648ac",
+          "answer-affac273e7204bff",
+          "answer-4c90e3b687c341ff",
+          "answer-45ef5296a7f74015"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "proof-adequacy-008",
+          "declared-path-009",
+          "declared-path-010",
+          "declared-path-011",
+          "declared-path-012",
+          "declared-path-013",
+          "declared-path-014"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/aidlc-official-host.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "ownership_evidence": "This existing public host install and status engine owns the current Codex behavior and is the correct single behavioral owner for the three-host projection extension.",
+            "source_answer_ids": ["answer-43128ad86ed54622", "answer-b710235c1cec45ac"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-7a02bcc35b5143d0"]
+          },
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-89d1b0eaba7a4692"]
+          },
+          {
+            "path": "scripts/aidlc-official-bridge.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-ae5a6d2b59a64f9a"]
+          },
+          {
+            "path": "schemas/official-aidlc-run-state.schema.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-5d72642ad0cb4fe1"]
+          },
+          {
+            "path": "scripts/install-local.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-2a084ad2386946ef"]
+          },
+          {
+            "path": "scripts/install-copilot.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-04ec91adb8804495"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_official_host.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_host -v",
+            "tier": "unit",
+            "asserted_behavior": "Host mode selection, fingerprints, inventory comparison, receipt sealing, idempotence, and categorized conformance decisions are deterministic and filesystem-bounded.",
+            "source_answer_id": "answer-52495e29023f45ec"
+          },
+          {
+            "path": "tests/test_aidlc_official_host.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_host -v",
+            "tier": "contract",
+            "asserted_behavior": "Codex, Copilot, and Claude consume one frozen run-resolution contract and emit the approved host-projection receipt without mutable rediscovery or host-specific authority drift.",
+            "source_answer_id": "answer-52495e29023f45ec"
+          },
+          {
+            "path": "tests/test_aidlc_official_host.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_host -v",
+            "tier": "behaviour",
+            "asserted_behavior": "Temporary three-host repositories prove atomic copy and reference installation, complete read-only conformance, identity agreement, idempotent retry, and fail-closed negative states with no network access.",
+            "source_answer_id": "answer-52495e29023f45ec"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "One host projection engine consumes exactly one frozen bundled-v2 run binding and depends on the registered Phase 4 host-projection receipt contract.",
+            "Codex copy mode and Copilot and Claude reference modes publish bounded atomic projections and immutable receipts while preserving unmanaged instructions.",
+            "Read-only status recomputes complete receipt, instruction, mapping, and inventory evidence; all hosts agree on one official and project-pack identity; identical retries are idempotent.",
+            "Focused host proof covers positive conformance and missing, additional, altered, symlinked, non-regular, unsafe, stale, legacy, and conflicting negative cases."
+          ],
+          "negative": [
+            "No host downloads, substitutes, rediscovers mutable selector state, accepts legacy authority, silently changes projection mode, or falls back from Full.",
+            "Unsafe ancestors, unmanaged conflicts, altered receipts, incomplete inventories, stale identity, and different frozen authority fail closed without overwrite.",
+            "Do not edit repository host instruction files, public Start or MCP wiring, Planning Lock, installers, bundle resolver, bridge, registry, schemas, packaging, documentation, or Phase 5 proof surfaces."
+          ],
+          "source_answer_ids": ["answer-b710235c1cec45ac", "answer-43128ad86ed54622", "answer-7a02bcc35b5143d0"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-b710235c1cec45ac"]
+        }
+      }
+    ]
+  }
+}

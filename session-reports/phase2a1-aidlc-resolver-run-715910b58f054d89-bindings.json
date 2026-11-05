@@ -1,0 +1,147 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE2A1-RESOLVER",
+        "statement": "Add one package-owned official AIDLC bundle resolver that discovers installed-package, managed-payload, and source-checkout bundles by deterministic precedence; resolves independently of the process current working directory; verifies package and bundle integrity offline; emits a typed fingerprinted receipt with truthful provider, official identity, trust posture, artifact-identity status, verified root, network posture, and categorical issues; and leaves every missing, altered, incompatible, incomplete, unsafe, or conflicting source untouched.",
+        "source_answer_ids": [
+          "answer-7ebdbdb4953b4e17",
+          "answer-33967e9eb84c4b59",
+          "answer-02b98bae82d747e8",
+          "answer-6a7a80b591954a3b",
+          "answer-8c790d1e067d404b",
+          "answer-842336e2e28a4e49",
+          "answer-baccb3341b004edc",
+          "answer-659dbb5a130c4065",
+          "answer-b746ebd7623e43b0",
+          "answer-ede1a0083e4142ae",
+          "answer-9e5727a1a1324f40",
+          "answer-7e9e24d4d3384b19"
+        ],
+        "profile_fields": [
+          "proposed-owner",
+          "public-route",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "declared-path-008",
+          "declared-path-009",
+          "proof-adequacy-010"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "implementation-owner",
+            "existing": false,
+            "host_declared": true,
+            "new_file_verdict": "new-confirmed",
+            "ownership_evidence": "The Phase 2 design assigns this package-owned concern to a shared resolver; repository inspection found generic resource verification and script-local validators but no equivalent package resolver.",
+            "source_answer_ids": ["answer-7ebdbdb4953b4e17", "answer-33967e9eb84c4b59"]
+          },
+          {
+            "path": "tailtrail/resources.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-6a7a80b591954a3b"]
+          },
+          {
+            "path": "scripts/aidlc-official-detect.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-8c790d1e067d404b"]
+          },
+          {
+            "path": "scripts/aidlc-official-install.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-842336e2e28a4e49"]
+          },
+          {
+            "path": "scripts/installation-qualification.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-baccb3341b004edc"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-659dbb5a130c4065"]
+          },
+          {
+            "path": "aidlc-rules/manifest.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-b746ebd7623e43b0"]
+          },
+          {
+            "path": "aidlc-rules/PROVENANCE.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-ede1a0083e4142ae"]
+          },
+          {
+            "path": "package-manifest.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-9e5727a1a1324f40"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "unit",
+            "asserted_behavior": "Provider discovery, deterministic precedence, safe path handling, exact inventory comparison, and receipt fingerprinting work against controlled filesystem fixtures.",
+            "source_answer_id": "answer-02b98bae82d747e8"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "contract",
+            "asserted_behavior": "The resolver receipt binds provider identity, official source/revision/commit, bundle fingerprint, trust posture, artifact-identity status, verified root, network_used false, issues, and its own stable fingerprint.",
+            "source_answer_id": "answer-02b98bae82d747e8"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "behaviour",
+            "asserted_behavior": "Installed-package, managed-payload, and source-checkout providers resolve independently of the current working directory, report truthful distinct trust postures, perform no network access, and preserve invalid state untouched.",
+            "source_answer_id": "answer-02b98bae82d747e8"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "All three package resource providers resolve through one typed package-owned contract with deterministic precedence and no current-working-directory dependency.",
+            "A successful receipt binds the selected provider, official identity, verified bundle root, package and bundle integrity fingerprints, truthful trust posture, artifact-identity status, and network_used false.",
+            "The focused proof covers positive provider selection and every declared negative integrity state."
+          ],
+          "negative": [
+            "Local hashes, legacy schema-v1 state, self-authored manifests, or unbound receipts never become authenticated-release or new-Full authority.",
+            "Resolution never accesses the network, executes pack content, follows unsafe links, or mutates source state.",
+            "This slice does not edit inspection inputs or implement project projection, future-run selection, frozen active-run binding, Full routing, or host projection."
+          ],
+          "source_answer_ids": ["answer-7ebdbdb4953b4e17", "answer-659dbb5a130c4065"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-7ebdbdb4953b4e17"]
+        }
+      }
+    ]
+  }
+}

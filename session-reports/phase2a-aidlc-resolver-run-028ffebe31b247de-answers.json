@@ -1,0 +1,46 @@
+[
+  {
+    "question_id": "question-2e6ba213dedf441c",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-6ecc964f7bf24799",
+    "value": "scripts/aidlc-official-detect.py"
+  },
+  {
+    "question_id": "question-1a6f76cd73ba4a99",
+    "value": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect"
+  },
+  {
+    "question_id": "question-a00503db088b43d7",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-14350a57135644e9",
+    "value": "aidlc-rules/manifest.json"
+  },
+  {
+    "question_id": "question-20915990074c4580",
+    "value": "aidlc-rules/PROVENANCE.json"
+  },
+  {
+    "question_id": "question-0c42fe53105848cf",
+    "value": "package-manifest.json"
+  },
+  {
+    "question_id": "question-dd48a3035c9c441b",
+    "value": "scripts/aidlc-official-install.py"
+  },
+  {
+    "question_id": "question-30d8a9a6ffc44c10",
+    "value": "scripts/installation-qualification.py"
+  },
+  {
+    "question_id": "question-8625aa0b26774bb7",
+    "value": "{\"path\":\"tests/test_aidlc_bundle_resolver.py\",\"role\":\"new-proof\",\"test_cases\":[\"installed-package provider\",\"managed-payload provider\",\"source-checkout provider\",\"provider precedence\",\"current-working-directory independence\",\"typed receipt stability\",\"negative integrity states\",\"zero network access\"],\"fixtures\":[\"minimal schema-v2 bundle trees\",\"package integrity inventories\",\"versioned managed-payload roots\",\"qualifying and missing ownership receipts\"],\"assertions\":[\"the selected provider and pack root are deterministic\",\"the receipt fingerprint binds identity and integrity\",\"trust posture never exceeds available evidence\",\"unsafe or altered state fails closed without mutation\",\"resolution performs no network access\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect\",\"outcome\":\"not-run\",\"observed\":\"The proposed resolver proof file does not exist yet; the combined command was checked and currently fails to import tests.test_aidlc_bundle_resolver as expected.\"}}"
+  },
+  {
+    "question_id": "question-c1b9542a3ec8489f",
+    "value": "{\"path\":\"tests/test_aidlc_official_detect.py\",\"role\":\"editable-proof\",\"test_cases\":[\"read-only status delegates to the shared resolver\",\"legacy schema-v1 inspection remains bounded\",\"schema-v2 bundle status exposes provider and trust posture\"],\"fixtures\":[\"existing v1 project-pack fixture\",\"existing generated v2 bundle fixture\",\"altered and incompatible bundle fixtures\"],\"assertions\":[\"status remains read-only\",\"the compatibility adapter reports the shared resolver result\",\"v1 cannot gain new Full authority\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect\",\"outcome\":\"fail\",\"observed\":\"The command ran 8 cases: all 7 existing detector tests passed, while collection failed only because the proposed tests.test_aidlc_bundle_resolver module does not yet exist.\"}}"
+  }
+]

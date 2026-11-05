@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import copy
 import hashlib
 import importlib.util
 import json
@@ -31,6 +32,8 @@ import navigator_scope
 import navigator_graph_lifecycle
 import ui_planning
 import session_control
+
+project_host_contract_paths = host_contract.operational_path_projection
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -566,6 +569,22 @@ def append_v2_scope_projection(
         if isinstance(row, dict)
     }
     rendered_edge_ids: set[str] = set()
+    proof_adequacy_by_path: dict[str, dict[str, Any]] = {}
+    for requirement in plan.get("requirement_matrix", []):
+        if not isinstance(requirement, dict):
+            continue
+        contract = requirement.get("validation_contract", {})
+        if not isinstance(contract, dict):
+            continue
+        for check in contract.get("checks", []):
+            if not isinstance(check, dict):
+                continue
+            bindings = check.get("exact_bindings")
+            candidates = bindings if isinstance(bindings, list) else [check]
+            for candidate in candidates:
+                adequacy = candidate.get("proof_adequacy") if isinstance(candidate, dict) else None
+                if isinstance(adequacy, dict) and str(adequacy.get("path", "")):
+                    proof_adequacy_by_path[str(adequacy["path"])] = adequacy
     groups = (
         ("Implementation owners", "implementation_owners", "Editable only after approval."),
         (
@@ -620,6 +639,12 @@ def append_v2_scope_projection(
                         ("Confidence", f"`{row.get('confidence')}`"),
                         ("Evidence", display_prose(evidence_text)),
                     ]
+                    adequacy = proof_adequacy_by_path.get(str(row.get("path", ""))) if key == "proof_paths" else None
+                    if adequacy is not None:
+                        fields.extend([
+                            ("Proof intent", f"`{adequacy.get('role')}`"),
+                            ("Baseline", f"`{(adequacy.get('baseline') or {}).get('outcome', 'unknown')}`"),
+                        ])
                     if selected_edges:
                         fields.append(("Relationship types", display_prose(relationship_text)))
                     if verbose and edge_ids:
@@ -632,6 +657,12 @@ def append_v2_scope_projection(
                     table_evidence = evidence_text
                     if selected_edges:
                         table_evidence += f"; relationship types: {relationship_text}"
+                    adequacy = proof_adequacy_by_path.get(str(row.get("path", ""))) if key == "proof_paths" else None
+                    if adequacy is not None:
+                        table_evidence += (
+                            f"; proof intent: {adequacy.get('role')}; "
+                            f"baseline: {(adequacy.get('baseline') or {}).get('outcome', 'unknown')}"
+                        )
                     lines.append(
                         f"| `{row.get('path')}` | {', '.join(row.get('requirement_ids', [])) or 'none'} | "
                         f"`{row.get('confidence')}` | {display_prose(table_evidence)} |"
@@ -1176,7 +1207,32 @@ def official_requirement_authority(
     """
     selected = str(mode.get("mode", ""))
     compatibility = mode.get("compatibility")
-    if selected not in {"standard", "full"} or not isinstance(compatibility, dict):
+    if selected not in {"standard", "full"}:
+        return None
+    if selected == "full" and mode.get("state") == "official-full-ready":
+        pack_path = mode.get("pack_path")
+        if not isinstance(pack_path, str) or not pack_path:
+            raise ValueError("bundled Full requirement authority has no verified project pack path")
+        manifest = f"{pack_path}/manifest.json"
+        references = official_aidlc_requirements.stage_contract(
+            root, {"compatibility_manifest": manifest}
+        )
+        return {
+            "authority": "official-ai-dlc-pack",
+            "mode": selected,
+            "stage": "requirements",
+            "references": references,
+            "source": mode.get("official_source"),
+            "revision": mode.get("official_revision"),
+            "resolution_receipt_fingerprint": mode.get("resolution_receipt_fingerprint"),
+            "project_projection_fingerprint": mode.get("project_projection_fingerprint"),
+            "pack_fingerprint": mode.get("pack_fingerprint"),
+            "boundary": (
+                "The verified bundled official Requirements Analysis rules own requirement wording and material decisions. "
+                "Navigator may map those requirements to local scope only after this receipt is satisfied."
+            ),
+        }
+    if not isinstance(compatibility, dict):
         return None
     manifest = compatibility.get("manifest")
     if not isinstance(manifest, str) or not manifest:
@@ -1320,7 +1376,7 @@ def _corroborated_scope_signal(complexity: dict[str, Any] | None) -> tuple[bool,
     return bool(fired), fired
 
 
-def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None, declared_complexity: str | None = None) -> dict[str, Any]:
+def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None, declared_complexity: str | None = None, host: str | None = None) -> dict[str, Any]:
     """Choose the smallest lifecycle mode from explicit wording and task evidence.
 
     A user-provided flag wins. Standard and Full are official-pack-backed when
@@ -1332,7 +1388,7 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
     if declared_complexity is not None and str(declared_complexity).strip().lower() not in ("simple", "complex"):
         raise ValueError(f"declared complexity must be 'simple' or 'complex', got {declared_complexity!r}")
     calibration: dict[str, Any] = {}
-    selected = _aidlc_mode_selection_inner(goal, requested, root, plan, manifest, calibration, declared_complexity)
+    selected = _aidlc_mode_selection_inner(goal, requested, root, plan, manifest, calibration, declared_complexity, host)
     if calibration:
         try:
             from metrics_extractor import append_mode_decision, build_mode_decision_entry
@@ -1346,7 +1402,7 @@ def aidlc_mode_selection(goal: str, requested: str | None, root: Path, plan: dic
     return selected
 
 
-def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None, calibration: dict[str, Any], declared_complexity: str | None = None) -> dict[str, Any]:
+def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, plan: dict[str, Any], manifest: str | None, calibration: dict[str, Any], declared_complexity: str | None = None, host: str | None = None) -> dict[str, Any]:
     """Dual-gate mode routing; publishes decision signals via ``calibration``.
 
     The calibration dict stays empty for explicit-flag / opt-out / explicit
@@ -1357,7 +1413,9 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
     hands_free = any(phrase in lowered for phrase in ("hands-free", "hands free", "end-to-end", "end to end"))
     if requested:
         normalized = "standard" if requested == "medium" else requested
-        selected = official_aidlc_bridge.preflight(root, normalized, manifest)
+        selected = official_aidlc_bridge.preflight(root, normalized, manifest, host=host)
+        if normalized == "full" and selected.get("state") == "official-full-ready":
+            selected["sealed_preflight"] = dict(selected)
         selected["selection"] = "explicit-flag"
         selected["full_escalation"] = {"state": "not-evaluated", "reason": "An explicit mode flag takes precedence."}
         return selected
@@ -1368,7 +1426,9 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
         selected["full_escalation"] = {"state": "not-evaluated", "reason": "The request explicitly opted out of AIDLC."}
         return selected
     if intent == "full":
-        selected = official_aidlc_bridge.preflight(root, "full", manifest)
+        selected = official_aidlc_bridge.preflight(root, "full", manifest, host=host)
+        if selected.get("state") == "official-full-ready":
+            selected["sealed_preflight"] = dict(selected)
         selected["selection"] = "explicit-natural-language-full"
         selected["full_escalation"] = {"state": "selected", "reason": "The request explicitly asked for Full official AIDLC."}
         return selected
@@ -1462,8 +1522,10 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
             selected["complexity_disagreement"] = complexity_disagreement
         return selected
     if hands_free and (routing["selected"] or effective_scope_signal):
-        selected = official_aidlc_bridge.preflight(root, "full", manifest)
-        if selected.get("state") == "official-pack-unavailable-fallback":
+        selected = official_aidlc_bridge.preflight(root, "full", manifest, host=host)
+        if selected.get("state") == "official-full-ready":
+            selected["sealed_preflight"] = dict(selected)
+        if selected.get("effective_mode") != "full":
             selected["selection"] = "navigator-hands-free-escalation"
             selected["full_escalation"] = {
                 "state": "eligible-awaiting-compatible-pack",
@@ -1508,8 +1570,10 @@ def _aidlc_mode_selection_inner(goal: str, requested: str | None, root: Path, pl
         # Hands-free goals always aim for Full AIDLC automatically; without a
         # compatible pack the preflight falls back transparently and the run
         # stays Lite with the pack reason recorded (never a silent upgrade).
-        selected = official_aidlc_bridge.preflight(root, "full", manifest)
-        if selected.get("state") == "official-pack-unavailable-fallback":
+        selected = official_aidlc_bridge.preflight(root, "full", manifest, host=host)
+        if selected.get("state") == "official-full-ready":
+            selected["sealed_preflight"] = dict(selected)
+        if selected.get("effective_mode") != "full":
             selected["selection"] = "hands-free-default"
             selected["full_escalation"] = {
                 "state": "eligible-awaiting-compatible-pack",
@@ -2234,6 +2298,10 @@ def apply_requirement_scope_evidence(
     declared_roles = plan.get("host_declared_scope_roles", {}) if isinstance(plan.get("host_declared_scope_roles"), dict) else {}
     declared_inspection = [str(value) for value in declared_roles.get("inspection_paths", []) if str(value)]
     declared_proof = [str(value) for value in declared_roles.get("proof_paths", []) if str(value)]
+    declared_outputs = [
+        dict(value) for value in declared_roles.get("writable_outputs", [])
+        if isinstance(value, dict) and str(value.get("path", "")).strip()
+    ]
     host_scope_routing = plan.get("host_scope_routing", {}) if isinstance(plan.get("host_scope_routing"), dict) else {}
     nonimplementation_contract_route = host_scope_routing.get("request_mode") in {"read-only", "validation-only"}
     for index, row in enumerate(matrix, start=1):
@@ -2282,6 +2350,7 @@ def apply_requirement_scope_evidence(
             "implementation_owners": owners,
             "inspection_paths": inspection,
             "proof_paths": proof,
+            "writable_outputs": [dict(value) for value in declared_outputs],
             "unbound_proof_paths": unbound_proof,
             "decision_fingerprint": evidence.get("decision_fingerprint"),
             "authority_requirement_id": scope.get("authority_requirement_id"),
@@ -2290,6 +2359,7 @@ def apply_requirement_scope_evidence(
             "authority": dict(scope.get("authority", {})),
             "boundary": scope.get("boundary"),
         }
+        row["writable_outputs"] = [dict(value) for value in declared_outputs]
         contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
         if isinstance(contract, dict):
             contract["candidate_paths"] = bound_proof
@@ -2353,7 +2423,8 @@ def apply_host_contract_role_projection(plan: dict[str, Any]) -> None:
         return
     inspection = [str(value) for value in declared.get("inspection_paths", []) if str(value).strip()]
     proof = [str(value) for value in declared.get("proof_paths", []) if str(value).strip()]
-    if not inspection and not proof:
+    outputs = [dict(value) for value in declared.get("writable_outputs", []) if isinstance(value, dict)]
+    if not inspection and not proof and not outputs:
         return
     for row in matrix:
         if not isinstance(row, dict):
@@ -2383,10 +2454,12 @@ def apply_host_contract_role_projection(plan: dict[str, Any]) -> None:
             "implementation_owners": owners,
             "inspection_paths": merged_inspection,
             "proof_paths": merged_proof,
+            "writable_outputs": [dict(value) for value in outputs],
             "unbound_proof_paths": unbound_proof,
             "host_contract_roles": "accepted-non-owner-context",
         })
         row["scope_evidence"] = scope
+        row["writable_outputs"] = [dict(value) for value in outputs]
         contract = row.setdefault("validation_contract", {"state": "required", "tiers": ["unit"]})
         if isinstance(contract, dict) and bound_proof:
             candidates = [str(value) for value in contract.get("candidate_paths", []) if str(value).strip()]
@@ -2949,22 +3022,18 @@ def build_report(
         host_scope_context=host_scope_context,
     )
     if host_contract is not None and isinstance(plan, dict):
-        role_paths = {"implementation_owners": [], "inspection_paths": [], "proof_paths": []}
-        for path_entry in host_contract.get("paths", []) if isinstance(host_contract.get("paths"), list) else []:
-            if not isinstance(path_entry, dict):
-                continue
-            path = str(path_entry.get("path", "")).strip()
-            role = str(path_entry.get("role", ""))
-            if not path:
-                continue
-            if role in {"existing-implementation-owner", "proposed-implementation-owner"}:
-                role_paths["implementation_owners"].append(path)
-            elif role == "inspection-input":
-                role_paths["inspection_paths"].append(path)
-            elif role in {"existing-proof-path", "proposed-proof-path"}:
-                role_paths["proof_paths"].append(path)
+        host_projection = project_host_contract_paths(host_contract, root=root)
+        role_paths = {
+            "implementation_owners": [row["path"] for row in host_projection["implementation_owners"]],
+            "inspection_paths": [row["path"] for row in host_projection["inspection_paths"]],
+            "proof_paths": [row["path"] for row in host_projection["proof_paths"]],
+            "writable_outputs": [dict(row) for row in host_projection["writable_outputs"]],
+            "excluded_paths": [row["path"] for row in host_projection["excluded_paths"]],
+            "external_paths": [row["path"] for row in host_projection["external_paths"]],
+        }
         plan["host_declared_scope_roles"] = {
-            key: list(dict.fromkeys(value)) for key, value in role_paths.items()
+            key: (list(dict.fromkeys(value)) if all(isinstance(item, str) for item in value) else value)
+            for key, value in role_paths.items()
         }
         plan["host_input_contract"] = {
             "contract_id": host_contract.get("contract_id"),
@@ -3558,7 +3627,7 @@ def build_report(
             else stage
             for stage in delivery.get("stages", [])
         ]
-    mode = aidlc_mode_selection(goal, aidlc_mode, root, plan, official_manifest, declared_complexity)
+    mode = aidlc_mode_selection(goal, aidlc_mode, root, plan, official_manifest, declared_complexity, resolved_host)
     if mode["mode"] == "off":
         delivery["selected"] = [item for item in delivery["selected"] if item.get("name") != "AIDLC"]
         plan["selected_features"] = [item for item in plan.get("selected_features", []) if item.get("name") != "AIDLC"]
@@ -4373,6 +4442,26 @@ def attach_focused_validation_contracts(
         # Build command registry with deterministic IDs
         command_registry: dict[str, dict[str, Any]] = {}
         checks = []
+        prior_registry = existing.get("command_registry", {})
+        prior_registry = prior_registry if isinstance(prior_registry, dict) else {}
+        prior_bindings: list[dict[str, Any]] = []
+        for prior_check in existing.get("checks", []):
+            if not isinstance(prior_check, dict):
+                continue
+            exact = prior_check.get("exact_bindings")
+            candidates = exact if isinstance(exact, list) and exact else [prior_check]
+            for candidate in candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                normalized = copy.deepcopy(candidate)
+                command = str(normalized.get("command", "")).strip()
+                if not command:
+                    command_id = str(prior_check.get("command_id", "")).strip()
+                    command = str((prior_registry.get(command_id) or {}).get("command", "")).strip()
+                normalized["command"] = command
+                normalized.setdefault("candidate_paths", list(prior_check.get("candidate_paths", [])))
+                normalized.setdefault("tiers", list(prior_check.get("tiers", [])))
+                prior_bindings.append(normalized)
         
         for proof in linked:
             command = str(proof.get("command", ""))
@@ -4383,12 +4472,28 @@ def attach_focused_validation_contracts(
             if cmd_id not in command_registry:
                 command_registry[cmd_id] = {"command": command, "kind": "proof"}
             
-            checks.append({
+            candidate_path = str(proof.get("candidate", ""))
+            proof_tiers = [str(value) for value in proof.get("tiers", [proof.get("tier")]) if str(value)]
+            matching_bindings = [
+                binding for binding in prior_bindings
+                if str(binding.get("command", "")) == command
+                and candidate_path in [str(path) for path in binding.get("candidate_paths", [])]
+                and bool(set(proof_tiers).intersection(str(value) for value in binding.get("tiers", [])))
+            ]
+            check = {
                 "kind": "proof",
                 "command_id": cmd_id,
-                "tiers": [str(value) for value in proof.get("tiers", [proof.get("tier")]) if str(value)],
-                "candidate_paths": [str(proof.get("candidate"))] if proof.get("candidate") else [],
-            })
+                "tiers": proof_tiers,
+                "candidate_paths": [candidate_path] if candidate_path else [],
+            }
+            if matching_bindings:
+                check["exact_bindings"] = matching_bindings
+                for key in (
+                    "asserted_behavior", "source_answer_id", "evidence_fingerprint", "proof_adequacy",
+                ):
+                    if key in matching_bindings[0]:
+                        check[key] = copy.deepcopy(matching_bindings[0][key])
+            checks.append(check)
         
         for static in required_static:
             command = str(static["command"])
@@ -4411,15 +4516,22 @@ def attach_focused_validation_contracts(
         # NEW: Include command_registry for single-source-of-truth references.
         prior = existing
         prior_paths = lambda key: [str(v) for v in prior.get(key, []) if str(v)]
+        proof_adequacy_required = existing.get("proof_adequacy_required") is True
+        editable_paths = prior_paths("editable_paths")
+        if not proof_adequacy_required:
+            # Legacy contracts did not classify proof intent. Keep their
+            # conservative editable behavior instead of guessing run-only.
+            editable_paths = list(dict.fromkeys([*editable_paths, *paths]))
         requirement["validation_contract"] = {
             "state": str(existing.get("state", "required")),
             "tiers": derived_tiers,
             "candidate_paths": list(dict.fromkeys([*prior_paths("candidate_paths"), *paths])),
             "proposed_paths": list(dict.fromkeys([*prior_paths("proposed_paths"), *proposed])),
-            "editable_paths": list(dict.fromkeys([*prior_paths("editable_paths"), *paths])),
+            "editable_paths": editable_paths,
             "commands": list(dict.fromkeys(commands)),
-            "checks": list({item["command_id"]: item for item in checks}.values()),
+            "checks": checks,
             "command_registry": command_registry,
+            "proof_adequacy_required": proof_adequacy_required,
         }
 
 
@@ -5659,6 +5771,285 @@ def resolve_planning_readiness_receipt(args: Any) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         raise ValueError("planning-readiness receipt must be a JSON object")
     return raw
+
+
+def planning_readiness_requirement_interpretation(
+    goal: str,
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    """Project validated intake requirements before lexical interpretation."""
+    operational = receipt.get("operational_packet")
+    bindings = operational.get("requirements") if isinstance(operational, dict) else None
+    if not isinstance(bindings, list) or not bindings or any(not isinstance(row, dict) for row in bindings):
+        raise intake_pipeline.IntakeError(
+            "planning-readiness receipt has no canonical operational requirements"
+        )
+    clauses: list[dict[str, Any]] = []
+    requirements: list[dict[str, Any]] = []
+    for index, binding in enumerate(bindings, start=1):
+        statement = " ".join(str(binding.get("statement", "")).split())
+        requirement_uid = str(binding.get("requirement_uid", "")).strip()
+        if not statement or not requirement_uid:
+            raise intake_pipeline.IntakeError(
+                "planning-readiness receipt contains an incomplete canonical requirement"
+            )
+        clause_id = f"READINESS-{index:02d}"
+        criteria = binding.get("criteria") if isinstance(binding.get("criteria"), dict) else {}
+        proof_bindings = [row for row in binding.get("proof_bindings", []) if isinstance(row, dict)]
+        tiers = sorted({
+            str(row.get("tier", "")).strip()
+            for row in proof_bindings
+            if str(row.get("tier", "")).strip()
+        })
+        supplied_kind = binding.get("requirement_kind")
+        if supplied_kind is None:
+            # Receipts minted before explicit kind authority remain readable,
+            # but use contextual primary-outcome classification instead of a
+            # raw `preserve` substring test.
+            requirement_kind = requirement_discovery._kind(statement)
+            kind_authority = "legacy-contextual-classifier"
+        else:
+            requirement_kind = requirement_discovery.validate_requirement_kind(
+                statement, str(supplied_kind)
+            )
+            kind_authority = str(
+                binding.get("requirement_kind_source") or "validated-operational-binding"
+            )
+        requirements.append({
+            "display_id": f"REQ-{index:02d}",
+            "requirement_uid": requirement_uid,
+            "statement": statement,
+            "kind": requirement_kind,
+            "requirement_kind_authority": kind_authority,
+            "requirement_kind_source_answer_ids": list(
+                binding.get("requirement_kind_source_answer_ids", [])
+            ),
+            "source_clause_ids": [clause_id],
+            "intent_terms": requirement_discovery.query_terms(statement),
+            "quoted_literals": [],
+            "intent_class": requirement_discovery.inferred_intent_class(statement),
+            "confidence": "validated-planning-readiness",
+            "extracted_acceptance_criteria": [
+                str(value) for value in criteria.get("positive", []) if str(value).strip()
+            ],
+            "extracted_preserve_rules": [
+                str(value) for value in criteria.get("negative", []) if str(value).strip()
+            ],
+            "validation_contract": {"tiers": tiers},
+        })
+        clauses.append({"clause_id": clause_id, "role": "outcome", "text": statement})
+    sufficiency = requirement_discovery.requirement_sufficiency_contract(
+        clauses,
+        requirements,
+        [],
+        source="planning-readiness-receipt",
+        material_decisions=[],
+    )
+    return {
+        "schema_version": "1",
+        "type": "tailtrail-requirement-interpretation",
+        "source": "planning-readiness-receipt",
+        "authority": "planning-readiness-receipt",
+        "host": None,
+        "goal_fingerprint": requirement_discovery.goal_fingerprint(goal),
+        "private_reasoning_excluded": True,
+        "clauses": clauses,
+        "requirements": requirements,
+        "material_questions": [],
+        "state": "sufficient",
+        "sufficiency": sufficiency,
+        "receipt_id": str(receipt.get("receipt_id", "")),
+        "receipt_fingerprint": str(receipt.get("fingerprint", "")),
+    }
+
+
+def _readiness_authorized_owner_paths(receipt: dict[str, Any]) -> set[str]:
+    operational = receipt.get("operational_packet")
+    requirements = operational.get("requirements", []) if isinstance(operational, dict) else []
+    return {
+        str(binding.get("path", "")).strip()
+        for requirement in requirements
+        if isinstance(requirement, dict)
+        for binding in requirement.get("path_bindings", [])
+        if isinstance(binding, dict)
+        and binding.get("role") == "implementation-owner"
+        and str(binding.get("path", "")).strip()
+    }
+
+
+def validate_planning_readiness_scope_confirmations(
+    receipt: dict[str, Any],
+    changed: Iterable[str],
+    scope_answers: Iterable[str],
+) -> None:
+    """Accept matching CLI scope hints idempotently and reject divergence."""
+    owners = _readiness_authorized_owner_paths(receipt)
+    for value in changed:
+        path = str(value).replace("\\", "/").strip().strip("/")
+        if path and path not in owners:
+            raise intake_pipeline.IntakeError(
+                f"--changed path `{path}` is not an implementation owner in the planning-readiness receipt"
+            )
+    for value in scope_answers:
+        answer = str(value).strip()
+        path = answer.split("=", 1)[1] if "=" in answer else answer
+        if path.startswith("new:"):
+            path = path.removeprefix("new:")
+        path = path.replace("\\", "/").strip().strip("/")
+        if path and path not in owners:
+            raise intake_pipeline.IntakeError(
+                f"scope-owner answer `{answer}` does not match an implementation owner in the planning-readiness receipt"
+            )
+
+
+def project_planning_readiness_scope(
+    report: dict[str, Any],
+    receipt: dict[str, Any],
+    root: Path,
+) -> dict[str, Any]:
+    """Replace heuristic scope with the receipt's validated path projection.
+
+    The result is still only an approval-pending planning proposal. Existing
+    Planning Lock, user approval, activation, write-guardian, drift, proof,
+    and closure gates remain authoritative.
+    """
+    projected = copy.deepcopy(report)
+    plan = projected.get("navigator")
+    if not isinstance(plan, dict):
+        raise intake_pipeline.IntakeError(
+            "planning-readiness scope projection requires canonical Navigator state"
+        )
+    matrix = plan.get("requirement_matrix")
+    operational = receipt.get("operational_packet")
+    bindings = operational.get("requirements") if isinstance(operational, dict) else None
+    if (
+        not isinstance(matrix, list)
+        or not isinstance(bindings, list)
+        or len(matrix) != len(bindings)
+        or any(not isinstance(row, dict) for row in matrix)
+        or any(not isinstance(row, dict) for row in bindings)
+    ):
+        raise intake_pipeline.IntakeError(
+            "planning-readiness requirement count does not match the canonical Start projection"
+        )
+
+    repository_state = {
+        str(row.get("path", "")): row.get("content_fingerprint")
+        for row in receipt.get("repository_state", [])
+        if isinstance(row, dict) and str(row.get("path", ""))
+    }
+    candidate_by_path: dict[str, dict[str, Any]] = {}
+    evidence_requirements: list[dict[str, Any]] = []
+    for matrix_row, binding in zip(matrix, bindings):
+        path_bindings = [row for row in binding.get("path_bindings", []) if isinstance(row, dict)]
+        proof_bindings = [row for row in binding.get("proof_bindings", []) if isinstance(row, dict)]
+        owners = sorted({
+            str(row.get("path", "")) for row in path_bindings
+            if row.get("role") == "implementation-owner" and str(row.get("path", ""))
+        })
+        inspection = sorted({
+            str(row.get("path", "")) for row in path_bindings
+            if row.get("role") == "inspection-input" and str(row.get("path", ""))
+        })
+        proof = sorted({str(row.get("path", "")) for row in proof_bindings if str(row.get("path", ""))})
+        if not owners:
+            raise intake_pipeline.IntakeError(
+                f"planning-readiness requirement `{binding.get('requirement_uid')}` has no implementation owner"
+            )
+        role_rows = [
+            *((path, "implementation-owner", "included") for path in owners),
+            *((path, "reference", "inspection-only") for path in inspection),
+            *((path, "test", "proof-only") for path in proof),
+        ]
+        for path, role, status in role_rows:
+            existing = candidate_by_path.get(path)
+            if existing is not None and (existing.get("role"), existing.get("status")) != (role, status):
+                raise intake_pipeline.IntakeError(
+                    f"planning-readiness path `{path}` has contradictory projected roles"
+                )
+            candidate: dict[str, Any] = {
+                "candidate_id": "cand-readiness-" + hashlib.sha256(path.encode("utf-8")).hexdigest()[:12],
+                "path": path,
+                "role": role,
+                "status": status,
+                "seed_sources": ["host-contract"],
+                "evidence_edge_ids": [],
+                "confidence": "high",
+                "reason_codes": ["planning-readiness-receipt-authorized"],
+                "evidence_provenance": [{
+                    "kind": "planning-readiness-receipt",
+                    "source": "host-contract",
+                    "strength": "strong",
+                }],
+            }
+            if repository_state.get(path):
+                candidate["content_fingerprint"] = repository_state[path]
+            candidate_by_path[path] = candidate
+        evidence_requirements.append({
+            "requirement_id": str(matrix_row.get("requirement_id", "")),
+            "display_id": str(matrix_row.get("display_id", "")),
+            "statement_fingerprint": navigator_scope.fingerprint(str(matrix_row.get("statement", ""))),
+            "query_terms": list(matrix_row.get("query_terms", [])),
+            "scope_state": "resolved",
+            "implementation_owners": owners,
+            "inspection_paths": inspection,
+            "proof_paths": proof,
+            "excluded_candidates": [],
+            "confidence": "high",
+            "reason_codes": ["planning-readiness-receipt-authorized"],
+        })
+
+    previous = plan.get("scope_evidence") if isinstance(plan.get("scope_evidence"), dict) else {}
+    evidence = {
+        "schema_version": navigator_scope.SCHEMA_VERSION,
+        "type": navigator_scope.EVIDENCE_TYPE,
+        "target_identity_fingerprint": navigator_scope.fingerprint({"root": root.resolve().as_posix()}),
+        "goal_fingerprint": navigator_scope.fingerprint(str(projected.get("goal", ""))),
+        "state": "resolved",
+        "requirements": evidence_requirements,
+        "candidates": sorted(candidate_by_path.values(), key=lambda row: str(row["path"])),
+        "edges": [],
+        "workspace_context": copy.deepcopy(previous.get("workspace_context", {})),
+        "host_reasoning": {
+            "state": "recorded",
+            "proposal": {
+                "status": "accepted",
+                "reason_codes": ["planning-readiness-receipt-authorized"],
+                "authority": "planning-proposal-only",
+            },
+        },
+        "investigation": {
+            "state": "resolved",
+            "anchor_state": "sufficient",
+            "decision_reason": "planning-readiness-receipt-authorized",
+            "stop_reason": "planning-readiness-receipt-authorized",
+            "resolution_failure_reason": None,
+            "evidence_packet_fingerprint": str(receipt.get("fingerprint", "")),
+        },
+        "limits": copy.deepcopy(previous.get("limits", navigator_scope.LIMITS)),
+        "summary": {
+            "included": sum(row["status"] == "included" for row in candidate_by_path.values()),
+            "inspection_only": sum(row["status"] == "inspection-only" for row in candidate_by_path.values()),
+            "proof_only": sum(row["status"] == "proof-only" for row in candidate_by_path.values()),
+            "excluded": 0,
+            "rejected": 0,
+        },
+        "authority_source": "planning-readiness-receipt",
+        "receipt_id": str(receipt.get("receipt_id", "")),
+    }
+    evidence = navigator_scope.seal_decision_fingerprint(evidence)
+    plan["scope_evidence"] = evidence
+    plan["scope_candidates"] = copy.deepcopy(evidence["candidates"])
+    plan["likely_impacted_files"] = navigator_scope.project_likely_impacted(evidence["candidates"])
+    plan["scope_quality"] = navigator_scope.assess_scope_quality(
+        root,
+        str(projected.get("goal", "")),
+        plan.get("task_types", []),
+        evidence,
+        host_scope_context=plan.get("host_scope_routing"),
+    )
+    apply_requirement_scope_evidence(plan)
+    return projected
 
 
 def planning_readiness_boundary_report(goal: str, root: Path, reason: str) -> dict[str, Any]:
@@ -7389,6 +7780,7 @@ def main() -> int:
             {"risk_indicators": [], "requirement_sufficiency": {}},
             effective_official_manifest,
             args.complexity,
+            args.host,
         )
         # Agent hosts can consume the verified official rules and therefore
         # must establish AIDLC requirement authority before scope. A raw CLI
@@ -7563,6 +7955,11 @@ def main() -> int:
                         if validated_host_contract is not None else None
                     ),
                 )
+                validate_planning_readiness_scope_confirmations(
+                    validated_planning_readiness,
+                    list(args.changed or []),
+                    list(args.scope_owner or []),
+                )
             except intake_pipeline.IntakeError as error:
                 boundary = planning_readiness_boundary_report(goal, root, str(error))
                 if args.format == "json":
@@ -7581,7 +7978,9 @@ def main() -> int:
                     visual_decisions = []
         try:
             interpreted_requirements = (
-                requirement_intake.resolved_interpretation(saved_requirement_intake)
+                planning_readiness_requirement_interpretation(goal, validated_planning_readiness)
+                if validated_planning_readiness is not None
+                else requirement_intake.resolved_interpretation(saved_requirement_intake)
                 if saved_requirement_intake is not None
                 else intent_bridge_requirement_interpretation(goal, intent_bridge_source)
                 if intent_bridge_source is not None
@@ -7615,10 +8014,11 @@ def main() -> int:
                 args.host or (str(repaired.get("host")) if isinstance(repaired, dict) else None),
                 requirement_artifact_inputs,
             )
-        interpreted_requirements = requirement_discovery.add_material_decisions(
-            interpreted_requirements,
-            visual_decisions,
-        )
+        if validated_planning_readiness is None:
+            interpreted_requirements = requirement_discovery.add_material_decisions(
+                interpreted_requirements,
+                visual_decisions,
+            )
         if required_official_authority is not None:
             if hands_free and interpreted_requirements.get("authority") != "official-ai-dlc-pack":
                 print(
@@ -7797,6 +8197,33 @@ def main() -> int:
                 "target_fingerprint": validated_planning_readiness.get("target_fingerprint"),
                 "authority_source": "planning-readiness-receipt",
             }
+            try:
+                report = project_planning_readiness_scope(
+                    report,
+                    validated_planning_readiness,
+                    root,
+                )
+                report = intake_pipeline.IntakePipeline(root).reconcile_planning_readiness_receipt(
+                    validated_planning_readiness,
+                    report,
+                    goal=goal,
+                    host_contract_fingerprint=(
+                        str(validated_host_contract.get("fingerprint"))
+                        if validated_host_contract is not None else None
+                    ),
+                    project=True,
+                    phase="pre-scope-gate",
+                )
+                report["guided_delivery"] = guided_delivery(
+                    report["navigator"], goal, list(args.changed or []), root, args.run_id
+                )
+            except intake_pipeline.IntakeError as error:
+                boundary = planning_readiness_boundary_report(goal, root, str(error))
+                if args.format == "json":
+                    print(json.dumps(boundary, indent=2, sort_keys=True))
+                else:
+                    print(render_markdown(boundary, verbose=args.verbose, presentation_mode=args.presentation), end="")
+                return 2
         report["graph_lifecycle"] = graph_lifecycle
         if graph_mode_override is not None:
             report["graph_mode_override"] = graph_mode_override
@@ -7813,7 +8240,7 @@ def main() -> int:
             report["navigator"]["graph_lifecycle"] = graph_lifecycle
             scope_answer_errors: list[str] = []
             scope_answer_round = max(1, int(args.scope_round or 1))
-            if args.scope_owner and host_scope_proposal is None:
+            if args.scope_owner and host_scope_proposal is None and validated_planning_readiness is None:
                 answer_evidence = report["navigator"].get("scope_evidence")
                 if not isinstance(answer_evidence, dict):
                     parser.error("scope answers require canonical Navigator scope evidence")
@@ -8180,14 +8607,44 @@ def main() -> int:
                     }
                 report["target_resolution_receipt"] = enterprise_target_policy.receipt(root, created_run_id, target_identity=report["planning_lock"]["target_identity"], input_roles=report["input_roles"], policy_result=policy_result, host_workspace=host_resolution)
                 if effective_aidlc_mode in {"standard", "full"}:
-                    report["official_aidlc_bridge"] = official_aidlc_bridge.create(
-                        root, created_run_id, goal,
-                        manifest=effective_official_manifest,
-                        official_intent_id=args.official_intent_id,
-                        official_session_id=args.official_session_id,
-                        official_stage=args.official_stage,
-                        mode=effective_aidlc_mode,
-                    )
+                    if (
+                        effective_aidlc_mode == "full"
+                        and report.get("aidlc_mode", {}).get("state") == "official-full-ready"
+                        and effective_official_manifest is None
+                    ):
+                        sealed_preflight = report["aidlc_mode"].get("sealed_preflight")
+                        if not isinstance(sealed_preflight, dict):
+                            raise ValueError("bundled Full route lost its sealed preflight identity")
+                        projection = sealed_preflight.get("project_projection")
+                        binding = official_aidlc_bridge.aidlc_bundle.bind_run(
+                            official_aidlc_bridge.aidlc_bundle.BindingInputs(
+                                root, created_run_id, projection
+                            )
+                        )
+                        if binding.get("state") != "ready":
+                            raise ValueError(
+                                "bundled Full run binding failed closed: "
+                                + json.dumps(binding.get("issues", []), sort_keys=True)
+                            )
+                        report["official_aidlc_run_binding"] = binding
+                        report["official_aidlc_bridge"] = official_aidlc_bridge.create_bundled(
+                            root,
+                            created_run_id,
+                            goal,
+                            sealed_preflight,
+                            official_intent_id=args.official_intent_id,
+                            official_session_id=args.official_session_id,
+                            official_stage=args.official_stage,
+                        )
+                    else:
+                        report["official_aidlc_bridge"] = official_aidlc_bridge.create(
+                            root, created_run_id, goal,
+                            manifest=effective_official_manifest,
+                            official_intent_id=args.official_intent_id,
+                            official_session_id=args.official_session_id,
+                            official_stage=args.official_stage,
+                            mode=effective_aidlc_mode,
+                        )
                 report["planning_report"] = planning_lock.save_start_report(root, created_run_id, report)
                 if (
                     effective_aidlc_mode in {"standard", "full"}

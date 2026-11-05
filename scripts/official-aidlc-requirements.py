@@ -11,11 +11,19 @@ from __future__ import annotations
 import json
 import importlib.util
 from pathlib import Path
+from pathlib import PurePosixPath
+import sys
 from typing import Any
 import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if ROOT.as_posix() not in sys.path:
+    sys.path.insert(0, ROOT.as_posix())
+
+from tailtrail import aidlc_bundle
+
+
 OFFICIAL_STAGE = "requirements"
 
 
@@ -52,17 +60,23 @@ def _pack_root(root: Path, bridge: dict[str, Any]) -> Path:
     return path.parent
 
 
-def stage_contract(root: Path, bridge: dict[str, Any]) -> dict[str, str]:
-    """Resolve the official requirements rules that must govern this stage."""
-    pack = _pack_root(root, bridge)
-    candidates = {
+def _requirements_candidates(pack: Path) -> dict[str, Path]:
+    return {
         "core_workflow": pack / "aws-aidlc-rules" / "core-workflow.md",
         "requirements_analysis": pack / "aws-aidlc-rule-details" / "inception" / "requirements-analysis.md",
         "question_format": pack / "aws-aidlc-rule-details" / "common" / "question-format-guide.md",
         "content_validation": pack / "aws-aidlc-rule-details" / "common" / "content-validation.md",
         "session_continuity": pack / "aws-aidlc-rule-details" / "common" / "session-continuity.md",
     }
-    missing = [name for name, path in candidates.items() if not path.is_file()]
+
+
+def _validate_requirements_pack(root: Path, pack: Path, *, reject_symlinks: bool = False) -> dict[str, str]:
+    candidates = _requirements_candidates(pack)
+    missing = [
+        name
+        for name, path in candidates.items()
+        if (reject_symlinks and path.is_symlink()) or not path.is_file()
+    ]
     if missing:
         raise ValueError("verified official pack is missing Standard/Full requirements rules: " + ", ".join(missing))
     required_markers = {
@@ -76,6 +90,82 @@ def stage_contract(root: Path, bridge: dict[str, Any]) -> dict[str, str]:
         if marker.lower() not in candidates[name].read_text(encoding="utf-8", errors="ignore").lower():
             raise ValueError(f"official requirements rule is incomplete: {name}")
     return {name: path.relative_to(root).as_posix() for name, path in candidates.items()}
+
+
+def stage_contract(root: Path, bridge: dict[str, Any]) -> dict[str, str]:
+    """Resolve the pre-run official requirements rules from a legacy bridge."""
+    return _validate_requirements_pack(root, _pack_root(root, bridge))
+
+
+def _resolved_pack_root(root: Path, resolution: dict[str, Any]) -> Path:
+    relative = resolution.get("pack_path")
+    if not isinstance(relative, str) or not relative or "\\" in relative or "\x00" in relative:
+        raise ValueError("official run resolution has no safe pack path")
+    pure = PurePosixPath(relative)
+    if pure.is_absolute() or any(part in {"", ".", ".."} for part in pure.parts):
+        raise ValueError("official run resolution has no safe pack path")
+    root = root.resolve()
+    lexical_pack = root / pure
+    cursor = root
+    for part in pure.parts:
+        cursor /= part
+        if cursor.is_symlink():
+            raise ValueError("official run resolution has no safe pack path")
+    pack = lexical_pack.resolve()
+    try:
+        pack.relative_to(root)
+    except ValueError as error:
+        raise ValueError("official run resolution has no safe pack path") from error
+    if not pack.is_dir():
+        raise ValueError("official run resolution has no safe pack directory")
+    return pack
+
+
+def _resolution_failure(resolution: dict[str, Any], label: str) -> ValueError:
+    issues = resolution.get("issues")
+    details: list[str] = []
+    if isinstance(issues, list):
+        for issue in issues:
+            if not isinstance(issue, dict):
+                continue
+            category = str(issue.get("category", "resolution-blocked")).strip() or "resolution-blocked"
+            detail = str(issue.get("detail", "")).strip()
+            details.append(f"{category}: {detail}" if detail else category)
+    suffix = "; ".join(details) if details else "resolution-blocked"
+    return ValueError(f"{label} failed closed: {suffix}")
+
+
+def stage_contract_for_run(root: Path, run_id: str) -> dict[str, str]:
+    """Resolve Requirements rules from one immutable existing-run authority.
+
+    This dormant Phase 2B.2 adapter is read-only.  Phase 3 may call it only
+    after provisioning and binding have completed through their own authority.
+    """
+    resolution = aidlc_bundle.resolve_bound_run(root, run_id)
+    if resolution.get("state") == "ready" and resolution.get("compatibility_mode") == "bundled-v2":
+        return _validate_requirements_pack(
+            root.resolve(), _resolved_pack_root(root, resolution), reject_symlinks=True
+        )
+
+    issues = resolution.get("issues")
+    categories = {
+        str(issue.get("category", ""))
+        for issue in issues
+        if isinstance(issue, dict) and str(issue.get("category", ""))
+    } if isinstance(issues, list) else set()
+    if categories != {"missing-run-binding"}:
+        raise _resolution_failure(resolution, "official bundled run resolution")
+
+    legacy = aidlc_bundle.resolve_legacy_run(aidlc_bundle.LegacyRunInputs(root, run_id))
+    if (
+        legacy.get("state") != "legacy-read-only"
+        or legacy.get("compatibility_mode") != "legacy-v1-bounded-continuation"
+        or legacy.get("can_authorize_new_full") is not False
+    ):
+        raise _resolution_failure(legacy, "official legacy run resolution")
+    return _validate_requirements_pack(
+        root.resolve(), _resolved_pack_root(root, legacy), reject_symlinks=True
+    )
 
 
 def _question(identifier: str, question: str, options: list[str], recommended: str, reasoning: str) -> dict[str, Any]:
@@ -117,7 +207,10 @@ def stage_request(root: Path, bridge: dict[str, Any], goal: str, requirements: l
     questions.  The configured host reads the pinned rules and submits a
     validated question artifact through TailTrail's control plane.
     """
-    contract = stage_contract(root, bridge)
+    if bridge.get("compatibility_mode") == "bundled-v2":
+        contract = stage_contract_for_run(root, str(bridge.get("tailtrail_run_id", "")))
+    else:
+        contract = stage_contract(root, bridge)
     return {
         "stage": "Official AI-DLC Requirements Analysis",
         "authority": "official-ai-dlc-pack",

@@ -4122,7 +4122,7 @@ its managed evidence.
 
 ---
 
-## 44. `--supersede-pending` replaces prior pending revision content without a discard warning (Open -- TailTrail revision UX/semantics gap)
+## 44. `--supersede-pending` had ambiguous replacement semantics (Fixed in working tree -- TailTrail revision UX/semantics gap)
 
 **Observed in:** Phase 3A.2 run `start-20261102072040-ccee99`.
 
@@ -4152,19 +4152,25 @@ propose v3 with `--supersede-pending` containing only a
 `behavior-scenario-add`; render v3 and run planning audit. The proof binding
 from v2 is absent and the audit reports it as unresolved.
 
-**Required fix:** Prefer deterministic merge semantics for non-conflicting,
-additive revision changes. If replacement remains necessary for conflicting
-changes, rename it to `--replace-pending` or require an explicit
-`--discard-pending`, render a before/after delta, and refuse to discard any
-proof binding unless the caller explicitly acknowledges it. Add a regression
-where a v2 proof update followed by a v3 scenario addition retains both
-changes.
+**Implemented generic fix:** Replacement now has one deterministic authority
+rule: it always rebuilds from the last approved plan, never from an unapproved
+pending projection. The caller must submit a complete, self-contained
+replacement containing every desired requirement, scope, proof, tier, and
+behavior-scenario change. The superseded artifact remains append-only review
+history but cannot grant authority or leak an abandoned tier/scenario into the
+replacement. CLI help and the Ground Rules disclose this contract explicitly.
 
-**Temporary operator rule:** Until fixed, treat `--supersede-pending` as a
-full replacement and submit one complete combined change list.
+Regression coverage proves that an abandoned pending behavior tier and
+scenario do not leak into its replacement, while the older revision remains
+available with state `superseded`.
 
-**Status:** Open. Planning audit caught the loss before approval; v4 restored
-all required updates before the run was activated.
+**Operator rule:** Treat `--supersede-pending` as a full replacement and
+submit one complete combined change list. This is now the supported contract,
+not a workaround.
+
+**Status:** Fixed in the current working tree. Focused planning-revision and
+planning-audit suites pass, and live Phase 1B revision v7 audited clean after
+replacing the contaminated pending projection from the approved base.
 
 ---
 
@@ -4795,3 +4801,1530 @@ real public argument shapes.
 worktree is explicitly accepted as the shared baseline or replaced by a clean,
 reviewed baseline. No implementation should begin from this issue record alone;
 a complete audited Start Plan and explicit approval are still required.
+
+---
+
+## 52. Planning-readiness gate had no public receipt-producing route (Resolved)
+
+**Observed on:** 2026-11-04 while starting Phase 0 of the bundled offline AIDLC
+provisioning design with a complete implementation host contract.
+
+**Symptom:** `tailtrail start` correctly stopped before creating a Planning
+Lock and required a fresh planning-readiness receipt. The public CLI could
+consume such a receipt, and `IntakePipeline.mint_planning_readiness()` could
+produce one internally, but no supported CLI or MCP operation exposed the
+questionnaire-to-receipt flow. Tests manufactured the receipt by calling the
+internal Python API directly. The user therefore received an exact next action
+that could not be completed through TailTrail's supported product surface.
+
+**Root cause:** Commit `2e609ca` introduced the stronger pre-Start gate and the
+internal receipt model in the same delivery, but wired only the consumer side
+to `task-start.py` and `tailtrail_start`. The existing public requirement
+commands still supported only `show`, `answer`, and `attach-visual`, while the
+Question Orchestrator CLI remained `show`-only.
+
+**Impact:** Any implementation Start carrying the mandatory host-input
+contract could dead-end before planning. Omitting the contract would bypass a
+safety boundary, and constructing a receipt through an internal API would not
+be a supported host workflow.
+
+**Generic correction:** The public `tailtrail navigator intake` command now
+supports `open`, `record`, `validate`, `status`, and `finalize`. It publishes
+profile-owned mandatory questions, stores host findings as candidates,
+calculates repository evidence fingerprints, records only Navigator-validated
+acceptance, reports completeness/staleness, verifies requirement-specific path
+and proof bindings through the existing `IntakePipeline`, mints the immutable
+receipt, and prints the exact Start retry command. Matching MCP tools expose
+the same operations. The intake never creates a Planning Lock and never
+replaces official Standard/Full AIDLC question authority.
+
+**Regression boundary:** Public-route tests cover candidate-only state,
+incomplete finalization rejection, grounded acceptance, exact proof binding,
+receipt persistence, retry-command projection, CLI dispatch, MCP registration,
+and controlled/read-only tool classification.
+
+**Status:** Resolved in the working tree. Focused proof passed 109 tests across
+the Question Orchestrator, intake pipeline, public Start gate, MCP server, and
+CLI dispatch; `tailtrail-registry.py validate` and `git diff --check` also
+passed. Normal review/commit remains separate.
+
+---
+
+## 53. Complete host path roles are lost between intake, planning readiness, and editable scope (Resolved in working tree -- TailTrail role-projection defect)
+
+**Observed on:** 2026-11-04 while starting Phase 0 of
+`TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md` from an explicitly
+accepted dirty shared baseline.
+
+**Affected planning run:** `start-20261104032732-5c0cc7`, still
+`awaiting-approval`. No Phase 0 source change, proof command, scanner, Git
+operation, approval, or activation occurred.
+
+**Related intake runs:**
+
+- `run-ccf1448247c24bf5` exposed the first proposed-new-owner integration
+  failure. It bound `aidlc-rules/PROVENANCE.json` as a proposed owner, but the
+  emitted Start command omitted the proposed-new scope answer and Start could
+  not reconcile the receipt.
+- `run-0322f9e003d7408f` used the corrected ownership model described below.
+  Its questionnaire completed successfully, every candidate was validated,
+  and readiness receipt `readiness-9958cd9fcb8b4ee0` was minted. The later
+  Start Plan still lost the non-owner writable outputs.
+
+### Correct host contract supplied
+
+The final host input did not ask TailTrail to infer missing scope. It declared
+the exact request mode, authority, path roles, positive and negative criteria,
+proof path, command, and exclusions:
+
+| Path | Supplied role | Intended Phase 0 responsibility |
+| --- | --- | --- |
+| `scripts/aidlc-official-install.py` | `existing-implementation-owner` | Existing acquisition and verification behavior that produces the checked-in provenance artifacts. |
+| `aidlc-rules/PROVENANCE.json` | `generated` | New checked-in acquisition/provenance receipt. |
+| `aidlc-rules/LICENSE` | `generated` | New checked-in MIT-0 license bytes from the verified pinned source. |
+| `aidlc-rules/VERSION` | `configuration` | Existing metadata whose bundle-versus-official version semantics must be made explicit. |
+| `TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md` | `inspection-input` | Read-only governing Phase 0 design. |
+| `tests/test_aidlc_official_install.py` | `existing-proof-path` | Existing focused executable proof owner. |
+| `package-manifest.json`, `MANIFEST.in`, `release-manifest.json`, `scripts/aidlc-official-bridge.py`, `scripts/task-start.py`, `scripts/aidlc-official-host.py` | `excluded` | Later packaging, resolver, Full-routing, and host-integration phases explicitly excluded from Phase 0. |
+
+The exact focused command was
+`python3 -m unittest tests.test_aidlc_official_install`, initially bound to
+`unit` and `contract`. The mandatory planning audit correctly inferred that
+the acquisition-to-persisted-artifact boundary also needs `integration`
+coverage. Positive criteria required one pinned official tag, full commit,
+archive SHA-256, verified MIT-0 bytes, complete retained-rule inventory,
+explicit version/compatibility/trust/migration decisions, and agreement among
+all retained acquisition evidence. Negative criteria prohibited treating
+`VERSION` alone as provenance, labelling unverified bytes as official,
+pulling later phases into scope, adding a runtime network dependency, silently
+downgrading Full to Lite, weakening integrity, or fabricating provenance.
+
+### Symptom and exact failure sequence
+
+1. The corrected Navigator questionnaire accepted all three mandatory fields:
+   observable behavior, existing owner, and exact proof command. The finalizer
+   minted a valid planning-readiness receipt.
+2. `tailtrail start` created v1 of `start-20261104032732-5c0cc7`, but the Start
+   Plan projected only `scripts/aidlc-official-install.py` as editable scope.
+   It preserved the design as inspection input and the existing test as proof,
+   but dropped `PROVENANCE.json`, `LICENSE`, and `VERSION` from the editable
+   boundary. The explicitly excluded paths also became only a generic
+   catch-all exclusion instead of individually reviewable exclusions.
+3. The mandatory audit reported proof-projection and tier gaps, but did not
+   report that three material named output paths from the accepted host
+   contract were absent from canonical scope.
+4. Host review caught the loss before approval and attempted one bounded
+   revision containing `scope-add` for the three outputs, a
+   `proof-boundary-expand` to `unit`/`contract`/`integration`, and one explicit
+   proof check binding the focused command to all three tiers.
+5. TailTrail rejected the revision before saving it:
+
+   ```text
+   Planning revision error: explicit scope path `aidlc-rules/PROVENANCE.json` is `configuration`, not an implementation-owner path
+   ```
+
+6. Consequently, v1 remains unapproved and unsafe to implement. Approving it
+   would authorize the generator script while withholding authority for the
+   checked-in files the requirement explicitly says it must create or update.
+
+A separate environment issue was also encountered: the installed `tailtrail`
+launcher pointed at an older checkout under `Downloads` and did not recognize
+the new intake arguments. Following its printed recovery guidance and invoking
+`python3 scripts/tailtrail.py` from the current repository resolved that
+environment mismatch. It is not the root cause of this role-projection defect.
+
+### Root cause
+
+TailTrail has incompatible path-role vocabularies at consecutive boundaries:
+
+1. `scripts/host_contract.py` accepts rich host roles including
+   `existing-implementation-owner`, `proposed-implementation-owner`,
+   `inspection-input`, `existing-proof-path`, `proposed-proof-path`,
+   `configuration`, `generated`, `excluded`, and `external`.
+2. `scripts/intake_pipeline.py` narrows operational path bindings to the
+   closed set `implementation-owner`, `inspection-input`, and `proof-only`.
+   The planning-readiness receipt therefore has no canonical representation
+   for an explicitly declared writable configuration or generated output.
+3. `scripts/question-orchestrator.py::public_intake_finalize()` builds its
+   retry command with `--changed` only for
+   `existing-implementation-owner`. Proposed owners, generated outputs,
+   configuration paths, and explicit exclusions are not projected into the
+   retry transport.
+4. `scripts/task-start.py` and Navigator independently reconstruct scope from
+   `--changed`/`--scope-owner` evidence. They do not consume the full accepted
+   path-role table as the authoritative planning projection. In the first
+   intake attempt this caused a receipt-bound proposed owner to be reported as
+   missing. Supplying `new:` manually either collided with the early
+   `--changed` resolution, used a different pre-reconciliation requirement ID,
+   or failed new-file due diligence because the scope layer did not consume
+   the intake evidence that had already grounded the path.
+5. `scripts/planning-revision.py::_change_v2_owner()` supports only
+   implementation-owner additions. A configuration/data path cannot be added
+   as a bounded writable output; the only available operation attempts to
+   promote it to behavioral ownership and correctly rejects that false role.
+6. `scripts/planning-audit.py` compares canonical requirements, owner paths,
+   proof projections, and tiers, but does not reconcile the complete accepted
+   host-contract role table against the Start Plan. It therefore missed the
+   output-role loss that host review found.
+
+The individual safeguards are reasonable: generated/configuration paths must
+not silently become implementation owners, and `--changed` must not be abused
+for inspection or proof files. The defect is the absence of a separate,
+end-to-end **approved writable-output role**. TailTrail currently models
+behavioral ownership and write authority as if they were the same concept.
+
+### Impact
+
+- A complete, validated host contract can still produce a materially
+  incomplete Start Plan.
+- Plans that generate manifests, lock files, receipts, migrations, compiled
+  assets, configuration, or checked-in data cannot truthfully distinguish the
+  behavioral owner from the files it is authorized to write.
+- Approving the partial plan can later cause write-guardian denial,
+  `changed-beyond-approved` drift, evidence incompatibility, or incomplete
+  closure even when the implementation follows the requirement.
+- Reclassifying outputs as implementation owners would make planning pass but
+  would corrupt architectural ownership and weaken the evidence boundary.
+- The mandatory questionnaire currently gives a false impression of complete
+  preservation: TailTrail validates the rich roles but silently projects only
+  the smaller downstream subset.
+- The defect is generic. It affects any generator/configuration workflow, not
+  only AIDLC provenance files.
+
+### Required generic correction
+
+1. Define one canonical versioned path-binding vocabulary shared by the host
+   contract, intake pipeline, Navigator scope, Planning Lock, revisions,
+   write guardian, drift analysis, closure, CLI, MCP, and renderers. At minimum
+   distinguish:
+   - behavioral `implementation-owner`;
+   - read-only `inspection-input`;
+   - `proof-only`;
+   - writable `configuration-output`;
+   - writable `generated-output`;
+   - `excluded` and `external`.
+2. Keep ownership and write authority orthogonal. A requirement must retain
+   one or more evidence-backed behavioral owners while separately listing
+   every existing or proposed writable output. Output roles grant no caller,
+   architecture, or behavior ownership.
+3. Make planning-readiness finalization consume the entire validated host path
+   table. Every material input row must be projected, explicitly rejected with
+   a typed reason, or remain an open question. No accepted row may disappear.
+4. Extend the immutable readiness receipt with requirement-specific output
+   bindings containing path, role, existing/proposed state, source answer IDs,
+   evidence fingerprint, due-diligence verdict for new files, and preservation
+   constraints. Include those bindings in the target and receipt fingerprints.
+5. Replace the lossy retry-command reconstruction with a canonical receipt or
+   bounded path-binding transport that Start consumes directly. Do not encode
+   configuration/generated outputs as `--changed`, and do not require the host
+   to retype already accepted answers under a different requirement ID.
+6. Extend Start and planning revisions with role-aware output additions and
+   removals. A revision must be able to add a new or existing
+   configuration/generated output without promoting it to implementation
+   owner, while still requiring explicit evidence, new-file due diligence,
+   freshness, and user approval.
+7. Project output bindings into the approved anchor and write guardian. Writes
+   are permitted only for an explicitly approved output path in the correct
+   pipeline stage; an output cannot be used as ownership evidence merely
+   because it is writable.
+8. Teach planning audit to compare the validated host contract and readiness
+   receipt with canonical requirements, owner scope, writable outputs,
+   inspection inputs, proof paths, and explicit exclusions. Any lost,
+   reclassified, duplicated, or stale role must produce a typed executable
+   correction before approval.
+9. Render the full role table in normal and verbose Start Plans. The user must
+   see behavioral owners, writable outputs, proof-only paths, inspection
+   inputs, and named exclusions separately.
+10. Carry the same role model through managed evidence, drift, completion, and
+    delivery records so a legitimate output is neither omitted nor mistaken
+    for implementation drift.
+11. Keep compatibility explicit. Legacy receipts and anchors without output
+    roles may remain readable, but they must not silently authorize output
+    writes; material work requires a role-aware revision or fresh plan.
+
+### Required regression proof
+
+1. An existing behavioral owner plus an existing configuration output survives
+   host contract → questionnaire → readiness receipt → Start Plan → approved
+   anchor with distinct roles.
+2. The same route preserves a proposed generated output after new-file due
+   diligence; the path is writable only after approval and never becomes an
+   implementation owner.
+3. Multiple outputs (`PROVENANCE.json`, `LICENSE`, and `VERSION`) remain bound
+   to one requirement and one behavioral owner without duplicate requirements
+   or owner ambiguity.
+4. Inspection, proof-only, excluded, and external paths never gain write
+   authority.
+5. Omitting or reclassifying any accepted host-contract row makes planning
+   audit fail with the exact missing path, expected role, current role, and an
+   executable role-aware revision command.
+6. A role-aware revision can add and remove existing or proposed outputs while
+   preserving append-only revision and approval history.
+7. CLI and MCP intake/Start routes produce identical canonical role bindings
+   and fingerprints; the emitted retry action works without retyping accepted
+   scope or translating requirement IDs.
+8. Write-guardian tests allow approved output writes and deny unapproved,
+   inspection, proof, excluded, and stale-receipt writes.
+9. Drift, managed evidence, Completion Report, and delivery record treat
+   approved outputs as in-scope and continue to disclose their producing
+   behavioral owner.
+10. A Phase 0-shaped public regression proves the complete role table above,
+    one proof command bound to `unit`, `contract`, and `integration`, clean
+    mandatory audit, and a Start Plan that remains `awaiting-approval` without
+    granting implementation authority.
+
+### Responsibility assessment
+
+- **Host responsibility:** provide the exact path roles, criteria, exclusions,
+  and proof contract; review the generated plan and refuse approval when any
+  role is lost. The corrected host contract and host review satisfied this
+  responsibility.
+- **TailTrail responsibility:** preserve validated roles across every
+  projection, reject unsupported roles before minting readiness, and offer a
+  role-correct revision path. TailTrail failed this responsibility by accepting
+  richer input than its downstream authority model can represent.
+- **User responsibility:** approve only the final clean plan. No user action
+  caused this defect, and the incomplete v1 has not been approved.
+
+### Implemented resolution
+
+The generic correction is now implemented across the remaining downstream
+surfaces, outside TailTrail's broken self-planning route as explicitly
+authorized:
+
+- `scripts/host_contract.py` owns one lossless host-to-operational role
+  projection. `configuration` becomes `configuration-output`, `generated`
+  becomes `generated-output`, and neither role grants behavioral ownership.
+  Inspection, proof, excluded, and external rows remain explicit.
+- Public Navigator intake issues mandatory role-confirmation questions for
+  path roles that the profile questionnaire did not previously cover. The
+  finalizer rejects a missing, duplicated, state-conflicting, or reclassified
+  operational binding before minting planning readiness.
+- `scripts/intake_pipeline.py` stores the complete declared role projection,
+  requires accepted-answer lineage, preserves output authorization metadata,
+  and reconciles writable outputs into each canonical requirement.
+- `scripts/task-start.py` and both Start Plan densities render behavioral
+  owners and writable outputs separately. The retry route consumes the
+  readiness receipt; outputs are not reconstructed through `--changed`.
+- Planning revisions now support `output-add` and `output-remove` with role,
+  existing/proposed state, source-answer lineage, evidence fingerprint, and
+  new-file due diligence. Output changes never alter `likely_paths`.
+- Planning audit includes outputs in known scope and produces a typed,
+  executable `output-add` correction when accepted output authority is lost;
+  it separately reports accidental owner promotion.
+- Approved anchors preserve and fingerprint `writable_outputs`. Changing an
+  output path, role, state, or due-diligence verdict changes the approved-plan
+  fingerprint and invalidates incompatible evidence.
+- Execution handoff and closure scope include approved writable outputs.
+  Write Guardian permits `generated-output` only during `IMPLEMENTATION` and
+  `configuration-output` only during `INFRA`, requires write-eligible
+  new-file due diligence, and denies all other stages.
+- Completion and delivery reports disclose changed output roles and state
+  explicitly instead of presenting outputs as behavioral owners or drift.
+
+### Resolution proof
+
+- A public regression completed host contract -> mandatory questionnaire ->
+  accepted evidence -> immutable readiness receipt -> real `tailtrail start`.
+  The resulting Start output contained `generated/provenance.json` as
+  `generated-output` without adding it to `--changed` or implementation-owner
+  scope.
+- Focused and downstream regression command:
+
+  `python3 -m unittest tests.test_host_contract tests.test_intake_pipeline tests.test_question_orchestrator tests.test_planning_revision tests.test_planning_audit tests.test_write_guardian tests.test_change_intent_anchor tests.test_plan_custody tests.test_start_plan_presentation tests.test_planning_lock tests.test_harness_checkpoint tests.test_closure_recorder tests.test_completion_report tests.test_delivery_record tests.test_mcp_server`
+
+  Result: **336 tests passed**.
+- Python compilation for every modified runtime module passed.
+- `git diff --check` passed.
+
+**Status:** Resolved in the working tree. The original incomplete run
+`start-20261104032732-5c0cc7` remains historical and must not be approved;
+Phase 0 should use a fresh role-aware intake and Start run after these changes
+are reviewed and committed.
+
+## 54. Pipeline drift analysis rejected approved writable-output roles (Fixed in working tree -- TailTrail authority-projection defect)
+
+### Live symptom
+
+During corrected Phase 0 run `start-20261104071446-c10930`, the approved plan
+separately named `scripts/aidlc-official-install.py` as the behavioral owner
+and the checked-in rule directories plus `PROVENANCE.json`, `LICENSE`, and
+`BUNDLE_VERSION` as writable `configuration-output` or `generated-output`
+paths. The pipeline nevertheless rejected `aidlc-rules/BUNDLE_VERSION` as
+unapproved drift while moving from TESTING to INFRA.
+
+### Root cause
+
+`scripts/drift_analysis.py` built requirement relevance primarily from
+`likely_paths` and validation paths. It did not include the approved anchor's
+requirement-specific `writable_outputs`, even though those bindings carried
+explicit write authority and passed new-file due diligence. A legitimate
+output could therefore be accepted by planning and Write Guardian but rejected
+later by drift analysis. The path check also needed component-boundary-aware
+directory matching so an approved directory could authorize descendants
+without authorizing a different same-prefix sibling.
+
+### Impact
+
+- The pipeline could not close an otherwise valid generator/configuration run.
+- Hosts were pushed toward unsafe owner promotion or manual drift bypasses.
+- Planning, write-time enforcement, and closure disagreed about the same
+  approved path.
+
+### Implemented generic correction
+
+- Drift analysis now consumes only evidence-backed `configuration-output` and
+  `generated-output` bindings whose `role_class` is `writable-output`, whose
+  `requests_write_authority` value is true, and whose due-diligence verdict is
+  write-eligible.
+- Approved directories cover real descendants using path-component boundaries;
+  they do not cover same-prefix siblings.
+- Requirement relevance includes approved writable outputs without promoting
+  them to behavioral owners.
+- Proof-only, inspection, excluded, external, stale, ineligible, and
+  non-authoritative bindings remain rejected.
+
+### Regression proof
+
+- `python3 -m unittest tests.test_drift_analysis` -- **23 tests passed**.
+- `python3 -m unittest tests.test_sequential_pipeline` -- **5 tests passed**.
+- Final combined Phase 0 and drift suite -- **40 tests passed**.
+- The corrected pipeline completed IMPLEMENTATION, TESTING, and INFRA, and the
+  canonical Completion Report recorded `drift: none-unresolved`.
+
+**Status:** Fixed in the current working tree. This was the only hard blocker
+encountered during final Phase 0 closure. The fix should be reviewed and
+committed before later runs depend on it.
+
+## 55. An approved material scope correction does not refresh the visible Start Plan (Open -- TailTrail plan-custody defect)
+
+### Live symptom
+
+The visible Start Plan for `start-20261104071446-c10930` states that the
+official inventory contains 30 rule files. Authenticated acquisition of AIDLC
+v1.0.1 proved that the closed official inventory contains 32 files. The user
+approved a bounded correction adding the two authenticated resiliency files,
+and implementation and proof used all 32, but
+`session-reports/start-20261104071446-c10930/start-plan.md` still displays the
+old count.
+
+### Root cause
+
+The append-only correction and current execution authority were updated, but
+the user-visible Start Plan projection was not regenerated or supplemented
+with a canonical amendment. The original approval artifact and current
+approved execution state therefore require manual reconciliation.
+
+### Impact
+
+- A reviewer can reasonably conclude that two delivered files exceed the
+  approved plan.
+- The Completion Report may be accurate while the Start Plan remains stale.
+- Audit history is append-only, but its current effective meaning is not
+  visible in one approval surface.
+
+### Required generic correction
+
+After every approved material correction, TailTrail must generate a new
+immutable current-plan projection or a mandatory amendment section containing:
+
+1. the original value and verified replacement value;
+2. added, removed, or reclassified paths;
+3. the correction approval receipt;
+4. the new plan/scope fingerprint;
+5. invalidated and refreshed proof bindings; and
+6. a visible link from Start Plan, Completion Report, and delivery record.
+
+The original plan must remain available as history and must never be rewritten.
+
+**Status:** Open. **Priority:** High before the next run that may need a
+post-approval material correction; it does not invalidate or block the already
+closed Phase 0 run.
+
+## 56. Completion Report omits approved generated and configuration deliverables from its changed-file summary (Open -- TailTrail reporting gap)
+
+### Live symptom
+
+The Phase 0 Completion Report's `Changed files` section lists only
+`scripts/aidlc-official-install.py`. It does not visibly enumerate the approved
+rule-tree updates, `aidlc-rules/PROVENANCE.json`, `aidlc-rules/LICENSE`, or
+`aidlc-rules/BUNDLE_VERSION`, although those paths were approved, written, and
+validated as Phase 0 deliverables.
+
+### Root cause
+
+The summary is driven by source-edit evidence and collapses writable-output
+delivery into the implementation-owner view. The underlying approved anchor
+knows about writable outputs, but the human report does not project them as a
+separate delivery class.
+
+### Required generic correction
+
+Render at least three distinct groups:
+
+- behavioral source changes;
+- generated/configuration deliverables, including role and existing/proposed
+  state; and
+- proof-only or inspection paths, explicitly labelled as unchanged inputs.
+
+Every output row should identify its producing requirement and behavioral
+owner without implying that the output owns behavior.
+
+**Status:** Open. **Priority:** Medium. Reporting is incomplete, but canonical
+scope and proof were sufficient to close Phase 0 safely.
+
+## 57. A successfully closed pipeline still renders INFRA as the active stage (Open -- TailTrail lifecycle UX defect)
+
+### Live symptom
+
+The final report states that IMPLEMENTATION, TESTING, and INFRA are all
+completed, yet also renders `Active stage: INFRA`. A reader can mistake the
+closed run for work that is still waiting in its last stage.
+
+### Root cause
+
+Pipeline stage state and workflow closure state are projected independently.
+Successful closure records all stages as complete but does not replace the
+last active badge with a terminal lifecycle state.
+
+### Required generic correction
+
+On successful canonical closure, render:
+
+- `Active stage: CLOSED` (or no active execution stage);
+- all completed stages and their cycle history;
+- final closure receipt, timestamp, and report fingerprint; and
+- any later reopen/recovery transition as a separate append-only event.
+
+**Status:** Open. **Priority:** Medium for unattended or dashboard-driven
+operation; it is not an evidence or Phase 0 blocker.
+
+## 58. Closure surfaces can temporarily disagree about a missing blocker (Open -- TailTrail shared-state consistency defect)
+
+### Live symptom
+
+During Phase 0 finalization, an inner closure-finalizer payload still suggested
+that a source-edit receipt was missing while the same finalization result
+reported overall completion. The subsequently generated canonical Completion
+Report correctly stated that no closure blocker remained.
+
+### Root cause
+
+Closure finalizer guidance, completion policy, Completion Report, delivery
+record, and pipeline badge projection are capable of resolving current state
+independently or at different evidence high-water marks.
+
+### Required generic correction
+
+Create one versioned current-closure projection selected from the same evidence
+stream high-water mark. Closure recorder, finalizer, Completion Report,
+delivery record, and pipeline badges must either consume that exact projection
+or fail closed if it becomes stale before display. The projection must expose
+the selected receipt IDs and superseded attempts.
+
+**Status:** Open. **Priority:** High before fully unattended closure; the final
+canonical Phase 0 report is internally complete and this observation is not a
+current run blocker.
+
+## 59. Multi-tier proof presentation repeats one command instead of summarizing its distinct bindings (Open improvement -- TailTrail report clarity)
+
+### Live symptom
+
+The same managed command appears repeatedly under unit, contract, integration,
+and behaviour tiers, and again for superseded and current attempts. The
+separate bindings are audit-correct, but the human report looks like duplicate
+test execution rather than one command with several approved assertions.
+
+### Required generic correction
+
+Keep separate tier, requirement, scenario, command-fingerprint, source-state,
+and attempt records internally. In the normal human report, group compatible
+bindings by command and show:
+
+```text
+python3 -m unittest tests.test_aidlc_bundle_provenance
+Tiers: unit, contract, integration, behaviour
+Current: all pass
+History: one earlier all-pass attempt superseded after the approved source correction
+```
+
+Verbose and machine-readable reports must retain every individual receipt.
+
+**Status:** Open improvement. **Priority:** Low; no authorization, evidence, or
+closure decision is affected.
+
+## 60. External authoritative inventory counts can be frozen before authenticated acquisition (Open -- shared host/TailTrail preflight gap)
+
+### Live symptom
+
+The approved plan froze the local assumption of 30 rule files before the
+official AIDLC v1.0.1 archive was acquired. Authenticated acquisition then
+proved that the authoritative release contained 32 files and required a
+bounded correction.
+
+### Responsibility and non-defect boundary
+
+- Requiring explicit GitHub/external-provider approval was correct environment
+  and security behavior, not a TailTrail defect.
+- Rerunning proof after changing the authenticated inventory was correct
+  freshness behavior, not a defect.
+- The host should not have described an unauthenticated local count as the
+  final authoritative release count.
+- TailTrail should distinguish an observed local inventory from an
+  authenticated external inventory and keep the count unresolved until the
+  authoritative acquisition step completes.
+
+### Required generic correction
+
+For externally controlled closed inventories, preflight must either:
+
+1. acquire and verify the pinned authoritative manifest before plan approval;
+   or
+2. approve the invariant `the complete authenticated inventory` while keeping
+   the numeric count as an explicit post-acquisition question.
+
+The plan must bind any later count to the verified release identity, commit,
+archive hash, and inventory fingerprint.
+
+**Status:** Open. **Priority:** High before another external-inventory phase;
+the approved 30-to-32 correction resolved the Phase 0 instance.
+
+## 61. Stale-learning warnings provide IDs without actionable maintenance guidance (Open improvement -- TailTrail learning UX)
+
+### Live symptom
+
+The Completion Report identifies stale learning IDs and prints a general
+`tailtrail learn refresh sweep --root .` command, but does not explain what
+changed, whether each learning conflicts with current behavior, or whether the
+recommended action is refresh, consolidation, supersession, or retirement.
+
+### Required generic correction
+
+For every stale learning surfaced in a user report, show a compact grounded
+summary containing:
+
+- learning title and affected capability;
+- last verified run/source fingerprint;
+- current conflicting or changed source;
+- observation/run count and linked issues;
+- recommended maintenance action; and
+- whether staleness can affect the current decision.
+
+Keep raw IDs and full histories in the verbose audit artifact rather than
+making the normal report a list of opaque identifiers.
+
+**Status:** Open improvement. **Priority:** Low for Phase 0; useful for product
+maintainability but not a planning, implementation, proof, or closure blocker.
+
+## 62. Full Start ignores a documentation-only readiness owner when issue prose contains production terms (Open -- TailTrail routing/scope defect)
+
+### Live symptom
+
+While preparing this issue-log update, the strict docs-only command initially
+rejected a goal containing the word `implementation` and correctly instructed
+the host to use full `tailtrail start`. The host then completed the public
+Navigator intake:
+
+- profile: `documentation-only`;
+- request mode: `implementation` (an authorized edit, not a code task);
+- exact owner: `TAILTRAIL-ISSUES-LOG.md`;
+- explicit exclusion: code, configuration, tests, and run state;
+- accepted planning-readiness receipt:
+  `readiness-e86b63cef113460a`.
+
+Despite that complete receipt, full Start classified the request as
+`code-change`, split the negative constraint into a second requirement, and
+asked the host to choose among unrelated Python owners including
+`scripts/closure-recorder.py`, `scripts/change-intent-anchor.py`, and
+`scripts/advanced-runtime.py`. It created no Planning Lock.
+
+### Root cause
+
+Production-signal wording inside the content being documented can override the
+accepted documentation profile and exact receipt-bound owner during later
+classification/scope routing. The full Start path therefore re-infers task
+type and ownership instead of treating the validated readiness projection as
+the authoritative input boundary. Negative preservation criteria can also be
+promoted into a separately scoped requirement.
+
+### Impact
+
+- A legitimate issue-log or operational-document update can be routed to
+  unrelated runtime code merely because it names product concepts.
+- The public questionnaire can be completed successfully but fail to control
+  the very Start operation it authorizes.
+- Following the docs-only command's prescribed full-Start recovery does not
+  produce a usable plan.
+
+### Required generic correction
+
+1. When a fresh accepted planning-readiness receipt declares
+   `documentation-only`, exact Markdown owner paths, and explicit no-code
+   criteria, Start must consume that classification and scope before lexical
+   production-signal routing.
+2. Content terms describing defects must not turn the documentation artifact
+   into the runtime component being described.
+3. Negative criteria must remain preservation constraints unless the accepted
+   intake explicitly models them as independently completable requirements.
+4. Full Start and the docs-only fast lane must share the same prose-path and
+   no-code boundary; the full route may add planning ceremony but must not
+   select unrelated code owners.
+5. Add a public regression using an issue-log goal that contains
+   `implementation`, `service`, and source filenames while retaining one
+   Markdown owner and zero code authority.
+
+### Workaround used
+
+The host restated the already accepted goal without production-signal terms
+and used the sanctioned docs-only fast lane. It minted bounded run
+`doc-20261104075957-29562a`, authorizing only
+`TAILTRAIL-ISSUES-LOG.md`. No code path or unrelated owner was approved.
+
+**Status:** Open. **Priority:** Medium. This blocks the full Start route for
+some production-adjacent documentation, but it did not block this one-file
+update because the strict docs-only route remained available.
+
+## Phase 0 provenance run retrospective -- Blocker assessment
+
+| Item | Current state | Blocks Phase 0 now? | Recommended timing |
+|---|---|---:|---|
+| Issue 54: writable-output drift | Fixed in working tree and proven | No | Review and commit before relying on it in later runs |
+| Issue 55: stale Start Plan after correction | Open | No | Before the next material post-approval correction |
+| Issue 56: output files omitted from summary | Open | No | Reporting backlog |
+| Issue 57: closed run still shows INFRA active | Open | No | Before unattended/dashboard operation |
+| Issue 58: closure surfaces disagree transiently | Open | No | Before unattended closure |
+| Issue 59: repeated multi-tier command display | Open improvement | No | UX backlog |
+| Issue 60: unverified external count frozen early | Phase 0 instance corrected; generic gap open | No | Before another external-inventory phase |
+| Issue 61: opaque stale-learning warning | Open improvement | No | Learning/reporting backlog |
+| Issue 62: documentation receipt overridden by lexical code routing | Open | No | Fix before relying on full Start for production-adjacent documentation |
+
+**Conclusion:** No remaining item blocks the completed Phase 0 delivery. The
+only runtime blocker encountered was Issue 54, and it is fixed and covered by
+focused regressions in the current working tree. Issues 55, 58, and 60 are the
+highest-priority follow-ups because they affect audit clarity or unattended
+operation. Issue 62 is the documentation-planning routing follow-up. Issue 54
+should be committed before its behavior is treated as a durable repository
+fix.
+
+## 63. Planning revision dropped validated proof-adequacy evidence (Fixed in working tree -- TailTrail proof-projection defect)
+
+### Observed in
+
+Phase 1B run `start-20261104113216-770659` while replacing an incomplete
+pending revision.
+
+### Symptom
+
+The accepted intake contained exact requirement-bound proof commands, paths,
+tiers, asserted behavior, source-answer lineage, evidence fingerprints, and a
+validated `proof_adequacy` record. After `planning revise` rebuilt the
+canonical checks, the visible command/path/tier survived but
+`proof_adequacy` did not. Planning audit then reported the already answered
+proof question as unresolved and blocked approval.
+
+### Root cause
+
+`scripts/planning-revision.py::_exact_proof_bindings()` rebuilt a durable
+binding through a narrow field whitelist. The whitelist preserved the command,
+paths, tiers, asserted behavior, source answer, and evidence fingerprint, but
+discarded adequacy and additional lineage fields. A later restore step could
+therefore only restore the same lossy copy. Separately, a replacement proposal
+could consume a pending projection and inherit unrelated unapproved proof
+tiers or behavior scenarios.
+
+### Impact
+
+- TailTrail asked the host to answer a proof question that had already been
+  answered and validated.
+- A correct implementation plan could not become approval-ready.
+- Repeated revisions could combine false missing-proof findings with stale
+  unapproved scope, making the safe correction unclear.
+
+### Implemented generic fix
+
+1. Exact proof projection now preserves `proof_adequacy`, binding identity,
+   answer lineage, scenario identity, and behavior identity.
+2. Proof deduplication uses stable authority fields and prefers the richer,
+   lossless copy when a lossy display projection duplicates it.
+3. Restoration remains non-expansive: it restores a saved binding only when
+   its command, paths, and tiers fit inside the target canonical check.
+4. A superseding proposal now always starts from the last approved plan. It
+   never treats an unapproved pending projection as authority.
+5. The replacement contract is explicit: every desired pending change must be
+   restated; older drafts remain append-only superseded history.
+
+### Regression and live proof
+
+- A two-tier editable proof retains identical adequacy metadata through both
+  an initial rebuild and a superseding replacement.
+- A replacement does not inherit an abandoned behavior tier or scenario.
+- Superseded revision history remains queryable.
+- `python3 -m unittest tests.test_planning_revision tests.test_planning_audit`
+  passes all 68 tests.
+- Live Phase 1B revision v7 for `start-20261104113216-770659` returns planning
+  audit status `clean` with no proof-adequacy finding.
+
+**Status:** Fixed in the current working tree. The repair is not yet committed
+because the affected source and test files depend on a larger pre-existing
+dirty planning batch that must be reviewed and committed atomically.
+
+## 64. Start re-infers requirements and scope after accepting a canonical planning-readiness receipt (Resolved 2026-11-04 -- canonical receipt projection now precedes heuristic requirement and scope gates)
+
+### Observed in
+
+- Original Phase 1B run: `start-20261104113216-770659`.
+- Failed managed proof: `evidence-1-bdadac5dc1deabbd`.
+- Correction intake: `run-239afdc6a7774fb8`.
+- Accepted correction receipt: `readiness-831ad11b7fdb467d`.
+
+### Initial host mistake
+
+The original Phase 1B host input named only `package-manifest.json` as the
+implementation owner and explicitly excluded `MANIFEST.in`. That was
+incomplete. The requested outcome covered both wheel and source-distribution
+inventory, but the host did not map each package artifact to the repository
+surface that controls it before presenting the plan.
+
+The implementation proved the distinction:
+
+- `package-manifest.json` drives the files copied into the wheel and recorded
+  in the outer `package-integrity.json` inventory;
+- `MANIFEST.in` controls whether the checked-in `aidlc-rules` tree is present
+  in the source distribution.
+
+Consequently, the first managed proof built a correct wheel but an incomplete
+sdist. Installing from that sdist failed because `package-manifest.json`
+required `aidlc-rules` while the archive did not contain the directory. The
+host should have kept sdist ownership open or named `MANIFEST.in` before v1.
+
+### TailTrail defect after the host input was corrected
+
+The correction used the complete public Navigator intake path:
+
+1. `MANIFEST.in` was declared and repository-validated as the single existing
+   implementation owner.
+2. `package-manifest.json`, `setup.py`, `aidlc-rules/manifest.json`, and the
+   provisioning design were validated as inspection inputs.
+3. `tests/test_self_contained_package.py` was validated as editable proof with
+   the exact command, fixtures, assertions, failed baseline, and behaviour,
+   contract, and integration tiers.
+4. All 13 mandatory questionnaire fields were accepted with repository
+   fingerprints.
+5. The finalized receipt contained one requirement,
+   `req-phase1b-sdist-inventory-correction`, and a pending planning-write
+   authorization for `MANIFEST.in`.
+
+Despite that canonical receipt, `tailtrail start` regenerated five lexical
+requirements from the goal, reported ambiguous ownership, and asked which
+file owned the behavior. A second retry supplied both
+`--changed MANIFEST.in` and `--scope-owner MANIFEST.in`; Start returned the
+same scope question and still created no Planning Lock.
+
+This second failure is not missing host context. The exact owner, proof,
+criteria, correction premise, requirement UID, and source-answer lineage were
+already present in a complete, fresh, fingerprint-bound receipt.
+
+### Impact
+
+- A host can complete every public questionnaire and evidence step yet remain
+  unable to create the correction plan the receipt authorizes.
+- Start presents re-inferred requirements instead of the accepted canonical
+  requirement, so the user cannot review the contract they actually supplied.
+- Re-answering `SCOPE-Q1` cannot recover the run because the accepted answer is
+  discarded at the same projection boundary.
+- The original run cannot truthfully close after an externally authorized
+  correction: its immutable requirement explicitly excluded the newly needed
+  owner, while the replacement plan cannot be created.
+- The Completion Report continues to show the older failed managed receipt and
+  omits `MANIFEST.in`, even after focused external proof passes.
+
+### Responsibility split
+
+| Stage | Responsible party | Failure |
+|---|---|---|
+| Original Phase 1B preflight and plan review | Host | Did not map the sdist outcome to `MANIFEST.in`; explicitly excluded the required owner. |
+| Original structural plan generation/audit | TailTrail defense in depth | Did not flag that an sdist outcome lacked a source-distribution inventory owner. |
+| Corrected questionnaire and readiness finalization | Host and TailTrail | Worked correctly; all mandatory fields and bindings were accepted. |
+| Corrected Start consumption | TailTrail | Re-inferred requirements and scope instead of consuming the accepted receipt. |
+
+### Workaround used
+
+After the public correction route repeated the same failure, the user
+explicitly authorized one bounded correction outside TailTrail. The host:
+
+- added `recursive-include aidlc-rules *` to `MANIFEST.in`;
+- retained the earlier `aidlc-rules` entry in `package-manifest.json`;
+- kept explicit wheel, sdist, and integrity assertions in
+  `tests/test_self_contained_package.py`; and
+- changed no resolver, Full-mode, host-projection, release-policy, or unrelated
+  test behavior.
+
+The two focused Phase 1B package scenarios pass. The full 12-test module now
+has only two previously observed, explicitly excluded failures: installed
+planning activation expects behavior predating mandatory audit repairs, and
+repository-enforcement suppressions are expired at the current date. The
+original TailTrail run remains evidence-incomplete because external proof
+cannot rewrite its immutable excluded scope.
+
+### Required permanent fixes
+
+#### Host-side prevention
+
+1. Before Start, map every named deliverable or artifact class to its real
+   owner: for packaging this includes direct wheel selection, sdist inventory,
+   installed reconstruction, and integrity projection.
+2. If the host cannot verify which path controls a named artifact, keep that
+   owner as an explicit open question; never exclude the path while requiring
+   its output.
+3. During mandatory plan review, reject any plan whose positive outcome names
+   an artifact but whose owner/inspection/proof matrix has no controlling
+   surface for that artifact.
+
+#### TailTrail-side enforcement
+
+1. Treat a fresh validated planning-readiness receipt as the authoritative
+   requirement and path-role projection. Start may validate its fingerprints
+   and freshness, but must not replace it with a new lexical interpretation.
+2. Enforce exact requirement UID/count continuity from the receipt through
+   requirement routing, scope, Start Report, audit, and approval.
+3. Consume receipt `path_authorizations` directly. A fresh verified
+   implementation owner must not trigger the same unresolved scope question;
+   `--changed` and a matching scope answer must be idempotent confirmations,
+   not discarded inputs.
+4. Add an artifact-owner completeness audit: when an accepted outcome names a
+   wheel, sdist, installer, generated file, API, or other output surface, the
+   plan must bind its controlling owner or retain an open question.
+5. Fail closed with a typed receipt-projection mismatch if Start cannot
+   preserve the receipt. Do not silently fall back to heuristic requirements.
+6. Make the Completion Report distinguish externally authorized correction
+   proof from managed proof without treating it as trusted closure evidence;
+   show why the immutable anchor prevents closure and the exact recovery route.
+
+### Required regression coverage
+
+- One accepted receipt requirement produces exactly one Start requirement with
+  the same UID, statement, criteria, source answers, owner, and proof bindings.
+- A verified `MANIFEST.in` owner remains resolved through Start and does not
+  reopen `SCOPE-Q1`.
+- `--changed` plus a matching receipt owner and scope answer is idempotent.
+- Stale, altered, wrong-root, or wrong-goal receipts still fail closed before
+  scope or Planning Lock persistence.
+- A wheel-and-sdist outcome without an sdist inventory owner is rejected before
+  v1 or retained as an explicit question.
+- The externally corrected original run remains visibly incomplete without
+  fabricating managed evidence or mutating its approved anchor.
+
+### Resolution implemented
+
+The public Start route now treats a fresh validated planning-readiness receipt
+as canonical before heuristic requirement and scope gates:
+
+1. Start builds its requirement interpretation directly from the receipt's
+   operational requirements, preserving count, statement, criteria, proof
+   tiers, and later requirement-UID reconciliation instead of lexically
+   splitting the goal again.
+2. Start projects the receipt's implementation owners, inspection inputs, and
+   proof paths into one normally fingerprinted Navigator v2 scope decision
+   before the scope-quality gate. This creates approval-pending planning scope
+   only; it does not bypass Planning Lock, user approval, activation, write
+   guardian, drift, proof, or closure safeguards.
+3. A matching `--changed` or `--scope-owner` value is an idempotent
+   confirmation. A path that disagrees with the receipt fails closed at the
+   planning-readiness boundary.
+4. The normal reconciliation runs again before persistence and approval, so a
+   stale, altered, wrong-root, wrong-goal, or internally inconsistent receipt
+   still cannot create a Planning Lock.
+
+Regression coverage proves that a semicolon-heavy goal which heuristic parsing
+would split remains one canonical requirement, a proposed-new owner does not
+reopen `SCOPE-Q1`, the exact owner and proof path survive into the saved Start
+report, matching scope hints are idempotent, and conflicting hints fail closed.
+
+Focused validation:
+
+- `python3 -m unittest tests.test_question_orchestrator tests.test_intake_pipeline tests.test_planning_lock` -- 93 tests passed.
+- The previously blocked Phase 2A.1 receipt `readiness-4129d0f9ed4e4380`
+  created Start run `start-20261104141125-cdefcb` with the single canonical
+  requirement `REQ-PHASE2A1-RESOLVER`, owner
+  `tailtrail/aidlc_bundle.py`, and proof
+  `tests/test_aidlc_bundle_resolver.py`; no scope question reopened.
+
+The new run's planning audit found separate plan-content gaps in proof-command
+aggregation and its Behaviour scenario. Those gaps require normal plan revision
+but are not a recurrence of this receipt-consumption defect.
+
+**Status:** Resolved. **Priority:** High regression coverage retained. The
+host-side artifact-owner preflight guidance remains mandatory because this fix
+preserves accepted host scope; it cannot correct an incomplete host contract.
+
+## 65. Requirement kind is inferred from a raw `preserve` substring and misclassifies implementation work (Resolved in working tree 2026-11-05 -- TailTrail requirement-authority defect)
+
+### Observed in
+
+- Phase 2A.2 run: `start-20261104150738-f7bbbf`.
+- Planning-readiness receipt: `readiness-c69b61f41ad74466`.
+- Canonical requirement UID: `REQ-PHASE2A2-PROJECTION`.
+- Start Plan: `session-reports/start-20261104150738-f7bbbf/start-plan.md`.
+
+### Problem
+
+The requirement asks TailTrail to extend `tailtrail/aidlc_bundle.py` with new
+atomic, content-addressed project-projection behavior. The statement also says
+that the new implementation must **preserve idempotence**. TailTrail classified
+the whole requirement as `preserve` instead of `change` merely because the
+statement contains the word `preserve`:
+
+> Extend the package-owned AIDLC bundle resolver with offline, bounded-lock,
+> content-addressed project projection ... preserves idempotence ...
+
+The resulting Start Plan displays `Requirement type: preserve`, converts the
+new behavior into preservation criteria, and describes the implementation step
+as `Implement Extend ...`. Those projections contradict one another: this is
+new implementation work with preservation constraints, not a request to leave
+existing behavior unchanged.
+
+### Verified cause
+
+`scripts/planning_lock.py` defines a preserve requirement as existing behavior
+that must not change, but its hands-free projection assigned requirement kind
+with the equivalent of:
+
+```python
+"preserve" if "preserve" in lowered else "change"
+```
+
+That lexical test does not distinguish the primary requested outcome from a
+constraint on that outcome. Any change requirement containing phrases such as
+`preserve compatibility`, `preserve idempotence`, or `preserve existing safety`
+can therefore be mislabeled as preservation-only work.
+
+The Phase 2A.2 readiness receipt did not carry any requirement kind. During
+Start, `scripts/task-start.py` therefore called the same lexical classifier in
+`scripts/requirement_discovery.py`, which treated any occurrence of `preserve`
+as stronger than the leading `Extend` outcome. The pending-plan revision
+command could update requirement text, but had no explicit operation for
+correcting `requirement_kind`; a host was consequently pushed toward rewriting
+accurate requirement wording merely to work around the classifier.
+
+### Classification and impact
+
+**Classification:** TailTrail defect. This is not missing host context: the
+goal, owner, proof path, command, positive criteria, negative criteria, and
+implementation authority were supplied and accepted.
+
+**Impact:** The current Phase 2A.2 plan must not be approved because its
+requirement authority is semantically wrong. If approved, later scope, change
+intent, proof, audit, and closure surfaces could treat a new implementation as
+preservation-only work. The defect is generic and can affect any implementation
+request that includes a preservation constraint.
+
+The planning audit also found proof-command projection and missing Behaviour
+scenario gaps. Those are ordinary plan-revision findings and are separate from
+this blocking requirement-kind defect.
+
+### Required permanent fix
+
+1. Add an explicit `requirement_kind` field to the validated intake binding.
+   The supported values must be closed and documented, including at least
+   `change` and `preserve`.
+2. Have Navigator derive that field from the requested outcome, change
+   authority, and accepted questionnaire evidence. A constraint containing the
+   word `preserve` must not override an implementation outcome.
+3. Preserve the validated kind in the planning-readiness receipt and consume it
+   unchanged in receipt-backed Start. Start may validate the value and its
+   consistency but must not re-infer it with substring matching.
+4. Add a consistency gate before Planning Lock persistence:
+   - a requirement that creates, adds, extends, fixes, or changes behavior
+     cannot be `preserve` merely because it also has preservation criteria;
+   - a no-edit preservation requirement cannot silently become `change`;
+   - a contradiction remains an explicit intake question or typed failure.
+5. Allow a pending, unapproved planning revision to correct
+   `requirement_kind`, record the before/after value and reason, and rerun the
+   planning audit. Once approved, the kind remains frozen with the anchor.
+6. Render requested behavior and preservation constraints as separate fields in
+   the Start Plan so users can review both without semantic overloading.
+7. Retire the raw substring rule as an authority decision. It may remain only
+   as a low-confidence hint before questionnaire validation.
+
+### Required regression coverage
+
+- `Add atomic projection while preserving idempotence` is classified as
+  `change`, with idempotence retained as a preservation criterion.
+- `Preserve the current selector behavior without edits` is classified as
+  `preserve`.
+- A validated intake `requirement_kind` survives receipt creation, Start,
+  canonical projection, pending revision, audit, approval, and closure without
+  lexical reclassification.
+- A conflict between change authority, statement, and kind fails before
+  Planning Lock persistence with a precise correction instruction.
+- A pending plan can correct a wrong kind under audit; an approved anchor
+  cannot mutate it.
+- The human-readable and verbose Start Plans show the same correct kind and
+  keep preservation constraints separate from the requested outcome.
+
+### Safe recovery for the current run
+
+Do not approve `start-20261104150738-f7bbbf` in its current form and do not
+weaken the accurate requirement wording to evade the heuristic. Fix the
+requirement-kind authority path, then correct or regenerate the pending plan,
+run `tailtrail planning audit`, resolve its separate proof findings, and present
+only the clean latest plan for approval.
+
+### Resolution implemented
+
+1. `requirement_discovery.py` now classifies legacy wording by the primary
+   leading action before considering later preservation or safety language.
+   `Add`, `Implement`, `Create`, `Extend`, `Change`, and the other supported
+   change verbs therefore remain `change` even when the statement also says
+   `preserve` or `preserving`.
+2. New public Navigator finalization requires every operational requirement to
+   declare `requirement_kind` and cite accepted, requirement-bound answer IDs.
+   The intake pipeline validates the closed kind vocabulary, rejects strong
+   statement/kind contradictions, and rejects non-change requirements that
+   grant implementation-owner write authority.
+3. The normalized operational packet and planning-readiness receipt preserve
+   the kind, its authority source, and its accepted-answer lineage. Start and
+   readiness reconciliation consume that value instead of lexically
+   reclassifying it.
+4. Legacy receipts remain readable through a labeled contextual fallback. The
+   fallback gives the leading requested outcome precedence over later
+   preservation constraints and cannot masquerade as validated binding
+   authority.
+5. `planning revise` requirement updates may now correct
+   `requirement_kind` while the plan is pending. The revision records the
+   before/after kinds and rejects an incompatible retained kind with an exact
+   instruction to supply the explicit correction.
+6. The hands-free Planning Lock fallback now uses the shared kind validator;
+   it no longer contains its own raw `"preserve" in statement` authority rule.
+
+Focused and affected-suite proof:
+
+- `python3 -m unittest tests.test_requirement_discovery tests.test_intake_pipeline tests.test_question_orchestrator tests.test_planning_lock tests.test_planning_revision`
+- Result: 187 tests passed.
+- The public intake regression uses an implementation goal containing
+  `while preserving`; its saved Start requirement remains `change` with
+  `validated-operational-binding` authority.
+- The pending-revision regression proves `preserve` to `change` correction and
+  records both values without approving or mutating an approved anchor.
+
+The product defect is resolved in the working tree. The already-persisted
+Phase 2A.2 v1 plan remains unapproved and still requires a pending-plan
+correction or regeneration plus a clean planning audit before user approval.
+
+**Status:** Resolved in working tree. **Priority:** High regression coverage retained.
+
+## 66. Legacy AIDLC continuation initially trusted caller-supplied authority artifacts (Resolved in Phase 2B.1 -- implementation security defect)
+
+### Observed in
+
+- Phase 2B.1 run: `start-20261105064859-ce4e0a`.
+- Requirement: `REQ-PHASE2B1-BINDING`.
+- Implementation owner: `tailtrail/aidlc_bundle.py`.
+- Proof path: `tests/test_aidlc_bundle_resolver.py`.
+
+### Problem
+
+The first Phase 2B.1 implementation allowed a legacy-run caller to supply the
+bridge and activation mappings used to justify continuation. Those values are
+authority-bearing evidence: if they come from an untrusted caller, the caller
+could fabricate an apparently valid legacy activation instead of proving that
+TailTrail had actually saved it for that run.
+
+### Classification and impact
+
+**Classification:** Implementation/proof failure discovered during post-change
+review. This was not a missing host requirement or an approval gap.
+
+**Impact:** A fabricated caller payload could have blurred the boundary between
+read-only compatibility with a previously activated v1 run and creation of new
+Full-mode authority. The defect affected the initial implementation only; it
+was caught before closure.
+
+### Resolution implemented
+
+1. `LegacyRunInputs` no longer accepts caller-supplied bridge or activation
+   mappings.
+2. Legacy continuation reads the exact persisted bridge and activation
+   artifacts below `.tailtrail/runs/<run-id>/aidlc-official/`.
+3. The resolver validates those saved artifacts against the requested run and
+   destination state.
+4. Legacy continuation remains read-only and cannot mint a new active-run
+   binding or new Full-mode authority.
+5. Focused regression coverage proves that the saved artifacts are required
+   and that no binding is created during legacy continuation.
+
+### Proof
+
+- `python3 -m unittest tests.test_aidlc_bundle_resolver`
+- Result: 21 tests passed at unit, contract, and behaviour tiers.
+- Current managed evidence: `evidence-3-ab28418cc80c2956`.
+
+**Status:** Resolved before Phase 2B.1 closure. **Priority:** Security-sensitive
+regression coverage retained.
+
+## 67. Expected missing-API test failure was routed as an external-service failure (Open -- TailTrail failure-classification defect)
+
+### Observed in
+
+- Phase 2B.1 run: `start-20261105064859-ce4e0a`.
+- Initial red proof for `tests/test_aidlc_bundle_resolver.py`.
+
+### Problem
+
+The implementation-first test correctly failed because the new Phase 2B.1 API
+did not exist yet. TailTrail classified that ordinary local implementation
+failure as an external-service problem. The failure required a code change in
+the approved implementation owner; it did not depend on a network, provider,
+credential, remote API, or unavailable environment.
+
+### Classification and impact
+
+**Classification:** TailTrail defect.
+
+**Impact:** The pipeline offered the wrong recovery route and could cause a
+host to investigate external dependencies instead of implementing the missing
+local API. In a less closely supervised run, this could stall progress or
+produce an incorrect scope correction.
+
+### Safe workaround used
+
+The host recorded the mechanical local failure as
+`COMPILE_PHASE2B1_API_MISSING`, kept the existing approved owner and proof
+boundary, and continued through the implementation route. No external-service
+authority was introduced.
+
+### Required permanent fix
+
+1. Classify import errors, missing symbols, compile failures, and local
+   assertion failures as implementation/proof failures unless concrete
+   evidence identifies an external dependency.
+2. Base routing on structured failure evidence such as exception type,
+   command, path, and dependency origin rather than broad message keywords.
+3. When classification confidence is insufficient, show the candidate routes
+   and keep the run at the current stage instead of asserting external-service
+   failure.
+4. Add regression coverage for a test importing a not-yet-implemented local
+   symbol, a genuine missing third-party dependency, and a genuine remote
+   provider failure.
+
+**Status:** Open. **Priority:** Medium; it did not weaken authority or final
+evidence in this run, but it creates avoidable operator friction.
+
+## 68. Path-scoped review reports missing nearby tests despite approved proof-path evidence (Open -- TailTrail review-context defect)
+
+### Observed in
+
+- Phase 2B.1 run: `start-20261105064859-ce4e0a`.
+- Review target: `tailtrail/aidlc_bundle.py`.
+- Approved proof path: `tests/test_aidlc_bundle_resolver.py`.
+
+### Problem
+
+The path-scoped post-change review warned that source changed without a nearby
+test change. The approved plan already bound the source owner to a separate
+proof-only path, and that test module contained the Phase 2B.1 regression
+coverage. Because the review considered only the source-path neighborhood, it
+could not see the canonical proof binding and produced a misleading warning.
+
+### Classification and impact
+
+**Classification:** TailTrail review/reporting defect.
+
+**Impact:** A valid, fully tested change appears under-tested. The warning can
+send the host toward unnecessary test creation, duplicate coverage, or an
+unneeded plan revision even when authoritative managed proof is already green.
+
+### Required permanent fix
+
+1. Resolve review context from the approved plan and current proof bindings,
+   not only from source-path proximity.
+2. For every reviewed implementation owner, load its bound proof paths,
+   commands, tiers, scenarios, freshness, and current managed result.
+3. Distinguish `no approved proof binding`, `bound proof unchanged`, `bound
+   proof stale`, and `bound proof passed`; do not collapse them into a generic
+   nearby-test warning.
+4. Keep heuristic proximity findings clearly labeled and subordinate to
+   canonical proof evidence.
+5. Add a regression where source and proof live in different directories but
+   share a valid approved binding.
+
+### Current-run outcome
+
+The warning was reviewed as heuristic only. The exact approved command passed
+21 tests at unit, contract, and behaviour tiers, so it did not block closure.
+
+**Status:** Open. **Priority:** Medium reporting accuracy improvement.
+
+## 69. Re-recording a corrected source edit can silently reuse an earlier receipt (Open -- TailTrail receipt-history clarity defect)
+
+### Observed in
+
+- Phase 2B.1 run: `start-20261105064859-ce4e0a`.
+- A security correction was applied after the first passing managed proof.
+- The subsequent source-edit recording reused the existing event when its
+  normalized payload matched the earlier receipt.
+
+### Problem
+
+TailTrail's idempotent source-edit recording can return an earlier receipt when
+the normalized changed-path payload is identical. That behavior avoids
+duplicate state, but it does not clearly represent that a later correction was
+made and re-reviewed between two proof attempts.
+
+### Classification and impact
+
+**Classification:** TailTrail audit-history and operator-clarity defect.
+
+**Impact:** The final managed proof can correctly supersede the earlier proof,
+but the source-edit history may not visibly explain why another proof was
+required. This weakens chronology and makes security-review corrections harder
+to reconstruct, even though the current evidence selection remains correct.
+
+### Required permanent fix
+
+1. Keep semantic idempotence for unchanged source state, but record a distinct
+   observation or attempt event for every authorized recording action.
+2. Bind the observation to source-state fingerprint, command/proof attempt,
+   timestamp or sequence, and any correction reason without duplicating the
+   canonical changed-path authorization.
+3. Render `canonical receipt reused` separately from `new observation
+   recorded` so operators can see both deduplication and chronology.
+4. Ensure a later proof selects the current compatible source-state event
+   while retaining all earlier attempts as history.
+5. Add regression coverage for edit -> pass -> corrective edit on the same
+   path -> pass, including identical changed-path lists but different source
+   fingerprints.
+
+### Current-run outcome
+
+The newer managed proof `evidence-3-ab28418cc80c2956` superseded
+`evidence-2-76b32e98c2d1f8d1`, all required tiers passed, and the Completion
+Report selected the current proof. Closure was therefore accurate despite the
+receipt-history ambiguity.
+
+**Status:** Open. **Priority:** Low to medium; audit chronology should improve,
+but Phase 2B.1 closure and evidence selection were not compromised.
+
+## Recent Phase 2B through Phase 3B run retrospective
+
+### Runs reviewed
+
+| Phase/run | Outcome | Grounded observation |
+|---|---|---|
+| Phase 2B.1 — `start-20261105064859-ce4e0a` | Complete | Frozen active-run binding closed with approved scope, current passing proof, and no unresolved drift. |
+| Phase 2B.2 attempt 1 — `start-20261105073143-35fb0b` | Stopped | The plan mixed the frozen Requirements adapter with public `stage_request` wiring that belongs to Phase 3. |
+| Phase 2B.2 attempt 2 — `start-20261105075910-50dfb3` | Stopped | The implementation boundary was corrected, but the proof command still selected the broader bridge suite instead of only the four frozen-adapter scenarios. |
+| Phase 2B.2 final — `start-20261105082850-ff2c0c` | Complete | The corrected adapter-only slice and exact filtered proof closed with approved scope and no unresolved drift. |
+| Phase 3A — `start-20261105090516-55c9cb` | Complete | Bundled Full preflight bridge behavior closed with current unit, contract, and behaviour proof. |
+| Phase 3B — `start-20261105092843-0226a1` | Complete | Immutable bundled Full bridge identity persistence closed with one correctly ordered proof attempt, approved scope, and no unresolved drift. |
+
+The four completed runs all ended with authoritative passing evidence,
+approved changed scope, valid canonical state, and no unresolved drift. The two
+stopped runs were planning/operator corrections, not false implementation
+successes. Phase 3B was the cleanest recent execution: implementation, pipeline
+handoff, source-edit recording, one exact managed proof, and closure occurred
+in the correct order.
+
+## 70. Initial plans repeatedly omit already-known proof projection and behaviour scenarios (Open -- TailTrail v1 planning defect)
+
+### Observed in
+
+- `start-20261105064859-ce4e0a`;
+- `start-20261105082850-ff2c0c`;
+- `start-20261105090516-55c9cb`; and
+- `start-20261105092843-0226a1`.
+
+### Problem
+
+Every one of these otherwise successful runs produced an initial v1 audit with
+exactly two findings. Each required the same two revision operations:
+
+- `proof-update`; and
+- `behaviour-scenario-add`.
+
+The host contract and planning-readiness receipt already contained the exact
+proof command, tiers, asserted behavior, and accepted answer lineage. The v1
+canonical plan did not project that complete information into the positional
+proof check and requirement-specific behaviour scenario. Planning audit
+correctly caught the omissions, but only after generating an incomplete v1.
+
+### Responsibility and impact
+
+**Responsibility:** TailTrail plan generation. The mandatory audit is working
+as designed and is the safety net, not the defect.
+
+**Impact:** Every plan incurs a predictable revision cycle before it can be
+shown for approval. This increases host work, review noise, and the chance of
+applying an incorrect mechanical revision even though the accepted intake
+already contains the necessary facts.
+
+### Required generic correction
+
+1. Generate `validation_contract.checks[]` directly from each validated proof
+   binding, including command, path, tier, asserted behavior, requirement UID,
+   and source answer ID.
+2. Generate the requirement-specific behaviour scenario from the accepted
+   behaviour binding whenever the behaviour tier is already approved.
+3. Reconcile the intake receipt against the canonical v1 projection before the
+   Start Plan is persisted; missing accepted facts must fail before v1.
+4. Keep planning audit as an independent backstop rather than relying on it as
+   the normal projection-completion step.
+5. Add a regression proving that a complete intake receipt produces a clean v1
+   without a mechanical `proof-update` or `behaviour-scenario-add` revision.
+
+**Status:** Open. **Priority:** Medium-high because authority remains protected,
+but the defect affects nearly every recent implementation plan.
+
+## 71. Phase ownership and proof precision were not rejected before two Phase 2B.2 plans were activated (Open -- shared host/TailTrail planning gap)
+
+### Observed in
+
+- stopped run `start-20261105073143-35fb0b`; and
+- stopped run `start-20261105075910-50dfb3`.
+
+### Problem
+
+The first Phase 2B.2 plan included public `stage_request` wiring even though the
+design assigned that public routing to Phase 3. The second plan corrected the
+owner boundary but registered the whole bridge test module instead of the
+requested four frozen-adapter scenarios. Both plans reached approval before
+the mismatch was recognized, so each run had to be stopped and replaced.
+
+### Responsibility and impact
+
+**Host responsibility:** inspect the authoritative phase design, identify the
+single owner for the current slice, and propose the narrowest command that
+proves its named scenarios.
+
+**TailTrail responsibility:** compare the proposed requirement, owner, excluded
+later-phase surfaces, proof path, command selector, and scenario set before v1.
+Planning audit currently checks structural proof presence but did not establish
+that the command was narrow enough or that public routing belonged to a later
+phase.
+
+**Impact:** Two approved plans were discarded without producing delivery. No
+unauthorized source change or false closure occurred, but planning time and
+review effort were wasted.
+
+### Required generic correction
+
+1. Let an accepted design phase contract declare current owners, deferred
+   owners, excluded public surfaces, and required scenario identities.
+2. Require the host to bind every implementation owner and proof selector to
+   that phase contract.
+3. Before v1, reject an owner or behavior surface assigned to a later phase.
+4. Compare the test collector result or declared selector against the required
+   scenario set; distinguish exact, missing, and materially broader proof.
+5. Keep the host accountable for the initial proposal while making TailTrail's
+   reconciliation fail closed when the saved design contradicts it.
+
+**Status:** Open. **Priority:** Medium. The issue causes restart friction but
+did not weaken approval or final evidence.
+
+## 72. `planning assert-source-write` emits an unbounded workspace payload for a small scoped change (Open -- TailTrail operator-surface defect)
+
+### Observed in
+
+- Phase 3B run `start-20261105092843-0226a1`.
+
+### Problem
+
+The source-write assertion succeeded, but its normal output included the full
+workspace identity and file inventory. The captured result was approximately
+284,000 tokens and was truncated by the host even though the actionable result
+was only that the approved two-path drift matched the active plan.
+
+### Responsibility and impact
+
+**Responsibility:** TailTrail reporting. The host used the correct command.
+
+**Impact:** Material approval, drift, or pipeline facts can be hidden inside a
+massive payload. Truncation makes review less reliable and increases the chance
+that an operator misses the actual decision or recovery action.
+
+### Required generic correction
+
+1. Make the default output an action-oriented summary containing run ID,
+   approval state, active revision, allowed write paths, observed changed
+   paths, drift classification, pipeline stage, and exact next action.
+2. Save the complete target identity and inventory as a referenced verbose
+   artifact rather than printing it by default.
+3. Provide an explicit `--verbose` or machine-readable mode for consumers that
+   need the complete payload.
+4. Ensure compact and verbose projections share one fingerprinted state
+   resolver so summarization cannot change the decision.
+5. Add a large-repository regression proving that the default response remains
+   bounded while the full artifact remains complete and auditable.
+
+**Status:** Open. **Priority:** Medium for safe host operation; no Phase 3B
+evidence or scope decision was lost.
+
+## 73. A read-only retrospective question is classified as implementation (Open -- TailTrail intent-routing defect)
+
+### Observed in
+
+Before this log update, the host ran `tailtrail intent` for the request asking
+how the previous few runs went and what was good, bad, or friction-heavy. The
+intent report returned `Flow: implementation`, although the request asked only
+for a read-only assessment and authorized no repository change.
+
+### Responsibility and impact
+
+**Responsibility:** TailTrail intent classification. The host preserved the
+explicit read-only boundary and made no change during the assessment.
+
+**Impact:** A status or retrospective question can be routed toward planning
+and implementation, creating an unnecessary Planning Lock or pressuring a host
+to infer edit authority that the user never granted.
+
+### Required generic correction
+
+1. Give explicit interrogative/read-only forms such as `how was`, `what went
+   well`, `what was bad`, `review the run`, and `summarize friction` precedence
+   when no change verb is present.
+2. Separate mentions of prior implementation work from authority to perform a
+   new implementation.
+3. When evidence is mixed, choose read-only inspection and ask for explicit
+   change authority before creating a Planning Lock.
+4. Add regressions covering retrospective questions that mention
+   implementation, fixes, plans, and failures only as historical subjects.
+
+**Status:** Open. **Priority:** Medium because the host boundary prevented a
+write here, but an unattended host could create the wrong workflow.
+
+## Re-observed existing issue classes and operator learning
+
+### Issue 45 — evidence freshness and ordering
+
+Phase 2B.2 and Phase 3A initially ran managed proof before recording the
+source-edit receipt. Recording the later edit correctly made the earlier proof
+stale, so TailTrail required a fresh compatible proof. That freshness decision
+is correct and must not be weakened. The avoidable part was host sequencing.
+
+The required operator order is:
+
+1. finish approved source and proof edits;
+2. record the source-edit receipt;
+3. run the exact managed proof;
+4. record closure; and
+5. finalize and render the Completion Report.
+
+Phase 3B followed this order and needed only one managed proof attempt. This is
+a host/operator learning linked to existing **Issue 45**, not a new freshness
+defect.
+
+### Issue 57 — completed pipeline still looks active
+
+Phase 3B closed successfully, but its final Completion Report still rendered
+`Active stage: TESTING`, `Completed stages: IMPLEMENTATION`, and `INFRA`
+unvisited. Closure status was accurate, but the badge presentation still looks
+unfinished. This is a new observation of existing **Issue 57**, whose generic
+terminal `CLOSED` projection remains the recommended correction.
+
+### Issue 61 — stale-learning warnings remain opaque
+
+The Phase 3B Completion Report listed seven stale learning IDs and a generic
+refresh command without explaining which learning changed, whether it affected
+the current decision, or whether to refresh, consolidate, supersede, or retire
+it. This is a new observation of existing **Issue 61**. The count is smaller
+than earlier reports, but the guidance is still not decision-ready.

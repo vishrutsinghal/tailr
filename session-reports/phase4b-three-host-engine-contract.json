@@ -1,0 +1,44 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase4b-three-host-engine-20261105",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "workflow",
+  "paths": [
+    {"path": "scripts/aidlc-official-host.py", "role": "existing-implementation-owner"},
+    {"path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "role": "inspection-input"},
+    {"path": "tailtrail/aidlc_bundle.py", "role": "inspection-input"},
+    {"path": "scripts/aidlc-official-bridge.py", "role": "inspection-input"},
+    {"path": "schemas/official-aidlc-run-state.schema.json", "role": "inspection-input"},
+    {"path": "scripts/install-local.py", "role": "inspection-input"},
+    {"path": "scripts/install-copilot.py", "role": "inspection-input"},
+    {"path": "tests/test_aidlc_official_host.py", "role": "existing-proof-path"},
+    {"path": "AGENTS.md", "role": "excluded"},
+    {"path": ".github/copilot-instructions.md", "role": "excluded"},
+    {"path": "CLAUDE.md", "role": "excluded"},
+    {"path": "scripts/task-start.py", "role": "excluded"},
+    {"path": "scripts/planning_lock.py", "role": "excluded"},
+    {"path": "scripts/mcp-server.py", "role": "excluded"}
+  ],
+  "criteria": {
+    "positive": [
+      "One host projection engine consumes exactly one frozen bundled-v2 run binding and depends on the registered Phase 4 host-projection receipt contract.",
+      "Codex copy mode and Copilot and Claude reference modes publish bounded atomic projections and immutable receipts while preserving unmanaged instructions.",
+      "Read-only status recomputes complete receipt, instruction, mapping, and inventory evidence; all hosts agree on one official and project-pack identity; identical retries are idempotent.",
+      "Focused host proof covers positive conformance and missing, additional, altered, symlinked, non-regular, unsafe, stale, legacy, and conflicting negative cases."
+    ],
+    "negative": [
+      "No host downloads, substitutes, rediscovers mutable selector state, accepts legacy authority, silently changes projection mode, or falls back from Full.",
+      "Unsafe ancestors, unmanaged conflicts, altered receipts, incomplete inventories, stale identity, and different frozen authority fail closed without overwrite.",
+      "Do not edit repository host instruction files, public Start or MCP wiring, Planning Lock, installers, bundle resolver, bridge, registry, schemas, packaging, documentation, or Phase 5 proof surfaces."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_aidlc_official_host -v",
+    "tiers": ["unit", "contract", "behaviour"]
+  },
+  "private_reasoning_excluded": true
+}

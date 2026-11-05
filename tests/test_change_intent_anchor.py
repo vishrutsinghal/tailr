@@ -26,6 +26,52 @@ anchor = load("anchor_test_module", "scripts/change-intent-anchor.py")
 
 
 class ChangeIntentAnchorTests(unittest.TestCase):
+    def test_draft_preserves_writable_output_without_owner_promotion(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ledger.init_run(root, "run-output", "output")
+            payload = json.loads(self.draft_input(root).read_text(encoding="utf-8"))
+            payload["requirements"][0]["writable_outputs"] = [{
+                "path": "generated/provenance.json",
+                "role": "generated-output",
+                "existing": False,
+                "new_file_verdict": "new-confirmed",
+                "new_file_due_diligence": {"verdict": "new-confirmed", "write_eligible": True},
+                "grants_behavioral_ownership": False,
+                "requests_write_authority": True,
+            }]
+            source = root / "output-proposal.json"
+            source.write_text(json.dumps(payload), encoding="utf-8")
+            drafted = anchor.draft(root, "run-output", source)
+
+        row = drafted["requirements"][0]
+        self.assertEqual(row["likely_paths"], ["src/claims_api/validation.py"])
+        self.assertEqual(row["writable_outputs"][0]["role"], "generated-output")
+
+    def test_draft_promotes_scope_evidence_writable_output_to_anchor_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            ledger.init_run(root, "run-scoped-output", "output")
+            payload = json.loads(self.draft_input(root).read_text(encoding="utf-8"))
+            output = {
+                "path": "tailtrail-registry.json",
+                "role": "configuration-output",
+                "existing": True,
+                "new_file_verdict": "not-applicable",
+                "new_file_due_diligence": {"verdict": "not-applicable", "write_eligible": True},
+                "grants_behavioral_ownership": False,
+                "requests_write_authority": True,
+            }
+            payload["requirements"][0]["scope_evidence"] = {"writable_outputs": [output]}
+            source = root / "scoped-output-proposal.json"
+            source.write_text(json.dumps(payload), encoding="utf-8")
+            drafted = anchor.draft(root, "run-scoped-output", source)
+
+        row = drafted["requirements"][0]
+        self.assertEqual(row["likely_paths"], ["src/claims_api/validation.py"])
+        self.assertEqual(row["writable_outputs"], [output])
+        self.assertNotIn("tailtrail-registry.json", row["likely_paths"])
+
     def draft_input(self, root: Path) -> Path:
         path = root / "proposal.json"
         path.write_text(json.dumps({"goal": "reject zero claim amounts", "requirements": [{"kind": "change", "statement": "Reject zero claim amounts", "acceptance_criteria": ["zero raises validation error"], "preserve_rules": ["positive claims remain valid"], "likely_paths": ["src/claims_api/validation.py"], "evidence_plan": ["focused validation test"]}]}), encoding="utf-8")

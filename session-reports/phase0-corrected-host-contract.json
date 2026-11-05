@@ -1,0 +1,104 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase0-corrected-20261104",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "workflow",
+  "goal": "Implement corrected Phase 0 — Provenance decision and inventory from TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md: extend scripts/aidlc-official-install.py to acquire one pinned official AIDLC release, resolve its full commit, verify the archive SHA-256 and MIT-0 license, compare the complete checked-in rule inventory against the authenticated upstream bytes, preserve exact matches and replace only verified mismatches within the two rule directories, generate aidlc-rules/PROVENANCE.json, aidlc-rules/LICENSE, and aidlc-rules/BUNDLE_VERSION, retain aidlc-rules/VERSION only as non-authoritative legacy inspection input, and record the compatibility, trust-posture, source-checkout, schema-v1/v2, active-run, external-pack, and host-projection decisions required by Phase 0; exclude packaging manifests, runtime resolution, Full routing, and host adapters.",
+  "paths": [
+    {
+      "path": "scripts/aidlc-official-install.py",
+      "role": "existing-implementation-owner"
+    },
+    {
+      "path": "aidlc-rules/aws-aidlc-rules",
+      "role": "configuration"
+    },
+    {
+      "path": "aidlc-rules/aws-aidlc-rule-details",
+      "role": "configuration"
+    },
+    {
+      "path": "aidlc-rules/PROVENANCE.json",
+      "role": "generated"
+    },
+    {
+      "path": "aidlc-rules/LICENSE",
+      "role": "generated"
+    },
+    {
+      "path": "aidlc-rules/BUNDLE_VERSION",
+      "role": "configuration"
+    },
+    {
+      "path": "aidlc-rules/VERSION",
+      "role": "inspection-input"
+    },
+    {
+      "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "role": "inspection-input"
+    },
+    {
+      "path": "session-reports/phase0-corrected-current-inventory.md",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_bundle_provenance.py",
+      "role": "proposed-proof-path"
+    },
+    {
+      "path": "package-manifest.json",
+      "role": "excluded"
+    },
+    {
+      "path": "MANIFEST.in",
+      "role": "excluded"
+    },
+    {
+      "path": "release-manifest.json",
+      "role": "excluded"
+    },
+    {
+      "path": "scripts/aidlc-official-bridge.py",
+      "role": "excluded"
+    },
+    {
+      "path": "scripts/task-start.py",
+      "role": "excluded"
+    },
+    {
+      "path": "scripts/aidlc-official-host.py",
+      "role": "excluded"
+    }
+  ],
+  "criteria": {
+    "positive": [
+      "One published official AIDLC tag, its full commit, release archive SHA-256, and exact MIT-0 license bytes are acquired from the official upstream and recorded together.",
+      "The complete current inventory of 30 rule files is compared by safe relative path and SHA-256 with the official archive; exact files are preserved and only verified mismatches are replaced.",
+      "PROVENANCE.json records acquisition, verification, archive, license, rule inventory, trust-posture, compatibility, migration, active-run, external-pack, and host-projection decisions without claiming to be an independent trust anchor.",
+      "BUNDLE_VERSION is separate from the official upstream revision; legacy VERSION is never treated as provenance.",
+      "The authenticated-release, development-local, corruption-detection-only, and external-explicit postures are explicit, and production Full fails closed when the required trust evidence is absent.",
+      "The focused proof exercises safe archive validation, closed inventory comparison, mismatch replacement, exact-match preservation, metadata generation, unsafe-path rejection, incomplete-acquisition failure, and deterministic output."
+    ],
+    "negative": [
+      "No provenance claim may be derived only from aidlc-rules/VERSION, local filenames, or self-generated hashes.",
+      "No unverified local rule byte may be labelled as part of the pinned official release.",
+      "No rule outside aidlc-rules/aws-aidlc-rules and aidlc-rules/aws-aidlc-rule-details may be replaced, and no mismatch may be replaced before upstream archive and source identity verification succeeds.",
+      "No package manifest, source-distribution manifest, release manifest, resolver, Full-mode route, project projection, or host adapter may be changed in Phase 0.",
+      "No runtime network dependency, silent Full-to-Lite downgrade, weakened integrity check, fabricated acquisition evidence, or publisher-authentication claim from local hashes may be introduced.",
+      "Failure to acquire or verify the official tag, full commit, archive, license, or complete inventory must fail closed without writing partial Phase 0 outputs."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_aidlc_bundle_provenance",
+    "tiers": [
+      "unit",
+      "contract",
+      "integration"
+    ]
+  },
+  "private_reasoning_excluded": true
+}

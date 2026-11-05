@@ -8,6 +8,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+import jsonschema
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,6 +61,43 @@ class OfficialAidlcInstallTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaisesRegex(ValueError, "core-workflow"):
                 installer.install(Path(temp), revision="v1.0.1", host="generic", archive_bytes=broken.getvalue(), license_bytes=b"MIT-0\n")
+
+    def test_manifest_schema_accepts_restrictive_v1_and_closed_v2_only(self) -> None:
+        schema = json.loads((ROOT / "schemas" / "official-aidlc-pack.schema.json").read_text(encoding="utf-8"))
+        validator = jsonschema.Draft202012Validator(schema)
+        jsonschema.Draft202012Validator.check_schema(schema)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            result = installer.install(
+                root, revision="v1.0.1", host="codex", archive_bytes=archive(),
+                license_bytes=b"MIT-0\n", commit="e49341d",
+            )
+            v1 = json.loads((root / result["manifest"]).read_text(encoding="utf-8"))
+        validator.validate(v1)
+
+        v2 = {
+            "schema_version": "2",
+            "type": "tailtrail-bundled-official-aidlc-pack",
+            "bundle": {
+                "format_version": "1", "tailtrail_version": "1.1.0",
+                "bundle_version": "1", "created_from": "verified-upstream-release",
+            },
+            "official": {
+                "source": installer.OFFICIAL_SOURCE, "revision": "v1.0.1",
+                "commit": "a" * 40, "source_archive_sha256": "b" * 64,
+                "license": {"spdx": "MIT-0", "file": "LICENSE", "sha256": "c" * 64},
+            },
+            "compatibility": {
+                "minimum_tailtrail_version": "1.1.0",
+                "maximum_tailtrail_version_exclusive": "2.0.0",
+                "manifest_schema": "2", "supported_hosts": ["codex", "copilot", "claude"],
+            },
+            "required_capabilities": {"requirements": list(installer.REQUIRED_REQUIREMENTS_CAPABILITIES)},
+            "integrity": {"algorithm": "sha256", "files": [{"path": "LICENSE", "sha256": "c" * 64}]},
+        }
+        validator.validate(v2)
+        v2["unexpected"] = True
+        self.assertTrue(list(validator.iter_errors(v2)))
 
 
 if __name__ == "__main__":

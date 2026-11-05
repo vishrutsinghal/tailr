@@ -190,6 +190,15 @@ def render_plan(root: Path, run_id: str) -> str:
             lines.extend(f"  - {report_text(item)}" for item in preserve_rules)
         paths = requirement.get("likely_paths", [])
         lines.append("- Planned paths: " + (", ".join(f"`{path}`" for path in paths) if paths else "-"))
+        outputs = [item for item in requirement.get("writable_outputs", []) if isinstance(item, dict)]
+        if outputs:
+            lines.append("- Writable outputs:")
+            for output in outputs:
+                state = "existing" if output.get("existing") else "proposed"
+                lines.append(
+                    f"  - `{output.get('path')}` — `{output.get('role')}`; {state}; "
+                    f"behavioral owner: no"
+                )
         contract = requirement.get("validation_contract", {}) if isinstance(requirement.get("validation_contract"), dict) else {}
         tiers = contract.get("tiers", [])
         lines.append("- Validation contract: " + (", ".join(tiers) if tiers else report_text(contract.get("state"))))

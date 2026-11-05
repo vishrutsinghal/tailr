@@ -1,0 +1,119 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE2A2-PROJECTION",
+        "statement": "Extend the package-owned AIDLC bundle resolver with offline, bounded-lock, content-addressed project projection that atomically creates or reuses one immutable verified pack, writes separate projection and future-run selector receipts, preserves idempotence, fails closed without mutating unsafe or conflicting state, and supports explicit bounded stale-staging recovery.",
+        "source_answer_ids": [
+          "answer-741dd8bf56fc4f84",
+          "answer-090e6c530bde4a2f",
+          "answer-588a91585fc345b3",
+          "answer-07309d73176042aa",
+          "answer-2233e88da443442a",
+          "answer-caabde33413d4c3e",
+          "answer-0ce797370ccd4424",
+          "answer-70b9c4453dfc4db2",
+          "answer-622e2dd4ed444d8f"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "proof-adequacy-007"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "host_declared": true,
+            "new_file_verdict": "not-applicable",
+            "ownership_evidence": "The completed Phase 2A.1 run established this package-owned resolver as the provider, integrity, trust, and receipt owner; Phase 2A.2 extends that same boundary with project projection.",
+            "source_answer_ids": ["answer-090e6c530bde4a2f", "answer-741dd8bf56fc4f84"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-07309d73176042aa"]
+          },
+          {
+            "path": "tailtrail/install/files.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-2233e88da443442a"]
+          },
+          {
+            "path": "tailtrail/install/engine.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-caabde33413d4c3e"]
+          },
+          {
+            "path": "scripts/run-ledger.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-0ce797370ccd4424"]
+          },
+          {
+            "path": "package-manifest.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-70b9c4453dfc4db2"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "unit",
+            "asserted_behavior": "Pack identity, safe target validation, bounded lock acquisition, atomic staging, selector validation, idempotent reuse, and recovery targeting behave deterministically against controlled filesystem fixtures.",
+            "source_answer_id": "answer-588a91585fc345b3"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "contract",
+            "asserted_behavior": "Projection and selector receipts are separate closed versioned contracts that bind the ready resolver receipt, exact copied inventory, immutable pack identity, trust posture, project path, and stable fingerprints.",
+            "source_answer_id": "answer-588a91585fc345b3"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "behaviour",
+            "asserted_behavior": "A first offline provision creates one verified pack, repeat and racing calls reuse it without churn, unsafe or conflicting state remains untouched, and only explicit bounded recovery removes a validated stale staging directory.",
+            "source_answer_id": "answer-588a91585fc345b3"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "A ready Phase 2A.1 receipt projects into one immutable content-addressed pack through one bounded cross-platform lock and exact-byte atomic transaction.",
+            "Projection and future-run selector receipts remain separate, closed, fingerprinted contracts.",
+            "Repeat and concurrent calls are idempotent, while explicit bounded recovery owns only validated managed staging state."
+          ],
+          "negative": [
+            "Provisioning never contacts the network, executes pack content, mutates source bytes, overwrites occupied state, silently retargets a selector, or cleans pre-existing staging state during an ordinary call.",
+            "This slice does not implement active-run binding, Requirements lookup, public Full routing, host projection, schema files, package registration, or documentation."
+          ],
+          "source_answer_ids": ["answer-741dd8bf56fc4f84", "answer-622e2dd4ed444d8f"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-741dd8bf56fc4f84"]
+        }
+      }
+    ]
+  }
+}

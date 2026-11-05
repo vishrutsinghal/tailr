@@ -19,6 +19,9 @@
     "rollback",
     "scope-v2-real-run",
     "scope-v2-no-artifact-rollback",
+    "full-offline",
+    "full-idempotent",
+    "full-deep-unicode-root",
     "uninstall"
   ],
   "evidence_policy": {

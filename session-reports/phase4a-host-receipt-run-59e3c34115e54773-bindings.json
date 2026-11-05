@@ -1,0 +1,97 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE4-RECEIPT-CONTRACT",
+        "statement": "Define and register the immutable Phase 4 host-projection receipt contract before the host engine depends on it, including host identity, adapter and projection mode, frozen origin fingerprints, official and trust identity, complete source-to-destination mapping and hashes, instruction-block fingerprint, reload posture, qualification result, and receipt seal.",
+        "requirement_kind": "change",
+        "requirement_kind_source_answer_ids": ["answer-66001e016c394279"],
+        "source_answer_ids": [
+          "answer-66001e016c394279",
+          "answer-dd6f2ed32c2941c6",
+          "answer-8499ae9b9f6e4841",
+          "answer-71e814a409fd4a82",
+          "answer-b3701f719af14e2b",
+          "answer-3306d2d7fb684948",
+          "answer-d50ffb76dd194e87"
+        ],
+        "profile_fields": [
+          "proposed-owner",
+          "public-route",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "proof-adequacy-005"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "schemas/official-aidlc-host-projection-receipt.schema.json",
+            "role": "implementation-owner",
+            "existing": false,
+            "host_declared": true,
+            "new_file_verdict": "new-confirmed",
+            "ownership_evidence": "The design requires a distinct immutable host-projection receipt authority and the existing run-state schema does not own host-specific projection state.",
+            "source_answer_ids": ["answer-66001e016c394279"]
+          },
+          {
+            "path": "tailtrail-registry.json",
+            "role": "configuration-output",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-71e814a409fd4a82", "answer-dd6f2ed32c2941c6"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-b3701f719af14e2b"]
+          },
+          {
+            "path": "schemas/official-aidlc-run-state.schema.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-3306d2d7fb684948"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_tailtrail_registry.py",
+            "command": "python3 -m unittest tests.test_tailtrail_registry -v",
+            "tier": "unit",
+            "asserted_behavior": "The new host-projection receipt schema and its registry ownership are strictly validated and discoverable.",
+            "source_answer_id": "answer-8499ae9b9f6e4841"
+          },
+          {
+            "path": "tests/test_tailtrail_registry.py",
+            "command": "python3 -m unittest tests.test_tailtrail_registry -v",
+            "tier": "contract",
+            "asserted_behavior": "The registered receipt contract requires the complete frozen identity, mapping, instruction, reload, qualification, and sealing fields without overloading existing schemas.",
+            "source_answer_id": "answer-8499ae9b9f6e4841"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "A separate registered schema owns the complete immutable host-projection receipt contract before the host engine depends on it.",
+            "The receipt records host and adapter identity, fixed projection mode, frozen origin run-resolution and project-pack fingerprints, official and trust identity, complete source-to-destination mapping and hashes, instruction-block fingerprint, reload posture, qualification result, and receipt seal.",
+            "tailtrail-registry.json registers the new contract and focused registry proof validates both schema ownership and strict discoverability."
+          ],
+          "negative": [
+            "Do not overload the existing run-state or bridge schema with host-projection state.",
+            "Do not implement the host projection engine, alter host instruction files, wire public Start or MCP routes, or claim Phase 5 distribution and end-to-end proof.",
+            "Do not permit the receipt to omit complete mapping and hashes, instruction identity, reload posture, qualification, or its own fingerprint."
+          ],
+          "source_answer_ids": ["answer-66001e016c394279", "answer-dd6f2ed32c2941c6"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-66001e016c394279"]
+        }
+      }
+    ]
+  }
+}

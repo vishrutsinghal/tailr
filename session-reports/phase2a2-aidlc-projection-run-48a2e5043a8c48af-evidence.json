@@ -1,0 +1,61 @@
+[
+  {
+    "answer_id": "answer-98b7525754894f6d",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "tailtrail/aidlc_bundle.py"
+    ]
+  },
+  {
+    "answer_id": "answer-11428480b9a44558",
+    "evidence_paths": [
+      "tailtrail/aidlc_bundle.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-944c001f1a704cf0",
+    "evidence_paths": [
+      "tests/test_aidlc_bundle_resolver.py",
+      "tailtrail/aidlc_bundle.py"
+    ]
+  },
+  {
+    "answer_id": "answer-d675b638680247e4",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-8fd7f398f1214fc6",
+    "evidence_paths": [
+      "tailtrail/install/files.py"
+    ]
+  },
+  {
+    "answer_id": "answer-b6c47ba87db645e8",
+    "evidence_paths": [
+      "tailtrail/install/engine.py"
+    ]
+  },
+  {
+    "answer_id": "answer-4123fff8283b488b",
+    "evidence_paths": [
+      "scripts/run-ledger.py"
+    ]
+  },
+  {
+    "answer_id": "answer-79e8df6cb82b4d69",
+    "evidence_paths": [
+      "package-manifest.json"
+    ]
+  },
+  {
+    "answer_id": "answer-8cec79a84d8445cf",
+    "evidence_paths": [
+      "tests/test_aidlc_bundle_resolver.py",
+      "tailtrail/aidlc_bundle.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  }
+]

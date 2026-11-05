@@ -1241,18 +1241,27 @@ def debug_scope_query_frame(goal: str) -> dict[str, Any]:
     }
 
 
-def _kind(statement: str) -> str:
-    lowered = statement.lower()
-    if any(word in lowered for word in ("preserve", "keep ", "remain unchanged", "retain existing")): return "preserve"
-    if any(word in lowered for word in ("avoid", "do not", "must not", "only ", "forbid", "without weakening")): return "constraint"
-    if any(word in lowered for word in ("security", "authorization", "authentication", "secret", "privacy")): return "safety"
-    return "change"
-
-
 _CHANGE_LEADING_VERBS = (
     "add", "implement", "create", "build", "fix", "introduce", "update",
-    "support", "extend", "refactor", "remove", "migrate",
+    "support", "extend", "change", "refactor", "remove", "migrate",
 )
+_PRESERVE_LEADING_VERBS = ("preserve", "keep", "retain")
+REQUIREMENT_KINDS = frozenset({"change", "preserve", "constraint", "safety"})
+
+
+def _leading_verb(statement: str) -> str:
+    lowered = statement.lower().strip()
+    return re.split(r"\s+", lowered, maxsplit=1)[0].rstrip(".,:;!?") if lowered else ""
+
+
+def _kind(statement: str) -> str:
+    """Classify legacy wording without letting a constraint override its outcome.
+
+    New validated intake supplies an explicit requirement kind.  This helper is
+    retained for legacy and unbound wording, where the leading requested action
+    is stronger evidence than a later phrase such as ``preserve idempotence``.
+    """
+    return _kind_with_confidence(statement)[0]
 
 
 def _kind_with_confidence(statement: str) -> tuple[str, str]:
@@ -1264,16 +1273,39 @@ def _kind_with_confidence(statement: str) -> tuple[str, str]:
     host instead of filing silently.
     """
     lowered = statement.lower()
-    if any(word in lowered for word in ("preserve", "keep ", "remain unchanged", "retain existing")):
+    first = _leading_verb(statement)
+    if first in _CHANGE_LEADING_VERBS:
+        return "change", "high"
+    if first in _PRESERVE_LEADING_VERBS:
         return "preserve", "high"
     if any(word in lowered for word in ("avoid", "do not", "must not", "only ", "forbid", "without weakening")):
         return "constraint", "high"
     if any(word in lowered for word in ("security", "authorization", "authentication", "secret", "privacy")):
         return "safety", "high"
-    first = re.split(r"\s+", lowered.strip(), maxsplit=1)[0].rstrip(".,:;!?") if lowered.strip() else ""
-    if first in _CHANGE_LEADING_VERBS:
-        return "change", "high"
+    if any(phrase in lowered for phrase in ("remain unchanged", "retain existing")):
+        return "preserve", "low"
     return "change", "low"
+
+
+def validate_requirement_kind(statement: str, supplied_kind: str) -> str:
+    """Validate explicit requirement authority against strong outcome wording.
+
+    The explicit value is authoritative, but a high-confidence contradiction is
+    rejected instead of silently accepting or re-inferring it.  Low-confidence
+    wording remains an intake question rather than a hidden classifier choice.
+    """
+    kind = str(supplied_kind).strip()
+    if kind not in REQUIREMENT_KINDS:
+        raise ValueError(
+            "requirement_kind must be one of: " + ", ".join(sorted(REQUIREMENT_KINDS))
+        )
+    inferred, confidence = _kind_with_confidence(statement)
+    if confidence == "high" and inferred != kind:
+        raise ValueError(
+            f"requirement_kind `{kind}` contradicts the primary `{inferred}` outcome; "
+            "separate requested behavior from preservation and safety constraints"
+        )
+    return kind
 
 
 def _kind_clarification_question(statement: str) -> str:

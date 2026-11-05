@@ -1,0 +1,66 @@
+[
+  {
+    "question_id": "question-720e1d47cf494dad",
+    "value": "Codex, Copilot, and Claude consume the same frozen bundled-v2 run binding through fixed copy or reference modes, publish safe immutable receipts, and report complete read-only conformance without network or mutable rediscovery."
+  },
+  {
+    "question_id": "question-6d0ac399eae546e3",
+    "value": "scripts/aidlc-official-host.py"
+  },
+  {
+    "question_id": "question-ac9feb21fc954136",
+    "value": "python3 -m unittest tests.test_aidlc_official_host -v"
+  },
+  {
+    "question_id": "question-98a3b347de99443c",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-40a6aa22315047f3",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-bc32f3352fb045c0",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-55029ed745f749e6",
+    "value": "schemas/official-aidlc-run-state.schema.json"
+  },
+  {
+    "question_id": "question-f18c92878e584719",
+    "value": "scripts/install-local.py"
+  },
+  {
+    "question_id": "question-2a5036479a684bcd",
+    "value": "scripts/install-copilot.py"
+  },
+  {
+    "question_id": "question-975de0e1f35641c9",
+    "value": "{\"path\":\"tests/test_aidlc_official_host.py\",\"role\":\"editable-proof\",\"test_cases\":[\"three-host frozen identity agreement and fixed projection modes\",\"Codex complete atomic copy conformance\",\"Copilot and Claude immutable reference conformance\",\"idempotent retry and conflicting receipt rejection\",\"missing additional altered symlinked non-regular unsafe stale legacy and conflicting negative cases\"],\"fixtures\":[\"synthetic frozen bundled-v2 run binding\",\"content-addressed project pack\",\"temporary Codex Copilot and Claude instruction surfaces\"],\"assertions\":[\"all hosts retain one origin resolution project projection pack and official identity\",\"status recomputes every instruction and inventory fingerprint without mutation\",\"no host downloads substitutes or consults mutable selector state\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_official_host -v\",\"outcome\":\"pass\",\"observed\":\"2 existing host tests passed before Phase 4B changes\"}}"
+  },
+  {
+    "question_id": "question-e97e0632d5714df3",
+    "value": "AGENTS.md"
+  },
+  {
+    "question_id": "question-f4a787775f2f4365",
+    "value": ".github/copilot-instructions.md"
+  },
+  {
+    "question_id": "question-d76470e20fae4cc4",
+    "value": "CLAUDE.md"
+  },
+  {
+    "question_id": "question-23f5176e64644938",
+    "value": "scripts/task-start.py"
+  },
+  {
+    "question_id": "question-f4d880fb2c184e17",
+    "value": "scripts/planning_lock.py"
+  },
+  {
+    "question_id": "question-2af43c95e2914204",
+    "value": "scripts/mcp-server.py"
+  }
+]

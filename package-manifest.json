@@ -108,6 +108,7 @@
     "adapters",
     "aidlc",
     "aidlc-docs",
+    "aidlc-rules",
     "context",
     "docs",
     "examples",

@@ -1,0 +1,81 @@
+[
+  {
+    "answer_id": "answer-8291f6be278e417c",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "tailtrail/resources.py",
+      "scripts/aidlc-official-detect.py",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-75396bb0c80c4cad",
+    "evidence_paths": [
+      "scripts/aidlc-official-detect.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-161cf151c2804e55",
+    "evidence_paths": [
+      "tests/test_aidlc_official_detect.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-14d9b1c5e8594865",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-5ecd10ac722b4da7",
+    "evidence_paths": [
+      "aidlc-rules/manifest.json",
+      "scripts/aidlc-official-detect.py"
+    ]
+  },
+  {
+    "answer_id": "answer-1f62ad2355c64694",
+    "evidence_paths": [
+      "aidlc-rules/PROVENANCE.json",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-249e47d9b26f4d94",
+    "evidence_paths": [
+      "package-manifest.json",
+      "tailtrail/resources.py"
+    ]
+  },
+  {
+    "answer_id": "answer-781f97160d354d93",
+    "evidence_paths": [
+      "scripts/aidlc-official-install.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-f9d9a60071934ce1",
+    "evidence_paths": [
+      "scripts/installation-qualification.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-0dc1866fd2814586",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "tests/test_aidlc_official_detect.py",
+      "tests/test_aidlc_official_install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-bc1bf58991224250",
+    "evidence_paths": [
+      "tests/test_aidlc_official_detect.py",
+      "scripts/aidlc-official-detect.py"
+    ]
+  }
+]

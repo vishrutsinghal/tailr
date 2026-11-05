@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase3a-full-preflight-20261105",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {"path": "scripts/aidlc-official-bridge.py", "role": "existing-implementation-owner"},
+    {"path": "tailtrail/aidlc_bundle.py", "role": "inspection-input"},
+    {"path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "role": "inspection-input"},
+    {"path": "scripts/task-start.py", "role": "inspection-input"},
+    {"path": "scripts/planning_lock.py", "role": "inspection-input"},
+    {"path": "scripts/official-aidlc-requirements.py", "role": "inspection-input"},
+    {"path": "tests/test_aidlc_bundle_resolver.py", "role": "inspection-input"},
+    {"path": "tests/test_aidlc_official_bridge.py", "role": "existing-proof-path"}
+  ],
+  "criteria": {
+    "positive": [
+      "The bridge exposes a Phase 3A Full-preflight API that accepts the target root and supported host, invokes the package-owned explicit-Full resolver, and passes only a ready sealed resolution receipt into the existing atomic project projector.",
+      "A ready result preserves requested_mode and effective_mode as full, network_used as false, and projects the same resolution receipt fingerprint into the returned project-pack identity and projection fingerprint.",
+      "A blocked resolver never calls provisioning; a blocked projection never claims Full readiness. Both retain requested_mode full, use effective_mode unavailable, preserve typed issue categories, and return an actionable recovery boundary without creating a Lite result.",
+      "Provisioning may write only TailTrail-managed content-addressed project-pack state through tailtrail/aidlc_bundle.py; the bridge itself does not write project source or create a Planning Lock.",
+      "The exact targeted proof selects the existing legacy Full-preflight preservation test plus the new bundled_full_preflight tests and excludes unrelated Full activation and Requirements-stage tests."
+    ],
+    "negative": [
+      "Phase 3A does not wire the new adapter into task-start, Planning Lock, Requirements-stage lookup, MCP, host projection, packaging, schemas, registry, CLI dispatch, or documentation; those remain later Phase 3 slices.",
+      "The adapter never downloads rules, executes pack content, rewrites a resolver receipt, silently falls back to Lite, accepts an unsupported host, or treats blocked resolution/projection state as ready.",
+      "The shared resolver/projector, task-start, Planning Lock, Requirements adapter, MCP server, host adapters, schemas, manifests, registry, commands, and documentation are inspection-only or excluded from edits.",
+      "Existing Standard preflight and legacy explicit-manifest Full preflight behavior remain unchanged until the public route migration is approved separately.",
+      "No proof command broader than the two named unittest filters is authorized in this slice."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_without_a_compatible_pack -k bundled_full_preflight -v",
+    "tiers": ["unit", "contract", "behaviour"]
+  },
+  "private_reasoning_excluded": true
+}

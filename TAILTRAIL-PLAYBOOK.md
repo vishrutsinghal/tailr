@@ -47,9 +47,42 @@ for independently approvable or unrelated work. When the user explicitly
 requires one approval for one cohesive outcome, use one multi-requirement plan
 only when each requirement can retain its own evidence-backed owner and proof
 binding (`--scope-owner "REQ-ID=path"`). Do not create several approval
-surfaces and later describe them as one. If TailTrail cannot represent the
-combined plan without weakening ownership, proof, or atomicity, report that as
-a product limitation instead of hiding it behind host batching.
+surfaces and later describe them as one. If TailTrail's ownership policy
+requires one single-owner run per file, preserve those child boundaries and
+join them with a fingerprinted `planning coordinate` parent instead of forcing
+one owner or using informal host batching.
+
+**Use a coordinated parent when one cohesive outcome needs several owners but
+one approval.** This route was verified live for the Phase 4 host-projection
+delivery. First create and audit every single-owner child Start Plan; each
+child must retain its own requirement, inspection inputs, proof path, exact
+command, tiers, scenarios, and success criteria. Then create the coordinated
+proposal with the exact child run IDs, typed dependencies, shared final proof,
+and overall outcome, and approve that parent once:
+
+```bash
+tailtrail planning coordinate create --root . --input <coordinated-plan.json>
+tailtrail planning coordinate approve --root . --plan-id <plan-id> --approved
+```
+
+Do not edit a child merely because its Planning Lock was prepared. Managed
+writes begin only after the parent batch-approval receipt exists and the child
+is dependency-ready. Record `active` before its first edit, and record
+`completed` only with that exact child's successful canonical
+closure-finalizer JSON:
+
+```bash
+tailtrail planning coordinate checkpoint --root . --plan-id <plan-id> \
+  --run-id <child-run-id> --state active
+tailtrail planning coordinate checkpoint --root . --plan-id <plan-id> \
+  --run-id <child-run-id> --state completed \
+  --evidence .tailtrail/runs/<child-run-id>/finalizers/<finalizer>.json
+```
+
+Completion unlocks only the declared dependents. Run the parent's shared proof
+after all children close. If any child plan fingerprint changes, the parent
+approval is stale: create and approve a new coordinated proposal; never carry
+the old authority forward or silently re-approve one child.
 
 **Two different routes exist for a brand-new file, and they are not
 interchangeable:**
@@ -275,6 +308,14 @@ of abandoning the run and starting a fresh one. `requirement_uid` in the
 `--changes` JSON can be the plain display ID (`"REQ-01"`), not just the
 minted UID -- `_requirement()` matches either.
 
+**Replacing a pending revision means replacing the whole unapproved draft.**
+When `planning audit` finds another gap after a revision is already pending,
+use `planning revise --supersede-pending` with one complete change list that
+restates every pending requirement, scope, proof, tier, and behavior-scenario
+change you still want. The command now rebuilds from the last approved plan,
+so an abandoned pending tier or scenario cannot leak into the replacement;
+the superseded artifact remains visible only in append-only review history.
+
 **A new file created mid-run (e.g. a test file) still needs a formal
 anchor correction to avoid a permanent `new-drift` finding -- and the
 closure path now honors it.** `change-intent-anchor.py correct
@@ -311,17 +352,18 @@ harness when a run's selected controls don't need it.
 ## 7. Working habits (no code required)
 
 - **Front-load multi-run discovery.** If a task will obviously need N
-  separate files touched, draft and present all N Start Reports up front for
-  one combined approval, rather than discovering the need for run 2 only
-  after finishing run 1.
-- **Batch the approval, run the sequence.** Once a batch is approved,
-  activate/implement/verify/close each item in order without re-asking per
-  item -- still disclose every Start Report and closure, just don't block on
-  a fresh approval each time.
+  separate owners, draft and audit every child Start Report before approval.
+  For one cohesive outcome, create one coordinated parent over that exact
+  child set rather than discovering or informally adding another run later.
+- **Batch only through durable authority.** A combined user approval is atomic
+  only when `planning coordinate approve` mints the batch-approval receipt.
+  Afterward, activate/implement/verify/close dependency-ready children without
+  re-asking per child. Host-side grouping without that receipt remains several
+  separate approval surfaces and must never be described as one approval.
 - **Keep batch status compact.** For more than two or three runs in one
-  batch, report a short table (run ID, one-line requirement, pass/flagged)
-  rather than a full completion report per item -- surface full detail only
-  for anything that needed a decision.
+  coordinated plan, report a short table (run ID, owner, dependency, state,
+  pass/flagged) rather than a full completion report per item -- surface full
+  detail only for anything that needed a decision.
 
 ## 8. Formerly-parked issues, now fixed (kept briefly for reorientation)
 

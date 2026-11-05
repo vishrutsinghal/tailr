@@ -564,6 +564,26 @@
       "deprecated_in_version": null
     },
     {
+      "id": "coordinated-planning",
+      "title": "Coordinated Owner Plans And Atomic Batch Approval",
+      "status": "implemented",
+      "surface": "core",
+      "roadmap_ref": "Complex task owner coordination",
+      "owner": "tailtrail-core",
+      "governance_class": "governance",
+      "commands": ["tailtrail planning coordinate"],
+      "docs": ["TAILTRAIL-COMMANDS.md", "schemas/coordinated-plan.schema.json"],
+      "scripts": ["scripts/coordinated-plan.py"],
+      "tests": ["tests/test_coordinated_plan.py"],
+      "mcp_tools": [],
+      "requires_approval": true,
+      "read_only": false,
+      "evidence_label": "local-evidence",
+      "depends_on": ["planning-lock", "program-delivery-orchestrator", "requirement-completion-harness"],
+      "since_version": "v1",
+      "deprecated_in_version": null
+    },
+    {
       "id": "behavior-harness",
       "title": "Behaviour Harness",
       "status": "implemented",
@@ -950,7 +970,12 @@
       "owner": "tailtrail-core",
       "governance_class": "dev-experience",
       "commands": [
-        "tailtrail planning question-context --run-id <run-id>"
+        "tailtrail planning question-context --run-id <run-id>",
+        "tailtrail navigator intake open --goal <goal> --host-contract-file <file>",
+        "tailtrail navigator intake record --run-id <run-id> --answers-file <file>",
+        "tailtrail navigator intake validate --run-id <run-id> --evidence-file <file>",
+        "tailtrail navigator intake status --run-id <run-id>",
+        "tailtrail navigator intake finalize --run-id <run-id> --bindings-file <file>"
       ],
       "docs": [
         "tailtrail-aidlc-integration.md",
@@ -972,10 +997,15 @@
         "tests/test_host_question_flow_event_schema.py"
       ],
       "mcp_tools": [
-        "planning_question_context_show"
+        "planning_question_context_show",
+        "navigator_intake_open",
+        "navigator_intake_record",
+        "navigator_intake_validate",
+        "navigator_intake_status",
+        "navigator_intake_finalize"
       ],
-      "requires_approval": false,
-      "read_only": true,
+      "requires_approval": true,
+      "read_only": false,
       "evidence_label": "local-evidence",
       "depends_on": [
         "navigator",
@@ -1000,7 +1030,8 @@
         "tailtrail-aidlc-integration.md",
         "TAILTRAIL-COMMANDS.md",
         "USER-GUIDE.md",
-        "MCP-SERVER.md"
+        "MCP-SERVER.md",
+        "schemas/official-aidlc-host-projection-receipt.schema.json"
       ],
       "scripts": [
         "scripts/aidlc-official-detect.py",

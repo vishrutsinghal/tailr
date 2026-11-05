@@ -1,0 +1,46 @@
+[
+  {
+    "question_id": "question-b6073ef5a400435f",
+    "value": "A ready Phase 2A.2 projection can mint and reuse one immutable sealed active-run binding; active-run resolution validates the exact bound pack and ignores later current.json changes; bounded legacy-v1 continuation is read-only and cannot authorize a new Full run; status is read-only and explicit provision reuses the offline projection transaction."
+  },
+  {
+    "question_id": "question-696c8e9d6f2e4c90",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-33cf33168a884cf4",
+    "value": "python3 -m unittest tests.test_aidlc_bundle_resolver"
+  },
+  {
+    "question_id": "question-092984a0d2e6445c",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-ad0471ddc7924d81",
+    "value": "scripts/official-aidlc-requirements.py"
+  },
+  {
+    "question_id": "question-5e5e13f065df4097",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-a6a7d5c3c0fa4979",
+    "value": "scripts/aidlc-official-detect.py"
+  },
+  {
+    "question_id": "question-9e125961634e4eb9",
+    "value": "scripts/planning_lock.py"
+  },
+  {
+    "question_id": "question-8fe5f8042a0d4f02",
+    "value": "scripts/official-aidlc-state.py"
+  },
+  {
+    "question_id": "question-82772fd585ce487b",
+    "value": "schemas/official-aidlc-pack.schema.json"
+  },
+  {
+    "question_id": "question-54ee5cc929de467a",
+    "value": "{\"path\":\"tests/test_aidlc_bundle_resolver.py\",\"role\":\"editable-proof\",\"test_cases\":[\"seal and reuse an active-run binding for one Phase 2A.2 projection\",\"resolve the frozen pack after current.json changes\",\"reject missing altered stale incompatible conflicting and unsafe bound state\",\"bounded legacy-v1 continuation cannot mint a new Full binding\",\"read-only status does not mutate files\",\"explicit provision service reuses the offline projection\"],\"fixtures\":[\"ready Phase 2A.1 source-checkout receipt\",\"valid Phase 2A.2 projected pack and projection receipt\",\"temporary project and run identities\",\"legacy-v1 compatibility pack\",\"altered selector pack receipt and binding states\"],\"assertions\":[\"the binding records exact run pack projection source project and trust fingerprints\",\"active resolution never consults current.json after binding\",\"legacy continuation is explicitly bounded and never grants new Full authority\",\"status makes no filesystem changes and provision remains offline\",\"invalid state returns categorical blockers without mutation\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_bundle_resolver\",\"outcome\":\"pass\",\"observed\":\"The existing Phase 2A.1 and 2A.2 suite collected and passed 16 tests before Phase 2B.1 planning; it does not yet exercise active-run binding, selector independence, legacy continuation, or binding status.\"}}"
+  }
+]

@@ -1,0 +1,54 @@
+[
+  {
+    "question_id": "question-32462dc41e704d95",
+    "value": "The existing official acquisition and verification path must produce and validate checked-in Phase 0 provenance, license, version, complete inventory, compatibility, and trust-policy artifacts that later phases can consume without treating VERSION alone as provenance."
+  },
+  {
+    "question_id": "question-232111ba3c4f480d",
+    "value": "scripts/aidlc-official-install.py"
+  },
+  {
+    "question_id": "question-1f9cad63f3054cba",
+    "value": "python3 -m unittest tests.test_aidlc_official_install"
+  },
+  {
+    "question_id": "question-27ec5c0a7b41454f",
+    "value": "aidlc-rules/PROVENANCE.json"
+  },
+  {
+    "question_id": "question-274deeea8df94ada",
+    "value": "aidlc-rules/LICENSE"
+  },
+  {
+    "question_id": "question-dbe58be8d8a34ebe",
+    "value": "aidlc-rules/VERSION"
+  },
+  {
+    "question_id": "question-3b275646eef4490a",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-1500d32c5e984014",
+    "value": "package-manifest.json"
+  },
+  {
+    "question_id": "question-2f5e4819d9e04428",
+    "value": "MANIFEST.in"
+  },
+  {
+    "question_id": "question-de6cbf2a0a32427c",
+    "value": "release-manifest.json"
+  },
+  {
+    "question_id": "question-cc06075734ed4772",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-84954a918e2c4437",
+    "value": "scripts/task-start.py"
+  },
+  {
+    "question_id": "question-ae36acb73be24c64",
+    "value": "scripts/aidlc-official-host.py"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "question_id": "question-e325a24e173441a4",
+    "value": "A new read-only existing-run adapter API resolves official Requirements rule references only from the package-owned frozen bundled-v2 binding or its bounded saved-artifact-backed legacy-v1 continuation; selector, process cwd, and caller manifest values cannot retarget it; invalid authority blocks without mutation; existing pre-run stage_contract and public stage_request remain unchanged until Phase 3."
+  },
+  {
+    "question_id": "question-abd9995bdb2e4f2b",
+    "value": "scripts/official-aidlc-requirements.py"
+  },
+  {
+    "question_id": "question-8a92452267d1420d",
+    "value": "python3 -m unittest tests.test_aidlc_official_bridge"
+  },
+  {
+    "question_id": "question-7c90e49ae51148f5",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-d9ac92a4929c4bf6",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-656b9d5ebe3542d2",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-7ae1689bdc094026",
+    "value": "scripts/planning_lock.py"
+  },
+  {
+    "question_id": "question-b95ade98b7224b27",
+    "value": "scripts/task-start.py"
+  },
+  {
+    "question_id": "question-6c6d67d3a0ec497f",
+    "value": "tests/test_aidlc_bundle_resolver.py"
+  },
+  {
+    "question_id": "question-b24a129bf89b4013",
+    "value": "{\"path\":\"tests/test_aidlc_official_bridge.py\",\"role\":\"editable-proof\",\"test_cases\":[\"new existing-run adapter resolves a bundled-v2 frozen binding\",\"future selector and process-cwd changes do not retarget the resolved rule set\",\"only a categorically missing binding attempts bounded legacy-v1 continuation\",\"altered incompatible unsafe and legacy-unauthorized state fails without fallback\",\"required rule paths stay within the resolved pack and reject symlinks missing files and bad markers\",\"existing pre-run stage_contract public stage_request and host-question behavior remain unchanged\"],\"fixtures\":[\"temporary content-addressed bundled-v2 project pack and run binding\",\"saved schema-v1 bridge activation and compatibility pack\",\"selector pointing at a different future-run pack\",\"temporary cwd outside the project\",\"altered missing unsafe and marker-incomplete rule states\"],\"assertions\":[\"all references derive from the package resolver result for the requested run\",\"current.json process cwd and caller manifest values are irrelevant to the new API\",\"legacy mode remains read-only and cannot authorize a new Full run\",\"invalid state produces a categorical actionable failure without mutation or fallback\",\"the current public route remains behaviorally unchanged for later Phase 3 migration\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_official_bridge\",\"outcome\":\"not-run\",\"observed\":\"The existing suite covers the current official bridge Requirements route but does not yet contain tests for a separate frozen-resolution adapter API.\"}}"
+  }
+]

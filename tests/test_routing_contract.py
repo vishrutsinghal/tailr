@@ -159,9 +159,9 @@ class RoutingContractTests(unittest.TestCase):
                 self.assertEqual(effective, mode)
                 self.assertEqual(selected["selection"], mode_selection)
 
-    def test_full_escalation_survives_pack_fallback(self) -> None:
-        # Regression pin for the missing-return fall-through: the eligible
-        # Full escalation must reach the report even when Lite stays active.
+    def test_full_escalation_uses_bundled_pack_without_fallback(self) -> None:
+        # A normal installation has bundled Full authority, so an inferred
+        # Full route remains Full without a separately installed project pack.
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             selected = task_start.aidlc_mode_selection(
@@ -170,7 +170,7 @@ class RoutingContractTests(unittest.TestCase):
                  "likely_impacted_files": []}, None,
             )
         escalation = selected["full_escalation"]
-        self.assertEqual(escalation["state"], "eligible-awaiting-compatible-pack")
+        self.assertEqual(escalation["state"], "selected")
         self.assertIn("new Full-mode Planning Lock", escalation["reason"])
 
 

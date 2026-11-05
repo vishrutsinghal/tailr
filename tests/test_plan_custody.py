@@ -90,6 +90,21 @@ class ApprovedPlanFingerprintTests(unittest.TestCase):
                              "checks": [{"command": "pytest", "tiers": ["unit"]}]}}
         self.assertNotEqual(first, anchor_mod.approved_plan_fingerprint(changed))
 
+    def test_writable_output_change_invalidates_plan_fingerprint(self) -> None:
+        contracts = {"req-1": {"tiers": ["unit"], "commands": ["pytest"], "checks": []}}
+        base = _matrix_row(writable_outputs=[{
+            "path": "generated/a.json", "role": "generated-output", "existing": False,
+            "new_file_verdict": "new-confirmed", "grants_behavioral_ownership": False,
+        }])
+        changed = _matrix_row(writable_outputs=[{
+            "path": "config/a.json", "role": "configuration-output", "existing": False,
+            "new_file_verdict": "new-confirmed", "grants_behavioral_ownership": False,
+        }])
+        self.assertNotEqual(
+            anchor_mod.approved_plan_fingerprint(contracts, {"req-1": base}),
+            anchor_mod.approved_plan_fingerprint(contracts, {"req-1": changed}),
+        )
+
 
 class ExecutionCustodyTests(unittest.TestCase):
     def test_run_stamps_plan_fingerprint(self) -> None:

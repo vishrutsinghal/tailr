@@ -39,7 +39,23 @@ _SENSITIVE_KEY = re.compile(r"(?:password|passphrase|secret|token|api[_-]?key|pr
 _SENSITIVE_VALUE = re.compile(r"(?:Bearer\s+|token\s*[:=]\s*|secret\s*[:=]\s*)\S+", re.I)
 _ANCHOR_VERSION = re.compile(r"^anchor-v[1-9][0-9]*$")
 _PACKET_VIEW_PROJECTION_KINDS = frozenset({"scope", "requirement", "validation", "approval"})
-_PATH_ROLES = frozenset({"implementation-owner", "inspection-input", "proof-only"})
+_PATH_ROLES = frozenset({
+    "implementation-owner",
+    "inspection-input",
+    "proof-only",
+    "configuration-output",
+    "generated-output",
+})
+_OUTPUT_PATH_ROLES = frozenset({"configuration-output", "generated-output"})
+_WRITABLE_PATH_ROLES = frozenset({"implementation-owner", *_OUTPUT_PATH_ROLES})
+_PATH_ROLE_CLASSES = {
+    "implementation-owner": "behavioral-owner",
+    "inspection-input": "read-only-input",
+    "proof-only": "proof-only",
+    "configuration-output": "writable-output",
+    "generated-output": "writable-output",
+}
+_PATH_BINDING_SCHEMA_VERSION = "2"
 _NEW_FILE_VERDICTS = frozenset({
     "new-confirmed", "extend-recommended", "collision-blocked", "unverified", "not-applicable",
 })
@@ -47,6 +63,21 @@ _CORRECTION_PREMISES = frozenset({"accepted", "not-applicable"})
 _ANSWER_STATES = frozenset({"candidate", "accepted", "stale", "conflicting", "rejected"})
 _INTAKE_RECORDED = "intake-recorded"
 _PLANNING_READINESS = "planning-readiness"
+_REQUIREMENT_DISCOVERY: Any = None
+
+
+def _requirement_discovery() -> Any:
+    """Load the shared requirement-kind contract without duplicating policy."""
+    global _REQUIREMENT_DISCOVERY
+    if _REQUIREMENT_DISCOVERY is None:
+        path = Path(__file__).resolve().with_name("requirement_discovery.py")
+        spec = importlib.util.spec_from_file_location("tailtrail_intake_requirement_discovery", path)
+        if spec is None or spec.loader is None:
+            raise IntakeError("TailTrail requirement-kind validator is unavailable")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _REQUIREMENT_DISCOVERY = module
+    return _REQUIREMENT_DISCOVERY
 
 
 def _command_runs_path(command: str, path: str) -> bool:
@@ -840,6 +871,22 @@ class IntakePipeline:
         for binding in requirements:
             requirement_uid = str(binding.get("requirement_uid", ""))
             statement = " ".join(str(binding.get("statement", "")).split())
+            supplied_kind = binding.get("requirement_kind")
+            kind_authority = str(
+                binding.get("requirement_kind_source")
+                or ("legacy-contextual-classifier" if supplied_kind is None else "validated-operational-binding")
+            )
+            legacy_kind_authority = (
+                supplied_kind is None or kind_authority == "legacy-contextual-classifier"
+            )
+            try:
+                requirement_kind = (
+                    _requirement_discovery()._kind(statement)
+                    if supplied_kind is None
+                    else _requirement_discovery().validate_requirement_kind(statement, str(supplied_kind))
+                )
+            except ValueError as error:
+                raise IntakeError(f"planning-readiness requirement `{requirement_uid}` {error}") from error
             row = by_id.get(requirement_uid)
             if row is None:
                 statement_matches = [
@@ -896,6 +943,23 @@ class IntakePipeline:
             if project:
                 row["requirement_uid"] = requirement_uid
                 row["statement"] = statement
+                row["kind"] = requirement_kind
+                row["requirement_kind_authority"] = kind_authority
+                row["requirement_kind_source_answer_ids"] = list(
+                    binding.get("requirement_kind_source_answer_ids", [])
+                )
+            else:
+                canonical_kind = str(row.get("kind", "")).strip()
+                if not canonical_kind and legacy_kind_authority:
+                    # Compatibility for pre-kind receipts and their saved
+                    # canonical projections.  New explicit-kind receipts must
+                    # always match a materialized canonical value.
+                    row["kind"] = requirement_kind
+                    row["requirement_kind_authority"] = kind_authority
+                elif canonical_kind != requirement_kind:
+                    raise IntakeError(
+                        f"planning-readiness requirement `{requirement_uid}` kind does not match the canonical requirement"
+                    )
 
             path_bindings = binding.get("path_bindings", [])
             proof_bindings = binding.get("proof_bindings", [])
@@ -908,6 +972,10 @@ class IntakePipeline:
             expected_proof_paths = sorted({
                 str(item.get("path")) for item in proof_bindings if isinstance(item, dict)
             })
+            expected_outputs = [
+                copy.deepcopy(item) for item in path_bindings
+                if isinstance(item, dict) and item.get("role") in _OUTPUT_PATH_ROLES
+            ]
             scope = row.get("scope_evidence")
             if not isinstance(scope, dict):
                 raise IntakeError(f"canonical requirement `{requirement_uid}` has no scope evidence")
@@ -941,16 +1009,37 @@ class IntakePipeline:
                 row["planning_readiness_source_answer_ids"] = list(binding.get("source_answer_ids", []))
                 scope["proof_paths"] = expected_proof_paths
                 scope["unbound_proof_paths"] = []
+                row["writable_outputs"] = expected_outputs
+                scope["writable_outputs"] = copy.deepcopy(expected_outputs)
                 checks = []
                 for proof in proof_bindings:
-                    checks.append({
+                    check = {
                         "command": str(proof.get("command", "")),
                         "candidate_paths": [str(proof.get("path", ""))],
                         "tiers": [str(proof.get("tier", ""))],
                         "asserted_behavior": str(proof.get("asserted_behavior", "")),
                         "source_answer_id": str(proof.get("source_answer_id", "")),
                         "evidence_fingerprint": str(proof.get("evidence_fingerprint", "")),
-                    })
+                    }
+                    if isinstance(proof.get("proof_adequacy"), dict):
+                        check["proof_adequacy"] = copy.deepcopy(proof["proof_adequacy"])
+                    checks.append(check)
+                editable_proof_paths = sorted({
+                    str(proof.get("path", ""))
+                    for proof in proof_bindings
+                    if isinstance(proof.get("proof_adequacy"), dict)
+                    and proof["proof_adequacy"].get("role") in {"editable-proof", "new-proof"}
+                })
+                proof_adequacy_required = any(
+                    isinstance(proof.get("proof_adequacy"), dict) for proof in proof_bindings
+                )
+                if not proof_adequacy_required:
+                    # Legacy receipts predate proof-adequacy classification.
+                    # Preserve their conservative, broadly editable proof
+                    # scope instead of silently assuming those tests are
+                    # unchanged. Public Navigator intake always supplies the
+                    # precise role and therefore takes the narrow branch.
+                    editable_proof_paths = expected_proof_paths
                 validation = row.get("validation_contract")
                 validation = validation if isinstance(validation, dict) else {}
                 validation.update({
@@ -959,8 +1048,9 @@ class IntakePipeline:
                     "commands": list(dict.fromkeys(check["command"] for check in checks)),
                     "tiers": sorted({tier for check in checks for tier in check["tiers"]}),
                     "candidate_paths": expected_proof_paths,
-                    "editable_paths": expected_proof_paths,
+                    "editable_paths": editable_proof_paths,
                     "proposed_paths": [],
+                    "proof_adequacy_required": proof_adequacy_required,
                 })
                 row["validation_contract"] = validation
                 row["evidence_plan"] = list(dict.fromkeys([
@@ -980,21 +1070,49 @@ class IntakePipeline:
                 )
             validation = row.get("validation_contract")
             checks = validation.get("checks", []) if isinstance(validation, dict) else []
+            actual_outputs = {
+                (str(item.get("path", "")), str(item.get("role", "")))
+                for item in row.get("writable_outputs", [])
+                if isinstance(item, dict)
+            }
+            required_outputs = {
+                (str(item.get("path", "")), str(item.get("role", "")))
+                for item in expected_outputs
+            }
+            if actual_outputs != required_outputs:
+                raise IntakeError(
+                    f"planning-readiness requirement `{requirement_uid}` has lost or reclassified writable outputs"
+                )
+
+            def exact_check_matches(check: dict[str, Any], proof: dict[str, Any]) -> bool:
+                candidates = check.get("exact_bindings")
+                values = candidates if isinstance(candidates, list) else [check]
+                for candidate in values:
+                    if not isinstance(candidate, dict):
+                        continue
+                    if (
+                        str(candidate.get("command", "")) == str(proof.get("command", ""))
+                        and str(proof.get("path", "")) in [
+                            str(path) for path in candidate.get("candidate_paths", [])
+                        ]
+                        and str(proof.get("tier", "")) in [
+                            str(value) for value in candidate.get("tiers", [])
+                        ]
+                        and str(candidate.get("asserted_behavior", ""))
+                        == str(proof.get("asserted_behavior", ""))
+                        and str(candidate.get("source_answer_id", ""))
+                        == str(proof.get("source_answer_id", ""))
+                        and str(candidate.get("evidence_fingerprint", ""))
+                        == str(proof.get("evidence_fingerprint", ""))
+                        and candidate.get("proof_adequacy") == proof.get("proof_adequacy")
+                    ):
+                        return True
+                return False
+
             for proof in proof_bindings:
-                proof_path = str(proof.get("path", ""))
-                command = str(proof.get("command", ""))
-                tier = str(proof.get("tier", ""))
-                asserted = str(proof.get("asserted_behavior", ""))
-                source_answer_id = str(proof.get("source_answer_id", ""))
-                fingerprint = str(proof.get("evidence_fingerprint", ""))
                 if not any(
                     isinstance(check, dict)
-                    and str(check.get("command", "")) == command
-                    and proof_path in [str(path) for path in check.get("candidate_paths", [])]
-                    and tier in [str(value) for value in check.get("tiers", [])]
-                    and str(check.get("asserted_behavior", "")) == asserted
-                    and str(check.get("source_answer_id", "")) == source_answer_id
-                    and str(check.get("evidence_fingerprint", "")) == fingerprint
+                    and exact_check_matches(check, proof)
                     for check in checks
                 ):
                     raise IntakeError(
@@ -1003,6 +1121,7 @@ class IntakePipeline:
             matched.append({
                 "requirement_uid": requirement_uid,
                 "implementation_owners": expected_owners,
+                "writable_outputs": expected_outputs,
                 "proof_paths": expected_proof_paths,
                 "proof_count": len(proof_bindings),
                 "source_answer_ids": list(binding.get("source_answer_ids", [])),
@@ -1024,7 +1143,7 @@ class IntakePipeline:
             "accepted_answer_ids": list(saved.get("accepted_answer_ids", [])),
             "surfaces": [
                 "requirements", "preservation", "scope", "dependencies",
-                "proof-registry", "normal-presentation", "verbose-presentation",
+                "writable-outputs", "proof-registry", "normal-presentation", "verbose-presentation",
             ],
         }
         reconciliation["fingerprint"] = _content_fingerprint(reconciliation)
@@ -1085,6 +1204,7 @@ class IntakePipeline:
         requirement_ids: set[str] = set()
         normalized_requirements: list[dict[str, Any]] = []
         path_authorizations: list[dict[str, Any]] = []
+        normalized_declared_paths: list[dict[str, Any]] = []
 
         def source_ids(value: Any, label: str) -> list[str]:
             if not isinstance(value, list) or not value or any(not isinstance(item, str) or item not in accepted_by_id for item in value):
@@ -1100,8 +1220,34 @@ class IntakePipeline:
             statement = str(requirement.get("statement", "")).strip()
             if not requirement_uid or not statement or requirement_uid in requirement_ids:
                 raise IntakeError("requirement bindings need unique requirement_uids and statements")
+            supplied_kind = requirement.get("requirement_kind")
+            kind_source = "validated-operational-binding"
+            if supplied_kind is None:
+                # Compatibility for receipts minted before requirement-kind
+                # authority existed.  New public intake always materializes
+                # the explicit field before calling this boundary.
+                requirement_kind = _requirement_discovery()._kind(statement)
+                kind_source = "legacy-contextual-classifier"
+            else:
+                try:
+                    requirement_kind = _requirement_discovery().validate_requirement_kind(
+                        statement, str(supplied_kind)
+                    )
+                except ValueError as error:
+                    raise IntakeError(f"requirement `{requirement_uid}` {error}") from error
             requirement_ids.add(requirement_uid)
             requirement_sources = source_ids(requirement.get("source_answer_ids"), f"requirement `{requirement_uid}`")
+            if supplied_kind is None:
+                requirement_kind_sources = list(requirement_sources)
+            else:
+                requirement_kind_sources = source_ids(
+                    requirement.get("requirement_kind_source_answer_ids"),
+                    f"requirement kind for `{requirement_uid}`",
+                )
+                if not set(requirement_kind_sources).issubset(requirement_sources):
+                    raise IntakeError(
+                        f"requirement kind for `{requirement_uid}` must cite answers already bound to that requirement"
+                    )
             profile_fields = requirement.get("profile_fields")
             if not isinstance(profile_fields, list) or not profile_fields or any(not isinstance(field, str) or not field for field in profile_fields):
                 raise IntakeError(f"requirement `{requirement_uid}` needs profile_fields")
@@ -1148,14 +1294,60 @@ class IntakePipeline:
                     raise IntakeError(
                         f"path binding `{path}` must cite an accepted answer whose value is that path"
                     )
+                source_evidence = [
+                    {
+                        "answer_id": answer_id,
+                        "fingerprint": accepted_by_id[answer_id]["source_evidence_fingerprint"],
+                    }
+                    for answer_id in binding_sources
+                ]
+                evidence_fingerprint = (
+                    str(source_evidence[0]["fingerprint"])
+                    if len(source_evidence) == 1
+                    else _content_fingerprint(source_evidence)
+                )
+                supplied_evidence_fingerprint = binding.get("evidence_fingerprint")
+                if (
+                    supplied_evidence_fingerprint is not None
+                    and str(supplied_evidence_fingerprint) != evidence_fingerprint
+                ):
+                    raise IntakeError(f"path binding `{path}` has stale or mismatched evidence fingerprint")
+                role_class = _PATH_ROLE_CLASSES[role]
+                is_output = role in _OUTPUT_PATH_ROLES
+                grants_behavioral_ownership = role == "implementation-owner"
+                requests_write_authority = role in _WRITABLE_PATH_ROLES
+                due_diligence_allows_write = existing or verdict == "new-confirmed"
                 normalized_binding = {
+                    "schema_version": _PATH_BINDING_SCHEMA_VERSION,
                     "path_binding_id": _new_id("path-binding"), "path": path, "role": role,
-                    "existing": existing, "new_file_verdict": verdict,
+                    "role_class": role_class,
+                    "existing": existing,
+                    "path_state": "existing-verified" if existing else f"proposed-new-{verdict}",
+                    "new_file_verdict": verdict,
+                    "new_file_due_diligence": {
+                        "verdict": verdict,
+                        "write_eligible": due_diligence_allows_write,
+                    },
                     "ownership_evidence": str(binding.get("ownership_evidence", "")).strip() or None,
                     "source_answer_ids": binding_sources,
+                    "source_evidence": source_evidence,
+                    "evidence_fingerprint": evidence_fingerprint,
+                    "grants_behavioral_ownership": grants_behavioral_ownership,
+                    "requests_write_authority": requests_write_authority,
                 }
                 normalized_paths.append(normalized_binding)
-                path_state = "existing-verified" if existing else f"proposed-new-{verdict}"
+                if not is_output:
+                    authority_kind = "implementation" if grants_behavioral_ownership else "none"
+                else:
+                    authority_kind = "configuration-output" if role == "configuration-output" else "generated-output"
+                if not requests_write_authority:
+                    write_status = "not-requested"
+                elif not due_diligence_allows_write:
+                    write_status = "blocked-by-new-file-due-diligence"
+                elif anchor_bound:
+                    write_status = "approved-anchor-bound"
+                else:
+                    write_status = "pending-planning-approval"
                 authorization = {
                     "schema_version": "1",
                     "type": "tailtrail-answer-to-path-authorization",
@@ -1163,8 +1355,18 @@ class IntakePipeline:
                     "path_binding_id": normalized_binding["path_binding_id"],
                     "path": path,
                     "role": role,
-                    "path_state": path_state,
+                    "role_class": role_class,
+                    "path_state": normalized_binding["path_state"],
+                    "authority_kind": authority_kind,
+                    "grants_behavioral_ownership": grants_behavioral_ownership,
+                    "write_authority": {
+                        "requested": requests_write_authority,
+                        "eligible": requests_write_authority and due_diligence_allows_write,
+                        "status": write_status,
+                    },
                     "accepted_answer_ids": binding_sources,
+                    "source_evidence": source_evidence,
+                    "evidence_fingerprint": evidence_fingerprint,
                     "packet_view_id": packet_view_id,
                 }
                 if anchor_bound:
@@ -1180,6 +1382,15 @@ class IntakePipeline:
                     })
                 authorization["path_binding_fingerprint"] = _content_fingerprint(authorization)
                 path_authorizations.append(authorization)
+
+            has_implementation_owner = any(
+                binding.get("role") == "implementation-owner" for binding in normalized_paths
+            )
+            if has_implementation_owner and requirement_kind != "change":
+                raise IntakeError(
+                    f"requirement `{requirement_uid}` grants implementation-owner scope but has "
+                    f"requirement_kind `{requirement_kind}`; writable behavior ownership requires `change`"
+                )
 
             normalized_proofs: list[dict[str, Any]] = []
             proofs = requirement.get("proof_bindings")
@@ -1220,6 +1431,42 @@ class IntakePipeline:
                     raise IntakeError(
                         f"proof binding {proof_index} for `{requirement_uid}` has stale or mismatched evidence fingerprint"
                     )
+                adequacy = proof.get("proof_adequacy")
+                normalized_adequacy = None
+                if adequacy is not None:
+                    if not isinstance(adequacy, dict):
+                        raise IntakeError(f"proof binding `{path}` proof adequacy must be an object")
+                    adequacy_source = str(adequacy.get("source_answer_id", "")).strip()
+                    adequacy_fingerprint = str(adequacy.get("evidence_fingerprint", "")).strip()
+                    role = str(adequacy.get("role", "")).strip()
+                    baseline = adequacy.get("baseline")
+                    if (
+                        adequacy.get("schema_version") != "1"
+                        or str(adequacy.get("path", "")) != path
+                        or role not in {"unchanged-proof", "editable-proof", "new-proof"}
+                        or adequacy_source not in accepted_by_id
+                        or not isinstance(baseline, dict)
+                    ):
+                        raise IntakeError(f"proof binding `{path}` has incomplete proof-adequacy evidence")
+                    if adequacy_source not in proof_sources:
+                        raise IntakeError(f"proof binding `{path}` must include its proof-adequacy source answer")
+                    if adequacy_fingerprint != accepted_by_id[adequacy_source]["source_evidence_fingerprint"]:
+                        raise IntakeError(f"proof binding `{path}` has stale proof-adequacy evidence")
+                    for key in ("test_cases", "fixtures", "assertions"):
+                        values = adequacy.get(key)
+                        if not isinstance(values, list) or not values or any(not str(value).strip() for value in values):
+                            raise IntakeError(f"proof binding `{path}` proof adequacy needs {key}")
+                    if (
+                        str(baseline.get("command", "")) != command
+                        or str(baseline.get("outcome", "")) not in {"pass", "fail", "not-run"}
+                        or not str(baseline.get("observed", "")).strip()
+                    ):
+                        raise IntakeError(f"proof binding `{path}` has an invalid proof-adequacy baseline")
+                    if role == "unchanged-proof" and baseline.get("outcome") != "pass":
+                        raise IntakeError(f"proof binding `{path}` cannot remain unchanged without a passing baseline")
+                    if role == "new-proof" and baseline.get("outcome") != "not-run":
+                        raise IntakeError(f"new proof binding `{path}` must use a not-run baseline")
+                    normalized_adequacy = copy.deepcopy(adequacy)
                 normalized_proofs.append({
                     "proof_binding_id": _new_id("proof-binding"), "command": command, "path": path,
                     "tier": tier,
@@ -1227,6 +1474,7 @@ class IntakePipeline:
                     "source_answer_id": source_answer_id,
                     "source_answer_ids": proof_sources,
                     "evidence_fingerprint": evidence_fingerprint,
+                    **({"proof_adequacy": normalized_adequacy} if normalized_adequacy is not None else {}),
                 })
 
             criteria = requirement.get("criteria")
@@ -1254,7 +1502,10 @@ class IntakePipeline:
                     "source_answer_ids": source_ids(evidence.get("source_answer_ids"), f"owner evidence for `{requirement_uid}`"),
                 })
             normalized_requirements.append({
-                "requirement_id": _new_id("requirement"), "requirement_uid": requirement_uid, "statement": statement,
+                "requirement_id": _new_id("requirement"), "requirement_uid": requirement_uid,
+                "statement": statement, "requirement_kind": requirement_kind,
+                "requirement_kind_source": kind_source,
+                "requirement_kind_source_answer_ids": requirement_kind_sources,
                 "source_answer_ids": requirement_sources, "profile_fields": sorted(set(profile_fields)),
                 "semantic_delta": requirement.get("semantic_delta"),
                 "dependencies_checked": requirement.get("dependencies_checked") is True,
@@ -1263,6 +1514,49 @@ class IntakePipeline:
                 "correction_premise": {"status": str(premise["status"]), "source_answer_ids": premise_sources},
                 "owner_participation_evidence": normalized_owner_evidence,
             })
+
+        declared_projection = operational_bindings.get("declared_path_roles")
+        if declared_projection is not None:
+            declared_rows = declared_projection.get("paths") if isinstance(declared_projection, dict) else None
+            if not isinstance(declared_rows, list):
+                raise IntakeError("declared path-role projection must contain a paths list")
+            proof_paths = {
+                str(proof.get("path", ""))
+                for requirement in normalized_requirements
+                for proof in requirement.get("proof_bindings", [])
+                if isinstance(proof, dict)
+            }
+            allowed_declared_roles = {*_PATH_ROLES, "excluded", "external"}
+            seen_declared: dict[str, str] = {}
+            for index, row in enumerate(declared_rows, start=1):
+                if not isinstance(row, dict):
+                    raise IntakeError(f"declared path role {index} must be an object")
+                path = str(row.get("path", "")).strip()
+                role = str(row.get("operational_role", "")).strip()
+                if not path or role not in allowed_declared_roles:
+                    raise IntakeError(f"declared path role {index} is incomplete or unsupported")
+                if path in seen_declared and seen_declared[path] != role:
+                    raise IntakeError(f"declared path `{path}` has contradictory roles")
+                seen_declared[path] = role
+                if role in _PATH_ROLES and role != "proof-only" and path_roles.get(path) != role:
+                    raise IntakeError(f"declared `{role}` path `{path}` is missing from operational path bindings")
+                if role == "proof-only" and path not in proof_paths:
+                    raise IntakeError(f"declared proof path `{path}` is missing from executable proof bindings")
+                declared_sources = row.get("source_answer_ids", [])
+                if declared_sources:
+                    normalized_sources = source_ids(declared_sources, f"declared path `{path}`")
+                else:
+                    normalized_sources = []
+                normalized_declared_paths.append({
+                    "path": path,
+                    "host_role": str(row.get("host_role", "")),
+                    "operational_role": role,
+                    "existing": row.get("existing") is True,
+                    "requests_write_authority": row.get("requests_write_authority") is True,
+                    "grants_behavioral_ownership": row.get("grants_behavioral_ownership") is True,
+                    "source_answer_ids": normalized_sources,
+                    "evidence_fingerprint": row.get("evidence_fingerprint"),
+                })
 
         unconsumed = sorted(set(accepted_by_id) - consumed_ids)
         if unconsumed:
@@ -1276,6 +1570,11 @@ class IntakePipeline:
         result = {
             "requirements": normalized_requirements,
             "path_authorizations": path_authorizations,
+            "declared_path_roles": {
+                "schema_version": "1",
+                "type": "tailtrail-host-path-role-projection",
+                "paths": normalized_declared_paths,
+            },
             "projection_audit": audit,
         }
         if anchor_bound:

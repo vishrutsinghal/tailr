@@ -461,6 +461,32 @@ def _requirement_scope(requirement: dict[str, Any]) -> tuple[list[str], list[str
     return owners, inspection, proof
 
 
+def _requirement_outputs(requirement: dict[str, Any]) -> list[dict[str, Any]]:
+    values = requirement.get("writable_outputs")
+    if not isinstance(values, list):
+        scope = requirement.get("scope_evidence", {})
+        values = scope.get("writable_outputs", []) if isinstance(scope, dict) else []
+    return [dict(row) for row in values if isinstance(row, dict) and str(row.get("path", "")).strip()]
+
+
+def _requirement_proof_adequacy(requirement: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Return the accepted proof intent for each path in a requirement."""
+    contract = requirement.get("validation_contract", {})
+    contract = contract if isinstance(contract, dict) else {}
+    by_path: dict[str, dict[str, Any]] = {}
+    for check in contract.get("checks", []):
+        if not isinstance(check, dict):
+            continue
+        bindings = check.get("exact_bindings")
+        candidates = bindings if isinstance(bindings, list) else [check]
+        for candidate in candidates:
+            adequacy = candidate.get("proof_adequacy") if isinstance(candidate, dict) else None
+            path = str(adequacy.get("path", "")) if isinstance(adequacy, dict) else ""
+            if path:
+                by_path[path] = dict(adequacy)
+    return by_path
+
+
 def _request_mode(report: dict[str, Any]) -> str:
     """Return the validated host request mode when one is saved.
 
@@ -693,7 +719,24 @@ def _render_start_plan(
     request_mode = _request_mode(report)
     non_implementation_plan = request_mode in {"read-only", "validation-only"}
     title = "# TailTrail Start Plan - Full Review Record" if detailed else "# TailTrail Start Plan"
-    lines = [title, "", "**Presentation version:** `5`", "", "## Planning Lock", ""]
+    presentation = report.get("presentation", {}) if isinstance(report.get("presentation"), dict) else {}
+    detail_level = _plan_text(presentation.get("mode"), "full" if detailed else "expert").title()
+    detail_reason = {
+        "verbose": "requested by `--verbose`",
+        "authority-route": "automatic for Standard/Full, hands-free, or Intent Bridge authority",
+        "aidlc-off": "automatic for AIDLC Off",
+        "aidlc-lite": "automatic for AIDLC Lite",
+        "compatibility-override": "legacy compatibility override",
+    }.get(str(presentation.get("selection", "")), "saved presentation policy")
+    lines = [
+        title,
+        "",
+        "**Presentation version:** `5`",
+        f"**Plan detail:** `{detail_level}` ({detail_reason})",
+        "",
+        "## Planning Lock",
+        "",
+    ]
     lines.extend([
         f"- **Run ID:** `{run_id}`",
         f"- **Status:** `{_plan_text(lock.get('status') or data.get('state'), 'unavailable')}`",
@@ -725,6 +768,8 @@ def _render_start_plan(
         identifier = _requirement_id(requirement, index)
         contract = requirement.get("validation_contract", {}) if isinstance(requirement.get("validation_contract"), dict) else {}
         owners, inspection, proof_paths = _requirement_scope(requirement)
+        outputs = _requirement_outputs(requirement)
+        proof_adequacy = _requirement_proof_adequacy(requirement)
         rows = _requirement_proof_rows(requirement, registry)
         lines.extend([f"### {identifier}", "", f"**Description:** {_plan_text(requirement.get('statement'))}", ""])
         lines.append(f"- **Requirement type:** `{_plan_text(requirement.get('kind'), 'outcome')}`")
@@ -737,7 +782,19 @@ def _render_start_plan(
             lines.append(f"- **Editable owner(s):** {', '.join(f'`{path}`' for path in owners) if owners else 'unresolved'}")
         if inspection:
             lines.append(f"- **Read-only input(s):** {', '.join(f'`{path}`' for path in inspection)}")
+        if outputs:
+            lines.append("- **Writable output(s):** " + "; ".join(
+                f"`{row['path']}` (`{_plan_text(row.get('role') or row.get('operational_role'))}`, "
+                f"{'existing' if row.get('existing') else 'proposed'})"
+                for row in outputs
+            ))
         lines.append(f"- **Proof path(s):** {', '.join(f'`{path}`' for path in proof_paths) if proof_paths else 'unresolved'}")
+        if proof_adequacy:
+            lines.append("- **Proof intent:** " + "; ".join(
+                f"`{path}` = `{_plan_text(value.get('role'), 'unresolved')}` "
+                f"(baseline `{_plan_text((value.get('baseline') or {}).get('outcome'), 'unknown')}`)"
+                for path, value in sorted(proof_adequacy.items())
+            ))
         if detailed:
             acceptance = _plan_list(requirement.get("acceptance_criteria", []))
             preserve = _plan_list(requirement.get("preserve_rules", []))
@@ -768,6 +825,7 @@ def _render_start_plan(
     for index, requirement in enumerate(requirements, 1):
         identifier = _requirement_id(requirement, index)
         owners, inspection, proof_paths = _requirement_scope(requirement)
+        outputs = _requirement_outputs(requirement)
         rows = _requirement_proof_rows(requirement, registry)
         action = "Validate" if non_implementation_plan else "Implement"
         owner_text = ", ".join(f"`{path}`" for path in owners) if owners else "no editable owner"
@@ -777,6 +835,11 @@ def _render_start_plan(
             context.append("inspect " + ", ".join(f"`{path}`" for path in inspection))
         if proof_paths:
             context.append("prove against " + ", ".join(f"`{path}`" for path in proof_paths))
+        if outputs:
+            context.append("produce " + ", ".join(
+                f"`{row['path']}` as `{_plan_text(row.get('role') or row.get('operational_role'))}`"
+                for row in outputs
+            ))
         suffix = "; " + "; ".join(context) if context else ""
         lines.append(f"{index}. **{identifier}:** {action} {_plan_text(requirement.get('statement'))} in {owner_text}; verify with {proof_text}{suffix}.")
 
@@ -833,13 +896,49 @@ def _render_start_plan(
     all_owners = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[0]})
     all_inputs = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[1]})
     all_proofs = sorted({path for requirement in requirements for path in _requirement_scope(requirement)[2]})
+    proof_intent = {
+        path: value
+        for requirement in requirements
+        for path, value in _requirement_proof_adequacy(requirement).items()
+    }
+    editable_proofs = sorted(
+        path for path in all_proofs
+        if str(proof_intent.get(path, {}).get("role", "")) in {"editable-proof", "new-proof"}
+        or (
+            path not in proof_intent
+            and any(
+                path in _plan_list((requirement.get("validation_contract") or {}).get("editable_paths", []))
+                for requirement in requirements
+                if isinstance(requirement.get("validation_contract"), dict)
+            )
+        )
+    )
+    run_only_proofs = sorted(set(all_proofs) - set(editable_proofs))
+    all_outputs = {
+        str(row["path"]): str(row.get("role") or row.get("operational_role") or "output")
+        for requirement in requirements for row in _requirement_outputs(requirement)
+    }
     if non_implementation_plan and not all_owners:
         lines.append(f"- **Editable scope:** not applicable (`{request_mode}`; no implementation authority).")
     elif non_implementation_plan:
         lines.append(f"- **Editable scope:** unexpected for `{request_mode}`: {', '.join(f'`{path}`' for path in all_owners)}.")
     else:
         lines.append(f"- **Editable scope:** {', '.join(f'`{path}`' for path in all_owners) if all_owners else 'unresolved'}.")
-    lines.append(f"- **Read-only / proof-only scope:** {', '.join(f'`{path}`' for path in all_inputs + all_proofs) if all_inputs or all_proofs else 'none recorded'}.")
+    lines.append(
+        "- **Writable outputs:** "
+        + (", ".join(f"`{path}` (`{role}`)" for path, role in sorted(all_outputs.items())) if all_outputs else "none recorded")
+        + "."
+    )
+    lines.append(
+        f"- **Editable validation scope:** {', '.join(f'`{path}`' for path in editable_proofs) if editable_proofs else 'none recorded'}."
+    )
+    lines.append(
+        f"- **Run-only proof scope:** {', '.join(f'`{path}`' for path in run_only_proofs) if run_only_proofs else 'none recorded'}."
+    )
+    lines.append(
+        f"- **Read-only / proof-only scope:** "
+        f"{', '.join(f'`{path}`' for path in all_inputs + all_proofs) if all_inputs or all_proofs else 'none recorded'}."
+    )
     lines.append("- **Excluded:** every path, command, external system, deployment, and data change not explicitly recorded above remains outside this approval.")
     lines.append("- **Data impact:** no data impact is authorized unless a requirement above names it explicitly.")
 

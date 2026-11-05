@@ -1,0 +1,138 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE3B-BUNDLED-BRIDGE-IDENTITY",
+        "statement": "Add a Phase 3B bridge persistence API that records one immutable bundled Full resolution-to-project identity from a ready Phase 3A preflight result and rejects unsafe or inconsistent input before writing.",
+        "requirement_kind": "change",
+        "requirement_kind_source_answer_ids": ["answer-b70607d84dd04873"],
+        "source_answer_ids": [
+          "answer-b70607d84dd04873",
+          "answer-cba4d1d4a9c54b95",
+          "answer-05d0c04a6b184466",
+          "answer-56440ed23fd44d1f",
+          "answer-7e1e4d1044e24d25",
+          "answer-3dfdcda6ed024fd9",
+          "answer-fc1a31ed090d4688",
+          "answer-a7a2b881e924473a",
+          "answer-c051fdc2d28f40af",
+          "answer-a496e59aadb74f8d"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "proof-adequacy-008"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/aidlc-official-bridge.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "host_declared": true,
+            "new_file_verdict": "not-applicable",
+            "ownership_evidence": "This bridge already owns official-mode identity persistence and Phase 3A bundled Full preflight composition, so it is the single owner for freezing that ready identity before later public-route wiring.",
+            "source_answer_ids": ["answer-cba4d1d4a9c54b95"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-56440ed23fd44d1f"]
+          },
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-7e1e4d1044e24d25"]
+          },
+          {
+            "path": "scripts/task-start.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-3dfdcda6ed024fd9"]
+          },
+          {
+            "path": "scripts/planning_lock.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-fc1a31ed090d4688"]
+          },
+          {
+            "path": "scripts/official-aidlc-requirements.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-a7a2b881e924473a"]
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-c051fdc2d28f40af"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_bridge_maps_official_identity -k bundled_full_bridge_identity -v",
+            "tier": "unit",
+            "asserted_behavior": "Bridge validation and immutable persistence deterministically accept one ready consistent bundled Full identity and reject malformed, blocked, or conflicting inputs before writing.",
+            "source_answer_id": "answer-05d0c04a6b184466"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_bridge_maps_official_identity -k bundled_full_bridge_identity -v",
+            "tier": "contract",
+            "asserted_behavior": "The saved bridge identity carries the exact Phase 3A resolution, projection, pack, trust, offline, and official identity fields without re-resolving, re-projecting, or granting Planning Lock authority.",
+            "source_answer_id": "answer-05d0c04a6b184466"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_bridge_maps_official_identity -k bundled_full_bridge_identity -v",
+            "tier": "behaviour",
+            "asserted_behavior": "A ready bundled Full preflight can be frozen once for later public routing, while unavailable or inconsistent input stops without a bridge artifact or Lite result and legacy bridge behavior remains unchanged.",
+            "source_answer_id": "answer-a496e59aadb74f8d"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "The bridge persists exactly one ready Phase 3A bundled Full identity without repeating resolver or projector work.",
+            "The immutable artifact retains Full mode, offline posture, resolution/projection/pack fingerprints and path, trust posture, and official provenance identity.",
+            "Unsafe, unavailable, mismatched, or conflicting inputs fail before writing or granting authority.",
+            "Repeated identical persistence reuses append-only state, while a conflicting identity cannot overwrite it.",
+            "The targeted command covers legacy bridge preservation and all new bundled identity cases."
+          ],
+          "negative": [
+            "No task-start, Planning Lock, Requirements-stage, MCP, host-projection, packaging, schema, registry, CLI, or documentation wiring is changed in Phase 3B.",
+            "The persistence path does not access the network, resolve, provision, execute pack content, activate a run, or fall back to Lite.",
+            "No state outside the approved bridge owner, editable proof, and run-local managed bridge/ledger artifacts is changed.",
+            "Existing Standard and legacy explicit-manifest create behavior remains unchanged."
+          ],
+          "source_answer_ids": [
+            "answer-b70607d84dd04873",
+            "answer-56440ed23fd44d1f",
+            "answer-a496e59aadb74f8d"
+          ]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-b70607d84dd04873"]
+        }
+      }
+    ]
+  }
+}

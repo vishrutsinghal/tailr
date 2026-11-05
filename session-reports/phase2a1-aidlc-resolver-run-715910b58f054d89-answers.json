@@ -1,0 +1,17 @@
+[
+  {"question_id": "question-387b652c2d49468c", "value": "tailtrail/aidlc_bundle.py"},
+  {"question_id": "question-4efb6895e56b40eb", "value": "tailtrail/aidlc_bundle.py"},
+  {"question_id": "question-9e3080d8cbd84ad4", "value": "python3 -m unittest tests.test_aidlc_bundle_resolver"},
+  {"question_id": "question-125ad10d0e014492", "value": "tailtrail/resources.py"},
+  {"question_id": "question-98604e2c45074ef3", "value": "scripts/aidlc-official-detect.py"},
+  {"question_id": "question-6338c32c2f4a4b24", "value": "scripts/aidlc-official-install.py"},
+  {"question_id": "question-15213f2e8fa94256", "value": "scripts/installation-qualification.py"},
+  {"question_id": "question-c6e99f3662f54076", "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"},
+  {"question_id": "question-8248ecff2dce4ba8", "value": "aidlc-rules/manifest.json"},
+  {"question_id": "question-2661272ab34e4e0e", "value": "aidlc-rules/PROVENANCE.json"},
+  {"question_id": "question-d9bac39ef995458f", "value": "package-manifest.json"},
+  {
+    "question_id": "question-8e4b12720ffb4296",
+    "value": "{\"path\":\"tests/test_aidlc_bundle_resolver.py\",\"role\":\"new-proof\",\"test_cases\":[\"installed-package provider\",\"managed-payload provider\",\"source-checkout provider\",\"provider precedence\",\"current-working-directory independence\",\"typed receipt stability\",\"negative integrity states\",\"zero network access\"],\"fixtures\":[\"minimal schema-v2 bundle trees\",\"package integrity inventories\",\"versioned managed-payload roots\",\"qualifying and missing ownership receipts\"],\"assertions\":[\"the selected provider and pack root are deterministic\",\"the receipt fingerprint binds identity and integrity\",\"trust posture never exceeds available evidence\",\"unsafe or altered state fails closed without mutation\",\"resolution performs no network access\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_bundle_resolver\",\"outcome\":\"not-run\",\"observed\":\"The proposed proof module does not exist before implementation; a prior combined collection check confirmed that tests.test_aidlc_bundle_resolver is absent.\"}}"
+  }
+]

@@ -104,6 +104,45 @@ def scope_proposal(packet: dict, host: str) -> dict:
 
 
 class McpServerTests(unittest.TestCase):
+    def test_cli_and_mcp_full_routes_share_the_bundled_projection_identity(self) -> None:
+        goal = "qualify bundled offline Full AIDLC release"
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            mcp_result = mcp.tailtrail_start({
+                "goal": goal,
+                "root": root.as_posix(),
+                "host": "codex",
+                "aidlc": "full",
+                "approved": True,
+                "format": "json",
+            })
+            cli = subprocess.run(
+                [
+                    sys.executable,
+                    (ROOT / "scripts" / "task-start.py").as_posix(),
+                    goal,
+                    "--root", root.as_posix(),
+                    "--host", "codex",
+                    "--aidlc", "full",
+                    "--format", "json",
+                ],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(cli.returncode, 2, cli.stderr)
+        cli_result = json.loads(cli.stdout)
+        mcp_authority = mcp_result["result"]["official_requirement_authority"]
+        cli_authority = cli_result["official_requirement_authority"]
+        for field in (
+            "resolution_receipt_fingerprint",
+            "project_projection_fingerprint",
+            "pack_fingerprint",
+        ):
+            self.assertEqual(mcp_authority[field], cli_authority[field])
+        self.assertEqual(cli_authority["mode"], "full")
+
     def test_requirement_intake_tools_expose_read_and_approved_answer_boundaries(self) -> None:
         tools_by_name = {item["name"]: item for item in mcp.tool_list()}
 
@@ -1292,6 +1331,22 @@ class McpServerTests(unittest.TestCase):
         self.assertEqual(result["result"]["type"], "evaluation-scenario-result")
         self.assertEqual(result["result"]["scenario_id"], "validation-bug")
         self.assertEqual(result_path.exists(), before_exists)
+
+    def test_navigator_intake_tools_expose_complete_public_receipt_flow(self):
+        definitions = mcp.tool_definitions()
+        expected = {
+            "navigator_intake_open",
+            "navigator_intake_record",
+            "navigator_intake_validate",
+            "navigator_intake_status",
+            "navigator_intake_finalize",
+        }
+        self.assertTrue(expected.issubset(definitions))
+        self.assertTrue(expected.issubset(mcp.HANDLERS))
+        self.assertIn("navigator_intake_status", mcp.DEFAULT_READ_ONLY_TOOLS)
+        self.assertTrue(expected - {"navigator_intake_status"} <= set(mcp.CONTROLLED_TOOLS))
+        with self.assertRaisesRegex(ValueError, "requires approved: true"):
+            mcp.navigator_intake_open({"root": ROOT.as_posix(), "goal": "change", "host_contract": {}})
 
 
 if __name__ == "__main__":

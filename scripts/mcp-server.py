@@ -54,6 +54,7 @@ DEFAULT_READ_ONLY_TOOLS = (
     "planning_aidlc_question_clarify",
     "planning_question_context_show",
     "requirement_intake_show",
+    "navigator_intake_status",
     "aidlc_official_status",
     "aidlc_official_bridge_show",
     "aidlc_official_state_show",
@@ -86,7 +87,11 @@ DEFAULT_READ_ONLY_TOOLS = (
 LEGACY_CONTROLLED_TOOLS = ("tailtrail_stop", "tailtrail_resume", "harness_control_check", "planning_aidlc_question_challenge", "planning_aidlc_question_record", "planning_aidlc_question_approve", "source_patch_apply", "planning_lock_start", "planning_investigate", "planning_revision_propose", "planning_revision_approve", "planning_aidlc_standard_propose", "planning_aidlc_standard_approve", "planning_lock_approve", "tailtrail_start", "navigator_scope_proposal_record", "execution_evidence_record", "execution_evidence_run", "spec_kit_import", "spec_kit_amendment_propose", "spec_kit_anchor_approve", "spec_kit_convergence_record", "spec_kit_ci_ingest", "debug_start", "debug_reproduction_draft", "debug_reproduction_revise", "debug_reproduction_reopen", "debug_reproduction_approve", "debug_reproduction_attempt_record", "debug_orientation_create", "debug_hypothesis_add", "debug_hypothesis_reprioritize", "debug_experiment_propose", "debug_experiment_record", "debug_root_cause_prove", "debug_correction_propose", "debug_correction_approve", "debug_correction_scope_check", "debug_harness_convergence_finalize", "debug_closure_finalize", "debug_evaluation_run")
 WORKFLOW_READ_ONLY_TOOLS = ("workflow_list", "workflow_show", "workflow_status", "workflow_current", "workflow_compiler_show", "workflow_approvals_show", "workflow_freshness_show", "workflow_evidence_show", "workflow_resume", "workflow_doctor", "workflow_replay", "workflow_ci_show", "workflow_assurance_inspect", "workflow_denials_show", "workflow_retention_show", "workflow_retention_plan", "workflow_release_catalog", "workflow_release_show", "workflow_release_compatibility", "workflow_release_evaluate", "workflow_enterprise_entry", "workflow_enterprise_show", "workflow_enterprise_replay", "workflow_enterprise_observe", "workflow_enterprise_restore_validate", "workflow_enterprise_migration_plan", "workflow_enterprise_conformance")
 WORKFLOW_CONTROLLED_TOOLS = ("workflow_create", "workflow_approval_decide", "workflow_state_control", "workflow_adapter_record", "workflow_correction_request", "workflow_closure_finalize", "workflow_ci_ingest", "workflow_retention_cleanup", "workflow_release_scenario_record", "workflow_real_run_record", "workflow_release_retire", "workflow_enterprise_policy_record", "workflow_enterprise_activate", "workflow_enterprise_link", "workflow_enterprise_lease_acquire", "workflow_enterprise_lease_release", "workflow_enterprise_ingest", "workflow_enterprise_backup", "workflow_enterprise_migrate", "workflow_enterprise_rollback")
-LEGACY_CONTROLLED_TOOLS = ("requirement_intake_answer", "requirement_intake_attach_visual", *LEGACY_CONTROLLED_TOOLS)
+LEGACY_CONTROLLED_TOOLS = (
+    "requirement_intake_answer", "requirement_intake_attach_visual",
+    "navigator_intake_open", "navigator_intake_record", "navigator_intake_validate", "navigator_intake_finalize",
+    *LEGACY_CONTROLLED_TOOLS,
+)
 WORKFLOW_MCP_TOOLS = (*WORKFLOW_READ_ONLY_TOOLS, *WORKFLOW_CONTROLLED_TOOLS)
 CONTROLLED_TOOLS = (*LEGACY_CONTROLLED_TOOLS, *WORKFLOW_CONTROLLED_TOOLS)
 DENIED_TOOL_TERMS = (
@@ -346,6 +351,7 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "planning_aidlc_question_clarify": {"name": "planning_aidlc_question_clarify", "description": "Read saved evidence for explaining or plainly rephrasing one AIDLC question. It does not change the question, plan, or source.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "question_id": {"type": "string"}}, ["run_id", "question_id"])},
         "planning_question_context_show": {"name": "planning_question_context_show", "description": "Read the saved Question Orchestrator context, authority, known facts, unresolved decisions, and source boundary for one planning run. Read-only.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "requirement_intake_show": {"name": "requirement_intake_show", "description": "Read one durable pre-lock requirement intake with its bounded, advisory repository evidence. It grants no scope, Planning Lock, or implementation authority.", "inputSchema": json_schema({"root": {"type": "string"}, "intake_id": {"type": "string"}}, ["intake_id"])},
+        "navigator_intake_status": {"name": "navigator_intake_status", "description": "Read mandatory, candidate, accepted, stale, conflicting, and missing Navigator intake fields. Read-only; it grants no authority.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "aidlc_official_status": {"name": "aidlc_official_status", "description": "Read and validate a pinned official AWS AI-DLC pack manifest. Read-only; it never installs, attaches, or executes the pack.", "inputSchema": json_schema({"root": {"type": "string"}, "manifest": {"type": "string"}})},
         "aidlc_official_bridge_show": {"name": "aidlc_official_bridge_show", "description": "Read a saved official AI-DLC bridge identity for one TailTrail run. Read-only; Phase B never attaches or executes the official engine.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
         "aidlc_official_state_show": {"name": "aidlc_official_state_show", "description": "Project canonical run state and report ownership conflicts. Read-only; it never reconciles or rewrites artifacts.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}}, ["run_id"])},
@@ -376,6 +382,10 @@ def tool_definitions() -> dict[str, dict[str, Any]]:
         "tailtrail_session_status": {"name": "tailtrail_session_status", "description": "Read the current common TailTrail conversation attachment and safe point. It never scans source, attaches a run, or grants authority.", "inputSchema": json_schema({"root": {"type": "string"}, "context_key": {"type": "string"}}), "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True}},
         "requirement_intake_answer": {"name": "requirement_intake_answer", "description": "Record bounded user answers as a new pre-lock intake revision. Requires approved: true and grants no delivery authority.", "inputSchema": json_schema({"root": {"type": "string"}, "intake_id": {"type": "string"}, "answers": {"type": "object", "additionalProperties": {"type": "string"}, "maxProperties": 3}, "approved": {"type": "boolean"}}, ["intake_id", "answers", "approved"])},
         "requirement_intake_attach_visual": {"name": "requirement_intake_attach_visual", "description": "Bind one host-resolved local image and bounded observation to an existing VIS requirement intake. Requires approved: true, writes only intake metadata, and grants no scope or implementation authority.", "inputSchema": json_schema({"root": {"type": "string"}, "intake_id": {"type": "string"}, "visual_attachment": {"type": "object", "properties": {"attachment_id": {"type": "string"}, "local_path": {"type": "string"}, "media_type": {"type": "string"}}, "required": ["attachment_id", "local_path"]}, "visual_observations": {"type": "object"}, "approved": {"type": "boolean"}}, ["intake_id", "visual_attachment", "visual_observations", "approved"])},
+        "navigator_intake_open": {"name": "navigator_intake_open", "description": "Open the mandatory pre-Start Navigator questionnaire from one validated implementation host contract. Requires approved: true; creates intake metadata only and grants no Planning Lock or implementation authority.", "inputSchema": json_schema({"root": {"type": "string"}, "goal": {"type": "string"}, "host_contract": {"type": "object"}, "host": {"type": "string", "enum": ["codex", "copilot", "claude"]}, "aidlc": {"type": "string", "enum": ["lite", "standard", "medium", "full", "off"]}, "approved": {"type": "boolean"}}, ["goal", "host_contract", "approved"])},
+        "navigator_intake_record": {"name": "navigator_intake_record", "description": "Record host questionnaire findings as candidates only. Requires approved: true and never accepts facts or mints Start authority.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "answers": {"type": "array", "minItems": 1, "items": {"type": "object"}}, "approved": {"type": "boolean"}}, ["run_id", "answers", "approved"])},
+        "navigator_intake_validate": {"name": "navigator_intake_validate", "description": "Validate candidate answers against current repository evidence and record only grounded Navigator acceptance. Requires approved: true.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "validations": {"type": "array", "minItems": 1, "items": {"type": "object"}}, "approved": {"type": "boolean"}}, ["run_id", "validations", "approved"])},
+        "navigator_intake_finalize": {"name": "navigator_intake_finalize", "description": "Verify requirement-specific scope and proof bindings, calculate completeness, mint one immutable planning-readiness receipt, and return the exact Start retry command. Requires approved: true; it does not create a Planning Lock.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "bindings": {"type": "object"}, "approved": {"type": "boolean"}}, ["run_id", "bindings", "approved"])},
         "tailtrail_stop": {"name": "tailtrail_stop", "description": "Detach TailTrail routing at the next atomic metadata boundary while preserving the exact run. The host must supply confirmed: true for the explicit user stop request. It never rejects, cancels, approves, executes, or deletes the run.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "context_key": {"type": "string"}, "confirmed": {"type": "boolean"}}, ["confirmed"]), "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True}},
         "tailtrail_resume": {"name": "tailtrail_resume", "description": "Reattach one exact saved TailTrail run after integrity and target freshness checks. It never resumes workflow execution, approves a plan, or restores expired authority.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "context_key": {"type": "string"}}, ["run_id"]), "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True}},
         "harness_control_check": {"name": "harness_control_check", "description": "Run only the supplied repository-native control list after explicit approval and an approved matching Planning Lock. It cannot edit source or run an arbitrary command.", "inputSchema": json_schema({"root": {"type": "string"}, "run_id": {"type": "string"}, "controls": {"type": "string"}, "changed": {"type": "array", "items": {"type": "string"}}, "approved": {"type": "boolean"}}, ["run_id", "controls", "approved"])},
@@ -1189,6 +1199,60 @@ def planning_question_context_show(args: dict[str, Any]) -> dict[str, Any]:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return {"tool": "planning_question_context_show", "result": module.show(root_from(args), run_id(args)), "execution": {"read_only": True, "exit_code": 0}}
+
+
+def _navigator_intake_module() -> Any:
+    spec = importlib.util.spec_from_file_location("navigator_intake_mcp", script("question-orchestrator.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _navigator_intake_approved(args: dict[str, Any], tool: str) -> None:
+    if args.get("approved") is not True:
+        raise ValueError(f"{tool} requires approved: true")
+
+
+def navigator_intake_open(args: dict[str, Any]) -> dict[str, Any]:
+    _navigator_intake_approved(args, "navigator_intake_open")
+    contract = args.get("host_contract")
+    if not isinstance(contract, dict):
+        raise ValueError("navigator_intake_open requires a host_contract object")
+    result = _navigator_intake_module().public_intake_open(
+        root_from(args), str(args.get("goal", "")), contract,
+        host=args.get("host"), aidlc=args.get("aidlc"),
+    )
+    return {"tool": "navigator_intake_open", "result": result, "execution": {"read_only": False, "exit_code": 0}}
+
+
+def navigator_intake_record(args: dict[str, Any]) -> dict[str, Any]:
+    _navigator_intake_approved(args, "navigator_intake_record")
+    result = _navigator_intake_module().public_intake_record(
+        root_from(args), run_id(args), args.get("answers"),
+    )
+    return {"tool": "navigator_intake_record", "result": result, "execution": {"read_only": False, "exit_code": 0}}
+
+
+def navigator_intake_validate(args: dict[str, Any]) -> dict[str, Any]:
+    _navigator_intake_approved(args, "navigator_intake_validate")
+    result = _navigator_intake_module().public_intake_validate(
+        root_from(args), run_id(args), args.get("validations"),
+    )
+    return {"tool": "navigator_intake_validate", "result": result, "execution": {"read_only": False, "exit_code": 0}}
+
+
+def navigator_intake_status(args: dict[str, Any]) -> dict[str, Any]:
+    result = _navigator_intake_module().public_intake_status(root_from(args), run_id(args))
+    return {"tool": "navigator_intake_status", "result": result, "execution": {"read_only": True, "exit_code": 0}}
+
+
+def navigator_intake_finalize(args: dict[str, Any]) -> dict[str, Any]:
+    _navigator_intake_approved(args, "navigator_intake_finalize")
+    result = _navigator_intake_module().public_intake_finalize(
+        root_from(args), run_id(args), args.get("bindings"),
+    )
+    return {"tool": "navigator_intake_finalize", "result": result, "execution": {"read_only": False, "exit_code": 0}}
 
 
 def _requirement_intake_module() -> Any:
@@ -2031,6 +2095,11 @@ HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "requirement_intake_show": requirement_intake_show,
     "requirement_intake_answer": requirement_intake_answer,
     "requirement_intake_attach_visual": requirement_intake_attach_visual,
+    "navigator_intake_open": navigator_intake_open,
+    "navigator_intake_record": navigator_intake_record,
+    "navigator_intake_validate": navigator_intake_validate,
+    "navigator_intake_status": navigator_intake_status,
+    "navigator_intake_finalize": navigator_intake_finalize,
     "debug_preflight": debug_preflight,
     "tailtrail_session_status": tailtrail_session_status,
     "tailtrail_stop": tailtrail_stop,

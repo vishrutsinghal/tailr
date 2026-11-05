@@ -1,0 +1,38 @@
+[
+  {
+    "question_id": "question-6d24c77cc3ef479a",
+    "value": "A ready Phase 2A.1 receipt is projected offline into one immutable content-addressed project pack under .tailtrail/official-aidlc using a bounded lock, exact-byte staging and validation, atomic create-or-reuse behavior, separate projection and future-run selector receipts, idempotent reuse, fail-closed destination handling, and explicit bounded stale-staging recovery."
+  },
+  {
+    "question_id": "question-377f4e29738c41c4",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-94a730c0fdec4d15",
+    "value": "python3 -m unittest tests.test_aidlc_bundle_resolver"
+  },
+  {
+    "question_id": "question-6d6b94e405bc463f",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-a5e897adbd024785",
+    "value": "tailtrail/install/files.py"
+  },
+  {
+    "question_id": "question-cc928a5137b34ecb",
+    "value": "tailtrail/install/engine.py"
+  },
+  {
+    "question_id": "question-980bf57fde4441e8",
+    "value": "scripts/run-ledger.py"
+  },
+  {
+    "question_id": "question-71aaeb6e31ba4eaf",
+    "value": "package-manifest.json"
+  },
+  {
+    "question_id": "question-b1e28e0446b64d6d",
+    "value": "{\"path\":\"tests/test_aidlc_bundle_resolver.py\",\"role\":\"editable-proof\",\"test_cases\":[\"atomic projection creation\",\"idempotent reuse without timestamp or selector churn\",\"bounded lock timeout and matched release\",\"two-caller creation race\",\"deep target root\",\"altered and occupied destination rejection\",\"selector conflict rejection\",\"stale staging reporting and explicit recovery\",\"source bundle remains unchanged\",\"zero network access\"],\"fixtures\":[\"ready Phase 2A.1 source-checkout resolution receipt\",\"temporary project roots\",\"content-addressed pack trees\",\"existing selector and staging states\"],\"assertions\":[\"one caller creates and a repeat or racing caller reuses the same immutable pack\",\"projection and selector receipts bind the exact source receipt and copied inventory\",\"unsafe or conflicting state is unchanged and returns a categorical blocker\",\"ordinary provisioning never cleans pre-existing staging state\",\"explicit recovery can remove only a validated managed staging directory\",\"no operation contacts the network or mutates source bytes\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_bundle_resolver\",\"outcome\":\"pass\",\"observed\":\"The existing Phase 2A.1 resolver suite collected and passed 9 tests before Phase 2A.2 planning; it does not yet exercise project projection, selector, locking, idempotence, concurrency, or recovery.\"}}"
+  }
+]

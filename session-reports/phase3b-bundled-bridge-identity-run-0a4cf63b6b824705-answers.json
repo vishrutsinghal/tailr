@@ -1,0 +1,42 @@
+[
+  {
+    "question_id": "question-f6c9cdbd3ddc4078",
+    "value": "A new Phase 3B bridge persistence API accepts only a ready Phase 3A bundled Full preflight chain, saves its exact resolution and project-pack identities in immutable run-local bridge state, rejects unavailable or mismatched input before writing, and preserves legacy bridge creation while public Start wiring remains deferred."
+  },
+  {
+    "question_id": "question-cdd20935d07442f2",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-e34279f2d6ad49c2",
+    "value": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_bridge_maps_official_identity -k bundled_full_bridge_identity -v"
+  },
+  {
+    "question_id": "question-2971f2a39d9443f2",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-99528d09bf13488c",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-5dc5213702794f55",
+    "value": "scripts/task-start.py"
+  },
+  {
+    "question_id": "question-f93486c2342842f8",
+    "value": "scripts/planning_lock.py"
+  },
+  {
+    "question_id": "question-0efc623ec9224c14",
+    "value": "scripts/official-aidlc-requirements.py"
+  },
+  {
+    "question_id": "question-8fe50851720b4572",
+    "value": "tests/test_aidlc_bundle_resolver.py"
+  },
+  {
+    "question_id": "question-54aaf709129c48c8",
+    "value": "{\"path\":\"tests/test_aidlc_official_bridge.py\",\"role\":\"editable-proof\",\"test_cases\":[\"existing legacy Full bridge maps one official identity to one run and activates append-only\",\"bundled Full bridge identity persists the exact ready resolution and projection fingerprint chain\",\"unavailable or mismatched bundled preflight input creates no bridge artifact\",\"repeating the same bundled identity is idempotent while conflicting identity fails closed\"],\"fixtures\":[\"temporary TailTrail run root\",\"ready Phase 3A bundled Full preflight result\",\"blocked and fingerprint-mismatched preflight results\",\"existing compatible legacy manifest fixture\"],\"assertions\":[\"saved bundled bridge retains requested and effective Full mode plus network_used false\",\"saved resolution, projection, pack, trust, and official identity fields match the ready preflight chain\",\"blocked, malformed, Lite, network-using, or mismatched input writes no bridge artifact\",\"same identity reuses the immutable artifact and a conflict never overwrites it\",\"existing legacy create and activation behavior remains unchanged\"],\"baseline\":{\"command\":\"python3 -m unittest tests/test_aidlc_official_bridge.py -k full_bridge_maps_official_identity -k bundled_full_bridge_identity -v\",\"outcome\":\"not-run\",\"observed\":\"Static inspection confirms the first filter selects the existing legacy bridge identity preservation test; bundled_full_bridge_identity cases will be added only after approval. No project test command was executed during planning.\"}}"
+  }
+]

@@ -1,0 +1,138 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE2B2-REQUIREMENTS",
+        "statement": "Bind the official AIDLC Requirements adapter for an existing Standard or Full run to the validated frozen active-run pack resolution while preserving bounded legacy continuation and the separately labeled pre-run inspection boundary.",
+        "requirement_kind": "change",
+        "requirement_kind_source_answer_ids": [
+          "answer-2d9772d463414d9e"
+        ],
+        "source_answer_ids": [
+          "answer-2d9772d463414d9e",
+          "answer-6d1302da30db45ba",
+          "answer-5d543208bb764c8c",
+          "answer-0c1fd485f98448d2",
+          "answer-22bc24363b2b4c40",
+          "answer-fc1c6bcfb8614df8",
+          "answer-e03126749a78491b",
+          "answer-01d5202da6d9469d",
+          "answer-e3c8c9e5b9eb4d26",
+          "answer-8df49e6631ac4248"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "proof-adequacy-008"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/official-aidlc-requirements.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "host_declared": true,
+            "new_file_verdict": "not-applicable",
+            "ownership_evidence": "This adapter owns official Requirements rule discovery, stage_contract, and stage_request. Phase 2B.2 changes that adapter boundary without changing the package resolver or public Full Start routing.",
+            "source_answer_ids": ["answer-6d1302da30db45ba"]
+          },
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-0c1fd485f98448d2"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-22bc24363b2b4c40"]
+          },
+          {
+            "path": "scripts/aidlc-official-bridge.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-fc1c6bcfb8614df8"]
+          },
+          {
+            "path": "scripts/planning_lock.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-e03126749a78491b"]
+          },
+          {
+            "path": "scripts/task-start.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-01d5202da6d9469d"]
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-e3c8c9e5b9eb4d26"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+            "tier": "unit",
+            "asserted_behavior": "Frozen-resolution selection, safe pack-root derivation, required-rule inventory checks, error classification, and question-validation preservation are deterministic against controlled filesystem fixtures.",
+            "source_answer_id": "answer-5d543208bb764c8c"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+            "tier": "contract",
+            "asserted_behavior": "The official Requirements adapter consumes the package resolver's frozen bundled-v2 or bounded legacy-v1 result and never treats current.json, process cwd, or a caller manifest as existing-run authority.",
+            "source_answer_id": "answer-5d543208bb764c8c"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+            "tier": "behaviour",
+            "asserted_behavior": "An existing Standard or Full run continues to load Requirements rules from its original verified pack after future selector and cwd changes; invalid authority blocks without mutation or fallback; legacy continuation stays read-only.",
+            "source_answer_id": "answer-5d543208bb764c8c"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "Existing-run stage_request and its stage-contract path resolve every governing Requirements rule from the validated frozen bundled-v2 binding for the saved bridge run ID.",
+            "Selector, cwd, and caller manifest changes cannot retarget existing-run authority; bounded legacy-v1 continuation remains saved-artifact-backed and read-only.",
+            "The separately labeled pre-run inspection behavior and host-question validation remain compatible until Phase 3 changes public routing.",
+            "Focused public-path proof covers success, preservation, categorical failure, non-mutation, and zero-network boundaries."
+          ],
+          "negative": [
+            "No existing-run operation reads current.json, performs cwd rediscovery, accepts a caller manifest override, contacts the network, executes pack content, changes bundle or project files, or mints or rewrites a binding.",
+            "Missing, altered, stale, incompatible, conflicting, legacy-unauthorized, or unsafe state fails closed without selecting another pack.",
+            "This slice does not edit the package resolver, Full Start, Planning Lock, MCP, host projection, schema, registry, dispatcher, or documentation owners."
+          ],
+          "source_answer_ids": [
+            "answer-2d9772d463414d9e",
+            "answer-22bc24363b2b4c40",
+            "answer-8df49e6631ac4248"
+          ]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-2d9772d463414d9e"]
+        }
+      }
+    ]
+  }
+}

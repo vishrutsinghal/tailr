@@ -1,0 +1,233 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE2A-RESOLVER",
+        "statement": "Add a package-owned official AIDLC bundle resolver that selects installed-package, managed-payload, or source-checkout resources by deterministic precedence; validates outer package and inner bundle integrity without current-working-directory or network dependence; returns a typed fingerprinted receipt with truthful trust posture; and fails closed without mutating unsafe or conflicting state.",
+        "source_answer_ids": [
+          "answer-8291f6be278e417c",
+          "answer-161cf151c2804e55",
+          "answer-14d9b1c5e8594865",
+          "answer-5ecd10ac722b4da7",
+          "answer-1f62ad2355c64694",
+          "answer-249e47d9b26f4d94",
+          "answer-781f97160d354d93",
+          "answer-f9d9a60071934ce1",
+          "answer-0dc1866fd2814586"
+        ],
+        "profile_fields": [
+          "proposed-owner",
+          "proof-command",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "declared-path-008",
+          "declared-path-009",
+          "proof-adequacy-010"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "implementation-owner",
+            "existing": false,
+            "new_file_verdict": "new-confirmed",
+            "host_declared": true,
+            "ownership_evidence": "The Phase 2 design assigns the typed multi-provider resolver to a package-owned module; repository inspection found only generic resource verification and script-local validators, not an existing package resolver.",
+            "source_answer_ids": ["answer-8291f6be278e417c"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-14d9b1c5e8594865"]
+          },
+          {
+            "path": "aidlc-rules/manifest.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-5ecd10ac722b4da7"]
+          },
+          {
+            "path": "aidlc-rules/PROVENANCE.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-1f62ad2355c64694"]
+          },
+          {
+            "path": "package-manifest.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-249e47d9b26f4d94"]
+          },
+          {
+            "path": "scripts/aidlc-official-install.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-781f97160d354d93"]
+          },
+          {
+            "path": "scripts/installation-qualification.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-f9d9a60071934ce1"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "unit",
+            "asserted_behavior": "Provider discovery, precedence, path safety, inventory comparison, and receipt fingerprinting are deterministic pure or filesystem-bounded behaviors.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "contract",
+            "asserted_behavior": "The resolver receipt exposes the required provider identity, official identity, trust posture, artifact identity, bundle fingerprint, verified root, network posture, issues, and stable fingerprint.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "behaviour",
+            "asserted_behavior": "Installed-package, managed-payload, and source-checkout fixtures resolve independently of the current working directory, use no network, report truthful distinct trust postures, and leave invalid state untouched.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "All three package resource providers resolve through one typed package-owned contract with deterministic precedence and no current-working-directory dependency.",
+            "A successful receipt binds the selected provider, official identity, verified bundle root, integrity fingerprints, trust posture, artifact-identity status, and network_used false.",
+            "Missing, altered, incompatible, incomplete, unsafe, or conflicting inputs return categorized fail-closed results without writes."
+          ],
+          "negative": [
+            "Local hashes or self-authored manifests never become authenticated-release authority.",
+            "Resolution never accesses the network, executes pack content, follows unsafe links, mutates provider state, creates project projections, or changes Full routing.",
+            "Legacy schema-v1 state is never promoted or accepted as authority for a new Full run."
+          ],
+          "source_answer_ids": ["answer-8291f6be278e417c", "answer-14d9b1c5e8594865"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-8291f6be278e417c"]
+        }
+      },
+      {
+        "requirement_uid": "REQ-PHASE2A-RESOURCES",
+        "statement": "Extend generic package resource handling only as needed to expose safe module-relative bundle locations and exact outer package-integrity evidence to the shared resolver, while preserving existing package verification behavior.",
+        "source_answer_ids": [
+          "answer-8291f6be278e417c",
+          "answer-161cf151c2804e55",
+          "answer-0dc1866fd2814586"
+        ],
+        "profile_fields": ["proposed-owner", "proof-command", "proof-adequacy-010"],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "tailtrail/resources.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-8291f6be278e417c"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "unit",
+            "asserted_behavior": "Package-root and bundle-location helpers remain module-relative and reject unsafe or incomplete package inventory.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "contract",
+            "asserted_behavior": "Outer integrity evidence is explicit and cannot be confused with authenticated artifact identity.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "behaviour",
+            "asserted_behavior": "Changing the process working directory does not change the resolved package bundle or its integrity decision.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          }
+        ],
+        "criteria": {
+          "positive": ["The resolver receives safe module-relative package locations and exact package-integrity findings."],
+          "negative": ["Generic package resource verification is not weakened, duplicated, or made current-working-directory dependent."],
+          "source_answer_ids": ["answer-8291f6be278e417c"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-8291f6be278e417c"]
+        }
+      },
+      {
+        "requirement_uid": "REQ-PHASE2A-DETECTOR",
+        "statement": "Refactor the read-only official AIDLC compatibility detector into an adapter over the shared resolver so status reports provider identity and trust posture consistently while retaining bounded legacy schema-v1 inspection and existing negative integrity behavior.",
+        "source_answer_ids": [
+          "answer-75396bb0c80c4cad",
+          "answer-161cf151c2804e55",
+          "answer-bc1bf58991224250"
+        ],
+        "profile_fields": ["public-route", "proof-command", "proof-adequacy-011"],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/aidlc-official-detect.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-75396bb0c80c4cad"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_official_detect.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "unit",
+            "asserted_behavior": "Detector rendering and compatibility mapping consume the resolver receipt without mutating state.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          },
+          {
+            "path": "tests/test_aidlc_official_detect.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "contract",
+            "asserted_behavior": "The status payload preserves legacy bounded inspection fields and adds the canonical provider and trust-posture projection.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          },
+          {
+            "path": "tests/test_aidlc_official_detect.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver tests.test_aidlc_official_detect",
+            "tier": "behaviour",
+            "asserted_behavior": "Valid schema-v2 bundle status succeeds read-only; altered, incompatible, unsafe, or legacy-new-Full authority cases fail closed consistently with the shared resolver.",
+            "source_answer_id": "answer-161cf151c2804e55"
+          }
+        ],
+        "criteria": {
+          "positive": ["The public read-only detector delegates to one shared resolver result and exposes provider identity plus truthful trust posture."],
+          "negative": ["The adapter neither mutates state nor lets schema-v1 project packs authorize new Full execution."],
+          "source_answer_ids": ["answer-75396bb0c80c4cad"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-75396bb0c80c4cad"]
+        }
+      }
+    ]
+  }
+}

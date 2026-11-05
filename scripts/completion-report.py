@@ -1016,6 +1016,18 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
     start_report = saved_start.get("report", saved_start) if isinstance(saved_start, dict) else {}
     handoff = read(directory / "planning" / "execution-handoff-v1.json") if (directory / "planning" / "execution-handoff-v1.json").is_file() else {}
     execution_authority = handoff.get("execution_authority", {}) if isinstance(handoff, dict) else {}
+    approved_output_roles = {
+        str(item.get("path")): str(item.get("role"))
+        for item in handoff.get("writable_outputs", []) if isinstance(item, dict) and item.get("path")
+    } if isinstance(handoff, dict) else {}
+    changed_path_records: list[dict[str, Any]] = []
+    for changed in (checkpoint or {}).get("changed_paths", []):
+        record = dict(changed) if isinstance(changed, dict) else {"path": str(changed)}
+        path = str(record.get("path", ""))
+        if path in approved_output_roles:
+            record["approved_role"] = approved_output_roles[path]
+            record["behavioral_owner"] = False
+        changed_path_records.append(record)
     official_design, official_design_path = latest(directory / "aidlc-official" / "checkpoints", "design-plan-*.json")
     official_evidence, official_evidence_path = latest(directory / "aidlc-official" / "checkpoints", "evidence-checkpoint-*.json")
     official_handoff, official_handoff_path = latest(directory / "aidlc-official" / "checkpoints", "handoff-*.json")
@@ -1090,7 +1102,7 @@ def build(root: Path, run_id: str, record: bool = True) -> dict[str, Any]:
         "harnesses": harnesses,
         "changed_scope": {
             "status": "approved" if checkpoint and not scope_findings else ("changed-beyond-approved" if scope_findings else "not-assessed"),
-            "changed_paths": (checkpoint or {}).get("changed_paths", []),
+            "changed_paths": changed_path_records,
             "findings": scope_findings,
         },
         "architecture": {
@@ -1542,7 +1554,9 @@ def render(payload: dict[str, Any]) -> str:
     ])
     for item in payload["changed_scope"].get("changed_paths", []):
         if isinstance(item, dict):
-            lines.append(f"- `{report_text(item.get('path'))}`")
+            role = item.get("approved_role")
+            suffix = f" — approved `{report_text(role)}`; behavioral owner: no" if role else ""
+            lines.append(f"- `{report_text(item.get('path'))}`{suffix}")
         else:
             lines.append(f"- `{report_text(item)}`")
     if not payload["changed_scope"].get("changed_paths"):

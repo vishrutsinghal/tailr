@@ -1,0 +1,68 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase2b2-requirements-20261105",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {
+      "path": "scripts/official-aidlc-requirements.py",
+      "role": "existing-implementation-owner"
+    },
+    {
+      "path": "tailtrail/aidlc_bundle.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/aidlc-official-bridge.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/planning_lock.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/task-start.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_bundle_resolver.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_official_bridge.py",
+      "role": "existing-proof-path"
+    }
+  ],
+  "criteria": {
+    "positive": [
+      "For an existing Standard or Full run, the official Requirements stage resolves governing rule files only through the validated frozen active-run resolution returned by tailtrail/aidlc_bundle.py for the saved bridge run ID.",
+      "The adapter derives the rule root from the validated bound resolution, checks the complete required Requirements rule set and markers, and exposes references that remain inside the resolved immutable pack.",
+      "Changing current.json or the process working directory after binding does not retarget an existing run, and a caller-provided compatibility_manifest cannot override active-run authority.",
+      "Bounded legacy schema-v1 continuation is accepted only through the saved bridge and activation authority validated by the package resolver, remains explicitly read-only, and cannot create a bundled-v2 binding or authorize a new Full run.",
+      "The existing pre-run Requirements authority inspection remains separately labeled compatibility behavior until Phase 3 replaces its public routing; it cannot be used as existing-run authority.",
+      "Focused public-path proof covers stage_request and stage-contract resolution, selector and working-directory independence, altered or missing bound state, unsafe paths, bounded legacy continuation, preservation of host-question validation, and zero network or filesystem mutation."
+    ],
+    "negative": [
+      "Phase 2B.2 never reads current.json for an existing run, performs current-working-directory rediscovery, trusts a caller-provided compatibility_manifest as active-run authority, contacts the network, executes pack content, changes pack bytes, creates a projection, or mints or rewrites a run binding.",
+      "Missing, altered, stale, incompatible, conflicting, legacy-unauthorized, or unsafe state fails closed with a categorical actionable error and does not fall back to another pack.",
+      "This slice does not edit tailtrail/aidlc_bundle.py, Full Start or Planning Lock wiring, MCP routing, host projections, schemas, package registration, CLI dispatch, or documentation."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+    "tiers": [
+      "unit",
+      "contract",
+      "behaviour"
+    ]
+  },
+  "private_reasoning_excluded": true
+}

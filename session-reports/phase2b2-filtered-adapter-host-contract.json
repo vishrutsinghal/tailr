@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase2b2-filtered-adapter-20261105",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {"path": "scripts/official-aidlc-requirements.py", "role": "existing-implementation-owner"},
+    {"path": "tailtrail/aidlc_bundle.py", "role": "inspection-input"},
+    {"path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "role": "inspection-input"},
+    {"path": "scripts/aidlc-official-bridge.py", "role": "inspection-input"},
+    {"path": "scripts/planning_lock.py", "role": "inspection-input"},
+    {"path": "scripts/task-start.py", "role": "inspection-input"},
+    {"path": "tests/test_aidlc_bundle_resolver.py", "role": "inspection-input"},
+    {"path": "tests/test_aidlc_official_bridge.py", "role": "existing-proof-path"}
+  ],
+  "criteria": {
+    "positive": [
+      "The official Requirements adapter exposes a read-only existing-run contract resolver that takes project root and run ID, calls the package-owned frozen binding resolver, and derives every required Requirements rule reference from that validated immutable pack.",
+      "Bundled-v2 ready resolution and bounded legacy-v1 read-only resolution remain distinct; legacy is attempted only when the bundled binding is categorically missing.",
+      "Every returned rule path remains inside the validated resolved pack, is a regular non-symlink file, and contains its required official marker.",
+      "Selector, process-cwd, and caller-manifest changes cannot affect the new resolver, while the existing pre-run stage_contract and public stage_request behavior remain unchanged for Phase 3.",
+      "The exact filtered proof collects three adapter tests covering four scenarios: frozen lookup and public-route preservation, bounded legacy fallback, and unsafe or incomplete state rejection. Its measured baseline has exactly three expected missing-API errors and no unrelated activation failures."
+    ],
+    "negative": [
+      "Phase 2B.2 does not wire the resolver into stage_request, task-start, Planning Lock, MCP, or host projection before Phase 3 creates the binding.",
+      "The resolver never reads current.json, depends on process cwd, accepts caller manifest authority, contacts the network, executes pack content, writes state, provisions a pack, or creates or rewrites a binding.",
+      "Only a categorically missing bundled binding may attempt bounded legacy continuation; altered or incompatible bundled state never downgrades or falls back.",
+      "The filtered proof excludes unrelated activation tests and may not be broadened without a new approved proof boundary.",
+      "No package resolver, bridge, task-start, Planning Lock, MCP, host, schema, registry, CLI, or documentation owner is editable in this slice."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests/test_aidlc_official_bridge.py -k frozen_requirements_adapter -v",
+    "tiers": ["unit", "contract", "behaviour"]
+  },
+  "private_reasoning_excluded": true
+}

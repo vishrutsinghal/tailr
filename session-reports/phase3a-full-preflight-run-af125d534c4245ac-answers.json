@@ -1,0 +1,42 @@
+[
+  {
+    "question_id": "question-d0bbb11a80fc4529",
+    "value": "A new Phase 3A bridge API resolves and atomically projects TailTrail's bundled official pack for explicit Full mode, returns Full readiness with one consistent resolution/project fingerprint chain, or returns typed Full-unavailable guidance without ever producing Lite; existing Standard and legacy explicit-manifest preflight remain unchanged and public routing is deferred."
+  },
+  {
+    "question_id": "question-5ab37685a23644b0",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-c43ce3d38fa94ef3",
+    "value": "python3 -m unittest tests/test_aidlc_official_bridge.py -k full_without_a_compatible_pack -k bundled_full_preflight -v"
+  },
+  {
+    "question_id": "question-670bbca434354d72",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-91f87788bd924b47",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-2e936062388947e5",
+    "value": "scripts/task-start.py"
+  },
+  {
+    "question_id": "question-c829223904054c1f",
+    "value": "scripts/planning_lock.py"
+  },
+  {
+    "question_id": "question-b31f32b4c1464062",
+    "value": "scripts/official-aidlc-requirements.py"
+  },
+  {
+    "question_id": "question-894dd619de3a425b",
+    "value": "tests/test_aidlc_bundle_resolver.py"
+  },
+  {
+    "question_id": "question-d0bcfb10300a43b6",
+    "value": "{\"path\":\"tests/test_aidlc_official_bridge.py\",\"role\":\"editable-proof\",\"test_cases\":[\"existing legacy explicit-manifest Full preflight remains unchanged\",\"bundled Full preflight returns ready Full identity with one resolution-to-projection fingerprint chain\",\"blocked bundle resolution stays Full-unavailable and never calls projection\",\"blocked projection stays Full-unavailable with categorical actionable issues\"],\"fixtures\":[\"temporary project root\",\"mock ready and blocked aidlc_bundle resolution receipts\",\"mock ready and blocked atomic projection results\",\"existing legacy detector fixture\"],\"assertions\":[\"ready requested_mode and effective_mode are full and network_used is false\",\"projection source_resolution_fingerprint equals the sealed resolution receipt fingerprint\",\"resolver failure prevents provisioning and creates no Lite result\",\"projection failure creates no ready result and preserves typed issues\",\"existing Standard and legacy manifest preflight remain unchanged\"],\"baseline\":{\"command\":\"python3 -m unittest tests/test_aidlc_official_bridge.py -k full_without_a_compatible_pack -k bundled_full_preflight -v\",\"outcome\":\"not-run\",\"observed\":\"Static inspection confirms the first filter selects the existing legacy Full-preflight preservation test; the bundled_full_preflight cases will be added after approval. No project test command was executed during planning.\"}}"
+  }
+]

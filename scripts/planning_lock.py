@@ -1352,13 +1352,19 @@ def _hands_free_requirement_matrix(features: list[dict[str, Any]], paths: list[s
         if not statement:
             continue
         lowered = statement.lower()
+        supplied_kind = feature.get("requirement_kind", feature.get("kind"))
+        requirement_kind = (
+            framing._kind(statement)
+            if supplied_kind is None
+            else framing.validate_requirement_kind(statement, str(supplied_kind))
+        )
         tiers = next((value for topic, value in tier_by_topic if topic in lowered), [])
         conditional = "rollout" in lowered or "infrastructure" in lowered
         rows.append({
             "display_id": str(feature.get("display_id") or f"REQ-{index:02d}"),
             "requirement_id": str(feature.get("requirement_id") or framing.stable_requirement_id(statement)),
             "query_terms": list(feature.get("query_terms") or framing.query_terms(statement)),
-            "kind": "preserve" if "preserve" in lowered else "change",
+            "kind": requirement_kind,
             "statement": statement,
             "acceptance_criteria": ["The stated outcome is observable through its named local evidence."],
             "preserve_rules": ["Preserve behavior outside this approved feature boundary."],
@@ -1568,14 +1574,48 @@ def _canonical_proof_checks(checks: list[dict[str, Any]]) -> list[dict[str, Any]
         key = (command, paths)
         existing = grouped.get(key)
         if existing is None:
-            grouped[key] = {
+            normalized = {
                 "kind": str(check.get("kind", "proof")),
                 "command": command,
                 "tiers": sorted(tiers),
                 "candidate_paths": list(paths),
             }
+            for field in (
+                "asserted_behavior", "source_answer_id", "evidence_fingerprint",
+                "proof_adequacy", "exact_bindings",
+            ):
+                if field in check:
+                    normalized[field] = copy.deepcopy(check[field])
+            if "exact_bindings" not in normalized and any(
+                field in check for field in (
+                    "asserted_behavior", "source_answer_id", "evidence_fingerprint", "proof_adequacy",
+                )
+            ):
+                normalized["exact_bindings"] = [copy.deepcopy(check)]
+            grouped[key] = normalized
             continue
         existing["tiers"] = sorted(set(existing["tiers"]) | tiers)
+        for field in (
+            "asserted_behavior", "source_answer_id", "evidence_fingerprint", "proof_adequacy",
+        ):
+            if field not in existing and field in check:
+                existing[field] = copy.deepcopy(check[field])
+        incoming_exact = check.get("exact_bindings")
+        if not isinstance(incoming_exact, list) and any(
+            field in check for field in (
+                "asserted_behavior", "source_answer_id", "evidence_fingerprint", "proof_adequacy",
+            )
+        ):
+            incoming_exact = [check]
+        if isinstance(incoming_exact, list):
+            merged = [
+                *[value for value in existing.get("exact_bindings", []) if isinstance(value, dict)],
+                *[value for value in incoming_exact if isinstance(value, dict)],
+            ]
+            unique: dict[str, dict[str, Any]] = {
+                _canonical_fingerprint(value): copy.deepcopy(value) for value in merged
+            }
+            existing["exact_bindings"] = list(unique.values())
     return list(grouped.values())
 
 
@@ -1637,12 +1677,19 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
 
         expected_checks: list[dict[str, Any]] = []
         if coalesced is not None:
-            expected_checks.append({
+            normalized = {
                 "kind": str(coalesced.get("kind", "proof")),
                 "command": commands[0],
                 "tiers": list(tiers),
                 "candidate_paths": list(coalesced.get("candidate_paths", []) or proof_paths[:1]),
-            })
+            }
+            for field in (
+                "asserted_behavior", "source_answer_id", "evidence_fingerprint",
+                "proof_adequacy", "exact_bindings",
+            ):
+                if field in coalesced:
+                    normalized[field] = copy.deepcopy(coalesced[field])
+            expected_checks.append(normalized)
         else:
             used_commands: set[str] = set()
             covered_tiers: set[str] = set()
@@ -1657,6 +1704,12 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
                     "tiers": [tier for tier in saved_tiers if tier in tiers],
                     "candidate_paths": list(saved.get("candidate_paths", []) or proof_paths[:1]),
                 }
+                for field in (
+                    "asserted_behavior", "source_answer_id", "evidence_fingerprint",
+                    "proof_adequacy", "exact_bindings",
+                ):
+                    if field in saved:
+                        normalized[field] = copy.deepcopy(saved[field])
                 expected_checks.append(normalized)
                 used_commands.add(command)
                 covered_tiers.update(normalized["tiers"])
@@ -1719,6 +1772,14 @@ def effective_plan_projection(report: dict[str, Any]) -> dict[str, Any]:
                     "command_id": cmd_id,
                     "tiers": check.get("tiers", []),
                     "candidate_paths": check.get("candidate_paths", []),
+                    **{
+                        field: copy.deepcopy(check[field])
+                        for field in (
+                            "asserted_behavior", "source_answer_id", "evidence_fingerprint",
+                            "proof_adequacy", "exact_bindings",
+                        )
+                        if field in check
+                    },
                 })
         
         checks_by_requirement[req_id] = checks_with_ids
@@ -2388,7 +2449,14 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
         for path in ((row.get("validation_contract", {}) or {}).get("editable_paths", []))
         if str(path)
     } | set(proposed_proof_paths))
-    approved_change_paths = sorted(set(editable_paths) | set(validation_edit_paths))
+    writable_outputs = [
+        dict(item)
+        for row in approved_anchor.get("requirements", []) if isinstance(row, dict)
+        for item in row.get("writable_outputs", [])
+        if isinstance(item, dict) and str(item.get("path", ""))
+    ]
+    writable_output_paths = sorted({str(item["path"]) for item in writable_outputs})
+    approved_change_paths = sorted(set(editable_paths) | set(validation_edit_paths) | set(writable_output_paths))
     inspection_paths = sorted({
         str(path) for row in scope_requirements for path in row.get("inspection_paths", []) if str(path)
     })
@@ -2411,6 +2479,7 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
             "maintainability_contract": row.get("maintainability_contract", {}),
             "ui_contract": row.get("ui_contract", {}),
             "scope_evidence": row.get("scope_evidence", {}),
+            "writable_outputs": row.get("writable_outputs", []),
         } for row in approved_anchor.get("requirements", [])],
         "workflow": delivery.get("stages", ["inspect approved scope", "implement", "validate", "review", "report completion"]),
         "selected_features": delivery.get("selected", []),
@@ -2423,6 +2492,8 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
         "proof_paths": proof_paths,
         "proposed_proof_paths": proposed_proof_paths,
         "validation_edit_paths": validation_edit_paths,
+        "writable_outputs": writable_outputs,
+        "writable_output_paths": writable_output_paths,
         "scope_decision": approved_anchor.get("scope_decision"),
         "scope_binding": workflow_scope_binding,
         "scope_drift_rule": {
@@ -2430,9 +2501,10 @@ def execution_handoff(root: Path, run_id: str, saved_report: dict[str, Any], anc
             "approved_implementation_paths": editable_paths,
             "approved_proposed_proof_paths": proposed_proof_paths,
             "approved_validation_paths": validation_edit_paths,
+            "approved_writable_output_paths": writable_output_paths,
             "status": "enforced-at-evidence-and-closure",
             "on_unexpected_path": "record unresolved scope drift and block completion until an approved revision or correction route resolves it",
-            "boundary": "Implementation owners are editable for approved source work. Requirement-linked validation paths named by the approved validation contract are editable only for proof assertions. Inspection-only paths remain read-only.",
+            "boundary": "Implementation owners are editable for approved source work. Explicit generated outputs are writable in IMPLEMENTATION and explicit configuration outputs in INFRA, subject to new-file due diligence. Requirement-linked validation paths are editable only for approved proof assertions. Inspection-only, excluded, and external paths remain non-writable.",
         },
         "execution_boundary": "Implementation may begin only within this activated approved anchor. TailTrail remains responsible for scope, evidence, drift, recovery, and completion controls.",
         "official_aidlc": bridge if isinstance(bridge, dict) else {"mode": (saved_report.get("aidlc_mode", {}) or {}).get("mode", "lite"), "state": "not-attached"},
@@ -3783,7 +3855,99 @@ def assert_write_allowed(root: Path, run_id: str) -> dict[str, Any]:
     payload["enterprise_policy_check"] = enterprise_target_policy().verify_bound(payload.get("enterprise_policy"), root.resolve())
     if payload["enterprise_policy_check"].get("blocking"):
         raise ValueError(f"Enterprise target policy blocks managed source changes for run `{run_id}`: {payload['enterprise_policy_check'].get('reason', '; '.join(payload['enterprise_policy_check'].get('issues', [])))} (resolve the policy issue, then re-check with `tailtrail planning show --root . --run-id {run_id}`)")
+    payload["coordinated_plan_check"] = _assert_coordinated_execution_allowed(root.resolve(), run_id)
     return payload
+
+
+def _assert_coordinated_execution_allowed(root: Path, run_id: str) -> dict[str, Any]:
+    """Enforce logical all-or-none activation for coordinated child plans.
+
+    Child Planning Locks may be activated one at a time while a batch approval
+    is being committed.  Their normal write authority is deliberately held
+    behind this additional gate until the exact batch receipt exists, the
+    child plan fingerprint is still current, and every declared dependency is
+    complete.
+    """
+    membership_path = L.state_dir(root, run_id) / "planning" / "coordinated-membership-v1.json"
+    if not membership_path.is_file():
+        return {"status": "not-applicable", "blocking": False}
+    membership = read(membership_path)
+    plan_id = str(membership.get("plan_id", ""))
+    directory = root / ".tailtrail" / "coordinated-plans" / plan_id
+    state_path = directory / "state.json"
+    proposal_path = directory / "proposal.json"
+    if not state_path.is_file() or not proposal_path.is_file():
+        raise ValueError(
+            f"coordinated plan `{plan_id}` is missing its canonical state or proposal; member `{run_id}` remains write-blocked"
+        )
+    state = read(state_path)
+    proposal = read(proposal_path)
+    receipt_reference = state.get("approval_receipt")
+    receipt_path = root / str(receipt_reference) if isinstance(receipt_reference, str) else None
+    if state.get("status") != "activated" or receipt_path is None or not receipt_path.is_file():
+        raise ValueError(
+            f"coordinated plan `{plan_id}` has not completed its atomic batch activation; member `{run_id}` remains write-blocked"
+        )
+    receipt = read(receipt_path)
+    coordination_fingerprint = membership.get("coordination_fingerprint")
+    if (
+        proposal.get("fingerprint") != coordination_fingerprint
+        or state.get("coordination_fingerprint") != coordination_fingerprint
+        or receipt.get("coordination_fingerprint") != coordination_fingerprint
+    ):
+        raise ValueError(
+            f"coordinated plan `{plan_id}` fingerprint mismatch invalidates member `{run_id}` write authority"
+        )
+    revision = revision_state(root, run_id)
+    if revision.get("pending_revision") is not None:
+        raise ValueError(
+            f"coordinated member `{run_id}` has pending revision v{revision['pending_revision']}; the batch approval is stale"
+        )
+    report, _source = canonical_plan_report(root, run_id)
+    current_material = {
+        "run_id": run_id,
+        "revision": revision.get("active_revision", 1),
+        "report": report,
+    }
+    current_fingerprint = "sha256:" + hashlib.sha256(
+        json.dumps(current_material, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    if current_fingerprint != membership.get("child_plan_fingerprint"):
+        raise ValueError(
+            f"coordinated member `{run_id}` changed after batch approval; create a new coordinated plan and approval"
+        )
+    child = next(
+        (item for item in state.get("children", []) if isinstance(item, dict) and item.get("run_id") == run_id),
+        None,
+    )
+    if child is None:
+        raise ValueError(f"coordinated plan `{plan_id}` does not contain member `{run_id}`")
+    children = {
+        str(item.get("run_id")): item
+        for item in state.get("children", [])
+        if isinstance(item, dict) and item.get("run_id")
+    }
+    incomplete = [
+        dependency
+        for dependency in child.get("depends_on", [])
+        if children.get(str(dependency), {}).get("state") != "completed"
+    ]
+    if incomplete:
+        raise ValueError(
+            f"coordinated member `{run_id}` is dependency-blocked by: {', '.join(incomplete)}"
+        )
+    if child.get("state") not in {"ready", "active"}:
+        raise ValueError(
+            f"coordinated member `{run_id}` is `{child.get('state')}`; only ready or active children may write"
+        )
+    return {
+        "status": "allowed",
+        "blocking": False,
+        "plan_id": plan_id,
+        "coordination_fingerprint": coordination_fingerprint,
+        "child_state": child.get("state"),
+        "dependencies": list(child.get("depends_on", [])),
+    }
 
 
 def _start_plan_material(

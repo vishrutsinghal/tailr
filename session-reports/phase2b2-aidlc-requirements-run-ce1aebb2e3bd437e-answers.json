@@ -1,0 +1,42 @@
+[
+  {
+    "question_id": "question-6196b41aa9184b65",
+    "value": "For an existing Standard or Full run, the official Requirements stage resolves all governing rules through the validated frozen active-run pack resolution for the saved bridge run ID; selector and working-directory changes cannot retarget it; caller-provided manifest paths cannot override active-run authority; bounded legacy-v1 continuation remains read-only and cannot create new Full authority; invalid state fails closed without mutation."
+  },
+  {
+    "question_id": "question-9bd34c02d9e34fb7",
+    "value": "scripts/official-aidlc-requirements.py"
+  },
+  {
+    "question_id": "question-32fbadae636f4501",
+    "value": "python3 -m unittest tests.test_aidlc_official_bridge"
+  },
+  {
+    "question_id": "question-f19ccd1bc53a49cc",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-572c5306d8554ecc",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-951d41d6a1584937",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-2b0df0ec5a7a4641",
+    "value": "scripts/planning_lock.py"
+  },
+  {
+    "question_id": "question-acaf59a8437a4cc1",
+    "value": "scripts/task-start.py"
+  },
+  {
+    "question_id": "question-4549074a97704342",
+    "value": "tests/test_aidlc_bundle_resolver.py"
+  },
+  {
+    "question_id": "question-1107a55eab754d02",
+    "value": "{\"path\":\"tests/test_aidlc_official_bridge.py\",\"role\":\"editable-proof\",\"test_cases\":[\"stage_request resolves Requirements rules from the frozen bundled-v2 run binding\",\"selector and working-directory changes do not retarget an existing run\",\"caller-provided compatibility_manifest cannot override active-run authority\",\"missing altered incompatible and unsafe bound state fails closed\",\"bounded legacy-v1 continuation uses saved bridge and activation authority without minting a binding\",\"host question validation and stage behavior remain compatible\"],\"fixtures\":[\"temporary compatible bundled projection and frozen run binding\",\"saved official bridge and activation artifacts\",\"content-addressed official Requirements rule pack\",\"selector pointing to a different future-run pack\",\"altered missing unsafe and legacy-v1 states\"],\"assertions\":[\"every returned rule reference remains within the validated frozen pack\",\"existing-run resolution never reads current.json or depends on process cwd\",\"legacy resolution is explicitly read-only and cannot authorize a new Full run\",\"invalid authority fails categorically without filesystem mutation or fallback\",\"question validation output remains unchanged for supported payloads\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_official_bridge\",\"outcome\":\"not-run\",\"observed\":\"The existing module contains official Requirements bridge and host-question coverage, but Phase 2B.2 frozen-binding scenarios have not yet been added or executed.\"}}"
+  }
+]

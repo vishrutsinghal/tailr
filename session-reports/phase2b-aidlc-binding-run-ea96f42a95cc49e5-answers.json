@@ -1,0 +1,46 @@
+[
+  {
+    "question_id": "question-6fa7b82992b5436a",
+    "value": "A Phase 2A.2 projected pack gains an immutable sealed active-run binding; active-run resolution validates that exact pack and ignores later current.json changes; the official Requirements adapter reads only from the validated frozen pack; bounded legacy-v1 continuation remains read-only and cannot authorize a new Full run; status is read-only and explicit provision reuses the offline Phase 2A.2 transaction."
+  },
+  {
+    "question_id": "question-70862a44bbca4a16",
+    "value": "tailtrail/aidlc_bundle.py owns binding, resolution, compatibility, status, and provision service behavior; scripts/official-aidlc-requirements.py separately owns frozen-pack Requirements lookup."
+  },
+  {
+    "question_id": "question-e179eeb3556c4df5",
+    "value": "tests/test_aidlc_bundle_resolver.py with python3 -m unittest tests.test_aidlc_bundle_resolver"
+  },
+  {
+    "question_id": "question-fa6d9ab025d74dd4",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md is inspection-only because it defines Phase 2 migration, frozen binding, Requirements lookup, status, provision, safety, compatibility, and proof boundaries but is not an implementation target."
+  },
+  {
+    "question_id": "question-7bf817aad6d54da7",
+    "value": "scripts/aidlc-official-bridge.py is inspection-only because its existing bridge contract supplies the compatibility and official identity fields consumed by the Requirements adapter; Phase 3 will wire the new binding into bridge creation."
+  },
+  {
+    "question_id": "question-149843d6ce074a87",
+    "value": "scripts/aidlc-official-detect.py is inspection-only because it defines current legacy-v1 and bundled-v2 compatibility classification; Phase 2B must preserve that compatibility boundary without editing the public detector."
+  },
+  {
+    "question_id": "question-bf5b4b946b404240",
+    "value": "scripts/planning_lock.py is inspection-only because it is the later Phase 3 owner that will persist and route the frozen binding; this Phase 2B slice provides the service contract but does not wire Planning Lock."
+  },
+  {
+    "question_id": "question-6fd5abbc6ea24126",
+    "value": "scripts/official-aidlc-state.py is inspection-only because it owns the existing canonical official run-state projection and identity consistency rules that the new binding must not duplicate or contradict."
+  },
+  {
+    "question_id": "question-4a7c4cda38cd4852",
+    "value": "schemas/official-aidlc-pack.schema.json is inspection-only because it defines the existing legacy-v1 and bundled-v2 pack boundary; Phase 2B consumes those classifications and adds no schema file."
+  },
+  {
+    "question_id": "question-b7c5b2fc0ee3460b",
+    "value": "{\"path\":\"tests/test_aidlc_bundle_resolver.py\",\"role\":\"editable-proof\",\"test_cases\":[\"seal a new active-run binding to one Phase 2A.2 projection\",\"resolve the frozen pack after current.json changes\",\"reject missing altered incompatible conflicting and unsafe bound state\",\"bounded legacy-v1 continuation cannot mint a new Full binding\",\"official Requirements adapter resolves every rule through the frozen binding\",\"status is read-only\",\"explicit provision service reuses the offline projection\"],\"fixtures\":[\"ready Phase 2A.1 source-checkout receipt\",\"valid Phase 2A.2 projected pack and projection receipt\",\"temporary TailTrail run roots\",\"legacy-v1 compatibility pack\",\"altered selector pack and binding states\"],\"assertions\":[\"the binding records exact pack projection source run and trust fingerprints\",\"active resolution never consults current.json after binding\",\"Requirements references remain under the validated frozen pack\",\"legacy continuation is explicitly bounded and cannot authorize new Full\",\"status makes no filesystem changes and provision remains offline\",\"invalid state returns categorical blockers without mutation\"],\"baseline\":{\"command\":\"python3 -m unittest tests.test_aidlc_bundle_resolver\",\"outcome\":\"pass\",\"observed\":\"The current Phase 2A.1 and 2A.2 suite collected and passed 16 tests before Phase 2B planning; it does not yet exercise active-run binding, frozen Requirements lookup, legacy continuation, or Phase 2B status.\"}}"
+  },
+  {
+    "question_id": "question-94b088b0b3e845b8",
+    "value": "tests/test_aidlc_official_bridge.py is inspection-only because it demonstrates the production bridge and Requirements call shape, but its broad baseline currently has two unrelated planning-audit activation errors; Phase 2B proof is therefore isolated in the green focused resolver module instead of treating this failing broad suite as authoritative proof."
+  }
+]

@@ -1,0 +1,167 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE0-CORRECTED-PROVENANCE",
+        "statement": "Implement corrected Phase 0 — Provenance decision and inventory from TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md: extend scripts/aidlc-official-install.py to acquire one pinned official AIDLC release, resolve its full commit, verify the archive SHA-256 and MIT-0 license, compare the complete checked-in rule inventory against the authenticated upstream bytes, preserve exact matches and replace only verified mismatches within the two rule directories, generate aidlc-rules/PROVENANCE.json, aidlc-rules/LICENSE, and aidlc-rules/BUNDLE_VERSION, retain aidlc-rules/VERSION only as non-authoritative legacy inspection input, and record the compatibility, trust-posture, source-checkout, schema-v1/v2, active-run, external-pack, and host-projection decisions required by Phase 0; exclude packaging manifests, runtime resolution, Full routing, and host adapters.",
+        "source_answer_ids": [
+          "answer-0e7b9fa019514a90",
+          "answer-7b9d24676382462b",
+          "answer-dcccc0a3ca5d4f66",
+          "answer-ab2fc498f7b640d3",
+          "answer-32c103a4e9014ad5",
+          "answer-3c38263ab9a340d7",
+          "answer-c67bf671242e4a8c",
+          "answer-12a5997b6d884edb",
+          "answer-109e02aae0c44bec",
+          "answer-64a1d143c6ef4445",
+          "answer-5fc9cb4c13734a17",
+          "answer-c4ccf6cb4b994afe",
+          "answer-c10a6b445f1140db",
+          "answer-c5539f3fa2a04c80",
+          "answer-37ef95c5ce34459d",
+          "answer-d8bd71bdfb7a4444",
+          "answer-3341334fffe14c6a"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "declared-path-008",
+          "declared-path-009",
+          "declared-path-011",
+          "declared-path-012",
+          "declared-path-013",
+          "declared-path-014",
+          "declared-path-015",
+          "declared-path-016"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/aidlc-official-install.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-7b9d24676382462b"]
+          },
+          {
+            "path": "aidlc-rules/aws-aidlc-rules",
+            "role": "configuration-output",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-ab2fc498f7b640d3"]
+          },
+          {
+            "path": "aidlc-rules/aws-aidlc-rule-details",
+            "role": "configuration-output",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-32c103a4e9014ad5"]
+          },
+          {
+            "path": "aidlc-rules/PROVENANCE.json",
+            "role": "generated-output",
+            "existing": false,
+            "host_declared": true,
+            "new_file_verdict": "new-confirmed",
+            "ownership_evidence": "The Phase 0 design assigns the acquisition and verification receipt to the official installer owner.",
+            "source_answer_ids": ["answer-3c38263ab9a340d7"]
+          },
+          {
+            "path": "aidlc-rules/LICENSE",
+            "role": "generated-output",
+            "existing": false,
+            "host_declared": true,
+            "new_file_verdict": "new-confirmed",
+            "ownership_evidence": "The Phase 0 design requires the verified official MIT-0 license beside the bundled rule tree.",
+            "source_answer_ids": ["answer-c67bf671242e4a8c"]
+          },
+          {
+            "path": "aidlc-rules/BUNDLE_VERSION",
+            "role": "configuration-output",
+            "existing": false,
+            "host_declared": true,
+            "new_file_verdict": "new-confirmed",
+            "ownership_evidence": "The Phase 0 design defines BUNDLE_VERSION as the TailTrail bundle-format identity, separate from the upstream release.",
+            "source_answer_ids": ["answer-12a5997b6d884edb"]
+          },
+          {
+            "path": "aidlc-rules/VERSION",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-109e02aae0c44bec"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-64a1d143c6ef4445"]
+          },
+          {
+            "path": "session-reports/phase0-corrected-current-inventory.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-5fc9cb4c13734a17"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_bundle_provenance.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_provenance",
+            "tier": "unit",
+            "asserted_behavior": "Archive parsing, safe-path validation, deterministic inventory comparison, and metadata generation are proven with controlled fixtures.",
+            "source_answer_id": "answer-dcccc0a3ca5d4f66"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_provenance.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_provenance",
+            "tier": "contract",
+            "asserted_behavior": "The generated provenance, license, bundle version, trust postures, compatibility decisions, and closed inventory satisfy the Phase 0 contract.",
+            "source_answer_id": "answer-dcccc0a3ca5d4f66"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_provenance.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_provenance",
+            "tier": "integration",
+            "asserted_behavior": "The acquisition owner compares a complete official archive with the checked-in rule tree, preserves matches, replaces only verified mismatches, and fails closed without complete upstream evidence.",
+            "source_answer_id": "answer-dcccc0a3ca5d4f66"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "One published official AIDLC tag, its full commit, release archive SHA-256, and exact MIT-0 license bytes are acquired from the official upstream and recorded together.",
+            "The complete current inventory of 30 rule files is compared by safe relative path and SHA-256 with the official archive; exact files are preserved and only verified mismatches are replaced.",
+            "PROVENANCE.json records acquisition, verification, archive, license, rule inventory, trust-posture, compatibility, migration, active-run, external-pack, and host-projection decisions without claiming to be an independent trust anchor.",
+            "BUNDLE_VERSION is separate from the official upstream revision; legacy VERSION is never treated as provenance.",
+            "The authenticated-release, development-local, corruption-detection-only, and external-explicit postures are explicit, and production Full fails closed when the required trust evidence is absent.",
+            "The focused proof exercises safe archive validation, closed inventory comparison, mismatch replacement, exact-match preservation, metadata generation, unsafe-path rejection, incomplete-acquisition failure, and deterministic output."
+          ],
+          "negative": [
+            "No provenance claim may be derived only from aidlc-rules/VERSION, local filenames, or self-generated hashes.",
+            "No unverified local rule byte may be labelled as part of the pinned official release.",
+            "No rule outside aidlc-rules/aws-aidlc-rules and aidlc-rules/aws-aidlc-rule-details may be replaced, and no mismatch may be replaced before upstream archive and source identity verification succeeds.",
+            "No package manifest, source-distribution manifest, release manifest, resolver, Full-mode route, project projection, or host adapter may be changed in Phase 0.",
+            "No runtime network dependency, silent Full-to-Lite downgrade, weakened integrity check, fabricated acquisition evidence, or publisher-authentication claim from local hashes may be introduced.",
+            "Failure to acquire or verify the official tag, full commit, archive, license, or complete inventory must fail closed without writing partial Phase 0 outputs."
+          ],
+          "source_answer_ids": ["answer-0e7b9fa019514a90"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-0e7b9fa019514a90"]
+        }
+      }
+    ]
+  }
+}

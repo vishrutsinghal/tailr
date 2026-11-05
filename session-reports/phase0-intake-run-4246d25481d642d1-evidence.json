@@ -1,0 +1,93 @@
+[
+  {
+    "answer_id": "answer-8c684ff0b6bc489d",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-5b2006bfff10481d",
+    "evidence_paths": [
+      "scripts/aidlc-official-install.py",
+      "tests/test_aidlc_official_install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-f2f515af6ba340ec",
+    "evidence_paths": [
+      "tests/test_aidlc_official_install.py",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-19a2f47b3a4a450b",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-62d5ec707e00465f",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-95a9480f909a4905",
+    "evidence_paths": [
+      "aidlc-rules/VERSION",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "scripts/aidlc-official-install.py"
+    ]
+  },
+  {
+    "answer_id": "answer-1f87077b54dc43b7",
+    "evidence_paths": [
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-e07aeedc40124319",
+    "evidence_paths": [
+      "package-manifest.json",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-2d272d46a90448c6",
+    "evidence_paths": [
+      "MANIFEST.in",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-a60c6feeacb743bb",
+    "evidence_paths": [
+      "release-manifest.json",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-af0934368e7a4324",
+    "evidence_paths": [
+      "scripts/aidlc-official-bridge.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-da01c7b251f446d8",
+    "evidence_paths": [
+      "scripts/task-start.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  },
+  {
+    "answer_id": "answer-ae1695b161b244b4",
+    "evidence_paths": [
+      "scripts/aidlc-official-host.py",
+      "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+    ]
+  }
+]

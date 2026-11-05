@@ -1,0 +1,146 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE2B1-BINDING",
+        "statement": "Extend the package-owned AIDLC bundle service with immutable frozen active-run binding, selector-independent run resolution, bounded read-only legacy-v1 continuation, read-only readiness status, and explicit offline provision service behavior.",
+        "requirement_kind": "change",
+        "requirement_kind_source_answer_ids": [
+          "answer-d82ab966ab7c42bd"
+        ],
+        "source_answer_ids": [
+          "answer-d82ab966ab7c42bd",
+          "answer-f59a7e3dada64f92",
+          "answer-ebb20f8bc9f64e02",
+          "answer-01368304ae034e6d",
+          "answer-02684fe1e5b044bd",
+          "answer-0a94a31589ad4e12",
+          "answer-dea5a64bfbe544bd",
+          "answer-fdb49ecbab9b4d3c",
+          "answer-3fb21d8108cd4277",
+          "answer-d650951c45254015",
+          "answer-0e10484f7da74bee"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "declared-path-008",
+          "proof-adequacy-009"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "host_declared": true,
+            "new_file_verdict": "not-applicable",
+            "ownership_evidence": "The completed Phase 2A.1 and Phase 2A.2 runs established this package module as the resolver, projection, selector, locking, and recovery owner; Phase 2B.1 extends the same service boundary with frozen run identity and status.",
+            "source_answer_ids": ["answer-f59a7e3dada64f92"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-01368304ae034e6d"]
+          },
+          {
+            "path": "scripts/official-aidlc-requirements.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-02684fe1e5b044bd"]
+          },
+          {
+            "path": "scripts/aidlc-official-bridge.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-0a94a31589ad4e12"]
+          },
+          {
+            "path": "scripts/aidlc-official-detect.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-dea5a64bfbe544bd"]
+          },
+          {
+            "path": "scripts/planning_lock.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-fdb49ecbab9b4d3c"]
+          },
+          {
+            "path": "scripts/official-aidlc-state.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-3fb21d8108cd4277"]
+          },
+          {
+            "path": "schemas/official-aidlc-pack.schema.json",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-d650951c45254015"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "unit",
+            "asserted_behavior": "Binding seals, fingerprint validation, selector independence, compatibility classification, status calculation, and explicit provision behavior are deterministic against controlled filesystem fixtures.",
+            "source_answer_id": "answer-ebb20f8bc9f64e02"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "contract",
+            "asserted_behavior": "The frozen run binding is a separate closed versioned contract that binds the run identity to the exact project pack, projection receipt, source receipt, project identity, trust posture, and compatibility classification.",
+            "source_answer_id": "answer-ebb20f8bc9f64e02"
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "command": "python3 -m unittest tests.test_aidlc_bundle_resolver",
+            "tier": "behaviour",
+            "asserted_behavior": "An active run remains bound to its original verified pack after future selector changes; invalid bound state fails without mutation; legacy continuation stays bounded; status is read-only; explicit provision remains offline.",
+            "source_answer_id": "answer-ebb20f8bc9f64e02"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "A Phase 2A.2 projection mints or reuses one sealed immutable active-run binding and resolves the exact bound pack independently of current.json.",
+            "Legacy-v1 continuation is explicitly bounded and read-only, status is non-mutating, and explicit provision reuses the offline projection service.",
+            "Focused proof exercises binding, selector independence, integrity failures, compatibility, status, provision, and zero-network preservation."
+          ],
+          "negative": [
+            "No operation contacts the network, executes pack content, mutates source bytes, rewrites an existing binding, follows unsafe links, silently upgrades legacy state, or grants new Full authority from legacy state.",
+            "Missing, altered, stale, incompatible, conflicting, or unsafe state blocks without changing source, pack, selector, or run state.",
+            "This slice does not edit the Requirements adapter or implement Full Start, Planning Lock, MCP, host, schema, registry, dispatcher, or documentation wiring."
+          ],
+          "source_answer_ids": [
+            "answer-d82ab966ab7c42bd",
+            "answer-01368304ae034e6d",
+            "answer-0e10484f7da74bee"
+          ]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-d82ab966ab7c42bd"]
+        }
+      }
+    ]
+  }
+}

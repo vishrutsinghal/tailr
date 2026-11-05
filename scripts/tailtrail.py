@@ -566,9 +566,12 @@ def navigator(args: list[str]) -> int:
     if not args:
         print('Usage: tailtrail navigator [context|plan|implement] "your scope" [--changed path/to/file]')
         print('       tailtrail navigator scope inspect --goal "your goal" [--root .]')
+        print('       tailtrail navigator intake open|record|validate|status|finalize [args]')
         return 2
     if args[0] == "scope":
         return run_script("navigator-scope.py", args[1:])
+    if args[0] == "intake":
+        return run_script("question-orchestrator.py", args[1:])
     mode = "context"
     if args[0] in {"context", "plan", "implement"}:
         mode, args = args[0], args[1:]
@@ -1329,6 +1332,8 @@ def main() -> int:
     if command in {"discuss", "approve", "continue", "close"}:
         return run_script("orchestration_facade.py", [command, *args])
     if command == "planning":
+        if args and args[0] == "coordinate":
+            return run_script("coordinated-plan.py", args[1:])
         if args and args[0] == "question-context":
             return run_script("question-orchestrator.py", ["show", *args[1:]])
         if args and args[0] == "aidlc-question":

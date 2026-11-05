@@ -776,6 +776,28 @@ class PlanningAuditTests(unittest.TestCase):
         self.assertEqual(proof_findings, [])
 
 
+    def test_lost_writable_output_produces_role_aware_correction(self) -> None:
+        output = {
+            "path": "generated/provenance.json", "role": "generated-output", "existing": False,
+            "new_file_verdict": "new-confirmed", "source_answer_ids": ["answer-output"],
+            "evidence_fingerprint": "sha256:" + "1" * 64,
+        }
+        report = {
+            "planning_readiness": {"reconciliation": {"requirements": [{
+                "requirement_uid": "req-output", "writable_outputs": [output],
+            }]}},
+            "navigator": {"requirement_matrix": [{
+                "display_id": "REQ-01", "requirement_uid": "req-output",
+                "likely_paths": ["src/owner.py"], "writable_outputs": [],
+            }]},
+        }
+        findings = audit._output_role_findings(
+            "run-output", report, report["navigator"]["requirement_matrix"], pending=False,
+        )
+        self.assertEqual(findings[0]["type"], "writable-output-role-lost")
+        self.assertEqual(findings[0]["fix"]["changes"][0]["kind"], "output-add")
+
+
 class CorrectionExecutabilityTests(unittest.TestCase):
     def test_executable_suggestions_parse_with_authority_marker(self) -> None:
         report = _converged_report([{
@@ -856,6 +878,66 @@ class CorrectionExecutabilityTests(unittest.TestCase):
             f.get("type") == "named_path_missing_from_scope" and "scope-add" in str(f.get("suggested_fix", ""))
             for f in result["findings"]
         ))
+
+    def test_proof_adequacy_is_required_when_intake_marks_the_contract(self) -> None:
+        command = "python3 -m unittest tests.test_service"
+        row = {
+            "display_id": "REQ-01",
+            "requirement_uid": "req-proof-adequacy",
+            "kind": "change",
+            "scope_evidence": {"proof_paths": ["tests/test_service.py"]},
+            "validation_contract": {
+                "state": "required",
+                "proof_adequacy_required": True,
+                "editable_paths": [],
+            },
+        }
+        findings = audit._proof_binding_findings(
+            "audit-proof-adequacy",
+            row,
+            [{
+                "kind": "proof",
+                "command": command,
+                "candidate_paths": ["tests/test_service.py"],
+                "tiers": ["unit"],
+            }],
+        )
+        self.assertIn("proof-adequacy-unresolved", {finding["type"] for finding in findings})
+
+    def test_editable_proof_must_be_projected_into_editable_scope(self) -> None:
+        command = "python3 -m unittest tests.test_service"
+        adequacy = {
+            "schema_version": "1",
+            "path": "tests/test_service.py",
+            "role": "editable-proof",
+            "test_cases": ["service behavior"],
+            "fixtures": ["service fixture"],
+            "assertions": ["service result"],
+            "baseline": {"command": command, "outcome": "fail", "observed": "expected assertion missing"},
+        }
+        row = {
+            "display_id": "REQ-01",
+            "requirement_uid": "req-editable-proof",
+            "kind": "change",
+            "scope_evidence": {"proof_paths": ["tests/test_service.py"]},
+            "validation_contract": {
+                "state": "required",
+                "proof_adequacy_required": True,
+                "editable_paths": [],
+            },
+        }
+        findings = audit._proof_binding_findings(
+            "audit-editable-proof",
+            row,
+            [{
+                "kind": "proof",
+                "command": command,
+                "candidate_paths": ["tests/test_service.py"],
+                "tiers": ["unit"],
+                "exact_bindings": [{"proof_adequacy": adequacy}],
+            }],
+        )
+        self.assertIn("proof-role-scope-mismatch", {finding["type"] for finding in findings})
 
 
 if __name__ == "__main__":

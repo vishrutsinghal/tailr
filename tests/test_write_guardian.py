@@ -119,6 +119,36 @@ class WriteGuardianTests(unittest.TestCase):
         self.assertFalse(allowed)
         self.assertIn("not in run", error or "")
 
+    def test_generated_output_is_explicit_and_implementation_stage_only(self) -> None:
+        output = {
+            "path": "generated/provenance.json", "role": "generated-output", "existing": False,
+            "new_file_due_diligence": {"verdict": "new-confirmed", "write_eligible": True},
+            "grants_behavioral_ownership": False,
+        }
+        self._write_anchor([{"likely_paths": ["src/app.py"], "writable_outputs": [output]}])
+        allowed, error = anchor_aware_write_check(self.root, self.run_id, output["path"])
+        self.assertTrue(allowed, error)
+        self._set_stage("TESTING")
+        allowed, error = anchor_aware_write_check(self.root, self.run_id, output["path"])
+        self.assertFalse(allowed)
+        self.assertIn("IMPLEMENTATION", error or "")
+
+    def test_configuration_output_is_infra_only_and_due_diligence_bound(self) -> None:
+        output = {
+            "path": "config/version.txt", "role": "configuration-output", "existing": False,
+            "new_file_due_diligence": {"verdict": "unverified", "write_eligible": False},
+            "grants_behavioral_ownership": False,
+        }
+        self._write_anchor([{"likely_paths": ["src/app.py"], "writable_outputs": [output]}])
+        self._set_stage("INFRA")
+        allowed, error = anchor_aware_write_check(self.root, self.run_id, output["path"])
+        self.assertFalse(allowed)
+        self.assertIn("due diligence", error or "")
+        output["new_file_due_diligence"] = {"verdict": "new-confirmed", "write_eligible": True}
+        self._write_anchor([{"likely_paths": ["src/app.py"], "writable_outputs": [output]}])
+        allowed, error = anchor_aware_write_check(self.root, self.run_id, output["path"])
+        self.assertTrue(allowed, error)
+
     def test_codex_apply_patch_allows_only_approved_paths(self) -> None:
         self._write_anchor([{"likely_paths": ["src/app.py"]}])
         allowed = run_hook({

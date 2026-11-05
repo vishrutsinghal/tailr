@@ -81,6 +81,8 @@ class CrossPlatformSupplyChainTests(unittest.TestCase):
             for host in ("codex", "copilot", "claude"):
                 for operation in ("install", "verify", "update", "rollback", "uninstall"):
                     checks[f"{route}:{host}:{operation}"] = "pass"
+                for operation in ("full-offline", "full-idempotent", "full-deep-unicode-root"):
+                    checks[f"{route}:{host}:{operation}"] = "pass"
         return {
             "schema_version": "1", "type": "tailtrail-platform-qualification-receipt", "observed": True,
             "runner": {"os": system, "system": system, "release": "test", "machine": "test", "ci": True},
@@ -120,6 +122,14 @@ class CrossPlatformSupplyChainTests(unittest.TestCase):
         self.assertIn("id-token: write", workflow)
         self.assertIn("attestations: write", workflow)
         self.assertIn("actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6", workflow)
+        self.assertIn("Exercise both artifact routes and every host lifecycle", workflow)
+
+    def test_platform_exercise_requires_public_full_proof_for_every_host_and_route(self) -> None:
+        body = (ROOT / "scripts" / "platform-qualification.py").read_text(encoding="utf-8")
+        self.assertIn('checks[f"{route}:{host}:full-offline"] = "pass"', body)
+        self.assertIn('checks[f"{route}:{host}:full-idempotent"] = "pass"', body)
+        self.assertIn('checks[f"{route}:{host}:full-deep-unicode-root"] = "pass"', body)
+        self.assertIn('"--host", host, "--aidlc", "full"', body)
 
 
 if __name__ == "__main__":

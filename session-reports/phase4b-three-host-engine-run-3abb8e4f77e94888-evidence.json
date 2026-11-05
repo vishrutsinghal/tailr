@@ -1,0 +1,18 @@
+[
+  {"answer_id": "answer-b710235c1cec45ac", "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "scripts/aidlc-official-host.py"]},
+  {"answer_id": "answer-43128ad86ed54622", "evidence_paths": ["scripts/aidlc-official-host.py"]},
+  {"answer_id": "answer-52495e29023f45ec", "evidence_paths": ["tests/test_aidlc_official_host.py", "scripts/aidlc-official-host.py"]},
+  {"answer_id": "answer-7a02bcc35b5143d0", "evidence_paths": ["TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-89d1b0eaba7a4692", "evidence_paths": ["tailtrail/aidlc_bundle.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-ae5a6d2b59a64f9a", "evidence_paths": ["scripts/aidlc-official-bridge.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-5d72642ad0cb4fe1", "evidence_paths": ["schemas/official-aidlc-run-state.schema.json", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-2a084ad2386946ef", "evidence_paths": ["scripts/install-local.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-04ec91adb8804495", "evidence_paths": ["scripts/install-copilot.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-8df868d501764c5d", "evidence_paths": ["tests/test_aidlc_official_host.py"]},
+  {"answer_id": "answer-e08df9cbbac14614", "evidence_paths": ["AGENTS.md", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-6a01ee92479a47ce", "evidence_paths": [".github/copilot-instructions.md", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-573b061138c648ac", "evidence_paths": ["CLAUDE.md", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-affac273e7204bff", "evidence_paths": ["scripts/task-start.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-4c90e3b687c341ff", "evidence_paths": ["scripts/planning_lock.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]},
+  {"answer_id": "answer-45ef5296a7f74015", "evidence_paths": ["scripts/mcp-server.py", "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"]}
+]

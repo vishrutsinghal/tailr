@@ -1,0 +1,137 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE2B2-ADAPTER",
+        "statement": "Add a read-only official Requirements adapter API that resolves rule references from a validated frozen bundled-v2 run binding or bounded legacy-v1 continuation without changing the existing public route before Phase 3.",
+        "requirement_kind": "change",
+        "requirement_kind_source_answer_ids": ["answer-1604905f73ab47a3"],
+        "source_answer_ids": [
+          "answer-1604905f73ab47a3",
+          "answer-bd8fc7b4723c46ef",
+          "answer-beeeda02085d4c3a",
+          "answer-ec46044b3ff541bb",
+          "answer-494385e5380d4ce0",
+          "answer-fe863927bc8c4d18",
+          "answer-6f300ec96af1410b",
+          "answer-0efbc7fb9817471e",
+          "answer-b31e15009e10496d",
+          "answer-d1f00da7c9c1492d"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-006",
+          "declared-path-007",
+          "proof-adequacy-008"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/official-aidlc-requirements.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "host_declared": true,
+            "new_file_verdict": "not-applicable",
+            "ownership_evidence": "This adapter owns official Requirements rule reference construction. The corrected slice adds a separate frozen-run API here while leaving callers and the existing public route unchanged for Phase 3.",
+            "source_answer_ids": ["answer-bd8fc7b4723c46ef"]
+          },
+          {
+            "path": "tailtrail/aidlc_bundle.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-ec46044b3ff541bb"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-494385e5380d4ce0"]
+          },
+          {
+            "path": "scripts/aidlc-official-bridge.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-fe863927bc8c4d18"]
+          },
+          {
+            "path": "scripts/planning_lock.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-6f300ec96af1410b"]
+          },
+          {
+            "path": "scripts/task-start.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-0efbc7fb9817471e"]
+          },
+          {
+            "path": "tests/test_aidlc_bundle_resolver.py",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-b31e15009e10496d"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+            "tier": "unit",
+            "asserted_behavior": "Run-resolution classification, safe pack-root derivation, rule inventory and marker checks, and categorical error construction are deterministic against controlled fixtures.",
+            "source_answer_id": "answer-beeeda02085d4c3a"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+            "tier": "contract",
+            "asserted_behavior": "The new adapter API consumes only package-owned bundled-v2 or bounded legacy-v1 run resolution and returns references confined to that resolved pack without granting new authority.",
+            "source_answer_id": "answer-beeeda02085d4c3a"
+          },
+          {
+            "path": "tests/test_aidlc_official_bridge.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+            "tier": "behaviour",
+            "asserted_behavior": "Frozen-run rule lookup remains stable across selector and cwd changes, invalid authority blocks without mutation or fallback, and the existing public stage route remains unchanged for Phase 3.",
+            "source_answer_id": "answer-beeeda02085d4c3a"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "A separate read-only existing-run API resolves Requirements rules through the package-owned frozen bundled-v2 binding or bounded legacy-v1 continuation.",
+            "Returned rules are regular non-symlink files inside the resolved immutable pack and retain the required official markers.",
+            "Selector, cwd, and caller manifest changes cannot affect the new API; existing pre-run stage_contract, stage_request, and host-question behavior remain unchanged.",
+            "Focused proof covers success, compatibility, preservation, categorical failure, non-mutation, and zero-network boundaries."
+          ],
+          "negative": [
+            "The new API does not read current.json, use process cwd or caller manifest authority, contact the network, execute rules, provision state, or mint or rewrite bindings.",
+            "Only a categorically missing bundled binding may try bounded legacy continuation; altered or incompatible bundled state never downgrades or falls back.",
+            "Public Full/Standard Start and stage_request integration remain excluded until Phase 3 creates the frozen binding before calling the adapter.",
+            "No package resolver, bridge, task-start, Planning Lock, MCP, host, schema, registry, CLI, or documentation owner is editable in this slice."
+          ],
+          "source_answer_ids": [
+            "answer-1604905f73ab47a3",
+            "answer-494385e5380d4ce0",
+            "answer-d1f00da7c9c1492d"
+          ]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-1604905f73ab47a3"]
+        }
+      }
+    ]
+  }
+}

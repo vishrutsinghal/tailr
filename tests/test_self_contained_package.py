@@ -88,6 +88,10 @@ class SelfContainedPackageTests(unittest.TestCase):
         run([sys.executable, "setup.py", "sdist", "--dist-dir", str(cls.output)], cwd=ROOT, env=env)
         cls.wheel = next(cls.output.glob("*.whl"))
         cls.sdist = next(cls.output.glob("*.tar.gz"))
+        cls.sdist_wheel_output = cls.output / "sdist-wheel"
+        cls.sdist_wheel_output.mkdir()
+        run([sys.executable, "-m", "pip", "wheel", str(cls.sdist), "--no-deps", "--no-build-isolation", "--wheel-dir", str(cls.sdist_wheel_output)], cwd=ROOT, env=env)
+        cls.sdist_wheel = next(cls.sdist_wheel_output.glob("*.whl"))
         run([sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "--no-build-isolation", "--wheel-dir", str(cls.repro_output)], cwd=ROOT, env=env)
         run([sys.executable, "setup.py", "sdist", "--dist-dir", str(cls.repro_output)], cwd=ROOT, env=env)
 
@@ -139,8 +143,17 @@ class SelfContainedPackageTests(unittest.TestCase):
         self.assertTrue(wheel["valid"], wheel["issues"])
         self.assertTrue(sdist["valid"], sdist["issues"])
         self.assertGreater(wheel["integrity_files"], 400)
+        self.assertEqual(wheel["bundle_files"], sdist["bundle_files"])
+        self.assertGreater(wheel["bundle_files"], 30)
+        self.assertEqual(wheel["bundle_identity"], sdist["bundle_identity"])
+        bundle_files = sorted(
+            path.relative_to(ROOT).as_posix()
+            for path in (ROOT / "aidlc-rules").rglob("*")
+            if path.is_file()
+        )
         with zipfile.ZipFile(self.wheel) as archive:
-            self.assertIn("tailtrail/PACKAGE-CONTRACT.md", archive.namelist())
+            wheel_names = set(archive.namelist())
+            self.assertIn("tailtrail/PACKAGE-CONTRACT.md", wheel_names)
             for relative in (
                 "adapters/navigator-scope-scenarios-v2.json",
                 "schemas/host-scope-conformance.schema.json",
@@ -162,9 +175,18 @@ class SelfContainedPackageTests(unittest.TestCase):
                 "scripts/session_control.py",
                 "schemas/tailtrail-session-attachment.schema.json",
             ):
-                self.assertIn(f"tailtrail/{relative}", archive.namelist())
+                self.assertIn(f"tailtrail/{relative}", wheel_names)
+            integrity = json.loads(archive.read("tailtrail/package-integrity.json"))
+            for relative in bundle_files:
+                self.assertIn(f"tailtrail/{relative}", wheel_names)
+                self.assertIn(relative, integrity["files"])
         with tarfile.open(self.sdist) as archive:
             names = archive.getnames()
+        for relative in bundle_files:
+            self.assertTrue(
+                any(name.endswith(f"/{relative}") for name in names),
+                f"source distribution is missing {relative}",
+            )
         self.assertFalse(any("/tests/" in name for name in names))
         self.assertEqual(self.wheel.read_bytes(), next(self.repro_output.glob("*.whl")).read_bytes())
         self.assertEqual(self.sdist.read_bytes(), next(self.repro_output.glob("*.tar.gz")).read_bytes())
@@ -189,6 +211,34 @@ class SelfContainedPackageTests(unittest.TestCase):
         python = root / "venv" / "bin" / "python"
         run([str(python), "-m", "pip", "install", "--no-index", "--no-deps", str(artifact)])
         return temp, root
+
+    def _assert_installed_full_route(self, artifact: Path, route: str) -> None:
+        for host in ("codex", "copilot", "claude"):
+            temp, sandbox = self._installed_venv(artifact)
+            try:
+                executable = sandbox / "venv" / "bin" / "tailtrail"
+                project = sandbox / f"{route} Full root ünicode" / "deep" / "qualification" / host
+                project.mkdir(parents=True)
+                command = [
+                    str(executable), "start", "qualify bundled offline Full AIDLC release",
+                    "--root", str(project), "--host", host, "--aidlc", "full",
+                    "--no-planning-lock", "--format", "json",
+                ]
+                first = json.loads(run(command, cwd=sandbox, expected=2).stdout)
+                second = json.loads(run(command, cwd=sandbox, expected=2).stdout)
+                first_authority = first["official_requirement_authority"]
+                second_authority = second["official_requirement_authority"]
+                self.assertEqual(first["status"], "awaiting-host-interpretation")
+                self.assertEqual(first_authority["mode"], "full")
+                self.assertEqual(first_authority["pack_fingerprint"], second_authority["pack_fingerprint"])
+                self.assertEqual(first_authority["project_projection_fingerprint"], second_authority["project_projection_fingerprint"])
+                self.assertTrue((project / ".tailtrail" / "official-aidlc" / "current.json").is_file())
+            finally:
+                temp.cleanup()
+
+    def test_wheel_and_sdist_built_wheel_run_bundled_full_offline_for_every_host(self) -> None:
+        self._assert_installed_full_route(self.wheel, "wheel")
+        self._assert_installed_full_route(self.sdist_wheel, "sdist-to-wheel")
 
     def test_wheel_runs_core_lifecycle_without_checkout(self) -> None:
         temp, sandbox = self._installed_venv(self.wheel)
@@ -222,8 +272,28 @@ class SelfContainedPackageTests(unittest.TestCase):
             run_id = started["planning_lock"]["run_id"]
             self.assertTrue(started["setup_posture"]["installed_package"])
             self.assertFalse(started["setup_posture"]["source_checkout"])
-            activated = json.loads(run([str(executable), "planning", "activate", "--root", str(project), "--run-id", run_id, "--approved", "--format", "json"], cwd=sandbox).stdout)
-            self.assertEqual(activated["planning_lock"]["status"], "approved")
+            proof_command = "python3 tests/test_readme.py"
+            proof_change = json.dumps([
+                {
+                    "kind": "proof-update",
+                    "requirement_uid": requirement["display_id"],
+                    "reason": "Bind the installed-package lifecycle fixture to its runnable README proof.",
+                    "evidence_plan": ["Run the README regression proof."],
+                    "checks": [{"command": proof_command, "tiers": ["unit"]}],
+                    "editable_paths": ["tests/test_readme.py"],
+                }
+                for requirement in started["navigator"]["requirement_matrix"]
+            ])
+            run([
+                str(executable), "planning", "revise", "--root", str(project),
+                "--run-id", run_id, "--changes", proof_change,
+                "--approved-proposal",
+            ], cwd=sandbox)
+            run([
+                str(executable), "planning", "revision-approve", "--root", str(project),
+                "--run-id", run_id, "--revision", "2",
+                "--approved",
+            ], cwd=sandbox)
             anchor = json.loads((project / ".tailtrail" / "runs" / run_id / "anchors" / "approved-v1.json").read_text(encoding="utf-8"))
             requirement_uids = [item["requirement_uid"] for item in anchor["requirements"]]
             requirement_uid = requirement_uids[0]
@@ -240,7 +310,7 @@ class SelfContainedPackageTests(unittest.TestCase):
             (project / "README.md").write_text("after\n", encoding="utf-8")
 
             source_event = {"kind": "source-edit", "requirement_uids": requirement_uids, "changed_paths": ["README.md"]}
-            command_event = {"kind": "ci-receipt", "requirement_uids": requirement_uids, "changed_paths": ["README.md"], "tier": "unit", "command_label": "README proof", "command": "test README.md", "outcome": "pass", "environment": "isolated-wheel", "asserted_behavior": "README wording and its regression contract are validated", "artifact": "proof.json", "evidence_label": "ci-receipt", "evidence_quality": "attested"}
+            command_event = {"kind": "ci-receipt", "requirement_uids": requirement_uids, "changed_paths": ["README.md"], "tier": "unit", "command_label": "README proof", "command": proof_command, "outcome": "pass", "environment": "isolated-wheel", "asserted_behavior": "README wording and its regression contract are validated", "artifact": "proof.json", "evidence_label": "ci-receipt", "evidence_quality": "attested"}
             for event in (source_event, command_event):
                 run([str(executable), "execution-evidence", "record", "--root", str(project), "--run-id", run_id, "--event", json.dumps(event), "--approved"], cwd=sandbox)
             finalized = json.loads(run([str(executable), "closure", "finalize", "--root", str(project), "--run-id", run_id], cwd=sandbox).stdout)
@@ -262,6 +332,12 @@ class SelfContainedPackageTests(unittest.TestCase):
             project.mkdir()
             for name in ("tailtrail-enforcement-policy.json", "tailtrail-enforcement-baseline.json", "tailtrail-enforcement-suppressions.json"):
                 (project / name).write_bytes((ROOT / name).read_bytes())
+            # This installed-package smoke test verifies enforcement mechanics,
+            # not the repository's date-bound suppression review schedule.
+            suppressions_path = project / "tailtrail-enforcement-suppressions.json"
+            suppressions = json.loads(suppressions_path.read_text(encoding="utf-8"))
+            suppressions["suppressions"] = []
+            suppressions_path.write_text(json.dumps(suppressions), encoding="utf-8")
             validated = json.loads(run([str(executable), "enforce", "validate", "--root", str(project)], cwd=sandbox).stdout)
             self.assertEqual("passed", validated["status"])
             diff = project / "safe.patch"

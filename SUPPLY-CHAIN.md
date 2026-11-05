@@ -12,8 +12,12 @@ The release workflow uses the exact build-only packages in
 `release-build-lock.json`, a fixed `SOURCE_DATE_EPOCH`, and no runtime
 dependencies. It builds wheel and sdist twice and compares bytes, builds an
 additional wheel from the sdist, and inspects archive paths and packaged
-resource hashes before qualification. Publication must reuse these artifacts;
-it must not rebuild them.
+resource hashes before qualification. The archive inspection also requires the
+complete bundled official AIDLC manifest, license, provenance, and closed inner
+hash inventory to agree with the outer package-integrity inventory. This is
+corruption detection; publisher authenticity comes from the release
+attestation described below. Publication must reuse these artifacts; it must
+not rebuild them.
 
 ## Evidence bundle
 
@@ -66,7 +70,10 @@ Each hosted runner installs the canonical wheel and the wheel built from the
 canonical sdist into separate isolated environments. It exercises the console
 launcher, spaces and Unicode paths, CRLF preservation, permissions and
 symlinks where the OS exposes them, plus install, verify, update, rollback, and
-uninstall for Codex, Copilot, and Claude Core. The aggregate command requires
+uninstall for Codex, Copilot, and Claude Core. For both artifact routes and all
+three hosts it also invokes the public explicit Full route from a deep
+space-and-Unicode path, requires offline bundled provisioning, and proves an
+identical second invocation is idempotent. The aggregate command requires
 exactly Linux/macOS/Windows x Python 3.12/3.13/3.14, the same source SHA, and the same
 artifact hashes.
 

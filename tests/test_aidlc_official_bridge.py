@@ -1,11 +1,13 @@
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +63,27 @@ def compatible_pack(root: Path) -> None:
     (pack / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
+def requirements_rule_pack(pack: Path) -> dict[str, Path]:
+    rules = {
+        "core_workflow": pack / "aws-aidlc-rules" / "core-workflow.md",
+        "requirements_analysis": pack / "aws-aidlc-rule-details" / "inception" / "requirements-analysis.md",
+        "question_format": pack / "aws-aidlc-rule-details" / "common" / "question-format-guide.md",
+        "content_validation": pack / "aws-aidlc-rule-details" / "common" / "content-validation.md",
+        "session_continuity": pack / "aws-aidlc-rule-details" / "common" / "session-continuity.md",
+    }
+    contents = {
+        "core_workflow": "# Requirements Analysis\n",
+        "requirements_analysis": "# Generate Clarifying Questions\n",
+        "question_format": "# Other\n",
+        "content_validation": "# Content Validation\n",
+        "session_continuity": "# Session\n",
+    }
+    for name, path in rules.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(contents[name], encoding="utf-8")
+    return rules
+
+
 def host_questions() -> list[dict[str, object]]:
     return [{
         "id": "OQ1",
@@ -103,7 +126,318 @@ def start_command(root: Path, goal: str, *extra: str) -> list[str]:
     ]
 
 
+def bundled_bridge_preflight(root: Path, *, host: str = "codex") -> dict[str, object]:
+    """Build one sealed Phase 3A result without resolving mutable project state."""
+    fingerprint = "sha256:" + "1" * 64
+    pack_fingerprint = "sha256:" + "2" * 64
+    projection_fingerprint = "sha256:" + "3" * 64
+    pack_path = f".tailtrail/official-aidlc/packs/{pack_fingerprint[7:]}"
+    pack = root / pack_path
+    rules = pack / "aws-aidlc-rules" / "core-workflow.md"
+    rules.parent.mkdir(parents=True, exist_ok=True)
+    rules.write_text("# Bundled Full workflow\n", encoding="utf-8")
+    (pack / "manifest.json").write_text(
+        json.dumps({"schema_version": "2", "pack_fingerprint": pack_fingerprint}),
+        encoding="utf-8",
+    )
+    projection = {
+        "state": "ready",
+        "network_used": False,
+        "source_resolution_fingerprint": fingerprint,
+        "projection_fingerprint": projection_fingerprint,
+        "pack_fingerprint": pack_fingerprint,
+        "pack_path": pack_path,
+        "trust_posture": "release-authenticated",
+        "issues": [],
+    }
+    projection["receipt_fingerprint"] = bridge._fingerprint(projection)
+    preflight = {
+        "mode": "full",
+        "requested_mode": "full",
+        "effective_mode": "full",
+        "state": "official-full-ready",
+        "network_used": False,
+        "resolution_receipt_fingerprint": fingerprint,
+        "source_resolution_fingerprint": fingerprint,
+        "project_projection_fingerprint": projection_fingerprint,
+        "pack_fingerprint": pack_fingerprint,
+        "pack_path": pack_path,
+        "trust_posture": "release-authenticated",
+        "host": host,
+        "official_source": "https://github.com/awslabs/aidlc-workflows",
+        "official_revision": "v1.0.1",
+        "official_commit": "a" * 40,
+        "project_projection": projection,
+        "issues": [],
+        "boundary": "Bundled Full rules are resolved and projected offline.",
+    }
+    preflight["preflight_fingerprint"] = bridge._fingerprint(preflight)
+    return preflight
+
+
 class OfficialAidlcBridgeTests(unittest.TestCase):
+    def test_bundled_full_bridge_identity_is_immutable_idempotent_and_does_not_reresolve(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ledger.init_run(root, "run-bundled", "ship bundled Full")
+            preflight = bundled_bridge_preflight(root)
+            with mock.patch.object(bridge.aidlc_bundle, "resolve") as resolve, mock.patch.object(
+                bridge.aidlc_bundle, "provision"
+            ) as provision:
+                created = bridge.create_bundled(
+                    root,
+                    "run-bundled",
+                    "ship bundled Full",
+                    preflight,
+                    official_intent_id="intent-bundled",
+                    official_session_id="session-bundled",
+                )
+                repeated = bridge.create_bundled(
+                    root,
+                    "run-bundled",
+                    "ship bundled Full",
+                    preflight,
+                    official_intent_id="intent-bundled",
+                    official_session_id="session-bundled",
+                )
+            events = ledger.projection(root, "run-bundled")["activity"]
+
+        resolve.assert_not_called()
+        provision.assert_not_called()
+        self.assertEqual(created["status"], "created")
+        self.assertEqual(repeated["status"], "existing")
+        self.assertEqual(created["schema_version"], "2")
+        self.assertEqual(created["compatibility_mode"], "bundled-v2")
+        self.assertEqual(created["resolution_receipt_fingerprint"], preflight["resolution_receipt_fingerprint"])
+        self.assertEqual(created["project_projection_fingerprint"], preflight["project_projection_fingerprint"])
+        self.assertEqual(created["pack_fingerprint"], preflight["pack_fingerprint"])
+        self.assertEqual(created["pack_path"], preflight["pack_path"])
+        self.assertEqual(events["official_aidlc_bridge_created"], 1)
+
+    def test_bundled_full_bridge_identity_rejects_unsafe_inconsistent_or_conflicting_input(self):
+        invalid_mutations = {
+            "not-ready": lambda value: value.update({"state": "official-full-unavailable"}),
+            "network-used": lambda value: value.update({"network_used": True}),
+            "resolution-mismatch": lambda value: value.update({"source_resolution_fingerprint": "sha256:" + "9" * 64}),
+            "projection-mismatch": lambda value: value.update({"project_projection_fingerprint": "sha256:" + "8" * 64}),
+        }
+        for name, mutate in invalid_mutations.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                ledger.init_run(root, "run-bundled", "ship bundled Full")
+                preflight = bundled_bridge_preflight(root)
+                mutate(preflight)
+                preflight["preflight_fingerprint"] = bridge._fingerprint({
+                    key: value for key, value in preflight.items() if key != "preflight_fingerprint"
+                })
+                with self.assertRaisesRegex(ValueError, "ready offline resolution-to-project identity"):
+                    bridge.create_bundled(root, "run-bundled", "ship bundled Full", preflight)
+                self.assertFalse((root / ".tailtrail" / "runs" / "run-bundled" / "aidlc-official" / "bridge-v1.json").exists())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ledger.init_run(root, "run-bundled", "ship bundled Full")
+            preflight = bundled_bridge_preflight(root)
+            preflight["official_revision"] = "tampered"
+            with self.assertRaisesRegex(ValueError, "intact sealed"):
+                bridge.create_bundled(root, "run-bundled", "ship bundled Full", preflight)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            ledger.init_run(root, "run-bundled", "ship bundled Full")
+            preflight = bundled_bridge_preflight(root)
+            created = bridge.create_bundled(
+                root, "run-bundled", "ship bundled Full", preflight,
+                official_intent_id="intent-one",
+            )
+            saved = (root / created["artifact"]).read_bytes()
+            with self.assertRaisesRegex(ValueError, "different immutable content"):
+                bridge.create_bundled(
+                    root, "run-bundled", "ship bundled Full", preflight,
+                    official_intent_id="intent-two",
+                )
+            self.assertEqual((root / created["artifact"]).read_bytes(), saved)
+
+    def test_bundled_full_preflight_projects_one_ready_resolution_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            resolution = {
+                "state": "ready",
+                "requested_mode": "full",
+                "effective_mode": "full",
+                "network_used": False,
+                "receipt_fingerprint": "sha256:resolution",
+                "issues": [],
+            }
+            projection = {
+                "state": "ready",
+                "network_used": False,
+                "source_resolution_fingerprint": "sha256:resolution",
+                "pack_fingerprint": "sha256:pack",
+                "pack_path": ".tailtrail/official-aidlc/packs/pack",
+                "issues": [],
+            }
+            with mock.patch.object(bridge.aidlc_bundle, "resolve", return_value=resolution) as resolve, mock.patch.object(
+                bridge.aidlc_bundle, "provision", return_value=projection
+            ) as provision:
+                result = bridge.bundled_full_preflight(root, "codex", environment={})
+
+        self.assertEqual(result["state"], "official-full-ready")
+        self.assertEqual(result["requested_mode"], "full")
+        self.assertEqual(result["effective_mode"], "full")
+        self.assertFalse(result["network_used"])
+        self.assertEqual(result["resolution_receipt_fingerprint"], "sha256:resolution")
+        self.assertEqual(result["source_resolution_fingerprint"], "sha256:resolution")
+        self.assertEqual(result["project_projection"], projection)
+        resolver_inputs = resolve.call_args.args[0]
+        self.assertEqual(resolver_inputs.requested_mode, "full")
+        self.assertEqual(resolver_inputs.host, "codex")
+        projection_inputs = provision.call_args.args[0]
+        self.assertIs(projection_inputs.resolution_receipt, resolution)
+        self.assertEqual(projection_inputs.target_root, root)
+
+    def test_bundled_full_preflight_stops_before_projection_when_resolution_is_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            blocked = {
+                "state": "blocked",
+                "requested_mode": "full",
+                "effective_mode": None,
+                "network_used": False,
+                "receipt_fingerprint": "sha256:blocked",
+                "issues": [{"category": "provider-unavailable", "detail": "bundle missing"}],
+            }
+            with mock.patch.object(bridge.aidlc_bundle, "resolve", return_value=blocked), mock.patch.object(
+                bridge.aidlc_bundle, "provision"
+            ) as provision:
+                result = bridge.bundled_full_preflight(Path(tmp), "copilot")
+
+        provision.assert_not_called()
+        self.assertEqual(result["mode"], "full")
+        self.assertEqual(result["effective_mode"], "unavailable")
+        self.assertEqual(result["state"], "official-full-unavailable")
+        self.assertEqual(result["issues"][0]["category"], "provider-unavailable")
+        self.assertIn("retry Full preflight", result["issues"][0]["action"])
+        self.assertNotEqual(result.get("mode"), "lite")
+
+    def test_bundled_full_preflight_rejects_a_blocked_or_mismatched_projection(self):
+        resolution = {
+            "state": "ready",
+            "requested_mode": "full",
+            "effective_mode": "full",
+            "network_used": False,
+            "receipt_fingerprint": "sha256:resolution",
+            "issues": [],
+        }
+        projections = (
+            {
+                "state": "blocked",
+                "network_used": False,
+                "issues": [{"category": "selector-conflict", "detail": "selector differs"}],
+            },
+            {
+                "state": "ready",
+                "network_used": False,
+                "source_resolution_fingerprint": "sha256:different",
+                "issues": [],
+            },
+        )
+        for projection in projections:
+            with self.subTest(projection=projection), tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+                bridge.aidlc_bundle, "resolve", return_value=resolution
+            ), mock.patch.object(bridge.aidlc_bundle, "provision", return_value=projection):
+                result = bridge.bundled_full_preflight(Path(tmp), "claude")
+
+            self.assertEqual(result["requested_mode"], "full")
+            self.assertEqual(result["effective_mode"], "unavailable")
+            self.assertEqual(result["state"], "official-full-unavailable")
+            self.assertFalse(result["network_used"])
+            self.assertNotEqual(result.get("mode"), "lite")
+            self.assertTrue(result["issues"][0]["category"])
+            self.assertIn("action", result["issues"][0])
+
+    def test_frozen_requirements_adapter_ignores_selector_and_process_cwd(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as other:
+            root = Path(tmp).resolve()
+            pack = root / ".tailtrail" / "official-aidlc" / "packs" / "pack-a"
+            requirements_rule_pack(pack)
+            selector = root / ".tailtrail" / "official-aidlc" / "current.json"
+            selector.write_text(json.dumps({"pack_path": ".tailtrail/official-aidlc/packs/pack-b"}), encoding="utf-8")
+            legacy_pack = root / ".tailtrail" / "official-aidlc"
+            requirements_rule_pack(legacy_pack)
+            (legacy_pack / "manifest.json").write_text("{}", encoding="utf-8")
+            resolution = {
+                "state": "ready",
+                "compatibility_mode": "bundled-v2",
+                "pack_path": pack.relative_to(root).as_posix(),
+                "selector_consulted": False,
+                "issues": [],
+            }
+            before = sorted(path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file())
+            with mock.patch.object(official_requirements.aidlc_bundle, "resolve_bound_run", return_value=resolution) as resolve_bound, mock.patch.object(official_requirements.aidlc_bundle, "resolve_legacy_run") as resolve_legacy:
+                previous = Path.cwd()
+                os.chdir(other)
+                try:
+                    contract = official_requirements.stage_contract_for_run(root, "run-a")
+                    existing_contract = official_requirements.stage_contract(
+                        root, {"compatibility_manifest": ".tailtrail/official-aidlc/manifest.json"}
+                    )
+                finally:
+                    os.chdir(previous)
+            after = sorted(path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file())
+
+        self.assertEqual(before, after)
+        self.assertEqual(set(contract), {"core_workflow", "requirements_analysis", "question_format", "content_validation", "session_continuity"})
+        self.assertTrue(all(path.startswith(".tailtrail/official-aidlc/packs/pack-a/") for path in contract.values()))
+        self.assertEqual(len(existing_contract), 5)
+        self.assertTrue(all(path.startswith(".tailtrail/official-aidlc/aws-") for path in existing_contract.values()))
+        resolve_bound.assert_called_once_with(root, "run-a")
+        resolve_legacy.assert_not_called()
+
+    def test_frozen_requirements_adapter_uses_legacy_only_when_binding_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            pack = root / ".tailtrail" / "official-aidlc"
+            requirements_rule_pack(pack)
+            missing = {"state": "blocked", "issues": [{"category": "missing-run-binding", "detail": "missing"}]}
+            legacy = {
+                "state": "legacy-read-only",
+                "compatibility_mode": "legacy-v1-bounded-continuation",
+                "pack_path": pack.relative_to(root).as_posix(),
+                "can_authorize_new_full": False,
+                "issues": [],
+            }
+            with mock.patch.object(official_requirements.aidlc_bundle, "resolve_bound_run", return_value=missing), mock.patch.object(official_requirements.aidlc_bundle, "resolve_legacy_run", return_value=legacy) as resolve_legacy:
+                contract = official_requirements.stage_contract_for_run(root, "legacy-run")
+            self.assertEqual(len(contract), 5)
+            resolve_legacy.assert_called_once()
+
+            altered = {"state": "blocked", "issues": [{"category": "altered-run-binding", "detail": "altered"}]}
+            with mock.patch.object(official_requirements.aidlc_bundle, "resolve_bound_run", return_value=altered), mock.patch.object(official_requirements.aidlc_bundle, "resolve_legacy_run") as forbidden_legacy:
+                with self.assertRaisesRegex(ValueError, "altered-run-binding"):
+                    official_requirements.stage_contract_for_run(root, "altered-run")
+            forbidden_legacy.assert_not_called()
+
+    def test_frozen_requirements_adapter_rejects_unsafe_and_incomplete_resolved_packs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            unsafe = {"state": "ready", "compatibility_mode": "bundled-v2", "pack_path": "../outside", "issues": []}
+            with mock.patch.object(official_requirements.aidlc_bundle, "resolve_bound_run", return_value=unsafe):
+                with self.assertRaisesRegex(ValueError, "safe pack"):
+                    official_requirements.stage_contract_for_run(root, "unsafe-run")
+
+            pack = root / ".tailtrail" / "official-aidlc" / "packs" / "pack-incomplete"
+            rules = requirements_rule_pack(pack)
+            rules["content_validation"].write_text("# wrong marker\n", encoding="utf-8")
+            incomplete = {
+                "state": "ready",
+                "compatibility_mode": "bundled-v2",
+                "pack_path": pack.relative_to(root).as_posix(),
+                "issues": [],
+            }
+            with mock.patch.object(official_requirements.aidlc_bundle, "resolve_bound_run", return_value=incomplete):
+                with self.assertRaisesRegex(ValueError, "incomplete: content_validation"):
+                    official_requirements.stage_contract_for_run(root, "incomplete-run")
+
     def test_agent_host_rejects_stale_official_requirement_authority_before_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -279,9 +613,8 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
             self.assertIn("--aidlc standard", answered_intake["continuation"]["command"])
             self.assertEqual(resumed.returncode, 0, resumed.stderr or resumed.stdout)
             report = json.loads(resumed.stdout)
-            activated = lock.activate(
-                root, report["planning_lock"]["run_id"], True
-            )
+            with self.assertRaisesRegex(ValueError, "planning approval blocked"):
+                lock.activate(root, report["planning_lock"]["run_id"], True)
             self.assertEqual(report["aidlc_mode"]["mode"], "standard")
             self.assertEqual(report["requirement_intake_resolution"]["intake_id"], intake["intake_id"])
             self.assertEqual(
@@ -293,14 +626,7 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
                 "authority-bound-in-start-plan",
             )
             self.assertTrue(report["planning_lock"]["run_id"])
-            self.assertIn(
-                "aidlc-official/requirements/authority-approval-v1.json",
-                activated["official_stage_approval"],
-            )
-            self.assertEqual(
-                activated["official_aidlc_bridge_activation"]["state"],
-                "approved-awaiting-host-attachment",
-            )
+            self.assertFalse((root / ".tailtrail" / "runs" / report["planning_lock"]["run_id"] / "anchors" / "approved-v1.json").exists())
 
     def test_lite_and_off_do_not_require_an_official_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -352,11 +678,43 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
                     self.assertEqual(report["aidlc_mode"]["mode"], "standard")
                     self.assertEqual(report["aidlc_mode"]["state"], "official-standard-ready")
 
-    def test_full_without_a_compatible_pack_falls_back_transparently_to_lite(self):
+    def test_full_without_project_pack_uses_bundled_source_and_never_downgrades(self):
         with tempfile.TemporaryDirectory() as tmp:
-            fallback = bridge.preflight(Path(tmp), "full")
-        self.assertEqual(fallback["mode"], "lite")
-        self.assertEqual(fallback["requested_mode"], "full")
+            result = bridge.preflight(Path(tmp), "full")
+        self.assertEqual(result["mode"], "full")
+        self.assertEqual(result["requested_mode"], "full")
+        self.assertEqual(result["effective_mode"], "full")
+        self.assertEqual(result["state"], "official-full-ready")
+        self.assertFalse(result["network_used"])
+
+    def test_full_preflight_uses_installed_launcher_host_when_host_is_not_explicit(self):
+        ready = {
+            "mode": "full",
+            "requested_mode": "full",
+            "effective_mode": "full",
+            "state": "official-full-ready",
+            "network_used": False,
+        }
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(
+            os.environ, {"TAILTRAIL_ACTIVE_HOST": "copilot"}, clear=False
+        ), mock.patch.object(
+            bridge, "bundled_full_preflight", return_value=ready
+        ) as bundled:
+            result = bridge.preflight(Path(tmp), "full")
+
+        self.assertEqual(result, ready)
+        self.assertEqual(bundled.call_args.args[1], "copilot")
+
+    def test_invalid_explicit_external_pack_fails_closed_without_bundled_substitution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = root / "external-pack.json"
+            manifest.write_text("{}\n", encoding="utf-8")
+            result = bridge.preflight(root, "full", manifest.as_posix(), host="codex")
+        self.assertEqual(result["mode"], "full")
+        self.assertEqual(result["effective_mode"], "unavailable")
+        self.assertEqual(result["state"], "official-full-unavailable")
+        self.assertFalse(result["network_used"])
 
     def test_full_bridge_maps_official_identity_to_one_run_and_activates_append_only(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -389,16 +747,35 @@ class OfficialAidlcBridgeTests(unittest.TestCase):
             staged = lock.record_official_aidlc_questions(root, run_id, json.dumps(host_questions()))
             answers = json.dumps([{"question_id": item["id"], "choice": "B"} for item in staged["questions"]])
             revision = lock.submit_aidlc_answers(root, run_id, answers)
-            activated = lock.approve_aidlc_requirements(root, run_id, True)
+            with self.assertRaisesRegex(ValueError, "planning approval blocked"):
+                lock.approve_aidlc_requirements(root, run_id, True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(report["aidlc_mode"]["mode"], "full")
         self.assertEqual(report["official_aidlc_bridge"]["official_intent_id"], "intent-1")
         self.assertEqual(report["official_aidlc_bridge"]["state"], "planned-attachment")
         self.assertEqual(report["aidlc_requirements"]["authority"], "official-ai-dlc-pack")
         self.assertEqual(revision["state"], "official-aidlc-revision-ready")
-        self.assertTrue(activated["planning_lock"]["writes_allowed"])
-        self.assertIn("aidlc-official/requirements/approval-v1.json", activated["official_stage_approval"])
-        self.assertIn("anchors/approved-v1.json", activated["anchor"])
+        self.assertFalse((root / ".tailtrail" / "runs" / run_id / "anchors" / "approved-v1.json").exists())
+
+    def test_public_full_start_persists_the_bundled_run_binding_and_bridge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = subprocess.run(
+                start_command(root, "add bundled Full workflow", "--aidlc", "full", "--format", "json"),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            report = json.loads(result.stdout)
+            run_id = report["planning_lock"]["run_id"]
+            resolved = bridge.aidlc_bundle.resolve_bound_run(root, run_id)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["aidlc_mode"]["effective_mode"], "full")
+        self.assertEqual(report["official_aidlc_bridge"]["compatibility_mode"], "bundled-v2")
+        self.assertEqual(report["official_aidlc_run_binding"]["state"], "ready")
+        self.assertEqual(resolved["state"], "ready")
+        self.assertEqual(resolved["pack_fingerprint"], report["aidlc_mode"]["pack_fingerprint"])
 
     def test_official_questions_are_host_recorded_with_advisory_recommendations(self):
         with tempfile.TemporaryDirectory() as tmp:

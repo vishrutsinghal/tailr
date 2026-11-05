@@ -1,0 +1,42 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase4a-host-receipt-20261105",
+  "profile": "new feature",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {
+      "path": "schemas/official-aidlc-host-projection-receipt.schema.json",
+      "role": "proposed-implementation-owner",
+      "new_file_evidence": {
+        "collision_claim": "No official AIDLC host-projection receipt schema exists under schemas and the existing bridge and run-state schemas do not own host-specific copy/reference mappings, destination inventory, instruction identity, reload posture, or qualification.",
+        "no_owner_claim": "The run-state schema freezes project-pack authority but cannot truthfully own host-specific projection state.",
+        "convention_cited": "Official AIDLC authority artifacts use focused schemas/official-aidlc-*.schema.json contracts for distinct authority and mutability boundaries."
+      }
+    },
+    {"path": "tailtrail-registry.json", "role": "configuration"},
+    {"path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md", "role": "inspection-input"},
+    {"path": "schemas/official-aidlc-run-state.schema.json", "role": "inspection-input"},
+    {"path": "tests/test_tailtrail_registry.py", "role": "existing-proof-path"}
+  ],
+  "criteria": {
+    "positive": [
+      "A separate registered schema owns the complete immutable host-projection receipt contract before the host engine depends on it.",
+      "The receipt records host and adapter identity, fixed projection mode, frozen origin run-resolution and project-pack fingerprints, official and trust identity, complete source-to-destination mapping and hashes, instruction-block fingerprint, reload posture, qualification result, and receipt seal.",
+      "tailtrail-registry.json registers the new contract and focused registry proof validates both schema ownership and strict discoverability."
+    ],
+    "negative": [
+      "Do not overload the existing run-state or bridge schema with host-projection state.",
+      "Do not implement the host projection engine, alter host instruction files, wire public Start or MCP routes, or claim Phase 5 distribution and end-to-end proof.",
+      "Do not permit the receipt to omit complete mapping and hashes, instruction identity, reload posture, qualification, or its own fingerprint."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_tailtrail_registry -v",
+    "tiers": ["unit", "contract"]
+  },
+  "private_reasoning_excluded": true
+}

@@ -1,0 +1,69 @@
+{
+  "schema_version": "1",
+  "type": "tailtrail-host-input-contract",
+  "run_id": "unbound",
+  "contract_id": "ctr-bundled-aidlc-phase2b2-corrected-adapter-20261105",
+  "profile": "existing-code change",
+  "change_intent": "new-capability",
+  "request_mode": "implementation",
+  "behavior_surface": "internal",
+  "paths": [
+    {
+      "path": "scripts/official-aidlc-requirements.py",
+      "role": "existing-implementation-owner"
+    },
+    {
+      "path": "tailtrail/aidlc_bundle.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/aidlc-official-bridge.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/planning_lock.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "scripts/task-start.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_bundle_resolver.py",
+      "role": "inspection-input"
+    },
+    {
+      "path": "tests/test_aidlc_official_bridge.py",
+      "role": "existing-proof-path"
+    }
+  ],
+  "criteria": {
+    "positive": [
+      "The official Requirements adapter exposes a read-only existing-run contract resolver that accepts a project root and run ID, calls the package-owned frozen binding resolver, and derives every required Requirements rule reference from that validated immutable pack.",
+      "The adapter accepts bundled-v2 ready resolution and bounded legacy-v1 read-only resolution as distinct compatibility modes, with legacy fallback attempted only when the bundled binding is categorically missing rather than altered or incompatible.",
+      "Every returned rule path remains inside the validated resolved pack, exists as a regular non-symlink file, and contains the required official marker.",
+      "Selector changes, process working-directory changes, and caller-provided compatibility manifest values cannot affect this new existing-run resolver.",
+      "The existing pre-run stage_contract and public stage_request behavior remain unchanged for Phase 3 to migrate after provisioning and run binding are wired.",
+      "Focused proof covers bundled-v2 resolution, selector and cwd independence, categorical failures, bounded legacy continuation, rule inventory and marker validation, non-mutation, zero network access, and preservation of the current public route."
+    ],
+    "negative": [
+      "Phase 2B.2 does not wire the new resolver into stage_request, task-start, Planning Lock, MCP, or any host projection and does not change the legacy public route before Phase 3 can create a frozen binding.",
+      "The new resolver never reads current.json, resolves relative to process cwd, accepts a caller manifest path, contacts the network, executes pack content, writes project state, provisions a pack, or creates or rewrites a run binding.",
+      "Missing, altered, stale, incompatible, conflicting, legacy-unauthorized, or unsafe state fails closed without falling back to another pack; only a categorically missing bundled binding may attempt the package resolver's bounded legacy continuation.",
+      "This slice does not edit tailtrail/aidlc_bundle.py, scripts/aidlc-official-bridge.py, scripts/planning_lock.py, scripts/task-start.py, schemas, package registration, CLI dispatch, or documentation."
+    ]
+  },
+  "proof": {
+    "command": "python3 -m unittest tests.test_aidlc_official_bridge",
+    "tiers": [
+      "unit",
+      "contract",
+      "behaviour"
+    ]
+  },
+  "private_reasoning_excluded": true
+}

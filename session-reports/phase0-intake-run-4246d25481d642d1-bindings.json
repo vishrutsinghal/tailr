@@ -1,0 +1,118 @@
+{
+  "operational_bindings": {
+    "requirements": [
+      {
+        "requirement_uid": "REQ-PHASE0-PROVENANCE",
+        "statement": "Implement Phase 0 — Provenance decision and inventory from TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md by extending scripts/aidlc-official-install.py to verify and record aidlc-rules/PROVENANCE.json, aidlc-rules/LICENSE, and aidlc-rules/VERSION against one pinned official AIDLC tag, full commit, archive SHA-256, complete rule inventory, bundle and official version semantics, TailTrail compatibility range, authenticated release trust anchor, four trust postures, source-checkout development-local contract, and approved v1/v2, active-run, external-pack, and host-projection decisions; exclude packaging manifests, resolver behavior, Full routing, and host adapters.",
+        "source_answer_ids": [
+          "answer-8c684ff0b6bc489d",
+          "answer-5b2006bfff10481d",
+          "answer-f2f515af6ba340ec",
+          "answer-19a2f47b3a4a450b",
+          "answer-62d5ec707e00465f",
+          "answer-95a9480f909a4905",
+          "answer-1f87077b54dc43b7",
+          "answer-e07aeedc40124319",
+          "answer-2d272d46a90448c6",
+          "answer-a60c6feeacb743bb",
+          "answer-af0934368e7a4324",
+          "answer-da01c7b251f446d8",
+          "answer-ae1695b161b244b4"
+        ],
+        "profile_fields": [
+          "expected-behavior",
+          "existing-owner",
+          "proof-command",
+          "declared-path-002",
+          "declared-path-003",
+          "declared-path-004",
+          "declared-path-005",
+          "declared-path-007",
+          "declared-path-008",
+          "declared-path-009",
+          "declared-path-010",
+          "declared-path-011",
+          "declared-path-012"
+        ],
+        "semantic_delta": "validated",
+        "dependencies_checked": true,
+        "path_bindings": [
+          {
+            "path": "scripts/aidlc-official-install.py",
+            "role": "implementation-owner",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-5b2006bfff10481d"]
+          },
+          {
+            "path": "aidlc-rules/PROVENANCE.json",
+            "role": "generated-output",
+            "existing": false,
+            "host_declared": true,
+            "new_file_verdict": "new-confirmed",
+            "ownership_evidence": "The Phase 0 design assigns this checked-in acquisition and verification receipt to the existing official installer owner.",
+            "source_answer_ids": ["answer-19a2f47b3a4a450b"]
+          },
+          {
+            "path": "aidlc-rules/LICENSE",
+            "role": "generated-output",
+            "existing": false,
+            "host_declared": true,
+            "new_file_verdict": "new-confirmed",
+            "ownership_evidence": "The Phase 0 design requires the verified upstream MIT-0 license to be emitted beside the bundle by the existing official installer owner.",
+            "source_answer_ids": ["answer-62d5ec707e00465f"]
+          },
+          {
+            "path": "aidlc-rules/VERSION",
+            "role": "configuration-output",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-95a9480f909a4905"]
+          },
+          {
+            "path": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md",
+            "role": "inspection-input",
+            "existing": true,
+            "new_file_verdict": "not-applicable",
+            "source_answer_ids": ["answer-1f87077b54dc43b7"]
+          }
+        ],
+        "proof_bindings": [
+          {
+            "path": "tests/test_aidlc_official_install.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_install",
+            "tier": "unit",
+            "asserted_behavior": "The existing acquisition owner emits and validates complete Phase 0 provenance, license, version, compatibility, inventory, and trust metadata.",
+            "source_answer_id": "answer-f2f515af6ba340ec"
+          },
+          {
+            "path": "tests/test_aidlc_official_install.py",
+            "command": "python3 -m unittest tests.test_aidlc_official_install",
+            "tier": "contract",
+            "asserted_behavior": "The checked-in Phase 0 outputs remain bound to one verified official source identity and do not grant authority to later packaging, routing, or host phases.",
+            "source_answer_id": "answer-f2f515af6ba340ec"
+          }
+        ],
+        "criteria": {
+          "positive": [
+            "The existing official acquisition and verification owner produces a checked-in Phase 0 provenance receipt and MIT-0 license bound to one pinned official tag, full commit, and archive SHA-256.",
+            "Every retained bundled rule byte is inventoried and matched to the pinned upstream source before official provenance is claimed.",
+            "Bundle version, official version, TailTrail compatibility, four trust postures, source-checkout posture, schema migration, active-run, external-pack, and host-projection decisions are explicit and internally consistent.",
+            "The provenance receipt, license, version fields, inventory, and retained acquisition evidence agree on one source identity."
+          ],
+          "negative": [
+            "The existing aidlc-rules/VERSION value alone must not be treated as provenance.",
+            "Unverified current rule bytes must not be labelled as an official release.",
+            "Phase 0 must not change packaging manifests, resolver behavior, Full-mode routing, host adapters, or project projection state.",
+            "No runtime network dependency, silent Full-to-Lite fallback, weakened integrity rule, or fabricated provenance evidence may be introduced."
+          ],
+          "source_answer_ids": ["answer-8c684ff0b6bc489d"]
+        },
+        "correction_premise": {
+          "status": "not-applicable",
+          "source_answer_ids": ["answer-8c684ff0b6bc489d"]
+        }
+      }
+    ]
+  }
+}

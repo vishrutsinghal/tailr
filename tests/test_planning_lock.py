@@ -28,6 +28,36 @@ revision = load("planning_lock_revision_test", "scripts/planning-revision.py")
 
 
 class PlanningLockTests(unittest.TestCase):
+    def test_execution_handoff_carries_writable_outputs_into_closure_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "output-handoff"
+            ledger.init_run(root, run_id, "produce output")
+            anchor_path = root / ".tailtrail" / "runs" / run_id / "anchors" / "approved-v1.json"
+            anchor_path.parent.mkdir(parents=True, exist_ok=True)
+            output = {
+                "path": "generated/provenance.json", "role": "generated-output", "existing": False,
+                "new_file_verdict": "new-confirmed",
+                "new_file_due_diligence": {"verdict": "new-confirmed", "write_eligible": True},
+                "grants_behavioral_ownership": False, "requests_write_authority": True,
+            }
+            anchor_path.write_text(json.dumps({
+                "requirements": [{
+                    "requirement_uid": "req-output", "display_id": "REQ-01", "statement": "Produce output",
+                    "likely_paths": ["src/owner.py"], "writable_outputs": [output],
+                    "preserve_rules": [], "validation_contract": {},
+                }],
+            }), encoding="utf-8")
+            handoff = lock.execution_handoff(
+                root, run_id,
+                {"guided_delivery": {"stages": []}, "navigator": {"scope_evidence": {"requirements": []}}},
+                anchor_path.relative_to(root).as_posix(),
+            )
+
+        self.assertEqual(handoff["writable_output_paths"], ["generated/provenance.json"])
+        self.assertIn("generated/provenance.json", handoff["scope_drift_rule"]["approved_editable_paths"])
+        self.assertNotIn("generated/provenance.json", handoff["likely_paths"])
+
     def _planning_readiness_case(self, root: Path, run_id: str) -> tuple[dict, Path]:
         (root / "src").mkdir(exist_ok=True)
         (root / "tests").mkdir(exist_ok=True)
@@ -175,6 +205,45 @@ class PlanningLockTests(unittest.TestCase):
         self.assertEqual(len(checks), 1)
         self.assertEqual(checks[0]["tiers"], ["behaviour", "contract", "unit"])
         self.assertEqual(len(projection["focused_validation"]), 3)
+
+    def test_effective_projection_preserves_proof_adequacy_metadata(self) -> None:
+        command = "python3 -m unittest tests.test_owner"
+        adequacy = {
+            "schema_version": "1",
+            "path": "tests/test_owner.py",
+            "role": "editable-proof",
+            "test_cases": ["owner behavior"],
+            "fixtures": ["owner fixture"],
+            "assertions": ["owner result"],
+            "baseline": {"command": command, "outcome": "fail", "observed": "assertion missing"},
+        }
+        report = {
+            "navigator": {"requirement_matrix": [{
+                "display_id": "REQ-01",
+                "validation_contract": {
+                    "tiers": ["unit"],
+                    "commands": [command],
+                    "candidate_paths": ["tests/test_owner.py"],
+                    "checks": [{
+                        "kind": "proof",
+                        "command": command,
+                        "tiers": ["unit"],
+                        "candidate_paths": ["tests/test_owner.py"],
+                        "asserted_behavior": "owner behavior is covered",
+                        "source_answer_id": "ans-proof",
+                        "evidence_fingerprint": "sha256:" + "a" * 64,
+                        "proof_adequacy": adequacy,
+                    }],
+                },
+            }]},
+        }
+
+        projection = lock.effective_plan_projection(report)
+
+        check = projection["checks_by_requirement"]["REQ-01"][0]
+        self.assertEqual(check["proof_adequacy"], adequacy)
+        self.assertEqual(check["asserted_behavior"], "owner behavior is covered")
+        self.assertEqual(check["source_answer_id"], "ans-proof")
 
     def test_proof_runner_uses_bare_interpreter_not_launcher_path(self) -> None:
         self.assertEqual(lock._proof_runner("python3 D:/proj/.tailtrail/install/payload/codex/scripts/tailtrail.py"), "python3")
@@ -1068,13 +1137,15 @@ class PlanningLockTests(unittest.TestCase):
                     {"display_id": "REQ-01", "statement": "Define cancellation eligibility."},
                     {"display_id": "REQ-02", "statement": "Release inventory exactly once."},
                     {"display_id": "REQ-03", "statement": "Issue one refund."},
+                    {"display_id": "REQ-04", "statement": "Add atomic projection while preserving idempotence."},
                 ]}},
                 "navigator": {"likely_impacted_files": [{"path": "src/order_service/service.py"}]},
             })
             activated = lock.activate(root, run_id, True)
             approved = json.loads((root / activated["anchor"]["artifact"]).read_text(encoding="utf-8"))
-        self.assertEqual([row["display_id"] for row in approved["requirements"]], ["REQ-01", "REQ-02", "REQ-03"])
+        self.assertEqual([row["display_id"] for row in approved["requirements"]], ["REQ-01", "REQ-02", "REQ-03", "REQ-04"])
         self.assertEqual(approved["requirements"][1]["validation_contract"]["tiers"], ["integration"])
+        self.assertEqual(approved["requirements"][3]["kind"], "change")
 
     def test_aidlc_cycle_batches_safe_lifecycle_transitions_without_duplicate_gathering(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

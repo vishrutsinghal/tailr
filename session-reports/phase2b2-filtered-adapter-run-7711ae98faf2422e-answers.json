@@ -1,0 +1,42 @@
+[
+  {
+    "question_id": "question-8557faba430844d1",
+    "value": "A new read-only existing-run adapter API resolves official Requirements rule references only from the package-owned frozen bundled-v2 binding or bounded saved-artifact-backed legacy-v1 continuation; selector, process cwd, and caller manifest values cannot retarget it; invalid authority blocks without mutation; existing pre-run stage_contract and public stage_request remain unchanged until Phase 3."
+  },
+  {
+    "question_id": "question-8b317a59e2a04eba",
+    "value": "scripts/official-aidlc-requirements.py"
+  },
+  {
+    "question_id": "question-b0b9e4930a494f23",
+    "value": "python3 -m unittest tests/test_aidlc_official_bridge.py -k frozen_requirements_adapter -v"
+  },
+  {
+    "question_id": "question-11a550022e8d4ad0",
+    "value": "tailtrail/aidlc_bundle.py"
+  },
+  {
+    "question_id": "question-1451877a5f574818",
+    "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"
+  },
+  {
+    "question_id": "question-d360186d66384fcd",
+    "value": "scripts/aidlc-official-bridge.py"
+  },
+  {
+    "question_id": "question-64071cb18e2944e0",
+    "value": "scripts/planning_lock.py"
+  },
+  {
+    "question_id": "question-54d67775dfef4689",
+    "value": "scripts/task-start.py"
+  },
+  {
+    "question_id": "question-2b22d6e01b6d40ee",
+    "value": "tests/test_aidlc_bundle_resolver.py"
+  },
+  {
+    "question_id": "question-6f7d15acac194208",
+    "value": "{\"path\":\"tests/test_aidlc_official_bridge.py\",\"role\":\"editable-proof\",\"test_cases\":[\"frozen bundled-v2 rule lookup stays bound across selector and cwd changes and preserves the current pre-run stage_contract route\",\"bounded legacy continuation occurs only for missing binding while altered authority never downgrades\",\"unsafe and marker-incomplete resolved packs fail closed\"],\"fixtures\":[\"temporary content-addressed bundled-v2 pack and run resolution\",\"bounded legacy-v1 resolution\",\"selector pointing at a different future-run pack\",\"temporary cwd outside the project\",\"unsafe and marker-incomplete resolved packs\"],\"assertions\":[\"all references derive from the package resolver result for the requested run\",\"current.json process cwd and caller manifest values are irrelevant to the new API\",\"legacy mode remains read-only and altered bundled state cannot downgrade\",\"invalid state produces a categorical actionable failure without mutation or fallback\",\"the existing pre-run stage_contract remains compatible for Phase 3\"],\"baseline\":{\"command\":\"python3 -m unittest tests/test_aidlc_official_bridge.py -k frozen_requirements_adapter -v\",\"outcome\":\"fail\",\"observed\":\"Exactly three filtered tests collected and all three failed with AttributeError because official_aidlc_requirements has no aidlc_bundle adapter or frozen-run API yet. The command selected no unrelated activation tests. Public-route preservation is an asserted scenario to add within the selected frozen lookup test.\"}}"
+  }
+]

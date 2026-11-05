@@ -201,9 +201,7 @@
     "files": [
       "issue.txt"
     ],
-    "prefixes": [
-      "aidlc-rules/"
-    ]
+    "prefixes": []
   },
   "required_release_files": [
     ".codex-plugin/plugin.json",

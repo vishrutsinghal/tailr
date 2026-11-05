@@ -1,0 +1,28 @@
+[
+  {
+    "question_id": "question-d35422f4aaaf4e48",
+    "value": "The official acquisition owner verifies one pinned release and full commit, compares the entire checked-in rule tree with authenticated upstream bytes, replaces only proven mismatches, and atomically emits provenance, license, and bundle-version artifacts without using legacy VERSION as authority."
+  },
+  {
+    "question_id": "question-57e2c2432da24406",
+    "value": "scripts/aidlc-official-install.py"
+  },
+  {
+    "question_id": "question-c85dd5aae8284f51",
+    "value": "python3 -m unittest tests.test_aidlc_bundle_provenance"
+  },
+  {"question_id": "question-141604ded4724f0f", "value": "aidlc-rules/aws-aidlc-rules"},
+  {"question_id": "question-08f49869dd184957", "value": "aidlc-rules/aws-aidlc-rule-details"},
+  {"question_id": "question-2d577a474a2844e5", "value": "aidlc-rules/PROVENANCE.json"},
+  {"question_id": "question-f9317ac7c3624351", "value": "aidlc-rules/LICENSE"},
+  {"question_id": "question-3b338f6944af49bd", "value": "aidlc-rules/BUNDLE_VERSION"},
+  {"question_id": "question-e1ecffcc24ae44e9", "value": "aidlc-rules/VERSION"},
+  {"question_id": "question-4bb34864ca554866", "value": "TAILTRAIL-BUNDLED-OFFLINE-AIDLC-PROVISIONING-DESIGN.md"},
+  {"question_id": "question-15c443b8ae964403", "value": "session-reports/phase0-corrected-current-inventory.md"},
+  {"question_id": "question-c17056b725e34163", "value": "package-manifest.json"},
+  {"question_id": "question-98455cdb08324def", "value": "MANIFEST.in"},
+  {"question_id": "question-ac8c73bb423b4951", "value": "release-manifest.json"},
+  {"question_id": "question-c2f9b551543d4863", "value": "scripts/aidlc-official-bridge.py"},
+  {"question_id": "question-5d8792cf5c3e4304", "value": "scripts/task-start.py"},
+  {"question_id": "question-e74aa3b88c5044d7", "value": "scripts/aidlc-official-host.py"}
+]

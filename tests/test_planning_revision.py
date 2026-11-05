@@ -31,6 +31,23 @@ spec_bridge = load("planning_revision_spec_bridge_test", "scripts/spec-kit-bridg
 
 
 class PlanningRevisionTests(unittest.TestCase):
+    def test_output_revision_is_separate_from_implementation_ownership(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "output-revision")
+            proposed = revision.propose(root, "output-revision", json.dumps([{
+                "kind": "output-add", "requirement_uid": "REQ-01",
+                "path": "generated/provenance.json", "role": "generated-output",
+                "existing": False, "new_file_verdict": "new-confirmed",
+                "source_answer_ids": ["answer-output"],
+                "evidence_fingerprint": "sha256:" + "1" * 64,
+                "reason": "Record the approved generated artifact without owner promotion.",
+            }]), True)
+            row = proposed["proposed_report"]["navigator"]["requirement_matrix"][0]
+
+        self.assertNotIn("generated/provenance.json", row["likely_paths"])
+        self.assertEqual(row["writable_outputs"][0]["role"], "generated-output")
+
     def plan(self, root: Path, run_id: str = "revision") -> None:
         lock.create(root, "add cancellation", run_id)
         lock.save_start_report(root, run_id, {
@@ -174,6 +191,7 @@ class PlanningRevisionTests(unittest.TestCase):
                     "reason": "Retain the same proof while revising the scenario.",
                     "evidence_plan": ["Run the focused proof."],
                     "checks": [{"command": command, "tiers": ["behaviour", "contract", "unit"]}],
+                    "editable_paths": ["tests/test_planning_revision.py"],
                 },
                 {
                     "kind": "behaviour-scenario-add",
@@ -201,6 +219,139 @@ class PlanningRevisionTests(unittest.TestCase):
         ]
         self.assertEqual(len(focused), 1)
         self.assertEqual(focused[0]["tiers"], ["behaviour", "contract", "unit"])
+
+    def test_superseding_lossy_revision_recovers_exact_proof_bindings_from_active_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "recover-exact-proof")
+            report_path = lock.start_report_path(root, "recover-exact-proof")
+            saved = json.loads(report_path.read_text(encoding="utf-8"))
+            row = saved["report"]["navigator"]["requirement_matrix"][0]
+            command = "python3 -m unittest tests.test_planning_revision"
+            evidence = "sha256:" + "a" * 64
+            adequacy = {
+                "schema_version": "1",
+                "path": "tests/test_planning_revision.py",
+                "role": "editable-proof",
+                "test_cases": ["planning revision proof projection"],
+                "fixtures": ["saved active Start report"],
+                "assertions": ["every exact tier binding preserves proof adequacy"],
+                "baseline": {
+                    "command": command,
+                    "outcome": "not-run",
+                    "observed": "Planning-only intake identified missing revision coverage.",
+                },
+            }
+            row["validation_contract"] = {
+                "state": "required",
+                "commands": [command],
+                "tiers": ["unit", "contract"],
+                "candidate_paths": ["tests/test_planning_revision.py"],
+                "editable_paths": ["tests/test_planning_revision.py"],
+                "proof_adequacy_required": True,
+                "checks": [
+                    {
+                        "command": command,
+                        "candidate_paths": ["tests/test_planning_revision.py"],
+                        "tiers": ["unit"],
+                        "asserted_behavior": "Unit behavior remains exact.",
+                        "source_answer_id": "answer-proof",
+                        "evidence_fingerprint": evidence,
+                        "proof_adequacy": adequacy,
+                    },
+                    {
+                        "command": command,
+                        "candidate_paths": ["tests/test_planning_revision.py"],
+                        "tiers": ["contract"],
+                        "asserted_behavior": "Contract behavior remains exact.",
+                        "source_answer_id": "answer-proof",
+                        "evidence_fingerprint": evidence,
+                        "proof_adequacy": adequacy,
+                    },
+                ],
+            }
+            report_path.write_text(json.dumps(saved), encoding="utf-8")
+            first = revision.propose(root, "recover-exact-proof", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Build the canonical proof projection.",
+                "evidence_plan": ["Run the focused proof."],
+            }]), True)
+            first_check = first["proposed_report"]["navigator"]["requirement_matrix"][0]["validation_contract"]["checks"][0]
+            self.assertEqual(len(first_check["exact_bindings"]), 2)
+            self.assertTrue(all(
+                binding.get("proof_adequacy") == adequacy
+                for binding in first_check["exact_bindings"]
+            ))
+            pending_path = root / first["artifact"]
+            pending = json.loads(pending_path.read_text(encoding="utf-8"))
+            pending_check = pending["proposed_report"]["navigator"]["requirement_matrix"][0]["validation_contract"]["checks"][0]
+            pending_check.pop("exact_bindings", None)
+            pending_path.write_text(json.dumps(pending), encoding="utf-8")
+
+            second = revision.propose(root, "recover-exact-proof", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Recover exact proof identity while rebuilding.",
+                "evidence_plan": ["Run the focused proof."],
+            }]), True, supersede_pending=True)
+
+        check = second["proposed_report"]["navigator"]["requirement_matrix"][0]["validation_contract"]["checks"][0]
+        self.assertEqual(len(check["exact_bindings"]), 2)
+        self.assertEqual(
+            {binding["asserted_behavior"] for binding in check["exact_bindings"]},
+            {"Unit behavior remains exact.", "Contract behavior remains exact."},
+        )
+        self.assertTrue(all(
+            binding.get("proof_adequacy") == adequacy
+            for binding in check["exact_bindings"]
+        ))
+        self.assertNotIn(
+            "planning_revision_proof_binding_recovery",
+            second["proposed_report"],
+        )
+
+    def test_supersede_replaces_pending_from_active_plan_without_leaking_unapproved_delta(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "replace-pending-from-active")
+            first = revision.propose(root, "replace-pending-from-active", json.dumps([
+                {
+                    "kind": "proof-boundary-expand",
+                    "reason": "Propose behavior proof for the first draft.",
+                    "allowed_tiers": ["unit", "behaviour"],
+                    "rationale": "The first draft proposed an observable scenario.",
+                },
+                {
+                    "kind": "behaviour-scenario-add",
+                    "requirement_uid": "REQ-01",
+                    "reason": "Add the first draft behavior scenario.",
+                    "scenario": {
+                        "scenario_id": "BHV-UNAPPROVED-DRAFT",
+                        "action": "Exercise the first draft",
+                        "expected_outcome": "The first draft is observable",
+                    },
+                },
+            ]), True)
+            second = revision.propose(root, "replace-pending-from-active", json.dumps([{
+                "kind": "requirement-update",
+                "requirement_uid": "REQ-01",
+                "statement": "Cancel an eligible order through the bounded service path.",
+                "reason": "Replace the unapproved draft with a bounded requirement.",
+            }]), True, supersede_pending=True)
+            superseded = revision.show(root, "replace-pending-from-active", int(first["revision"]))
+
+        report = second["proposed_report"]
+        row = report["navigator"]["requirement_matrix"][0]
+        self.assertNotIn("proof_boundary_expansion", report)
+        self.assertNotIn("behaviour", row.get("validation_contract", {}).get("tiers", []))
+        self.assertFalse(any(
+            scenario.get("scenario_id") == "BHV-UNAPPROVED-DRAFT"
+            for scenario in report.get("behaviour_plan", {}).get("scenarios", [])
+            if isinstance(scenario, dict)
+        ))
+        self.assertEqual(second["supersedes_revision"], first["revision"])
+        self.assertEqual(superseded["state"], "superseded")
 
     def test_behaviour_scenario_revision_adds_concrete_source_bound_scenario(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -250,6 +401,38 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(row["validation_contract"]["tiers"], ["unit"])
         self.assertEqual(row["validation_contract"]["commands"], ["python3 -m unittest discover -s tests -p test_question_orchestrator.py -v"])
         self.assertEqual(report["focused_validation"][0]["tier"], "unit")
+
+    def test_requirement_update_can_correct_kind_before_approval(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_id = "kind-correction"
+            statement = "Extend the resolver while preserving idempotence."
+            lock.create(root, statement, run_id)
+            lock.save_start_report(root, run_id, {
+                "goal": statement,
+                "guided_delivery": {"mode": "guided-delivery"},
+                "navigator": {"requirement_matrix": [{
+                    "display_id": "REQ-01", "kind": "preserve", "statement": statement,
+                    "acceptance_criteria": ["projection works"],
+                    "preserve_rules": ["idempotence remains"],
+                    "likely_paths": ["src/resolver.py"], "evidence_plan": ["focused proof"],
+                }]},
+            })
+            base_change = {
+                "kind": "requirement-update", "requirement_uid": "REQ-01",
+                "statement": statement, "reason": "Correct the requirement authority before approval.",
+            }
+            with self.assertRaisesRegex(ValueError, "supply explicit `requirement_kind`"):
+                revision.propose(root, run_id, json.dumps([base_change]), True)
+            proposed = revision.propose(root, run_id, json.dumps([{
+                **base_change, "requirement_kind": "change",
+            }]), True)
+
+        row = proposed["proposed_report"]["navigator"]["requirement_matrix"][0]
+        self.assertEqual(row["kind"], "change")
+        normalized = proposed["changes"][0]
+        self.assertEqual(normalized["requirement_kind_before"], "preserve")
+        self.assertEqual(normalized["requirement_kind"], "change")
 
     def test_proof_path_add_rejects_implementation_owner_role_paths(self) -> None:
         """Symmetric guard: validation_contract.editable_paths/proposed_paths
@@ -498,6 +681,47 @@ class PlanningRevisionTests(unittest.TestCase):
         self.assertEqual(decisions["guided_delivery"]["slice_strategy"]["requirement_ids"], ["REQ-01"])
         self.assertEqual(events["planning_revision_proposed"], 2)
         self.assertEqual(events["planning_revision_superseded"], 1)
+
+    def test_revision_repairs_phantom_ids_in_derived_requirement_projections(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.plan(root, "phantom-derived-references")
+            report_path = lock.start_report_path(root, "phantom-derived-references")
+            saved = json.loads(report_path.read_text(encoding="utf-8"))
+            saved["report"]["navigator"]["requirement_matrix"] = [
+                saved["report"]["navigator"]["requirement_matrix"][0]
+            ]
+            saved["report"]["architecture_plan"] = {
+                "invariants": [
+                    {"invariant": "phantom only", "requirement_ids": ["REQ-03"]},
+                    {"invariant": "mixed", "requirement_ids": ["REQ-01", "REQ-03"]},
+                ],
+                "scope_roles": [
+                    {"path": "src/service.py", "requirement_ids": ["REQ-01", "REQ-02"]},
+                    {"path": "tests/test_phantom.py", "requirement_ids": ["REQ-02"]},
+                ],
+            }
+            saved["report"]["guided_delivery"]["slice_strategy"] = {
+                "mode": "requirement-sequenced",
+                "requirement_ids": ["REQ-01", "REQ-02", "REQ-03"],
+            }
+            report_path.write_text(json.dumps(saved), encoding="utf-8")
+
+            proposed = revision.propose(root, "phantom-derived-references", json.dumps([{
+                "kind": "proof-update",
+                "requirement_uid": "REQ-01",
+                "reason": "Rebuild the canonical proof projection.",
+                "evidence_plan": ["Run the focused proof."],
+            }]), True)
+
+        report = proposed["proposed_report"]
+        architecture = report["architecture_plan"]
+        self.assertEqual(architecture["invariants"], [{"invariant": "mixed", "requirement_ids": ["REQ-01"]}])
+        self.assertEqual(architecture["scope_roles"], [{"path": "src/service.py", "requirement_ids": ["REQ-01"]}])
+        self.assertEqual(report["guided_delivery"]["slice_strategy"]["requirement_ids"], ["REQ-01"])
+        repairs = report["planning_revision_projection_repair"]["repairs"]
+        self.assertTrue(any(row.get("removed_requirement_ids") == ["REQ-02", "REQ-03"] for row in repairs))
+        self.assertTrue(any(row.get("action") == "removed-empty-derived-row" for row in repairs))
 
     def test_supersede_requires_an_existing_pending_revision(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -71,6 +71,7 @@ recursive-include hooks *
 recursive-include skills *
 recursive-include aidlc *
 recursive-include aidlc-docs *.md
+recursive-include aidlc-rules *
 recursive-include benchmarks/evaluation/learning-calibration *.json
 recursive-include benchmarks/evaluation/navigator-scope *.json
 recursive-include benchmarks/evaluation/adoption *.json

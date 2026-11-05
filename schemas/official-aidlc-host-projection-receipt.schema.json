@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tailtrail.local/schemas/official-aidlc-host-projection-receipt.schema.json",
+  "title": "TailTrail Official AI-DLC Host Projection Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "receipt_id",
+    "created_at",
+    "run_id",
+    "host",
+    "projection_mode",
+    "origin",
+    "official_identity",
+    "trust_posture",
+    "projection_root",
+    "mappings",
+    "instruction_block",
+    "reload_posture",
+    "qualification",
+    "receipt_fingerprint",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "type": {"const": "tailtrail-official-aidlc-host-projection-receipt"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "run_id": {"type": "string", "minLength": 1},
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "adapter_name", "adapter_version"],
+      "properties": {
+        "identity": {"enum": ["codex", "copilot", "claude"]},
+        "adapter_name": {"type": "string", "minLength": 1},
+        "adapter_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "projection_mode": {"enum": ["copy", "reference"]},
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_resolution_fingerprint",
+        "project_projection_fingerprint",
+        "project_pack_fingerprint",
+        "bundle_manifest_fingerprint"
+      ],
+      "properties": {
+        "run_resolution_fingerprint": {"$ref": "#/$defs/fingerprint"},
+        "project_projection_fingerprint": {"$ref": "#/$defs/fingerprint"},
+        "project_pack_fingerprint": {"$ref": "#/$defs/fingerprint"},
+        "bundle_manifest_fingerprint": {"$ref": "#/$defs/fingerprint"}
+      }
+    },
+    "official_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "revision", "commit"],
+      "properties": {
+        "source": {"type": "string", "format": "uri"},
+        "revision": {"type": "string", "minLength": 1},
+        "commit": {"type": "string", "minLength": 1}
+      }
+    },
+    "trust_posture": {"type": "string", "minLength": 1},
+    "projection_root": {"$ref": "#/$defs/safe_path"},
+    "mappings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_path", "destination_path", "source_sha256", "destination_sha256"],
+        "properties": {
+          "source_path": {"$ref": "#/$defs/safe_path"},
+          "destination_path": {"$ref": "#/$defs/safe_path"},
+          "source_sha256": {"$ref": "#/$defs/digest"},
+          "destination_sha256": {"$ref": "#/$defs/digest"}
+        }
+      }
+    },
+    "instruction_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "fingerprint"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safe_path"},
+        "fingerprint": {"$ref": "#/$defs/fingerprint"}
+      }
+    },
+    "reload_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reason"],
+      "properties": {
+        "state": {"enum": ["not-required", "reload-required", "restart-required", "unknown"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "checks"],
+      "properties": {
+        "state": {"enum": ["qualified", "blocked"]},
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "receipt_fingerprint": {"$ref": "#/$defs/fingerprint"},
+    "boundary": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "safe_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+"
+    }
+  }
+}
